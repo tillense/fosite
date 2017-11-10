@@ -1,10 +1,11 @@
 !#############################################################################
 !#                                                                           #
-!# fosite - 2D hydrodynamical simulation program                             #
+!# fosite - 3D hydrodynamical simulation program                             #
 !# module: KHI.f90                                                           #
 !#                                                                           #
 !# Copyright (C) 2006-2012                                                   #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
+!# Jubin Lirawi     <jlirawi@astrophysik.uni-kiel.de>                        #
 !#                                                                           #
 !# This program is free software; you can redistribute it and/or modify      #
 !# it under the terms of the GNU General Public License as published by      #
@@ -26,6 +27,7 @@
 !----------------------------------------------------------------------------!
 !> Kevin-Helmholtz instability
 !! \author Tobias Illenseer
+!! \author Jubin Lirawi
 !!
 !! References:
 !! -# Lord Kelvin (William Thomson) (1871). "Hydrokinetic solutions and
@@ -61,7 +63,7 @@ PROGRAM KHI
   ! mesh settings
   INTEGER, PARAMETER :: MGEO = CARTESIAN   ! geometry of the mesh
   INTEGER, PARAMETER :: RES  = 50          ! resolution
-  REAL, PARAMETER    :: XYLEN= 1.0         ! spatial extend
+  REAL, PARAMETER    :: XYZLEN= 1.0        ! spatial extend
   ! output file parameter
   INTEGER, PARAMETER :: ONUM = 10          ! number of output data sets
   CHARACTER(LEN=256), PARAMETER &          ! output data dir
@@ -73,7 +75,7 @@ PROGRAM KHI
   INTEGER            :: n
   REAL               :: sigma
   INTEGER, DIMENSION(:), ALLOCATABLE :: seed
-  REAL, DIMENSION(:,:,:), ALLOCATABLE :: pvar
+  REAL, DIMENSION(:,:,:,:), ALLOCATABLE :: pvar
   !--------------------------------------------------------------------------!
 
   TAP_PLAN(1)
@@ -87,14 +89,15 @@ PROGRAM KHI
   CALL MakeConfig(Sim%config)
   CALL SetupFosite(Sim)
   ! allocate memory to store the result of the first run
-  ALLOCATE(pvar(Sim%Mesh%IGMIN:Sim%Mesh%IGMAX,Sim%Mesh%JGMIN:Sim%Mesh%JGMAX,Sim%Physics%VNUM))
+  ALLOCATE(pvar(Sim%Mesh%IGMIN:Sim%Mesh%IGMAX,Sim%Mesh%JGMIN:Sim%Mesh%JGMAX,Sim%Mesh%KGMIN:Sim%Mesh%KGMAX,Sim%Physics%VNUM))
   CALL InitData(Sim%Mesh, Sim%Physics, Sim%Timedisc,.FALSE.,.FALSE.)
   CALL RunFosite(Sim)
   ! transpose result and store for comparison with 2nd run
-  pvar(:,:,Sim%Physics%DENSITY) = TRANSPOSE(Sim%Timedisc%pvar(:,:,Sim%Physics%DENSITY))
-  pvar(:,:,Sim%Physics%XVELOCITY) = TRANSPOSE(Sim%Timedisc%pvar(:,:,Sim%Physics%YVELOCITY))
-  pvar(:,:,Sim%Physics%YVELOCITY) = TRANSPOSE(Sim%Timedisc%pvar(:,:,Sim%Physics%XVELOCITY))
-  pvar(:,:,Sim%Physics%PRESSURE) = TRANSPOSE(Sim%Timedisc%pvar(:,:,Sim%Physics%PRESSURE))
+  pvar(:,:,:,Sim%Physics%DENSITY) = TRANSPOSE(Sim%Timedisc%pvar(:,:,:,Sim%Physics%DENSITY))
+  pvar(:,:,:,Sim%Physics%XVELOCITY) = TRANSPOSE(Sim%Timedisc%pvar(:,:,:,Sim%Physics%YVELOCITY))
+  pvar(:,:,:,Sim%Physics%YVELOCITY) = TRANSPOSE(Sim%Timedisc%pvar(:,:,:,Sim%Physics%XVELOCITY))
+  pvar(:,:,:,Sim%Physics%ZVELOCITY) = TRANSPOSE(Sim%Timedisc%pvar(:,:,:,Sim%Physics%ZVELOCITY))
+  pvar(:,:,:,Sim%Physics%PRESSURE) = TRANSPOSE(Sim%Timedisc%pvar(:,:,:,Sim%Physics%PRESSURE))
 
   ! test flow along y-direction
   CALL InitFosite(Sim)
@@ -104,12 +107,12 @@ PROGRAM KHI
   CALL InitData(Sim%Mesh, Sim%Physics, Sim%Timedisc,.TRUE.,.TRUE.)
   CALL RunFosite(Sim)
   ! compare results
-  sigma = SQRT(SUM((Sim%Timedisc%pvar(:,:,:)-pvar(:,:,:))**2)/SIZE(pvar))
+  sigma = SQRT(SUM((Sim%Timedisc%pvar(:,:,:,:)-pvar(:,:,:,:))**2)/SIZE(pvar))
   CALL CloseFosite(Sim)
 
   DEALLOCATE(pvar,seed)
 
-  TAP_CHECK_SMALL(sigma,TINY(sigma),"x-y symmetry test")
+  TAP_CHECK_SMALL(sigma,TINY(sigma),"x-y symmetry test")!TODO: ??
   TAP_DONE
 
 CONTAINS
@@ -126,32 +129,35 @@ CONTAINS
     !------------------------------------------------------------------------!
     ! mesh settings
     mesh => Dict( &
-           "meshtype" / MIDPOINT, &
-           "geometry" / MGEO, &
-               "inum" / RES, &                 ! resolution in x and         !
-               "jnum" / RES, &                 !   y direction               !             
-               "xmin" / (-0.5*XYLEN), &
-               "xmax" / (0.5*XYLEN), &
-               "ymin" / (-0.5*XYLEN), &
-               "ymax" / (0.5*XYLEN), &
-               "output/dl" / 0, &
-               "output/bh" / 0, &
-               "output/rotation" / 0 &
+           "meshtype"            /      MIDPOINT, &
+           "geometry"            /          MGEO, &
+               "inum"            /           RES, & ! resolution in x,       !
+               "jnum"            /           RES, & !   y and                !
+               "knum"            /           RES, & !   z direction          !
+               "xmin"            / (-0.5*XYZLEN), &
+               "xmax"            /  (0.5*XYZLEN), &
+               "ymin"            / (-0.5*XYZLEN), &
+               "ymax"            /  (0.5*XYZLEN), &
+               "zmin"            / (-0.5*XYZLEN), &
+               "zmax"            /  (0.5*XYZLEN), &
+               "output/dl"       /             0, &
+               "output/bh"       /             0, &
+               "output/rotation" /             0  &
     )
 
     ! physics settings
     physics => Dict( &
-              "problem" / EULER2D, &
-              "gamma"   / GAMMA &            ! ratio of specific heats        !
+              "problem" / EULER3D, &
+              "gamma"   /   GAMMA  &               ! ratio of specific heats !
     )
 
     ! flux calculation and reconstruction method
     fluxes => Dict( &
-             "fluxtype"  / KT, &
-             "order"     / LINEAR, &
-             "variables" / CONSERVATIVE, &   ! vars. to use for reconstruction!
-             "limiter"   / MONOCENT, &       ! one of: minmod, monocent,...   !
-             "theta"     / 1.2 &             ! optional parameter for limiter !
+             "fluxtype"  /           KT, &
+             "order"     /       LINEAR, &
+             "variables" / CONSERVATIVE, & ! vars. to use for reconstruction !
+             "limiter"   /     MONOCENT, & ! one of: minmod, monocent,...    !
+             "theta"     /          1.2  & ! optional parameter for limiter  !
     )
 
     ! boundary conditions
@@ -159,59 +165,62 @@ CONTAINS
                "western"  / PERIODIC, &
                "eastern"  / PERIODIC, &
                "southern" / PERIODIC, &
-               "northern" / PERIODIC &
+               "northern" / PERIODIC, &
+               "bottom"   / PERIODIC, &
+               "top"      / PERIODIC  &
     )
 
     NULLIFY(sources)
     ! viscosity source term
     ! compute dynamic viscosity constant using typical scales and Reynolds number
-    dynvis = ABS(RHO0 * XYLEN * (V0-V1) / RE)
+    dynvis = ABS(RHO0 * XYZLEN * (V0-V1) / RE)
     IF (dynvis.GT.TINY(1.0)) THEN
        sources => Dict( &
-          "vis/stype"     / VISCOSITY, &
-          "vis/vismodel"  / MOLECULAR, &
-          "vis/dynconst"  / dynvis, &
-          "vis/bulkconst" / (-2./3.*dynvis), &
-          "vis/output/dynvis" / 0, &
-          "vis/output/stress" / 0, &
-          "vis/output/kinvis" / 0, &
-          "vis/output/bulkvis" / 0 &
+          "vis/stype"          /       VISCOSITY, &
+          "vis/vismodel"       /       MOLECULAR, &
+          "vis/dynconst"       /          dynvis, &
+          "vis/bulkconst"      / (-2./3.*dynvis), &
+          "vis/output/dynvis"  /               0, &
+          "vis/output/stress"  /               0, &
+          "vis/output/kinvis"  /               0, &
+          "vis/output/bulkvis" /               0  &
        )
     END IF
 
     ! time discretization settings
     timedisc => Dict( &
-               "method"   / MODIFIED_EULER, &
-               "order"    / 3, &
-               "cfl"      / 0.4, &
-               "stoptime" / TSIM, &
-               "dtlimit"  / 1.0E-10, &
-               "maxiter"  / 100000, &
-               "output/pressure" / 1, &
-               "output/density" / 1, &
-               "output/xvelocity" / 1, &
-               "output/yvelocity" / 1 &
+               "method"           / MODIFIED_EULER, &
+               "order"            /              3, &
+               "cfl"              /            0.4, &
+               "stoptime"         /           TSIM, &
+               "dtlimit"          /        1.0E-10, &
+               "maxiter"          /         100000, &
+               "output/pressure"  /              1, &
+               "output/density"   /              1, &
+               "output/xvelocity" /              1, &
+               "output/yvelocity" /              1, &
+               "output/zvelocity" /              1  &
     )
 
     ! initialize data input/output
     datafile => Dict(&
-!        "fileformat" / HDF, &
-!        "fileformat" / VTK, &
-        "fileformat" / GNUPLOT, "filecycles" / 0, &
-!        "fileformat" / BINARY, & 
-!        "fileformat" / NETCDF, &
+!        "fileformat" /                          HDF, &
+        "fileformat" /                          VTK, &
+!        "fileformat" /    GNUPLOT, "filecycles" / 0, &
+!        "fileformat" /                       BINARY, &
+!        "fileformat" /                       NETCDF, &
         "filename"   / (TRIM(ODIR) // TRIM(OFNAME)), &
-        "count"      / ONUM &
+        "count"      /                         ONUM  &
     )
 
     config => Dict( &
-             "mesh" / mesh, &
-             "physics"  / physics, &
+             "mesh"     /     mesh, &
+             "physics"  /  physics, &
              "boundary" / boundary, &
-             "fluxes"   / fluxes, &
+             "fluxes"   /   fluxes, &
              "timedisc" / timedisc, &
-!             "logfile"  / logfile, &
-             "datafile" / datafile &
+!             "logfile"  /  logfile, &
+             "datafile" /  datafile &
     )
 
     IF (ASSOCIATED(sources)) &
@@ -229,7 +238,7 @@ CONTAINS
     !------------------------------------------------------------------------!
     ! Local variable declaration
     INTEGER           :: i,j
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,2) :: dv
+    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,3) :: dv
     INTEGER           :: clock
     !------------------------------------------------------------------------!
     INTENT(IN)        :: Mesh,Physics,rotate90deg,reuse_random_seed
@@ -247,42 +256,48 @@ CONTAINS
     ! initial condition
     IF (PRESENT(rotate90deg).AND.rotate90deg) THEN
        ! flow along y-direction:
-       ! x-velocity vanishes everywhere
-       Timedisc%pvar(:,:,Physics%XVELOCITY) = 0.
-       WHERE ((Mesh%bcenter(:,:,1).LT.(Mesh%xmin+0.25*XYLEN)).OR. &
-            (Mesh%bcenter(:,:,1).GT.(Mesh%xmin+0.75*XYLEN)))
-          Timedisc%pvar(:,:,Physics%DENSITY) = RHO0
-          Timedisc%pvar(:,:,Physics%YVELOCITY) = V0
-          Timedisc%pvar(:,:,Physics%PRESSURE) = P0
+       ! x and z-velocity vanish everywhere
+       Timedisc%pvar(:,:,:,Physics%XVELOCITY) = 0.
+       Timedisc%pvar(:,:,:,Physics%ZVELOCITY) = 0.
+       WHERE ((Mesh%bcenter(:,:,:,1).LT.(Mesh%xmin+0.25*XYZLEN)).OR. &
+            (Mesh%bcenter(:,:,:,1).GT.(Mesh%xmin+0.75*XYZLEN)))
+          Timedisc%pvar(:,:,:,Physics%DENSITY) = RHO0
+          Timedisc%pvar(:,:,:,Physics%YVELOCITY) = V0
+          Timedisc%pvar(:,:,:,Physics%PRESSURE) = P0
        ELSEWHERE
-          Timedisc%pvar(:,:,Physics%DENSITY) = RHO1
-          Timedisc%pvar(:,:,Physics%YVELOCITY) = V1
-          Timedisc%pvar(:,:,Physics%PRESSURE) = P1
+          Timedisc%pvar(:,:,:,Physics%DENSITY) = RHO1
+          Timedisc%pvar(:,:,:,Physics%YVELOCITY) = V1
+          Timedisc%pvar(:,:,:,Physics%PRESSURE) = P1
        END WHERE
-       ! add perturbation to velocity field
-       Timedisc%pvar(:,:,Physics%XVELOCITY) = Timedisc%pvar(:,:,Physics%XVELOCITY) &
-            + (TRANSPOSE(dv(:,:,2))-0.5)*0.02
-       Timedisc%pvar(:,:,Physics%YVELOCITY) = Timedisc%pvar(:,:,Physics%YVELOCITY) &
-            + (TRANSPOSE(dv(:,:,1))-0.5)*0.02
-    ELSE   
+       ! add perturbation to the velocity field
+       Timedisc%pvar(:,:,:,Physics%XVELOCITY) = Timedisc%pvar(:,:,:,Physics%XVELOCITY) &
+            + (TRANSPOSE(dv(:,:,:,2))-0.5)*0.02
+       Timedisc%pvar(:,:,:,Physics%YVELOCITY) = Timedisc%pvar(:,:,:,Physics%YVELOCITY) &
+            + (TRANSPOSE(dv(:,:,:,1))-0.5)*0.02
+       Timedisc%pvar(:,:,:,Physics%ZVELOCITY) = Timedisc%pvar(:,:,:,Physics%ZVELOCITY) &
+            + (TRANSPOSE(dv(:,:,:,3))-0.5)*0.02
+    ELSE
        ! flow along x-direction:
-       ! y-velocity vanishes everywhere
-       Timedisc%pvar(:,:,Physics%YVELOCITY) = 0.
-       WHERE ((Mesh%bcenter(:,:,2).LT.(Mesh%ymin+0.25*XYLEN)).OR. &
-            (Mesh%bcenter(:,:,2).GT.(Mesh%ymin+0.75*XYLEN)))
-          Timedisc%pvar(:,:,Physics%DENSITY) = RHO0
-          Timedisc%pvar(:,:,Physics%XVELOCITY) = V0
-          Timedisc%pvar(:,:,Physics%PRESSURE) = P0
+       ! y and z-velocity vanish everywhere
+       Timedisc%pvar(:,:,:,Physics%YVELOCITY) = 0.
+       Timedisc%pvar(:,:,:,Physics%ZVELOCITY) = 0.
+       WHERE ((Mesh%bcenter(:,:,:,2).LT.(Mesh%ymin+0.25*XYZLEN)).OR. &
+            (Mesh%bcenter(:,:,:,2).GT.(Mesh%ymin+0.75*XYZLEN)))
+          Timedisc%pvar(:,:,:,Physics%DENSITY) = RHO0
+          Timedisc%pvar(:,:,:,Physics%XVELOCITY) = V0
+          Timedisc%pvar(:,:,:,Physics%PRESSURE) = P0
        ELSEWHERE
-          Timedisc%pvar(:,:,Physics%DENSITY) = RHO1
-          Timedisc%pvar(:,:,Physics%XVELOCITY) = V1
-          Timedisc%pvar(:,:,Physics%PRESSURE) = P1
+          Timedisc%pvar(:,:,:,Physics%DENSITY) = RHO1
+          Timedisc%pvar(:,:,:,Physics%XVELOCITY) = V1
+          Timedisc%pvar(:,:,:,Physics%PRESSURE) = P1
        END WHERE
-       ! add perturbation to velocity field
-       Timedisc%pvar(:,:,Physics%XVELOCITY) = Timedisc%pvar(:,:,Physics%XVELOCITY) &
-            + (dv(:,:,1)-0.5)*0.02
-       Timedisc%pvar(:,:,Physics%YVELOCITY) = Timedisc%pvar(:,:,Physics%YVELOCITY) &
-            + (dv(:,:,2)-0.5)*0.02
+       ! add perturbation to the velocity field
+       Timedisc%pvar(:,:,:,Physics%XVELOCITY) = Timedisc%pvar(:,:,:,Physics%XVELOCITY) &
+            + (dv(:,:,:,1)-0.5)*0.02
+       Timedisc%pvar(:,:,:,Physics%YVELOCITY) = Timedisc%pvar(:,:,:,Physics%YVELOCITY) &
+            + (dv(:,:,:,2)-0.5)*0.02
+       Timedisc%pvar(:,:,:,Physics%ZVELOCITY) = Timedisc%pvar(:,:,:,Physics%ZVELOCITY) &
+            + (dv(:,:,:,3)-0.5)*0.02
     END IF
 
     CALL Convert2Conservative(Physics,Mesh,Timedisc%pvar,Timedisc%cvar)
@@ -290,5 +305,5 @@ CONTAINS
          "Kelvin-Helmholtz instability")
 
   END SUBROUTINE InitData
-  
+
 END PROGRAM KHI
