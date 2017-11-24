@@ -5,6 +5,7 @@
 !#                                                                           #
 !# Copyright (C) 2006-2014                                                   #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
+!# Jubin Lirawi <jlirawi@astrophysik.uni-kiel.de>                            #
 !#                                                                           #
 !# This program is free software; you can redistribute it and/or modify      #
 !# it under the terms of the GNU General Public License as published by      #
@@ -25,6 +26,7 @@
 
 !----------------------------------------------------------------------------!
 !> \author Tobias Illenseer
+!> \author Jubin Lirawi
 !!
 !! \brief Boundary module for periodic boundary conditions
 !!
@@ -45,7 +47,7 @@ MODULE boundary_periodic_mod
     FINAL :: Finalize
     PROCEDURE :: SetBoundaryData
   END TYPE
-  CHARACTER(LEN=32), PARAMETER  :: boundcond_name = "periodic"  
+  CHARACTER(LEN=32), PARAMETER  :: boundcond_name = "periodic"
   !--------------------------------------------------------------------------!
   PUBLIC :: boundary_periodic
   !--------------------------------------------------------------------------!
@@ -57,8 +59,8 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(boundary_periodic), INTENT(INOUT) :: this
-    CLASS(physics_base), INTENT(IN) :: Physics
-    CLASS(mesh_base), INTENT(IN) :: Mesh
+    CLASS(physics_base),      INTENT(IN)    :: Physics
+    CLASS(mesh_base),         INTENT(IN)    :: Mesh
     TYPE(Dict_TYP),POINTER &
                        :: config
     INTEGER            :: dir
@@ -73,36 +75,46 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(boundary_periodic), INTENT(IN) :: this
-    CLASS(mesh_base), INTENT(IN) :: Mesh
-    CLASS(physics_base), INTENT(IN) :: Physics
-    REAL :: pvar(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Physics%vnum)
+    CLASS(mesh_base),         INTENT(IN) :: Mesh
+    CLASS(physics_base),      INTENT(IN) :: Physics
+    REAL :: pvar(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%vnum)
     !------------------------------------------------------------------------!
-    INTEGER            :: i,j
+    INTEGER            :: i,j,k
     !------------------------------------------------------------------------!
-    INTENT(INOUT)      :: pvar   
+    INTENT(INOUT)      :: pvar
     !------------------------------------------------------------------------!
 !CDIR IEXPAND
     SELECT CASE(this%Direction%GetType())
     CASE(WEST)
 !CDIR NODEP
        DO i=1,Mesh%GNUM
-          pvar(Mesh%IMIN-i,:,:) = pvar(Mesh%IMAX-i+1,:,:)
+         pvar(Mesh%IMIN-i,:,:,:) = pvar(Mesh%IMAX-i+1,:,:,:)
        END DO
     CASE(EAST)
 !CDIR NODEP
        DO i=1,Mesh%GNUM
-          pvar(Mesh%IMAX+i,:,:) = pvar(Mesh%IMIN+i-1,:,:)
+         pvar(Mesh%IMAX+i,:,:,:) = pvar(Mesh%IMIN+i-1,:,:,:)
        END DO
     CASE(SOUTH)
 !CDIR NODEP
        DO j=1,Mesh%GNUM
-          pvar(:,Mesh%JMIN-j,:) = pvar(:,Mesh%JMAX-j+1,:)
+         pvar(:,Mesh%JMIN-j,:,:) = pvar(:,Mesh%JMAX-j+1,:,:)
        END DO
     CASE(NORTH)
 !CDIR NODEP
        DO j=1,Mesh%GNUM
-          pvar(:,Mesh%JMAX+j,:) = pvar(:,Mesh%JMIN+j-1,:)
+         pvar(:,Mesh%JMAX+j,:,:) = pvar(:,Mesh%JMIN+j-1,:,:)
        END DO
+    CASE(BOTTOM)
+!CDIR NODEP
+      DO k=1,Mesh%GNUM
+        pvar(:,:,Mesh%KMIN-k,:) = pvar(:,:,Mesh%KMAX-k+1,:)
+      END DO
+    CASE(TOP)
+!CDIR NODEP
+      DO k=1,Mesh%GNUM
+        pvar(:,:,Mesh%KMAX+k,:) = pvar(:,:,Mesh%KMIN+j-1,:)
+      END DO
     END SELECT
   END SUBROUTINE SetBoundaryData
 

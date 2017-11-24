@@ -26,7 +26,7 @@ if (Fortran_COMPILER_NAME MATCHES "(.*)gfortran")
   # gfortran
   set (CMAKE_Fortran_FLAGS "-fdefault-real-8 -cpp -ffree-line-length-none -std=f2003 -DVERSION='\"v2\"'")
   set (CMAKE_Fortran_FLAGS_RELEASE "-funroll-all-loops -fno-f2c -O3")
-  set (CMAKE_Fortran_FLAGS_DEBUG   "-fno-f2c -O2 -g -Wall -fcheck=all")
+  set (CMAKE_Fortran_FLAGS_DEBUG   "-fno-f2c -O2 -g -fcheck=all")
   if(CMAKE_Fortran_COMPILER_VERSION VERSION_LESS 4.9)
     message(FATAL_ERROR "Insufficient gfortran version")
   endif()

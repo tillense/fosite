@@ -4,7 +4,7 @@ set (EXES
 #  collapse
 #  gauss2d
     gauss3d
-#  KHI3
+  KHI3
 #  noh2d
 #  noh3d
 #  ode

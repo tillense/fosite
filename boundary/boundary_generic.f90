@@ -44,7 +44,7 @@ MODULE boundary_generic_mod
   USE boundary_base_mod
 !  USE boundary_reflecting_mod
   USE boundary_nogradients_mod
-!  USE boundary_periodic_mod
+  USE boundary_periodic_mod
   USE physics_base_mod
   USE common_dict
 #ifdef PARALLEL
@@ -99,10 +99,9 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(Boundary_generic),ALLOCATABLE :: Boundary
-    CLASS(mesh_base),INTENT(IN) :: Mesh
-    CLASS(physics_base),INTENT(IN)  :: Physics
-    TYPE(Dict_TYP),POINTER &
-                       :: config,IO
+    CLASS(mesh_base),INTENT(IN)         :: Mesh
+    CLASS(physics_base),INTENT(IN)      :: Physics
+    TYPE(Dict_TYP),POINTER              :: config,IO
     !------------------------------------------------------------------------!
     ALLOCATE(Boundary)
     CALL Boundary%InitBoundary(Mesh,Physics,config,IO)
@@ -112,19 +111,18 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(Boundary_generic),INTENT(INOUT) :: this
-    CLASS(mesh_base),INTENT(IN) :: Mesh
-    CLASS(physics_base),INTENT(IN)  :: Physics
-    TYPE(Dict_TYP),POINTER &
-                       :: config,IO
-    INTEGER            :: western, eastern, southern, northern, bottomer, topper
+    CLASS(mesh_base),INTENT(IN)           :: Mesh
+    CLASS(physics_base),INTENT(IN)        :: Physics
+    TYPE(Dict_TYP),POINTER                :: config,IO
+    INTEGER         :: western, eastern, southern, northern, bottomer, topper
     !------------------------------------------------------------------------!
-    INTEGER            :: new(6)
+    INTEGER               :: new(6)
     LOGICAL, DIMENSION(3) :: periods = .FALSE.
-    INTEGER            :: dir
+    INTEGER               :: dir
 #ifdef PARALLEL
-    INTEGER            :: comm_old
-    INTEGER            :: sizeofreal, ignum, jgnum, kgnum, twoslices
-    INTEGER            :: ierr
+    INTEGER               :: comm_old
+    INTEGER               :: sizeofreal, ignum, jgnum, kgnum, twoslices
+    INTEGER               :: ierr
     LOGICAL, DIMENSION(SIZE(Mesh%dims)) :: remain_dims = .FALSE.
 #endif
     !------------------------------------------------------------------------!
@@ -163,8 +161,8 @@ CONTAINS
 !        ALLOCATE(boundary_reflecting::this%Boundary(dir)%p)
       CASE(NO_GRADIENTS)
         ALLOCATE(boundary_nogradients::this%Boundary(dir)%p)
-!      CASE(PERIODIC)
-!        ALLOCATE(boundary_periodic::this%Boundary(dir)%p)
+      CASE(PERIODIC)
+        ALLOCATE(boundary_periodic::this%Boundary(dir)%p)
       CASE DEFAULT
         CALL this%Error("new_boundary","Unkown boundary type.")
       END SELECT
@@ -173,8 +171,8 @@ CONTAINS
 !        CALL obj%InitBoundary_reflecting(Mesh,Physics,dir,config)
       TYPE IS (boundary_nogradients)
         CALL obj%InitBoundary_nogradients(Mesh,Physics,dir,config)
-!      TYPE IS (boundary_periodic)
-!        CALL obj%InitBoundary_periodic(Mesh,Physics,dir,config)
+      TYPE IS (boundary_periodic)
+        CALL obj%InitBoundary_periodic(Mesh,Physics,dir,config)
       END SELECT
     END DO
 
@@ -283,11 +281,11 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(boundary_generic),INTENT(INOUT) :: this
-    CLASS(mesh_base),INTENT(IN) :: Mesh
-    CLASS(physics_base),INTENT(IN) :: Physics
-    REAL               :: time
+    CLASS(mesh_base),INTENT(IN)           :: Mesh
+    CLASS(physics_base),INTENT(IN)        :: Physics
+    REAL                                  :: time
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM) &
-                       :: pvar, cvar
+                                          :: pvar, cvar
     !------------------------------------------------------------------------!
     INTEGER       :: i,j,k
 #ifdef PARALLEL
@@ -710,7 +708,7 @@ CONTAINS
     !------------------------------------------------------------------------!
     TYPE(boundary_generic), INTENT(INOUT) :: this
     !------------------------------------------------------------------------!
-    INTEGER       :: dir
+    INTEGER                               :: dir
     !------------------------------------------------------------------------!
     ! loop over all boundaries
     DO dir=1,6

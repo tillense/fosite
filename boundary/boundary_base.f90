@@ -65,7 +65,7 @@ MODULE boundary_base_mod
     LOGICAL           :: first_call      !< used in far-field bc
     LOGICAL,DIMENSION(:),POINTER :: &
                          reflX, &        !< mask array for reflecting bc
-                         reflY, &           !< mask array for reflecting bc
+                         reflY, &        !< mask array for reflecting bc
                          reflZ           !< mask array for reflecting bc
     LOGICAL,DIMENSION(:,:,:),POINTER :: &
                          fixed           !< mask array for fixed bc

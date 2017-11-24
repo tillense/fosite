@@ -36,16 +36,16 @@
 !!     Monthly Reports of the Royal Prussian Academy of Philosophy in Berlin 23: 215-228
 !----------------------------------------------------------------------------!
 PROGRAM KHI
-  USE fosite
-  USE physics_generic
-  USE fluxes_generic
-  USE mesh_generic
-  USE reconstruction_generic
-  USE boundary_generic
-  USE sources_generic
-  USE fileio_generic
-  USE timedisc_generic
-  USE common_dict
+  USE fosite_mod
+!  USE physics_generic
+!  USE fluxes_generic
+!  USE mesh_generic
+!  USE reconstruction_generic
+!  USE boundary_generic
+!  USE sources_generic
+!  USE fileio_generic
+!  USE timedisc_generic
+!  USE common_dict
 #include "tap.h"
   IMPLICIT NONE
   !--------------------------------------------------------------------------!
@@ -62,7 +62,7 @@ PROGRAM KHI
   REAL, PARAMETER    :: P1   = P0          !   pressure
   ! mesh settings
   INTEGER, PARAMETER :: MGEO = CARTESIAN   ! geometry of the mesh
-  INTEGER, PARAMETER :: RES  = 50          ! resolution
+  INTEGER, PARAMETER :: RES  = 10          ! resolution
   REAL, PARAMETER    :: XYZLEN= 1.0        ! spatial extend
   ! output file parameter
   INTEGER, PARAMETER :: ONUM = 10          ! number of output data sets
@@ -71,11 +71,14 @@ PROGRAM KHI
   CHARACTER(LEN=256), PARAMETER &          ! output data file name
                      :: OFNAME = 'KHI'
   !--------------------------------------------------------------------------!
-  TYPE(fosite_TYP)   :: Sim
+!  TYPE(fosite_TYP)   :: Sim
   INTEGER            :: n
+  INTEGER            :: i
   REAL               :: sigma
   INTEGER, DIMENSION(:), ALLOCATABLE :: seed
   REAL, DIMENSION(:,:,:,:), ALLOCATABLE :: pvar
+  !--------------------------------------------------------------------------!
+  CLASS(fosite), ALLOCATABLE   :: Sim
   !--------------------------------------------------------------------------!
 
   TAP_PLAN(1)
@@ -85,41 +88,45 @@ PROGRAM KHI
   ALLOCATE(seed(n))
 
   ! test flow along x-direction
-  CALL InitFosite(Sim)
-  CALL MakeConfig(Sim%config)
-  CALL SetupFosite(Sim)
+  ALLOCATE(Sim)
+  CALL Sim%InitFosite()
+  CALL MakeConfig(Sim, Sim%config)
+  CALL Sim%Setup()
   ! allocate memory to store the result of the first run
   ALLOCATE(pvar(Sim%Mesh%IGMIN:Sim%Mesh%IGMAX,Sim%Mesh%JGMIN:Sim%Mesh%JGMAX,Sim%Mesh%KGMIN:Sim%Mesh%KGMAX,Sim%Physics%VNUM))
   CALL InitData(Sim%Mesh, Sim%Physics, Sim%Timedisc,.FALSE.,.FALSE.)
-  CALL RunFosite(Sim)
-  ! transpose result and store for comparison with 2nd run
-  pvar(:,:,:,Sim%Physics%DENSITY) = TRANSPOSE(Sim%Timedisc%pvar(:,:,:,Sim%Physics%DENSITY))
-  pvar(:,:,:,Sim%Physics%XVELOCITY) = TRANSPOSE(Sim%Timedisc%pvar(:,:,:,Sim%Physics%YVELOCITY))
-  pvar(:,:,:,Sim%Physics%YVELOCITY) = TRANSPOSE(Sim%Timedisc%pvar(:,:,:,Sim%Physics%XVELOCITY))
-  pvar(:,:,:,Sim%Physics%ZVELOCITY) = TRANSPOSE(Sim%Timedisc%pvar(:,:,:,Sim%Physics%ZVELOCITY))
-  pvar(:,:,:,Sim%Physics%PRESSURE) = TRANSPOSE(Sim%Timedisc%pvar(:,:,:,Sim%Physics%PRESSURE))
+  CALL Sim%Run()
+
+  DO i = Sim%Mesh%KGMIN, Sim%Mesh%KGMAX
+    ! transpose result and store for comparison with 2nd run
+    pvar(:,:,i,Sim%Physics%DENSITY) = TRANSPOSE(Sim%Timedisc%pvar(:,:,i,Sim%Physics%DENSITY))
+    pvar(:,:,i,Sim%Physics%XVELOCITY) = TRANSPOSE(Sim%Timedisc%pvar(:,:,i,Sim%Physics%YVELOCITY))
+    pvar(:,:,i,Sim%Physics%YVELOCITY) = TRANSPOSE(Sim%Timedisc%pvar(:,:,i,Sim%Physics%XVELOCITY))
+    pvar(:,:,i,Sim%Physics%ZVELOCITY) = TRANSPOSE(Sim%Timedisc%pvar(:,:,i,Sim%Physics%ZVELOCITY))
+    pvar(:,:,i,Sim%Physics%PRESSURE) = TRANSPOSE(Sim%Timedisc%pvar(:,:,i,Sim%Physics%PRESSURE))
+  END DO
 
   ! test flow along y-direction
-  CALL InitFosite(Sim)
-  CALL MakeConfig(Sim%config)
+  CALL Sim%InitFosite()
+  CALL MakeConfig(Sim, Sim%config)
   CALL SetAttr(Sim%config, "/datafile/filename", (TRIM(ODIR) // TRIM(OFNAME) // "_rotate"))
-  CALL SetupFosite(Sim)
+  CALL Sim%Setup()
   CALL InitData(Sim%Mesh, Sim%Physics, Sim%Timedisc,.TRUE.,.TRUE.)
-  CALL RunFosite(Sim)
+  CALL Sim%Run()
   ! compare results
   sigma = SQRT(SUM((Sim%Timedisc%pvar(:,:,:,:)-pvar(:,:,:,:))**2)/SIZE(pvar))
-  CALL CloseFosite(Sim)
 
-  DEALLOCATE(pvar,seed)
+  DEALLOCATE(pvar,seed,Sim)
 
-  TAP_CHECK_SMALL(sigma,TINY(sigma),"x-y symmetry test")!TODO: ??
+  TAP_CHECK_SMALL(sigma,TINY(sigma),"x-y symmetry test")
   TAP_DONE
 
 CONTAINS
 
-  SUBROUTINE MakeConfig(config)
+  SUBROUTINE MakeConfig(Sim, config)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
+    CLASS(fosite)          :: Sim
     TYPE(Dict_TYP),POINTER :: config
     !------------------------------------------------------------------------!
     ! Local variable declaration
@@ -147,7 +154,7 @@ CONTAINS
 
     ! physics settings
     physics => Dict( &
-              "problem" / EULER3D, &
+              "problem" / EULER3D_ISOTH, &
               "gamma"   /   GAMMA  &               ! ratio of specific heats !
     )
 
@@ -166,26 +173,26 @@ CONTAINS
                "eastern"  / PERIODIC, &
                "southern" / PERIODIC, &
                "northern" / PERIODIC, &
-               "bottom"   / PERIODIC, &
-               "top"      / PERIODIC  &
+               "bottomer"   / PERIODIC, &
+               "topper"      / PERIODIC  &
     )
 
     NULLIFY(sources)
     ! viscosity source term
     ! compute dynamic viscosity constant using typical scales and Reynolds number
-    dynvis = ABS(RHO0 * XYZLEN * (V0-V1) / RE)
-    IF (dynvis.GT.TINY(1.0)) THEN
-       sources => Dict( &
-          "vis/stype"          /       VISCOSITY, &
-          "vis/vismodel"       /       MOLECULAR, &
-          "vis/dynconst"       /          dynvis, &
-          "vis/bulkconst"      / (-2./3.*dynvis), &
-          "vis/output/dynvis"  /               0, &
-          "vis/output/stress"  /               0, &
-          "vis/output/kinvis"  /               0, &
-          "vis/output/bulkvis" /               0  &
-       )
-    END IF
+!    dynvis = ABS(RHO0 * XYZLEN * (V0-V1) / RE)
+!    IF (dynvis.GT.TINY(1.0)) THEN
+!       sources => Dict( &
+!          "vis/stype"          /       VISCOSITY, &
+!          "vis/vismodel"       /       MOLECULAR, &
+!          "vis/dynconst"       /          dynvis, &
+!          "vis/bulkconst"      / (-2./3.*dynvis), &
+!          "vis/output/dynvis"  /               0, &
+!          "vis/output/stress"  /               0, &
+!          "vis/output/kinvis"  /               0, &
+!          "vis/output/bulkvis" /               0  &
+!       )
+!    END IF
 
     ! time discretization settings
     timedisc => Dict( &
@@ -205,7 +212,8 @@ CONTAINS
     ! initialize data input/output
     datafile => Dict(&
 !        "fileformat" /                          HDF, &
-        "fileformat" /                          VTK, &
+!        "fileformat" /                          VTK, &
+         "fileformat" /                         XDMF, &
 !        "fileformat" /    GNUPLOT, "filecycles" / 0, &
 !        "fileformat" /                       BINARY, &
 !        "fileformat" /                       NETCDF, &
@@ -231,10 +239,10 @@ CONTAINS
   SUBROUTINE InitData(Mesh,Physics,Timedisc,rotate90deg,reuse_random_seed)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    TYPE(Physics_TYP) :: Physics
-    TYPE(Mesh_TYP)    :: Mesh
-    TYPE(Timedisc_TYP):: Timedisc
-    LOGICAL, OPTIONAL :: rotate90deg,reuse_random_seed
+    CLASS(physics_base)  :: Physics
+    CLASS(mesh_base)     :: Mesh
+    CLASS(timedisc_base) :: Timedisc
+    LOGICAL, OPTIONAL    :: rotate90deg,reuse_random_seed
     !------------------------------------------------------------------------!
     ! Local variable declaration
     INTEGER           :: i,j
@@ -248,7 +256,7 @@ CONTAINS
     IF (.NOT.(PRESENT(reuse_random_seed).AND.reuse_random_seed)) THEN
        ! initialize with a mix from current time and mpi rank
        CALL SYSTEM_CLOCK(COUNT=clock)
-       seed = clock + (GetRank(Timedisc)+1) * (/(i-1, i=1,n)/)
+       seed = clock + (Timedisc%getrank()+1) * (/(i-1, i=1,n)/)
     END IF
     CALL RANDOM_SEED(PUT=seed)
     CALL RANDOM_NUMBER(dv)
@@ -269,13 +277,15 @@ CONTAINS
           Timedisc%pvar(:,:,:,Physics%YVELOCITY) = V1
           Timedisc%pvar(:,:,:,Physics%PRESSURE) = P1
        END WHERE
-       ! add perturbation to the velocity field
-       Timedisc%pvar(:,:,:,Physics%XVELOCITY) = Timedisc%pvar(:,:,:,Physics%XVELOCITY) &
-            + (TRANSPOSE(dv(:,:,:,2))-0.5)*0.02
-       Timedisc%pvar(:,:,:,Physics%YVELOCITY) = Timedisc%pvar(:,:,:,Physics%YVELOCITY) &
-            + (TRANSPOSE(dv(:,:,:,1))-0.5)*0.02
-       Timedisc%pvar(:,:,:,Physics%ZVELOCITY) = Timedisc%pvar(:,:,:,Physics%ZVELOCITY) &
-            + (TRANSPOSE(dv(:,:,:,3))-0.5)*0.02
+       DO i = Sim%Mesh%KGMIN, Sim%Mesh%KGMAX
+         ! add perturbation to the velocity field
+         Timedisc%pvar(:,:,i,Physics%XVELOCITY) = Timedisc%pvar(:,:,i,Physics%XVELOCITY) &
+              + (TRANSPOSE(dv(:,:,i,2))-0.5)*0.02
+         Timedisc%pvar(:,:,i,Physics%YVELOCITY) = Timedisc%pvar(:,:,i,Physics%YVELOCITY) &
+              + (TRANSPOSE(dv(:,:,i,1))-0.5)*0.02
+         Timedisc%pvar(:,:,i,Physics%ZVELOCITY) = Timedisc%pvar(:,:,i,Physics%ZVELOCITY) &
+              + (TRANSPOSE(dv(:,:,i,3))-0.5)*0.02
+       END DO
     ELSE
        ! flow along x-direction:
        ! y and z-velocity vanish everywhere
@@ -300,8 +310,8 @@ CONTAINS
             + (dv(:,:,:,3)-0.5)*0.02
     END IF
 
-    CALL Convert2Conservative(Physics,Mesh,Timedisc%pvar,Timedisc%cvar)
-    CALL Info(Mesh, " DATA-----> initial condition: " // &
+    CALL Physics%Convert2Conservative(Mesh,Timedisc%pvar,Timedisc%cvar)
+    CALL Mesh%Info(" DATA-----> initial condition: " // &
          "Kelvin-Helmholtz instability")
 
   END SUBROUTINE InitData

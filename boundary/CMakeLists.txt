@@ -11,7 +11,7 @@ add_library(boundary
   boundary_generic.f90
 #  boundary_absorbing.f90
 #  boundary_folded.f90
-#  boundary_periodic.f90
+  boundary_periodic.f90
   boundary_base.f90
 #  boundary_dmr.f90
 #  boundary_shearing.f90
