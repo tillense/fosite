@@ -32,7 +32,7 @@
 !!     using characteristic-based filters, J. Comput. Phys. 150 (1999), 199-238
 !!     DOI: 10.1006/jcph.1998.6177
 !----------------------------------------------------------------------------!
-PROGRAM vortex2d
+PROGRAM vortex2d3d
   USE fosite_mod
 #include "tap.h"
   IMPLICIT NONE
@@ -437,10 +437,10 @@ CONTAINS
     !END IF
 
     CALL Physics%Convert2Conservative(Mesh,Timedisc%pvar,Timedisc%cvar)
-    CALL Mesh%Info(" DATA-----> initial condition: 2D vortex")
+    CALL Mesh%Info(" DATA-----> initial condition: 3D vortex")
 
     pvar0 = Timedisc%pvar
     CALL Sim%Run()
     sigma = SQRT(SUM((Timedisc%pvar(:,:,:,:)-pvar0(:,:,:,:))**2)/SIZE(pvar0))
   END Function Run
-END PROGRAM vortex2d
+END PROGRAM vortex2d3d

@@ -1144,7 +1144,7 @@ CONTAINS
     sterm(:,Mesh%JGMIN:Mesh%JMIN-1,:,:) = 0.0
     sterm(:,Mesh%JMAX+1:Mesh%JGMAX,:,:) = 0.0
     sterm(:,:,Mesh%KGMIN:Mesh%KMIN-1,:) = 0.0
-    sterm(:,:,Mesh%KMAX:Mesh%KGMAX+1,:) = 0.0
+    sterm(:,:,Mesh%KMAX+1:Mesh%KGMAX,:) = 0.0
     END IF
   END SUBROUTINE GeometricalSources_center
 

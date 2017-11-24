@@ -35,7 +35,7 @@
 !----------------------------------------------------------------------------!
 MODULE geometry_generic_mod
   USE geometry_base_mod
-  USE geometry_polar_mod
+  USE geometry_spherical_mod
   USE geometry_cartesian_mod
   USE common_dict
 
@@ -56,21 +56,25 @@ CONTAINS
     CALL GetAttr(config,"geometry",geometry_type)
     ! allocate data
     SELECT CASE(geometry_type)
-    CASE(POLAR)
-      ALLOCATE(geometry_polar::Geometry)
+!    CASE(POLAR)
+!      ALLOCATE(geometry_polar::Geometry)
     CASE(CARTESIAN)
       ALLOCATE(geometry_cartesian::Geometry)
+    CASE(SPHERICAL)
+      ALLOCATE(geometry_spherical::Geometry)
     CASE DEFAULT
-      ALLOCATE(geometry_polar::Geometry)
+      ALLOCATE(geometry_spherical::Geometry)
       CALL Geometry%Error("new_geometry","Unknown geometry")
     END SELECT
 
     ! call initialization
     SELECT TYPE(geometry_child => Geometry)
-    TYPE IS (geometry_polar)
-      CALL geometry_child%InitGeometry_polar(config)
+!    TYPE IS (geometry_polar)
+!      CALL geometry_child%InitGeometry_polar(config)
     TYPE IS (geometry_cartesian)
       CALL geometry_child%InitGeometry_cartesian(config)
+    TYPE IS (geometry_spherical)
+      CALL geometry_child%InitGeometry_spherical(config)
     END SELECT
   END SUBROUTINE
 END MODULE geometry_generic_mod
