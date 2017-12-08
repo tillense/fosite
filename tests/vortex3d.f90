@@ -32,7 +32,7 @@
 !!     using characteristic-based filters, J. Comput. Phys. 150 (1999), 199-238
 !!     DOI: 10.1006/jcph.1998.6177
 !----------------------------------------------------------------------------!
-PROGRAM vortex2d3d
+PROGRAM vortex3d
   USE fosite_mod
 #include "tap.h"
   IMPLICIT NONE
@@ -132,6 +132,13 @@ CONTAINS
        x2 = RMAX
        y1 = 0.0
        y2 = 2.0*PI
+    CASE(CYLINDRICAL)
+       x1 = RMIN
+       x2 = RMAX
+       y1 =  0.0
+       y2 =  2.0*PI
+       z1 =  0.0
+       z2 = 10.0
     CASE(LOGPOLAR)
        x1 = LOG(RMIN/GPAR)
        x2 = LOG(RMAX/GPAR)
@@ -443,4 +450,4 @@ CONTAINS
     CALL Sim%Run()
     sigma = SQRT(SUM((Timedisc%pvar(:,:,:,:)-pvar0(:,:,:,:))**2)/SIZE(pvar0))
   END Function Run
-END PROGRAM vortex2d3d
+END PROGRAM vortex3d
