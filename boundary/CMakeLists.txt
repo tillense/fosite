@@ -7,7 +7,7 @@ add_library(boundary
 #  boundary_fixed.f90
 #  boundary_noslip.f90
 #  boundary_extrapolation.f90
-#  boundary_reflecting.f90
+  boundary_reflecting.f90
   boundary_generic.f90
 #  boundary_absorbing.f90
 #  boundary_folded.f90

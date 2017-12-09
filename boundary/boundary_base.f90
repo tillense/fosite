@@ -98,6 +98,7 @@ MODULE boundary_base_mod
     PROCEDURE :: InitBoundary
     PROCEDURE (SetBoundaryData), DEFERRED :: SetBoundaryData
     PROCEDURE :: FinalizeBoundary
+    PROCEDURE :: GetDirection
   END TYPE boundary_base
   ! exclude interface block from doxygen processing
   !> \cond InterfaceBlock
@@ -225,6 +226,19 @@ CONTAINS
     END IF
 #endif
   END SUBROUTINE InitBoundary
+
+  !> \public Get the direction number.
+  !! \return direction number
+  PURE FUNCTION GetDirection(this) RESULT(dir)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(boundary_base), INTENT(IN) :: this !< \param [in] this boundary type
+    INTEGER :: dir
+    !------------------------------------------------------------------------!
+!CDIR IEXPAND
+    dir = this%direction%GetType()
+  END FUNCTION GetDirection
+
 
   SUBROUTINE FinalizeBoundary(this)
     IMPLICIT NONE

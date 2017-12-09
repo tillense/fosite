@@ -151,6 +151,7 @@ MODULE physics_base_mod
     GENERIC   :: GeometricalSources => &
                    GeometricalSources_center!, &
                    !GeometricalSources_faces
+    PROCEDURE (ReflectionMasks),              DEFERRED :: ReflectionMasks
 
 ! these routines are only necessary for special boundaries, fluxes
 !   PROCEDURE ::  CalculateCharSystemX
@@ -165,7 +166,6 @@ MODULE physics_base_mod
 !   PROCEDURE ::  ViscositySources
 !   PROCEDURE ::  SGSSources
 !   PROCEDURE ::  CalculateSGSTensor
-!   PROCEDURE (MASKS), DEFERRED :: ReflectionMasks
 !   PROCEDURE (MASKS), DEFERRED :: AxisMasks
 !   PROCEDURE :: GetSoundSpeed_adiabatic
 
@@ -337,6 +337,12 @@ MODULE physics_base_mod
                            INTENT(IN)    :: pvar,cvar
       REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM), &
                            INTENT(OUT)   :: sterm
+    END SUBROUTINE
+    PURE SUBROUTINE ReflectionMasks(this,reflX,reflY,reflZ)
+      IMPORT physics_base
+      CLASS(physics_base), INTENT(IN)  :: this
+      LOGICAL, DIMENSION(this%VNUM), &
+                           INTENT(OUT) :: reflX,reflY,reflZ
     END SUBROUTINE
   END INTERFACE
   !--------------------------------------------------------------------------!

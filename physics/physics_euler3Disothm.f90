@@ -77,6 +77,7 @@ MODULE physics_euler3Dit_mod
     PROCEDURE :: GeometricalSources_center
     PROCEDURE :: ExternalSources
 
+    PROCEDURE :: ReflectionMasks                      ! for reflecting boundaries
 !    PROCEDURE :: CalcIntermediateStateX_euler3Dit    ! for HLLC
 !    PROCEDURE :: CalcIntermediateStateY_euler3Dit    ! for HLLC
 !    PROCEDURE :: CalcCharSystemX_euler3Dit           ! for absorbing boundaries
@@ -93,7 +94,6 @@ MODULE physics_euler3Dit_mod
 !    PROCEDURE :: ExternalSources_euler2Dit
 !    PROCEDURE :: FargoSources_euler2Dit
 !    PROCEDURE :: GeometricalSources_faces
-!    PROCEDURE :: ReflectionMasks
 !    PROCEDURE :: AxisMasks
 !    PROCEDURE :: SetEigenValues_euler2Dit
 !    PROCEDURE :: SetBoundaryData_euler3Dit

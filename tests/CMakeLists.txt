@@ -15,7 +15,7 @@ set (EXES
 #  rngtest
 #  RTI
 #  sedov2d
-#  sedov3d
+  sedov3d
 #  specialfunctions
 #  vortex2d
 #   vortex2d3d

@@ -81,6 +81,8 @@ MODULE physics_euler3D_mod
 
     PROCEDURE :: ExternalSources
     PROCEDURE :: GeometricalSources_center
+    PROCEDURE :: ReflectionMasks           ! for reflecting boundaries
+
     ! boundarie routines
 !    PROCEDURE :: SetEigenValues
 !    PROCEDURE :: CalcCharSystemX          ! for absorbing boundaries
@@ -95,7 +97,6 @@ MODULE physics_euler3D_mod
 !    PROCEDURE :: CalcRiemann2PrimX        ! for farfield boundaries
 !    PROCEDURE :: CalcRiemann2PrimY        ! for farfield boundaries
 !    PROCEDURE :: CalcRiemann2PrimZ        ! for farfield boundaries
-!    PROCEDURE :: ReflectionMasks           ! for reflecting boundaries
 !    PROCEDURE :: AxisMasks                 ! for axis boundaries
 !    PROCEDURE :: GeometricalSources_faces
 !    PROCEDURE :: ViscositySources
@@ -1621,7 +1622,6 @@ CONTAINS
     END DO
   END SUBROUTINE SubtractBackgroundVelocity
 
-
   PURE SUBROUTINE ReflectionMasks(this,reflX,reflY,reflZ)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
@@ -1648,7 +1648,6 @@ CONTAINS
     reflZ(this%ZVELOCITY) = .TRUE.
     reflZ(this%PRESSURE)  = .FALSE.
   END SUBROUTINE ReflectionMasks
-
 
   ! TODO: \warning not clear since 3D version if this is correct. Most probably
   ! axis boundaries can be applied always in two dimensions. Now only x-y plane

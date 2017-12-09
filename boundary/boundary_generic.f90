@@ -42,7 +42,7 @@ MODULE boundary_generic_mod
   USE logging_base_mod
   USE mesh_base_mod
   USE boundary_base_mod
-!  USE boundary_reflecting_mod
+  USE boundary_reflecting_mod
   USE boundary_nogradients_mod
   USE boundary_periodic_mod
   USE physics_base_mod
@@ -157,8 +157,8 @@ CONTAINS
     ! IMPORTANT: do this before anything else
     DO dir=WEST,TOP
       SELECT CASE(new(dir))
-!      CASE(REFLECTING)
-!        ALLOCATE(boundary_reflecting::this%Boundary(dir)%p)
+      CASE(REFLECTING)
+        ALLOCATE(boundary_reflecting::this%Boundary(dir)%p)
       CASE(NO_GRADIENTS)
         ALLOCATE(boundary_nogradients::this%Boundary(dir)%p)
       CASE(PERIODIC)
@@ -167,8 +167,8 @@ CONTAINS
         CALL this%Error("new_boundary","Unkown boundary type.")
       END SELECT
       SELECT TYPE(obj => this%Boundary(dir)%p)
-!      TYPE IS (boundary_reflecting)
-!        CALL obj%InitBoundary_reflecting(Mesh,Physics,dir,config)
+      TYPE IS (boundary_reflecting)
+        CALL obj%InitBoundary_reflecting(Mesh,Physics,dir,config)
       TYPE IS (boundary_nogradients)
         CALL obj%InitBoundary_nogradients(Mesh,Physics,dir,config)
       TYPE IS (boundary_periodic)
