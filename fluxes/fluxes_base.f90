@@ -38,7 +38,6 @@ MODULE fluxes_base_mod
   USE logging_base_mod
   USE mesh_base_mod
   USE reconstruction_generic_mod
-  USE reconstruction_generic_mod
   USE physics_base_mod
   USE common_dict
   IMPLICIT NONE
@@ -46,18 +45,23 @@ MODULE fluxes_base_mod
   PRIVATE
   TYPE, ABSTRACT, EXTENDS (logging_base) ::  fluxes_base
      !> \name Variables
-     CLASS(reconstruction_base), ALLOCATABLE :: Reconstruction  !< store recon. settings  !
-     ! various data fields
-     REAL, DIMENSION(:,:,:,:,:), POINTER &           !< primitive and conserva.!
-                                  :: prim,cons       !<   data on cell faces   !
-     REAL, DIMENSION(:,:,:,:,:), POINTER &           !< reconstructed data:    !
-                                  :: rstates         !<   prim or cons         !
+     CLASS(reconstruction_base), ALLOCATABLE &
+                                  :: Reconstruction  !< reconstruction method
+     !> \name
+     !! #### various data fields
+     REAL, DIMENSION(:,:,:), POINTER &
+                                  :: amin,amax, &
+                                     bmin,bmax, &
+                                     cmin,cmax       !< wave speeds
+     REAL, DIMENSION(:,:,:,:), POINTER &
+                                  :: dx,dy,dz, &     !< coordinate differences
+                                     bxflux,byflux, &
+                                     bzflux,bxfold, &
+                                     byfold,bzfold   !< boundary fluxes
      REAL, DIMENSION(:,:,:,:,:), POINTER &
-                                  :: pfluxes         !< physical fluxes        !
-     REAL, DIMENSION(:,:,:,:),   POINTER &           !< coordinate differences !
-                                  :: dx,dy,dz        !< centers to recon. pos. !
-     REAL, DIMENSION(:,:,:,:),   POINTER &           !< boundary fluxes        !
-                                  :: bxflux,byflux,bzflux,bxfold,byfold,bzfold
+                                  :: prim,cons, &    !< pvar/cvar on cell faces
+                                     rstates, &      !< reconstructed data
+                                     pfluxes         !< physical fluxes
   CONTAINS
     PRIVATE
     PROCEDURE, PUBLIC             :: InitFluxes
@@ -75,14 +79,10 @@ MODULE fluxes_base_mod
       CLASS(fluxes_base),   INTENT(INOUT) :: this
       CLASS(mesh_base),     INTENT(IN)    :: Mesh
       CLASS(physics_base),  INTENT(INOUT) :: Physics
-      REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX, &
-                      Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM) &
-                        :: pvar,cvar
-      REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX, &
-                      Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM)&
-                        :: xfluxdydz,yfluxdzdx,zfluxdxdy
-      INTENT(IN)        :: pvar,cvar
-      INTENT(OUT)       :: xfluxdydz,yfluxdzdx,zfluxdxdy
+      REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
+                            INTENT(IN)    :: pvar,cvar
+      REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
+                            INTENT(OUT)   :: xfluxdydz,yfluxdzdx,zfluxdxdy
     END SUBROUTINE
   END INTERFACE
   INTEGER, PARAMETER :: KT       = 1
@@ -132,6 +132,12 @@ CONTAINS
       this%cons(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%NFACES,Physics%VNUM), &
       this%prim(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%NFACES,Physics%VNUM), &
       this%pfluxes(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%NFACES,Physics%VNUM), &
+      this%amin(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
+      this%amax(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
+      this%bmin(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
+      this%bmax(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
+      this%cmin(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
+      this%cmax(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
       this%bxflux(Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,2,Physics%VNUM), &
       this%byflux(Mesh%KGMIN:Mesh%KGMAX,Mesh%IGMIN:Mesh%IGMAX,2,Physics%VNUM), &
       this%bzflux(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,2,Physics%VNUM), &
@@ -182,6 +188,22 @@ CONTAINS
     IF(ASSOCIATED(IOrec)) &
       CALL SetAttr(IO,"reconstruction",IOrec)
 
+    CALL GetAttr(config, "output/wave_speeds", valwrite, 0)
+    IF(valwrite.EQ.1) THEN
+      CALL SetAttr(IO, "amin", &
+                   this%amin(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX))
+      CALL SetAttr(IO, "amax", &
+                   this%amax(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX))
+      CALL SetAttr(IO, "bmin", &
+                   this%bmin(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX))
+      CALL SetAttr(IO, "bmax", &
+                   this%bmax(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX))
+      CALL SetAttr(IO, "cmin", &
+                   this%cmin(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX))
+      CALL SetAttr(IO, "cmax", &
+                   this%cmax(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX))
+      END IF
+
     ! set reconstruction pointer
 !CDIR IEXPAND
     IF (this%Reconstruction%PrimRecon()) THEN
@@ -199,16 +221,18 @@ CONTAINS
     this%bzfold(:,:,:,:) = 0.
   END SUBROUTINE InitFluxes
 
-
+  !> Get fluxes at boundaries
+  !!
+  !! \todo MPI communication
   FUNCTION GetBoundaryFlux(this,Mesh,Physics,direction,comm) RESULT(bflux)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(fluxes_base),  INTENT(INOUT) :: this
-    CLASS(mesh_base),    INTENT(IN) :: Mesh
-    CLASS(physics_base), INTENT(IN) :: Physics
-    INTEGER                         :: direction
-    REAL, DIMENSION(Physics%VNUM)   :: bflux
-    INTEGER, OPTIONAL               :: comm           ! communicator for MPI !
+    CLASS(mesh_base),    INTENT(IN)    :: Mesh
+    CLASS(physics_base), INTENT(IN)    :: Physics
+    INTEGER                            :: direction
+    REAL, DIMENSION(Physics%VNUM)      :: bflux
+    INTEGER, OPTIONAL                  :: comm        ! communicator for MPI
     !------------------------------------------------------------------------!
 !#ifdef PARALLEL
 !    INTEGER, DIMENSION(2) :: coords
@@ -349,17 +373,15 @@ CONTAINS
 !#endif
   END FUNCTION GetBoundaryFlux
 
+  !> Calcualtes face data with reconstruction methods (e. g. limiters)
   PURE SUBROUTINE CalculateFaceData(this,Mesh,Physics,pvar,cvar)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(fluxes_base),  INTENT(INOUT) :: this
     CLASS(mesh_base),    INTENT(IN)    :: Mesh
     CLASS(physics_base), INTENT(INOUT) :: Physics
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX, &
-                    Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM) &
-                      :: pvar,cvar
-    !------------------------------------------------------------------------!
-    INTENT(IN)        :: pvar,cvar
+    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
+                         INTENT(IN)    :: pvar,cvar
     !------------------------------------------------------------------------!
 
     ! reconstruct data on cell faces
@@ -376,10 +398,12 @@ CONTAINS
     END IF
 
     ! get minimal & maximal wave speeds on cell interfaces
-    ! Physics%UpdateSoundSpeed(Mesh,this%prim)
-    CALL Physics%CalculateWaveSpeeds(Mesh,this%prim)
+    CALL Physics%UpdateSoundSpeeds(Mesh,this%prim)
+    CALL Physics%CalculateWaveSpeeds(Mesh,this%prim,this%cons, &
+                  this%amin,this%amax,this%bmin,this%bmax,this%cmin,this%cmax)
   END SUBROUTINE CalculateFaceData
 
+  !> Destructor
   SUBROUTINE FinalizeFluxes(this)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
@@ -388,6 +412,7 @@ CONTAINS
     IF (.NOT.this%Initialized()) &
         CALL this%Error("CloseFluxes","not initialized")
     DEALLOCATE(this%cons,this%prim,this%pfluxes, &
+         this%amin,this%amax,this%bmin,this%bmax,this%cmin,this%cmax, &
          this%bxflux,this%byflux,this%bzflux,this%bxfold,this%byfold,this%bzfold)
     DEALLOCATE(this%Reconstruction)
   END SUBROUTINE FinalizeFluxes

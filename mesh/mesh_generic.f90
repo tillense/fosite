@@ -34,12 +34,7 @@
 MODULE mesh_generic_mod
   USE mesh_base_mod
   USE mesh_midpoint_mod
-!  USE mesh_trapezoidal_mod
   USE common_dict
-
-!  INTERFACE mesh_base
-!    MODULE PROCEDURE new_mesh
-!  END INTERFACE
 
 CONTAINS
 
@@ -57,16 +52,12 @@ CONTAINS
     SELECT CASE(meshtype)
     CASE(MIDPOINT)
       ALLOCATE(mesh_midpoint::Mesh)
- !   CASE(TRAPEZOIDAL)
- !     ALLOCATE(mesh_trapezoidal::Mesh)
     END SELECT
 
     ! call initialization
     SELECT TYPE(mesh_child => Mesh)
     TYPE IS (mesh_midpoint)
       CALL mesh_child%InitMesh_midpoint(config,IO)
- !   TYPE IS (mesh_trapezoidal)
- !     CALL mesh_child%InitMesh_trapezoidal(config,IO)
     END SELECT
   END SUBROUTINE
 END MODULE mesh_generic_mod

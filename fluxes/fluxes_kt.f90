@@ -78,12 +78,12 @@ CONTAINS
   SUBROUTINE InitFluxes_kt(this,Mesh,Physics,config,IO)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(fluxes_kt), INTENT(INOUT) :: this
-    CLASS(mesh_base), INTENT(IN)    :: Mesh
-    CLASS(physics_base), INTENT(IN) :: Physics
-    TYPE(Dict_TYP),POINTER          :: config,IO
+    CLASS(fluxes_kt),    INTENT(INOUT)       :: this
+    CLASS(mesh_base),    INTENT(IN)          :: Mesh
+    CLASS(physics_base), INTENT(IN)          :: Physics
+    TYPE(Dict_TYP),      INTENT(IN), POINTER :: config,IO
     !------------------------------------------------------------------------!
-    INTEGER                         :: err,n
+    INTEGER                                  :: err,n
     !------------------------------------------------------------------------!
     CALL this%InitFluxes(Mesh,Physics,config,IO,KT,"KT")
 
@@ -111,10 +111,15 @@ CONTAINS
   END SUBROUTINE InitFluxes_kt
 
 
-  !! \warning{The return values xfluxdy and yfluxdx are the numerical fluxes
+  !> Calculates the fluxes with the midpoint method
+  !!
+  !! \warning{The return values xfluxdydz, yfluxdzdx, zfluxdxdy are the numerical fluxes
   !!          devided by dy or dx respectively. This reduces numerical errors
   !!          because otherwise we would multiply the fluxes by dy (or dx) here and
   !!          devide by dy (or dx) later when computing flux differences.}
+  !! \warning{In an older version of Fosite, there was still the possibility to
+  !!          use the trapezoidal rule. This is not supported anymore from version
+  !!          <=0.6.}
   PURE SUBROUTINE CalculateFluxes(this,Mesh,Physics,pvar,cvar, &
                   xfluxdydz,yfluxdzdx,zfluxdxdy)
     IMPLICIT NONE
@@ -122,15 +127,12 @@ CONTAINS
     CLASS(fluxes_kt),    INTENT(INOUT) :: this
     CLASS(mesh_base),    INTENT(IN)    :: Mesh
     CLASS(physics_base), INTENT(INOUT) :: Physics
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%vnum) &
-                      :: pvar,cvar
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%vnum) &
-                      :: xfluxdydz,yfluxdzdx,zfluxdxdy
+    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%vnum), &
+                         INTENT(IN)    :: pvar,cvar
+    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%vnum), &
+                         INTENT(OUT)   :: xfluxdydz,yfluxdzdx,zfluxdxdy
     !------------------------------------------------------------------------!
-    INTEGER           :: i,j,k,l
-    !------------------------------------------------------------------------!
-    INTENT(IN)        :: pvar,cvar
-    INTENT(OUT)       :: xfluxdydz,yfluxdzdx,zfluxdxdy
+    INTEGER :: i,j,k,l
     !------------------------------------------------------------------------!
     ! execute generic tasks common to all flux types
     CALL this%CalculateFaceData(Mesh,Physics,pvar,cvar)
@@ -149,10 +151,10 @@ CONTAINS
 !CDIR NODEP
               DO i=Mesh%IMIN-1,Mesh%IMAX
                   xfluxdydz(i,j,k,l) = Mesh%dAxdydz(i+1,j,k,1) / &
-                         (Physics%amax(i,j,k) - Physics%amin(i,j,k)) * &
-                         (Physics%amax(i,j,k) * this%pfluxes(i,j,k,2,l) - &
-                          Physics%amin(i,j,k) * this%pfluxes(i+1,j,k,1,l) + &
-                          Physics%amin(i,j,k) * Physics%amax(i,j,k) * &
+                         (this%amax(i,j,k) - this%amin(i,j,k)) * &
+                         (this%amax(i,j,k) * this%pfluxes(i,j,k,2,l) - &
+                          this%amin(i,j,k) * this%pfluxes(i+1,j,k,1,l) + &
+                          this%amin(i,j,k) * this%amax(i,j,k) * &
                       (this%cons(i+1,j,k,1,l) - this%cons(i,j,k,2,l)))
               END DO
             END DO
@@ -173,10 +175,10 @@ CONTAINS
             DO j=Mesh%JMIN-1,Mesh%JMAX
               DO i=Mesh%IGMIN,Mesh%IGMAX
                   yfluxdzdx(i,j,k,l) = Mesh%dAydzdx(i,j+1,k,1) / &
-                         (Physics%bmax(i,j,k) - Physics%bmin(i,j,k)) * &
-                         (Physics%bmax(i,j,k) * this%pfluxes(i,j,k,4,l) - &
-                          Physics%bmin(i,j,k) * this%pfluxes(i,j+1,k,3,l) + &
-                          Physics%bmin(i,j,k) * Physics%bmax(i,j,k) * &
+                         (this%bmax(i,j,k) - this%bmin(i,j,k)) * &
+                         (this%bmax(i,j,k) * this%pfluxes(i,j,k,4,l) - &
+                          this%bmin(i,j,k) * this%pfluxes(i,j+1,k,3,l) + &
+                          this%bmin(i,j,k) * this%bmax(i,j,k) * &
                       (this%cons(i,j+1,k,3,l) - this%cons(i,j,k,4,l)))
               END DO
             END DO
@@ -197,10 +199,10 @@ CONTAINS
 !CDIR NODEP
               DO i=Mesh%IGMIN,Mesh%IGMAX
                   zfluxdxdy(i,j,k,l) = Mesh%dAzdxdy(i,j,k+1,1) / &
-                         (Physics%cmax(i,j,k) - Physics%cmin(i,j,k)) * &
-                         (Physics%cmax(i,j,k) * this%pfluxes(i,j,k,6,l) - &
-                          Physics%cmin(i,j,k) * this%pfluxes(i,j,k+1,5,l) + &
-                          Physics%cmin(i,j,k) * Physics%cmax(i,j,k) * &
+                         (this%cmax(i,j,k) - this%cmin(i,j,k)) * &
+                         (this%cmax(i,j,k) * this%pfluxes(i,j,k,6,l) - &
+                          this%cmin(i,j,k) * this%pfluxes(i,j,k+1,5,l) + &
+                          this%cmin(i,j,k) * this%cmax(i,j,k) * &
                       (this%cons(i,j,k+1,5,l) - this%cons(i,j,k,6,l)))
              END DO
             END DO

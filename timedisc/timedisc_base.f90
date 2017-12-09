@@ -685,49 +685,49 @@ CONTAINS
     CLASS(mesh_base),     INTENT(IN)    :: Mesh
     CLASS(physics_base),  INTENT(INOUT) :: Physics
     CLASS(fluxes_base),   INTENT(INOUT) :: Fluxes
-    REAL               :: time
-    INTEGER            :: dtcause
+    REAL,                 INTENT(IN)    :: time
+    INTEGER,              INTENT(INOUT) :: dtcause
     !------------------------------------------------------------------------!
     REAL               :: invdt
     REAL               :: dt_cfl, dt_src
     !------------------------------------------------------------------------!
-    INTENT(IN)         :: time
-    INTENT(INOUT)      :: dtcause
-    !------------------------------------------------------------------------!
     ! CFL condition:
     ! maximal wave speeds in each direction
-    !TODO: Not implemented!!!!
-    !IF (.NOT.this%always_update_bccsound) &
-    !   CALL Physics%UpdateSoundSpeed(Mesh,this%pvar)
-    CALL Physics%MaxWaveSpeeds(Mesh,time,this%pvar,this%amax)
+    IF (.NOT.this%always_update_bccsound) &
+       CALL Physics%UpdateSoundSpeeds(Mesh,this%pvar)
+    CALL Physics%CalculateWaveSpeeds(Mesh,this%pvar, &
+                                     Fluxes%amin,Fluxes%amax, &
+                                     Fluxes%bmin,Fluxes%bmax, &
+                                     Fluxes%cmin,Fluxes%cmax)
+
 
     ! compute maximum of inverse time for CFL condition
     IF ((Mesh%JNUM.EQ.1).AND.(Mesh%KNUM.EQ.1)) THEN
        ! 1D, only x-direction
-       invdt = MAXVAL(this%amax(:,:,:,1) / Mesh%dlx(:,:,:))
+       invdt = MAXVAL(MAX(Fluxes%amax(:,:,:),-Fluxes%amin(:,:,:)) / Mesh%dlx(:,:,:))
     ELSE IF ((Mesh%INUM.EQ.1).AND.(Mesh%KNUM.EQ.1)) THEN
        ! 1D, only y-direction
-       invdt = MAXVAL(this%amax(:,:,:,2) / Mesh%dly(:,:,:))
+       invdt = MAXVAL(MAX(Fluxes%bmax(:,:,:),-Fluxes%bmin(:,:,:)) / Mesh%dly(:,:,:))
     ELSE IF ((Mesh%INUM.EQ.1).AND.(Mesh%JNUM.EQ.1)) THEN
        ! 1D, only z-direction
-       invdt = MAXVAL(this%amax(:,:,:,3) / Mesh%dlz(:,:,:))
+       invdt = MAXVAL(MAX(Fluxes%cmax(:,:,:),-Fluxes%cmin(:,:,:)) / Mesh%dlz(:,:,:))
     ELSE IF ((Mesh%INUM.GT.1).AND.(Mesh%JNUM.GT.1).AND.(Mesh%KNUM.EQ.1)) THEN
        ! 2D, x-y-plane
-       invdt = MAXVAL(this%amax(:,:,:,1) / Mesh%dlx(:,:,:) &
-                    + this%amax(:,:,:,2) / Mesh%dly(:,:,:))
+       invdt = MAXVAL(MAX(Fluxes%amax(:,:,:),-Fluxes%amin(:,:,:)) / Mesh%dlx(:,:,:) &
+                    + MAX(Fluxes%bmax(:,:,:),-Fluxes%bmin(:,:,:)) / Mesh%dly(:,:,:))
     ELSE IF ((Mesh%INUM.GT.1).AND.(Mesh%KNUM.GT.1).AND.(Mesh%JNUM.EQ.1)) THEN
        ! 2D, x-z-plane
-       invdt = MAXVAL(this%amax(:,:,:,1) / Mesh%dlx(:,:,:) &
-                    + this%amax(:,:,:,3) / Mesh%dlz(:,:,:))
+       invdt = MAXVAL(MAX(Fluxes%amax(:,:,:),-Fluxes%amin(:,:,:)) / Mesh%dlx(:,:,:) &
+                    + MAX(Fluxes%cmax(:,:,:),-Fluxes%cmin(:,:,:)) / Mesh%dlz(:,:,:))
     ELSE IF ((Mesh%JNUM.GT.1).AND.(Mesh%KNUM.GT.1).AND.(Mesh%INUM.EQ.1)) THEN
        ! 2D, y-z-plane
-       invdt = MAXVAL(this%amax(:,:,:,2) / Mesh%dly(:,:,:) &
-                    + this%amax(:,:,:,3) / Mesh%dlz(:,:,:))
+       invdt = MAXVAL(MAX(Fluxes%bmax(:,:,:),-Fluxes%bmin(:,:,:)) / Mesh%dly(:,:,:) &
+                    + MAX(Fluxes%cmax(:,:,:),-Fluxes%cmin(:,:,:)) / Mesh%dlz(:,:,:))
     ELSE
        ! full 3D
-       invdt = MAXVAL(this%amax(:,:,:,1) / Mesh%dlx(:,:,:) &
-                    + this%amax(:,:,:,2) / Mesh%dly(:,:,:) &
-                    + this%amax(:,:,:,3) / Mesh%dlz(:,:,:))
+       invdt = MAXVAL(MAX(Fluxes%amax(:,:,:),-Fluxes%amin(:,:,:)) / Mesh%dlx(:,:,:) &
+                    + MAX(Fluxes%bmax(:,:,:),-Fluxes%bmin(:,:,:)) / Mesh%dly(:,:,:) &
+                    + MAX(Fluxes%cmax(:,:,:),-Fluxes%cmin(:,:,:)) / Mesh%dlz(:,:,:))
     END IF
 
     ! largest time step due to CFL condition
@@ -929,22 +929,22 @@ CONTAINS
 !    IF(this%Fargo.NE.0) &
 !      CALL this%FargoAddVelocity(Mesh,Physics)
 
-    IF(IAND(checkdatabm,CHECK_TMIN).NE.CHECK_NOTHING.AND.&
-       this%tmin.GT.1.E-10.AND.&
-       Physics%PRESSURE.GT.0) THEN
-      ! Check if the temperature is below tmin. If it is, increase the pressure
-      ! to reach tmin
-      DO k=Mesh%KGMIN,Mesh%KGMAX
-        DO j=Mesh%JGMIN,Mesh%JGMAX
-          DO i=Mesh%IGMIN,Mesh%IGMAX
-            pvar(i,j,k,Physics%PRESSURE) &
-              = MAX(pvar(i,j,k,Physics%PRESSURE), &
-                    pvar(i,j,k,Physics%DENSITY)*Physics%consts%RG/Physics%mu*this%tmin)
-          END DO
-        END DO
-      END DO
-      CALL Physics%Convert2Conservative(Mesh,pvar,cvar)
-    END IF
+!    IF(IAND(checkdatabm,CHECK_TMIN).NE.CHECK_NOTHING.AND.&
+!       this%tmin.GT.1.E-10.AND.&
+!       Physics%PRESSURE.GT.0) THEN
+!      ! Check if the temperature is below tmin. If it is, increase the pressure
+!      ! to reach tmin
+!      DO k=Mesh%KGMIN,Mesh%KGMAX
+!        DO j=Mesh%JGMIN,Mesh%JGMAX
+!          DO i=Mesh%IGMIN,Mesh%IGMAX
+!            pvar(i,j,k,Physics%PRESSURE) &
+!              = MAX(pvar(i,j,k,Physics%PRESSURE), &
+!                    pvar(i,j,k,Physics%DENSITY)*Physics%consts%RG/Physics%mu*this%tmin)
+!          END DO
+!        END DO
+!      END DO
+!      CALL Physics%Convert2Conservative(Mesh,pvar,cvar)
+!    END IF
 
     ! update the speed of sound
     !TODO: This is important but not implemented atm.
