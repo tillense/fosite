@@ -3,8 +3,8 @@ set (EXES
 #  bondi3d
 #  collapse
 #  gauss2d
-    gauss3d
-  KHI3
+   gauss3d
+   KHI3
 #  noh2d
 #  noh3d
 #  ode
@@ -18,8 +18,8 @@ set (EXES
 #  sedov3d
 #  specialfunctions
 #  vortex2d
-   vortex2d3d
-#  vortex3d
+#   vortex2d3d
+  vortex3d
 )
 foreach (p ${EXES})
   add_executable (${p} "${p}.f90")
