@@ -64,8 +64,8 @@ MODULE physics_euler3Dit_mod
     PROCEDURE :: Convert2Conservative_faces
     PROCEDURE :: Convert2Conservative_facesub
     !------Soundspeed Routines-----!
-    PROCEDURE :: UpdateSoundSpeeds_center
-    PROCEDURE :: UpdateSoundSpeeds_faces
+    PROCEDURE :: UpdateSoundSpeed_center
+    PROCEDURE :: UpdateSoundSpeed_faces
     !------Wavespeed Routines------!
     PROCEDURE :: CalcWaveSpeeds_center
     PROCEDURE :: CalcWaveSpeeds_faces
@@ -323,7 +323,7 @@ CONTAINS
   !!
   !! Will be overwritten in physics with energy equation
   !! \todo Have a look for a nicer solution of this issue
-  PURE SUBROUTINE UpdateSoundSpeeds_center(this,Mesh,pvar)
+  PURE SUBROUTINE UpdateSoundSpeed_center(this,Mesh,pvar)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(physics_euler3Dit), INTENT(INOUT) :: this
@@ -334,13 +334,13 @@ CONTAINS
     INTEGER                                :: i,j,k
     !------------------------------------------------------------------------!
     ! Sound speed is constant - nothing to do.
-  END SUBROUTINE UpdateSoundSpeeds_center
+  END SUBROUTINE UpdateSoundSpeed_center
 
   !> Empty routine for isothermal simulation
   !!
   !! Will be overwritten in physics with energy equation
   !! \todo Have a look for a nicer solution of this issue
-  PURE SUBROUTINE UpdateSoundSpeeds_faces(this,Mesh,prim)
+  PURE SUBROUTINE UpdateSoundSpeed_faces(this,Mesh,prim)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(physics_euler3Dit), INTENT(INOUT) :: this
@@ -351,7 +351,7 @@ CONTAINS
     INTEGER           :: i,j,k,l
     !------------------------------------------------------------------------!
     ! Sound speed is constant - nothing to do.
-  END SUBROUTINE UpdateSoundSpeeds_faces
+  END SUBROUTINE UpdateSoundSpeed_faces
 
   !> Calculates wave speeds at cell-centers
   PURE SUBROUTINE CalcWaveSpeeds_center(this,Mesh,pvar,amin,amax,bmin,bmax,cmin,cmax)

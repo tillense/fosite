@@ -694,7 +694,7 @@ CONTAINS
     ! CFL condition:
     ! maximal wave speeds in each direction
     IF (.NOT.this%always_update_bccsound) &
-       CALL Physics%UpdateSoundSpeeds(Mesh,this%pvar)
+       CALL Physics%UpdateSoundSpeed(Mesh,this%pvar)
     CALL Physics%CalculateWaveSpeeds(Mesh,this%pvar, &
                                      Fluxes%amin,Fluxes%amax, &
                                      Fluxes%bmin,Fluxes%bmax, &
@@ -947,8 +947,7 @@ CONTAINS
 !    END IF
 
     ! update the speed of sound
-    !TODO: This is important but not implemented atm.
-    !IF (this%always_update_bccsound) CALL Physics%UpdateSoundSpeed(Mesh,pvar)
+    IF (this%always_update_bccsound) CALL Physics%UpdateSoundSpeed(Mesh,pvar)
 
     ! check for illegal data
     IF(checkdatabm.NE.CHECK_NOTHING) &
@@ -1160,9 +1159,9 @@ CONTAINS
     CLASS(physics_base),  INTENT(INOUT) :: Physics
     CLASS(fluxes_base),   INTENT(IN)    :: Fluxes
     REAL,DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX, &
-                   Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM) &
-                                        :: pvar,cvar
-    INTEGER                             :: checkdatabm
+                   Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
+                          INTENT(INOUT) :: pvar,cvar
+    INTEGER,              INTENT(IN)    :: checkdatabm
     !------------------------------------------------------------------------!
 #ifdef PARALLEL
     INTEGER                             :: err
@@ -1170,10 +1169,6 @@ CONTAINS
     REAL                                :: val
     INTEGER                             :: i,j
     !------------------------------------------------------------------------!
-    INTENT(IN)                          :: checkdatabm
-    INTENT(INOUT)                       :: pvar,cvar
-    !------------------------------------------------------------------------!
-
     IF(IAND(checkdatabm,CHECK_CSOUND).NE.CHECK_NOTHING) THEN
       val = MINVAL(Physics%bccsound)
       IF(val.LE.0.) THEN

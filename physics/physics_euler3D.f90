@@ -62,8 +62,8 @@ MODULE physics_euler3D_mod
     PROCEDURE :: Convert2Conservative_faces
     PROCEDURE :: Convert2Conservative_facesub
     !------soundspeed routines-----!
-    PROCEDURE :: UpdateSoundSpeeds_center
-    PROCEDURE :: UpdateSoundSpeeds_faces
+    PROCEDURE :: UpdateSoundSpeed_center
+    PROCEDURE :: UpdateSoundSpeed_faces
     !------wavespeed routines------!
     PROCEDURE :: CalcWaveSpeeds_center
     PROCEDURE :: CalcWaveSpeeds_faces
@@ -137,18 +137,20 @@ CONTAINS
     this%XMOMENTUM = 2                                 ! x-momentum          !
     this%YVELOCITY = 3                                 ! y-velocity          !
     this%YMOMENTUM = 3                                 ! y-momentum          !
-    this%ZVELOCITY = 0                                 ! no z-velocity       !
-    this%ZMOMENTUM = 0                                 ! no z-momentum       !
+    this%ZVELOCITY = 4                                 ! z-velocity       !
+    this%ZMOMENTUM = 4                                 ! z-momentum       !
     ! set names for primitive and conservative variables
     this%pvarname(this%DENSITY)   = "density"
     this%pvarname(this%XVELOCITY) = "xvelocity"
     this%pvarname(this%YVELOCITY) = "yvelocity"
+    this%pvarname(this%ZVELOCITY) = "zvelocity"
     this%pvarname(this%PRESSURE)  = "pressure"
     this%cvarname(this%DENSITY)   = "density"
     this%cvarname(this%XMOMENTUM) = "xmomentum"
     this%cvarname(this%YMOMENTUM) = "ymomentum"
+    this%cvarname(this%ZMOMENTUM) = "zmomentum"
     this%cvarname(this%ENERGY)    = "energy"
-    this%DIM = 2
+    this%DIM = 3
   END SUBROUTINE InitPhysics_euler3D
 
 
@@ -1677,8 +1679,7 @@ CONTAINS
     reflY(this%PRESSURE)  = .FALSE.
   END SUBROUTINE AxisMasks
 
-
-  PURE SUBROUTINE UpdateSoundSpeeds_center(this,Mesh,pvar)
+  PURE SUBROUTINE UpdateSoundSpeed_center(this,Mesh,pvar)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(physics_euler3D), INTENT(INOUT) :: this
@@ -1699,10 +1700,9 @@ CONTAINS
         END DO
       END DO
     END DO
-  END SUBROUTINE UpdateSoundSpeeds_center
+  END SUBROUTINE UpdateSoundSpeed_center
 
-
-  PURE SUBROUTINE UpdateSoundSpeeds_faces(this,Mesh,prim)
+  PURE SUBROUTINE UpdateSoundSpeed_faces(this,Mesh,prim)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(physics_euler3D), INTENT(INOUT) :: this
@@ -1725,8 +1725,7 @@ CONTAINS
         END DO
       END DO
     END DO
-  END SUBROUTINE UpdateSoundSpeeds_faces
-
+  END SUBROUTINE UpdateSoundSpeed_faces
 
   ELEMENTAL FUNCTION GetSoundSpeed(gamma,density,pressure) RESULT(cs)
     IMPLICIT NONE
@@ -1736,7 +1735,6 @@ CONTAINS
     !------------------------------------------------------------------------!
     cs = SQRT(MAX(2.0*TINY(cs),gamma*pressure/density))
   END FUNCTION GetSoundSpeed
-
 
   !> TODO: NOT VERIFIED
   !! only for advanced wavespeeds
@@ -1764,7 +1762,6 @@ CONTAINS
     cs = SQRT((gamma-1.)*(h-0.5*(u**2+v**2+w**2)))
   END SUBROUTINE SetRoeAverages
 
-
   !> TODO: NOT VERIFIED
   !! only for boundary conditions - absorbing
 !  ELEMENTAL SUBROUTINE SetEigenValues(gamma,rho,v,P,l1,l2,l3,l4,l5)
@@ -1785,7 +1782,6 @@ CONTAINS
 !    l3 = v
 !    l4 = v
 !  END SUBROUTINE SetEigenValues
-
 
   ! TODO: CHECK IF RIGHT SINCE 3D
   !! only for HLLC fluxes
@@ -1820,7 +1816,6 @@ CONTAINS
     END IF
   END SUBROUTINE SetIntermediateState
 
-
   ! TODO: CHECK IF RIGHT SINCE 3D
   !! only for absorbing boundary conditions
   ELEMENTAL SUBROUTINE SetCharVars(gamma,rho1,rho2,u1,u2,v1,v2,w1,w2,P1,P2, &
@@ -1841,7 +1836,6 @@ CONTAINS
     xvar3 = (v2-v1)
     xvar4 = dlnP + gamcs * du
   END SUBROUTINE SetCharVars
-
 
   ! TODO: CHECK IF  RIGHT SINCE 3D
   !! only for absorbing boundary conditions
@@ -1887,7 +1881,6 @@ CONTAINS
     Rwt = vz
   END SUBROUTINE Prim2Riemann
 
-
   ! TODO: CHEKC IF RIGHT SINCE 3D
   !! only for farfield boundary conditions
   ELEMENTAL SUBROUTINE Riemann2Prim(gamma,Rminus,Rs,Rvt,Rwt,Rplus,&
@@ -1912,7 +1905,6 @@ CONTAINS
     p = cs2gam * rho
   END SUBROUTINE Riemann2Prim
 
-
   !> TODO: NOT VERIFIED
   ELEMENTAL SUBROUTINE SetFlux(rho,v,P,m1,m2,m3,E,f1,f2,f3,f4,f5)
     IMPLICIT NONE
@@ -1926,7 +1918,6 @@ CONTAINS
     f4 = m3*v
     f5 = (E+P)*v
   END SUBROUTINE SetFlux
-
 
   !> TODO: NOT VERIFIED
   ELEMENTAL SUBROUTINE Cons2Prim(gamma,rho_in,mu,mv,mw,E,rho_out,u,v,w,P)
@@ -1944,7 +1935,6 @@ CONTAINS
     w = mw * inv_rho
     P = (gamma-1.)*(E - 0.5 * inv_rho * (mu*mu+mv*mv+mw*mw))
   END SUBROUTINE Cons2Prim
-
 
   !> TODO: NOT VERIFIED
   ELEMENTAL SUBROUTINE Prim2Cons(gamma,rho_in,u,v,w,P,rho_out,mu,mv,mw,E)
@@ -1973,8 +1963,6 @@ CONTAINS
     smy  =  mx * (cxyx * vx - cyxy * vy) + mz * (czyz * vz - cyzy * vy) + (cxyx + czyz) * P
     smz  =  mx * (cxzx * vx - czxz * vz) + my * (cyzy * vy - czyz * vz) + (cxzx + cyzy) * P
   END SUBROUTINE CalcGeometricalSources
-
-
 
   SUBROUTINE Finalize(this)
     IMPLICIT NONE

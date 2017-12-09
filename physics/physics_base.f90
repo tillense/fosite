@@ -128,11 +128,11 @@ MODULE physics_base_mod
     GENERIC   :: SetSoundSpeeds => &
                    SetSoundSpeeds_center, &
                    SetSoundSpeeds_faces
-    PROCEDURE (UpdateSoundSpeeds_center),     DEFERRED :: UpdateSoundSpeeds_center
-    PROCEDURE (UpdateSoundSpeeds_faces),      DEFERRED :: UpdateSoundSpeeds_faces
-    GENERIC   :: UpdateSoundSpeeds => &
-                   UpdateSoundSpeeds_center, &
-                   UpdateSoundSpeeds_faces
+    PROCEDURE (UpdateSoundSpeed_center),     DEFERRED :: UpdateSoundSpeed_center
+    PROCEDURE (UpdateSoundSpeed_faces),      DEFERRED :: UpdateSoundSpeed_faces
+    GENERIC   :: UpdateSoundSpeed => &
+                   UpdateSoundSpeed_center, &
+                   UpdateSoundSpeed_faces
     !------Wavespeed Routines-----!
     PROCEDURE (CalcWaveSpeeds_center),        DEFERRED :: CalcWaveSpeeds_center
     PROCEDURE (CalcWaveSpeeds_faces),         DEFERRED :: CalcWaveSpeeds_faces
@@ -265,7 +265,7 @@ MODULE physics_base_mod
       CLASS(physics_base), INTENT(IN)            :: this
       LOGICAL, DIMENSION(this%VNUM), INTENT(OUT) :: reflX,reflY,reflZ
     END SUBROUTINE
-    PURE SUBROUTINE UpdateSoundSpeeds_center(this,Mesh,pvar)
+    PURE SUBROUTINE UpdateSoundSpeed_center(this,Mesh,pvar)
       IMPORT physics_base,mesh_base
       IMPLICIT NONE
       CLASS(physics_base),INTENT(INOUT) :: this
@@ -273,7 +273,7 @@ MODULE physics_base_mod
       REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM), &
         INTENT(IN)                      :: pvar
     END SUBROUTINE
-    PURE SUBROUTINE UpdateSoundSpeeds_faces(this,Mesh,prim)
+    PURE SUBROUTINE UpdateSoundSpeed_faces(this,Mesh,prim)
       IMPORT physics_base,mesh_base
       IMPLICIT NONE
       CLASS(physics_base),INTENT(INOUT) :: this

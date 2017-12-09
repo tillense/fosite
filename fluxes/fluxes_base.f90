@@ -398,7 +398,7 @@ CONTAINS
     END IF
 
     ! get minimal & maximal wave speeds on cell interfaces
-    CALL Physics%UpdateSoundSpeeds(Mesh,this%prim)
+    CALL Physics%UpdateSoundSpeed(Mesh,this%prim)
     CALL Physics%CalculateWaveSpeeds(Mesh,this%prim,this%cons, &
                   this%amin,this%amax,this%bmin,this%bmax,this%cmin,this%cmax)
   END SUBROUTINE CalculateFaceData
