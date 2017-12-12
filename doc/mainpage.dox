@@ -1,324 +1,41 @@
-/*! \mainpage fosite - 2D hydrodynamical simulation program
-[Homepage](http://www.astrophysik.uni-kiel.de/fosite)
+/*! \mainpage Fosite - 2D hydrodynamical simulation program
 
-[Examples Page](http://www.astrophysik.uni-kiel.de/index.php?option=com_content&task=view&id=149&Itemid=114)
 
-[Download Page](https://sourceforge.net/projects/fosite/files/latest/download)
+These are the documentation pages to the hydrodynamic suite Fosite. In
+order to get into the code and run your first program visit this first
+pages:
+
+[Download](download.html)
+
+[Configuration & Installation](@ref installation)
+
+[A First Setup](@ref first_setup)
+
+[Plotting & Data Output](@ref plotting)
+
+
+For further exploration and insights, the following pages should be
+considered.
+
+[Examples Page](examples.html)
+
+[Test Page](test.html)
+
+[Testing Framework](@ref test_framework)
 
 [Coding Guidelines](@ref coding_guidelines)
 
-[Project Page](http://sf.net/projects/fosite) at \htmlonly<a href="http://sourceforge.net/"><img src="http://sflogo.sourceforge.net/sflogo.php?group_id=23725&amp;type=6" name="graphics1" alt="SourceForge Logo" align="bottom" border="0" height="40" width="100"></a></p>\endhtmlonly 
+[Advanced Customization](@ref advanced_custom)
 
-# INTRODUCTION
-
-Fosite is a 2D hydrodynamical simulation code written in FORTRAN 90/95. It
-is based on a numerical scheme for the solution of nonlinear hyperbolic
-conservation laws first introduced by Kurganov and Tadmor (Refs.:
-J. of Comp. Phys., vol. 160, pp. 241, 2000; Num. Meth. for PDEs,
-vol. 18, pp. 561, 2002). This method has been extended from Cartesian
-to general orthogonal grids (Ref.: T. Illenseer, PhD Thesis (German),
-University of Heidelberg, 2006; Illenseer and Duschl, arXiv:0804.2979 
-[physics.comp-ph], 2008). This version is a reimplementation of the
-adv2D program available at
-
-[T. Illenseer (2006): High resolution schemes for the numerical computation of radiation driven disk winds](http://archiv.ub.uni-heidelberg.de/volltextserver/volltexte/2007/7046/zip/adv2D.zip)
-
-I wrote for my PhD thesis. It utilizes the object-oriented (OO) design patterns
-described by Decyk and Gardner (Ref.: Comput. Phys. Comm., vol. 178(8), pp.
-611). Hence fosite incorporates the flexibility of OO-programming into
-Fortran 90/95 and preserves efficiency of the numerical computation.
-
-Although the core program is capable of dealing with almost any 2D advection
-problems the code shipped with this README solves only hydrodynamical
-problems with and without viscosity. So far the physics module can deal with
-2D problems and 2.5D problems with angular momentum transport. The ideal gas 
-equation of state with constant ratio of specific heat capacities is
-implemented for both 2D and 2.5D simulations. Various curvilinear grids are
-supported including polar, cylindrical and spherical geometries. 
-
-There are two simple file formats for output data files. It could be either
-plain ASCII with the results for each variable given in columns with a block
-structure or simple binary data (see section 6. of this README). GNUPLOT 
-(http://www.gnuplot.info) is capable of reading both formats (for binary input
-you need at least version 4.2). Native OpenDX output has been removed in favor
-of netcdf, because OpenDX is capable of reading data files written with the
-netcdf output module of fosite. Since version 0.3 of fosite the VTK file format
-is supported (see http://www.vtk.org). Parallel output is possible with all
-file formats . We strongly recommend the use of one of the binary formats for
-best performance. All output formats except VTK make use of MPI-IO routines in
-parallel mode. Since MPI-IO on NFS file systems is pretty slow one should
-avoid these and use PVFS (see http://www.pvfs.org) instead.
-
-
-# CONFIGURATION & COMPILATION
-
-Although all source files have the extension .f90 the code uses some
-FORTRAN 95 extensions and therefore only compiles with a Fortran 95
-compiler.
-To customize the build process enter the directory with the source code
-and run
-
-    ./configure
-
-For a list of command line arguments of the configure script type
-
-    ./configure --help
-
-The configure-script should find and set the variables FC, FCFLAGS and LDFLAGS.
-FC should point to your Fortran 95 compiler and FCFLAGS should contain some
-appropriate command line arguments for the compile command.
-These variables can be manually set by typing
-
-    ./configure FC=[your compiler]
-
-[your compiler] can be sxf90, ifort, g95, mpif90, gfortran, etc.
-Then type
-
-    make
-
-at the command line to build the fosite library and all example simulations
-in the examples subdirectory. These are just executable programs linked against
-the fosite library. The default behaviour of the build process is to compile
-all examples. To run a simulation you simply have to enter the name of the binary
-executable
-
-    tests/gauss2d
-
-at the command line. The simulation data is written to a file in the current
-working directory by default.
-
-
-The code has been verified to compile with the Intel(R) Fortran Compiler
-(vers. 8.x,  9.x, 11.x), GNU fortran compiler (vers. 4.7, 4.8),
-g95 (vers. 4.0.3) on various Linux boxes and NEC sxf90 (Rev.360 2006/11/30 and
-Rev.410 2010/02/01) cross compiler for NEC SX-8/SX-9 vector supercomputers. If
-the program aborts immediately after initialization with a segmentation fault,
-try to increase the stack size (ulimit -s unlimited).
-
-
-# COMPILING THE PARALLEL VERSION
-
-The parallel version of fosite uses the message passing interface version 2
-(MPI2). To compile the parallelized code you have to install an implementation
-of MPI2, e.g. mpich2 (http://www.mcs.anl.gov/research/projects/mpich2) and run
-
-    ./configure --with-mpi
-
-If the MPI2 libraries have been installed into a non-standard directory you may
-specify it as an additional parameter:
-
-    ./configure --with-mpi=[MPI_DIR]
-
-where [MPI_DIR] is the MPI2 installation directory. For parallel I/O in a
-network environment it is strongly recommended to use a parallel file system
-like PVFS2 (http://www.pvfs.org) with binary output for best performance. In
-this case it might be necessary to tell the configure script the pvfs2
-installation directory
-
-    ./configure --with-mpi=[MPI_DIR] --with-pvfs2=[PVFS2_DIR]
-
-If the configure script fails maybe the easiest way to proceed is to specify
-the MPI Fortran compiler command
-
-    FC=mpif90 ./configure --with-mpi
-
-If there is still something going wrong check the error messages in the file
-"config.log" generated by the configure script in the same directory.
-To compile the parallel version of Fosite type
-
-    make parallel
-
-Sometimes it's usefull to prevent gfortran from buffering all output to
-the terminal. Otherwise you will probably get the programs informative
-output normally written to standard output (i.e. the terminal) after the
-last MPI process has finished its job. To force fosite to write all
-runtime information directly to standard output set the appropriate
-environment variable
-
-    export GFORTRAN_UNBUFFERED_PRECONNECTED=Y
-
-(bash) or
-
-    setenv GFORTRAN_UNBUFFERED_PRECONNECTED Y
-
-(csh). Remember, this is only necessary if you are using the GNU fortran
-compiler gfortran.
-
-The parallel code of Fosite has been verified to compile with the MPI2
-implementations of the MPI2 standard mpich2 (version 1.0.6, 1.0.8, 1.2.1p1)
-and openmpi (version 1.2.8 & 1.4.2). Others may work too.
-Since version 0.3.2 fosite supports the Fortran 90 module interface for
-MPI. Thus configure searches for the module file mpi.mod. If the module
-file could not be found or isn't working for some reason, configure looks
-for the old mpif.h interface. If fosite does't compile with the module
-interface you can disable this feature:
-
-    ./configure --with-mpi --disable-mpi-module
-
-This is probably necessary if you are using mpich2.
-
-
-# SIMPLE CUSTOMIZATION
-
-Maybe the best way to learn how to customize the code is to take a look
-at the init files in the examples subdirectory. The initialization module
-contains at least 2 subroutines which can be modified by the user.
-
--   InitProgram: set control variables
--   InitData: set initial conditions
-
-For a short description of some control variables take a look at the
-example files. If you want to create your own simulation just copy one
-of the examples to a new file, say init_mysim.f90, modify anything you like
-and compile it as described above.
-
-
-# ADVANCED CUSTOMIZATION
-
-Because of the modular structure of the code it is possible to introduce
-completely new physics with comparatively little effort. Take a look at
-these subdirectories to add new features:
-
-- boundary: add new boundary conditions
-- mesh:     geometry of the mesh
-- fluxes:   flux functions and reconstruction processes
-- physics:  change physical fluxes (i.e eigenvalues of the advection problem)
-- sources:  add new/modify existing source terms
-- io:       add support for new input/output data file formats
-
-According to the OO-design patterns there is a generic module (e.g.
-geometry_generic) for almost any task. These modules can be considered
-as an interface between the basic modules (e.g. geometry_cartesian,
-geometry_polar, etc.) and the program. The data structures related to
-these modules can be found in the subdirectory "common".
-To add a new feature follow these four steps:
-1. Create a new basic module in the particular subdirectory
-   (e.g. geometry_mygeo.f90 in ./mesh) using the existing modules as
-   a template.
-2. Edit the generic module and add a USE instruction with your new module
-   to the header.Then define a new flag as an integer constant
-   (e.g. INTEGER, PARAMETER :: MYGEO = 100) and customize the
-   generic subroutines and functions. There are SELECT .. CASE
-   branch instructions in which the specific routines are called.
-3. Modify your initilization file init.f90 to use the new
-   feature (e.g. CALL InitMesh(Mesh,Fluxes,MYGEO,..)).
-4. Rebuild the whole program by doing "make clean" first and then enter "make".
-
-
-# DATA OUTPUT AND FILE FORMATS
-
-## Plain ASCII output
-
-The data is written in columns with the coordinates in the first
-(1D) and second (2D) column followed by the data, i.e. density
-velocities, etc. depending on the physics module. One line represents
-one data point. If you carry out 2D simulations the data is sub-devided
-into blocks with constant x-coordinate. You can write all time steps into
-one data file setting filecycles=0 when calling the InitFileIO subroutine
-or each time step into its own file (count=[number of data sets],
-filecycles=[number of data sets + 1]). In the former case the data
-blocks associated with one time step are separated from the next
-data set by an additional line feed (two empty lines instead of one).
-
-You can plot Z against X (and Y) of the ASCII data with gnuplot using
-the (s)plot command in a way similar to 
-
-    (s)plot "datafile.dat" index TIMESTEP with 1:2(:3)
-
-in case of multiple time steps per data file. TIMESTEP has to be an integer value.
-
-
-## Simple binary output
-
-Specification: header - data - bflux - timestamp - data - bflus - timestamp - ....
-- header   : (4 + 10 * sizeof(INTEGER) + 10 * sizeof(REAL) + 4) bytes
-- data     : (4 + sizeof(REAL) * INUM * JNUM * (2+VNUM) + 4) bytes
-- bflux    : (4 + sizeof(REAL) * 4 * VNUM + 4) bytes
-- timestamp: (4 + sizeof(REAL) + 4) bytes
-- the leading and trailing 4 bytes are caused by the Fortran output
-
-Example:
-- Physics: Euler3D -> VNUM=5; Mesh: 200x350;
-- compiled with AUTODOUBLE -> sizeof(REAL)=8, sizeof(INTEGER)=4
-- header   : 4+40+80+4 = 128 bytes
-- data     : 4+8*200*350*7+4=3920008 bytes
-- first data set starts at 128+4 = 132 bytes
-- bflux    : 4+8*4*5+4 = 168 bytes
-- timestamp: 4+8+4 = 16 bytes
-
-You can plot Z against X (and Y) with gnuplot using the binary
-format specifier of the (s)plot command:
-
-    (s)plot "FILENAME" binary \
-       skip=sizeof(HEADER+4)+timestep*sizeof(DATA+BFLUX+TIMESTAMP) \
-       record=INUMxJNUM format="FORMATSTRING" using X(:Y):Z
-
-where FORMATSTRING is %f*(2+VNUM) or %lf*(2+VNUM) for double precision data.
-For example if you want to plot the 23rd timestep of the above mentioned data
-file type:
-
-     iter = 23
-     splot "datafile.bin" binary skip=132 + iter * (3920008+168+16) \
-        record=200x350 format="%lf%lf%lf%lf%lf%lf%lf" u 1:2:3
-
-_REMARK_: gnuplot version 4.4x has a new syntax for specifying the record dimensions:
-You should type "record=(INUM,JNUM)" instead of "record=INUMxJNUM".
-
-
-## Output with VTK on NEC SX8/SX9
-
-VTK needs a C-conformable output without the Fortran specific leading and
-trailing bytes with size information for each data record. Thus the compiler
-has to support Fortran streams as described in the Fortran 2003 standard. In
-case of the NEC SX8/SX9 computers this is not the case, but it is possible to
-disable the output of these additional bytes for each output unit designated
-for VTK by setting an runtime environment variable:
-
-    export F_NORCW=UNITNUMBER
-
-In addition one has to specify a distinct unit number for these output modules
-in the initialization file init.f90
-
-    CALL InitFileIO(..., unit = UNITNUMBER,...)
-
-in your init.f90 file. UNITNUMBER must be an integer. Ensure, that this unit
-number is unique. (save way: UNITNUMBER > 1000)
-
-
-## NetCDF output
-
-NetCDF I/O is disabled by default. If you want fosite to compile the
-NetCDF I/O modules, you can enable NetCDF by typing
-
-    ./configure --with-netcdf
-
-If your NetCDF installation is in a non-standard directory, you can give the
-configure script a hint where to find it:
-
-    ./configure --with-netcdf=[NETCDFDIR]
-
-where NETCDFDIR is the root directory of your NetCDF installation. The
-configure script looks for NetCDF libraries in $NETCDFDIR/lib. A working
-Fortran 90 module file is required and should be in $NETCDFDIR/include or
-in a standard directory like /usr/include.
-The parallel version of fosite can do parallel I/O if NetCDF has been
-compiled with parallel I/O support. Check if your NetCDF installation
-is linked against the HDF5 library which is necessary for parallel
-NetCDF I/O. To enable this feature in fosite, you need to configure both
-MPI and HDF5 support:
-
-    ./configure --with-mpi --with-hdf5
-
-You may also give configure a hint where find your MPI and HDF5 installation
-(see Sec. 3).
 
 ----------------------------------------------------------------------
 The code is distributed under the GNU General Public License - see the
 accompanying LICENSE file for more details. So feel free to experiment
 with this.
 
-Copyright (C) 2006-2014
-Tobias Illenseer <tillense@astrophysik.uni-kiel.de>
-Manuel Jung <mjung@astrophysik.uni-kiel.de>
+<span class="glyphicon glyphicon-copyright-mark"></span> 2006-2017 \n
+Tobias Illenseer <tillense@astrophysik.uni-kiel.de> \n
+Manuel Jung <manuel.jung@hs.uni-hamburg.de> \n
+Jannes Klee <jklee@astrophysik.uni-kiel.de> \n
 
 */

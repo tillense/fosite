@@ -1,0 +1,34 @@
+/*! \page advanced_custom Advanced Customization
+
+Because of the modular structure of the code it is possible to introduce
+completely new physics with comparatively little effort. Take a look at
+these subdirectories to add new features:
+
+- boundary: add new boundary conditions
+- mesh:     geometry of the mesh
+- fluxes:   flux functions and reconstruction processes
+- physics:  change physical fluxes (i.e eigenvalues of the advection problem)
+- sources:  add new/modify existing source terms
+- io:       add support for new input/output data file formats
+
+According to the OO-design patterns there is a generic module (e.g.
+geometry_generic) for almost any task. These modules can be considered
+as an interface between the basic modules (e.g. geometry_cartesian,
+geometry_polar, etc.) and the program. The data structures related to
+these modules can be found in the subdirectory "common".
+To add a new feature follow these four steps:
+1. Create a new basic module in the particular subdirectory
+   (e.g. geometry_mygeo.f90 in ./mesh) using the existing modules as
+   a template.
+2. Edit the generic module and add a USE instruction with your new module
+   to the header.Then define a new flag as an integer constant
+   (e.g. INTEGER, PARAMETER :: MYGEO = 100) and customize the
+   generic subroutines and functions. There are SELECT .. CASE
+   branch instructions in which the specific routines are called.
+3. Add the new file to the local Makefile.am.
+4. Modify your initilization file init.f90 to use the new
+   feature (e.g. CALL InitMesh(Mesh,Fluxes,MYGEO,..)).
+5. Rebuild the whole program by doing "make clean" first.
+   Run "./bootstrap", "./configure" and "make" afterwards.
+
+*/

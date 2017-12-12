@@ -4,6 +4,7 @@ cmake_minimum_required (VERSION 2.8.10)
 project (FOSITE NONE)
 enable_language (Fortran)
 enable_testing()
+
 # make sure that the default is a RELEASE
 if (NOT CMAKE_BUILD_TYPE)
   set (CMAKE_BUILD_TYPE RELEASE CACHE STRING
@@ -17,6 +18,7 @@ set (CMAKE_INSTALL_PREFIX ${default_prefix} CACHE STRING
       "Choose the installation directory; by default it installs in the build directory."
       FORCE)
 
+#-------------------- choose compiler & set flags ---------------------#
 # FFLAGS depend on the compiler
 get_filename_component (Fortran_COMPILER_NAME ${CMAKE_Fortran_COMPILER} NAME)
 
@@ -50,7 +52,7 @@ else (Fortran_COMPILER_NAME MATCHES "gfortran.*")
   set (CMAKE_Fortran_FLAGS_DEBUG   "-O0 -g")
 endif (Fortran_COMPILER_NAME MATCHES "(.*)gfortran")
 
-
+#------------ set includes (which files to compile) ---------------------------#
 # build executables
 set (LIBDIRS numtools common boundary fluxes io mesh physics sources timedisc)
 
@@ -77,6 +79,46 @@ target_link_libraries(fosite ${LIBDIRS})
 
 #add_subdirectory(examples)
 add_subdirectory(tests)
+
+#--------------------- doxygen documentation ----------------------------------#
+option(BUILD_DOC "Build documentation" ON)
+
+find_package(Doxygen)
+if(DOXYGEN_FOUND)
+  set(DOXYGEN_IN ${CMAKE_CURRENT_SOURCE_DIR}/doc/Doxyfile.in)
+  set(DOXYGEN_OUT ${CMAKE_CURRENT_BINARY_DIR}/doc/Doxyfile)
+
+  # a quite clumpsy way to replace the placeholders in the doxygen document in
+  # the right way but it was the fastest I found
+  # 1. use glob (generates a list with ; as deliminter which doxygen cannot read)
+  # 2. generate new custom string with every element in new line with \ at end
+  FILE(GLOB htmllist ${CMAKE_CURRENT_SOURCE_DIR}/doc/html/*.html)
+  foreach(line IN LISTS htmllist)
+    string(APPEND htmlplaceholder "${line} \\ \n")
+  endforeach()
+  FILE(GLOB jslist ${CMAKE_CURRENT_SOURCE_DIR}/doc/html/js/*.js)
+  foreach(line IN LISTS jslist)
+    string(APPEND jsplaceholder "${line} \\ \n")
+  endforeach()
+  FILE(GLOB fontlist ${CMAKE_CURRENT_SOURCE_DIR}/doc/html/fonts/*)
+  foreach(line IN LISTS fontlist)
+    string(APPEND fontplaceholder "${line} \\ \n")
+  endforeach()
+
+  # copy doxygen file and replace all @strings@ within Doxygen.in
+  configure_file(${DOXYGEN_IN} ${DOXYGEN_OUT} @ONLY)
+
+  # add target "make doc"
+  add_custom_target(doc
+    # main command "doxygen Doxyfile" to run doxygen
+    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/doc
+    COMMENT "Generating API documentation with Doxygen"
+
+    COMMAND ${DOXYGEN_EXECUTABLE} ${DOXYGEN_OUT}
+    COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/doc/adjust_names.sh ${CMAKE_CURRENT_BINARY_DIR}
+
+    VERBATIM)
+endif(DOXYGEN_FOUND)
 
 # install executables and scripts
 #install (TARGETS ${EXECUTABLES} 

@@ -1,0 +1,90 @@
+/*! \page installation Configuration & Installation
+
+## Compiling the Serial Version
+
+Although all source files have the extension .f90 the code uses some
+FORTRAN 95 and in some circumstances even FORTRAN 2003 extensions.
+To customize the build process enter the directory with the source code
+and run
+
+    ./configure
+
+For a list of command line arguments of the configure script type
+
+    ./configure --help
+
+The configure-script should find and set the variables FC, FCFLAGS and LDFLAGS.
+FC should point to your Fortran 95 compiler and FCFLAGS should contain some
+appropriate command line arguments for the compile command.
+These variables can be manually set by typing
+
+    ./configure FC=[your compiler]
+
+[your compiler] can be sxf90, ifort, g95, mpif90, gfortran, etc.
+Then type
+
+    make
+
+at the command line to build the fosite library and all example simulations
+in the examples subdirectory (add flag -j to compile on multiple cores).
+These are just executable programs linked against
+the fosite library. The default behaviour of the build process is to compile
+all examples. To run a simulation you simply have to enter the name of the binary
+executable
+
+    tests/gauss2d
+
+at the command line. The simulation data is written to a file in the current
+working directory by default.
+
+Hint: It is also possible to run the program in another folder. This can be
+achieved by navigating to the configure file. One example would be to create
+a new folder with "mkdir build" within the Fosite folder, then "cd build"
+and finally run "../configure". The rest stays the same.
+
+
+The code has been verified to compile with the Intel(R) Fortran Compiler
+(vers. 8.x,  9.x, 11.x), GNU fortran compiler (vers. 4.7, 4.8),
+g95 (vers. 4.0.3) on various Linux boxes and NEC sxf90 (Rev.360 2006/11/30 and
+Rev.410 2010/02/01) cross compiler for NEC SX-8/SX-9/Ace vector supercomputers.
+If the program aborts immediately after initialization with a segmentation fault,
+try to increase the stack size (ulimit -s unlimited).
+
+
+## Compiling the Parallel Version
+
+The parallel version of fosite uses the message passing interface version 2
+(MPI2). To compile the parallelized code you have to install an implementation
+of MPI2, e.g. mpich2 (http://www.mcs.anl.gov/research/projects/mpich2) and run
+
+    ./configure --with-mpi
+
+If the MPI2 libraries have been installed into a non-standard directory you may
+specify it as an additional parameter:
+
+    ./configure --with-mpi=[MPI_DIR]
+
+where [MPI_DIR] is the MPI2 installation directory. Finally build your version
+with
+
+    make parallel
+
+To run the program in parallel you need to use the command
+
+    mpirun -n X programname
+
+where X is the number of cores that should be used. In the standard output
+the partitioning can be checked at "MESH-----> MPI partitioning: X1:X2" where
+X1*X2 should be equal to X.
+
+The parallel code of Fosite has been verified to compile with the MPI2
+implementations of the MPI2 standard mpich2 (version 1.0.6, 1.0.8, 1.2.1p1)
+and openmpi (version 1.2.8 & 1.4.2). Others may work too.
+
+
+## Problems during Installation
+
+If you run into any problems during installation do not hesitate to [contact
+us](contact.html).
+
+*/

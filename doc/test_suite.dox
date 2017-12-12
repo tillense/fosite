@@ -1,0 +1,12 @@
+/*! \page test_framework Run the testing framework
+
+The testing framework is based on the [Test Anyting Protocol]
+(http://testanything.org/). The tests are stored in the eponymous
+folder. In order to run them type in:
+
+    make check
+
+The tests can be run on multiple cores with the additional flag -j.
+Testing in parallel executation is however not implemented yet.
+
+*/
