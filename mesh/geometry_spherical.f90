@@ -28,6 +28,8 @@
 !!
 !! \brief define properties of a 2D polar mesh
 !!
+!!
+!!
 !! \extends geometry_cartesian
 !! \ingroup geometry
 !----------------------------------------------------------------------------!
@@ -97,7 +99,7 @@ CONTAINS
     REAL, INTENT(IN)  :: xi,eta,phi
     REAL, INTENT(OUT) :: x,y,z
     !------------------------------------------------------------------------!
-    CALL this%Radius_0(xi,eta,phi,x) !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    CALL this%Radius_0(xi,eta,phi,x)
     y = 0.0
     z = 0.0
   END SUBROUTINE PositionVector_0
@@ -162,5 +164,5 @@ CONTAINS
     !------------------------------------------------------------------------!
     CALL this%FinalizeGeometry()
   END SUBROUTINE Finalize
-  
+
 END MODULE geometry_spherical_mod

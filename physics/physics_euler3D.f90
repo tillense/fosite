@@ -361,7 +361,7 @@ CONTAINS
 
 
   !> Calculate Fluxes in x-direction
-  !TODO: NOT VERIFIED
+  !\todo NOT VERIFIED
   PURE SUBROUTINE CalcFluxesX(this,Mesh,nmin,nmax,prim,cons,xfluxes)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
@@ -386,7 +386,7 @@ CONTAINS
 
 
   !> Calculate Fluxes in y-direction
-  !TODO: NOT VERIFIED
+  !\todo NOT VERIFIED
   PURE SUBROUTINE CalcFluxesY(this,Mesh,nmin,nmax,prim,cons,yfluxes)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
@@ -411,7 +411,7 @@ CONTAINS
 
 
   !> Calculate Fluxes in z-direction
-  !TODO: NOT VERIFIED
+  !\todo NOT VERIFIED
   PURE SUBROUTINE CalcFluxesZ(this,Mesh,nmin,nmax,prim,cons,zfluxes)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
@@ -440,7 +440,7 @@ CONTAINS
   END SUBROUTINE CalcFluxesZ
 
   !> Reconstruction of the intermediate state for HLLC
-  !TODO: NOT VERIFIED
+  !\todo NOT VERIFIED
   PURE SUBROUTINE CalcIntermediateStateX(this,Mesh,prim,cons, &
                   amin,amax,cstar,astar)
     IMPLICIT NONE
@@ -485,7 +485,7 @@ CONTAINS
 
 
   !> Reconstruction of the intermediate state for HLLC
-  !TODO: NOT VERIFIED
+  !\todo NOT VERIFIED
   PURE SUBROUTINE CalcIntermediateStateY(this,Mesh,prim,cons, &
                   bmin,bmax,cstar,bstar)
     IMPLICIT NONE
@@ -531,7 +531,7 @@ CONTAINS
 
 
   !> Reconstruction of the intermediate state for HLLC
-  !TODO: NOT VERIFIED
+  !\todo NOT VERIFIED
   PURE SUBROUTINE CalcIntermediateStateZ(this,Mesh,prim,cons, &
                   cmin,cmax,cstar,bstar)
     IMPLICIT NONE
@@ -577,7 +577,7 @@ CONTAINS
 
 
 !  !> Characteristic variables for absorbing boundary conditions
-!  !TODO: NOT VERIFIED
+!  !\todo NOT VERIFIED
 !  PURE SUBROUTINE CalcCharSystemX(this,Mesh,i,dir,pvar,lambda,xvar)
 !    IMPLICIT NONE
 !    !------------------------------------------------------------------------!
@@ -635,7 +635,7 @@ CONTAINS
 !
 !
 !  !> Characteristic variables for absorbing boundary conditions
-!  !TODO: NOT VERIFIED
+!  !\todo NOT VERIFIED
 !  PURE SUBROUTINE CalcCharSystemY(this,Mesh,j,dir,pvar,lambda,xvar)
 !    IMPLICIT NONE
 !    !------------------------------------------------------------------------!
@@ -693,7 +693,7 @@ CONTAINS
 !
 !
 !  !> Characteristic variables for absorbing boundary conditions
-!  !TODO: NOT VERIFIED
+!  !\todo NOT VERIFIED
 !  PURE SUBROUTINE CalcCharSystemZ(this,Mesh,k,dir,pvar,lambda,xvar)
 !    IMPLICIT NONE
 !    !------------------------------------------------------------------------!
@@ -751,7 +751,7 @@ CONTAINS
 !
 !
 !  !> Calculate boundary data for absorbing boundaries
-!  !TODO: NOT VERIFIED
+!  !\todo NOT VERIFIED
 !  PURE SUBROUTINE CalcBoundaryDataX(this,Mesh,i1,dir,xvar,pvar)
 !    IMPLICIT NONE
 !    !------------------------------------------------------------------------!
@@ -789,7 +789,7 @@ CONTAINS
 !
 !
 !  !> Calculate boundary data for absorbing boundaries
-!  !TODO: NOT VERIFIED
+!  !\todo NOT VERIFIED
 !  PURE SUBROUTINE CalcBoundaryDataY(this,Mesh,j1,dir,xvar,pvar)
 !    IMPLICIT NONE
 !    !------------------------------------------------------------------------!
@@ -827,7 +827,7 @@ CONTAINS
 !
 !
 !  !> Calculate boundary data for absorbing boundaries
-!  !TODO: NOT VERIFIED
+!  !\todo NOT VERIFIED
 !  PURE SUBROUTINE CalcBoundaryDataZ(this,Mesh,k1,dir,xvar,pvar)
 !    IMPLICIT NONE
 !    !------------------------------------------------------------------------!
@@ -865,7 +865,7 @@ CONTAINS
 
 
 !  !> Conversion from primitive to riemann invariants for farfield boundaries
-!  !TODO: NOT VERIFIED
+!  !\todo NOT VERIFIED
 !  PURE SUBROUTINE CalcPrim2RiemannX(this,Mesh,i,pvar,lambda,Rinv)
 !    IMPLICIT NONE
 !    !------------------------------------------------------------------------!
@@ -915,7 +915,7 @@ CONTAINS
 !
 !
 !  !> Conversion from primitive to riemann invariants for farfield boundaries
-!  !TODO: NOT VERIFIED
+!  !\todo NOT VERIFIED
 !  PURE SUBROUTINE CalcPrim2RiemannY(this,Mesh,j,pvar,lambda,Rinv)
 !    IMPLICIT NONE
 !    !------------------------------------------------------------------------!
@@ -965,7 +965,7 @@ CONTAINS
 !
 !
 !  !> Conversion from primitive to riemann invariants for farfield boundaries
-!  !TODO: NOT VERIFIED
+!  !\todo NOT VERIFIED
 !  PURE SUBROUTINE CalcPrim2RiemannZ(this,Mesh,k,pvar,lambda,Rinv)
 !    IMPLICIT NONE
 !    !------------------------------------------------------------------------!
@@ -1015,7 +1015,7 @@ CONTAINS
 !
 !
 !  !> Convert Riemann invariants to primitives for farfield boundaries
-!  !TODO: NOT VERIFIED
+!  !\todo NOT VERIFIED
 !  PURE SUBROUTINE CalcRiemann2PrimX(this,Mesh,i,Rinv,pvar)
 !    IMPLICIT NONE
 !    !------------------------------------------------------------------------!
@@ -1045,7 +1045,7 @@ CONTAINS
 !
 !
 !  !> Convert Riemann invariants to primitives for farfield boundaries
-!  !TODO: NOT VERIFIED
+!  !\todo NOT VERIFIED
 !  PURE SUBROUTINE CalcRiemann2PrimY(this,Mesh,j,Rinv,pvar)
 !    IMPLICIT NONE
 !    !------------------------------------------------------------------------!
@@ -1075,7 +1075,7 @@ CONTAINS
 !
 !
 !  !> Convert Riemann invariants to primitives for farfield boundaries
-!  !TODO: NOT VERIFIED
+!  !\todo NOT VERIFIED
 !  PURE SUBROUTINE CalcRiemann2PrimZ(this,Mesh,k,Rinv,pvar)
 !    IMPLICIT NONE
 !    !------------------------------------------------------------------------!
@@ -1104,7 +1104,7 @@ CONTAINS
 !  END SUBROUTINE CalcRiemann2PrimZ
 
 
-  ! TODO: HIER BLICKE ICH NICHT DURCH!!! HIER FEHLEN SICHERLICH FAKTOREN
+  ! \todo HIER BLICKE ICH NICHT DURCH!!! HIER FEHLEN SICHERLICH FAKTOREN
   !> Calculate geometrical sources at the center
   PURE SUBROUTINE GeometricalSources_center(this,Mesh,pvar,cvar,sterm)
     IMPLICIT NONE
@@ -1526,7 +1526,7 @@ CONTAINS
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%NFACES,this%VNUM), &
                             INTENT(OUT) :: cons
     !------------------------------------------------------------------------!
-    !TODO: Is direct call ok?
+    !\todo Is direct call ok?
     CALL Prim2Cons(this%gamma, &
          prim(i1:i2,j1:j2,k1:k2,:,this%DENSITY), &
          prim(i1:i2,j1:j2,k1:k2,:,this%XVELOCITY), &
@@ -1649,7 +1649,7 @@ CONTAINS
     reflZ(this%PRESSURE)  = .FALSE.
   END SUBROUTINE ReflectionMasks
 
-  ! TODO: \warning not clear since 3D version if this is correct. Most probably
+  ! \todo \warning not clear since 3D version if this is correct. Most probably
   ! axis boundaries can be applied always in two dimensions. Now only x-y plane
   PURE SUBROUTINE AxisMasks(this,reflX,reflY,reflZ)
     IMPLICIT NONE
@@ -1735,7 +1735,7 @@ CONTAINS
     cs = SQRT(MAX(2.0*TINY(cs),gamma*pressure/density))
   END FUNCTION GetSoundSpeed
 
-  !> TODO: NOT VERIFIED
+  !> \todo NOT VERIFIED
   !! only for advanced wavespeeds
   ELEMENTAL SUBROUTINE SetRoeAverages(gamma,rhoL,rhoR,ul,uR,vL,vR,wl,wR,pL,pR,eL,eR,u,cs)
     IMPLICIT NONE
@@ -1761,7 +1761,7 @@ CONTAINS
     cs = SQRT((gamma-1.)*(h-0.5*(u**2+v**2+w**2)))
   END SUBROUTINE SetRoeAverages
 
-  !> TODO: NOT VERIFIED
+  !> \todo NOT VERIFIED
   !! only for boundary conditions - absorbing
 !  ELEMENTAL SUBROUTINE SetEigenValues(gamma,rho,v,P,l1,l2,l3,l4,l5)
 !    IMPLICIT NONE
@@ -1782,7 +1782,7 @@ CONTAINS
 !    l4 = v
 !  END SUBROUTINE SetEigenValues
 
-  ! TODO: CHECK IF RIGHT SINCE 3D
+  ! \todo CHECK IF RIGHT SINCE 3D
   !! only for HLLC fluxes
   ELEMENTAL SUBROUTINE SetIntermediateState(rhoL,rhoR,uL,uR,vl,vR,wL,wR,&
        pL,pR,eL,eR,amin,amax,rho,mu,mv,mw,e,a)
@@ -1815,7 +1815,7 @@ CONTAINS
     END IF
   END SUBROUTINE SetIntermediateState
 
-  ! TODO: CHECK IF RIGHT SINCE 3D
+  ! \todo CHECK IF RIGHT SINCE 3D
   !! only for absorbing boundary conditions
   ELEMENTAL SUBROUTINE SetCharVars(gamma,rho1,rho2,u1,u2,v1,v2,w1,w2,P1,P2, &
        l1,l2,l3,l4,l5,xvar1,xvar2,xvar3,xvar4,xvar5)
@@ -1836,7 +1836,7 @@ CONTAINS
     xvar4 = dlnP + gamcs * du
   END SUBROUTINE SetCharVars
 
-  ! TODO: CHECK IF  RIGHT SINCE 3D
+  ! \todo CHECK IF  RIGHT SINCE 3D
   !! only for absorbing boundary conditions
   ELEMENTAL SUBROUTINE SetBoundaryData(gamma,dir,rho1,u1,v1,w1,P1,xvar1, &
        xvar2,xvar3,xvar4,xvar5,rho2,u2,v2,w2,P2)
@@ -1857,7 +1857,7 @@ CONTAINS
     v2   = v1 + dir*xvar3
   END SUBROUTINE SetBoundaryData
 
-  ! TODO: CHEKC IF RIGHT SINCE 3D
+  ! \todo CHEKC IF RIGHT SINCE 3D
   !! only for farfield boundary conditions
   ELEMENTAL SUBROUTINE Prim2Riemann(gamma,rho,vx,vy,vz,p,&
                                         l1,l2,l3,l4,l5,Rminus,Rs,Rvt,Rwt,Rplus)
@@ -1880,7 +1880,7 @@ CONTAINS
     Rwt = vz
   END SUBROUTINE Prim2Riemann
 
-  ! TODO: CHEKC IF RIGHT SINCE 3D
+  ! \todo CHEKC IF RIGHT SINCE 3D
   !! only for farfield boundary conditions
   ELEMENTAL SUBROUTINE Riemann2Prim(gamma,Rminus,Rs,Rvt,Rwt,Rplus,&
        rho,vx,vy,vz,p)
@@ -1904,7 +1904,7 @@ CONTAINS
     p = cs2gam * rho
   END SUBROUTINE Riemann2Prim
 
-  !> TODO: NOT VERIFIED
+  !> \todo NOT VERIFIED
   ELEMENTAL SUBROUTINE SetFlux(rho,v,P,m1,m2,m3,E,f1,f2,f3,f4,f5)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
@@ -1918,7 +1918,7 @@ CONTAINS
     f5 = (E+P)*v
   END SUBROUTINE SetFlux
 
-  !> TODO: NOT VERIFIED
+  !> \todo NOT VERIFIED
   ELEMENTAL SUBROUTINE Cons2Prim(gamma,rho_in,mu,mv,mw,E,rho_out,u,v,w,P)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
@@ -1935,7 +1935,7 @@ CONTAINS
     P = (gamma-1.)*(E - 0.5 * inv_rho * (mu*mu+mv*mv+mw*mw))
   END SUBROUTINE Cons2Prim
 
-  !> TODO: NOT VERIFIED
+  !> \todo NOT VERIFIED
   ELEMENTAL SUBROUTINE Prim2Cons(gamma,rho_in,u,v,w,P,rho_out,mu,mv,mw,E)
     IMPLICIT NONE
     !------------------------------------------------------------------------!

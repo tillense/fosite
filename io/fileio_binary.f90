@@ -61,14 +61,6 @@
 !#endif
 MODULE fileio_binary_mod
   USE fileio_base_mod
-  !USE fileio_gnuplot
-  !USE fileio_vtk, ONLY : OpenFile_vtk
-  !USE geometry_common, ONLY : Geometry_TYP, GetType
-  !USE mesh_common, ONLY : Mesh_TYP
-  !USE mesh_generic, ONLY : BIANGLESPHERICAL
-  !USE physics_common, ONLY : Physics_TYP, GetType
-  !USE timedisc_common, ONLY : Timedisc_TYP
-  !USE fluxes_generic, ONLY : Fluxes_TYP, GetBoundaryFlux
   USE geometry_base_mod
   USE mesh_base_mod
   USE physics_base_mod
