@@ -94,7 +94,7 @@ MODULE physics_euler3Dit_mod
 !    PROCEDURE :: ExternalSources_euler2Dit
 !    PROCEDURE :: FargoSources_euler2Dit
 !    PROCEDURE :: GeometricalSources_faces
-!    PROCEDURE :: AxisMasks
+    PROCEDURE :: AxisMasks
 !    PROCEDURE :: SetEigenValues_euler2Dit
 !    PROCEDURE :: SetBoundaryData_euler3Dit
 !    PROCEDURE :: SetCharVars_euler3Dit
@@ -783,6 +783,34 @@ CONTAINS
     reflZ(this%YVELOCITY) = .FALSE.
     reflZ(this%ZVELOCITY) = .TRUE.
   END SUBROUTINE ReflectionMasks
+
+  ! TODO: \warning not clear since 3D version if this is correct. Most probably
+  ! axis boundaries can be applied always in two dimensions. Now only x-y plane
+  PURE SUBROUTINE AxisMasks(this,reflX,reflY,reflZ)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(physics_euler3Dit), INTENT(IN) :: this
+    LOGICAL, DIMENSION(this%VNUM), &
+                            INTENT(OUT) :: reflX,reflY,reflZ
+    !------------------------------------------------------------------------!
+    ! western / eastern boundary
+    reflX(this%DENSITY)   = .FALSE.
+    reflX(this%XVELOCITY) = .TRUE.
+    reflX(this%YVELOCITY) = .TRUE.
+    reflX(this%ZVELOCITY) = .FALSE.
+    ! southern / northern boundary
+    reflY(this%DENSITY)   = .FALSE.
+    reflY(this%XVELOCITY) = .TRUE.
+    reflY(this%YVELOCITY) = .TRUE.
+    reflY(this%ZVELOCITY) = .FALSE.
+    ! bottomer / topper boundary
+    reflZ(this%DENSITY)   = .FALSE.
+    reflZ(this%XVELOCITY) = .FALSE.
+    reflZ(this%YVELOCITY) = .FALSE.
+    reflZ(this%ZVELOCITY) = .FALSE.
+  END SUBROUTINE AxisMasks
+
+
 
   !> Set fluxes
   !!

@@ -97,7 +97,7 @@ MODULE physics_euler3D_mod
 !    PROCEDURE :: CalcRiemann2PrimX        ! for farfield boundaries
 !    PROCEDURE :: CalcRiemann2PrimY        ! for farfield boundaries
 !    PROCEDURE :: CalcRiemann2PrimZ        ! for farfield boundaries
-!    PROCEDURE :: AxisMasks                 ! for axis boundaries
+    PROCEDURE :: AxisMasks                 ! for axis boundaries
 !    PROCEDURE :: GeometricalSources_faces
 !    PROCEDURE :: ViscositySources
 
@@ -1666,16 +1666,16 @@ CONTAINS
     reflX(this%PRESSURE)  = .FALSE.
     ! southern / northern boundary
     reflY(this%DENSITY)   = .FALSE.
-    reflY(this%XVELOCITY) = .TRUE.
+    reflY(this%XVELOCITY) = .FALSE.        !old: .TRUE.
     reflY(this%YVELOCITY) = .TRUE.
     reflY(this%ZVELOCITY) = .FALSE.
     reflY(this%PRESSURE)  = .FALSE.
     ! bottomer / topper boundary
-    reflY(this%DENSITY)   = .FALSE.
-    reflY(this%XVELOCITY) = .FALSE.
-    reflY(this%YVELOCITY) = .FALSE.
-    reflY(this%ZVELOCITY) = .FALSE.
-    reflY(this%PRESSURE)  = .FALSE.
+    reflZ(this%DENSITY)   = .FALSE.
+    reflZ(this%XVELOCITY) = .FALSE.
+    reflZ(this%YVELOCITY) = .FALSE.
+    reflZ(this%ZVELOCITY) = .FALSE.
+    reflZ(this%PRESSURE)  = .FALSE.
   END SUBROUTINE AxisMasks
 
   PURE SUBROUTINE UpdateSoundSpeed_center(this,Mesh,pvar)

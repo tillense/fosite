@@ -1,5 +1,5 @@
 add_library(boundary 
-#  boundary_axis.f90
+  boundary_axis.f90
   boundary_nogradients.f90
 #  boundary_farfield.f90
 #  boundary_custom.f90

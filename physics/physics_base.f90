@@ -166,7 +166,7 @@ MODULE physics_base_mod
 !   PROCEDURE ::  ViscositySources
 !   PROCEDURE ::  SGSSources
 !   PROCEDURE ::  CalculateSGSTensor
-!   PROCEDURE (MASKS), DEFERRED :: AxisMasks
+   PROCEDURE (MASKS), DEFERRED :: AxisMasks
 !   PROCEDURE :: GetSoundSpeed_adiabatic
 
     PROCEDURE :: FinalizePhysics

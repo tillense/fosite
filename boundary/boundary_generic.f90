@@ -45,6 +45,7 @@ MODULE boundary_generic_mod
   USE boundary_reflecting_mod
   USE boundary_nogradients_mod
   USE boundary_periodic_mod
+  USE boundary_axis_mod
   USE physics_base_mod
   USE common_dict
 #ifdef PARALLEL
@@ -163,6 +164,8 @@ CONTAINS
         ALLOCATE(boundary_nogradients::this%Boundary(dir)%p)
       CASE(PERIODIC)
         ALLOCATE(boundary_periodic::this%Boundary(dir)%p)
+      CASE(AXIS)
+        ALLOCATE(boundary_axis::this%Boundary(dir)%p)
       CASE DEFAULT
         CALL this%Error("new_boundary","Unkown boundary type.")
       END SELECT
@@ -173,6 +176,8 @@ CONTAINS
         CALL obj%InitBoundary_nogradients(Mesh,Physics,dir,config)
       TYPE IS (boundary_periodic)
         CALL obj%InitBoundary_periodic(Mesh,Physics,dir,config)
+      TYPE IS (boundary_axis)
+        CALL obj%InitBoundary_axis(Mesh,Physics,dir,config)
       END SELECT
     END DO
 
