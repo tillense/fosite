@@ -55,7 +55,7 @@ PROGRAM gauss3d
   REAL, PARAMETER     :: R0       = 0.0      ! radial position
   REAL, PARAMETER     :: Z0       = 0.0      ! vertical position
   ! mesh settings
-  INTEGER, PARAMETER  :: MGEO     = CARTESIAN! geometry
+  INTEGER, PARAMETER  :: MGEO     = CYLINDRICAL! geometry
   INTEGER, PARAMETER  :: XRES     = 10       ! x-resolution
   INTEGER, PARAMETER  :: YRES     = 10       ! y-resolution
   INTEGER, PARAMETER  :: ZRES     = 10       ! z-resolution
@@ -113,6 +113,19 @@ CONTAINS
        y2         =  0.5
        z1         = -0.5
        z2         =  0.5
+       bc(WEST)   = NO_GRADIENTS
+       bc(EAST)   = NO_GRADIENTS
+       bc(SOUTH)  = NO_GRADIENTS
+       bc(NORTH)  = NO_GRADIENTS
+       bc(BOTTOM) = NO_GRADIENTS
+       bc(TOP)    = NO_GRADIENTS
+    CASE(CYLINDRICAL)
+       x1 = -0.5
+       x2 =  0.5
+       y1 =  0.0
+       y2 = 2*PI
+       z1 = -0.5
+       z2 =  0.5
        bc(WEST)   = NO_GRADIENTS
        bc(EAST)   = NO_GRADIENTS
        bc(SOUTH)  = NO_GRADIENTS

@@ -55,8 +55,9 @@ PROGRAM vortex3d
   REAL, PARAMETER    :: OMEGA   = 0.0      ! angular speed of rotational frame
                                            ! around [X0,Y0]
   ! mesh settings
-  INTEGER, PARAMETER :: MGEO = CARTESIAN   ! geometry
+!!$  INTEGER, PARAMETER :: MGEO = CARTESIAN   ! geometry
 !!$  INTEGER, PARAMETER :: MGEO = POLAR
+  INTEGER, PARAMETER :: MGEO = CYLINDRICAL
 !!$  INTEGER, PARAMETER :: MGEO = LOGPOLAR
 !!$  INTEGER, PARAMETER :: MGEO = TANPOLAR
 !!$  INTEGER, PARAMETER :: MGEO = SINHPOLAR
@@ -165,7 +166,7 @@ CONTAINS
        y1 = 0.0
        y2 = 2.0*PI
     CASE DEFAULT
-       CALL Sim%Error("InitProgram","mesh geometry not supported for 2D isentropic vortex")
+       CALL Sim%Error("InitProgram","mesh geometry not supported for 3D isentropic vortex")
     END SELECT
 
     !mesh settings
@@ -194,8 +195,15 @@ CONTAINS
        bc(NORTH)  = NO_GRADIENTS
        bc(BOTTOM) = NO_GRADIENTS
        bc(TOP)    = NO_GRADIENTS
+    CASE(CYLINDRICAL)
+       bc(WEST)   = NO_GRADIENTS
+       bc(EAST)   = NO_GRADIENTS
+       bc(SOUTH)  = NO_GRADIENTS
+       bc(NORTH)  = NO_GRADIENTS
+       bc(BOTTOM) = NO_GRADIENTS
+       bc(TOP)    = NO_GRADIENTS
     CASE DEFAULT
-       CALL Sim%Error("InitProgram","mesh geometry not supported for 2D isentropic vortex")
+       CALL Sim%Error("InitProgram","mesh geometry not supported for 3D isentropic vortex")
     END SELECT
 
     ! boundary conditions
@@ -205,7 +213,7 @@ CONTAINS
                 "southern"  / bc(SOUTH), &
                 "northern"  / bc(NORTH), &
                 "bottomer"  / bc(BOTTOM), &
-                "topper"       / bc(TOP))
+                "topper"    / bc(TOP))
 
     ! physics settings
     IF (CSISO.GT.TINY(CSISO)) THEN

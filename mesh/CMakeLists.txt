@@ -1,11 +1,10 @@
 add_library(mesh 
   #mesh_trapezoidal.f90
   #geometry_channel.f90
-  #geometry_cylindrical.f90
+  geometry_cylindrical.f90
   geometry_spherical.f90
   mesh_base.f90
   #geometry_oblatespheroidal.f90
-  #geometry_polar.f90
   geometry_cartesian.f90
   #geometry_sinhpolar.f90
   mesh_midpoint.f90

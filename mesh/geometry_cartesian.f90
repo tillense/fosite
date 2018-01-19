@@ -162,5 +162,5 @@ CONTAINS
     !------------------------------------------------------------------------!
     CALL this%FinalizeGeometry()
   END SUBROUTINE Finalize
-  
+
 END MODULE geometry_cartesian_mod

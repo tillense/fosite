@@ -173,8 +173,8 @@ CONTAINS
                "eastern"  / PERIODIC, &
                "southern" / PERIODIC, &
                "northern" / PERIODIC, &
-               "bottomer"   / PERIODIC, &
-               "topper"      / PERIODIC  &
+               "bottomer" / PERIODIC, &
+               "topper"   / PERIODIC  &
     )
 
     NULLIFY(sources)

@@ -18,7 +18,6 @@ set (EXES
   sedov3d
 #  specialfunctions
 #  vortex2d
-#   vortex2d3d
   vortex3d
 )
 foreach (p ${EXES})

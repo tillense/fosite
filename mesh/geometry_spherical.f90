@@ -152,9 +152,12 @@ CONTAINS
     REAL, INTENT(IN)  :: xi,eta,phi,vx,vy,vz
     REAL, INTENT(OUT) :: vxi,veta,vphi
     !------------------------------------------------------------------------!
-    vxi  =  (vx * COS(eta) + vy * SIN(eta)) * COS(phi) + vz * SIN(phi)
-    veta = -(vx * COS(eta) + vy * SIN(eta)) * SIN(phi) + vz * COS(phi)
-    vphi = - vx * SIN(eta) + vy * COS(eta)
+!    vxi  =  (vx * COS(eta) + vy * SIN(eta)) * COS(phi) + vz * SIN(phi)
+!    veta = -(vx * COS(eta) + vy * SIN(eta)) * SIN(phi) + vz * COS(phi)
+!    vphi = - vx * SIN(eta) + vy * COS(eta)
+    vxi  =  (vx * COS(phi) + vy * SIN(phi)) * SIN(eta) + vz * COS(eta)
+    veta =  (vx * COS(phi) + vy * SIN(phi)) * COS(eta) - vz * SIN(eta)
+    vphi = - vx * SIN(phi) + vy * COS(phi)
   END SUBROUTINE Convert2Curvilinear_vectors_0
 
   SUBROUTINE Finalize(this)
