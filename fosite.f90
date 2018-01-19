@@ -43,9 +43,6 @@ MODULE fosite_mod
   USE integration
   USE common_dict
 #ifdef PARALLEL
-  USE common_types, ONLY: DEFAULT_MPI_REAL,DEFAULT_MPI_2REAL
-#endif
-#ifdef PARALLEL
 #ifdef HAVE_MPI_MOD
   USE mpi
 #endif
@@ -74,45 +71,45 @@ MODULE fosite_mod
   !!
   !! This is the basic data structure, which stores all other information
   !! inside of it.
-     !> \name Variables
-     TYPE(Dict_TYP),POINTER :: config => null()    ! global config           !
-     TYPE(Dict_TYP),POINTER :: IO => null()        ! global In-/Output Dict  !
-     CLASS(mesh_base),ALLOCATABLE       :: Mesh
-     CLASS(fluxes_base),ALLOCATABLE     :: Fluxes
-     CLASS(physics_base),ALLOCATABLE    :: Physics
-     CLASS(fileio_base),ALLOCATABLE     :: Datafile
-     CLASS(timedisc_base),ALLOCATABLE   :: Timedisc
-     CLASS(fileio_base),ALLOCATABLE     :: Logfile
-     CLASS(sources_base), POINTER &
-                            :: Sources => null()     !< list of source terms
-     INTEGER                :: iter
-     LOGICAL                :: break
-     DOUBLE PRECISION       :: wall_time           ! wall clock elapsed time !
-     DOUBLE PRECISION       :: log_time            ! time for next log output!
-     DOUBLE PRECISION       :: start_time          ! system clock start time !
-     DOUBLE PRECISION       :: end_time            ! system clock end time   !
-     DOUBLE PRECISION       :: run_time            ! = end_time - start_time !
-     INTEGER                :: start_count         ! system clock count
-     TYPE(Fositestruc_TYP),DIMENSION(:), POINTER &
-                            :: structure           ! structure of variables  !
+  !> \name Variables
+  TYPE(Dict_TYP),POINTER :: config => null()    ! global config           !
+  TYPE(Dict_TYP),POINTER :: IO => null()        ! global In-/Output Dict  !
+  CLASS(mesh_base),ALLOCATABLE       :: Mesh
+  CLASS(fluxes_base),ALLOCATABLE     :: Fluxes
+  CLASS(physics_base),ALLOCATABLE    :: Physics
+  CLASS(fileio_base),ALLOCATABLE     :: Datafile
+  CLASS(timedisc_base),ALLOCATABLE   :: Timedisc
+  CLASS(fileio_base),ALLOCATABLE     :: Logfile
+  CLASS(sources_base), POINTER &
+                         :: Sources => null()   !< list of source terms   !
+  INTEGER                :: iter
+  LOGICAL                :: break
+  DOUBLE PRECISION       :: wall_time           ! wall clock elapsed time !
+  DOUBLE PRECISION       :: log_time            ! time for next log output!
+  DOUBLE PRECISION       :: start_time          ! system clock start time !
+  DOUBLE PRECISION       :: end_time            ! system clock end time   !
+  DOUBLE PRECISION       :: run_time            ! = end_time - start_time !
+  INTEGER                :: start_count         ! system clock count
+  TYPE(Fositestruc_TYP),DIMENSION(:), POINTER &
+                         :: structure           ! structure of variables  !
 #ifdef PARALLEL
-     INTEGER                :: ierror
-     REAL                   :: dt_all              ! min timestep of all     !
-                                                   ! processes               !
+  INTEGER                :: ierror
+  REAL                   :: dt_all              ! min timestep of all     !
+                                                ! processes               !
 #endif
+  CHARACTER(MAXLEN)      :: buffer
 
-    CHARACTER(MAXLEN)            :: buffer
-    CONTAINS
-      PROCEDURE :: InitFosite
-      PROCEDURE :: Setup
-      PROCEDURE :: Run
-      PROCEDURE :: Step
-      PROCEDURE :: PrintInfo
-      PROCEDURE :: PrintBoundaryFluxes
-      PROCEDURE :: PrintSummary
-      PROCEDURE :: FirstStep
-      FINAL     :: Finalize
-      PROCEDURE :: ComputeRunTime
+  CONTAINS
+    PROCEDURE :: InitFosite
+    PROCEDURE :: Setup
+    PROCEDURE :: FirstStep
+    PROCEDURE :: Step
+    PROCEDURE :: Run
+    PROCEDURE :: PrintInfo
+    PROCEDURE :: PrintBoundaryFluxes
+    PROCEDURE :: PrintSummary
+    PROCEDURE :: ComputeRunTime
+    FINAL     :: Finalize
   END TYPE fosite
   !--------------------------------------------------------------------------!
   PUBLIC  :: fosite
@@ -129,13 +126,23 @@ CONTAINS
     CLASS(fosite), INTENT(INOUT) :: this
     !--------------------------------------------------------------------------!
 #ifdef PARALLEL
+    LOGICAL            :: already_initialized
+#endif
+    !--------------------------------------------------------------------------!
+#ifdef PARALLEL
 ! initialize MPI library for parallel execution, if Fosite is not initialized
     IF(.NOT.this%Initialized()) &
+      CALL MPI_Initialized(already_initialized,this%ierror)
+      IF (.NOT.already_initialized) &
       CALL MPI_Init(this%ierror)
 #endif
-    ! if Fosite is already initialized, close it, but do not finalize MPI
+    !> if Fosite is already initialized, close it, but do not finalize MPI
+    !! \todo the above mentioned not finalization of MPI does not exist at
+    !! the moment, because Final routines cannot take additional arguments.
+    !! Multiple Fosite Initilization will thus lead to problems at the
+    !! moment.
 !    IF(this%Initialized()) &
-!      CALL this%FinalizeFosite(.FALSE.)
+!      CALL this%Finalize()
 
     CALL this%InitLogging(simtype,simname)
 
@@ -317,7 +324,6 @@ CONTAINS
 
     IF(this%Timedisc%break) &
       CALL this%Error("FirstStep","Initial data invalid!")
-
   END SUBROUTINE FirstStep
 
 
@@ -494,10 +500,12 @@ CONTAINS
     CALL DeleteDict(this%IO)
     CALL DeleteDict(this%config)
 
-!#ifdef PARALLEL
-!    IF(finalize) &
-!      CALL MPI_Finalize(this%ierror)
-!#endif
+#ifdef PARALLEL
+    !> \todo not verified: here was a test where fosite was closed but mpi not
+    !!       these feature has been removed at the moment and MPI is just
+    !!       finalized.
+    CALL MPI_Finalize(this%ierror)
+#endif
   END SUBROUTINE Finalize
 
   SUBROUTINE ComputeRunTime(this)

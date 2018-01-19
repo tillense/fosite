@@ -128,7 +128,7 @@ CONTAINS
     !------------------------------------------------------------------------!
     TYPE(Dict_TYP), POINTER            :: node
     TYPE(real_t)                       :: dummy1
-    INTEGER                            :: err,k,n,i,j
+    INTEGER                            :: k,n,i,j
     REAL                               :: ftime
     INTEGER, DIMENSION(:), POINTER     :: sendbuf,recvbuf
     REAL, DIMENSION(:,:,:,:,:), POINTER  :: corners
@@ -151,15 +151,15 @@ CONTAINS
              this%output(MAXCOLS), &
              this%tsoutput(MAXCOLS), &
              this%bflux(Physics%VNUM,6),&
-             STAT = err)
-    IF (err.NE.0) &
+             STAT = this%error_io)
+    IF (this%error_io.NE.0) &
          CALL this%Error("InitFileio_vtk", "Unable to allocate memory.")
 
     ! determine extend and endianness of real numbers
     CALL this%GetPrecision(this%realsize)
     ! save size of floats to string: realfmt
-    WRITE(this%linebuf,FMT='(I4)',IOSTAT=err) 8*this%realsize
-    WRITE(this%realfmt,FMT='(A)',IOSTAT=err) '"Float' &
+    WRITE(this%linebuf,FMT='(I4)',IOSTAT=this%error_io) 8*this%realsize
+    WRITE(this%realfmt,FMT='(A)',IOSTAT=this%error_io) '"Float' &
           // TRIM(AdjustL(this%linebuf)) // '"'
     CALL this%GetEndianness(this%endianness,'"LittleEndian"','"BigEndian"')
 
@@ -168,45 +168,45 @@ CONTAINS
     IF (BIT_SIZE(this%output(1)%numbytes) .NE. 4*8) &
        CALL this%Error("InitFileio_vtk", "output%numbytes must be a 4 byte integer !!!")
 
-!#ifdef PARALLEL
-!    ! allocate memory for this%extent, send & receive buffers;
-!    ! recvbuf and this%extent are only needed on the receiver node (rank 0)
-!    ! but parallel profiling using scalasca with mpich3 crashes
-!    ! if recvbuf is not allocated on each node hence we allocate a minimal
-!    ! array of size 1 on all nodes except for the receiver node;
-!    ! remark: according to the MPI-2 standard recvbuf must only be allocated
-!    !         on the receiver node
-!    IF (GetRank(this) .EQ. 0 ) THEN
-!       n = GetNumProcs(this)
-!       ALLOCATE(this%extent(0:(n-1)),sendbuf(4),recvbuf(4*n),STAT = err)
-!    ELSE
-!       ! see comment above
-!       ALLOCATE(sendbuf(4),recvbuf(1),STAT = err)
-!    END IF
-!    IF (err.NE.0) &
-!       CALL this%Error( "InitFileio_vtk", "Unable to allocate memory.")
-!
-!    ! store information about grid extent on each node
-!    sendbuf(1) = Mesh%IMIN
-!    sendbuf(2) = Mesh%IMAX+1
-!    sendbuf(3) = Mesh%JMIN
-!    sendbuf(4) = Mesh%JMAX+1
-!
-!    ! gather information about grid extent on each node at the rank 0 node
-!    CALL MPI_Gather(sendbuf, 4, MPI_INTEGER, &
-!               recvbuf, 4, MPI_INTEGER, &
-!               0, MPI_COMM_WORLD, err)
-!
-!    ! store information about grid extent at the rank 0 node
-!    IF (GetRank(this) .EQ. 0 ) THEN
-!       DO i=0,n-1
-!          WRITE(this%extent(i),FMT='(6(I7))',IOSTAT=err)&
-!          recvbuf(i*4+1),recvbuf(i*4+2),recvbuf(i*4+3),recvbuf(i*4+4),1,1
-!       END DO
-!    END IF
-!    ! free buffer memory
-!    DEALLOCATE(sendbuf,recvbuf,STAT=err)
-!#endif
+#ifdef PARALLEL
+    ! allocate memory for this%extent, send & receive buffers;
+    ! recvbuf and this%extent are only needed on the receiver node (rank 0)
+    ! but parallel profiling using scalasca with mpich3 crashes
+    ! if recvbuf is not allocated on each node hence we allocate a minimal
+    ! array of size 1 on all nodes except for the receiver node;
+    ! remark: according to the MPI-2 standard recvbuf must only be allocated
+    !         on the receiver node
+    IF (this%GetRank() .EQ. 0 ) THEN
+       n = this%GetNumProcs()
+       ALLOCATE(this%extent(0:(n-1)),sendbuf(4),recvbuf(4*n),STAT = this%error_io)
+    ELSE
+       ! see comment above
+       ALLOCATE(sendbuf(4),recvbuf(1),STAT = this%error_io)
+    END IF
+    IF (this%error_io.NE.0) &
+       CALL this%Error( "InitFileio_vtk", "Unable to allocate memory.")
+
+    ! store information about grid extent on each node
+    sendbuf(1) = Mesh%IMIN
+    sendbuf(2) = Mesh%IMAX+1
+    sendbuf(3) = Mesh%JMIN
+    sendbuf(4) = Mesh%JMAX+1
+
+    ! gather information about grid extent on each node at the rank 0 node
+    CALL MPI_Gather(sendbuf, 4, MPI_INTEGER, &
+               recvbuf, 4, MPI_INTEGER, &
+               0, MPI_COMM_WORLD, this%error_io)
+
+    ! store information about grid extent at the rank 0 node
+    IF (this%GetRank() .EQ. 0 ) THEN
+       DO i=0,n-1
+          WRITE(this%extent(i),FMT='(6(I7))',IOSTAT=this%error_io)&
+          recvbuf(i*4+1),recvbuf(i*4+2),recvbuf(i*4+3),recvbuf(i*4+4),1,1
+       END DO
+    END IF
+    ! free buffer memory
+    DEALLOCATE(sendbuf,recvbuf,STAT=this%error_io)
+#endif
 
     ! check whether mesh coordinates should be cartesian or curvilinear
     IF (this%cartcoords) THEN
@@ -253,16 +253,15 @@ CONTAINS
     !------------------------------------------------------------------------!
     CLASS(fileio_vtk), INTENT(INOUT)  :: this
     !------------------------------------------------------------------------!
-    INTEGER             :: i,k,err
+    INTEGER             :: i,k
     REAL                :: ftime
     CHARACTER(LEN=256)  :: basename
-    !------------------------------------------------------------------------!
     !------------------------------------------------------------------------!
     ! write a pvd-file: this is a "master" file of all timesteps of all ranks
     CALL this%OpenFile(REPLACE,'pvd')
 
     ! write vtk header
-    WRITE(this%unit+200,FMT='(A)',IOSTAT=err) &
+    WRITE(this%unit+200,FMT='(A)',IOSTAT=this%error_io) &
           '<?xml version="1.0"?>'//LF &
           //'<VTKFile type="Collection" version="0.1" byte_order=' &
           //this%endianness//'>'//LF &
@@ -275,15 +274,15 @@ CONTAINS
        ftime = this%stoptime*k/(this%cycles-1)
 #ifdef PARALLEL
        ! in parallel mode each node generates its own file
-       DO i=0,GetNumProcs(this)-1
+       DO i=0,this%GetNumProcs()-1
           basename=this%GetBasename(i)
-          IF (err.EQ. 0) WRITE(this%unit+200,FMT='(A,E11.5,A,I4.4,A)',IOSTAT=err) &
+          IF (this%error_io.EQ. 0) WRITE(this%unit+200,FMT='(A,E11.5,A,I4.4,A)',IOSTAT=this%error_io) &
              REPEAT(' ',4)//'<DataSet timestep="',&
              ftime,'" part="', i ,'" file="'//TRIM(basename)//'"/>'
        END DO
 #else
        basename=this%GetBasename()
-       IF (err.EQ. 0) WRITE(this%unit+200,FMT='(A,E11.5,A)',IOSTAT=err) &
+       IF (this%error_io.EQ. 0) WRITE(this%unit+200,FMT='(A,E11.5,A)',IOSTAT=this%error_io) &
           REPEAT(' ',4)//'<DataSet timestep="',ftime,'" part="0" file="' &
                        //TRIM(basename)//'"/>'
 #endif
@@ -291,9 +290,9 @@ CONTAINS
     ! reset the step (see comment above)
     this%step=0
 
-    IF (err.EQ. 0) WRITE(this%unit+200,FMT='(A)',IOSTAT=err) &
+    IF (this%error_io.EQ. 0) WRITE(this%unit+200,FMT='(A)',IOSTAT=this%error_io) &
              REPEAT(' ',2)//'</Collection>'//LF//'</VTKFile>'
-    IF (err.GT.0) CALL this%Error("InitFileIO_vtk","cannot write pvd-file")
+    IF (this%error_io.GT.0) CALL this%Error("InitFileIO_vtk","cannot write pvd-file")
 
     CALL this%CloseFile('pvd')
   END SUBROUTINE WriteParaviewFile
@@ -314,7 +313,7 @@ CONTAINS
     CHARACTER(LEN=8)   :: cTIPO8
     CHARACTER(LEN=16)  :: cTIPO16
     REAL               :: rTIPO1, rTIPO2
-    INTEGER            :: k,err,iTIPO
+    INTEGER            :: k,iTIPO
     !------------------------------------------------------------------------!
     INTENT(OUT)        :: realsize
     !------------------------------------------------------------------------!
@@ -356,7 +355,7 @@ CONTAINS
     CHARACTER(LEN=*)  :: littlestr    !< \param [in] littlestr little endian str
     CHARACTER(LEN=*)  :: bigstr       !< \param [in] bigstr big endian str
     !------------------------------------------------------------------------!
-    INTEGER           :: k,err,iTIPO
+    INTEGER           :: k,iTIPO
     CHARACTER, POINTER:: cTIPO(:)
     !------------------------------------------------------------------------!
     INTENT(IN)        :: littlestr, bigstr
@@ -365,8 +364,8 @@ CONTAINS
 
     !endianness
     k = BIT_SIZE(iTIPO)/8
-    ALLOCATE(cTIPO(k),STAT = err)
-       IF (err.NE.0) &
+    ALLOCATE(cTIPO(k),STAT = this%error_io)
+       IF (this%error_io.NE.0) &
          CALL this%Error("GetEndianness", "Unable to allocate memory.")
     cTIPO(1)='A'
     !cTIPO(2:k-1) = That's of no importance.
@@ -376,9 +375,9 @@ CONTAINS
     DEALLOCATE(cTIPO)
     !Test of 'B'=b'01000010' ('A'=b'01000001')
     IF (BTEST(iTIPO,1)) THEN
-       write(res,'(A)',IOSTAT=err)bigstr
+       write(res,'(A)',IOSTAT=this%error_io)bigstr
     ELSE
-       write(res,'(A)',IOSTAT=err)littlestr
+       write(res,'(A)',IOSTAT=this%error_io)littlestr
     END IF
   END SUBROUTINE GetEndianness
 
@@ -405,7 +404,7 @@ CONTAINS
     REAL,DIMENSION(:,:,:),POINTER   :: dummy3
     REAL,DIMENSION(:,:,:,:),POINTER :: dummy4
     INTEGER,DIMENSION(4)            :: dims
-    INTEGER                         :: n, err
+    INTEGER                         :: n
     !------------------------------------------------------------------------!
     DO WHILE(ASSOCIATED(node))
       IF(HasChild(node)) THEN
@@ -460,8 +459,8 @@ CONTAINS
                this%output(k)%key = TRIM(prefix) // '/' // this%output(k)%key
             END IF
             ! allocate memory for pointer to output arrays
-            ALLOCATE(this%output(k)%p(dims(4)),STAT=err)
-            IF (err.NE.0) &
+            ALLOCATE(this%output(k)%p(dims(4)),STAT=this%error_io)
+            IF (this%error_io.NE.0) &
                CALL this%Error( "GetOutputlist", "Unable to allocate memory.")
             ! set pointer to output arrays
             IF (dims(4).EQ.1) THEN
@@ -492,9 +491,8 @@ CONTAINS
                                      :: ftype !< \param [in] file type
     !------------------------------------------------------------------------!
     CHARACTER(LEN=32)  :: sta,act,pos,fext
-    INTEGER            :: err
     !------------------------------------------------------------------------!
-    err=1
+    this%error_io=1
     SELECT CASE(action)
     CASE(READONLY)
        sta = 'OLD'
@@ -533,25 +531,25 @@ CONTAINS
 #else
             FORM   = 'UNFORMATTED',&
 #endif
-            ACTION=TRIM(act),POSITION=TRIM(pos),IOSTAT=err)
+            ACTION=TRIM(act),POSITION=TRIM(pos),IOSTAT=this%error_io)
 #ifdef PARALLEL
     CASE('pvts')
        ! open PVTS file (only parallel mode)
        IF (this%GetRank().EQ.0) THEN
           this%extension='pvts' ! change file name extension
           OPEN(this%unit+100, FILE=this%GetFilename(-1),STATUS=TRIM(sta), &
-               FORM='FORMATTED',ACTION=TRIM(act),POSITION=TRIM(pos),IOSTAT=err)
+               FORM='FORMATTED',ACTION=TRIM(act),POSITION=TRIM(pos),IOSTAT=this%error_io)
           this%extension='vts' ! reset default extension
        END IF
 #endif
     CASE('pvd')
        OPEN(this%unit+200, FILE=TRIM(this%filename)//'.'//TRIM(fext),STATUS=TRIM(sta), &
-            FORM='FORMATTED',ACTION=TRIM(act),POSITION=TRIM(pos),IOSTAT=err)
+            FORM='FORMATTED',ACTION=TRIM(act),POSITION=TRIM(pos),IOSTAT=this%error_io)
     CASE DEFAULT
        CALL this%Error("OpenFile","Unknown file type")
     END SELECT
 
-    IF (err.GT.0) &
+    IF (this%error_io.GT.0) &
        CALL this%Error("OpenFile","cannot open " // TRIM(this%extension) // "-file")
   END SUBROUTINE OpenFile
 
@@ -564,11 +562,10 @@ CONTAINS
     CHARACTER(LEN=*), OPTIONAL :: ftype !< \param [in] file type
     !------------------------------------------------------------------------!
     CHARACTER(LEN=4) :: fext
-    INTEGER          :: err
     !------------------------------------------------------------------------!
     INTENT(IN)       :: ftype
     !------------------------------------------------------------------------!
-    err=1
+    this%error_io=1
     ! check file type to open
     IF (PRESENT(ftype)) THEN
        fext=TRIM(ftype)
@@ -580,21 +577,21 @@ CONTAINS
     ! close file depending on the file type
     SELECT CASE(TRIM(fext))
     CASE('vts')
-       CLOSE(this%unit,IOSTAT=err)
+       CLOSE(this%unit,IOSTAT=this%error_io)
 #ifdef PARALLEL
     CASE('pvts')
         IF (this%GetRank() .EQ. 0 ) THEN
-           CLOSE(this%unit+100,IOSTAT=err)
+           CLOSE(this%unit+100,IOSTAT=this%error_io)
         END IF
 #endif
     CASE('pvd')
-        CLOSE(this%unit+200,IOSTAT=err)
+        CLOSE(this%unit+200,IOSTAT=this%error_io)
     CASE DEFAULT
        CALL this%Error("OpenFile","Unknown file type")
     END SELECT
     ! set default extension
 
-    IF(err .NE. 0) &
+    IF(this%error_io .NE. 0) &
        CALL this%Error( "CloseFileIO", "cannot close "//TRIM(fext)//"-file")
   END SUBROUTINE CloseFile
 
@@ -622,14 +619,12 @@ CONTAINS
     CLASS(fileio_vtk),   INTENT(INOUT) :: this    !< \param [in,out] this fileio type
     CLASS(mesh_base),    INTENT(IN)    :: Mesh    !< \param [in] mesh mesh type
     CLASS(physics_base), INTENT(IN)    :: Physics !< \param [in] physics physics type
-    TYPE(Dict_TYP),POINTER :: IO     !< \param [in,out] IO I/O dictionary
-    TYPE(Dict_TYP),POINTER :: Header !< \param [in,out] config config dictionary
-    !------------------------------------------------------------------------!
-    INTEGER             :: err
+    TYPE(Dict_TYP),      POINTER       :: IO      !< \param [in,out] IO I/O dictionary
+    TYPE(Dict_TYP),      POINTER       :: Header  !< \param [in,out] config config dictionary
     !------------------------------------------------------------------------!
     CALL this%OpenFile(REPLACE)
 
-    err = 1
+    this%error_io = 1
     ! write header in vts files
     WRITE(this%linebuf,FMT='(A,6(I7),A)') '<?xml version="1.0"?>' //LF// &
         '<VTKFile type="StructuredGrid" version="0.1" byte_order='&
@@ -638,19 +633,19 @@ CONTAINS
                   Mesh%IMIN,Mesh%IMAX+1,Mesh%JMIN,Mesh%JMAX+1,Mesh%KMIN,Mesh%KMAX+1,'">'//LF// &
         '    <FieldData>'//LF// &
         '      <InformationKey type="String" Name="fosite version" format="ascii">'//LF// &
-        '        '//TRIM(VERSION)//LF//&
+        '        '//TRIM(VERSION)//LF// &
         '      </InformationKey>'//LF
-    WRITE(this%unit,IOSTAT=err) TRIM(this%linebuf)
+    WRITE(this%unit,IOSTAT=this%error_io) TRIM(this%linebuf)
 
 #ifdef PARALLEL
     ! write header in pvts file (only rank 0)
-    IF (GetRank(this) .EQ. 0 ) THEN
+    IF (this%GetRank() .EQ. 0 ) THEN
        CALL this%OpenFile(REPLACE,'pvts')
-       WRITE(this%unit+100,FMT='(A,6(I7),A)',IOSTAT=err) '<?xml version="1.0"?>' //LF// &
+       WRITE(this%unit+100,FMT='(A,6(I7),A)',IOSTAT=this%error_io) '<?xml version="1.0"?>' //LF// &
            '<VTKFile type="PStructuredGrid" version="0.1" byte_order='&
                    //this%endianness//'>'//LF//&
            '  <PStructuredGrid WholeExtent="',&
-                   1,Mesh%INUM+1,1,Mesh%JNUM+1,1,Mesh%KNUM+1'">'//LF//&
+                   1,Mesh%INUM+1,1,Mesh%JNUM+1,1,Mesh%KNUM+1,'">'//LF//&
            '    <PFieldData>'//LF// &
            '      <InformationKey type="String" Name="fosite version" format="ascii">'//LF// &
            '        '//TRIM(VERSION)//LF//&
@@ -658,7 +653,7 @@ CONTAINS
        CALL this%CloseFile('pvts')
     END IF
 #endif
-    IF (err.GT.0) CALL this%Error("WriteHeader","cannot write (P)VTS file header")
+    IF (this%error_io.GT.0) CALL this%Error("WriteHeader","cannot write (P)VTS file header")
 
     CALL this%CloseFile()
   END SUBROUTINE WriteHeader
@@ -686,7 +681,7 @@ CONTAINS
     CLASS(fileio_vtk) :: this
     REAL              :: time
     !------------------------------------------------------------------------!
-    INTEGER           :: i, err
+    INTEGER           :: i
     INTENT(IN)        :: time
     !------------------------------------------------------------------------!
     CALL this%OpenFile(APPEND)
@@ -695,12 +690,12 @@ CONTAINS
         '      <DataArray type="Float64" Name="TIME" NumberOfTuples="1" format="ascii">'//LF// &
                    REPEAT(' ',8),time,LF//&
         '      </DataArray>'//LF
-    WRITE(this%unit,IOSTAT=err) TRIM(this%linebuf)
+    WRITE(this%unit,IOSTAT=this%error_io) TRIM(this%linebuf)
 #ifdef PARALLEL
     ! write time stamp in PVTS file in parallel mode
-    IF (GetRank(this) .EQ. 0 ) THEN
+    IF (this%GetRank() .EQ. 0 ) THEN
        CALL this%OpenFile(APPEND,'pvts')
-       WRITE(this%unit+100,FMT='(A)',ADVANCE='NO',IOSTAT=err) TRIM(this%linebuf)
+       WRITE(this%unit+100,FMT='(A)',ADVANCE='NO',IOSTAT=this%error_io) TRIM(this%linebuf)
        CALL this%CloseFile('pvts')
     END IF
 
@@ -738,7 +733,7 @@ CONTAINS
     TYPE(Dict_TYP),       POINTER       :: IO       !< \param [in,out] IO I/O dictionary
     !------------------------------------------------------------------------!
     INTEGER                            :: i,j,k,m
-    INTEGER                            :: spos, epos, n, offset, err
+    INTEGER                            :: spos, epos, n, offset
     CHARACTER(LEN=256)                 :: basename
     REAL,DIMENSION(:,:),POINTER        :: dummy2
     REAL,DIMENSION(:,:,:),POINTER      :: dummy3
@@ -748,6 +743,7 @@ CONTAINS
     ! this part is formerly from fileio_generic.f90
     ! calculate boundary fluxes, if they were requested for write
 !    IF(ASSOCIATED(Timedisc%bflux)) THEN
+!        print *, "test"
 !        DO k=1,4
 !            Timedisc%bflux(:,k) = Fluxes%GetBoundaryFlux(Mesh,Physics,k)
 !        END DO
@@ -783,9 +779,9 @@ CONTAINS
     ! -----------------------------------------------------------------------!
     ! a) global information; currently only scalar real numbers supported
 #ifdef PARALLEL
-    IF (GetRank(this) .EQ. 0 ) THEN
+    IF (this%GetRank() .EQ. 0 ) THEN
        CALL this%OpenFile(APPEND,'pvts')
-       IF(err .NE. 0) CALL this%Error( "WriteDataset", "Can't open pvts file")
+       IF(this%error_io .NE. 0) CALL this%Error( "WriteDataset", "Can't open pvts file")
     END IF
 #endif
     ! loop over all time step data registred in GetOutputlist
@@ -795,11 +791,11 @@ CONTAINS
                        '" NumberOfTuples="1" format="ascii">'//LF// &
                    REPEAT(' ',8),this%tsoutput(k)%val,LF//&
         '      </DataArray>'//LF
-       WRITE(this%unit,IOSTAT=err) TRIM(this%linebuf)
+       WRITE(this%unit,IOSTAT=this%error_io) TRIM(this%linebuf)
 #ifdef PARALLEL
        ! write time step data in PVTS file in parallel mode
-       IF (GetRank(this) .EQ. 0 ) THEN
-          WRITE(this%unit+100,FMT='(A)',ADVANCE='NO',IOSTAT=err) TRIM(this%linebuf)
+       IF (this%GetRank() .EQ. 0 ) THEN
+          WRITE(this%unit+100,FMT='(A)',ADVANCE='NO',IOSTAT=this%error_io) TRIM(this%linebuf)
        END IF
 #endif
     END DO
@@ -810,10 +806,10 @@ CONTAINS
 !     IF (HasKey(IO, "/sources/grav/binary/binpos/value"))THEN
 !       CALL GetAttr(IO, "/sources/grav/binary/binpos", dummy2)
 !
-!       WRITE(this%tslinebuf,fmt='(ES14.7,A,ES14.7)',IOSTAT=err)&
+!       WRITE(this%tslinebuf,fmt='(ES14.7,A,ES14.7)',IOSTAT=this%error_io)&
 !             dummy2(1,1), repeat(' ',4),dummy2(2,1)
 !
-!       WRITE(this%unit, IOSTAT=err)&
+!       WRITE(this%unit, IOSTAT=this%error_io)&
 !              LF//repeat(' ',6)//'<DataArray type="Float64" Name="position primary"' &
 !                            //' NumberOfTuples="2" format="ascii">' &
 !            //LF//repeat(' ',8)//TRIM(this%tslinebuf) &
@@ -821,7 +817,7 @@ CONTAINS
 !
 ! #ifdef PARALLEL
 !       IF (GetRank(this) .EQ. 0 ) &
-!          WRITE(this%unit+100, IOSTAT=err)&
+!          WRITE(this%unit+100, IOSTAT=this%error_io)&
 !              LF//repeat(' ',6)//'<DataArray type="Float64" Name="position primary"' &
 !                            //' NumberOfTuples="2" format="ascii">' &
 !            //LF//repeat(' ',8)//TRIM(this%tslinebuf) &
@@ -829,10 +825,10 @@ CONTAINS
 !
 ! #endif
 !
-!       WRITE(this%tslinebuf,fmt='(ES14.7,A,ES14.7)',IOSTAT=err)&
+!       WRITE(this%tslinebuf,fmt='(ES14.7,A,ES14.7)',IOSTAT=this%error_io)&
 !             dummy2(1,2), repeat(' ',4),dummy2(2,2)
 !
-!       WRITE(this%unit, IOSTAT=err)&
+!       WRITE(this%unit, IOSTAT=this%error_io)&
 !              LF//repeat(' ',6)//'<DataArray type="Float64" Name="position secondary"' &
 !                            //' NumberOfTuples="2" format="ascii">' &
 !            //LF//repeat(' ',8)//TRIM(this%tslinebuf) &
@@ -840,7 +836,7 @@ CONTAINS
 !
 ! #ifdef PARALLEL
 !       IF (GetRank(this) .EQ. 0 ) &
-!          WRITE(this%unit+100, IOSTAT=err)&
+!          WRITE(this%unit+100, IOSTAT=this%error_io)&
 !              LF//repeat(' ',6)//'<DataArray type="Float64" Name="position secondary"' &
 !                            //' NumberOfTuples="2" format="ascii">' &
 !            //LF//repeat(' ',8)//TRIM(this%tslinebuf) &
@@ -861,11 +857,11 @@ CONTAINS
          '      </DataArray>'//LF// &
          '    </Points>'//LF// &
          '    <CellData>'//LF
-    WRITE(this%unit,IOSTAT=err) TRIM(this%linebuf)
+    WRITE(this%unit,IOSTAT=this%error_io) TRIM(this%linebuf)
 
 #ifdef PARALLEL
-    IF (GetRank(this) .EQ. 0 ) THEN
-       WRITE(this%unit+100,FMT='(A)',IOSTAT=err)&
+    IF (this%GetRank() .EQ. 0 ) THEN
+       WRITE(this%unit+100,FMT='(A)',IOSTAT=this%error_io)&
               repeat(' ',4)//'</PFieldData>' &
         //LF//repeat(' ',4)//'<PPoints>' &
         //LF//repeat(' ',6)//'<DataArray type='//this%realfmt &
@@ -884,11 +880,11 @@ CONTAINS
                           ' NumberOfComponents="', SIZE(this%output(k)%p), &
               '" Name="'//TRIM(this%output(k)%key)//&
               '" format="appended" offset="',this%offset+offset,'"/>'//LF
-       WRITE(this%unit,IOSTAT=err) TRIM(this%linebuf)
+       WRITE(this%unit,IOSTAT=this%error_io) TRIM(this%linebuf)
 
 #ifdef PARALLEL
-       IF (GetRank(this) .EQ. 0 ) THEN
-           WRITE(this%unit+100,FMT='(A,I3,A)',IOSTAT=err)&
+       IF (this%GetRank() .EQ. 0 ) THEN
+           WRITE(this%unit+100,FMT='(A,I3,A)',IOSTAT=this%error_io)&
                REPEAT(' ',6)//'<DataArray type='//this%realfmt//&
                               ' NumberOfComponents="', SIZE(this%output(k)%p),&
                '" Name="'//TRIM(this%output(k)%key)//'"/>'
@@ -899,24 +895,24 @@ CONTAINS
        offset = offset + this%output(k)%numbytes + 4
     END DO
 
-    WRITE(this%unit,IOSTAT=err)&
+    WRITE(this%unit,IOSTAT=this%error_io)&
              repeat(' ',6)//'</CellData>' &
        //LF//repeat(' ',4)//'</Piece>' &
        //LF//repeat(' ',2)//'</StructuredGrid>' &
        //LF//repeat(' ',2)//'<GlobalData>'
 
 #ifdef PARALLEL
-    IF (GetRank(this) .EQ. 0 ) THEN
-      WRITE(this%unit+100,FMT='(A)',IOSTAT=err) REPEAT(' ',4)//'</PCellData>'
+    IF (this%GetRank() .EQ. 0 ) THEN
+      WRITE(this%unit+100,FMT='(A)',IOSTAT=this%error_io) REPEAT(' ',4)//'</PCellData>'
 
-      DO i=0,GetNumProcs(this)-1
+      DO i=0,this%GetNumProcs()-1
          basename=this%GetBasename(i)
-         WRITE(this%unit+100,FMT='(A)',IOSTAT=err) &
+         WRITE(this%unit+100,FMT='(A)',IOSTAT=this%error_io) &
             REPEAT(' ',4)//'<Piece Extent="'//TRIM(this%extent(i))&
             //'" Source="'//TRIM(basename)//'"/>'
       END DO
 
-      WRITE(this%unit+100,FMT='(A)',IOSTAT=err)&
+      WRITE(this%unit+100,FMT='(A)',IOSTAT=this%error_io)&
         repeat(' ',2)//'</PStructuredGrid>' &
         //LF//'</VTKFile>'
 
@@ -929,31 +925,31 @@ CONTAINS
 !        ! in PARALLEL mode the result is sent to process with rank 0
 !        this%bflux(:,i) = GetBoundaryFlux(Fluxes,Mesh,Physics,i)
 !
-!        WRITE(this%unit,IOSTAT=err)&
+!        WRITE(this%unit,IOSTAT=this%error_io)&
 !               LF//repeat(' ',4)//'<DataArray type='//this%realfmt//&
 !               'Name="'//TRIM(fluxkey(i))//'" format="ascii" >' &
 !               //LF//repeat(' ',6)
 !        DO k=1,Physics%VNUM
-!            WRITE(this%linebuf((k-1)*20+1:k*20),fmt='(E16.9,A)',IOSTAT=err)&
+!            WRITE(this%linebuf((k-1)*20+1:k*20),fmt='(E16.9,A)',IOSTAT=this%error_io)&
 !                 this%bflux(k,i),repeat(' ',4)
 !        END DO
 !
-!        WRITE(this%unit,IOSTAT=err)TRIM(this%linebuf(1:Physics%VNUM*20)) &
+!        WRITE(this%unit,IOSTAT=this%error_io)TRIM(this%linebuf(1:Physics%VNUM*20)) &
 !               //LF//repeat(' ',4)//'</DataArray>'
 !     END DO
 
     ! end META data
     ! -----------------------------------------------------------------------------------!
 
-    WRITE(this%unit,IOSTAT=err)&
+    WRITE(this%unit,IOSTAT=this%error_io)&
        LF//repeat(' ',2)//'</GlobalData>' &
        //LF//'<AppendedData encoding="raw">' &
        //LF//'_'
 
 #ifdef PARALLEL
-    IF (GetRank(this) .EQ. 0 ) THEN
+    IF (this%GetRank() .EQ. 0 ) THEN
        CALL this%CloseFile('pvts')
-       IF(err .NE. 0) CALL this%Error( "WriteDataset", "Can't close pvts file")
+       IF(this%error_io .NE. 0) CALL this%Error( "WriteDataset", "Can't close pvts file")
     END IF
 #endif
 
@@ -964,9 +960,9 @@ CONTAINS
     ! a) coordinates:
     !    (i)  size of data array in bytes (must be a 4 byte integer)
     !    (ii) coordinate data array (generated in InitFileio)
-    WRITE(this%unit,IOSTAT=err) INT(this%offset,4), &
+    WRITE(this%unit,IOSTAT=this%error_io) INT(this%offset,4), &
           this%vtkcoords(1:3,Mesh%IMIN:Mesh%IMAX+1,Mesh%JMIN:Mesh%JMAX+1,Mesh%KMIN:Mesh%KMAX+1)
-    IF (err.GT.0) &
+    IF (this%error_io.GT.0) &
        CALL this%Error( "WriteDataset", "cannot write coordinates")
 
     ! -----------------------------------------------------------------------!
@@ -984,13 +980,13 @@ CONTAINS
             this%binout(m,:,:,:)=this%output(k)%p(m)%val(:,:,:)
          END DO
 
-         WRITE(this%unit,IOSTAT=err) this%output(k)%numbytes, &
+         WRITE(this%unit,IOSTAT=this%error_io) this%output(k)%numbytes, &
             this%binout(1:n,:,:,:)
 
-         IF (err.GT.0) &
+         IF (this%error_io.GT.0) &
             CALL this%Error( "WriteDataset", "cannot write data")
     END DO
-    WRITE(this%unit,IOSTAT=err)LF//repeat(' ',2)//&
+    WRITE(this%unit,IOSTAT=this%error_io)LF//repeat(' ',2)//&
          '</AppendedData>'//LF//'</VTKFile>'//LF
 
     CALL this%CloseFile()

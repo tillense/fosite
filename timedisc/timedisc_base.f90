@@ -126,7 +126,7 @@ PRIVATE
      !> numerical fluxes divided by dy or dx
      REAL, DIMENSION(:,:,:,:), POINTER  :: xfluxdydz,yfluxdzdx,zfluxdxdy
      REAL, DIMENSION(:,:,:,:), POINTER  :: amax          !< max. wave speeds
-     REAL, DIMENSION(:,:), POINTER    :: bflux         !< boundary fluxes for output
+     REAL, DIMENSION(:,:), POINTER      :: bflux         !< boundary fluxes for output
      REAL, DIMENSION(:,:,:,:), POINTER  :: errorval      !< max. wave speeds
      LOGICAL                          :: write_error   !< enable err writing
      INTEGER, DIMENSION(:), POINTER   :: shift         !< fargo annulus shift

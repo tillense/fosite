@@ -58,9 +58,18 @@ MODULE fileio_base_mod
   USE sources_base_mod
   USE mesh_base_mod
   USE timedisc_base_mod
+#ifdef PARALLEL
+#ifdef HAVE_MPI_MOD
+  USE mpi
+#endif
+#endif
   IMPLICIT NONE
+#ifdef PARALLEL
+#ifdef HAVE_MPIF_H
+  include 'mpif.h'
+#endif
+#endif
   !--------------------------------------------------------------------------!
-
   PRIVATE
   !--------------------------------------------------------------------------!
   ! Private Attributes section starts here:
@@ -299,10 +308,6 @@ CONTAINS
     REAL                           :: time,new_time
     TYPE(Dict_TYP),POINTER         :: oldconfig => null()
     !------------------------------------------------------------------------!
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-! INIT GENERIC!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     ! wall clock time between successive outputs
     ! this is mainly intended for log file outputs
     CALL GetAttr(config, "dtwall" , dtwall_def, 3600) !default is one hour
@@ -358,9 +363,9 @@ CONTAINS
     this%multfiles = multfiles
     IF (this%multfiles) THEN
        ! check number of parallel processes
-       IF (GetNumProcs(this).GT.MAXMLTFILES) &
-          CALL Error(this,"InitFileIO","number of processes for multiple file output exceeds limits")
-       fmextstr = MakeMultstr(this)
+       IF (this%GetNumProcs().GT.MAXMLTFILES) &
+          CALL this%Error("InitFileIO","number of processes for multiple file output exceeds limits")
+       fmextstr = this%MakeMultstr()
     END IF
 #endif
 
@@ -375,6 +380,7 @@ CONTAINS
     this%count    = count_def
     this%step     = 0
     this%offset   = 0
+    this%error_io = 0
 
     ! compute the (actual) output time
     time = ABS(this%stoptime) / this%count
@@ -444,7 +450,7 @@ CONTAINS
     IF (PRESENT(fn)) THEN
       fn_l = fn
     ELSE
-      fn_l = GetRank(this)
+      fn_l = this%GetRank()
     END IF
     ! with fn < 0 you can suppress a label
     IF (this%multfiles .AND. fn_l .GE. 0) THEN

@@ -24,6 +24,7 @@
 !#############################################################################
 !----------------------------------------------------------------------------!
 !> \author Manuel Jung
+!! \author Jannes Klee
 !!
 !! \brief module for binary file I/O
 !!
@@ -122,31 +123,23 @@ CONTAINS
   SUBROUTINE InitFileio_binary(this,Mesh,Physics,Timedisc,Sources,config,IO)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(fileio_binary),INTENT(INOUT) :: this          !< \param [in,out] this fileio type
-    CLASS(mesh_base),INTENT(IN) :: Mesh          !< \param [in] Mesh mesh type
-    CLASS(physics_base),INTENT(IN):: Physics       !< \param [in] Physics Physics type
-    CLASS(timedisc_base),INTENT(IN) :: Timedisc        !< \param [in] Timedisc timedisc type
-    CLASS(sources_base), POINTER :: Sources !< \param [in] Sources sources type
-    TYPE(Dict_TYP),POINTER :: config,IO       !< \param [in] IO Dictionary for I/O
+    CLASS(fileio_binary), INTENT(INOUT) :: this       !< \param [in,out] this fileio type
+    CLASS(mesh_base),     INTENT(IN)    :: Mesh       !< \param [in] Mesh mesh type
+    CLASS(physics_base),  INTENT(IN)    :: Physics    !< \param [in] Physics Physics type
+    CLASS(timedisc_base), INTENT(IN)    :: Timedisc   !< \param [in] Timedisc timedisc type
+    CLASS(sources_base),  POINTER       :: Sources    !< \param [in] Sources sources type
+    TYPE(Dict_TYP),       POINTER       :: config,IO  !< \param [in] IO Dictionary for I/O
     !------------------------------------------------------------------------!
 #ifdef PARALLEL
     INTEGER, DIMENSION(3) :: gsizes,lsizes,indices
-    INTEGER           :: lb,extent
+    INTEGER               :: lb,extent
 #endif
     CHARACTER(LEN=1),DIMENSION(:),POINTER :: mold
-    REAL              :: r
-    INTEGER           :: i,err
+    REAL                  :: r
+    INTEGER               :: i,err
     !------------------------------------------------------------------------!
     this%extension= 'bin'
     CALL this%InitFileio(Mesh,Physics,Timedisc,Sources,config,IO,"binary",this%extension)
-    !! basic FileIO initialization
-    !IF(PRESENT(fmtname)) THEN
-    !  CALL InitFileIO(this,Mesh,Physics,fmt,fmtname,fpath,filename,"bin",&
-    !                  stoptime,dtwall,count,fcycles,.FALSE.,unit)
-    !ELSE
-    !  CALL InitFileIO(this,Mesh,Physics,fmt,"binary",fpath,filename,"bin",&
-    !                  stoptime,dtwall,count,fcycles,.FALSE.,unit)
-    !END IF
 
     ! We mark the endianess similar to the TIFF format
     ! See: http://en.wikipedia.org/wiki/Endianness#Endianness_in_files_and_byte_swap
@@ -163,19 +156,19 @@ CONTAINS
 
 #ifdef PARALLEL
     IF(Mesh%INUM.EQ.Mesh%IMAX) THEN
-      this%inum = Mesh%IMAX-Mesh%IMIN+2
+      this%INUM = Mesh%IMAX-Mesh%IMIN+2
     ELSE
-      this%inum = Mesh%IMAX-Mesh%IMIN+1
+      this%INUM = Mesh%IMAX-Mesh%IMIN+1
     END IF
     IF(Mesh%JNUM.EQ.Mesh%JMAX) THEN
-      this%jnum = Mesh%JMAX-Mesh%JMIN+2
+      this%JNUM = Mesh%JMAX-Mesh%JMIN+2
     ELSE
-      this%jnum = Mesh%JMAX-Mesh%JMIN+1
+      this%JNUM = Mesh%JMAX-Mesh%JMIN+1
     END IF
     IF(Mesh%KNUM.EQ.Mesh%KMAX) THEN
-      this%knum = Mesh%KMAX-Mesh%KMIN+2
+      this%KNUM = Mesh%KMAX-Mesh%KMIN+2
     ELSE
-      this%knum = Mesh%KMAX-Mesh%KMIN+1
+      this%KNUM = Mesh%KMAX-Mesh%KMIN+1
     END IF
 
     ! create the data type for the distributed array of
@@ -191,24 +184,24 @@ CONTAINS
     indices(3)= Mesh%KMIN-1
     this%bufsize = PRODUCT(lsizes)
     CALL MPI_Type_create_subarray(3, gsizes, lsizes, indices, MPI_ORDER_FORTRAN,&
-         DEFAULT_MPI_REAL,this%filetype,this%error)
-    CALL MPI_Type_commit(this%filetype,this%error)
+         DEFAULT_MPI_REAL,this%filetype,this%error_io)
+    CALL MPI_Type_commit(this%filetype,this%error_io)
 
     ! create the data type for the distributed array of
     ! mesh corner positions
     gsizes(1) = Mesh%INUM+1
     gsizes(2) = Mesh%JNUM+1
     gsizes(3) = Mesh%KNUM+1
-    lsizes(1) = this%inum
-    lsizes(2) = this%jnum
-    lsizes(3) = this%knum
+    lsizes(1) = this%INUM
+    lsizes(2) = this%JNUM
+    lsizes(3) = this%KNUM
     indices(1)= Mesh%IMIN-1
     indices(2)= Mesh%JMIN-1
     indices(3)= Mesh%KMIN-1
     this%cbufsize = PRODUCT(lsizes)
     CALL MPI_Type_create_subarray(3, gsizes, lsizes, indices, MPI_ORDER_FORTRAN,&
-         DEFAULT_MPI_REAL,this%cfiletype,this%error)
-    CALL MPI_Type_commit(this%cfiletype,this%error)
+         DEFAULT_MPI_REAL,this%cfiletype,this%error_io)
+    CALL MPI_Type_commit(this%cfiletype,this%error_io)
 
     this%first = .TRUE.
 #endif
@@ -237,46 +230,46 @@ CONTAINS
 !    CASE(READONLY)
 !#ifdef PARALLEL
 !       CALL MPI_File_open(MPI_COMM_WORLD,this%GetFilename(),MPI_MODE_RDONLY, &
-!            MPI_INFO_NULL,this%handle,this%error)
+!            MPI_INFO_NULL,this%handle,this%error_io)
 !        this%offset = 0
-!        CALL MPI_File_seek(this%handle,this%offset,MPI_SEEK_SET,this%error)
+!        CALL MPI_File_seek(this%handle,this%offset,MPI_SEEK_SET,this%error_io)
 !#else
 !       OPEN(this%unit,FILE=this%GetFilename(),FORM=fformat,STATUS="OLD", &
-!            ACTION="READ",POSITION="REWIND",IOSTAT=this%error)
-!       !REWIND (UNIT=this%unit,IOSTAT=this%error)
+!            ACTION="READ",POSITION="REWIND",IOSTAT=this%error_io)
+!       !REWIND (UNIT=this%unit,IOSTAT=this%error_io)
 !#endif
 !    CASE(READEND)
 !#ifdef PARALLEL
 !       CALL MPI_File_open(MPI_COMM_WORLD,this%GetFilename(),IOR(MPI_MODE_RDONLY,&
-!            MPI_MODE_APPEND),MPI_INFO_NULL,this%handle,this%error)
+!            MPI_MODE_APPEND),MPI_INFO_NULL,this%handle,this%error_io)
 !       ! opening in append mode doesn't seem to work for pvfs2, hence ...
 !       offset = 0
-!       CALL MPI_File_seek(this%handle,offset,MPI_SEEK_END,this%error)
-!       CALL MPI_File_sync(this%handle,this%error)
+!       CALL MPI_File_seek(this%handle,offset,MPI_SEEK_END,this%error_io)
+!       CALL MPI_File_sync(this%handle,this%error_io)
 !#else
 !       OPEN(this%unit,FILE=this%GetFilename(),FORM=fformat,STATUS="OLD", &
-!            ACTION="READ",POSITION="APPEND",IOSTAT=this%error)
+!            ACTION="READ",POSITION="APPEND",IOSTAT=this%error_io)
 !#endif
 !    CASE(REPLACE)
 !#ifdef PARALLEL
-!       CALL MPI_File_delete(this%GetFilename(),MPI_INFO_NULL,this%error)
+!       CALL MPI_File_delete(this%GetFilename(),MPI_INFO_NULL,this%error_io)
 !       CALL MPI_File_open(MPI_COMM_WORLD,this%GetFilename(),IOR(MPI_MODE_WRONLY,&
-!            MPI_MODE_CREATE),MPI_INFO_NULL,this%handle,this%error)
+!            MPI_MODE_CREATE),MPI_INFO_NULL,this%handle,this%error_io)
 !#else
 !       OPEN(this%unit,FILE=this%GetFilename(),FORM=fformat,STATUS="REPLACE",&
-!            ACTION="WRITE",POSITION="REWIND",IOSTAT=this%error)
+!            ACTION="WRITE",POSITION="REWIND",IOSTAT=this%error_io)
 !#endif
 !    CASE(APPEND)
 !#ifdef PARALLEL
 !       CALL MPI_File_open(MPI_COMM_WORLD,this%GetFilename(),IOR(MPI_MODE_RDWR,&
-!            MPI_MODE_APPEND),MPI_INFO_NULL,this%handle,this%error)       
+!            MPI_MODE_APPEND),MPI_INFO_NULL,this%handle,this%error_io)       
 !       ! opening in append mode doesn't seem to work for pvfs2, hence ...
 !       offset = 0
-!       CALL MPI_File_seek(this%handle,offset,MPI_SEEK_END,this%error)
-!       CALL MPI_File_sync(this%handle,this%error)
+!       CALL MPI_File_seek(this%handle,offset,MPI_SEEK_END,this%error_io)
+!       CALL MPI_File_sync(this%handle,this%error_io)
 !#else
 !       OPEN(this%unit,FILE=this%GetFilename(),FORM=fformat,STATUS="OLD",&
-!            ACTION="READWRITE",POSITION="APPEND",IOSTAT=this%error)
+!            ACTION="READWRITE",POSITION="APPEND",IOSTAT=this%error_io)
 !#endif
 !    CASE DEFAULT
 !       CALL this%Error("OpenFile","Unknown access mode.")
@@ -294,7 +287,7 @@ CONTAINS
 !#endif
 !         action     = 'READ',         &
 !         POSITION   = 'REWIND',       &
-!         iostat     = this%error_code)
+!         iostat     = this%error_io_code)
 !    CASE(READEND)
 !       open(this%unit, FILE=this%GetFilename(), &
 !         STATUS     = 'OLD',          &
@@ -358,7 +351,7 @@ CONTAINS
 !#endif
 !           ACTION     = 'READWRITE',        &
 !           POSITION   = 'APPEND',       &
-!           IOSTAT     = this%error)
+!           IOSTAT     = this%error_io)
 !        this%extension='vts'
 !      END IF
 !#endif
@@ -399,10 +392,10 @@ CONTAINS
     WRITE(this%unit) sheader
 #else
     CALL MPI_File_set_view(this%handle,this%offset,MPI_BYTE,&
-         MPI_BYTE, 'native', MPI_INFO_NULL, this%error)
-    IF(GetRank(this).EQ.0) &
+         MPI_BYTE, 'native', MPI_INFO_NULL, this%error_io)
+    IF(this%GetRank().EQ.0) &
       CALL MPI_File_write(this%handle,sheader,LEN(sheader),MPI_BYTE, &
-        this%status,this%error)
+        this%status,this%error_io)
 #endif
     this%offset = this%offset + LEN(sheader)
   END SUBROUTINE WriteHeader
@@ -493,10 +486,10 @@ CONTAINS
      WRITE(this%unit) buf
 #else
     CALL MPI_File_set_view(this%handle,this%offset,MPI_BYTE,&
-           MPI_BYTE, 'native', MPI_INFO_NULL, this%error)
-    IF(GetRank(this).EQ.0) &
+           MPI_BYTE, 'native', MPI_INFO_NULL, this%error_io)
+    IF (this%GetRank().EQ.0) &
       CALL MPI_File_write(this%handle,buf,bufsize,MPI_BYTE, &
-        this%status,this%error)
+        this%status,this%error_io)
 #endif
     DEALLOCATE(buf)
     this%offset = this%offset + bufsize
@@ -605,22 +598,22 @@ CONTAINS
 #ifdef PARALLEL
           IF(this%HasMeshDims(Mesh,SHAPE(ptr3))) THEN
             CALL MPI_File_set_view(this%handle,this%offset,DEFAULT_MPI_REAL,&
-                   this%filetype, 'native', MPI_INFO_NULL, this%error)
+                   this%filetype, 'native', MPI_INFO_NULL, this%error_io)
             CALL MPI_File_write_all(this%handle,ptr3,this%bufsize,&
-                   DEFAULT_MPI_REAL,this%status,this%error)
+                   DEFAULT_MPI_REAL,this%status,this%error_io)
 
           ELSE IF(this%HasCornerDims(Mesh,SHAPE(ptr3))) THEN
             CALL MPI_File_set_view(this%handle,this%offset,DEFAULT_MPI_REAL,&
-                   this%cfiletype, 'native', MPI_INFO_NULL, this%error)
+                   this%cfiletype, 'native', MPI_INFO_NULL, this%error_io)
             CALL MPI_File_write_all(this%handle,ptr3(1:this%inum,1:this%jnum,1:this%knum),&
-                   this%cbufsize,DEFAULT_MPI_REAL,this%status,this%error)
+                   this%cbufsize,DEFAULT_MPI_REAL,this%status,this%error_io)
           ELSE
 
             CALL MPI_File_set_view(this%handle,this%offset,MPI_BYTE,&
-                 MPI_BYTE, 'native', MPI_INFO_NULL, this%error)
+                 MPI_BYTE, 'native', MPI_INFO_NULL, this%error_io)
             IF(this%GetRank().EQ.0) THEN
               CALL MPI_File_write(this%handle,ptr3,bytes,MPI_BYTE, &
-                   this%status,this%error)
+                   this%status,this%error_io)
             END IF
           END IF
 #else
@@ -639,10 +632,10 @@ CONTAINS
           WRITE(this%unit) ptr0%p
 #else
           CALL MPI_File_set_view(this%handle,this%offset,MPI_BYTE,&
-               MPI_BYTE, 'native', MPI_INFO_NULL, this%error)
+               MPI_BYTE, 'native', MPI_INFO_NULL, this%error_io)
           IF(this%GetRank().EQ.0) THEN
             CALL MPI_File_write(this%handle,ptr0%p,bytes,MPI_BYTE, &
-                 this%status,this%error)
+                 this%status,this%error_io)
           END IF
 #endif
       CASE(DICT_INT_P)
@@ -653,10 +646,10 @@ CONTAINS
           WRITE(this%unit) ptrint%p
 #else
           CALL MPI_File_set_view(this%handle,this%offset,MPI_BYTE,&
-               MPI_BYTE, 'native', MPI_INFO_NULL, this%error)
+               MPI_BYTE, 'native', MPI_INFO_NULL, this%error_io)
           IF(this%GetRank().EQ.0) THEN
             CALL MPI_File_write(this%handle,ptrint%p,bytes,MPI_BYTE, &
-                 this%status,this%error)
+                 this%status,this%error_io)
           END IF
 #endif
       CASE DEFAULT
@@ -672,10 +665,10 @@ CONTAINS
           WRITE(this%unit) val
 #else
           CALL MPI_File_set_view(this%handle,this%offset,MPI_BYTE,&
-               MPI_BYTE, 'native', MPI_INFO_NULL, this%error)
+               MPI_BYTE, 'native', MPI_INFO_NULL, this%error_io)
           IF(this%GetRank().EQ.0) THEN
             CALL MPI_File_write(this%handle,val,bytes,MPI_BYTE, &
-                 this%status,this%error)
+                 this%status,this%error_io)
           END IF
 #endif
         END IF
@@ -694,9 +687,9 @@ CONTAINS
       ! this case and therefore the calculated size could be different on
       ! different nodes.
       CALL MPI_Allreduce(this%offset,omax,1,MPI_OFFSET,MPI_MAX,&
-        Mesh%comm_cart,this%error)
+        Mesh%comm_cart,this%error_io)
       CALL MPI_Allreduce(this%offset,omin,1,MPI_OFFSET,MPI_MIN,&
-        Mesh%comm_cart,this%error)
+        Mesh%comm_cart,this%error_io)
       IF((this%offset.NE.omax).OR.(this%offset.NE.omin)) &
         CALL this%Error("WriteNode_binary",&
           "The offsets on different nodes are not in sync anymore." // LF &
@@ -853,7 +846,7 @@ CONTAINS
     INTEGER :: err
     !------------------------------------------------------------------------!
 #ifdef PARALLEL
-    CALL MPI_File_close(this%handle,this%error_code)
+    CALL MPI_File_close(this%handle,this%error_io)
 #else
     CLOSE(this%unit,IOSTAT=err)
 #endif
@@ -867,8 +860,8 @@ CONTAINS
     TYPE(fileio_binary),INTENT(INOUT) :: this
     !------------------------------------------------------------------------!
 #ifdef PARALLEL
-    CALL MPI_Type_free(this%cfiletype,this%error_code)
-    CALL MPI_Type_free(this%filetype,this%error_code)
+    CALL MPI_Type_free(this%cfiletype,this%error_io)
+    CALL MPI_Type_free(this%filetype,this%error_io)
 #endif
   END SUBROUTINE Finalize
 

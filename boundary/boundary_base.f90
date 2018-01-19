@@ -1,6 +1,6 @@
 !#############################################################################
 !#                                                                           #
-!# fosite - 2D hydrodynamical simulation program                             #
+!# fosite - 3D hydrodynamical simulation program                             #
 !# module: boundary_generic.f90                                              #
 !#                                                                           #
 !# Copyright (C) 2006-2016                                                   #
@@ -95,25 +95,24 @@ MODULE boundary_base_mod
                          recvbuf         !< receive buffer for boundary data
 #endif
   CONTAINS
+
     PROCEDURE :: InitBoundary
     PROCEDURE (SetBoundaryData), DEFERRED :: SetBoundaryData
     PROCEDURE :: FinalizeBoundary
     PROCEDURE :: GetDirection
   END TYPE boundary_base
+
   ! exclude interface block from doxygen processing
   !> \cond InterfaceBlock
-!  INTERFACE CloseBoundary
-!     MODULE PROCEDURE CloseBoundary_one, CloseBoundary_all
-!  END INTERFACE
   ABSTRACT INTERFACE
     PURE SUBROUTINE SetBoundaryData(this,Mesh,Physics,pvar)
       IMPORT boundary_base,mesh_base,physics_base
       IMPLICIT NONE
-      CLASS(boundary_base), INTENT(IN) :: this
-      CLASS(mesh_base), INTENT(IN) :: Mesh
-      CLASS(physics_base), INTENT(IN) :: Physics
-      REAL, INTENT(INOUT) :: pvar(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX, &
-                                  Mesh%KGMIN:Mesh%KGMAX,Physics%vnum)
+      CLASS(boundary_base), INTENT(IN)    :: this
+      CLASS(mesh_base),     INTENT(IN)    :: Mesh
+      CLASS(physics_base),  INTENT(IN)    :: Physics
+      REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
+                            INTENT(INOUT) :: pvar
     END SUBROUTINE
   END INTERFACE
   !> \endcond
@@ -207,18 +206,18 @@ CONTAINS
 #ifdef PARALLEL
     ! send boundary information to the rank 0 process;
     ! we only need this to synchronize the output
-    IF (GetRank(this) .EQ. 0 .AND. GetRank(this).EQ.Mesh%rank0_boundaries(dir)) THEN
+    IF (this%GetRank() .EQ. 0 .AND. this%GetRank().EQ.Mesh%rank0_boundaries(dir)) THEN
        ! print output without communication
 #endif
        CALL this%Info(" BOUNDARY-> condition:         " //  TRIM(this%direction%GetName()) &
             // " " // TRIM(this%GetName()), this%GetRank())
 #ifdef PARALLEL
-    ELSE IF (GetRank(this).EQ.Mesh%rank0_boundaries(dir)) THEN
+    ELSE IF (this%GetRank().EQ.Mesh%rank0_boundaries(dir)) THEN
        ! send info to root
-       sendbuf = TRIM(this%GetDirectionName())//" "//TRIM(this%GetName())
+       sendbuf = TRIM(this%direction%GetName())//" "//TRIM(this%GetName())
        CALL MPI_SEND(sendbuf,strlen,MPI_CHARACTER,0, &
                      0,MPI_COMM_WORLD,ierror)
-    ELSE IF (GetRank(this).EQ.0) THEN
+    ELSE IF (this%GetRank().EQ.0) THEN
        ! receive input from rank0_boundaries(dir)
        CALL MPI_RECV(recvbuf,strlen,MPI_CHARACTER,Mesh%rank0_boundaries(dir),&
                      MPI_ANY_TAG,MPI_COMM_WORLD,status,ierror)
