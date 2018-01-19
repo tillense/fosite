@@ -1,6 +1,6 @@
 !#############################################################################
 !#                                                                           #
-!# fosite - 2D hydrodynamical simulation program                             #
+!# fosite - 3D hydrodynamical simulation program                             #
 !# module: geometry_polar.f90                                                #
 !#                                                                           #
 !# Copyright (C) 2007 Tobias Illenseer <tillense@astrophysik.uni-kiel.de>    #
@@ -25,6 +25,7 @@
 !----------------------------------------------------------------------------!
 !> \author Tobias Illenseer
 !! \author Manuel Jung
+!! \author Lars Bösch
 !!
 !! \brief define properties of a 2D polar mesh
 !!

@@ -1,6 +1,6 @@
 !#############################################################################
 !#                                                                           #
-!# fosite - 2D hydrodynamical simulation program                             #
+!# fosite - 3D hydrodynamical simulation program                             #
 !# module: geometry_cylindrical.f90                                          #
 !#                                                                           #
 !# Copyright (C) 2007                                                        #
