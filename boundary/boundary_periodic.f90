@@ -113,7 +113,7 @@ CONTAINS
     CASE(TOP)
 !CDIR NODEP
       DO k=1,Mesh%GNUM
-        pvar(:,:,Mesh%KMAX+k,:) = pvar(:,:,Mesh%KMIN+j-1,:)
+        pvar(:,:,Mesh%KMAX+k,:) = pvar(:,:,Mesh%KMIN+k-1,:)
       END DO
     END SELECT
   END SUBROUTINE SetBoundaryData
