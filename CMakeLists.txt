@@ -1,4 +1,12 @@
 # CMake project file for FOSITE
+cmake_host_system_information(RESULT HOST QUERY HOSTNAME)
+MESSAGE(STATUS ${HOST})
+if(${HOST} MATCHES  "nesh-fe*")
+  SET(CMAKE_Fortran_COMPILER "sxf03")
+elseif(${HOST} MATCHES "ganymed")
+  SET(CMAKE_Fortran_COMPILER "gfortran")
+endif()
+
 
 cmake_minimum_required (VERSION 2.8.10)
 project (FOSITE NONE)
@@ -17,11 +25,10 @@ get_filename_component (default_prefix ".." ABSOLUTE)
 set (CMAKE_INSTALL_PREFIX ${default_prefix} CACHE STRING
       "Choose the installation directory; by default it installs in the build directory."
       FORCE)
-
+    
 #-------------------- choose compiler & set flags ---------------------#
 # FFLAGS depend on the compiler
 get_filename_component (Fortran_COMPILER_NAME ${CMAKE_Fortran_COMPILER} NAME)
-
 MESSAGE( STATUS "Compiler: " ${CMAKE_Fortran_COMPILER})
 
 if (Fortran_COMPILER_NAME MATCHES "(.*)gfortran")
@@ -29,14 +36,6 @@ if (Fortran_COMPILER_NAME MATCHES "(.*)gfortran")
   set (CMAKE_Fortran_FLAGS "-fdefault-real-8 -cpp -ffree-line-length-none -std=f2003 -DVERSION='\"v2\"'")
   set (CMAKE_Fortran_FLAGS_RELEASE "-funroll-all-loops -fno-f2c -O3")
   set (CMAKE_Fortran_FLAGS_DEBUG   "-fno-f2c -O2 -g -fcheck=all")
-  if(CMAKE_Fortran_COMPILER_VERSION VERSION_LESS 4.9)
-    message(FATAL_ERROR "Insufficient gfortran version")
-  endif()
-elseif (Fortran_COMPILER_NAME MATCHES "(.*)mpifort")
-  set (CMAKE_Fortran_FLAGS "-fdefault-real-8 -cpp -ffree-line-length-none -std=f2003 -DVERSION='\"v2\"' -DPARALLEL -DHAVE_MPI_MOD")
-  set (CMAKE_Fortran_FLAGS_RELEASE "-funroll-all-loops -fno-f2c -O3")
-  set (CMAKE_Fortran_FLAGS_DEBUG   "-fno-f2c -O2 -g -fcheck=all")
-  message("Building Fosite in parallel mode")
   if(CMAKE_Fortran_COMPILER_VERSION VERSION_LESS 4.9)
     message(FATAL_ERROR "Insufficient gfortran version")
   endif()
@@ -49,6 +48,10 @@ elseif (Fortran_COMPILER_NAME MATCHES "(.*)sxf03")
   set (CMAKE_Fortran_FLAGS "-Ep -default_real_size=8 -pi auto -DVERSION='\"v2\"'")
   set (CMAKE_Fortran_FLAGS_RELEASE "")
   set (CMAKE_Fortran_FLAGS_DEBUG   "-g")
+  set(CMAKE_AR /SX/opt/crosskit/r211/bin/sxar)
+  SET(CMAKE_RANLIB /usr/bin/echo)
+  SET(CMAKE_NM /SX/opt/crosskit/r211/bin/sxnm)
+  SET(CMAKE_LINKER /SX/opt/crosskit/r211/bin/sxld)
 elseif (Fortran_COMPILER_NAME MATCHES "g77")
   # g77
   message(FATAL_ERROR "Fortran 77 is oldschool but still not supported.")
