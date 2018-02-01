@@ -55,10 +55,10 @@ PROGRAM gauss3d
   REAL, PARAMETER     :: R0       = 0.0      ! radial position
   REAL, PARAMETER     :: Z0       = 0.0      ! vertical position
   ! mesh settings
-  INTEGER, PARAMETER  :: MGEO     = CYLINDRICAL! geometry
-  INTEGER, PARAMETER  :: XRES     = 10       ! x-resolution
-  INTEGER, PARAMETER  :: YRES     = 10       ! y-resolution
-  INTEGER, PARAMETER  :: ZRES     = 10       ! z-resolution
+  INTEGER, PARAMETER  :: MGEO     = SPHERICAL! geometry
+  INTEGER, PARAMETER  :: XRES     = 20       ! x-resolution
+  INTEGER, PARAMETER  :: YRES     = 20       ! y-resolution
+  INTEGER, PARAMETER  :: ZRES     = 20       ! z-resolution
   REAL, PARAMETER     :: RMAX     = 1.0      ! width of square that fits into
                                              !   computational domain
   REAL, PARAMETER     :: GPAR     = 0.8      ! geometry scaling parameter
@@ -132,6 +132,19 @@ CONTAINS
        bc(NORTH)  = NO_GRADIENTS
        bc(BOTTOM) = NO_GRADIENTS
        bc(TOP)    = NO_GRADIENTS
+    CASE(SPHERICAL)
+       x1 = 0.01
+       x2 = RMAX
+       y1 = 0.0
+       y2 = PI
+       z1 = 0.0
+       z2 = 2*PI
+       bc(WEST)  = REFLECTING       !default: REFLECTING
+       bc(EAST)  = REFLECTING       !default: ABSORBING
+       bc(SOUTH) = REFLECTING       !default: AXIS
+       bc(NORTH) = REFLECTING       !default: AXIS
+       bc(BOTTOM)= PERIODIC
+       bc(TOP)   = PERIODIC
     CASE DEFAULT
        CALL Error(Sim%Physics,"InitProgram","geometry not supported for this test")
     END SELECT
@@ -182,7 +195,7 @@ CONTAINS
             "cfl"       / 0.4, &
             "stoptime"  / TSIM, &
             "dtlimit"   / 1.0E-8, &
-            "maxiter"   / 10) !000000)
+            "maxiter"   / 10000000)
 
     datafile => Dict( &
             "fileformat" / VTK, &
