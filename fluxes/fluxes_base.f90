@@ -40,7 +40,17 @@ MODULE fluxes_base_mod
   USE reconstruction_generic_mod
   USE physics_base_mod
   USE common_dict
+#ifdef PARALLEL
+#ifdef HAVE_MPI_MOD
+  USE mpi
+#endif
+#endif
   IMPLICIT NONE
+#ifdef PARALLEL
+#ifdef HAVE_MPIF_H
+  include 'mpif.h'
+#endif
+#endif
   !--------------------------------------------------------------------------!
   PRIVATE
   TYPE, ABSTRACT, EXTENDS (logging_base) ::  fluxes_base
@@ -143,7 +153,7 @@ CONTAINS
       this%bzflux(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,2,Physics%VNUM), &
       this%bxfold(Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,2,Physics%VNUM), &
       this%byfold(Mesh%KGMIN:Mesh%KGMAX,Mesh%IGMIN:Mesh%IGMAX,2,Physics%VNUM), &
-      this%bzfold(Mesh%KGMIN:Mesh%KGMAX,Mesh%JGMIN:Mesh%JGMAX,2,Physics%VNUM), &
+      this%bzfold(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,2,Physics%VNUM), &
       this%dx(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,6), &
       this%dy(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,6), &
       this%dz(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,6), &
@@ -234,143 +244,142 @@ CONTAINS
     REAL, DIMENSION(Physics%VNUM)      :: bflux
     INTEGER, OPTIONAL                  :: comm        ! communicator for MPI
     !------------------------------------------------------------------------!
-!#ifdef PARALLEL
-!    INTEGER, DIMENSION(2) :: coords
-!    REAL, DIMENSION(Physics%VNUM) :: bflux_all,bflux_local
-!    INTEGER :: sender_rank(1),dest_ranks(1),rank0(1)
-!    INTEGER :: dest_comm,union_comm
-!    INTEGER :: world_group,dest_group,union_group,sender_group
-!    INTEGER :: ierror
-!#endif
+#ifdef PARALLEL
+    INTEGER, DIMENSION(2) :: coords
+    REAL, DIMENSION(Physics%VNUM) :: bflux_all,bflux_local
+    INTEGER :: sender_rank(1),dest_ranks(1),rank0(1)
+    INTEGER :: dest_comm,union_comm
+    INTEGER :: world_group,dest_group,union_group,sender_group
+    INTEGER :: ierror
+#endif
     !------------------------------------------------------------------------!
     INTENT(IN)         :: direction
     !------------------------------------------------------------------------!
-!#ifdef PARALLEL
-!    IF (PRESENT(comm)) THEN
-!       dest_comm = comm
-!    ELSE
-!       dest_comm = MPI_COMM_NULL
-!    END IF
-!#endif
+#ifdef PARALLEL
+    IF (PRESENT(comm)) THEN
+       dest_comm = comm
+    ELSE
+       dest_comm = MPI_COMM_NULL
+    END IF
+#endif
     SELECT CASE(direction)
     CASE(WEST) ! western boundary flux
-!#ifdef PARALLEL
-!       IF (Mesh%mycoords(1).EQ.0) THEN
-!          bflux_local(:) = SUM(this%bxflux(Mesh%JMIN:Mesh%JMAX,1,:),1) ! TODO: 3D
-!       ELSE
-!          bflux_local(:) = 0.0
-!       END IF
-!#else
+#ifdef PARALLEL
+       IF (Mesh%mycoords(1).EQ.0) THEN
+          bflux_local(:) = SUM(SUM(this%bxflux(Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,1,:),1),1)
+       ELSE
+          bflux_local(:) = 0.0
+       END IF
+#else
        bflux = SUM(SUM(this%bxflux(Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,1,:),1),1)
-!#endif
+#endif
     CASE(EAST) ! eastern boundary flux
-!#ifdef PARALLEL
-!       IF (Mesh%mycoords(1).EQ.Mesh%dims(1)-1) THEN
-!          bflux_local(:) = SUM(this%bxflux(Mesh%JMIN:Mesh%JMAX,2,:),1) ! TODO: 3D
-!       ELSE
-!          bflux_local(:) = 0.0
-!       END IF
-!#else
+#ifdef PARALLEL
+       IF (Mesh%mycoords(1).EQ.Mesh%dims(1)-1) THEN
+          bflux_local(:) = SUM(SUM(this%bxflux(Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,2,:),1),1)
+       ELSE
+          bflux_local(:) = 0.0
+       END IF
+#else
        bflux = SUM(SUM(this%bxflux(Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,2,:),1),1)
-!#endif
+#endif
     CASE(SOUTH) ! southern boundary flux
-!#ifdef PARALLEL
-!       IF (Mesh%mycoords(2).EQ.0) THEN
-!          bflux_local(:) = SUM(this%byflux(Mesh%IMIN:Mesh%IMAX,1,:),1 ! TODO: 3D)
-!       ELSE
-!          bflux_local(:) = 0.0
-!       END IF
-!#else
+#ifdef PARALLEL
+       IF (Mesh%mycoords(2).EQ.0) THEN
+          bflux_local(:) = SUM(SUM(this%byflux(Mesh%KMIN:Mesh%KMAX,Mesh%IMIN:Mesh%IMAX,1,:),1),1)
+       ELSE
+          bflux_local(:) = 0.0
+       END IF
+#else
        bflux = SUM(SUM(this%byflux(Mesh%KMIN:Mesh%KMAX,Mesh%IMIN:Mesh%IMAX,1,:),1),1)
-!#endif
+#endif
     CASE (NORTH) ! northern boundary flux
-!#ifdef PARALLEL
-!       IF (Mesh%mycoords(2).EQ.Mesh%dims(2)-1) THEN
-!          bflux_local(:) = SUM(this%byflux(Mesh%IMIN:Mesh%IMAX,2,:),1) ! TODO: 3D
-!       ELSE
-!          bflux_local(:) = 0.0
-!       END IF
-!#else
-       bflux = SUM(SUM(this%byflux(Mesh%KMIN:Mesh%KMAX,Mesh%IMIN:Mesh%IMAX,2,:),1))
-!#endif
-!------------------------NEW---------------------------------------------!
-    CASE (BOTTOM) ! northern boundary flux
-!#ifdef PARALLEL
-!       IF (Mesh%mycoords(2).EQ.Mesh%dims(2)-1) THEN
-!          bflux_local(:) = SUM(this%byflux(Mesh%IMIN:Mesh%IMAX,2,:),1) ! TODO: 3D
-!       ELSE
-!          bflux_local(:) = 0.0
-!       END IF
-!#else
-       bflux = SUM(SUM(this%byflux(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,1,:),1))
-!#endif
-    CASE (TOP) ! northern boundary flux
-!#ifdef PARALLEL
-!       IF (Mesh%mycoords(2).EQ.Mesh%dims(2)-1) THEN
-!          bflux_local(:) = SUM(this%byflux(Mesh%IMIN:Mesh%IMAX,2,:),1) ! TODO: 3D
-!       ELSE
-!          bflux_local(:) = 0.0
-!       END IF
-!#else
-       bflux = SUM(SUM(this%byflux(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,2,:),1))
-!#endif
-!------------------------NEW---------------------------------------------!
+#ifdef PARALLEL
+       IF (Mesh%mycoords(2).EQ.Mesh%dims(2)-1) THEN
+          bflux_local(:) = SUM(SUM(this%byflux(Mesh%KMIN:Mesh%KMAX,Mesh%IMIN:Mesh%IMAX,2,:),1),1)
+       ELSE
+          bflux_local(:) = 0.0
+       END IF
+#else
+       bflux = SUM(SUM(this%byflux(Mesh%KMIN:Mesh%KMAX,Mesh%IMIN:Mesh%IMAX,2,:),1),1)
+#endif
+    CASE (BOTTOM) ! bottom boundary flux
+#ifdef PARALLEL
+       IF (Mesh%mycoords(3).EQ.Mesh%dims(3)-1) THEN
+          bflux_local(:) = SUM(SUM(this%bzflux(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,1,:),1),1)
+       ELSE
+          bflux_local(:) = 0.0
+       END IF
+#else
+       bflux = SUM(SUM(this%byflux(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,1,:),1),1)
+#endif
+    CASE (TOP) ! topper boundary flux
+#ifdef PARALLEL
+       IF (Mesh%mycoords(3).EQ.Mesh%dims(3)-1) THEN
+          bflux_local(:) = SUM(SUM(this%bzflux(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,2,:),1),1)
+       ELSE
+          bflux_local(:) = 0.0
+       END IF
+#else
+       bflux = SUM(SUM(this%byflux(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,2,:),1),1)
+#endif
     CASE DEFAULT
        CALL this%Error("GetBoundaryFlux","wrong direction")
     END SELECT
-!#ifdef PARALLEL
-!    ! if dest_comm is the world comm, use simpler and faster AllReduce
-!    IF(dest_comm.EQ.MPI_COMM_WORLD) THEN
-!      CALL MPI_AllReduce(bflux_local,bflux,Physics%VNUM,DEFAULT_MPI_REAL, &
-!           MPI_SUM,MPI_COMM_WORLD,ierror)
-!    ELSE
-!      ! create world group
-!      CALL MPI_Comm_group(MPI_COMM_WORLD,world_group,ierror)
-!      ! determine the destination for the result
-!      IF(dest_comm.NE.MPI_COMM_NULL) THEN
-!        dest_comm = comm
-!        ! set destination group
-!        CALL MPI_Comm_group(dest_comm,dest_group,ierror)
-!      ELSE
-!        ! if no communicator is given, send the result
-!        ! to the rank0 process
-!        dest_ranks(1) = 0
-!        CALL MPI_Group_incl(world_group,1,dest_ranks,dest_group,ierror)
-!      END IF
-!      ! collect and sum up the result in process with rank 0 with respect to the
-!      ! subset of MPI processes at the boundary under consideration
-!      IF (Mesh%comm_boundaries(direction).NE.MPI_COMM_NULL) THEN
-!         CALL MPI_Reduce(bflux_local,bflux,Physics%VNUM,DEFAULT_MPI_REAL, &
-!              MPI_SUM,0,Mesh%comm_boundaries(direction),ierror)
-!      ELSE
-!         bflux(:) = 0.0
-!      END IF
-!      ! get sender group
-!      rank0(1) = Mesh%rank0_boundaries(direction)
-!      CALL MPI_Group_incl(world_group,1,rank0,sender_group,ierror)
-!      ! merge sender with destination
-!      CALL MPI_Group_union(sender_group,dest_group,union_group,ierror)
-!      ! create a communicator for the union group
-!      CALL MPI_Comm_create(MPI_COMM_WORLD,union_group,union_comm,ierror)
-!      IF (union_comm.NE.MPI_COMM_NULL) THEN
-!         ! get rank of sender in union group
-!         rank0(1) = 0
-!         CALL MPI_Group_translate_ranks(sender_group,1,rank0,union_group,sender_rank,ierror)
-!         IF (sender_rank(1).EQ.MPI_UNDEFINED) &
-!             CALL Error(this,"GetBoundaryFlux","sender rank undefined")
-!         ! send result to all processes in communicator 'union_comm'
-!         CALL MPI_Bcast(bflux,Physics%VNUM,DEFAULT_MPI_REAL,sender_rank(1),union_comm,ierror)
-!         ! free union communicator
-!         CALL MPI_Comm_free(union_comm,ierror)
-!      END IF
-!      ! free all groups
-!      CALL MPI_Group_free(union_group,ierror)
-!      CALL MPI_Group_free(sender_group,ierror)
-!      CALL MPI_Group_free(world_group,ierror)
-!      CALL MPI_Group_free(dest_group,ierror)
-!    END IF
-!
-!#endif
+
+#ifdef PARALLEL
+    ! if dest_comm is the world comm, use simpler and faster AllReduce
+    IF(dest_comm.EQ.MPI_COMM_WORLD) THEN
+      CALL MPI_AllReduce(bflux_local,bflux,Physics%VNUM,DEFAULT_MPI_REAL, &
+           MPI_SUM,MPI_COMM_WORLD,ierror)
+    ELSE
+      ! create world group
+      CALL MPI_Comm_group(MPI_COMM_WORLD,world_group,ierror)
+      ! determine the destination for the result
+      IF(dest_comm.NE.MPI_COMM_NULL) THEN
+        dest_comm = comm
+        ! set destination group
+        CALL MPI_Comm_group(dest_comm,dest_group,ierror)
+      ELSE
+        ! if no communicator is given, send the result
+        ! to the rank0 process
+        dest_ranks(1) = 0
+        CALL MPI_Group_incl(world_group,1,dest_ranks,dest_group,ierror)
+      END IF
+      ! collect and sum up the result in process with rank 0 with respect to the
+      ! subset of MPI processes at the boundary under consideration
+      IF (Mesh%comm_boundaries(direction).NE.MPI_COMM_NULL) THEN
+         CALL MPI_Reduce(bflux_local,bflux,Physics%VNUM,DEFAULT_MPI_REAL, &
+              MPI_SUM,0,Mesh%comm_boundaries(direction),ierror)
+      ELSE
+         bflux(:) = 0.0
+      END IF
+      ! get sender group
+      rank0(1) = Mesh%rank0_boundaries(direction)
+      CALL MPI_Group_incl(world_group,1,rank0,sender_group,ierror)
+      ! merge sender with destination
+      CALL MPI_Group_union(sender_group,dest_group,union_group,ierror)
+      ! create a communicator for the union group
+      CALL MPI_Comm_create(MPI_COMM_WORLD,union_group,union_comm,ierror)
+      IF (union_comm.NE.MPI_COMM_NULL) THEN
+         ! get rank of sender in union group
+         rank0(1) = 0
+         CALL MPI_Group_translate_ranks(sender_group,1,rank0,union_group,sender_rank,ierror)
+         IF (sender_rank(1).EQ.MPI_UNDEFINED) &
+             CALL this%Error("GetBoundaryFlux","sender rank undefined")
+         ! send result to all processes in communicator 'union_comm'
+         CALL MPI_Bcast(bflux,Physics%VNUM,DEFAULT_MPI_REAL,sender_rank(1),union_comm,ierror)
+         ! free union communicator
+         CALL MPI_Comm_free(union_comm,ierror)
+      END IF
+      ! free all groups
+      CALL MPI_Group_free(union_group,ierror)
+      CALL MPI_Group_free(sender_group,ierror)
+      CALL MPI_Group_free(world_group,ierror)
+      CALL MPI_Group_free(dest_group,ierror)
+    END IF
+
+#endif
   END FUNCTION GetBoundaryFlux
 
   !> Calcualtes face data with reconstruction methods (e. g. limiters)

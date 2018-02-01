@@ -6,6 +6,7 @@
 !# Copyright (C) 2007-2012                                                   #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
 !# Björn Sperling   <sperling@astrophysik.uni-kiel.de>                       #
+!# Jannes Klee      <jklee@astrophysik.uni-kiel.de>                          #
 !#                                                                           #
 !# This program is free software; you can redistribute it and/or modify      #
 !# it under the terms of the GNU General Public License as published by      #
@@ -27,6 +28,7 @@
 !----------------------------------------------------------------------------!
 !> \author Tobias Illenseer
 !! \author Björn Sperling
+!! \author Jannes Klee
 !!
 !! \brief subroutines for modified Euler i.e. Runge-Kutta methods
 !!
@@ -202,7 +204,7 @@ CONTAINS
   END SUBROUTINE SolveODE
 
 
-  !> \private perfroms the time step update using the RHS
+  !> \private performs the time step update using the RHS
   !!
   SUBROUTINE ComputeCVar(this,Mesh,Physics,Fluxes,eta,time,dt, &
                                   cold,pvar,cvar,rhs,cnew)
@@ -258,8 +260,8 @@ CONTAINS
           Fluxes%byflux(k,i,1,l) = UpdateTimestep_modeuler(eta,dt,Fluxes%byfold(k,i,1,l), &
                Fluxes%byflux(k,i,1,l),rhs(i,Mesh%JMIN-1,k,l))
 !CDIR IEXPAND
-          Fluxes%byflux(k,i,2,l) = UpdateTimestep_modeuler(eta,dt,Fluxes%byfold(i,k,2,l), &
-               Fluxes%byflux(i,k,2,l),rhs(i,Mesh%JMAX+1,k,l))
+          Fluxes%byflux(k,i,2,l) = UpdateTimestep_modeuler(eta,dt,Fluxes%byfold(k,i,2,l), &
+               Fluxes%byflux(k,i,2,l),rhs(i,Mesh%JMAX+1,k,l))
         END DO
       END DO
 

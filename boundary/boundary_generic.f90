@@ -48,6 +48,7 @@ MODULE boundary_generic_mod
   USE boundary_reflecting_mod
   USE boundary_nogradients_mod
   USE boundary_periodic_mod
+  USE boundary_inner_mod
   USE boundary_axis_mod
   USE physics_base_mod
   USE common_dict
@@ -65,6 +66,11 @@ MODULE boundary_generic_mod
   !--------------------------------------------------------------------------!
   TYPE, PRIVATE :: boundary_p
     CLASS(boundary_base), ALLOCATABLE :: p
+#ifdef PARALLEL
+    !> \name variables in parallel mode
+    REAL,DIMENSION(:,:,:,:), POINTER :: sendbuf, &     !< send buffer for boundary data
+                                        recvbuf        !< receive buffer for boundary data
+#endif
   END TYPE
 
   TYPE, EXTENDS(logging_base) :: boundary_generic
@@ -73,8 +79,6 @@ MODULE boundary_generic_mod
     TYPE(boundary_p)                :: Boundary(6)
     LOGICAL                         :: PhysicalCorner  !< Is the left corner physical?
 #ifdef PARALLEL
-    !> \todo check if this arrays are really necessary. They are part of the
-    !!       boundary classes and should thus be not necessary.
     !> \name variables in parallel mode
     REAL,DIMENSION(:,:,:,:), POINTER :: sendbuf, &     !< send buffer for boundary data
                                         recvbuf        !< receive buffer for boundary data
@@ -147,7 +151,7 @@ CONTAINS
     new(TOP)    = topper
 
 #ifdef PARALLEL
-    ! define connections
+    ! define inner connections, where boundaries are no true ones
     IF (Mesh%mycoords(1).NE.0)  new(WEST) = NONE
     IF (Mesh%mycoords(1).NE.Mesh%dims(1)-1)  new(EAST) = NONE
     IF (Mesh%mycoords(2).NE.0)  new(SOUTH) = NONE
@@ -168,9 +172,12 @@ CONTAINS
         ALLOCATE(boundary_periodic::this%Boundary(dir)%p)
       CASE(AXIS)
         ALLOCATE(boundary_axis::this%Boundary(dir)%p)
-      CASE DEFAULT
-        CALL this%Error("new_boundary","Unkown boundary type.")
+#ifdef PARALLEL
+      CASE(NONE)
+        ALLOCATE(boundary_inner::this%Boundary(dir)%p)
+#endif
       END SELECT
+
       SELECT TYPE(obj => this%Boundary(dir)%p)
       TYPE IS (boundary_reflecting)
         CALL obj%InitBoundary_reflecting(Mesh,Physics,dir,config)
@@ -180,6 +187,10 @@ CONTAINS
         CALL obj%InitBoundary_periodic(Mesh,Physics,dir,config)
       TYPE IS (boundary_axis)
         CALL obj%InitBoundary_axis(Mesh,Physics,dir,config)
+#ifdef PARALLEL
+      TYPE IS (boundary_inner)
+        CALL obj%InitBoundary_inner(Mesh,Physics,dir,config)
+#endif
       END SELECT
     END DO
 
@@ -211,12 +222,13 @@ CONTAINS
     ! e.g. this(1)%PhysicalCorner describes the Southwest corner.
     !!
     ! \todo BUG: THIS IS WRONG, WE HAVE NOW 8 CORNERS IN 3D
-    DO dir=1,6
-      this%Boundary(dir)%p%PhysicalCorner = .FALSE.
-    END DO
-    ! TODO Help needed for parallelisation
-    IF(.NOT.ANY(periods)) THEN
-#ifdef PARALLEL
+!    DO dir=1,6
+!      this%Boundary(dir)%p%PhysicalCorner = .FALSE.
+!    END DO
+!    ! TODO Help needed for parallelisation
+!    ! TODO TODO TODO TODO TODO TODO TODO TODO TODO
+!    IF(.NOT.ANY(periods)) THEN
+!#ifdef PARALLEL
 !      IF(Mesh%mycoords(1).EQ.0) THEN
 !        IF(Mesh%mycoords(2).EQ.0) THEN
 !          IF(Mesh%mycoords(3).EQ.0) THEN
@@ -234,12 +246,12 @@ CONTAINS
 !        IF(Mesh%mycoords(2).EQ.Mesh%dims(2)-1) &
 !          this%Boundary(2)%PhysicalCorner = .TRUE.
 !      END IF
-#else
-      DO dir=1,6
-        this%Boundary(dir)%p%PhysicalCorner = .TRUE.
-      END DO
-#endif
-    END IF
+!#else
+!      DO dir=1,6
+!        this%Boundary(dir)%p%PhysicalCorner = .TRUE.
+!      END DO
+!#endif
+!    END IF
 
 
 #ifdef PARALLEL
