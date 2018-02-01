@@ -1,12 +1,4 @@
 # CMake project file for FOSITE
-cmake_host_system_information(RESULT HOST QUERY HOSTNAME)
-MESSAGE(STATUS ${HOST})
-if(${HOST} MATCHES  "nesh-fe*")
-  SET(CMAKE_Fortran_COMPILER "sxf03")
-elseif(${HOST} MATCHES "ganymed")
-  SET(CMAKE_Fortran_COMPILER "gfortran")
-endif()
-
 
 cmake_minimum_required (VERSION 2.8.10)
 project (FOSITE NONE)
@@ -25,7 +17,7 @@ get_filename_component (default_prefix ".." ABSOLUTE)
 set (CMAKE_INSTALL_PREFIX ${default_prefix} CACHE STRING
       "Choose the installation directory; by default it installs in the build directory."
       FORCE)
-    
+
 #-------------------- choose compiler & set flags ---------------------#
 # FFLAGS depend on the compiler
 get_filename_component (Fortran_COMPILER_NAME ${CMAKE_Fortran_COMPILER} NAME)
@@ -36,6 +28,14 @@ if (Fortran_COMPILER_NAME MATCHES "(.*)gfortran")
   set (CMAKE_Fortran_FLAGS "-fdefault-real-8 -cpp -ffree-line-length-none -std=f2003 -DVERSION='\"v2\"'")
   set (CMAKE_Fortran_FLAGS_RELEASE "-funroll-all-loops -fno-f2c -O3")
   set (CMAKE_Fortran_FLAGS_DEBUG   "-fno-f2c -O2 -g -fcheck=all")
+  if(CMAKE_Fortran_COMPILER_VERSION VERSION_LESS 4.9)
+    message(FATAL_ERROR "Insufficient gfortran version")
+  endif()
+elseif (Fortran_COMPILER_NAME MATCHES "(.*)mpifort")
+  set (CMAKE_Fortran_FLAGS "-fdefault-real-8 -cpp -ffree-line-length-none -std=f2003 -DVERSION='\"v2\"' -DPARALLEL -DHAVE_MPI_MOD")
+  set (CMAKE_Fortran_FLAGS_RELEASE "-funroll-all-loops -fno-f2c -O3")
+  set (CMAKE_Fortran_FLAGS_DEBUG   "-fno-f2c -O2 -g -fcheck=all")
+  message("Building Fosite in parallel mode")
   if(CMAKE_Fortran_COMPILER_VERSION VERSION_LESS 4.9)
     message(FATAL_ERROR "Insufficient gfortran version")
   endif()
