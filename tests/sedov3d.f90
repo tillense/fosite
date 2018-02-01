@@ -53,9 +53,9 @@ PROGRAM sedov3d
   REAL, PARAMETER    :: R0      = 0.1!3.0E-2
   ! mesh settings
   INTEGER, PARAMETER :: MGEO    = CARTESIAN   ! geometry
-  INTEGER, PARAMETER :: XRES    = 40          ! x-resolution
-  INTEGER, PARAMETER :: YRES    = 40          ! y-resolution
-  INTEGER, PARAMETER :: ZRES    = 40          ! z-resolution
+  INTEGER, PARAMETER :: XRES    = 30          ! x-resolution
+  INTEGER, PARAMETER :: YRES    = 30          ! y-resolution
+  INTEGER, PARAMETER :: ZRES    = 30          ! z-resolution
   REAL, PARAMETER    :: RMAX    = 0.4         ! outer radius of comput. domain
   REAL, PARAMETER    :: GPAR    = 0.2         ! geometry scaling parameter
   ! output parameters

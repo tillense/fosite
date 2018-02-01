@@ -22,3 +22,8 @@ test_gauss3d:
     stage: test
     script:
         - ./build/tests/gauss3d
+
+test_sedov3d:
+    stage: test
+    script:
+        - ./build/tests/sedov3d
