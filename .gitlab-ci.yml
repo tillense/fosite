@@ -1,0 +1,24 @@
+before_script:
+    - module load gfortran/6.2
+    - module load cmake/3.6.1
+
+stages:
+    - build
+    - test
+    - deploy
+
+serial_build:
+    stage: build
+    script:
+        - mkdir build
+        - cd build
+        - FC=gfortran cmake ..
+        - make -j
+    artifacts:
+        paths:
+        - ./*
+
+test_gauss3d:
+    stage: test
+    script:
+        - ./build/tests/gauss3d
