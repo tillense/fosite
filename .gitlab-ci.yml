@@ -10,20 +10,41 @@ stages:
 serial_build:
     stage: build
     script:
-        - mkdir build
-        - cd build
+        - mkdir ser_build
+        - cd ser_build
         - FC=gfortran cmake ..
         - make -j
     artifacts:
         paths:
         - ./*
 
-test_gauss3d:
-    stage: test
+parallel_build:
+    stage: build
     script:
-        - ./build/tests/gauss3d
+        - mkdir par_build
+        - cd par_build
+        - FC=gfortran cmake ..
+        - make -j
+    artifacts:
+        paths:
+        - ./*
 
-test_sedov3d:
+ser_test_gauss3d:
     stage: test
     script:
-        - ./build/tests/sedov3d
+        - ./ser_build/tests/gauss3d
+
+par_test_gauss3d:
+    stage: test
+    script:
+        - ./par_build/tests/gauss3d
+
+ser_test_sedov3d:
+    stage: test
+    script:
+        - ./ser_build/tests/sedov3d
+
+par_test_sedov3d:
+    stage: test
+    script:
+        - ./par_build/tests/sedov3d
