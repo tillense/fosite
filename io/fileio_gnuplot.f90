@@ -119,17 +119,17 @@ CONTAINS
     CLASS(fileio_base)  :: this            !< \param [in,out] this fileio type
     CLASS(mesh_base)    :: Mesh            !< \param [in] Mesh mesh type
     CLASS(physics_base) :: Physics         !< \param [in] Physics physics type
-    INTEGER           :: fmt             !< \param [in] fmt fileio type number
-    CHARACTER(LEN=*)  :: fmtname         !< \param [in] fmtname name of fileio
-    CHARACTER(LEN=*)  :: fpath           !< \param [in] fpath
-    CHARACTER(LEN=*)  :: filename        !< \param [in] filename
-    CHARACTER(LEN=*)  :: extension       !< \param [in] extension file extension
-    REAL              :: stoptime        !< \param [in] stoptime
-    INTEGER           :: dtwall          !< \param [in] dtwall wall clock time
-    INTEGER           :: count           !< \param [in] count number of outputs
-    INTEGER           :: fcycles         !< \param [in] fcycles file cycle number
-    LOGICAL           :: sepfiles        !< \param [in] sepfiles different files
-    INTEGER, OPTIONAL :: unit            !< \param [in] unit fileio unit number
+    INTEGER             :: fmt             !< \param [in] fmt fileio type number
+    CHARACTER(LEN=*)    :: fmtname         !< \param [in] fmtname name of fileio
+    CHARACTER(LEN=*)    :: fpath           !< \param [in] fpath
+    CHARACTER(LEN=*)    :: filename        !< \param [in] filename
+    CHARACTER(LEN=*)    :: extension       !< \param [in] extension file extension
+    REAL                :: stoptime        !< \param [in] stoptime
+    INTEGER             :: dtwall          !< \param [in] dtwall wall clock time
+    INTEGER             :: count           !< \param [in] count number of outputs
+    INTEGER             :: fcycles         !< \param [in] fcycles file cycle number
+    LOGICAL             :: sepfiles        !< \param [in] sepfiles different files
+    INTEGER, OPTIONAL   :: unit            !< \param [in] unit fileio unit number
     !------------------------------------------------------------------------!
     INTENT(IN)    :: Mesh,Physics,fmt,fmtname,fpath,filename,extension,stoptime, &
          dtwall,count,fcycles,sepfiles,unit
@@ -175,29 +175,29 @@ CONTAINS
        count,fcycles,unit,config)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(fileio_base)  :: this            !< \param [in,out] this fileio type
-    CLASS(mesh_base)    :: Mesh            !< \param [in] Mesh mesh type
-    CLASS(physics_base) :: Physics         !< \param [in] Physics Physics type
-    TYPE(Dict_TYP),POINTER :: IO         !< \param [in] IO Dictionary for I/O
+    CLASS(fileio_base)              :: this     !< \param [in,out] this fileio type
+    CLASS(mesh_base)                :: Mesh     !< \param [in] Mesh mesh type
+    CLASS(physics_base)             :: Physics  !< \param [in] Physics Physics type
+    TYPE(Dict_TYP),POINTER          :: IO       !< \param [in] IO Dictionary for I/O
     !> \param [in] config Dictionary with configuration
     TYPE(Dict_TYP),POINTER,OPTIONAL :: config
-    INTEGER           :: fmt             !< \param [in] fmt fileio type number
-    CHARACTER(LEN=*)  :: fpath           !< \param [in] fpath
-    CHARACTER(LEN=*)  :: filename        !< \param [in] filename
-    REAL              :: stoptime        !< \param [in] stoptime
-    INTEGER           :: dtwall          !< \param [in] dtwall wall clock time
-    INTEGER           :: count           !< \param [in] count number of outputs
-    INTEGER           :: fcycles         !< \param [in] fcycles file cycle number
-    INTEGER           :: unit            !< \param [in] unit fileio unit number
+    INTEGER                         :: fmt      !< \param [in] fmt fileio type number
+    CHARACTER(LEN=*)                :: fpath    !< \param [in] fpath
+    CHARACTER(LEN=*)                :: filename !< \param [in] filename
+    REAL                            :: stoptime !< \param [in] stoptime
+    INTEGER                         :: dtwall   !< \param [in] dtwall wall clock time
+    INTEGER                         :: count    !< \param [in] count number of outputs
+    INTEGER                         :: fcycles  !< \param [in] fcycles file cycle number
+    INTEGER                         :: unit     !< \param [in] unit fileio unit number
     !------------------------------------------------------------------------!
-    TYPE(Dict_TYP),POINTER :: node
-    REAL,DIMENSION(:,:),POINTER :: dummy2
-    REAL,DIMENSION(:,:,:),POINTER :: dummy3
-    INTEGER           :: cartcoords
-    INTEGER           :: depth
-    INTEGER           :: err
+    TYPE(Dict_TYP), POINTER                   :: node
+    REAL, DIMENSION(:,:), POINTER             :: dummy2
+    REAL, DIMENSION(:,:,:), POINTER           :: dummy3
+    INTEGER                                   :: cartcoords
+    INTEGER                                   :: depth
+    INTEGER                                   :: err
 #ifdef PARALLEL
-    INTEGER           :: i
+    INTEGER                                   :: i
     INTEGER, DIMENSION(Mesh%IMAX-Mesh%IMIN+1) :: blocklen,indices
 #endif
     !------------------------------------------------------------------------!
@@ -309,17 +309,17 @@ CONTAINS
   RECURSIVE SUBROUTINE WriteHeaderString(string,root,k,prefix)
   IMPLICIT NONE
   !------------------------------------------------------------------------!
-    TYPE(Dict_TYP),POINTER :: root,node,subnode
-    CHARACTER(LEN=*)  :: string
-    CHARACTER(LEN=*),OPTIONAL  :: prefix
-    CHARACTER(LEN=128):: buf
+    TYPE(Dict_TYP), POINTER    :: root,node,subnode
+    CHARACTER(LEN=*)           :: string
+    CHARACTER(LEN=*), OPTIONAL :: prefix
+    CHARACTER(LEN=128)         :: buf
     !------------------------------------------------------------------------!
-    INTEGER           :: idummy, k
-    LOGICAL           :: ldummy
-    CHARACTER(LEN=128):: cdummy
-    REAL              :: rdummy
+    INTEGER                    :: idummy, k
+    LOGICAL                    :: ldummy
+    CHARACTER(LEN=128)         :: cdummy
+    REAL                       :: rdummy
     !------------------------------------------------------------------------!
-    INTENT(INOUT)     :: string,k
+    INTENT(INOUT)              :: string,k
     !------------------------------------------------------------------------!
 
     node => root
@@ -373,20 +373,20 @@ CONTAINS
   RECURSIVE SUBROUTINE GetOutputPointer(this,Mesh,node,k)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(fileio_base)       :: this  !< \param [in,out] this fileio type
-    CLASS(mesh_base)         :: Mesh  !< \param [in] mesh mesh type
-    TYPE(Dict_TYP),POINTER :: node  !< \param [in,out] node pointer to (sub-)dict
-    INTEGER                :: k     !< \param [in,out] k number of data arrays
+    CLASS(fileio_base)      :: this  !< \param [in,out] this fileio type
+    CLASS(mesh_base)        :: Mesh  !< \param [in] mesh mesh type
+    TYPE(Dict_TYP), POINTER :: node  !< \param [in,out] node pointer to (sub-)dict
+    INTEGER                 :: k     !< \param [in,out] k number of data arrays
     !------------------------------------------------------------------------!
-    TYPE(Dict_TYP),POINTER :: dir
-    REAL,DIMENSION(:,:),POINTER :: dummy2
-    REAL,DIMENSION(:,:,:),POINTER :: dummy3
-    REAL,DIMENSION(:,:,:,:),POINTER :: dummy4
-    INTEGER,DIMENSION(4)   :: dims
-    INTEGER                :: dim3,dim4,i,j
+    TYPE(Dict_TYP), POINTER           :: dir
+    REAL, DIMENSION(:,:), POINTER     :: dummy2
+    REAL, DIMENSION(:,:,:), POINTER   :: dummy3
+    REAL, DIMENSION(:,:,:,:), POINTER :: dummy4
+    INTEGER, DIMENSION(4)             :: dims
+    INTEGER                           :: dim3,dim4,i,j
     !------------------------------------------------------------------------!
-    INTENT(IN)        :: Mesh
-    INTENT(INOUT)     :: this,k
+    INTENT(IN)    :: Mesh
+    INTENT(INOUT) :: this,k
     !------------------------------------------------------------------------!
     ! reset error code
     this%error = 0
@@ -463,13 +463,13 @@ CONTAINS
  PURE SUBROUTINE AdjustTimestep(this,time,dt,dtcause)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(fileio_base) :: this     !< \param [in] this fileio type
-    REAL             :: time     !< \param [in,out] time
-    REAL             :: dt       !< \param [in,out] dt timestep
-    INTEGER          :: dtcause  !< \param [in,out] dtcause cause of smallest dt
+    CLASS(fileio_base) :: this    !< \param [in] this fileio type
+    REAL               :: time    !< \param [in,out] time
+    REAL               :: dt      !< \param [in,out] dt timestep
+    INTEGER            :: dtcause !< \param [in,out] dtcause cause of smallest dt
     !------------------------------------------------------------------------!
-    INTENT(IN)       :: this
-    INTENT(INOUT)    :: time,dt,dtcause
+    INTENT(IN)         :: this
+    INTENT(INOUT)      :: time,dt,dtcause
     !------------------------------------------------------------------------!
     IF ((time+dt)/this%time.GT.1.0) THEN
        dt = this%time - time
@@ -497,8 +497,8 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(fileio_base) :: this               !< \param [in,out] this fileio type
-    INTEGER          :: action             !< \param [in] action mode of open
-    CHARACTER(LEN=*) :: fformat            !< \param [in] fformat file format
+    INTEGER            :: action             !< \param [in] action mode of open
+    CHARACTER(LEN=*)   :: fformat            !< \param [in] fformat file format
     !------------------------------------------------------------------------!
 #ifdef PARALLEL
     INTEGER(KIND=MPI_OFFSET_KIND) :: offset!< \param [in] offset offset for MPI
@@ -564,10 +564,10 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(fileio_base) :: this   !< \param [in,out] this fileio type
-    INTEGER          :: action !< \param [in] action mode of file access
+    INTEGER            :: action !< \param [in] action mode of file access
     !------------------------------------------------------------------------!
-    INTENT(IN)       :: action
-    INTENT(INOUT)    :: this
+    INTENT(IN)         :: action
+    INTENT(INOUT)      :: this
     !------------------------------------------------------------------------!
     CALL this%OpenFile(action,ASCII)
   END SUBROUTINE OpenFile_gnuplot
@@ -580,7 +580,7 @@ CONTAINS
     !------------------------------------------------------------------------!
     CLASS(fileio_base) :: this  !< \param [in,out] this fileio type
     !------------------------------------------------------------------------!
-    INTENT(INOUT)    :: this
+    INTENT(INOUT)      :: this
     !------------------------------------------------------------------------!
 #ifdef PARALLEL
     CALL MPI_File_close(this%handle,this%error)
@@ -596,7 +596,7 @@ CONTAINS
     !------------------------------------------------------------------------!
     CLASS(fileio_base) :: this  !< \param [in,out] this fileio type
     !------------------------------------------------------------------------!
-    INTENT(INOUT)    :: this
+    INTENT(INOUT)      :: this
     !------------------------------------------------------------------------!
     IF (GetRank(this).EQ.0) THEN
 #ifdef PARALLEL
@@ -614,10 +614,10 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(fileio_base) :: this     !< \param [in,out] this fileio type
-    LOGICAL          :: success  !< \param [out] success
+    LOGICAL            :: success  !< \param [out] success
     !------------------------------------------------------------------------!
-    INTENT(OUT)      :: success
-    INTENT(INOUT)    :: this
+    INTENT(OUT)        :: success
+    INTENT(INOUT)      :: this
     !------------------------------------------------------------------------!
 #ifdef PARALLEL
     IF (GetRank(this).EQ.0) THEN
@@ -633,10 +633,10 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(fileio_base) :: this   !< \param [in,out] this fileio type
-    REAL             :: time   !< \param [in] time
+    REAL               :: time   !< \param [in] time
     !------------------------------------------------------------------------!
-    INTENT(IN)       :: time
-    INTENT(INOUT)    :: this
+    INTENT(IN)         :: time
+    INTENT(INOUT)      :: this
     !------------------------------------------------------------------------!
     IF (GetRank(this).EQ.0) THEN
 #ifdef PARALLEL
@@ -653,10 +653,10 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(fileio_base) :: this  !< \param [in,out] this fileio type
-    REAL             :: time  !< \param [out] time
+    REAL               :: time  !< \param [out] time
     !------------------------------------------------------------------------!
-    INTENT(OUT)       :: time
-    INTENT(INOUT)    :: this
+    INTENT(OUT)        :: time
+    INTENT(INOUT)      :: this
     !------------------------------------------------------------------------!
     IF (GetRank(this).EQ.0) THEN
 #ifdef PARALLEL
@@ -673,17 +673,17 @@ CONTAINS
   SUBROUTINE WriteDataset(this,Mesh)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(fileio_base)  :: this !< \param [in,out] this fileio type
-    CLASS(mesh_base)    :: Mesh !< \param [in] mesh mesh type
+    CLASS(fileio_base) :: this !< \param [in,out] this fileio type
+    CLASS(mesh_base)   :: Mesh !< \param [in] mesh mesh type
     !------------------------------------------------------------------------!
-    INTEGER          :: i,j,k,l
+    INTEGER             :: i,j,k,l
 #ifdef PARALLEL
     INTEGER(KIND=MPI_OFFSET_KIND) :: offset
-    INTEGER          :: request
+    INTEGER                       :: request
 #endif
     !------------------------------------------------------------------------!
-    INTENT(IN)       :: Mesh
-    INTENT(INOUT)    :: this
+    INTENT(IN)    :: Mesh
+    INTENT(INOUT) :: this
     !------------------------------------------------------------------------!
 #ifdef PARALLEL
     ! be sure to write at the end by getting the offset from the file's size
@@ -766,8 +766,8 @@ CONTAINS
     CLASS(physics_base)  :: Physics  !< \param [in] physics physics type
     CLASS(timedisc_base) :: Timedisc !< \param [in] timedisc timedisc type
     !------------------------------------------------------------------------!
-    INTENT(IN)          :: Mesh,Physics,Timedisc
-    INTENT(INOUT)       :: this
+    INTENT(IN)           :: Mesh,Physics,Timedisc
+    INTENT(INOUT)        :: this
     !------------------------------------------------------------------------!
   END SUBROUTINE ReadDataset_gnuplot
 
@@ -777,9 +777,9 @@ CONTAINS
   SUBROUTINE Error(this,modproc,msg)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(fileio_base), INTENT(INOUT) :: this !< \param [in,out] this fileio type
-    CHARACTER(LEN=*),  INTENT(IN) :: modproc   !< \param [in] modproc
-    CHARACTER(LEN=*),  INTENT(IN) :: msg       !< \param [in] msg error msg
+    CLASS(fileio_base), INTENT(INOUT) :: this    !< \param [in,out] this fileio type
+    CHARACTER(LEN=*),  INTENT(IN)     :: modproc !< \param [in] modproc
+    CHARACTER(LEN=*),  INTENT(IN)     :: msg     !< \param [in] msg error msg
     !------------------------------------------------------------------------!
     IF (Initialized(this)) &
          CALL this%CloseFile_gnuplot()

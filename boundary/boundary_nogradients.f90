@@ -5,7 +5,7 @@
 !#                                                                           #
 !# Copyright (C) 2006-2017                                                   #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
-!# Jannes Klee <jklee@astrophysik.uni-kiel.de>                               #
+!# Jannes Klee      <jklee@astrophysik.uni-kiel.de>                          #
 !#                                                                           #
 !# This program is free software; you can redistribute it and/or modify      #
 !# it under the terms of the GNU General Public License as published by      #
@@ -28,7 +28,7 @@
 !> \author Tobias Illenseer
 !! \author Jannes Klee
 !!
-!! \brief Boundary module for refelcting boundaries
+!! \brief Boundary module for reflecting boundaries
 !!
 !! \extends boundary_nogradients
 !! \ingroup boundary
@@ -45,7 +45,7 @@ MODULE boundary_nogradients_mod
   CONTAINS
     PROCEDURE :: InitBoundary_nogradients
     PROCEDURE :: SetBoundaryData
-    FINAL :: Finalize
+    FINAL     :: Finalize
   END TYPE boundary_nogradients
   CHARACTER(LEN=32), PARAMETER  :: boundcond_name = "nogradients"
   !--------------------------------------------------------------------------!
@@ -61,15 +61,14 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(boundary_nogradients), INTENT(INOUT) :: this
-    CLASS(physics_base), INTENT(IN) :: Physics
-    CLASS(mesh_base), INTENT(IN) :: Mesh
-    TYPE(Dict_TYP),POINTER &
-                       :: config
-    INTEGER            :: dir
+    CLASS(physics_base), INTENT(IN)            :: Physics
+    CLASS(mesh_base), INTENT(IN)               :: Mesh
+    TYPE(Dict_TYP), POINTER                    :: config
+    INTEGER                                    :: dir
     !------------------------------------------------------------------------!
-    INTEGER       :: err
+    INTEGER                                    :: err
     !------------------------------------------------------------------------!
-    INTENT(IN)    :: dir
+    INTENT(IN)                                 :: dir
     !------------------------------------------------------------------------!
     CALL this%InitBoundary(Mesh,Physics,NO_GRADIENTS,boundcond_name,dir,config)
   END SUBROUTINE InitBoundary_nogradients
@@ -79,14 +78,14 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(boundary_nogradients), INTENT(IN) :: this
-    CLASS(mesh_base), INTENT(IN) :: Mesh
-    CLASS(physics_base), INTENT(IN) :: Physics
+    CLASS(mesh_base), INTENT(IN)            :: Mesh
+    CLASS(physics_base), INTENT(IN)         :: Physics
     REAL :: pvar(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX, &
                  Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM)
     !------------------------------------------------------------------------!
-    INTEGER       :: i,j,k
+    INTEGER                                 :: i,j,k
     !------------------------------------------------------------------------!
-    INTENT(INOUT) :: pvar
+    INTENT(INOUT)                           :: pvar
     !------------------------------------------------------------------------!
 !CDIR IEXPAND
     SELECT CASE(this%direction%GetType())

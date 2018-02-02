@@ -1,6 +1,6 @@
 !#############################################################################
 !#                                                                           #
-!# fosite - 2D hydrodynamical simulation program                             #
+!# fosite - 3D hydrodynamical simulation program                             #
 !# module: boundary_generic.f90                                              #
 !#                                                                           #
 !# Copyright (C) 2006-2016                                                   #
@@ -64,29 +64,29 @@ MODULE boundary_generic_mod
 #endif
 #endif
   !--------------------------------------------------------------------------!
-  TYPE, PRIVATE :: boundary_p
+  TYPE, PRIVATE                       :: boundary_p
     CLASS(boundary_base), ALLOCATABLE :: p
 #ifdef PARALLEL
     !> \name variables in parallel mode
-    REAL,DIMENSION(:,:,:,:), POINTER :: sendbuf, &     !< send buffer for boundary data
-                                        recvbuf        !< receive buffer for boundary data
+    REAL, DIMENSION(:,:,:,:), POINTER :: sendbuf, &     !< send buffer for boundary data
+                                         recvbuf        !< receive buffer for boundary data
 #endif
   END TYPE
 
-  TYPE, EXTENDS(logging_base) :: boundary_generic
+  TYPE, EXTENDS(logging_base)         :: boundary_generic
     PRIVATE
     !> \name variables
-    TYPE(boundary_p)                :: Boundary(6)
-    LOGICAL                         :: PhysicalCorner  !< Is the left corner physical?
+    TYPE(boundary_p)                  :: Boundary(6)
+    LOGICAL                           :: PhysicalCorner  !< Is the left corner physical?
 #ifdef PARALLEL
     !> \name variables in parallel mode
-    REAL,DIMENSION(:,:,:,:), POINTER :: sendbuf, &     !< send buffer for boundary data
-                                        recvbuf        !< receive buffer for boundary data
+    REAL, DIMENSION(:,:,:,:), POINTER :: sendbuf, &     !< send buffer for boundary data
+                                         recvbuf        !< receive buffer for boundary data
 #endif
   CONTAINS
     PROCEDURE :: InitBoundary
     PROCEDURE :: CenterBoundary
-    FINAL :: Finalize
+    FINAL     :: Finalize
   END TYPE boundary_generic
   !--------------------------------------------------------------------------!
   !> \name Public Attributes
@@ -105,10 +105,10 @@ CONTAINS
   SUBROUTINE new_boundary(Boundary,Mesh,Physics,config,IO)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(Boundary_generic), ALLOCATABLE :: Boundary
+    CLASS(Boundary_generic), ALLOCATABLE    :: Boundary
     CLASS(mesh_base),        INTENT(INOUT)  :: Mesh
-    CLASS(physics_base),     INTENT(IN)  :: Physics
-    TYPE(Dict_TYP), POINTER              :: config,IO
+    CLASS(physics_base),     INTENT(IN)     :: Physics
+    TYPE(Dict_TYP), POINTER                 :: config,IO
     !------------------------------------------------------------------------!
     ALLOCATE(Boundary)
     CALL Boundary%InitBoundary(Mesh,Physics,config,IO)
@@ -136,12 +136,12 @@ CONTAINS
     IF (.NOT.Physics%Initialized().OR..NOT.Mesh%Initialized()) &
          CALL this%Error("InitBoundary","physics and/or mesh module uninitialized")
 
-    CALL GetAttr(config, "western", western)
-    CALL GetAttr(config, "eastern", eastern)
+    CALL GetAttr(config, "western",   western)
+    CALL GetAttr(config, "eastern",   eastern)
     CALL GetAttr(config, "southern", southern)
     CALL GetAttr(config, "northern", northern)
     CALL GetAttr(config, "bottomer", bottomer)
-    CALL GetAttr(config, "topper", topper)
+    CALL GetAttr(config, "topper",     topper)
 
     new(WEST)   = western
     new(EAST)   = eastern
@@ -152,12 +152,12 @@ CONTAINS
 
 #ifdef PARALLEL
     ! define inner connections, where boundaries are no true ones
-    IF (Mesh%mycoords(1).NE.0)  new(WEST) = NONE
+    IF (Mesh%mycoords(1).NE.0)               new(WEST) = NONE
     IF (Mesh%mycoords(1).NE.Mesh%dims(1)-1)  new(EAST) = NONE
-    IF (Mesh%mycoords(2).NE.0)  new(SOUTH) = NONE
-    IF (Mesh%mycoords(2).NE.Mesh%dims(2)-1)  new(NORTH) = NONE
-    IF (Mesh%mycoords(3).NE.0) new(BOTTOM) = NONE
-    IF (Mesh%mycoords(3).NE.Mesh%dims(3)-1) new(TOP) = NONE
+    IF (Mesh%mycoords(2).NE.0)              new(SOUTH) = NONE
+    IF (Mesh%mycoords(2).NE.Mesh%dims(2)-1) new(NORTH) = NONE
+    IF (Mesh%mycoords(3).NE.0)             new(BOTTOM) = NONE
+    IF (Mesh%mycoords(3).NE.Mesh%dims(3)-1)   new(TOP) = NONE
 #endif
 
     ! initialize every boundary
@@ -276,19 +276,19 @@ CONTAINS
     CALL MPI_Cart_Sub(Mesh%comm_cart,remain_dims,Mesh%Kcomm,ierr)
 
     ! allocate memory for boundary data buffers
-    ALLOCATE( &
-         this%boundary(WEST)%p%sendbuf(Mesh%GINUM,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
-         this%boundary(WEST)%p%recvbuf(Mesh%GINUM,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
-         this%boundary(EAST)%p%sendbuf(Mesh%GINUM,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
-         this%boundary(EAST)%p%recvbuf(Mesh%GINUM,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
-         this%boundary(SOUTH)%p%sendbuf(Mesh%IGMIN:Mesh%IGMAX,Mesh%GJNUM,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
-         this%boundary(SOUTH)%p%recvbuf(Mesh%IGMIN:Mesh%IGMAX,Mesh%GJNUM,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
-         this%boundary(NORTH)%p%sendbuf(Mesh%IGMIN:Mesh%IGMAX,Mesh%GJNUM,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
-         this%boundary(NORTH)%p%recvbuf(Mesh%IGMIN:Mesh%IGMAX,Mesh%GJNUM,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
+    ALLOCATE(                                                                                                  &
+         this%boundary(WEST)%p%sendbuf(Mesh%GINUM,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM),   &
+         this%boundary(WEST)%p%recvbuf(Mesh%GINUM,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM),   &
+         this%boundary(EAST)%p%sendbuf(Mesh%GINUM,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM),   &
+         this%boundary(EAST)%p%recvbuf(Mesh%GINUM,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM),   &
+         this%boundary(SOUTH)%p%sendbuf(Mesh%IGMIN:Mesh%IGMAX,Mesh%GJNUM,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM),  &
+         this%boundary(SOUTH)%p%recvbuf(Mesh%IGMIN:Mesh%IGMAX,Mesh%GJNUM,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM),  &
+         this%boundary(NORTH)%p%sendbuf(Mesh%IGMIN:Mesh%IGMAX,Mesh%GJNUM,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM),  &
+         this%boundary(NORTH)%p%recvbuf(Mesh%IGMIN:Mesh%IGMAX,Mesh%GJNUM,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM),  &
          this%boundary(BOTTOM)%p%sendbuf(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%GKNUM,Physics%VNUM), &
          this%boundary(BOTTOM)%p%recvbuf(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%GKNUM,Physics%VNUM), &
-         this%boundary(TOP)%p%sendbuf(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%GKNUM,Physics%VNUM), &
-         this%boundary(TOP)%p%recvbuf(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%GKNUM,Physics%VNUM), &
+         this%boundary(TOP)%p%sendbuf(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%GKNUM,Physics%VNUM),    &
+         this%boundary(TOP)%p%recvbuf(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%GKNUM,Physics%VNUM),    &
          STAT=ierr)
     IF (ierr.NE.0) THEN
        CALL this%boundary(WEST)%p%Error("InitBoundary", &
@@ -307,20 +307,20 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(boundary_generic),INTENT(INOUT) :: this
-    CLASS(mesh_base),       INTENT(IN) :: Mesh
+    CLASS(mesh_base),       INTENT(IN)    :: Mesh
     CLASS(physics_base),    INTENT(IN)    :: Physics
     REAL,                   INTENT(IN)    :: time
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
                             INTENT(INOUT) :: pvar, cvar
     !------------------------------------------------------------------------!
-    INTEGER       :: i,j,k
+    INTEGER                               :: i,j,k
 #ifdef PARALLEL
-    INTEGER       :: req(4)
-    INTEGER       :: ierr
+    INTEGER                               :: req(4)
+    INTEGER                               :: ierr
 #ifdef MPI_USE_SENDRECV
-    INTEGER       :: status(MPI_STATUS_SIZE)
+    INTEGER                               :: status(MPI_STATUS_SIZE)
 #else
-    INTEGER       :: status(MPI_STATUS_SIZE,4)
+    INTEGER                               :: status(MPI_STATUS_SIZE,4)
 #endif
 #endif
     !------------------------------------------------------------------------!
@@ -362,7 +362,7 @@ CONTAINS
     END IF
     CALL MPI_Sendrecv(this%Boundary(WEST)%sendbuf, &
          Mesh%GINUM*(Mesh%JGMAX-Mesh%JGMIN+1)*(Mesh%KGMAX-Mesh%KGMIN+1)*Physics%VNUM, &
-         DEFAULT_MPI_REAL,Mesh%neighbor(WEST),10+WEST,this%Boundary(EAST)%p%recvbuf, &
+         DEFAULT_MPI_REAL,Mesh%neighbor(WEST),10+WEST,this%Boundary(EAST)%p%recvbuf,  &
          Mesh%GINUM*(Mesh%JGMAX-Mesh%JGMIN+1)*(Mesh%KGMAX-Mesh%KGMIN+1)*Physics%VNUM, &
          DEFAULT_MPI_REAL,Mesh%neighbor(EAST),MPI_ANY_TAG,Mesh%comm_cart,status,ierr)
     IF (Mesh%neighbor(EAST).NE.MPI_PROC_NULL) THEN
@@ -394,7 +394,7 @@ CONTAINS
     END IF
     CALL MPI_Sendrecv(this%Boundary(EAST)%p%sendbuf, &
          Mesh%GINUM*(Mesh%JGMAX-Mesh%JGMIN+1)*(Mesh%KGMAX-Mesh%KGMIN+1)*Physics%VNUM, &
-         DEFAULT_MPI_REAL,Mesh%neighbor(EAST),10+EAST,this%Boundary(WEST)%p%recvbuf, &
+         DEFAULT_MPI_REAL,Mesh%neighbor(EAST),10+EAST,this%Boundary(WEST)%p%recvbuf,  &
          Mesh%GINUM*(Mesh%JGMAX-Mesh%JGMIN+1)*(Mesh%KGMAX-Mesh%KGMIN+1)*Physics%VNUM, &
          DEFAULT_MPI_REAL,Mesh%neighbor(WEST),MPI_ANY_TAG,Mesh%comm_cart,status,ierr)
     IF (Mesh%neighbor(WEST).NE.MPI_PROC_NULL) THEN
@@ -443,7 +443,7 @@ CONTAINS
     END IF
     CALL MPI_Sendrecv(this%Boundary(SOUTH)%p%sendbuf, &
         Mesh%GJNUM*(Mesh%IGMAX-Mesh%IGMIN+1)*(Mesh%KGMAX-Mesh%KGMIN+1)*Physics%VNUM, &
-        DEFAULT_MPI_REAL,Mesh%neighbor(SOUTH),10+SOUTH,this(NORTH)%recvbuf, &
+        DEFAULT_MPI_REAL,Mesh%neighbor(SOUTH),10+SOUTH,this(NORTH)%recvbuf,          &
         Mesh%GJNUM*(Mesh%IGMAX-Mesh%IGMIN+1)*(Mesh%KGMAX-Mesh%KGMIN+1)*Physics%VNUM, &
         DEFAULT_MPI_REAL,Mesh%neighbor(NORTH),MPI_ANY_TAG,Mesh%comm_cart,status,ierr)
     IF (Mesh%neighbor(NORTH).NE.MPI_PROC_NULL) THEN
@@ -474,9 +474,9 @@ CONTAINS
            Mesh%JMAX-Mesh%GJNUM+1:Mesh%JMAX,Mesh%KGMIN:Mesh%KGMAX,1:Physics%VNUM)
     END IF
     CALL MPI_Sendrecv(this%Boundary(NORTH)%p%sendbuf, &
-         Mesh%GJNUM*(Mesh%IGMAX-Mesh%IGMIN+1)*(Mesh%KGMAX-Mesh%KGMIN+1)*Physics%VNUM, &
+         Mesh%GJNUM*(Mesh%IGMAX-Mesh%IGMIN+1)*(Mesh%KGMAX-Mesh%KGMIN+1)*Physics%VNUM,   &
          DEFAULT_MPI_REAL,Mesh%neighbor(NORTH),10+NORTH,this%Boundary(SOUTH)%p%recvbuf, &
-         Mesh%GJNUM*(Mesh%IGMAX-Mesh%IGMIN+1)*(Mesh%KGMAX-Mesh%KGMIN+1)*Physics%VNUM, &
+         Mesh%GJNUM*(Mesh%IGMAX-Mesh%IGMIN+1)*(Mesh%KGMAX-Mesh%KGMIN+1)*Physics%VNUM,   &
          DEFAULT_MPI_REAL,Mesh%neighbor(SOUTH),MPI_ANY_TAG,Mesh%comm_cart,status,ierr)
     IF (Mesh%neighbor(SOUTH).NE.MPI_PROC_NULL) THEN
          pvar(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JMIN-1,Mesh%KGMIN:Mesh%KGMAX,1:Physics%VNUM) = &
@@ -522,9 +522,9 @@ CONTAINS
            Mesh%JGMIN:Mesh%JGMAX,Mesh%KMIN:Mesh%KMIN+Mesh%GKNUM-1,1:Physics%VNUM)
     END IF
     CALL MPI_Sendrecv(this%Boundary(BOTTOM)%p%sendbuf,&
-         Mesh%GKNUM*(Mesh%IGMAX-Mesh%IGMIN+1)*(Mesh%JGMAX-Mesh%JGMIN+1)*Physics%VNUM, &
+         Mesh%GKNUM*(Mesh%IGMAX-Mesh%IGMIN+1)*(Mesh%JGMAX-Mesh%JGMIN+1)*Physics%VNUM,   &
          DEFAULT_MPI_REAL,Mesh%neighbor(BOTTOM),10+BOTTOM,this%Boundary(TOP)%p%recvbuf, &
-         Mesh%GKNUM*(Mesh%IGMAX-Mesh%IGMIN+1)*(Mesh%JGMAX-Mesh%JGMIN+1)*Physics%VNUM, &
+         Mesh%GKNUM*(Mesh%IGMAX-Mesh%IGMIN+1)*(Mesh%JGMAX-Mesh%JGMIN+1)*Physics%VNUM,   &
          DEFAULT_MPI_REAL,Mesh%neighbor(TOP),MPI_ANY_TAG,Mesh%comm_cart,status,ierr)
     IF (Mesh%neighbor(NORTH).NE.MPI_PROC_NULL) THEN
         pvar(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KMAX+1:Mesh%KGMAX,1:Physics%VNUM) = &
@@ -555,8 +555,8 @@ CONTAINS
     END IF
     CALL MPI_Sendrecv(this%Boundary(TOP)%p%sendbuf, &
          Mesh%GKNUM*(Mesh%IGMAX-Mesh%IGMIN+1)*(Mesh%JGMAX-Mesh%JGMIN+1)*Physics%VNUM, &
-         DEFAULT_MPI_REAL,Mesh%neighbor(TOP),10+TOP,this%Boundary(BOTTOM)%p%recvbuf, &
-         Mesh%GNUM*(Mesh%IGMAX-Mesh%IGMIN+1)*(Mesh%JGMAX-Mesh%JGMIN+1)*Physics%VNUM, &
+         DEFAULT_MPI_REAL,Mesh%neighbor(TOP),10+TOP,this%Boundary(BOTTOM)%p%recvbuf,  &
+         Mesh%GNUM*(Mesh%IGMAX-Mesh%IGMIN+1)*(Mesh%JGMAX-Mesh%JGMIN+1)*Physics%VNUM,  &
          DEFAULT_MPI_REAL,Mesh%neighbor(BOTTOM),MPI_ANY_TAG,Mesh%comm_cart,status,ierr)
     IF (Mesh%neighbor(BOTTOM).NE.MPI_PROC_NULL) THEN
          pvar(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KMIN-1,1:Physics%VNUM) = &
@@ -786,17 +786,17 @@ CONTAINS
       ! TODO Ghost cells have to to set for 3D
 
     ! convert primitive variables in ghost cells
-    CALL Physics%Convert2Conservative(Mesh,Mesh%IGMIN,Mesh%IMIN-1,&
+    CALL Physics%Convert2Conservative(Mesh,Mesh%IGMIN,Mesh%IMIN-1, &
          Mesh%JGMIN,Mesh%JGMAX,Mesh%KGMIN,Mesh%KGMAX,pvar,cvar)
-    CALL Physics%Convert2Conservative(Mesh,Mesh%IMAX+1,Mesh%IGMAX,&
+    CALL Physics%Convert2Conservative(Mesh,Mesh%IMAX+1,Mesh%IGMAX, &
          Mesh%JGMIN,Mesh%JGMAX,Mesh%KGMIN,Mesh%KGMAX,pvar,cvar)
-    CALL Physics%Convert2Conservative(Mesh,Mesh%IMIN,Mesh%IMAX,&
+    CALL Physics%Convert2Conservative(Mesh,Mesh%IMIN,Mesh%IMAX,    &
          Mesh%JGMIN,Mesh%JMIN-1,Mesh%KGMIN,Mesh%KGMAX,pvar,cvar)
-    CALL Physics%Convert2Conservative(Mesh,Mesh%IMIN,Mesh%IMAX,&
+    CALL Physics%Convert2Conservative(Mesh,Mesh%IMIN,Mesh%IMAX,    &
          Mesh%JMAX+1,Mesh%JGMAX,Mesh%KGMIN,Mesh%KGMAX,pvar,cvar)
-    CALL Physics%Convert2Conservative(Mesh,Mesh%IMIN,Mesh%IMAX,&
+    CALL Physics%Convert2Conservative(Mesh,Mesh%IMIN,Mesh%IMAX,    &
          Mesh%JMIN,Mesh%JMAX,Mesh%KGMIN,Mesh%KMIN-1,pvar,cvar)
-    CALL Physics%Convert2Conservative(Mesh,Mesh%IMIN,Mesh%IMAX,&
+    CALL Physics%Convert2Conservative(Mesh,Mesh%IMIN,Mesh%IMAX,    &
          Mesh%JMIN,Mesh%JMAX,Mesh%KMAX+1,Mesh%KGMAX,pvar,cvar)
   END SUBROUTINE CenterBoundary
 

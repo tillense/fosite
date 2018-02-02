@@ -1,10 +1,9 @@
 !#############################################################################
 !#                                                                           #
-!# fosite - 2D hydrodynamical simulation program                             #
+!# fosite - 3D hydrodynamical simulation program                             #
 !# module: mesh_generic.f90                                                  #
 !#                                                                           #
-!# Copyright (C) 2016                                                        #
-!# Manuel Jung <mjung@astrophysik.uni-kiel.de>                               #
+!# Copyright (C) 2016 Manuel Jung <mjung@astrophysik.uni-kiel.de>            #
 !#                                                                           #
 !# This program is free software; you can redistribute it and/or modify      #
 !# it under the terms of the GNU General Public License as published by      #
@@ -47,15 +46,15 @@ CONTAINS
   SUBROUTINE new_fileio(Fileio,Mesh,Physics,Timedisc,Sources,config,IO)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(fileio_base), ALLOCATABLE  :: Fileio
-    CLASS(mesh_base),     INTENT(IN) :: Mesh
-    CLASS(physics_base),  INTENT(IN) :: Physics
-    CLASS(timedisc_base), INTENT(IN) :: Timedisc
+    CLASS(fileio_base), ALLOCATABLE           :: Fileio
+    CLASS(mesh_base),     INTENT(IN)          :: Mesh
+    CLASS(physics_base),  INTENT(IN)          :: Physics
+    CLASS(timedisc_base), INTENT(IN)          :: Timedisc
     CLASS(sources_base),  INTENT(IN), POINTER :: Sources
     TYPE(DICT_TYP),       INTENT(IN), POINTER :: config
     TYPE(DICT_TYP),       INTENT(IN), POINTER ::  IO
     !------------------------------------------------------------------------!
-    INTEGER :: fileformat
+    INTEGER                                   :: fileformat
     !------------------------------------------------------------------------!
     CALL GetAttr(config,"fileformat",fileformat)
 

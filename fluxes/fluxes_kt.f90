@@ -63,9 +63,9 @@ MODULE fluxes_kt_mod
   PRIVATE
   CONTAINS
     PRIVATE
-    PROCEDURE, PUBLIC           :: InitFluxes_kt
-    PROCEDURE, PUBLIC           :: CalculateFluxes
-    FINAL                       :: Finalize
+    PROCEDURE, PUBLIC         :: InitFluxes_kt
+    PROCEDURE, PUBLIC         :: CalculateFluxes
+    FINAL                     :: Finalize
   END TYPE
   !--------------------------------------------------------------------------!
   PUBLIC :: &

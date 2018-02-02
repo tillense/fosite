@@ -101,11 +101,11 @@ CONTAINS
     ! allocate memory for all arrays used in reconstruction_linear
     ALLOCATE( &
          this%xslopes(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX, &
-                      Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
+                      Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM),         &
          this%yslopes(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX, &
-                      Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
+                      Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM),         &
          this%zslopes(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX, &
-                      Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
+                      Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM),         &
          STAT = err)
     IF (err.NE.0) THEN
        CALL this%Error("InitReconstruction_linear",  "Unable to allocate memory.")
@@ -153,23 +153,22 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(reconstruction_linear), INTENT(INOUT) :: this
-    CLASS(mesh_base),             INTENT(IN) :: Mesh
-    CLASS(physics_base),          INTENT(IN) :: Physics
-    INTEGER                 :: npos
+    CLASS(mesh_base),             INTENT(IN)    :: Mesh
+    CLASS(physics_base),          INTENT(IN)    :: Physics
+    INTEGER                                     :: npos
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX, &
-                    Mesh%KGMIN:Mesh%KGMAX,npos) &
-                            :: dx,dy,dz
+                    Mesh%KGMIN:Mesh%KGMAX,npos) :: dx,dy,dz
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX, &
-                    Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM) &
-                            :: rvar
+                    Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM)          &
+                                                :: rvar
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX, &
-                    Mesh%KGMIN:Mesh%KGMAX,npos,Physics%VNUM) &
-                            :: rstates
+                    Mesh%KGMIN:Mesh%KGMAX,npos,Physics%VNUM)     &
+                                                :: rstates
     !------------------------------------------------------------------------!
-    INTEGER                 :: i,j,k,l,n
+    INTEGER                                     :: i,j,k,l,n
     !------------------------------------------------------------------------!
-    INTENT(IN)              :: npos,dx,dy,dz,rvar
-    INTENT(OUT)             :: rstates
+    INTENT(IN)                                  :: npos,dx,dy,dz,rvar
+    INTENT(OUT)                                 :: rstates
     !------------------------------------------------------------------------!
     ! calculate slopes first
     CALL this%CalculateSlopes(Mesh,Physics,rvar)
@@ -196,7 +195,7 @@ CONTAINS
       ELEMENTAL FUNCTION reconstruct(cvar0,xslope0,yslope0,zslope0,dx,dy,dz) RESULT(rstate)
         IMPLICIT NONE
         !--------------------------------------------------------------------!
-        REAL :: rstate
+        REAL             :: rstate
         REAL, INTENT(IN) :: cvar0,xslope0,yslope0,zslope0,dx,dy,dz
         !--------------------------------------------------------------------!
         rstate = cvar0 + xslope0*dx + yslope0*dy + zslope0*dz
@@ -215,9 +214,9 @@ CONTAINS
     REAL    :: rvar(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX, &
                     Mesh%KGMIN:Mesh%KGMAX,Physics%vnum)
     !------------------------------------------------------------------------!
-    INTEGER                   :: i,j,k,l
+    INTEGER                                     :: i,j,k,l
     !------------------------------------------------------------------------!
-    INTENT(IN)                :: rvar
+    INTENT(IN)                                  :: rvar
     !------------------------------------------------------------------------!
 
     ! choose limiter & check for cases where dimension needs to be neclected

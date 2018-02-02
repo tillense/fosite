@@ -1,6 +1,6 @@
 !#############################################################################
 !#                                                                           #
-!# fosite - 2D hydrodynamical simulation program                             #
+!# fosite - 3D hydrodynamical simulation program                             #
 !# module: constants_common.f90                                              #
 !#                                                                           #
 !# Copyright (C) 2006-2014                                                   #
@@ -42,9 +42,9 @@
 !----------------------------------------------------------------------------!
 MODULE constants_common
   USE common_types, &
-       GetType_common => GetType, GetName_common => GetName, &
+       GetType_common => GetType, GetName_common => GetName,         &
        GetRank_common => GetRank, GetNumProcs_common => GetNumProcs, &
-       Initialized_common => Initialized, Info_common => Info, &
+       Initialized_common => Initialized, Info_common => Info,       &
        Warning_common => Warning, Error_common => Error
   IMPLICIT NONE
   !--------------------------------------------------------------------------!
@@ -81,10 +81,10 @@ MODULE constants_common
   !!#### Physical constants in SI units
   DOUBLE PRECISION, PARAMETER :: &
      C  = 2.99792458E+08, & !< vacuum speed of light [m/s]
-     GN = 6.6742E-11, &     !< gravitational constant [m^3/kg/s^2]
-     KB = 1.3806505E-23, &  !< Boltzmann constant[J/K]
-     NA = 6.022E+23, &      !< Avogadro constant [1/mol]
-     SB = 5.6704E-8, &      !< Stefan-Boltzmann constant[W/m^2/K^4
+     GN = 6.6742E-11,     & !< gravitational constant [m^3/kg/s^2]
+     KB = 1.3806505E-23,  & !< Boltzmann constant[J/K]
+     NA = 6.022E+23,      & !< Avogadro constant [1/mol]
+     SB = 5.6704E-8,      & !< Stefan-Boltzmann constant[W/m^2/K^4
      KE = 3.48E-02          !< electron scattering opacity [m^2/kg]
   !--------------------------------------------------------------------------!
   !> physical constants data structure
@@ -109,7 +109,7 @@ MODULE constants_common
      DOUBLE PRECISION :: cf_mass                    !< mass scale
      DOUBLE PRECISION :: cf_momentum                !< momentum scale
      DOUBLE PRECISION :: cf_energy                  !< energy scale
-     DOUBLE PRECISION :: cf_power                   !< power scale            
+     DOUBLE PRECISION :: cf_power                   !< power scale
      DOUBLE PRECISION :: cf_temperature             !< temperature scale
      DOUBLE PRECISION :: cf_density                 !< density scale
      DOUBLE PRECISION :: cf_opacity                 !< opacity scale
@@ -117,20 +117,20 @@ MODULE constants_common
   SAVE
   !> \}
   !--------------------------------------------------------------------------!
-  PUBLIC :: &
+  PUBLIC ::                   &
        ! types
-       Constants_TYP, &
+       Constants_TYP,         &
        ! constants
        C, GN, KB, NA, SB, KE, &
        ! methods
-       InitConstants, &
-       GetType, &
-       GetName, &
-       GetRank, &
-       GetNumProcs, &
-       Initialized, &
-       Info, &
-       Warning, &
+       InitConstants,         &
+       GetType,               &
+       GetName,               &
+       GetRank,               &
+       GetNumProcs,           &
+       Initialized,           &
+       Info,                  &
+       Warning,               &
        Error
   !--------------------------------------------------------------------------!
 
@@ -163,27 +163,27 @@ CONTAINS
   END SUBROUTINE CloseConstants
 
 
-  !> \public Get the physical unit system number; 
+  !> \public Get the physical unit system number;
   !! overloads \b GetType from \link common_types::GetType \endlink
   !! \return physical units number
   PURE FUNCTION GetUnits(this) RESULT(ut)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     TYPE(Constants_TYP), INTENT(IN) :: this !< \param [in] this unit system
-    INTEGER :: ut
+    INTEGER                         :: ut
     !------------------------------------------------------------------------!
     ut = GetType_common(this%units)
   END FUNCTION GetUnits
 
 
-  !> \public Get the physical unit system name; 
+  !> \public Get the physical unit system name;
   !! overloads \b GetName from \link common_types::GetName \endlink
   !! \return physical unit system name
   PURE FUNCTION GetUnitsName(this) RESULT(un)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     TYPE(Constants_TYP), INTENT(IN) :: this !< \param [in] this unit system
-    CHARACTER(LEN=32) :: un
+    CHARACTER(LEN=32)               :: un
     !------------------------------------------------------------------------!
     un = GetName_common(this%units)
   END FUNCTION GetUnitsName
@@ -196,7 +196,7 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     TYPE(Constants_TYP), INTENT(IN) :: this !< \param [in] this unit system
-    INTEGER :: r
+    INTEGER                         :: r
     !------------------------------------------------------------------------!
     r = GetRank_common(this%units)
   END FUNCTION GetConstantsRank
@@ -209,7 +209,7 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     TYPE(Constants_TYP), INTENT(IN) :: this !< \param [in] this unit system
-    INTEGER :: p
+    INTEGER                         :: p
     !------------------------------------------------------------------------!
     p = GetNumProcs_common(this%units)
   END FUNCTION GetConstantsNumProcs
@@ -221,7 +221,7 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     TYPE(Constants_TYP), INTENT(IN) :: this !< \param [in] this unit system
-    LOGICAL :: i
+    LOGICAL                         :: i
     !------------------------------------------------------------------------!
     i = Initialized_common(this%units)
   END FUNCTION ConstantsInitialized
@@ -238,7 +238,7 @@ CONTAINS
     LOGICAL, OPTIONAL   :: node_info !< \param [in] node_info enable rank output
     LOGICAL, OPTIONAL   :: tostderr  !< \param [in] tostderr enable STDERR output
     !------------------------------------------------------------------------!
-    INTENT(IN) :: this,msg,rank,node_info,tostderr
+    INTENT(IN)          :: this,msg,rank,node_info,tostderr
     !------------------------------------------------------------------------!
     CALL Info_common(this%units,msg)
   END SUBROUTINE ConstantsInfo
@@ -254,7 +254,7 @@ CONTAINS
     CHARACTER(LEN=*)    :: msg     !< \param [in] msg warning message
     INTEGER, OPTIONAL   :: rank    !< \param [in] rank MPI rank
     !------------------------------------------------------------------------!
-    INTENT(IN) :: this,modproc,msg,rank
+    INTENT(IN)          :: this,modproc,msg,rank
     !------------------------------------------------------------------------!
     CALL Warning_common(this%units,modproc,msg,rank)
   END SUBROUTINE ConstantsWarning
@@ -271,7 +271,7 @@ CONTAINS
     INTEGER, OPTIONAL   :: rank      !< \param [in] rank MPI rank
     LOGICAL, OPTIONAL   :: node_info !< \param [in] node_info enable rank output
     !------------------------------------------------------------------------!
-    INTENT(IN) :: this,modproc,msg,rank,node_info
+    INTENT(IN)          :: this,modproc,msg,rank,node_info
     !------------------------------------------------------------------------!
     CALL Error_common(this%units,modproc,msg,rank,node_info)
   END SUBROUTINE ConstantsError

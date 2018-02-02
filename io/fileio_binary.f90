@@ -1,10 +1,9 @@
 !#############################################################################
 !#                                                                           #
-!# fosite - 2D hydrodynamical simulation program                             #
+!# fosite - 3D hydrodynamical simulation program                             #
 !# module: fileio_binary.f90                                                 #
 !#                                                                           #
-!# Copyright (C) 2015                                                        #
-!# Manuel Jung <mjung@astrophysik.uni-kiel.de>                               #
+!# Copyright (C) 2015 Manuel Jung <mjung@astrophysik.uni-kiel.de>            #
 !#                                                                           #
 !# This program is free software; you can redistribute it and/or modify      #
 !# it under the terms of the GNU General Public License as published by      #
@@ -87,7 +86,7 @@ MODULE fileio_binary_mod
 #endif
   !--------------------------------------------------------------------------!
   PRIVATE
-  CHARACTER, PARAMETER    :: LF = ACHAR(10)        !< line feed
+  CHARACTER, PARAMETER       :: LF = ACHAR(10)        !< line feed
   TYPE, EXTENDS(fileio_base) :: fileio_binary
   CONTAINS
     PROCEDURE :: InitFileio_binary
@@ -98,7 +97,7 @@ MODULE fileio_binary_mod
     PROCEDURE :: WriteDataset
     !PROCEDURE :: ReadDataset
     PROCEDURE :: SetMeshDims
-    FINAL :: Finalize
+    FINAL     :: Finalize
     !PRIVATE
     PROCEDURE :: HasMeshDims
     PROCEDURE :: HasCornerDims
@@ -131,12 +130,12 @@ CONTAINS
     TYPE(Dict_TYP),       POINTER       :: config,IO  !< \param [in] IO Dictionary for I/O
     !------------------------------------------------------------------------!
 #ifdef PARALLEL
-    INTEGER, DIMENSION(3) :: gsizes,lsizes,indices
-    INTEGER               :: lb,extent
+    INTEGER, DIMENSION(3)                 :: gsizes,lsizes,indices
+    INTEGER                               :: lb,extent
 #endif
     CHARACTER(LEN=1),DIMENSION(:),POINTER :: mold
-    REAL                  :: r
-    INTEGER               :: i,err
+    REAL                                  :: r
+    INTEGER                               :: i,err
     !------------------------------------------------------------------------!
     this%extension= 'bin'
     CALL this%InitFileio(Mesh,Physics,Timedisc,Sources,config,IO,"binary",this%extension)
@@ -173,15 +172,15 @@ CONTAINS
 
     ! create the data type for the distributed array of
     ! coordinates and simulation data
-    gsizes(1) = Mesh%INUM
-    gsizes(2) = Mesh%JNUM
-    gsizes(3) = Mesh%KNUM
-    lsizes(1) = Mesh%IMAX-Mesh%IMIN+1
-    lsizes(2) = Mesh%JMAX-Mesh%JMIN+1
-    lsizes(3) = Mesh%KMAX-Mesh%KMIN+1
-    indices(1)= Mesh%IMIN-1
-    indices(2)= Mesh%JMIN-1
-    indices(3)= Mesh%KMIN-1
+    gsizes(1)    = Mesh%INUM
+    gsizes(2)    = Mesh%JNUM
+    gsizes(3)    = Mesh%KNUM
+    lsizes(1)    = Mesh%IMAX-Mesh%IMIN+1
+    lsizes(2)    = Mesh%JMAX-Mesh%JMIN+1
+    lsizes(3)    = Mesh%KMAX-Mesh%KMIN+1
+    indices(1)   = Mesh%IMIN-1
+    indices(2)   = Mesh%JMIN-1
+    indices(3)   = Mesh%KMIN-1
     this%bufsize = PRODUCT(lsizes)
     CALL MPI_Type_create_subarray(3, gsizes, lsizes, indices, MPI_ORDER_FORTRAN,&
          DEFAULT_MPI_REAL,this%filetype,this%error_io)
@@ -189,14 +188,14 @@ CONTAINS
 
     ! create the data type for the distributed array of
     ! mesh corner positions
-    gsizes(1) = Mesh%INUM+1
-    gsizes(2) = Mesh%JNUM+1
-    gsizes(3) = Mesh%KNUM+1
-    lsizes(1) = this%INUM
-    lsizes(2) = this%JNUM
-    lsizes(3) = this%KNUM
-    indices(1)= Mesh%IMIN-1
-    indices(2)= Mesh%JMIN-1
+    gsizes(1)  = Mesh%INUM+1
+    gsizes(2)  = Mesh%JNUM+1
+    gsizes(3)  = Mesh%KNUM+1
+    lsizes(1)  = this%INUM
+    lsizes(2)  = this%JNUM
+    lsizes(3)  = this%KNUM
+    indices(1) = Mesh%IMIN-1
+    indices(2) = Mesh%JMIN-1
     indices(3)= Mesh%KMIN-1
     this%cbufsize = PRODUCT(lsizes)
     CALL MPI_Type_create_subarray(3, gsizes, lsizes, indices, MPI_ORDER_FORTRAN,&
@@ -213,16 +212,16 @@ CONTAINS
   SUBROUTINE OpenFile(this,action)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(fileio_binary),INTENT(INOUT) :: this    !< \param [in,out] this fileio type
-    INTEGER          :: action  !< \param [in] action mode of file access
+    CLASS(fileio_binary), INTENT(INOUT) :: this    !< \param [in,out] this fileio type
+    INTEGER                             :: action  !< \param [in] action mode of file access
     !------------------------------------------------------------------------!
 #ifdef PARALLEL
-    INTEGER(KIND=MPI_OFFSET_KIND) :: offset!< \param [in] offset offset for MPI
+    INTEGER(KIND=MPI_OFFSET_KIND) :: offset  !< \param [in] offset offset for MPI
 #endif
-    CHARACTER(LEN=3) :: fformat            !< \param [in] fformat file format
-    INTEGER :: err
+    CHARACTER(LEN=3)              :: fformat !< \param [in] fformat file format
+    INTEGER                       :: err
     !------------------------------------------------------------------------!
-    INTENT(IN)       :: action
+    INTENT(IN)                    :: action
     !------------------------------------------------------------------------!
 !#ifdef PARALLEL
 !    fformat = 'BIN'
@@ -262,7 +261,7 @@ CONTAINS
 !    CASE(APPEND)
 !#ifdef PARALLEL
 !       CALL MPI_File_open(MPI_COMM_WORLD,this%GetFilename(),IOR(MPI_MODE_RDWR,&
-!            MPI_MODE_APPEND),MPI_INFO_NULL,this%handle,this%error_io)       
+!            MPI_MODE_APPEND),MPI_INFO_NULL,this%handle,this%error_io)
 !       ! opening in append mode doesn't seem to work for pvfs2, hence ...
 !       offset = 0
 !       CALL MPI_File_seek(this%handle,offset,MPI_SEEK_END,this%error_io)
@@ -280,7 +279,7 @@ CONTAINS
 !    CASE(READONLY)
 !       OPEN(this%unit, FILE=this%GetFilename(), &
 !         STATUS     = 'OLD',          &
-!#ifndef NOSTREAM 
+!#ifndef NOSTREAM
 !         ACCESS     = 'STREAM' ,   &
 !#else
 !         FORM='UNFORMATTED',&
@@ -375,15 +374,15 @@ CONTAINS
   SUBROUTINE WriteHeader(this,Mesh,Physics,Header,IO)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(fileio_binary),INTENT(INOUT)  :: this      !< \param [in,out] this fileio type
-    CLASS(mesh_base),INTENT(IN)  :: Mesh      !< \param [in] Mesh mesh type
-    CLASS(physics_base),INTENT(IN) :: Physics   !< \param [in] Physics physics type
-    TYPE(Dict_TYP),POINTER :: Header,IO
+    CLASS(fileio_binary), INTENT(INOUT) :: this      !< \param [in,out] this fileio type
+    CLASS(mesh_base), INTENT(IN)        :: Mesh      !< \param [in] Mesh mesh type
+    CLASS(physics_base), INTENT(IN)     :: Physics   !< \param [in] Physics physics type
+    TYPE(Dict_TYP), POINTER             :: Header,IO
     !------------------------------------------------------------------------!
-    CHARACTER(LEN=6) :: magic = "FOSITE"
-    CHARACTER(LEN=1) :: version = ACHAR(0)
-    CHARACTER(LEN=4) :: sizes
-    CHARACTER(LEN=13):: sheader
+    CHARACTER(LEN=6)  :: magic = "FOSITE"
+    CHARACTER(LEN=1)  :: version = ACHAR(0)
+    CHARACTER(LEN=4)  :: sizes
+    CHARACTER(LEN=13) :: sheader
     !------------------------------------------------------------------------!
     WRITE(sizes, '(I2,I2)') this%realsize, this%intsize
     sheader = magic // this%endianness(1:2) // version // sizes
@@ -442,7 +441,7 @@ CONTAINS
 
 
   !> Writes key structure
-  !! This subroutine writes the the key, data type and data sizes. 
+  !! This subroutine writes the the key, data type and data sizes.
   !! It is defined as following (suppose 4B Integer)
   !! | 4B length of key | *B key | 4B data type | 4B data size in bytes |
   !! If the data type is a 2D,3D or 4D array, 2, 3 or 4 (4 Byte) integers
@@ -452,16 +451,16 @@ CONTAINS
   SUBROUTINE WriteKey(this,key,type,bytes,dims)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(fileio_binary),INTENT(INOUT) :: this         !< \param [in,out] this fileio type
-    CHARACTER(LEN=*)  :: key
-    INTEGER           :: type,bytes
-    INTEGER,DIMENSION(5),OPTIONAL :: dims
-    INTEGER           :: bufsize
-    CHARACTER(LEN=1),DIMENSION(:),ALLOCATABLE :: buf
+    CLASS(fileio_binary), INTENT(INOUT)         :: this !< \param [in,out] this fileio type
+    CHARACTER(LEN=*)                            :: key
+    INTEGER                                     :: type,bytes
+    INTEGER, DIMENSION(5), OPTIONAL             :: dims
+    INTEGER                                     :: bufsize
+    CHARACTER(LEN=1), DIMENSION(:), ALLOCATABLE :: buf
     !------------------------------------------------------------------------!
-    INTEGER           :: keylen,l,b,o
+    INTEGER                                     :: keylen,l,b,o
     !------------------------------------------------------------------------!
-    INTENT(IN)        :: key,type,bytes
+    INTENT(IN)                                  :: key,type,bytes
     !------------------------------------------------------------------------!
     keylen = LEN_TRIM(key)
     IF(PRESENT(dims)) THEN
@@ -498,8 +497,8 @@ CONTAINS
       SUBROUTINE Append(buffer,i,d)
         IMPLICIT NONE
         !--------------------------------------------------------------------!
-        CHARACTER(LEN=1),DIMENSION(:) :: buffer,d
-        INTEGER :: i,s
+        CHARACTER(LEN=1), DIMENSION(:) :: buffer,d
+        INTEGER                        :: i,s
         !--------------------------------------------------------------------!
         s = SIZE(d)
         buffer(i:i+s-1) = d
@@ -513,18 +512,17 @@ CONTAINS
   RECURSIVE SUBROUTINE WriteDataAttributes(this,Mesh,config,path)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(fileio_binary),INTENT(INOUT) :: this         !< \param [in,out] this fileio type
-    CLASS(mesh_base),INTENT(IN) :: Mesh         !< \param [in] mesh mesh type
-    TYPE(Dict_TYP),POINTER :: config  !< \param [in] config dict of configuration
-    CHARACTER(LEN=*),OPTIONAL &
-                      :: path    !< \param [in] path
+    CLASS(fileio_binary), INTENT(INOUT)     :: this   !< \param [in,out] this fileio type
+    CLASS(mesh_base), INTENT(IN)            :: Mesh   !< \param [in] mesh mesh type
+    TYPE(Dict_TYP), POINTER                 :: config !< \param [in] config dict of configuration
+    CHARACTER(LEN=*), OPTIONAL              :: path   !< \param [in] path
     !------------------------------------------------------------------------!
-    CHARACTER(LEN=MAX_CHAR_LEN) :: str, key
-    TYPE(dict_TYP),POINTER   :: node
-    REAL,DIMENSION(2,Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX) :: buf
-    CHARACTER(LEN=1),DIMENSION(:),POINTER :: val
+    CHARACTER(LEN=MAX_CHAR_LEN)             :: str, key
+    TYPE(dict_TYP), POINTER                 :: node
+    REAL, DIMENSION(2,Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX) :: buf
+    CHARACTER(LEN=1), DIMENSION(:), POINTER :: val
     !------------------------------------------------------------------------!
-    INTENT(IN)        :: path
+    INTENT(IN)                              :: path
     !------------------------------------------------------------------------!
     IF(PRESENT(path)) THEN
         str = path
@@ -547,26 +545,26 @@ CONTAINS
   SUBROUTINE WriteNode(this,Mesh,key,node)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(fileio_binary),INTENT(INOUT) :: this         !< \param [in,out] this fileio type
-    CLASS(mesh_base), INTENT(IN) ::  Mesh         !< \param [in] mesh mesh type
-    CHARACTER(LEN=MAX_CHAR_LEN) :: key
-    TYPE(Dict_TYP),POINTER :: node    !< \param [in] data node
+    CLASS(fileio_binary), INTENT(INOUT) :: this !< \param [in,out] this fileio type
+    CLASS(mesh_base), INTENT(IN)        :: Mesh !< \param [in] mesh mesh type
+    CHARACTER(LEN=MAX_CHAR_LEN)         :: key
+    TYPE(Dict_TYP), POINTER             :: node !< \param [in] data node
     !------------------------------------------------------------------------!
-    TYPE(real_t) :: ptr0
-    TYPE(int_t) :: ptrint
-    REAL,DIMENSION(:,:),POINTER :: ptr2
-    REAL,DIMENSION(:,:,:),POINTER :: ptr3
-    REAL,DIMENSION(:,:,:,:),POINTER :: ptr4
-    REAL,DIMENSION(:,:,:,:,:),POINTER :: ptr5
-    INTEGER,DIMENSION(5) :: dims,dims2
-    INTEGER                :: bytes,k,l,pos,imax,jmax
-    CHARACTER(LEN=1),DIMENSION(:),POINTER :: val
-    REAL,DIMENSION(:,:),ALLOCATABLE :: buf
+    TYPE(real_t)                            :: ptr0
+    TYPE(int_t)                             :: ptrint
+    REAL, DIMENSION(:,:), POINTER           :: ptr2
+    REAL, DIMENSION(:,:,:), POINTER         :: ptr3
+    REAL, DIMENSION(:,:,:,:), POINTER       :: ptr4
+    REAL, DIMENSION(:,:,:,:,:), POINTER     :: ptr5
+    INTEGER, DIMENSION(5)                   :: dims,dims2
+    INTEGER                                 :: bytes,k,l,pos,imax,jmax
+    CHARACTER(LEN=1), DIMENSION(:), POINTER :: val
+    REAL, DIMENSION(:,:), ALLOCATABLE       :: buf
 #ifdef PARALLEL
-    OFFSET_TYPE       :: omax,omin
+    OFFSET_TYPE                             :: omax,omin
 #endif
     !------------------------------------------------------------------------!
-    INTENT(IN)        :: key
+    INTENT(IN)                              :: key
     !------------------------------------------------------------------------!
     dims(:) = 1
     NULLIFY(ptr2,ptr3,ptr4,ptr5)
@@ -701,12 +699,12 @@ CONTAINS
   FUNCTION HasMeshDims(this,Mesh,dims) RESULT(res)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(fileio_binary),INTENT(INOUT)  :: this      !< \param [in] this type
-    CLASS(mesh_base),INTENT(IN)  :: Mesh      !< \param [in] mesh mesh type
-    INTEGER,DIMENSION(:) :: dims
-    LOGICAL           :: res
+    CLASS(fileio_binary), INTENT(INOUT) :: this !< \param [in] this type
+    CLASS(mesh_base), INTENT(IN)        :: Mesh !< \param [in] mesh mesh type
+    INTEGER, DIMENSION(:)               :: dims
+    LOGICAL                             :: res
     !------------------------------------------------------------------------!
-    INTENT(IN)        :: dims
+    INTENT(IN)                          :: dims
     !------------------------------------------------------------------------!
     IF(SIZE(dims).GE.3) THEN
       res = (dims(1).EQ.(Mesh%IMAX-Mesh%IMIN+1)) &
@@ -721,12 +719,12 @@ CONTAINS
   FUNCTION HasCornerDims(this,Mesh,dims) RESULT(res)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(fileio_binary),INTENT(INOUT)  :: this      !< \param [in] this type
-    CLASS(mesh_base),INTENT(IN)    :: Mesh      !< \param [in] mesh mesh type
-    INTEGER,DIMENSION(:) :: dims
-    LOGICAL           :: res
+    CLASS(fileio_binary), INTENT(INOUT) :: this !< \param [in] this type
+    CLASS(mesh_base), INTENT(IN)        :: Mesh !< \param [in] mesh mesh type
+    INTEGER, DIMENSION(:)               :: dims
+    LOGICAL                             :: res
     !------------------------------------------------------------------------!
-    INTENT(IN)        :: dims
+    INTENT(IN)                          :: dims
     !------------------------------------------------------------------------!
     IF(SIZE(dims).GE.3) THEN
       res = (dims(1).EQ.(Mesh%IMAX-Mesh%IMIN+2)) &
@@ -741,11 +739,11 @@ CONTAINS
   SUBROUTINE SetMeshDims(this,Mesh,dims)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(fileio_binary),INTENT(INOUT) :: this
-    CLASS(mesh_base),INTENT(IN) :: Mesh
-    INTEGER,DIMENSION(:)   :: dims
+    CLASS(fileio_binary), INTENT(INOUT) :: this
+    CLASS(mesh_base), INTENT(IN)        :: Mesh
+    INTEGER, DIMENSION(:)               :: dims
     !------------------------------------------------------------------------!
-    INTENT(INOUT)          :: dims
+    INTENT(INOUT)                       :: dims
     !------------------------------------------------------------------------!
     IF(this%HasMeshDims(Mesh,dims)) THEN
       dims(1) = Mesh%INUM
@@ -759,19 +757,19 @@ CONTAINS
   END SUBROUTINE SetMeshDims
 
 
-  !> \public Writes all desired data arrays to a file 
+  !> \public Writes all desired data arrays to a file
   !!
   SUBROUTINE WriteDataset(this,Mesh,Physics,Fluxes,Timedisc,Header,IO)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(fileio_binary),INTENT(INOUT) :: this      !< \param [in,out] this fileio type
-    CLASS(mesh_base),INTENT(IN) :: Mesh      !< \param [in] mesh mesh type
-    CLASS(physics_base),INTENT(IN) :: Physics   !< \param [in] physics physics type
-    CLASS(fluxes_base),INTENT(IN) :: Fluxes    !< \param [in] fluxes fluxes type
-    CLASS(timedisc_base),INTENT(IN) :: Timedisc  !< \param [in] timedisc timedisc type
-    TYPE(Dict_TYP),POINTER :: Header,IO   !< \param [in,out] IO I/O dictionary
+    CLASS(fileio_binary), INTENT(INOUT) :: this      !< \param [in,out] this fileio type
+    CLASS(mesh_base), INTENT(IN)        :: Mesh      !< \param [in] mesh mesh type
+    CLASS(physics_base), INTENT(IN)     :: Physics   !< \param [in] physics physics type
+    CLASS(fluxes_base), INTENT(IN)      :: Fluxes    !< \param [in] fluxes fluxes type
+    CLASS(timedisc_base), INTENT(IN)    :: Timedisc  !< \param [in] timedisc timedisc type
+    TYPE(Dict_TYP), POINTER             :: Header,IO !< \param [in,out] IO I/O dictionary
     !------------------------------------------------------------------------!
-    TYPE(Dict_TYP),POINTER :: meshIO
+    TYPE(Dict_TYP), POINTER             :: meshIO
     !------------------------------------------------------------------------!
     ! write data
     CALL this%OpenFile(APPEND)
@@ -807,15 +805,15 @@ CONTAINS
   SUBROUTINE GetEndianness(this, res, littlestr, bigstr)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(fileio_binary),INTENT(INOUT) :: this         !< \param [in,out] this fileio type
-    CHARACTER(LEN=*)  :: res          !< \param [out] res result string
-    CHARACTER(LEN=*)  :: littlestr    !< \param [in] littlestr little endian str
-    CHARACTER(LEN=*)  :: bigstr       !< \param [in] bigstr big endian str
+    CLASS(fileio_binary), INTENT(INOUT) :: this         !< \param [in,out] this fileio type
+    CHARACTER(LEN=*)                    :: res          !< \param [out] res result string
+    CHARACTER(LEN=*)                    :: littlestr    !< \param [in] littlestr little endian str
+    CHARACTER(LEN=*)                    :: bigstr       !< \param [in] bigstr big endian str
     !------------------------------------------------------------------------!
-    INTEGER           :: k,err,iTIPO
-    CHARACTER, POINTER:: cTIPO(:)
+    INTEGER                             :: k,err,iTIPO
+    CHARACTER, POINTER                  :: cTIPO(:)
     !------------------------------------------------------------------------!
-    INTENT(OUT)       :: res
+    INTENT(OUT)                         :: res
     !------------------------------------------------------------------------!
 
     !endianness
@@ -842,8 +840,8 @@ CONTAINS
   SUBROUTINE CloseFile(this)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(fileio_binary),INTENT(INOUT) :: this  !< \param [in,out] this fileio type
-    INTEGER :: err
+    CLASS(fileio_binary), INTENT(INOUT) :: this  !< \param [in,out] this fileio type
+    INTEGER                             :: err
     !------------------------------------------------------------------------!
 #ifdef PARALLEL
     CALL MPI_File_close(this%handle,this%error_io)
@@ -857,7 +855,7 @@ CONTAINS
   SUBROUTINE Finalize(this)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    TYPE(fileio_binary),INTENT(INOUT) :: this
+    TYPE(fileio_binary), INTENT(INOUT) :: this
     !------------------------------------------------------------------------!
 #ifdef PARALLEL
     CALL MPI_Type_free(this%cfiletype,this%error_io)

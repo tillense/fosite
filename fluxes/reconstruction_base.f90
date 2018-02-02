@@ -5,7 +5,7 @@
 !#                                                                           #
 !# Copyright (C) 2007-2012                                                   #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
-!# Jannes Klee <jklee@astrophysik.uni-kiel.de>                               #
+!# Jannes Klee      <jklee@astrophysik.uni-kiel.de>                          #
 !#                                                                           #
 !# This program is free software; you can redistribute it and/or modify      #
 !# it under the terms of the GNU General Public License as published by      #
@@ -40,39 +40,37 @@ MODULE reconstruction_base_mod
   IMPLICIT NONE
   !--------------------------------------------------------------------------!
   PRIVATE
-  TYPE, ABSTRACT, EXTENDS (logging_base) ::  reconstruction_base
+  TYPE, ABSTRACT, EXTENDS (logging_base)   ::  reconstruction_base
      !> \name Variables
-     CLASS(logging_base), ALLOCATABLE :: limiter       !< limiter (linear, const)
-     LOGICAL                          :: primcons      !< true if primitive
-     REAL                             :: limiter_param !< limiter parameter
-     REAL, DIMENSION(:,:,:,:), ALLOCATABLE &
-                                      :: xslopes,yslopes,zslopes !< limited slopes
+     CLASS(logging_base), ALLOCATABLE      :: limiter                 !< limiter (linear, const)
+     LOGICAL                               :: primcons                !< true if primitive
+     REAL                                  :: limiter_param           !< limiter parameter
+     REAL, DIMENSION(:,:,:,:), ALLOCATABLE :: xslopes,yslopes,zslopes !< limited slopes
   CONTAINS
-    PROCEDURE                             :: InitReconstruction
-    PROCEDURE (CalculateStates), DEFERRED :: CalculateStates
-    PROCEDURE                             :: PrimRecon
-    PROCEDURE                             :: FinalizeReconstruction
+    PROCEDURE                              :: InitReconstruction
+    PROCEDURE (CalculateStates), DEFERRED  :: CalculateStates
+    PROCEDURE                              :: PrimRecon
+    PROCEDURE                              :: FinalizeReconstruction
   END TYPE reconstruction_base
 
   ABSTRACT INTERFACE
     PURE SUBROUTINE CalculateStates(this,Mesh,Physics,npos,dx,dy,dz,rvar,rstates)
       IMPORT reconstruction_base, mesh_base, physics_base
       IMPLICIT NONE
-      CLASS(reconstruction_base), INTENT(INOUT) :: this
-      CLASS(mesh_base),           INTENT(IN)    :: Mesh
-      CLASS(physics_base),        INTENT(IN)    :: Physics
-      INTEGER                                   :: npos
+      CLASS(reconstruction_base), INTENT(INOUT)   :: this
+      CLASS(mesh_base),           INTENT(IN)      :: Mesh
+      CLASS(physics_base),        INTENT(IN)      :: Physics
+      INTEGER                                     :: npos
       REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX, &
-                      Mesh%KGMIN:Mesh%KGMAX,npos) &
-                                                :: dx,dy,dz
+                      Mesh%KGMIN:Mesh%KGMAX,npos) :: dx,dy,dz
       REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX, &
                       Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM) &
-                                                :: rvar
+                                                  :: rvar
       REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX, &
                       Mesh%KGMIN:Mesh%KGMAX,npos,Physics%VNUM) &
-                                                :: rstates
-      INTENT(IN)                                :: npos,dx,dy,dz,rvar
-      INTENT(OUT)                               :: rstates
+                                                  :: rstates
+      INTENT(IN)                                  :: npos,dx,dy,dz,rvar
+      INTENT(OUT)                                 :: rstates
     END SUBROUTINE
   END INTERFACE
 
@@ -86,11 +84,11 @@ MODULE reconstruction_base_mod
   INTEGER, PARAMETER :: CONSTANT     = 1
   INTEGER, PARAMETER :: LINEAR       = 2
   !--------------------------------------------------------------------------!
-  PUBLIC :: &
+  PUBLIC ::                 &
        ! types
        reconstruction_base, &
        ! constants
-       CONSTANT, LINEAR, &
+       CONSTANT, LINEAR,    &
        PRIMITIVE, CONSERVATIVE
   !--------------------------------------------------------------------------!
 
@@ -163,7 +161,7 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(reconstruction_base), INTENT(IN) :: this
-    LOGICAL :: pc
+    LOGICAL                                :: pc
     !------------------------------------------------------------------------!
 !CDIR IEXPAND
     pc = this%primcons
@@ -173,7 +171,7 @@ CONTAINS
   SUBROUTINE FinalizeReconstruction(this)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(reconstruction_base), INTENT(INOUT)     :: this
+    CLASS(reconstruction_base), INTENT(INOUT) :: this
     !------------------------------------------------------------------------!
     IF (.NOT.this%Initialized()) &
          CALL this%Error("CloseReconstruction","not initialized")

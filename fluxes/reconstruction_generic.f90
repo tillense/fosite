@@ -1,8 +1,7 @@
-
 !#############################################################################
 !#                                                                           #
-!# fosite - 2D hydrodynamical simulation program                             #
-!# module: reconstruction_generic.f90                                                #
+!# fosite - 3D hydrodynamical simulation program                             #
+!# module: reconstruction_generic.f90                                        #
 !#                                                                           #
 !# Copyright (C) 2016                                                        #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
@@ -25,7 +24,8 @@
 !#                                                                           #
 !#############################################################################
 !----------------------------------------------------------------------------!
-!> \author Manuel Jung
+!> \author Tobias Illenseer
+!! \author Manuel Jung
 !!
 !! \brief constructor for reconstruction class
 !!
@@ -50,11 +50,11 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(reconstruction_base), ALLOCATABLE :: Reconstruction
-    CLASS(mesh_base), INTENT(IN)    :: Mesh
-    CLASS(physics_base), INTENT(IN) :: Physics
-    TYPE(DICT_TYP),     POINTER     :: config, IO
+    CLASS(mesh_base), INTENT(IN)            :: Mesh
+    CLASS(physics_base), INTENT(IN)         :: Physics
+    TYPE(DICT_TYP),     POINTER             :: config, IO
     !------------------------------------------------------------------------!
-    INTEGER :: order
+    INTEGER                                 :: order
     !------------------------------------------------------------------------!
     CALL GetAttr(config,"order",order)
     ! allocate data

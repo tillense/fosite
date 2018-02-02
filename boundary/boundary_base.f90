@@ -57,42 +57,38 @@ MODULE boundary_base_mod
   PRIVATE
   TYPE, ABSTRACT, EXTENDS(logging_base) :: boundary_base
     !> boundary orientation: west, east, south, north
-    CLASS(logging_base),ALLOCATABLE:: direction
-    INTEGER           :: IMID, &         !< i index of cell in the middle
-                         JMID, &         !< j index of cell in the middle
-                         KMID, &         !< j index of cell in the middle
-                         nohdim          !< dimension of Noh problem
-    LOGICAL           :: first_call      !< used in far-field bc
-    LOGICAL,DIMENSION(:),POINTER :: &
-                         reflX, &        !< mask array for reflecting bc
-                         reflY, &        !< mask array for reflecting bc
-                         reflZ           !< mask array for reflecting bc
-    LOGICAL,DIMENSION(:,:,:),POINTER :: &
-                         fixed           !< mask array for fixed bc
-    INTEGER,DIMENSION(:,:,:),POINTER :: &
-                         cbtype          !< custom boundary condition type
-    REAL,DIMENSION(:,:,:),POINTER :: &
-                         invr, &         !< inverse distance to center
-                         Rscale, &       !< radial scaling constants
-                         invRscale, &    !< inverse radial scaling constants
-                         xvar, &         !< characteristic variables for absorbing bc
-                         lambda, &       !< eigenvalues for absorbing bc
-                         Rinv, &         !< Riemann invariants at the boundary
-                         RinvInf         !< far field Riemann invariants
-    REAL              :: shearval        !< shear box parameter
-    LOGICAL           :: PhysicalCorner  !< Is the left corner physical?
+    CLASS(logging_base), ALLOCATABLE   :: direction
+    INTEGER                            :: IMID,        & !< i index of cell in the middle
+                                          JMID,        & !< j index of cell in the middle
+                                          KMID,        & !< j index of cell in the middle
+                                          nohdim         !< dimension of Noh problem
+    LOGICAL                            :: first_call     !< used in far-field bc
+    LOGICAL, DIMENSION(:), POINTER     ::              &
+                                          reflX,       & !< mask array for reflecting bc
+                                          reflY,       & !< mask array for reflecting bc
+                                          reflZ          !< mask array for reflecting bc
+    LOGICAL, DIMENSION(:,:,:), POINTER :: fixed          !< mask array for fixed bc
+    INTEGER, DIMENSION(:,:,:), POINTER :: cbtype         !< custom boundary condition type
+    REAL, DIMENSION(:,:,:), POINTER    :: invr,        & !< inverse distance to center
+                                          Rscale,      & !< radial scaling constants
+                                          invRscale,   & !< inverse radial scaling constants
+                                          xvar,        & !< characteristic variables for absorbing bc
+                                          lambda,      & !< eigenvalues for absorbing bc
+                                          Rinv,        & !< Riemann invariants at the boundary
+                                          RinvInf        !< far field Riemann invariants
+    REAL                               :: shearval       !< shear box parameter
+    LOGICAL                            :: PhysicalCorner !< Is the left corner physical?
     !> boundary data array, e.g. for fixed,
     !! custom and noslip and boundary conditions
-    REAL,DIMENSION(:,:,:,:),POINTER :: &
+    REAL, DIMENSION(:,:,:,:), POINTER  :: &
                          data
     !> \todo Probably obsolte variable. Remove it!
-    REAL,DIMENSION(:,:,:,:),POINTER :: &
+    REAL, DIMENSION(:,:,:,:), POINTER  :: &
                          accel => NULL() !< pointer to gravitational accel
 #ifdef PARALLEL
     !> \name Variables in Parallel Mode
-    REAL,DIMENSION(:,:,:,:),POINTER :: &
-                         sendbuf, &      !< send buffer for boundary data
-                         recvbuf         !< receive buffer for boundary data
+    REAL, DIMENSION(:,:,:,:), POINTER  :: sendbuf,     & !< send buffer for boundary data
+                                          recvbuf        !< receive buffer for boundary data
 #endif
   CONTAINS
 
@@ -159,13 +155,12 @@ CONTAINS
   SUBROUTINE InitBoundary(this,Mesh,Physics,bctype,bcname,dir,config)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(boundary_base), INTENT(INOUT) :: this
-    CLASS(mesh_base),     INTENT(IN)    :: Mesh
-    CLASS(physics_base),  INTENT(IN)    :: Physics
-    TYPE(Dict_TYP),       INTENT(IN), POINTER &
-                                        :: config
-    INTEGER,              INTENT(IN)    :: bctype,dir
-    CHARACTER(LEN=32),    INTENT(IN)    :: bcname
+    CLASS(boundary_base), INTENT(INOUT)       :: this
+    CLASS(mesh_base),     INTENT(IN)          :: Mesh
+    CLASS(physics_base),  INTENT(IN)          :: Physics
+    TYPE(Dict_TYP),       INTENT(IN), POINTER :: config
+    INTEGER,              INTENT(IN)          :: bctype,dir
+    CHARACTER(LEN=32),    INTENT(IN)          :: bcname
     !------------------------------------------------------------------------!
 #ifdef PARALLEL
     INTEGER, PARAMETER    :: strlen = 32
@@ -192,13 +187,13 @@ CONTAINS
     !CALL InitCommon(this%direction,direction,direction_name(direction))
 
     IF(((Physics%GetType().EQ.EULER2D_ISOIAMT).OR.&
-        (Physics%GetType().EQ.EULER2D_IAMT)).AND.&
-       ((dir.EQ.NORTH).OR.(dir.EQ.SOUTH)).AND.&
-       (.NOT.((bctype.EQ.PERIODIC) &
+        (Physics%GetType().EQ.EULER2D_IAMT)).AND. &
+       ((dir.EQ.NORTH).OR.(dir.EQ.SOUTH)).AND.    &
+       (.NOT.((bctype.EQ.PERIODIC)                &
 #ifdef PARALLEL
-              .OR.(bctype.EQ.NONE) &
+              .OR.(bctype.EQ.NONE)                &
 #endif
-              ))) &
+              )))                                 &
       CALL this%Error("InitBoundary_one", "All IAMT Physics need periodic" &
         // " boundary conditions in NORTH/SOUTH direction")
 
@@ -232,7 +227,7 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(boundary_base), INTENT(IN) :: this !< \param [in] this boundary type
-    INTEGER :: dir
+    INTEGER                          :: dir
     !------------------------------------------------------------------------!
 !CDIR IEXPAND
     dir = this%direction%GetType()

@@ -1,10 +1,11 @@
 !#############################################################################
 !#                                                                           #
-!# fosite - 2D hydrodynamical simulation program                             #
+!# fosite - 3D hydrodynamical simulation program                             #
 !# module: fileio_xdmf.f90                                                   #
 !#                                                                           #
 !# Copyright (C) 2013-2015                                                   #
 !# Manuel Jung <mjung@astrophysik.uni-kiel.de>                               #
+!# Jannes Klee <jklee@astrophysik.uni-kiel.de>                               #
 !#                                                                           #
 !# This program is free software; you can redistribute it and/or modify      #
 !# it under the terms of the GNU General Public License as published by      #
@@ -64,11 +65,11 @@ MODULE fileio_xdmf_mod
   USE common_dict
   !--------------------------------------------------------------------------!
   PRIVATE
-  CHARACTER, PARAMETER    :: LF = ACHAR(10)        !< line feed
+  CHARACTER, PARAMETER         :: LF = ACHAR(10)        !< line feed
 
   TYPE, EXTENDS(fileio_binary) :: fileio_xdmf
-    CHARACTER(LEN=14)      :: endian_xdmf      !< endianness string
-    INTEGER                :: unit_xdmf
+    CHARACTER(LEN=14)          :: endian_xdmf      !< endianness string
+    INTEGER                    :: unit_xdmf
   CONTAINS
     PROCEDURE :: InitFileIO_xdmf
     PROCEDURE :: IterateDict
@@ -294,8 +295,8 @@ CONTAINS
     CHARACTER(LEN=*),   INTENT(IN)    :: filename  !< \param [in] filename
     INTEGER,            INTENT(IN)    :: offset    !< \param [in] offset
     !------------------------------------------------------------------------!
-    CHARACTER(LEN=16) :: seek
-    INTEGER           :: err
+    CHARACTER(LEN=16)                 :: seek
+    INTEGER                           :: err
     !------------------------------------------------------------------------!
     WRITE(this%unit, IOSTAT=err)&
            '<DataItem Dimensions=' // TRIM(dims) // ' ' &
@@ -325,9 +326,9 @@ CONTAINS
     INTEGER,            INTENT(IN)    :: offset     !< \param [in,out] offset
     LOGICAL,            INTENT(IN)    :: ref        !< \param [in] ref
     !------------------------------------------------------------------------!
-    CHARACTER(LEN=8)  :: inum,jnum
-    CHARACTER(LEN=32) :: type,center
-    INTEGER           :: i,dsize, err
+    CHARACTER(LEN=8)                  :: inum,jnum
+    CHARACTER(LEN=32)                 :: type,center
+    INTEGER                           :: i,dsize, err
     !------------------------------------------------------------------------!
     !data size
     dsize = SIZE(dims)
@@ -538,9 +539,9 @@ CONTAINS
     INTEGER,DIMENSION(:), INTENT(IN) :: dims
     CHARACTER(LEN=128)               :: res
     !------------------------------------------------------------------------!
-    INTEGER                :: i, l
+    INTEGER                          :: i, l
     CHARACTER(LEN=128), DIMENSION(:), ALLOCATABLE &
-                           :: buf
+                                     :: buf
     !------------------------------------------------------------------------!
     l = SIZE(dims)
     ALLOCATE(buf(l))

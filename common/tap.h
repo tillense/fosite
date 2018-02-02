@@ -1,10 +1,9 @@
 !#############################################################################
 !#                                                                           #
-!# fosite - 2D hydrodynamical simulation program                             #
+!# fosite - 3D hydrodynamical simulation program                             #
 !# header: tap.h                                                             #
 !#                                                                           #
-!# Copyright (C) 2013                                                        #
-!# Manuel Jung <mjunf@astrophysik.uni-kiel.de>                               #
+!# Copyright (C) 2013 Manuel Jung <mjung@astrophysik.uni-kiel.de>            #
 !#                                                                           #
 !# This program is free software; you can redistribute it and/or modify      #
 !# it under the terms of the GNU General Public License as published by      #

@@ -1,6 +1,6 @@
 !#############################################################################
 !#                                                                           #
-!# fosite - 2D hydrodynamical simulation program                             #
+!# fosite - 3D hydrodynamical simulation program                             #
 !# module: fileio_generic.f90                                                #
 !#                                                                           #
 !# Copyright (C) 2008-2014                                                   #
@@ -75,37 +75,37 @@ MODULE fileio_base_mod
   ! Private Attributes section starts here:
   !> \name Private Attributes
   !>#### file name and extension lengths
-  INTEGER, PARAMETER :: FEXTLEN = 4               !< file name extension length
-  INTEGER, PARAMETER :: FMLTLEN = 5               !< length of multi process string (parallel mode only)
-  INTEGER, PARAMETER :: FCYCLEN = 5               !< length of timestep string
-  INTEGER, PARAMETER :: FNAMLEN = 256             !< file name length (without any extension)
-  INTEGER, PARAMETER :: FPATLEN = 1024            !< file path length (without file name)
+  INTEGER, PARAMETER :: FEXTLEN = 4                  !< file name extension length
+  INTEGER, PARAMETER :: FMLTLEN = 5                  !< length of multi process string (parallel mode only)
+  INTEGER, PARAMETER :: FCYCLEN = 5                  !< length of timestep string
+  INTEGER, PARAMETER :: FNAMLEN = 256                !< file name length (without any extension)
+  INTEGER, PARAMETER :: FPATLEN = 1024               !< file path length (without file name)
   !> \name
   !!#### handling multiple files in parallel mode
-  CHARACTER(LEN=FMLTLEN), SAVE :: fmextstr = ""   !< multi process string, overwritten below
-  INTEGER, PARAMETER      :: MAXMLTFILES = 1000   !< max. number files per time step (parallel
-                                                  !! mode with one file per node)
+  CHARACTER(LEN=FMLTLEN), SAVE :: fmextstr = ""      !< multi process string, overwritten below
+  INTEGER, PARAMETER           :: MAXMLTFILES = 1000 !< max. number files per time step (parallel
+                                                     !! mode with one file per node)
   !> \name
   !!#### handling multiple data files with time step in their names
-  INTEGER, PARAMETER      :: MAXCYCLES = 10000    !< max. number of data files (not counting
-                                                  !! multiple files per time step in parallel mode)
-  CHARACTER(LEN=32), SAVE :: cycfmt               !< format string for cycles
+  INTEGER, PARAMETER           :: MAXCYCLES = 10000  !< max. number of data files (not counting
+                                                     !! multiple files per time step in parallel mode)
+  CHARACTER(LEN=32), SAVE      :: cycfmt             !< format string for cycles
   !--------------------------------------------------------------------------!
   !> output-pointer for array data (binary,gnuplot,vtk)
   TYPE ValPtr_TYP
-    REAL, DIMENSION(:,:,:),POINTER :: val
+    REAL, DIMENSION(:,:,:), POINTER :: val
   END TYPE
 
   TYPE Output_TYP
-    REAL, DIMENSION(:,:),POINTER   :: val
+    REAL, DIMENSION(:,:), POINTER           :: val
     TYPE(ValPtr_TYP), DIMENSION(:), POINTER :: p
-    CHARACTER(LEN=128)             :: key
-    INTEGER(KIND=4)                :: numbytes
+    CHARACTER(LEN=128)                      :: key
+    INTEGER(KIND=4)                         :: numbytes
   END TYPE Output_TYP
 
   !> output-pointer for time step scalar data (gnuplot)
   TYPE TSOutput_TYP
-    REAL,POINTER            :: val
+    REAL, POINTER           :: val
     CHARACTER(LEN=128)      :: key
   END TYPE TSOutput_TYP
 
@@ -116,7 +116,7 @@ MODULE fileio_base_mod
      CHARACTER(LEN=512)     :: linebuf     !< char buffer fo field data
      CHARACTER(LEN=512)     :: tslinebuf   !< char buffer for time step data
      CHARACTER(LEN=FNAMLEN) :: filename    !< file name without extension
-     CHARACTER(LEN=FPATLEN) :: path        !< file path without filename 
+     CHARACTER(LEN=FPATLEN) :: path        !< file path without filename
      CHARACTER(LEN=FEXTLEN) :: extension   !< file name extension
      LOGICAL                :: cartcoords  !< output cartesian coordinates
      INTEGER                :: unit        !< i/o unit
@@ -367,18 +367,18 @@ CONTAINS
     END IF
 #endif
 
-    this%path     = TRIM(fpath)
-    this%filename = TRIM(fname)
-    this%extension= TRIM(fext)
-    this%cycles   = fcycles_def
-    this%unit     = unit
-    this%stoptime = stoptime_def
-    this%dtwall   = dtwall_def
-    this%time     = 0.
-    this%count    = count_def
-    this%step     = 0
-    this%offset   = 0
-    this%error_io = 0
+    this%path      = TRIM(fpath)
+    this%filename  = TRIM(fname)
+    this%extension = TRIM(fext)
+    this%cycles    = fcycles_def
+    this%unit      = unit
+    this%stoptime  = stoptime_def
+    this%dtwall    = dtwall_def
+    this%time      = 0.
+    this%count     = count_def
+    this%step      = 0
+    this%offset    = 0
+    this%error_io  = 0
 
     ! compute the (actual) output time
     time = ABS(this%stoptime) / this%count
@@ -414,10 +414,10 @@ CONTAINS
  PURE SUBROUTINE AdjustTimestep(this,time,dt,dtcause)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(fileio_base),INTENT(IN) :: this     !< \param [in] this fileio type
-    REAL             :: time     !< \param [in,out] time
-    REAL             :: dt       !< \param [in,out] dt timestep
-    INTEGER          :: dtcause  !< \param [in,out] dtcause cause of smallest dt
+    CLASS(fileio_base), INTENT(IN) :: this    !< \param [in] this fileio type
+    REAL                           :: time    !< \param [in,out] time
+    REAL                           :: dt      !< \param [in,out] dt timestep
+    INTEGER                        :: dtcause !< \param [in,out] dtcause cause of smallest dt
     !------------------------------------------------------------------------!
     INTENT(INOUT)    :: time,dt,dtcause
     !------------------------------------------------------------------------!
@@ -441,8 +441,8 @@ CONTAINS
     INTEGER, OPTIONAL,  INTENT(IN) :: fn       !< \param [in] fn number of file
     CHARACTER(LEN=FMLTLEN)         :: multstr
     !------------------------------------------------------------------------!
-    INTEGER            :: fn_l
-    CHARACTER(LEN=32)  :: mextfmt
+    INTEGER                        :: fn_l
+    CHARACTER(LEN=32)              :: mextfmt
     !------------------------------------------------------------------------!
 #ifdef PARALLEL
     IF (PRESENT(fn)) THEN
@@ -452,7 +452,7 @@ CONTAINS
     END IF
     ! with fn < 0 you can suppress a label
     IF (this%multfiles .AND. fn_l .GE. 0) THEN
-        WRITE (mextfmt, "('(A2,I',I1,'.',I1,')')") FMLTLEN-2,FMLTLEN-2 
+        WRITE (mextfmt, "('(A2,I',I1,'.',I1,')')") FMLTLEN-2,FMLTLEN-2
 
         WRITE (multstr, mextfmt) "-r", fn_l
     ELSE
@@ -471,10 +471,10 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(fileio_base), INTENT(IN) :: this !< \param [in] this fileio type
-    INTEGER, OPTIONAL, INTENT(IN):: fn   !< \param [in] fn number of file
-    CHARACTER(LEN=256)           :: fname
+    INTEGER, OPTIONAL, INTENT(IN)  :: fn   !< \param [in] fn number of file
+    CHARACTER(LEN=256)             :: fname
     !------------------------------------------------------------------------!
-    CHARACTER(LEN=FCYCLEN+2)  :: cycstr
+    CHARACTER(LEN=FCYCLEN+2)       :: cycstr
     !------------------------------------------------------------------------!
     IF (this%cycles.GT.0) THEN
        ! generate a file name with time step
@@ -494,8 +494,8 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(fileio_base), INTENT(IN) :: this !< \param [in] this fileio type
-    INTEGER, OPTIONAL, INTENT(IN):: fn   !< \param [in] fn number of file
-    CHARACTER(LEN=256) :: fname
+    INTEGER, OPTIONAL, INTENT(IN)  :: fn   !< \param [in] fn number of file
+    CHARACTER(LEN=256)             :: fname
     !------------------------------------------------------------------------!
     fname = TRIM(this%path) // TRIM(GetBasename(this,fn))
   END FUNCTION GetFilename
@@ -824,7 +824,7 @@ CONTAINS
   SUBROUTINE FinalizeFileio(this)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(fileio_base),INTENT(INOUT) :: this      !< \param [in,out] this fileio type
+    CLASS(fileio_base),INTENT(INOUT) :: this !< \param [in,out] this fileio type
     !------------------------------------------------------------------------!
     IF (.NOT.this%Initialized()) &
         CALL this%Error("CloseFileIO","not initialized")

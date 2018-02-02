@@ -1,10 +1,9 @@
 !#############################################################################
 !#                                                                           #
-!# fosite - 2D hydrodynamical simulation program                             #
+!# fosite - 3D hydrodynamical simulation program                             #
 !# module: common_dict.f90                                                   #
 !#                                                                           #
-!# Copyright (C) 2015                                                        #
-!# Manuel Jung <mjung@astrophysik.uni-kiel.de>                               #
+!# Copyright (C) 2015 Manuel Jung <mjung@astrophysik.uni-kiel.de>            #
 !#                                                                           #
 !# This program is free software; you can redistribute it and/or modify      #
 !# it under the terms of the GNU General Public License as published by      #
@@ -29,15 +28,15 @@
 !!
 !! This module defines a dictionary (key/value storage) of arbitrary data
 !! types. At the moment the following are defined:
-!! 1. Integer
-!! 2. Real
-!! 3. Character(len=MAX_CHAR_LEN)
-!! 4. Logical
-!! 5. 1D Real array
-!! 6. Pointer to 2D Real array
-!! 7. Pointer to 3D Real array
-!! 8. Pointer to 4D Real array
-!! 9. 1D Integer array
+!!  1. Integer
+!!  2. Real
+!!  3. Character(len=MAX_CHAR_LEN)
+!!  4. Logical
+!!  5. 1D Real array
+!!  6. Pointer to 2D Real array
+!!  7. Pointer to 3D Real array
+!!  8. Pointer to 4D Real array
+!!  9. 1D Integer array
 !! 10. Pointer to Real
 !! 11. Pointer to Integer
 !! 12. Pointer to 5D Real array
@@ -52,8 +51,7 @@
 !! (1): http://en.wikipedia.org/wiki/Trie
 !! (2): http://en.wikipedia.org/wiki/Radix_tree
 !! (3): http://fortranwiki.org/fortran/show/transfer
-!! (4): Blevins, J. R. (2009). A Generic Linked List Implementation in Fortran
-!!      95. ACM SIGPLAN Fortran Forum 28(3), 2-7.
+!! (4): \cite blevins2009
 !! (5): http://fortranwiki.org/fortran/show/gen_list
 !!
 !! \extends common_types
@@ -69,14 +67,14 @@ MODULE common_dict
   ! exclude interface block from doxygen processing
   !> \cond InterfaceBlock
   INTERFACE SetAttr
-    MODULE PROCEDURE SetAttr0a, SetAttr0b, &
-        SetAttr1, SetAttr2, SetAttr3, SetAttr4, SetAttr5, &
+    MODULE PROCEDURE SetAttr0a, SetAttr0b,                 &
+        SetAttr1, SetAttr2, SetAttr3, SetAttr4, SetAttr5,  &
         SetAttr6, SetAttr7, SetAttr8, SetAttr9, SetAttr10, &
         SetAttr11, SetAttr12
   END INTERFACE SetAttr
   INTERFACE GetAttr
-    MODULE PROCEDURE GetAttr0, &
-        GetAttr1, GetAttr2, GetAttr3, GetAttr4, GetAttr5, &
+    MODULE PROCEDURE GetAttr0,                             &
+        GetAttr1, GetAttr2, GetAttr3, GetAttr4, GetAttr5,  &
         GetAttr6, GetAttr7, GetAttr8, GetAttr9, GetAttr10, &
         GetAttr11, GetAttr12
   END INTERFACE GetAttr
@@ -85,25 +83,25 @@ MODULE common_dict
   END INTERFACE Ref
   INTERFACE OPERATOR (/)
     MODULE PROCEDURE Assign0, Assign1, Assign2, Assign3, Assign4, &
-        Assign5, Assign6, Assign7, Assign8, Assign9, Assign10, &
+        Assign5, Assign6, Assign7, Assign8, Assign9, Assign10,    &
         Assign11, Assign12
   END INTERFACE
   !> \endcond
   ! constants
-  INTEGER, PARAMETER   :: MAX_CHAR_LEN = 128
-  INTEGER, PARAMETER   :: DICT_NONE = 0
-  INTEGER, PARAMETER   :: DICT_INT  = 1
-  INTEGER, PARAMETER   :: DICT_REAL = 2
-  INTEGER, PARAMETER   :: DICT_CHAR = 3
-  INTEGER, PARAMETER   :: DICT_BOOL = 4
-  INTEGER, PARAMETER   :: DICT_REAL_ONED = 5
-  INTEGER, PARAMETER   :: DICT_REAL_TWOD = 6
-  INTEGER, PARAMETER   :: DICT_REAL_THREED = 7
-  INTEGER, PARAMETER   :: DICT_REAL_FOURD = 8
-  INTEGER, PARAMETER   :: DICT_INT_ONED = 9
-  INTEGER, PARAMETER   :: DICT_REAL_P = 10
-  INTEGER, PARAMETER   :: DICT_INT_P = 11
-  INTEGER, PARAMETER   :: DICT_REAL_FIVED = 12
+  INTEGER, PARAMETER :: MAX_CHAR_LEN     = 128
+  INTEGER, PARAMETER :: DICT_NONE        = 0
+  INTEGER, PARAMETER :: DICT_INT         = 1
+  INTEGER, PARAMETER :: DICT_REAL        = 2
+  INTEGER, PARAMETER :: DICT_CHAR        = 3
+  INTEGER, PARAMETER :: DICT_BOOL        = 4
+  INTEGER, PARAMETER :: DICT_REAL_ONED   = 5
+  INTEGER, PARAMETER :: DICT_REAL_TWOD   = 6
+  INTEGER, PARAMETER :: DICT_REAL_THREED = 7
+  INTEGER, PARAMETER :: DICT_REAL_FOURD  = 8
+  INTEGER, PARAMETER :: DICT_INT_ONED    = 9
+  INTEGER, PARAMETER :: DICT_REAL_P      = 10
+  INTEGER, PARAMETER :: DICT_INT_P       = 11
+  INTEGER, PARAMETER :: DICT_REAL_FIVED  = 12
 #define TYPE_DICT_KEY CHARACTER(LEN=MAX_CHAR_LEN)
 #define TYPE_DICT_INT INTEGER
 #define TYPE_DICT_REAL REAL
@@ -123,29 +121,29 @@ MODULE common_dict
   TYPE_DICT_MOLD, ALLOCATABLE :: mold
   TYPE Dict_TYP
      PRIVATE
-     CHARACTER(LEN=MAX_CHAR_LEN)    :: key = ""
-     INTEGER                        :: type = DICT_NONE
-     TYPE_DICT_MOLD, POINTER        :: value => null()
-     TYPE(Dict_TYP),POINTER         :: child => null()
-     TYPE(Dict_TYP),POINTER         :: next => null()
+     CHARACTER(LEN=MAX_CHAR_LEN) :: key = ""
+     INTEGER                     :: type = DICT_NONE
+     TYPE_DICT_MOLD, POINTER     :: value => null()
+     TYPE(Dict_TYP), POINTER     :: child => null()
+     TYPE(Dict_TYP), POINTER     :: next => null()
   END TYPE Dict_TYP
   TYPE real_t
-    TYPE_DICT_REAL_P :: p
+    TYPE_DICT_REAL_P       :: p
   END TYPE
   TYPE int_t
-    TYPE_DICT_INT_P :: p
+    TYPE_DICT_INT_P        :: p
   END TYPE
   TYPE real_twod_t
-    TYPE_DICT_REAL_TWOD :: p
+    TYPE_DICT_REAL_TWOD    :: p
   END TYPE
   TYPE real_threed_t
-    TYPE_DICT_REAL_THREED :: p
+    TYPE_DICT_REAL_THREED  :: p
   END TYPE
   TYPE real_fourd_t
-    TYPE_DICT_REAL_FOURD :: p
+    TYPE_DICT_REAL_FOURD   :: p
   END TYPE
   TYPE real_fived_t
-    TYPE_DICT_REAL_FIVED :: p
+    TYPE_DICT_REAL_FIVED   :: p
   END TYPE
   TYPE(logging_base), SAVE :: this
   !--------------------------------------------------------------------------!
@@ -154,28 +152,28 @@ MODULE common_dict
        Dict_TYP, real_t, int_t, &
        ! constants
        MAX_CHAR_LEN, DICT_NONE, DICT_INT, DICT_REAL, DICT_CHAR, DICT_BOOL, &
-       DICT_REAL_ONED, DICT_REAL_TWOD, DICT_REAL_THREED, DICT_REAL_FOURD, &
-       DICT_INT_ONED, DICT_REAL_P, DICT_INT_P, DICT_REAL_FIVED, &
+       DICT_REAL_ONED, DICT_REAL_TWOD, DICT_REAL_THREED, DICT_REAL_FOURD,  &
+       DICT_INT_ONED, DICT_REAL_P, DICT_INT_P, DICT_REAL_FIVED,            &
        ! methods
-       SetAttr, &
-       GetAttr, &
-       GetNext, &
-       GetChild, &
-       GetKey, &
-       GetDataSize, &
-       GetDatatype, &
-       GetData, &
-       SetData, &
-       HasChild, &
-       HasData, &
-       HasKey, &
-       Ref, &
-       OPERATOR(/), &
-       Dict, &
+       SetAttr,       &
+       GetAttr,       &
+       GetNext,       &
+       GetChild,      &
+       GetKey,        &
+       GetDataSize,   &
+       GetDatatype,   &
+       GetData,       &
+       SetData,       &
+       HasChild,      &
+       HasData,       &
+       HasKey,        &
+       Ref,           &
+       OPERATOR(/),   &
+       Dict,          &
        CopyHierarchy, &
-       CopyDict, &
-       PrintDict, &
-       InitDict, &
+       CopyDict,      &
+       PrintDict,     &
+       InitDict,      &
        DeleteDict
   !--------------------------------------------------------------------------!
 
@@ -198,15 +196,15 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     TYPE(Dict_TYP),POINTER :: root
-    CHARACTER(LEN=*) :: key
-    LOGICAL, OPTIONAL :: create
+    CHARACTER(LEN=*)       :: key
+    LOGICAL, OPTIONAL      :: create
     TYPE(Dict_TYP),POINTER :: res
     !------------------------------------------------------------------------!
     TYPE(Dict_TYP),POINTER :: parent,node
-    LOGICAL :: c
-    TYPE_DICT_CHAR  :: k, key_
+    LOGICAL                :: c
+    TYPE_DICT_CHAR         :: k, key_
     !------------------------------------------------------------------------!
-    INTENT(IN)      :: key, create
+    INTENT(IN)             :: key, create
     !------------------------------------------------------------------------!
     c = .FALSE.
     IF(PRESENT(create)) &
@@ -259,15 +257,15 @@ CONTAINS
   RECURSIVE SUBROUTINE SetAttr0a(root, key, value)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    TYPE(Dict_TYP),POINTER :: root
-    CHARACTER(LEN=*) :: key
-    TYPE(Dict_TYP),TARGET :: value
+    TYPE(Dict_TYP), POINTER :: root
+    CHARACTER(LEN=*)        :: key
+    TYPE(Dict_TYP), TARGET  :: value
     !------------------------------------------------------------------------!
-    TYPE(Dict_TYP),POINTER :: node, parent, val
-    TYPE_DICT_CHAR  :: k, str
-    INTEGER :: status
+    TYPE(Dict_TYP), POINTER :: node, parent, val
+    TYPE_DICT_CHAR          :: k, str
+    INTEGER                 :: status
     !------------------------------------------------------------------------!
-    INTENT(IN)      :: key    
+    INTENT(IN)              :: key
     !------------------------------------------------------------------------!
     node => value
     DO WHILE(ASSOCIATED(node))
@@ -290,17 +288,17 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     TYPE(Dict_TYP),POINTER :: root
-    CHARACTER(LEN=*) :: key
+    CHARACTER(LEN=*)       :: key
     !INTEGER, OPTIONAL :: type
     !TYPE_DICT_MOLD, OPTIONAL :: value
-    INTEGER :: type
-    TYPE_DICT_MOLD :: value
+    INTEGER                :: type
+    TYPE_DICT_MOLD         :: value
     !------------------------------------------------------------------------!
     TYPE(Dict_TYP),POINTER :: node, last
-    TYPE_DICT_CHAR  :: k, key_
-    INTEGER :: i
+    TYPE_DICT_CHAR         :: k, key_
+    INTEGER                :: i
     !------------------------------------------------------------------------!
-    INTENT(IN)      :: key, type, value
+    INTENT(IN)             :: key, type, value
     !------------------------------------------------------------------------!
     node => FindPath(root,key,.TRUE.)
     node%type = type
@@ -314,11 +312,11 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     TYPE(Dict_TYP),POINTER :: root, parent, child
-    CHARACTER(LEN=*) :: key
+    CHARACTER(LEN=*)       :: key
     !------------------------------------------------------------------------!
-    TYPE_DICT_CHAR  :: k, key_
+    TYPE_DICT_CHAR         :: k, key_
     !------------------------------------------------------------------------!
-    INTENT(IN)      :: key
+    INTENT(IN)             :: key
     !------------------------------------------------------------------------!
     parent => root
     child => root
@@ -340,16 +338,16 @@ CONTAINS
   SUBROUTINE GetAttr0b(root, key, type, value, default)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    TYPE(Dict_TYP),POINTER :: root
-    CHARACTER(LEN=*) :: key
-    INTEGER :: type
-    TYPE_DICT_MOLD, POINTER :: value
+    TYPE(Dict_TYP), POINTER  :: root
+    CHARACTER(LEN=*)         :: key
+    INTEGER                  :: type
+    TYPE_DICT_MOLD, POINTER  :: value
     TYPE_DICT_MOLD, OPTIONAL :: default
     !------------------------------------------------------------------------!
-    TYPE(Dict_TYP),POINTER :: node
-    CHARACTER(LEN=10) :: b1,b2
+    TYPE(Dict_TYP), POINTER  :: node
+    CHARACTER(LEN=10)        :: b1,b2
     !------------------------------------------------------------------------!
-    INTENT(IN)      :: key, type, default
+    INTENT(IN)               :: key, type, default
     !------------------------------------------------------------------------!
     CALL GetAttr0a(root, key, node)
     IF(.NOT.ASSOCIATED(node)) THEN
@@ -376,8 +374,8 @@ CONTAINS
   FUNCTION FindChild(root,key) RESULT(res)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CHARACTER(LEN=*),INTENT(IN) :: key
-    TYPE(Dict_TYP),POINTER :: root,res
+    CHARACTER(LEN=*), INTENT(IN) :: key
+    TYPE(Dict_TYP), POINTER      :: root,res
     !------------------------------------------------------------------------!
     res => root
     DO WHILE(ASSOCIATED(res))
@@ -390,7 +388,7 @@ CONTAINS
   FUNCTION GetNext(root) RESULT(res)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    TYPE(Dict_TYP),POINTER :: root, res
+    TYPE(Dict_TYP), POINTER :: root, res
     !------------------------------------------------------------------------!
     res => root%next
   END FUNCTION GetNext
@@ -399,7 +397,7 @@ CONTAINS
   FUNCTION GetLast(root) RESULT(res)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    TYPE(Dict_TYP),POINTER :: root, res
+    TYPE(Dict_TYP), POINTER :: root, res
     !------------------------------------------------------------------------!
     res => root
     IF(ASSOCIATED(res)) THEN
@@ -413,7 +411,7 @@ CONTAINS
   FUNCTION GetChild(root) RESULT(res)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    TYPE(Dict_TYP),POINTER :: root, res
+    TYPE(Dict_TYP), POINTER :: root, res
     !------------------------------------------------------------------------!
     res => root%child
   END FUNCTION GetChild
@@ -422,8 +420,8 @@ CONTAINS
   FUNCTION GetKey(root) RESULT(res)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    TYPE(Dict_TYP),POINTER :: root
-    TYPE_DICT_CHAR  :: res
+    TYPE(Dict_TYP), POINTER :: root
+    TYPE_DICT_CHAR          :: res
     !------------------------------------------------------------------------!
     res = root%key
   END FUNCTION GetKey
@@ -434,8 +432,8 @@ CONTAINS
   FUNCTION GetDatasize(root) RESULT(res)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    TYPE(Dict_TYP),POINTER :: root
-    INTEGER :: res
+    TYPE(Dict_TYP), POINTER :: root
+    INTEGER                 :: res
     !------------------------------------------------------------------------!
     IF(ASSOCIATED(root%value)) THEN
       res = SIZE(root%value)
@@ -448,8 +446,8 @@ CONTAINS
   FUNCTION GetDatatype(root) RESULT(res)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    TYPE(Dict_TYP),POINTER :: root
-    INTEGER :: res
+    TYPE(Dict_TYP), POINTER :: root
+    INTEGER                 :: res
     !------------------------------------------------------------------------!
     res = root%type
   END FUNCTION GetDatatype
@@ -458,8 +456,8 @@ CONTAINS
   FUNCTION GetData(root) RESULT(res)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    TYPE(Dict_TYP),POINTER :: root
-    TYPE_DICT_MOLD,POINTER :: res
+    TYPE(Dict_TYP), POINTER :: root
+    TYPE_DICT_MOLD, POINTER :: res
     !------------------------------------------------------------------------!
     res => root%value
   END FUNCTION GetData
@@ -468,8 +466,8 @@ CONTAINS
   FUNCTION HasChild(root) RESULT(res)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    TYPE(Dict_TYP),POINTER :: root
-    LOGICAL  :: res
+    TYPE(Dict_TYP), POINTER :: root
+    LOGICAL                 :: res
     !------------------------------------------------------------------------!
     res = ASSOCIATED(root%child)
   END FUNCTION HasChild
@@ -478,8 +476,8 @@ CONTAINS
   FUNCTION HasData(root) RESULT(res)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    TYPE(Dict_TYP),POINTER :: root
-    LOGICAL  :: res
+    TYPE(Dict_TYP), POINTER :: root
+    LOGICAL                 :: res
     !------------------------------------------------------------------------!
     res = ASSOCIATED(root%value)
   END FUNCTION HasData
@@ -488,9 +486,9 @@ CONTAINS
   FUNCTION HasKey(root, key) RESULT(res)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    TYPE(Dict_TYP),POINTER :: root
-    CHARACTER(LEN=*) :: key
-    LOGICAL  :: res
+    TYPE(Dict_TYP), POINTER :: root
+    CHARACTER(LEN=*)        :: key
+    LOGICAL                 :: res
     !------------------------------------------------------------------------!
     res = ASSOCIATED(FindPath(root,TRIM(key)))
   END FUNCTION HasKey
@@ -499,10 +497,10 @@ CONTAINS
   SUBROUTINE SetData(node, val)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    TYPE(Dict_TYP),POINTER :: node
-    TYPE_DICT_MOLD :: val
+    TYPE(Dict_TYP), POINTER :: node
+    TYPE_DICT_MOLD          :: val
     !------------------------------------------------------------------------!
-    INTENT(IN)     :: val
+    INTENT(IN)              :: val
     !------------------------------------------------------------------------!
     IF(SIZE(val).LE.0) &
       CALL this%Error("SetData", "Array size smaller 0 is not possible.")
@@ -519,14 +517,14 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CHARACTER(LEN=MAX_CHAR_LEN) :: key
-    LOGICAL,OPTIONAL :: back
-    TYPE_DICT_CHAR   :: res
+    LOGICAL,OPTIONAL            :: back
+    TYPE_DICT_CHAR              :: res
     !------------------------------------------------------------------------!
-    LOGICAL :: back_
-    INTEGER :: i
+    LOGICAL                     :: back_
+    INTEGER                     :: i
     !------------------------------------------------------------------------!
-    INTENT(IN)       :: back
-    INTENT(INOUT)    :: key
+    INTENT(IN)                  :: back
+    INTENT(INOUT)               :: key
     !------------------------------------------------------------------------!
     IF(PRESENT(back)) THEN
       back_ = back
@@ -559,20 +557,20 @@ CONTAINS
                  n18,n19,n20) RESULT(res)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    TYPE(Dict_TYP),POINTER :: res,n1
-    TYPE(Dict_TYP),POINTER,OPTIONAL :: n2,n3,n4,n5,n6,n7,n8,n9,n10,n11,n12,&
-                                       n13,n14,n15,n16,n17,n18,n19,n20
+    TYPE(Dict_TYP), POINTER           :: res,n1
+    TYPE(Dict_TYP), POINTER, OPTIONAL :: n2,n3,n4,n5,n6,n7,n8,n9,n10,n11, &
+                                         n12,n13,n14,n15,n16,n17,n18,n19,n20
     !------------------------------------------------------------------------!
     NULLIFY(res)
     CALL SetAttr0a(res,'',n1)
-    IF(PRESENT(n2)) CALL SetAttr0a(res,'',n2)
-    IF(PRESENT(n3)) CALL SetAttr0a(res,'',n3)
-    IF(PRESENT(n4)) CALL SetAttr0a(res,'',n4)
-    IF(PRESENT(n5)) CALL SetAttr0a(res,'',n5)
-    IF(PRESENT(n6)) CALL SetAttr0a(res,'',n6)
-    IF(PRESENT(n7)) CALL SetAttr0a(res,'',n7)
-    IF(PRESENT(n8)) CALL SetAttr0a(res,'',n8)
-    IF(PRESENT(n9)) CALL SetAttr0a(res,'',n9)
+    IF(PRESENT( n2)) CALL SetAttr0a(res,'', n2)
+    IF(PRESENT( n3)) CALL SetAttr0a(res,'', n3)
+    IF(PRESENT( n4)) CALL SetAttr0a(res,'', n4)
+    IF(PRESENT( n5)) CALL SetAttr0a(res,'', n5)
+    IF(PRESENT( n6)) CALL SetAttr0a(res,'', n6)
+    IF(PRESENT( n7)) CALL SetAttr0a(res,'', n7)
+    IF(PRESENT( n8)) CALL SetAttr0a(res,'', n8)
+    IF(PRESENT( n9)) CALL SetAttr0a(res,'', n9)
     IF(PRESENT(n10)) CALL SetAttr0a(res,'',n10)
     IF(PRESENT(n11)) CALL SetAttr0a(res,'',n11)
     IF(PRESENT(n12)) CALL SetAttr0a(res,'',n12)
@@ -589,11 +587,11 @@ CONTAINS
   SUBROUTINE SetAttr1(root, key, val)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    TYPE(Dict_TYP),POINTER :: root
-    CHARACTER(LEN=*):: key
-    TYPE_DICT_INT   :: val
+    TYPE(Dict_TYP), POINTER :: root
+    CHARACTER(LEN=*)        :: key
+    TYPE_DICT_INT           :: val
     !------------------------------------------------------------------------!
-    INTENT(IN)      :: key, val
+    INTENT(IN)              :: key, val
     !------------------------------------------------------------------------!
     CALL SetAttr0b(root,key,TRANSFER(val,mold),DICT_INT)
   END SUBROUTINE SetAttr1
@@ -601,11 +599,11 @@ CONTAINS
   SUBROUTINE SetAttr2(root, key, val)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    TYPE(Dict_TYP),POINTER :: root
-    CHARACTER(LEN=*):: key
-    TYPE_DICT_REAL  :: val
+    TYPE(Dict_TYP), POINTER :: root
+    CHARACTER(LEN=*)        :: key
+    TYPE_DICT_REAL          :: val
     !------------------------------------------------------------------------!
-    INTENT(IN)      :: key, val
+    INTENT(IN)              :: key, val
     !------------------------------------------------------------------------!
     CALL SetAttr0b(root,key,TRANSFER(val,mold),DICT_REAL)
   END SUBROUTINE SetAttr2
@@ -613,11 +611,11 @@ CONTAINS
   SUBROUTINE SetAttr3(root, key, val)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    TYPE(Dict_TYP),POINTER :: root
-    CHARACTER(LEN=*):: key, val
-    TYPE_DICT_CHAR  :: val_
+    TYPE(Dict_TYP), POINTER :: root
+    CHARACTER(LEN=*)        :: key, val
+    TYPE_DICT_CHAR          :: val_
     !------------------------------------------------------------------------!
-    INTENT(IN)      :: key, val
+    INTENT(IN)              :: key, val
     !------------------------------------------------------------------------!
     val_ = TRIM(val)
     CALL SetAttr0b(root,key,TRANSFER(val_,mold),DICT_CHAR)
@@ -626,11 +624,11 @@ CONTAINS
   SUBROUTINE SetAttr4(root, key, val)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    TYPE(Dict_TYP),POINTER :: root
-    CHARACTER(LEN=*):: key
-    TYPE_DICT_BOOL  :: val
+    TYPE(Dict_TYP), POINTER :: root
+    CHARACTER(LEN=*)        :: key
+    TYPE_DICT_BOOL          :: val
     !------------------------------------------------------------------------!
-    INTENT(IN)      :: key, val
+    INTENT(IN)              :: key, val
     !------------------------------------------------------------------------!
     CALL SetAttr0b(root,key,TRANSFER(val,mold),DICT_BOOL)
   END SUBROUTINE SetAttr4
@@ -638,11 +636,11 @@ CONTAINS
   SUBROUTINE SetAttr5(root, key, val)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    TYPE(Dict_TYP),POINTER :: root
-    CHARACTER(LEN=*):: key
-    TYPE_DICT_REAL_ONED :: val
+    TYPE(Dict_TYP), POINTER :: root
+    CHARACTER(LEN=*)        :: key
+    TYPE_DICT_REAL_ONED     :: val
     !------------------------------------------------------------------------!
-    INTENT(IN)      :: key, val
+    INTENT(IN)              :: key, val
     !------------------------------------------------------------------------!
     CALL SetAttr0b(root,key,TRANSFER(val,mold),DICT_REAL_ONED)
   END SUBROUTINE SetAttr5
@@ -650,12 +648,12 @@ CONTAINS
   SUBROUTINE SetAttr6(root, key, val)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    TYPE(Dict_TYP),POINTER :: root
-    CHARACTER(LEN=*):: key
-    REAL,DIMENSION(:,:),TARGET :: val
-    TYPE(real_twod_t) :: c
+    TYPE(Dict_TYP), POINTER      :: root
+    CHARACTER(LEN=*)             :: key
+    REAL, DIMENSION(:,:), TARGET :: val
+    TYPE(real_twod_t)            :: c
     !------------------------------------------------------------------------!
-    INTENT(IN)      :: key,val
+    INTENT(IN)                   :: key,val
     !------------------------------------------------------------------------!
     c%p => val
     CALL SetAttr0b(root,key,TRANSFER(c,mold),DICT_REAL_TWOD)
@@ -664,12 +662,12 @@ CONTAINS
   SUBROUTINE SetAttr7(root, key, val)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    TYPE(Dict_TYP),POINTER :: root
-    CHARACTER(LEN=*):: key
-    REAL,DIMENSION(:,:,:),TARGET :: val
-    TYPE(real_threed_t) :: c
+    TYPE(Dict_TYP), POINTER        :: root
+    CHARACTER(LEN=*)               :: key
+    REAL, DIMENSION(:,:,:), TARGET :: val
+    TYPE(real_threed_t)            :: c
     !------------------------------------------------------------------------!
-    INTENT(IN)      :: key, val
+    INTENT(IN)                     :: key, val
     !------------------------------------------------------------------------!
     c%p => val
     CALL SetAttr0b(root,key,TRANSFER(c,mold),DICT_REAL_THREED)
@@ -678,12 +676,12 @@ CONTAINS
   SUBROUTINE SetAttr8(root, key, val)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    TYPE(Dict_TYP),POINTER :: root
-    CHARACTER(LEN=*):: key
-    REAL,DIMENSION(:,:,:,:),TARGET :: val
-    TYPE(real_fourd_t) :: c
+    TYPE(Dict_TYP), POINTER          :: root
+    CHARACTER(LEN=*)                 :: key
+    REAL, DIMENSION(:,:,:,:), TARGET :: val
+    TYPE(real_fourd_t)               :: c
     !------------------------------------------------------------------------!
-    INTENT(IN)      :: key, val
+    INTENT(IN)                       :: key, val
     !------------------------------------------------------------------------!
     c%p => val
     CALL SetAttr0b(root,key,TRANSFER(c,mold),DICT_REAL_FOURD)
@@ -692,11 +690,11 @@ CONTAINS
   SUBROUTINE SetAttr9(root, key, val)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    TYPE(Dict_TYP),POINTER :: root
-    CHARACTER(LEN=*):: key
-    TYPE_DICT_INT_ONED :: val
+    TYPE(Dict_TYP), POINTER :: root
+    CHARACTER(LEN=*)        :: key
+    TYPE_DICT_INT_ONED      :: val
     !------------------------------------------------------------------------!
-    INTENT(IN)      :: key, val
+    INTENT(IN)              :: key, val
     !------------------------------------------------------------------------!
     CALL SetAttr0b(root,key,TRANSFER(val,mold),DICT_INT_ONED)
   END SUBROUTINE SetAttr9
@@ -704,11 +702,11 @@ CONTAINS
   SUBROUTINE SetAttr10(root, key, val)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    TYPE(Dict_TYP),POINTER :: root
-    CHARACTER(LEN=*):: key
-    TYPE(real_t) :: val
+    TYPE(Dict_TYP), POINTER :: root
+    CHARACTER(LEN=*)        :: key
+    TYPE(real_t)            :: val
     !------------------------------------------------------------------------!
-    INTENT(IN)      :: key, val
+    INTENT(IN)              :: key, val
     !------------------------------------------------------------------------!
     CALL SetAttr0b(root,key,TRANSFER(val,mold),DICT_REAL_P)
   END SUBROUTINE SetAttr10
@@ -716,11 +714,11 @@ CONTAINS
   SUBROUTINE SetAttr11(root, key, val)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    TYPE(Dict_TYP),POINTER :: root
-    CHARACTER(LEN=*):: key
-    TYPE(int_t) :: val
+    TYPE(Dict_TYP), POINTER :: root
+    CHARACTER(LEN=*)        :: key
+    TYPE(int_t)             :: val
     !------------------------------------------------------------------------!
-    INTENT(IN)      :: key, val
+    INTENT(IN)              :: key, val
     !------------------------------------------------------------------------!
     CALL SetAttr0b(root,key,TRANSFER(val,mold),DICT_INT_P)
   END SUBROUTINE SetAttr11
@@ -728,12 +726,12 @@ CONTAINS
   SUBROUTINE SetAttr12(root, key, val)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    TYPE(Dict_TYP),POINTER :: root
-    CHARACTER(LEN=*):: key
-    REAL,DIMENSION(:,:,:,:,:),TARGET :: val
-    TYPE(real_fived_t) :: c
+    TYPE(Dict_TYP), POINTER            :: root
+    CHARACTER(LEN=*)                   :: key
+    REAL, DIMENSION(:,:,:,:,:), TARGET :: val
+    TYPE(real_fived_t)                 :: c
     !------------------------------------------------------------------------!
-    INTENT(IN)      :: key, val
+    INTENT(IN)                         :: key, val
     !------------------------------------------------------------------------!
     c%p => val
     CALL SetAttr0b(root,key,TRANSFER(c,mold),DICT_REAL_FIVED)
@@ -742,13 +740,12 @@ CONTAINS
   RECURSIVE SUBROUTINE PrintDict(root, prefix)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    TYPE(Dict_TYP),TARGET ::root
-    CHARACTER(LEN=*),OPTIONAL &
-                    :: prefix
+    TYPE(Dict_TYP), TARGET     ::root
+    CHARACTER(LEN=*), OPTIONAL :: prefix
     !------------------------------------------------------------------------!
-    TYPE(Dict_TYP),POINTER :: node
-    TYPE_DICT_CHAR :: prefix_
-    TYPE_DICT_CHAR :: s,str
+    TYPE(Dict_TYP), POINTER :: node
+    TYPE_DICT_CHAR          :: prefix_
+    TYPE_DICT_CHAR          :: s,str
     !------------------------------------------------------------------------!
     node => root
     prefix_ = ''
@@ -773,8 +770,7 @@ CONTAINS
   RECURSIVE SUBROUTINE CopyDict(root, outdir)
   IMPLICIT NONE
     !------------------------------------------------------------------------!
-    TYPE(Dict_TYP),POINTER &
-                    :: root, outdir, dir, odir, tmp
+    TYPE(Dict_TYP), POINTER     :: root, outdir, dir, odir, tmp
     CHARACTER(LEN=MAX_CHAR_LEN) :: key
     !------------------------------------------------------------------------!
     dir => root
@@ -807,8 +803,7 @@ CONTAINS
   RECURSIVE SUBROUTINE CopyHierarchy(root, outdir)
   IMPLICIT NONE
     !------------------------------------------------------------------------!
-    TYPE(Dict_TYP),POINTER &
-                    :: root, outdir, dir, odir
+    TYPE(Dict_TYP), POINTER     :: root, outdir, dir, odir
     CHARACTER(LEN=MAX_CHAR_LEN) :: key
     !------------------------------------------------------------------------!
     dir => root
@@ -835,10 +830,10 @@ CONTAINS
   SUBROUTINE GetAttr0(root, key, res)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    TYPE(Dict_TYP),POINTER :: root, res
-    CHARACTER(LEN=*):: key
+    TYPE(Dict_TYP), POINTER :: root, res
+    CHARACTER(LEN=*)        :: key
     !------------------------------------------------------------------------!
-    INTENT(IN)      :: key
+    INTENT(IN)              :: key
     !------------------------------------------------------------------------!
     CALL GetAttr0a(root, key, res)
     IF(ASSOCIATED(res)) THEN
@@ -851,15 +846,15 @@ CONTAINS
   SUBROUTINE GetAttr1(root, key, res, default)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    TYPE(Dict_TYP),POINTER :: root
-    TYPE_DICT_INT   :: res
-    TYPE_DICT_INT,OPTIONAL :: default
-    CHARACTER(LEN=*):: key
+    TYPE(Dict_TYP), POINTER :: root
+    TYPE_DICT_INT           :: res
+    TYPE_DICT_INT, OPTIONAL :: default
+    CHARACTER(LEN=*)        :: key
     !------------------------------------------------------------------------!
-    TYPE_DICT_MOLD,POINTER  :: value
+    TYPE_DICT_MOLD, POINTER :: value
     !------------------------------------------------------------------------!
-    INTENT(IN)      :: key, default
-    INTENT(INOUT)   :: res
+    INTENT(IN)              :: key, default
+    INTENT(INOUT)           :: res
     !------------------------------------------------------------------------!
     IF(PRESENT(default)) THEN
       CALL GetAttr0b(root, key, DICT_INT, value, TRANSFER(default,mold))
@@ -872,15 +867,15 @@ CONTAINS
   SUBROUTINE GetAttr2(root, key, res, default)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    TYPE(Dict_TYP),POINTER :: root
-    TYPE_DICT_REAL  :: res
+    TYPE(Dict_TYP), POINTER  :: root
+    TYPE_DICT_REAL           :: res
     TYPE_DICT_REAL, OPTIONAL :: default
-    CHARACTER(LEN=*):: key
+    CHARACTER(LEN=*)         :: key
     !------------------------------------------------------------------------!
-    TYPE_DICT_MOLD,POINTER  :: value
+    TYPE_DICT_MOLD, POINTER  :: value
     !------------------------------------------------------------------------!
-    INTENT(IN)      :: key, default
-    INTENT(INOUT)   :: res
+    INTENT(IN)               :: key, default
+    INTENT(INOUT)            :: res
     !------------------------------------------------------------------------!
     IF(PRESENT(default)) THEN
       CALL GetAttr0b(root, key, DICT_REAL, value, TRANSFER(default,mold))
@@ -893,15 +888,15 @@ CONTAINS
   SUBROUTINE GetAttr3(root, key, res, default)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    TYPE(Dict_TYP),POINTER :: root
-    TYPE_DICT_CHAR  :: res
-    TYPE_DICT_CHAR, OPTIONAL  :: default
-    CHARACTER(LEN=*):: key
+    TYPE(Dict_TYP), POINTER  :: root
+    TYPE_DICT_CHAR           :: res
+    TYPE_DICT_CHAR, OPTIONAL :: default
+    CHARACTER(LEN=*)         :: key
     !------------------------------------------------------------------------!
-    TYPE_DICT_MOLD,POINTER  :: value
+    TYPE_DICT_MOLD, POINTER  :: value
     !------------------------------------------------------------------------!
-    INTENT(IN)      :: key
-    INTENT(INOUT)   :: res
+    INTENT(IN)               :: key
+    INTENT(INOUT)            :: res
     !------------------------------------------------------------------------!
     IF(PRESENT(default)) THEN
       CALL GetAttr0b(root, key, DICT_CHAR, value, TRANSFER(default,mold))
@@ -914,15 +909,15 @@ CONTAINS
   SUBROUTINE GetAttr4(root, key, res, default)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    TYPE(Dict_TYP),POINTER :: root
-    TYPE_DICT_BOOL  :: res
-    TYPE_DICT_BOOL, OPTIONAL  :: default
-    CHARACTER(LEN=*):: key
+    TYPE(Dict_TYP), POINTER  :: root
+    TYPE_DICT_BOOL           :: res
+    TYPE_DICT_BOOL, OPTIONAL :: default
+    CHARACTER(LEN=*)         :: key
     !------------------------------------------------------------------------!
-    TYPE_DICT_MOLD,POINTER  :: value
+    TYPE_DICT_MOLD, POINTER  :: value
     !------------------------------------------------------------------------!
-    INTENT(IN)      :: key
-    INTENT(INOUT)   :: res
+    INTENT(IN)               :: key
+    INTENT(INOUT)            :: res
     !------------------------------------------------------------------------!
     IF(PRESENT(default)) THEN
       CALL GetAttr0b(root, key, DICT_BOOL, value, TRANSFER(default,mold))
@@ -935,15 +930,15 @@ CONTAINS
   SUBROUTINE GetAttr5(root, key, res, default)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    TYPE(Dict_TYP),POINTER :: root
-    TYPE_DICT_REAL_ONED :: res
-    TYPE_DICT_REAL_ONED,OPTIONAL :: default
-    CHARACTER(LEN=*):: key
+    TYPE(Dict_TYP), POINTER       :: root
+    TYPE_DICT_REAL_ONED           :: res
+    TYPE_DICT_REAL_ONED, OPTIONAL :: default
+    CHARACTER(LEN=*)              :: key
     !------------------------------------------------------------------------!
-    TYPE_DICT_MOLD,POINTER  :: value
+    TYPE_DICT_MOLD, POINTER       :: value
     !------------------------------------------------------------------------!
-    INTENT(IN)      :: key
-    INTENT(INOUT)   :: res
+    INTENT(IN)                    :: key
+    INTENT(INOUT)                 :: res
     !------------------------------------------------------------------------!
     IF(PRESENT(default)) THEN
       CALL GetAttr0b(root, key, DICT_REAL_ONED, value, TRANSFER(default,mold))
@@ -960,15 +955,15 @@ CONTAINS
   SUBROUTINE GetAttr6(root, key, res, default)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    TYPE(Dict_TYP),POINTER :: root
-    TYPE_DICT_REAL_TWOD :: res
+    TYPE(Dict_TYP), POINTER       :: root
+    TYPE_DICT_REAL_TWOD           :: res
     TYPE_DICT_REAL_TWOD, OPTIONAL :: default
-    CHARACTER(LEN=*):: key
+    CHARACTER(LEN=*)              :: key
     !------------------------------------------------------------------------!
-    TYPE_DICT_MOLD,POINTER  :: value
-    TYPE(real_twod_t) :: c
+    TYPE_DICT_MOLD, POINTER       :: value
+    TYPE(real_twod_t)             :: c
     !------------------------------------------------------------------------!
-    INTENT(IN)      :: key
+    INTENT(IN)                    :: key
     !------------------------------------------------------------------------!
     IF(PRESENT(default)) THEN
       c%p => default
@@ -983,15 +978,15 @@ CONTAINS
   SUBROUTINE GetAttr7(root, key, res, default)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    TYPE(Dict_TYP),POINTER :: root
-    TYPE_DICT_REAL_THREED :: res
+    TYPE(Dict_TYP), POINTER         :: root
+    TYPE_DICT_REAL_THREED           :: res
     TYPE_DICT_REAL_THREED, OPTIONAL :: default
-    CHARACTER(LEN=*):: key
+    CHARACTER(LEN=*)                :: key
     !------------------------------------------------------------------------!
-    TYPE_DICT_MOLD,POINTER  :: value
-    TYPE(real_threed_t) :: c
+    TYPE_DICT_MOLD, POINTER         :: value
+    TYPE(real_threed_t)             :: c
     !------------------------------------------------------------------------!
-    INTENT(IN)      :: key
+    INTENT(IN)                      :: key
     !------------------------------------------------------------------------!
     IF(PRESENT(default)) THEN
       c%p => default
@@ -1006,15 +1001,15 @@ CONTAINS
   SUBROUTINE GetAttr8(root, key, res, default)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    TYPE(Dict_TYP),POINTER :: root
-    TYPE_DICT_REAL_FOURD :: res
+    TYPE(Dict_TYP), POINTER        :: root
+    TYPE_DICT_REAL_FOURD           :: res
     TYPE_DICT_REAL_FOURD, OPTIONAL :: default
-    CHARACTER(LEN=*):: key
+    CHARACTER(LEN=*)               :: key
     !------------------------------------------------------------------------!
-    TYPE_DICT_MOLD,POINTER  :: value
-    TYPE(real_fourd_t) :: c
+    TYPE_DICT_MOLD, POINTER        :: value
+    TYPE(real_fourd_t)             :: c
     !------------------------------------------------------------------------!
-    INTENT(IN)      :: key
+    INTENT(IN)                     :: key
     !------------------------------------------------------------------------!
     IF(PRESENT(default)) THEN
       c%p => default
@@ -1029,15 +1024,15 @@ CONTAINS
   SUBROUTINE GetAttr9(root, key, res, default)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    TYPE(Dict_TYP),POINTER :: root
-    TYPE_DICT_INT_ONED :: res
-    TYPE_DICT_INT_ONED,OPTIONAL :: default
-    CHARACTER(LEN=*):: key
+    TYPE(Dict_TYP), POINTER      :: root
+    TYPE_DICT_INT_ONED           :: res
+    TYPE_DICT_INT_ONED, OPTIONAL :: default
+    CHARACTER(LEN=*)             :: key
     !------------------------------------------------------------------------!
-    TYPE_DICT_MOLD,POINTER  :: value
+    TYPE_DICT_MOLD, POINTER      :: value
     !------------------------------------------------------------------------!
-    INTENT(IN)      :: key
-    INTENT(INOUT)   :: res
+    INTENT(IN)                   :: key
+    INTENT(INOUT)                :: res
     !------------------------------------------------------------------------!
     IF(PRESENT(default)) THEN
       CALL GetAttr0b(root, key, DICT_INT_ONED, value, TRANSFER(default,mold))
@@ -1050,15 +1045,15 @@ CONTAINS
   SUBROUTINE GetAttr10(root, key, res, default)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    TYPE(Dict_TYP),POINTER :: root
-    TYPE(real_t) :: res
-    TYPE(real_t), OPTIONAL :: default
-    CHARACTER(LEN=*):: key
+    TYPE(Dict_TYP), POINTER :: root
+    TYPE(real_t)            :: res
+    TYPE(real_t), OPTIONAL  :: default
+    CHARACTER(LEN=*)        :: key
     !------------------------------------------------------------------------!
-    TYPE_DICT_MOLD,POINTER  :: value
-    TYPE(real_t) :: c
+    TYPE_DICT_MOLD, POINTER :: value
+    TYPE(real_t)            :: c
     !------------------------------------------------------------------------!
-    INTENT(IN)      :: key
+    INTENT(IN)              :: key
     !------------------------------------------------------------------------!
     IF(PRESENT(default)) THEN
       CALL GetAttr0b(root, key, DICT_REAL_P, value, TRANSFER(default,mold))
@@ -1071,15 +1066,15 @@ CONTAINS
   SUBROUTINE GetAttr11(root, key, res, default)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    TYPE(Dict_TYP),POINTER :: root
-    TYPE(int_t) :: res
-    TYPE(int_t), OPTIONAL :: default
-    CHARACTER(LEN=*):: key
+    TYPE(Dict_TYP), POINTER :: root
+    TYPE(int_t)             :: res
+    TYPE(int_t), OPTIONAL   :: default
+    CHARACTER(LEN=*)        :: key
     !------------------------------------------------------------------------!
-    TYPE_DICT_MOLD,POINTER  :: value
-    TYPE(int_t) :: c
+    TYPE_DICT_MOLD, POINTER :: value
+    TYPE(int_t)             :: c
     !------------------------------------------------------------------------!
-    INTENT(IN)      :: key
+    INTENT(IN)              :: key
     !------------------------------------------------------------------------!
     IF(PRESENT(default)) THEN
       CALL GetAttr0b(root, key, DICT_INT_P, value, TRANSFER(default,mold))
@@ -1092,15 +1087,15 @@ CONTAINS
   SUBROUTINE GetAttr12(root, key, res, default)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    TYPE(Dict_TYP),POINTER :: root
-    TYPE_DICT_REAL_FIVED :: res
+    TYPE(Dict_TYP), POINTER        :: root
+    TYPE_DICT_REAL_FIVED           :: res
     TYPE_DICT_REAL_FIVED, OPTIONAL :: default
-    CHARACTER(LEN=*):: key
+    CHARACTER(LEN=*)               :: key
     !------------------------------------------------------------------------!
-    TYPE_DICT_MOLD,POINTER  :: value
-    TYPE(real_fived_t) :: c
+    TYPE_DICT_MOLD, POINTER        :: value
+    TYPE(real_fived_t)             :: c
     !------------------------------------------------------------------------!
-    INTENT(IN)      :: key
+    INTENT(IN)                     :: key
     !------------------------------------------------------------------------!
     IF(PRESENT(default)) THEN
       c%p => default
@@ -1115,11 +1110,11 @@ CONTAINS
   SUBROUTINE DeleteNode(node,k)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    TYPE(Dict_TYP),POINTER :: node
-    CHARACTER(LEN=*) :: k
-    LOGICAL,SAVE     :: first=.TRUE.
+    TYPE(Dict_TYP), POINTER :: node
+    CHARACTER(LEN=*)        :: k
+    LOGICAL, SAVE           :: first=.TRUE.
     !------------------------------------------------------------------------!
-    INTEGER :: status
+    INTEGER            :: status
     CHARACTER(LEN=512) :: str
     !------------------------------------------------------------------------!
     NULLIFY(node%child,node%next)
@@ -1147,10 +1142,10 @@ CONTAINS
   RECURSIVE SUBROUTINE DeleteDict(root)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    TYPE(Dict_TYP),POINTER :: root, node, next, child
+    TYPE(Dict_TYP), POINTER :: root, node, next, child
     !------------------------------------------------------------------------!
-    INTEGER :: status
-    TYPE_DICT_CHAR :: k,str
+    INTEGER                 :: status
+    TYPE_DICT_CHAR          :: k,str
     !------------------------------------------------------------------------!
     node => root
     DO WHILE(ASSOCIATED(node))
@@ -1168,11 +1163,11 @@ CONTAINS
   FUNCTION Assign0(key, val) RESULT(res)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    TYPE(Dict_TYP),POINTER :: res
-    CHARACTER(LEN=*):: key
-    TYPE(Dict_TYP),TARGET :: val
+    TYPE(Dict_TYP), POINTER :: res
+    CHARACTER(LEN=*)        :: key
+    TYPE(Dict_TYP), TARGET  :: val
     !------------------------------------------------------------------------!
-    INTENT(IN)      :: key,val
+    INTENT(IN)              :: key,val
     !------------------------------------------------------------------------!
     NULLIFY(res)
     CALL SetAttr(res, key, val)
@@ -1181,11 +1176,11 @@ CONTAINS
   FUNCTION Assign1(key, val) RESULT(res)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    TYPE(Dict_TYP),POINTER :: res
-    CHARACTER(LEN=*):: key
-    TYPE_DICT_INT   :: val
+    TYPE(Dict_TYP), POINTER :: res
+    CHARACTER(LEN=*)        :: key
+    TYPE_DICT_INT           :: val
     !------------------------------------------------------------------------!
-    INTENT(IN)      :: key, val
+    INTENT(IN)              :: key, val
     !------------------------------------------------------------------------!
     NULLIFY(res)
     CALL SetAttr(res, key, val)
@@ -1194,11 +1189,11 @@ CONTAINS
   FUNCTION Assign2(key, val) RESULT(res)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    TYPE(Dict_TYP),POINTER :: res
-    CHARACTER(LEN=*):: key
-    TYPE_DICT_REAL  :: val
+    TYPE(Dict_TYP), POINTER :: res
+    CHARACTER(LEN=*)        :: key
+    TYPE_DICT_REAL          :: val
     !------------------------------------------------------------------------!
-    INTENT(IN)      :: key, val
+    INTENT(IN)              :: key, val
     !------------------------------------------------------------------------!
     NULLIFY(res)
     CALL SetAttr(res, key, val)
@@ -1207,10 +1202,10 @@ CONTAINS
   FUNCTION Assign3(key, val) RESULT(res)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    TYPE(Dict_TYP),POINTER :: res
-    CHARACTER(LEN=*):: key, val
+    TYPE(Dict_TYP), POINTER :: res
+    CHARACTER(LEN=*)        :: key, val
     !------------------------------------------------------------------------!
-    INTENT(IN)      :: key, val
+    INTENT(IN)              :: key, val
     !------------------------------------------------------------------------!
     NULLIFY(res)
     CALL SetAttr(res, key, val)
@@ -1219,11 +1214,11 @@ CONTAINS
   FUNCTION Assign4(key, val) RESULT(res)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    TYPE(Dict_TYP),POINTER :: res
-    CHARACTER(LEN=*):: key
-    TYPE_DICT_BOOL  :: val
+    TYPE(Dict_TYP), POINTER :: res
+    CHARACTER(LEN=*)        :: key
+    TYPE_DICT_BOOL          :: val
     !------------------------------------------------------------------------!
-    INTENT(IN)      :: key, val
+    INTENT(IN)              :: key, val
     !------------------------------------------------------------------------!
     NULLIFY(res)
     CALL SetAttr(res, key, val)
@@ -1232,11 +1227,11 @@ CONTAINS
   FUNCTION Assign5(key, val) RESULT(res)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    TYPE(Dict_TYP),POINTER :: res
-    CHARACTER(LEN=*):: key
-    TYPE_DICT_REAL_ONED :: val
+    TYPE(Dict_TYP), POINTER :: res
+    CHARACTER(LEN=*)        :: key
+    TYPE_DICT_REAL_ONED     :: val
     !------------------------------------------------------------------------!
-    INTENT(IN)      :: key, val
+    INTENT(IN)              :: key, val
     !------------------------------------------------------------------------!
     NULLIFY(res)
     CALL SetAttr(res, key, val)
@@ -1245,11 +1240,11 @@ CONTAINS
   FUNCTION Assign6(key, val) RESULT(res)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    TYPE(Dict_TYP),POINTER :: res
-    CHARACTER(LEN=*):: key
-    REAL,DIMENSION(:,:),TARGET :: val
+    TYPE(Dict_TYP), POINTER      :: res
+    CHARACTER(LEN=*)             :: key
+    REAL, DIMENSION(:,:), TARGET :: val
     !------------------------------------------------------------------------!
-    INTENT(IN)      :: key, val
+    INTENT(IN)                   :: key, val
     !------------------------------------------------------------------------!
     NULLIFY(res)
     CALL SetAttr(res, key, val)
@@ -1258,11 +1253,11 @@ CONTAINS
   FUNCTION Assign7(key, val) RESULT(res)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    TYPE(Dict_TYP),POINTER :: res
-    CHARACTER(LEN=*):: key
-    REAL,DIMENSION(:,:,:),TARGET :: val
+    TYPE(Dict_TYP), POINTER        :: res
+    CHARACTER(LEN=*)               :: key
+    REAL, DIMENSION(:,:,:), TARGET :: val
     !------------------------------------------------------------------------!
-    INTENT(IN)      :: key, val
+    INTENT(IN)                     :: key, val
     !------------------------------------------------------------------------!
     NULLIFY(res)
     CALL SetAttr(res, key, val)
@@ -1271,11 +1266,11 @@ CONTAINS
   FUNCTION Assign8(key, val) RESULT(res)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    TYPE(Dict_TYP),POINTER :: res, tmp
-    CHARACTER(LEN=*):: key
-    REAL,DIMENSION(:,:,:,:),TARGET :: val
+    TYPE(Dict_TYP), POINTER          :: res, tmp
+    CHARACTER(LEN=*)                 :: key
+    REAL, DIMENSION(:,:,:,:), TARGET :: val
     !------------------------------------------------------------------------!
-    INTENT(IN)      :: key, val
+    INTENT(IN)                       :: key, val
     !------------------------------------------------------------------------!
     NULLIFY(res)
     CALL SetAttr(res, key, val)
@@ -1284,11 +1279,11 @@ CONTAINS
   FUNCTION Assign9(key, val) RESULT(res)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    TYPE(Dict_TYP),POINTER :: res
-    CHARACTER(LEN=*):: key
-    TYPE_DICT_INT_ONED :: val
+    TYPE(Dict_TYP), POINTER :: res
+    CHARACTER(LEN=*)        :: key
+    TYPE_DICT_INT_ONED      :: val
     !------------------------------------------------------------------------!
-    INTENT(IN)      :: key, val
+    INTENT(IN)              :: key, val
     !------------------------------------------------------------------------!
     NULLIFY(res)
     CALL SetAttr(res, key, val)
@@ -1297,11 +1292,11 @@ CONTAINS
   FUNCTION Assign10(key, val) RESULT(res)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    TYPE(Dict_TYP),POINTER :: res
-    CHARACTER(LEN=*):: key
-    TYPE(real_t) :: val
+    TYPE(Dict_TYP), POINTER :: res
+    CHARACTER(LEN=*)        :: key
+    TYPE(real_t)            :: val
     !------------------------------------------------------------------------!
-    INTENT(IN)      :: key, val
+    INTENT(IN)              :: key, val
     !------------------------------------------------------------------------!
     NULLIFY(res)
     CALL SetAttr(res, key, val)
@@ -1310,11 +1305,11 @@ CONTAINS
   FUNCTION Assign11(key, val) RESULT(res)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    TYPE(Dict_TYP),POINTER :: res
-    CHARACTER(LEN=*):: key
-    TYPE(int_t) :: val
+    TYPE(Dict_TYP), POINTER :: res
+    CHARACTER(LEN=*)        :: key
+    TYPE(int_t)             :: val
     !------------------------------------------------------------------------!
-    INTENT(IN)      :: key, val
+    INTENT(IN)              :: key, val
     !------------------------------------------------------------------------!
     NULLIFY(res)
     CALL SetAttr(res, key, val)
@@ -1323,11 +1318,11 @@ CONTAINS
   FUNCTION Assign12(key, val) RESULT(res)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    TYPE(Dict_TYP),POINTER :: res, tmp
-    CHARACTER(LEN=*):: key
-    REAL,DIMENSION(:,:,:,:,:),TARGET :: val
+    TYPE(Dict_TYP), POINTER            :: res, tmp
+    CHARACTER(LEN=*)                   :: key
+    REAL, DIMENSION(:,:,:,:,:), TARGET :: val
     !------------------------------------------------------------------------!
-    INTENT(IN)      :: key, val
+    INTENT(IN)                         :: key, val
     !------------------------------------------------------------------------!
     NULLIFY(res)
     CALL SetAttr(res, key, val)

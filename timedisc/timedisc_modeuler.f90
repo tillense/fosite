@@ -1,6 +1,6 @@
 !#############################################################################
 !#                                                                           #
-!# fosite - 2D hydrodynamical simulation program                             #
+!# fosite - 3D hydrodynamical simulation program                             #
 !# module: timedisc_modeuler.f90                                             #
 !#                                                                           #
 !# Copyright (C) 2007-2012                                                   #
@@ -32,7 +32,7 @@
 !!
 !! \brief subroutines for modified Euler i.e. Runge-Kutta methods
 !!
-!! Reference: Shu & Osher, J. Comput Phys. 77(2), 439 (1988)
+!! \cite shu1988
 !!
 !! \extends timedisc_common
 !! \ingroup timedisc
@@ -91,11 +91,11 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(timedisc_modeuler), INTENT(INOUT) :: this
-    CLASS(mesh_base),     INTENT(IN)    :: Mesh
-    CLASS(physics_base),  INTENT(IN)    :: Physics
-    TYPE(Dict_TYP), POINTER             :: config, IO
+    CLASS(mesh_base),     INTENT(IN)        :: Mesh
+    CLASS(physics_base),  INTENT(IN)        :: Physics
+    TYPE(Dict_TYP), POINTER                 :: config, IO
     !------------------------------------------------------------------------!
-    INTEGER                      :: method,err
+    INTEGER                                 :: method,err
     !------------------------------------------------------------------------!
     CALL this%InitTimedisc(Mesh,Physics,config,IO,MODIFIED_EULER,ODEsolver_name)
     ! set default order
@@ -135,19 +135,19 @@ CONTAINS
     CLASS(mesh_base),         INTENT(IN)    :: Mesh
     CLASS(physics_base),      INTENT(INOUT) :: Physics
     CLASS(fluxes_base),       INTENT(INOUT) :: Fluxes
-    REAL               :: time,dt,err
+    REAL                                    :: time,dt,err
     !------------------------------------------------------------------------!
-    INTEGER            :: n,k
-    INTEGER            :: order
-    REAL               :: t,dtnew
-    REAL               :: rel_err(Physics%VNUM)
+    INTEGER                                 :: n,k
+    INTEGER                                 :: order
+    REAL                                    :: t,dtnew
+    REAL                                    :: rel_err(Physics%VNUM)
     TYPE var_typ
-       REAL, DIMENSION(:,:,:,:), POINTER :: var
+       REAL, DIMENSION(:,:,:,:), POINTER    :: var
     END TYPE var_typ
-    TYPE(var_typ)      :: p(4),c(4)
+    TYPE(var_typ)                           :: p(4),c(4)
     !------------------------------------------------------------------------!
-    INTENT(IN)         :: time
-    INTENT(INOUT)      :: dt,err
+    INTENT(IN)                              :: time
+    INTENT(INOUT)                           :: dt,err
     !------------------------------------------------------------------------!
     t = time
 !CDIR IEXPAND
@@ -214,16 +214,16 @@ CONTAINS
     CLASS(mesh_base),         INTENT(IN)    :: Mesh
     CLASS(physics_base),      INTENT(INOUT) :: Physics
     CLASS(fluxes_base),       INTENT(INOUT) :: Fluxes
-    REAL               :: eta,time,dt
+    REAL                                    :: eta,time,dt
     REAL,DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX, &
-                   Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM) &
-                       :: cold,pvar,cvar,cnew,rhs
+                   Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM)          &
+                                            :: cold,pvar,cvar,cnew,rhs
     !------------------------------------------------------------------------!
-    INTEGER            :: i,j,k,l
-    REAL               :: dyflux, wp
+    INTEGER                                 :: i,j,k,l
+    REAL                                    :: dyflux, wp
     !------------------------------------------------------------------------!
-    INTENT(IN)         :: eta,time,dt,cold,pvar,cvar,rhs
-    INTENT(OUT)        :: cnew
+    INTENT(IN)                              :: eta,time,dt,cold,pvar,cvar,rhs
+    INTENT(OUT)                             :: cnew
     !------------------------------------------------------------------------!
 !CDIR NOVECTOR
     DO l=1,Physics%VNUM
@@ -284,7 +284,7 @@ CONTAINS
   SUBROUTINE FinalizeTimedisc_modeuler(this)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(timedisc_modeuler)   :: this
+    CLASS(timedisc_modeuler) :: this
     !------------------------------------------------------------------------!
     DEALLOCATE(this%rhs)
   END SUBROUTINE FinalizeTimedisc_modeuler
@@ -294,7 +294,7 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     REAL, INTENT(IN) :: eta_n,dt,y0,yn,rhs
-    REAL :: y
+    REAL             :: y
     !------------------------------------------------------------------------!
     ! ATTENTION:
     ! The time step update is computed according to:

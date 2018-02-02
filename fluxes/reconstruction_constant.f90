@@ -5,7 +5,7 @@
 !#                                                                           #
 !# Copyright (C) 2007-2017                                                   #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
-!# Jannes Klee <jklee@astrophysik.uni-kiel.de>                               #
+!# Jannes Klee      <jklee@astrophysik.uni-kiel.de>                          #
 !#                                                                           #
 !# This program is free software; you can redistribute it and/or modify      #
 !# it under the terms of the GNU General Public License as published by      #
@@ -40,7 +40,7 @@ MODULE reconstruction_constant_mod
   USE common_dict
   IMPLICIT NONE
   !--------------------------------------------------------------------------!
-  TYPE, EXTENDS (reconstruction_base)  :: reconstruction_constant
+  TYPE, EXTENDS (reconstruction_base) :: reconstruction_constant
   ! no data declarations
   CONTAINS
     PRIVATE
@@ -75,21 +75,20 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(reconstruction_constant), INTENT(INOUT) :: this
-    CLASS(mesh_base),               INTENT(IN) :: Mesh
-    CLASS(physics_base),            INTENT(IN) :: Physics
-    INTEGER                 :: npos
+    CLASS(mesh_base),               INTENT(IN)    :: Mesh
+    CLASS(physics_base),            INTENT(IN)    :: Physics
+    INTEGER                                       :: npos
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX, &
-                    Mesh%KGMIN:Mesh%KGMAX,npos) &
-                            :: dx,dy,dz
-    REAL :: rvar(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX, &
+                    Mesh%KGMIN:Mesh%KGMAX,npos)   :: dx,dy,dz
+    REAL :: rvar(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,    &
                  Mesh%KGMIN:Mesh%KGMAX,Physics%vnum)
     REAL :: rstates(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX, &
                     Mesh%KGMIN:Mesh%KGMAX,npos,Physics%vnum)
     !------------------------------------------------------------------------!
-    INTEGER                 :: n
+    INTEGER                                       :: n
     !------------------------------------------------------------------------!
-    INTENT(IN)              :: npos,rvar,dx,dy,dz
-    INTENT(OUT)             :: rstates
+    INTENT(IN)                                    :: npos,rvar,dx,dy,dz
+    INTENT(OUT)                                   :: rstates
     !------------------------------------------------------------------------!
 
     ! reconstruct boundary states
@@ -102,7 +101,7 @@ CONTAINS
   SUBROUTINE Finalize(this)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    TYPE(reconstruction_constant), INTENT(INOUT)  :: this
+    TYPE(reconstruction_constant), INTENT(INOUT) :: this
     !------------------------------------------------------------------------!
     CALL this%FinalizeReconstruction()
   END SUBROUTINE Finalize

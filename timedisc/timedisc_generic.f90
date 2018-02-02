@@ -1,10 +1,9 @@
 !#############################################################################
 !#                                                                           #
-!# fosite - 2D hydrodynamical simulation program                             #
+!# fosite - 3D hydrodynamical simulation program                             #
 !# module: mesh_generic.f90                                                  #
 !#                                                                           #
-!# Copyright (C) 2016                                                        #
-!# Manuel Jung <mjung@astrophysik.uni-kiel.de>                               #
+!# Copyright (C) 2016 Manuel Jung <mjung@astrophysik.uni-kiel.de>            #
 !#                                                                           #
 !# This program is free software; you can redistribute it and/or modify      #
 !# it under the terms of the GNU General Public License as published by      #
@@ -47,11 +46,11 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(timedisc_base), ALLOCATABLE :: Timedisc
-    CLASS(mesh_base), INTENT(IN) :: Mesh
-    CLASS(physics_base), INTENT(IN) :: Physics
-    TYPE(DICT_TYP), POINTER       :: config, IO
+    CLASS(mesh_base), INTENT(IN)      :: Mesh
+    CLASS(physics_base), INTENT(IN)   :: Physics
+    TYPE(DICT_TYP), POINTER           :: config, IO
     !------------------------------------------------------------------------!
-    INTEGER :: method
+    INTEGER                           :: method
     !------------------------------------------------------------------------!
     CALL GetAttr(config,"method",method)
 
@@ -63,7 +62,7 @@ CONTAINS
       ALLOCATE(timedisc_modeuler::Timedisc)
       CALL Timedisc%Error("new_timedisc","Unknown timedisc integration scheme")
     END SELECT
-    
+
     ! call initialization
     SELECT TYPE(obj => Timedisc)
     TYPE IS (timedisc_modeuler)

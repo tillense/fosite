@@ -1,10 +1,9 @@
 !#############################################################################
 !#                                                                           #
-!# fosite - 2D hydrodynamical simulation program                             #
+!# fosite - 3D hydrodynamical simulation program                             #
 !# module: dict_common.f90                                                   #
 !#                                                                           #
-!# Copyright (C) 2012                                                        #
-!# Manuel Jung <mjung@astrophysik.uni-kiel.de<                               #
+!# Copyright (C) 2012 Manuel Jung <mjung@astrophysik.uni-kiel.de>            #
 !#                                                                           #
 !# This program is free software; you can redistribute it and/or modify      #
 !# it under the terms of the GNU General Public License as published by      #
@@ -24,13 +23,15 @@
 !#############################################################################
 
 !----------------------------------------------------------------------------!
-!> basic dict module
+!> \author Manuel Jung
+!!
+!! basic dict module
 !----------------------------------------------------------------------------!
 MODULE dict_common
-  USE common_types, &
-       GetType_common => GetType, GetName_common => GetName, &
+  USE common_types,                                                  &
+       GetType_common => GetType, GetName_common => GetName,         &
        GetRank_common => GetRank, GetNumProcs_common => GetNumProcs, &
-       Initialized_common => Initialized, Info_common => Info, &
+       Initialized_common => Initialized, Info_common => Info,       &
        Warning_common => Warning, Error_common => Error
   IMPLICIT NONE
   !--------------------------------------------------------------------------!
@@ -64,23 +65,23 @@ MODULE dict_common
   !> \endcond
   !--------------------------------------------------------------------------!
   TYPE Dict2_TYP
-     TYPE(Common_TYP)       :: parent              
+     TYPE(Common_TYP)       :: parent
   END TYPE Dict2_TYP
   !--------------------------------------------------------------------------!
-  PUBLIC :: &
+  PUBLIC ::         &
        ! types
-       Dict2_TYP, &
+       Dict2_TYP,   &
        ! methods
-       InitDict, &
-       CloseDict, &
-       GetType, &
-       GetName, &
-       GetRank, &
+       InitDict,    &
+       CloseDict,   &
+       GetType,     &
+       GetName,     &
+       GetRank,     &
        GetNumProcs, &
        !GetErrorMap, &
        Initialized, &
-       Info, &
-       Warning, &
+       Info,        &
+       Warning,     &
        Error
   !--------------------------------------------------------------------------!
 
@@ -89,7 +90,7 @@ CONTAINS
   SUBROUTINE InitDict(this,type,name)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    TYPE(Dict2_TYP)  :: this
+    TYPE(Dict2_TYP)   :: this
     INTEGER           :: type
     CHARACTER(LEN=32) :: name
     !------------------------------------------------------------------------!
@@ -106,7 +107,7 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     TYPE(Dict2_TYP), INTENT(IN) :: this
-    INTEGER :: ap
+    INTEGER                     :: ap
     !------------------------------------------------------------------------!
     ap = GetType_common(this%parent)
   END FUNCTION GetDictType
@@ -116,7 +117,7 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     TYPE(Dict2_TYP), INTENT(IN) :: this
-    CHARACTER(LEN=32) :: an
+    CHARACTER(LEN=32)           :: an
     !------------------------------------------------------------------------!
     an = GetName_common(this%parent)
   END FUNCTION GetDictName
@@ -126,7 +127,7 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     TYPE(Dict2_TYP), INTENT(IN) :: this
-    INTEGER :: r
+    INTEGER                     :: r
     !------------------------------------------------------------------------!
     r = GetRank_common(this%parent)
   END FUNCTION GetDictRank
@@ -135,7 +136,7 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     TYPE(Dict2_TYP), INTENT(IN) :: this
-    INTEGER :: p
+    INTEGER                     :: p
     !------------------------------------------------------------------------!
     p = GetNumProcs_common(this%parent)
   END FUNCTION GetDictNumProcs
@@ -156,16 +157,16 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     TYPE(Dict2_TYP), INTENT(IN) :: this
-    LOGICAL :: i
+    LOGICAL                     :: i
     !------------------------------------------------------------------------!
     i = Initialized_common(this%parent)
   END FUNCTION DictInitialized
 
- 
+
   SUBROUTINE DictInfo(this,msg)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    TYPE(Dict2_TYP), INTENT(IN)  :: this
+    TYPE(Dict2_TYP), INTENT(IN)   :: this
     CHARACTER(LEN=*),  INTENT(IN) :: msg
     !------------------------------------------------------------------------!
     CALL Info_common(this%parent,msg)
@@ -189,7 +190,7 @@ CONTAINS
   SUBROUTINE DictError(this,modproc,msg,rank)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    TYPE(Dict2_TYP), INTENT(IN)  :: this
+    TYPE(Dict2_TYP), INTENT(IN)   :: this
     CHARACTER(LEN=*),  INTENT(IN) :: modproc,msg
     INTEGER, OPTIONAL, INTENT(IN) :: rank
     !------------------------------------------------------------------------!

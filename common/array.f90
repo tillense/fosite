@@ -1,11 +1,11 @@
 !#############################################################################
 !#                                                                           #
-!# fosite - 2D hydrodynamical simulation program                             #
+!# fosite - 3D hydrodynamical simulation program                             #
 !# module: mesh_common.f90                                                   #
 !#                                                                           #
 !# Copyright (C) 2006-2016                                                   #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
-!# Manuel Jung <mjung@astrophysik.uni-kiel.de>                               #
+!# Manuel Jung      <mjung@astrophysik.uni-kiel.de>                          #
 !#                                                                           #
 !# This program is free software; you can redistribute it and/or modify      #
 !# it under the terms of the GNU General Public License as published by      #
@@ -58,43 +58,37 @@ MODULE array
   !> type for scalar (rank 0) array data on the mesh
   TYPE MArrayS_TYP
      REAL, DIMENSION(:,:,:,:), POINTER :: data
-     REAL, DIMENSION(:,:,:), POINTER :: &
-                          center, &       !< geometric center
-                          bcenter         !< bary center
+     REAL, DIMENSION(:,:,:), POINTER   :: center, &       !< geometric center
+                                          bcenter         !< bary center
 
-     REAL, DIMENSION(:,:,:,:), POINTER :: &
-                          faces, &        !< cell face centers
-                          corners         !< cell corners
+     REAL, DIMENSION(:,:,:,:), POINTER :: faces, &        !< cell face centers
+                                          corners         !< cell corners
   END TYPE
   !> type for vector (rank 1) array data on the mesh
   TYPE MArrayV_TYP
      REAL, DIMENSION(:,:,:,:,:), POINTER :: data
-     REAL, DIMENSION(:,:,:,:), POINTER :: &
-                          center, &       !< geometric center
-                          bcenter         !< bary center
+     REAL, DIMENSION(:,:,:,:), POINTER   :: center, &     !< geometric center
+                                            bcenter       !< bary center
 
-     REAL, DIMENSION(:,:,:,:,:), POINTER :: &
-                          faces, &        !< cell face centers
-                          corners         !< cell corners
+     REAL, DIMENSION(:,:,:,:,:), POINTER :: faces, &      !< cell face centers
+                                            corners       !< cell corners
   END TYPE
   !> type for tensor (rank 2) array data on the mesh
   TYPE MArrayT_TYP
      REAL, DIMENSION(:,:,:,:,:,:), POINTER :: data
-     REAL, DIMENSION(:,:,:,:,:), POINTER :: &
-                          center, &       !< geometric center
-                          bcenter         !< bary center
+     REAL, DIMENSION(:,:,:,:,:), POINTER   :: center, &   !< geometric center
+                                              bcenter     !< bary center
 
-     REAL, DIMENSION(:,:,:,:,:,:), POINTER :: &
-                          faces, &        !< cell face centers
-                          corners         !< cell corners
+     REAL, DIMENSION(:,:,:,:,:,:), POINTER :: faces, &    !< cell face centers
+                                              corners     !< cell corners
   END TYPE
   !> \}
   !--------------------------------------------------------------------------!
   PUBLIC :: &
        ! types
        MArrayS_TYP, MArrayV_TYP, MArrayT_TYP, &
-       OPERATOR(+), &
-       OPERATOR(*), &
+       OPERATOR(+),                           &
+       OPERATOR(*),                           &
        ASSIGNMENT(=)
   !--------------------------------------------------------------------------!
 
@@ -104,8 +98,8 @@ CONTAINS
   SUBROUTINE AssignMesharrayS_0(out,in)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    TYPE(MArrayS_TYP),INTENT(IN) :: in
-    TYPE(MArrayS_TYP),INTENT(OUT) :: out
+    TYPE(MArrayS_TYP), INTENT(IN)  :: in
+    TYPE(MArrayS_TYP), INTENT(OUT) :: out
     !------------------------------------------------------------------------!
     out%data(:,:,:,:) = in%data(:,:,:,:)
   END SUBROUTINE AssignMesharrayS_0
@@ -115,7 +109,7 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     REAL, DIMENSION(:,:,:,:), INTENT(IN) :: in
-    TYPE(MArrayS_TYP),INTENT(OUT) :: out
+    TYPE(MArrayS_TYP),INTENT(OUT)        :: out
     !------------------------------------------------------------------------!
     out%data(:,:,:,:) = in(:,:,:,:)
   END SUBROUTINE AssignMesharrayS_1
@@ -124,8 +118,8 @@ CONTAINS
   SUBROUTINE AssignMesharrayV_0(out,in)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    TYPE(MArrayV_TYP),INTENT(IN) :: in
-    TYPE(MArrayV_TYP),INTENT(OUT) :: out
+    TYPE(MArrayV_TYP), INTENT(IN)  :: in
+    TYPE(MArrayV_TYP), INTENT(OUT) :: out
     !------------------------------------------------------------------------!
     out%data(:,:,:,:,:) = in%data(:,:,:,:,:)
   END SUBROUTINE AssignMesharrayV_0
@@ -135,7 +129,7 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     REAL, DIMENSION(:,:,:,:,:), INTENT(IN) :: in
-    TYPE(MArrayV_TYP),INTENT(OUT) :: out
+    TYPE(MArrayV_TYP), INTENT(OUT)         :: out
     !------------------------------------------------------------------------!
     out%data(:,:,:,:,:) = in(:,:,:,:,:)
   END SUBROUTINE AssignMesharrayV_1
@@ -144,8 +138,8 @@ CONTAINS
   SUBROUTINE AssignMesharrayT_0(out,in)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    TYPE(MArrayT_TYP),INTENT(IN) :: in
-    TYPE(MArrayT_TYP),INTENT(OUT) :: out
+    TYPE(MArrayT_TYP), INTENT(IN)  :: in
+    TYPE(MArrayT_TYP), INTENT(OUT) :: out
     !------------------------------------------------------------------------!
     out%data(:,:,:,:,:,:) = in%data(:,:,:,:,:,:)
   END SUBROUTINE AssignMesharrayT_0
@@ -155,7 +149,7 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     REAL, DIMENSION(:,:,:,:,:,:), INTENT(IN) :: in
-    TYPE(MArrayT_TYP),INTENT(OUT) :: out
+    TYPE(MArrayT_TYP), INTENT(OUT)           :: out
     !------------------------------------------------------------------------!
     out%data(:,:,:,:,:,:) = in(:,:,:,:,:,:)
   END SUBROUTINE AssignMesharrayT_1
@@ -175,8 +169,8 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     TYPE(MArrayS_TYP),INTENT(IN) :: a
-    REAL, DIMENSION(SIZE(a%data,1),SIZE(a%data,2),SIZE(a%data,3),SIZE(a%data,4)),INTENT(IN) :: b
-    REAL, DIMENSION(SIZE(a%data,1),SIZE(a%data,2),SIZE(a%data,3),SIZE(a%data,4)) :: c
+    REAL, DIMENSION(SIZE(a%data,1),SIZE(a%data,2),SIZE(a%data,3),SIZE(a%data,4)), INTENT(IN) :: b
+    REAL, DIMENSION(SIZE(a%data,1),SIZE(a%data,2),SIZE(a%data,3),SIZE(a%data,4))             :: c
     !------------------------------------------------------------------------!
     c(:,:,:,:) = a%data(:,:,:,:)+b(:,:,:,:)
   END FUNCTION AddMesharrayS_1
@@ -186,8 +180,8 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     TYPE(MArrayS_TYP),INTENT(IN) :: b
-    REAL, DIMENSION(SIZE(b%data,1),SIZE(b%data,2),SIZE(b%data,3),SIZE(b%data,4)),INTENT(IN) :: a
-    REAL, DIMENSION(SIZE(b%data,1),SIZE(b%data,2),SIZE(b%data,3),SIZE(b%data,4)) :: c
+    REAL, DIMENSION(SIZE(b%data,1),SIZE(b%data,2),SIZE(b%data,3),SIZE(b%data,4)), INTENT(IN) :: a
+    REAL, DIMENSION(SIZE(b%data,1),SIZE(b%data,2),SIZE(b%data,3),SIZE(b%data,4))             :: c
     !------------------------------------------------------------------------!
     c(:,:,:,:) = a(:,:,:,:)+b%data(:,:,:,:)
   END FUNCTION AddMesharrayS_2
@@ -207,8 +201,8 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     TYPE(MArrayV_TYP),INTENT(IN) :: a
-    REAL, DIMENSION(SIZE(a%data,1),SIZE(a%data,2),SIZE(a%data,3),SIZE(a%data,4),SIZE(a%data,5)),INTENT(IN) :: b
-    REAL, DIMENSION(SIZE(a%data,1),SIZE(a%data,2),SIZE(a%data,3),SIZE(a%data,4),SIZE(a%data,5)) :: c
+    REAL, DIMENSION(SIZE(a%data,1),SIZE(a%data,2),SIZE(a%data,3),SIZE(a%data,4),SIZE(a%data,5)), INTENT(IN) :: b
+    REAL, DIMENSION(SIZE(a%data,1),SIZE(a%data,2),SIZE(a%data,3),SIZE(a%data,4),SIZE(a%data,5))             :: c
     !------------------------------------------------------------------------!
     c(:,:,:,:,:) = a%data(:,:,:,:,:)+b(:,:,:,:,:)
   END FUNCTION AddMesharrayV_1
@@ -218,8 +212,8 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     TYPE(MArrayV_TYP),INTENT(IN) :: b
-    REAL, DIMENSION(SIZE(b%data,1),SIZE(b%data,2),SIZE(b%data,3),SIZE(b%data,4),SIZE(b%data,5)),INTENT(IN) :: a
-    REAL, DIMENSION(SIZE(b%data,1),SIZE(b%data,2),SIZE(b%data,3),SIZE(b%data,4),SIZE(b%data,5)) :: c
+    REAL, DIMENSION(SIZE(b%data,1),SIZE(b%data,2),SIZE(b%data,3),SIZE(b%data,4),SIZE(b%data,5)), INTENT(IN) :: a
+    REAL, DIMENSION(SIZE(b%data,1),SIZE(b%data,2),SIZE(b%data,3),SIZE(b%data,4),SIZE(b%data,5))             :: c
     !------------------------------------------------------------------------!
     c(:,:,:,:,:) = a(:,:,:,:,:)+b%data(:,:,:,:,:)
   END FUNCTION AddMesharrayV_2
@@ -239,8 +233,8 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     TYPE(MArrayT_TYP),INTENT(IN) :: a
-    REAL, DIMENSION(SIZE(a%data,1),SIZE(a%data,2),SIZE(a%data,3),SIZE(a%data,4),SIZE(a%data,5),SIZE(a%data,6)),INTENT(IN) :: b
-    REAL, DIMENSION(SIZE(a%data,1),SIZE(a%data,2),SIZE(a%data,3),SIZE(a%data,4),SIZE(a%data,5),SIZE(a%data,6)) :: c
+    REAL, DIMENSION(SIZE(a%data,1),SIZE(a%data,2),SIZE(a%data,3),SIZE(a%data,4),SIZE(a%data,5),SIZE(a%data,6)), INTENT(IN) :: b
+    REAL, DIMENSION(SIZE(a%data,1),SIZE(a%data,2),SIZE(a%data,3),SIZE(a%data,4),SIZE(a%data,5),SIZE(a%data,6))             :: c
     !------------------------------------------------------------------------!
     c(:,:,:,:,:,:) = a%data(:,:,:,:,:,:)+b(:,:,:,:,:,:)
   END FUNCTION AddMesharrayT_1
@@ -250,8 +244,8 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     TYPE(MArrayT_TYP),INTENT(IN) :: b
-    REAL, DIMENSION(SIZE(b%data,1),SIZE(b%data,2),SIZE(b%data,3),SIZE(b%data,4),SIZE(b%data,5),SIZE(b%data,6)),INTENT(IN) :: a
-    REAL, DIMENSION(SIZE(b%data,1),SIZE(b%data,2),SIZE(b%data,3),SIZE(b%data,4),SIZE(b%data,5),SIZE(b%data,6)) :: c
+    REAL, DIMENSION(SIZE(b%data,1),SIZE(b%data,2),SIZE(b%data,3),SIZE(b%data,4),SIZE(b%data,5),SIZE(b%data,6)), INTENT(IN) :: a
+    REAL, DIMENSION(SIZE(b%data,1),SIZE(b%data,2),SIZE(b%data,3),SIZE(b%data,4),SIZE(b%data,5),SIZE(b%data,6))             :: c
     !------------------------------------------------------------------------!
     c(:,:,:,:,:,:) = a(:,:,:,:,:,:)+b%data(:,:,:,:,:,:)
   END FUNCTION AddMesharrayT_2
@@ -271,8 +265,8 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     TYPE(MArrayS_TYP),INTENT(IN)  :: a
-    REAL, DIMENSION(SIZE(a%data,1),SIZE(a%data,2),SIZE(a%data,3),SIZE(a%data,4)),INTENT(IN) :: b
-    REAL, DIMENSION(SIZE(a%data,1),SIZE(a%data,2),SIZE(a%data,3),SIZE(a%data,4)) :: c
+    REAL, DIMENSION(SIZE(a%data,1),SIZE(a%data,2),SIZE(a%data,3),SIZE(a%data,4)), INTENT(IN) :: b
+    REAL, DIMENSION(SIZE(a%data,1),SIZE(a%data,2),SIZE(a%data,3),SIZE(a%data,4))             :: c
     !------------------------------------------------------------------------!
     c(:,:,:,:) = a%data(:,:,:,:)*b(:,:,:,:)
   END FUNCTION MultMesharrayS_1
@@ -282,8 +276,8 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     TYPE(MArrayS_TYP),INTENT(IN)  :: b
-    REAL, DIMENSION(SIZE(b%data,1),SIZE(b%data,2),SIZE(b%data,3),SIZE(b%data,4)),INTENT(IN) :: a
-    REAL, DIMENSION(SIZE(b%data,1),SIZE(b%data,2),SIZE(b%data,3),SIZE(b%data,4)) :: c
+    REAL, DIMENSION(SIZE(b%data,1),SIZE(b%data,2),SIZE(b%data,3),SIZE(b%data,4)), INTENT(IN) :: a
+    REAL, DIMENSION(SIZE(b%data,1),SIZE(b%data,2),SIZE(b%data,3),SIZE(b%data,4))             :: c
     !------------------------------------------------------------------------!
     c(:,:,:,:) = a(:,:,:,:)*b%data(:,:,:,:)
   END FUNCTION MultMesharrayS_2

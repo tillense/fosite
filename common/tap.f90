@@ -1,10 +1,9 @@
 !#############################################################################
 !#                                                                           #
-!# fosite - 2D hydrodynamical simulation program                             #
+!# fosite - 3D hydrodynamical simulation program                             #
 !# module: tap.f90                                                           #
 !#                                                                           #
-!# Copyright (C) 2013                                                        #
-!# Manuel Jung <mjunf@astrophysik.uni-kiel.de>                               #
+!# Copyright (C) 2013 Manuel Jung <mjung@astrophysik.uni-kiel.de>            #
 !#                                                                           #
 !# This program is free software; you can redistribute it and/or modify      #
 !# it under the terms of the GNU General Public License as published by      #
@@ -24,7 +23,9 @@
 !#############################################################################
 
 !----------------------------------------------------------------------------!
-!> TAP: Test Anything Protocoll
+!> \author Manuel Jung
+!!
+!! TAP: Test Anything Protocol
 !! For a short definition visit
 !! http://podwiki.hexten.net/TAP/TAP13.html?page=TAP13
 !----------------------------------------------------------------------------!
@@ -34,17 +35,17 @@ MODULE tap
   IMPLICIT NONE
   !--------------------------------------------------------------------------!
   PRIVATE
-    INTEGER, PARAMETER :: NO_PLAN  = -1
-    INTEGER, PARAMETER :: SKIP_ALL = -2
-    INTEGER, SAVE :: expected_tests = NO_PLAN
-    INTEGER, SAVE :: failed_tests = 0
-    INTEGER, SAVE :: current_test = 0
+    INTEGER, PARAMETER :: NO_PLAN        = -1
+    INTEGER, PARAMETER :: SKIP_ALL       = -2
+    INTEGER, SAVE      :: expected_tests = NO_PLAN
+    INTEGER, SAVE      :: failed_tests   = 0
+    INTEGER, SAVE      :: current_test   = 0
   !--------------------------------------------------------------------------!
-  PUBLIC :: &
-        tap_plan, &
-        tap_done, &
-        tap_check_at_loc, &
-        tap_check_op_at_loc, &
+  PUBLIC ::                     &
+        tap_plan,               &
+        tap_done,               &
+        tap_check_at_loc,       &
+        tap_check_op_at_loc,    &
         tap_check_close_at_loc, &
         tap_check_small_at_loc
   !--------------------------------------------------------------------------!
@@ -65,13 +66,13 @@ CONTAINS
   FUNCTION itoa(i) RESULT(str)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    INTEGER         :: i
-    CHARACTER(LEN=CEILING(LOG10(REAL(i)+1))):: str
+    INTEGER                                  :: i
+    CHARACTER(LEN=CEILING(LOG10(REAL(i)+1))) :: str
     !------------------------------------------------------------------------!
-    INTEGER         :: n
-    CHARACTER(LEN=16):: tmp
+    INTEGER                                  :: n
+    CHARACTER(LEN=16)                        :: tmp
     !------------------------------------------------------------------------!
-    INTENT(IN)      :: i
+    INTENT(IN)                               :: i
     !------------------------------------------------------------------------!
     n = CEILING(LOG10(REAL(i)+1))
     WRITE(tmp,'(I16)') i
@@ -82,10 +83,10 @@ CONTAINS
   FUNCTION rtoa(r) RESULT(str)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    REAL            :: r
-    CHARACTER(LEN=12):: str
+    REAL              :: r
+    CHARACTER(LEN=12) :: str
     !------------------------------------------------------------------------!
-    INTENT(IN)      :: r
+    INTENT(IN)        :: r
     !------------------------------------------------------------------------!
     WRITE(str,'(ES12.3)') r
   END FUNCTION rtoa
@@ -94,10 +95,10 @@ CONTAINS
   SUBROUTINE tap_plan(tests, why)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    INTEGER     :: tests
-    CHARACTER(len=128),OPTIONAL :: why
+    INTEGER                      :: tests
+    CHARACTER(len=128), OPTIONAL :: why
     !------------------------------------------------------------------------!
-    INTENT(IN)  :: tests, why
+    INTENT(IN)                   :: tests, why
     !------------------------------------------------------------------------!
     CALL SetPrefix('#')
     expected_tests = tests
@@ -146,12 +147,12 @@ CONTAINS
   SUBROUTINE tap_check(file,line,test,name)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CHARACTER(LEN=*)    :: file
-    INTEGER             :: line
-    LOGICAL             :: test
-    CHARACTER(LEN=*)    :: name
+    CHARACTER(LEN=*) :: file
+    INTEGER          :: line
+    LOGICAL          :: test
+    CHARACTER(LEN=*) :: name
     !------------------------------------------------------------------------!
-    INTENT(IN)          :: file, line, test, name
+    INTENT(IN)       :: file, line, test, name
     !------------------------------------------------------------------------!
     current_test = current_test + 1
     IF(test) THEN
@@ -166,12 +167,12 @@ CONTAINS
   SUBROUTINE tap_check_at_loc(file,line,test,name)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CHARACTER(LEN=*)    :: file
-    INTEGER             :: line
-    LOGICAL             :: test
-    CHARACTER(LEN=*)    :: name
+    CHARACTER(LEN=*) :: file
+    INTEGER          :: line
+    LOGICAL          :: test
+    CHARACTER(LEN=*) :: name
     !------------------------------------------------------------------------!
-    INTENT(IN)          :: file, line, test, name
+    INTENT(IN)       :: file, line, test, name
     !------------------------------------------------------------------------!
     CALL tap_check(file,line,test,name)
     IF(.NOT.test) THEN
@@ -184,14 +185,14 @@ CONTAINS
   SUBROUTINE tap_check_op_at_loc(file,line,op,test,a,b,name)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CHARACTER(LEN=*)    :: file
-    INTEGER             :: line
-    CHARACTER(LEN=*)    :: op
-    LOGICAL             :: test
-    REAL                :: a, b
-    CHARACTER(LEN=*)    :: name
+    CHARACTER(LEN=*) :: file
+    INTEGER          :: line
+    CHARACTER(LEN=*) :: op
+    LOGICAL          :: test
+    REAL             :: a, b
+    CHARACTER(LEN=*) :: name
     !------------------------------------------------------------------------!
-    INTENT(IN)          :: file, line, op, test, a, b, name
+    INTENT(IN)       :: file, line, op, test, a, b, name
     !------------------------------------------------------------------------!
     CALL tap_check(file,line,test,name)
     IF(.NOT.test) THEN
@@ -205,14 +206,14 @@ CONTAINS
   SUBROUTINE tap_check_close_at_loc(file,line,a,b,eps,name)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CHARACTER(LEN=*)    :: file
-    INTEGER             :: line
-    REAL                :: a, b, eps
-    CHARACTER(LEN=*)    :: name
+    CHARACTER(LEN=*) :: file
+    INTEGER          :: line
+    REAL             :: a, b, eps
+    CHARACTER(LEN=*) :: name
     !------------------------------------------------------------------------!
-    LOGICAL             :: test
+    LOGICAL          :: test
     !------------------------------------------------------------------------!
-    INTENT(IN)          :: file, line, a, b, eps, name
+    INTENT(IN)       :: file, line, a, b, eps, name
     !------------------------------------------------------------------------!
     test = ABS(a-b).LT.eps
     CALL tap_check(file,line,test,name)
@@ -227,14 +228,14 @@ CONTAINS
   SUBROUTINE tap_check_small_at_loc(file,line,a,eps,name)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CHARACTER(LEN=*)    :: file
-    INTEGER             :: line
-    REAL                :: a, eps
-    CHARACTER(LEN=*)    :: name
+    CHARACTER(LEN=*) :: file
+    INTEGER          :: line
+    REAL             :: a, eps
+    CHARACTER(LEN=*) :: name
     !------------------------------------------------------------------------!
-    LOGICAL             :: test
+    LOGICAL          :: test
     !------------------------------------------------------------------------!
-    INTENT(IN)          :: file, line, a, eps, name
+    INTENT(IN)       :: file, line, a, eps, name
     !------------------------------------------------------------------------!
     test = ABS(a).LT.eps
     CALL tap_check(file,line,test,name)

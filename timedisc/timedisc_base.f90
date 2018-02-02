@@ -1,13 +1,13 @@
 !r#############################################################################
 !#                                                                           #
-!# fosite - 2D hydrodynamical simulation program                             #
+!# fosite - 3D hydrodynamical simulation program                             #
 !# module: timedisc_generic.f90                                              #
 !#                                                                           #
 !# Copyright (C) 2007-2017                                                   #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
-!# Björn Sperling <sperling@astrophysik.uni-kiel.de>                         #
-!# Manuel Jung <mjung@astrophysik.uni-kiel.de>                               #
-!# Jannes Klee <jklee@astrophysik.uni-kiel.de>                               #
+!# Björn Sperling   <sperling@astrophysik.uni-kiel.de>                       #
+!# Manuel Jung      <mjung@astrophysik.uni-kiel.de>                          #
+!# Jannes Klee      <jklee@astrophysik.uni-kiel.de>                          #
 !#                                                                           #
 !# This program is free software; you can redistribute it and/or modify      #
 !# it under the terms of the GNU General Public License as published by      #
@@ -106,36 +106,36 @@ PRIVATE
      REAL             :: pmin,rhomin,tmin              !< minimum allowed pressure,
                                                        !< density,temperature
      !> old error and used in the dumka method
-     REAL             :: ERR_N, H_N
-     REAL, DIMENSION(:), POINTER      :: tol_abs       !< abs. error tolerance
-     REAL                             :: beta          !< time step friction
-     REAL, DIMENSION(:,:,:,:), POINTER  :: pvar, cvar    !< prim/cons vars
-     REAL, DIMENSION(:,:,:,:), POINTER  :: solution=>Null() !< analytical solution
-     REAL, DIMENSION(:,:,:,:), POINTER  :: cold          !< old prim/cons vars
-     REAL, DIMENSION(:,:,:,:), POINTER  :: ptmp,ctmp     !< temporary cvars
-     REAL, DIMENSION(:,:,:,:), POINTER:: coeff         !< coefficents
-     REAL, DIMENSION(:), POINTER      :: b_low,b_high,c!<    needed by
-     REAL, DIMENSION(:,:), POINTER    :: a             !<    embedded RK
+     REAL                              :: ERR_N, H_N
+     REAL, DIMENSION(:), POINTER       :: tol_abs          !< abs. error tolerance
+     REAL                              :: beta             !< time step friction
+     REAL, DIMENSION(:,:,:,:), POINTER :: pvar, cvar       !< prim/cons vars
+     REAL, DIMENSION(:,:,:,:), POINTER :: solution=>Null() !< analytical solution
+     REAL, DIMENSION(:,:,:,:), POINTER :: cold             !< old prim/cons vars
+     REAL, DIMENSION(:,:,:,:), POINTER :: ptmp,ctmp        !< temporary cvars
+     REAL, DIMENSION(:,:,:,:), POINTER :: coeff            !< coefficents
+     REAL, DIMENSION(:), POINTER       :: b_low,b_high,c   !<    needed by
+     REAL, DIMENSION(:,:), POINTER     :: a                !<    embedded RK
      !> multistep vars
-     REAL, DIMENSION(:,:,:,:), POINTER:: phi,oldphi_s,&
-                                         newphi_s
-     REAL, DIMENSION(:), POINTER      :: gamma
-     INTEGER                          :: pc            !< = 1 predictor-corrector
-     REAL, DIMENSION(:,:,:,:), POINTER  :: src,geo_src   !< source terms
-     REAL, DIMENSION(:,:,:,:), POINTER  :: rhs           !< ODE right hand side
+     REAL, DIMENSION(:,:,:,:), POINTER :: phi,oldphi_s,&
+                                          newphi_s
+     REAL, DIMENSION(:), POINTER       :: gamma
+     INTEGER                           :: pc               !< = 1 predictor-corrector
+     REAL, DIMENSION(:,:,:,:), POINTER :: src,geo_src      !< source terms
+     REAL, DIMENSION(:,:,:,:), POINTER :: rhs              !< ODE right hand side
      !> numerical fluxes divided by dy or dx
-     REAL, DIMENSION(:,:,:,:), POINTER  :: xfluxdydz,yfluxdzdx,zfluxdxdy
-     REAL, DIMENSION(:,:,:,:), POINTER  :: amax          !< max. wave speeds
-     REAL, DIMENSION(:,:), POINTER      :: bflux         !< boundary fluxes for output
-     REAL, DIMENSION(:,:,:,:), POINTER  :: errorval      !< max. wave speeds
-     LOGICAL                          :: write_error   !< enable err writing
-     INTEGER, DIMENSION(:), POINTER   :: shift         !< fargo annulus shift
-     REAL, DIMENSION(:,:), POINTER    :: buf           !< fargo MPI buffer
-     REAL, DIMENSION(:), POINTER      :: w             !< fargo background velocity
-!     TYPE(elem_TYP),POINTER           :: ts=>Null()    !< timesteps (multistep)
+     REAL, DIMENSION(:,:,:,:), POINTER :: xfluxdydz,yfluxdzdx,zfluxdxdy
+     REAL, DIMENSION(:,:,:,:), POINTER :: amax            !< max. wave speeds
+     REAL, DIMENSION(:,:), POINTER     :: bflux           !< boundary fluxes for output
+     REAL, DIMENSION(:,:,:,:), POINTER :: errorval        !< max. wave speeds
+     LOGICAL                           :: write_error     !< enable err writing
+     INTEGER, DIMENSION(:), POINTER    :: shift           !< fargo annulus shift
+     REAL, DIMENSION(:,:), POINTER     :: buf             !< fargo MPI buffer
+     REAL, DIMENSION(:), POINTER       :: w               !< fargo background velocity
+!     TYPE(elem_TYP),POINTER            :: ts=>Null()       !< timesteps (multistep)
 !  TYPE elem_TYP
-!    TYPE(elem_TYP), POINTER           :: next,prev
-!    REAL                              :: t             !< time
+!    TYPE(elem_TYP), POINTER            :: next,prev
+!    REAL                               :: t                !< time
 !  END TYPE elem_TYP
   CONTAINS
     PROCEDURE           :: InitTimedisc
@@ -187,7 +187,7 @@ PRIVATE
   INTEGER, PARAMETER :: DTCAUSE_CFL      =  0 ! smallest ts due to cfl cond. !
   INTEGER, PARAMETER :: DTCAUSE_ERRADJ   = -1 ! smallest ts due to err adj.  !
   INTEGER, PARAMETER :: DTCAUSE_SMALLERR = -2 ! smallest ts due to err
-  INTEGER, PARAMETER :: DTCAUSE_FILEIO   = -4  !< smallest ts due to fileio
+  INTEGER, PARAMETER :: DTCAUSE_FILEIO   = -4 !< smallest ts due to fileio
   ! CheckData_modeuler Bit Mask constants
   INTEGER, PARAMETER :: CHECK_NOTHING    = INT(b'0')
   INTEGER, PARAMETER :: CHECK_ALL        = NOT(CHECK_NOTHING)
@@ -218,15 +218,15 @@ CONTAINS
     CLASS(mesh_base),     INTENT(IN)           :: Mesh
     CLASS(physics_base),  INTENT(IN)           :: Physics
     TYPE(Dict_TYP),       POINTER              :: config,IO
-    INTEGER              :: ttype
-    CHARACTER(LEN=32)    :: tname
+    INTEGER                                    :: ttype
+    CHARACTER(LEN=32)                          :: tname
     !------------------------------------------------------------------------!
     INTEGER              :: err, d
     CHARACTER(LEN=32)    :: order_str,cfl_str,stoptime_str,dtmax_str,beta_str
     CHARACTER(LEN=32)    :: info_str
     INTEGER              :: method
     !------------------------------------------------------------------------!
-    INTENT(IN)          :: ttype, tname
+    INTENT(IN)           :: ttype, tname
     !------------------------------------------------------------------------!
     CALL this%InitLogging(ttype,tname)
 
@@ -235,57 +235,57 @@ CONTAINS
 
     ! allocate memory for data structures needed in all timedisc modules
     ALLOCATE( &
-      this%rhs(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
-      this%pvar(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
-      this%cvar(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
-      this%cold(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
-      this%ptmp(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
-      this%ctmp(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
-      this%geo_src(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
-      this%src(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
+      this%rhs(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM),       &
+      this%pvar(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM),      &
+      this%cvar(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM),      &
+      this%cold(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM),      &
+      this%ptmp(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM),      &
+      this%ctmp(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM),      &
+      this%geo_src(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM),   &
+      this%src(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM),       &
       this%xfluxdydz(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
       this%yfluxdzdx(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
       this%zfluxdxdy(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
-      this%amax(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,3), &
-      this%tol_abs(Physics%VNUM), &
-      this%w(Mesh%IGMIN:Mesh%IGMAX), &
+      this%amax(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,3),                 &
+      this%tol_abs(Physics%VNUM),        &
+      this%w(Mesh%IGMIN:Mesh%IGMAX),     &
       this%shift(Mesh%IGMIN:Mesh%IGMAX), &
-      this%dtmean, this%dtstddev, &
-      this%time, &
+      this%dtmean, this%dtstddev,        &
+      this%time,                         &
       STAT = err)
     IF (err.NE.0) THEN
        CALL this%Error("InitTimedisc", "Unable to allocate memory.")
     END IF
 
     ! initialize all variables
-    this%rhs = 0.
-    this%pvar = 0.
-    this%cvar = 0.
-    this%cold = 0.
-    this%ptmp = 0.
-    this%ctmp = 0.
-    this%geo_src = 0.
-    this%src = 0.
+    this%rhs       = 0.
+    this%pvar      = 0.
+    this%cvar      = 0.
+    this%cold      = 0.
+    this%ptmp      = 0.
+    this%ctmp      = 0.
+    this%geo_src   = 0.
+    this%src       = 0.
     this%xfluxdydz = 0.
     this%yfluxdzdx = 0.
     this%zfluxdxdy = 0.
-    this%amax = 0.
-    this%tol_abs = 0.
-    this%w = 0.
-    this%shift = 0.
-    this%dtmean = 0.
-    this%dtstddev = 0.
-    this%time = 0.
-    this%break = .FALSE.
-    this%n_adj    = 0
-    this%maxerrold= 0.
-    this%dtaccept = 0
+    this%amax      = 0.
+    this%tol_abs   = 0.
+    this%w         = 0.
+    this%shift     = 0.
+    this%dtmean    = 0.
+    this%dtstddev  = 0.
+    this%time      = 0.
+    this%break     = .FALSE.
+    this%n_adj     = 0
+    this%maxerrold = 0.
+    this%dtaccept  = 0
 
     CALL GetAttr(config, "method", method)
     CALL GetAttr(config, "stoptime", this%stoptime)
     this%dt    = this%stoptime
-    this%dtold    = this%dt
-    this%dtmin    = this%dt
+    this%dtold = this%dt
+    this%dtmin = this%dt
 
     ! set default values
     ! CFL number
@@ -462,7 +462,7 @@ CONTAINS
     IF(valwrite.EQ.1) THEN
       writeSolution = .TRUE.
       ALLOCATE( &
-        this%solution(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM),&
+        this%solution(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
         STAT = err)
       IF (err.NE.0) &
         CALL this%Error("SetOutput_timedisc", "Unable to allocate memory.")
@@ -562,16 +562,16 @@ CONTAINS
     INTEGER                             :: iter
     TYPE(Dict_TYP),       POINTER       :: config,IO
     !------------------------------------------------------------------------!
-    INTEGER            :: i,j
+    INTEGER                             :: i,j
 #ifdef PARALLEL
-    REAL               :: err_all,dt_all
-    INTEGER            :: ierror
+    REAL                                :: err_all,dt_all
+    INTEGER                             :: ierror
 #endif
-    REAL               :: err,dtold,dt,time,dtmeanold
-    INTEGER            :: M,k
-    REAL               :: f
+    REAL                                :: err,dtold,dt,time,dtmeanold
+    INTEGER                             :: M,k
+    REAL                                :: f
     !------------------------------------------------------------------------!
-    INTENT(INOUT)      :: iter
+    INTENT(INOUT)                       :: iter
     !------------------------------------------------------------------------!
     time = this%time
     dt   = this%dt
@@ -622,12 +622,12 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(timedisc_base) :: this
-    REAL               :: maxerr,dtold,dtnew
+    REAL                 :: maxerr,dtold,dtnew
     !------------------------------------------------------------------------!
-    REAL               :: dttmp
+    REAL                 :: dttmp
     !------------------------------------------------------------------------!
-    INTENT(IN)         :: maxerr,dtold
-    INTENT(INOUT)      :: this
+    INTENT(IN)           :: maxerr,dtold
+    INTENT(INOUT)        :: this
     !------------------------------------------------------------------------!
     ! adaptive step size control disabled
     IF (this%tol_rel.GE.1.0) THEN
@@ -688,14 +688,14 @@ CONTAINS
     REAL,                 INTENT(IN)    :: time
     INTEGER,              INTENT(INOUT) :: dtcause
     !------------------------------------------------------------------------!
-    REAL               :: invdt
-    REAL               :: dt_cfl, dt_src
+    REAL                                :: invdt
+    REAL                                :: dt_cfl, dt_src
     !------------------------------------------------------------------------!
     ! CFL condition:
     ! maximal wave speeds in each direction
     IF (.NOT.this%always_update_bccsound) &
        CALL Physics%UpdateSoundSpeed(Mesh,this%pvar)
-    CALL Physics%CalculateWaveSpeeds(Mesh,this%pvar, &
+    CALL Physics%CalculateWaveSpeeds(Mesh,this%pvar,          &
                                      Fluxes%amin,Fluxes%amax, &
                                      Fluxes%bmin,Fluxes%bmax, &
                                      Fluxes%cmin,Fluxes%cmax)
@@ -821,7 +821,7 @@ CONTAINS
     CLASS(mesh_base),     INTENT(IN)    :: Mesh
     CLASS(physics_base),  INTENT(IN)    :: Physics
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX, Mesh%JGMIN:Mesh%JGMAX, &
-                    Mesh%KGMIN:Mesh%KGMAX, Physics%VNUM) &
+                    Mesh%KGMIN:Mesh%KGMAX, Physics%VNUM)          &
                        :: cvar_high,cvar_low
     REAL               :: maxerr
     !------------------------------------------------------------------------!
@@ -907,14 +907,14 @@ CONTAINS
     CLASS(fluxes_base),   INTENT(INOUT) :: Fluxes
     REAL                                :: time, dt
     REAL,DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX, &
-                   Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM) &
+                   Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM)          &
                                         :: pvar,cvar,rhs
     INTEGER                             :: checkdatabm
     !------------------------------------------------------------------------!
     INTEGER                             :: i,j,k,l
     REAL                                :: dyflux,wp,phi
     REAL,DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX, &
-                   Mesh%KGMIN:Mesh%KGMAX) &
+                   Mesh%KGMIN:Mesh%KGMAX)                       &
                                         :: w
     CLASS(sources_base), POINTER        :: grav
     REAL,DIMENSION(:,:,:,:),POINTER     :: pot
@@ -1256,7 +1256,7 @@ CONTAINS
     IF(this%fargo.NE.0) &
       DEALLOCATE(this%buf)
 #endif
-    IF(ASSOCIATED(this%bflux)) &
+    IF(ASSOCIATED(this%bflux))    &
       DEALLOCATE(this%bflux)
     IF(ASSOCIATED(this%errorval)) &
       DEALLOCATE(this%errorval)

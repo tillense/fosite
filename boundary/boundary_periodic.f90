@@ -1,11 +1,11 @@
 !#############################################################################
 !#                                                                           #
-!# fosite - 2D hydrodynamical simulation program                             #
+!# fosite - 3D hydrodynamical simulation program                             #
 !# module: boundary_periodic.f90                                             #
 !#                                                                           #
 !# Copyright (C) 2006-2014                                                   #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
-!# Jubin Lirawi <jlirawi@astrophysik.uni-kiel.de>                            #
+!# Jubin Lirawi     <jlirawi@astrophysik.uni-kiel.de>                        #
 !#                                                                           #
 !# This program is free software; you can redistribute it and/or modify      #
 !# it under the terms of the GNU General Public License as published by      #
@@ -44,7 +44,7 @@ MODULE boundary_periodic_mod
   TYPE, EXTENDS(boundary_base) :: boundary_periodic
   CONTAINS
     PROCEDURE :: InitBoundary_periodic
-    FINAL :: Finalize
+    FINAL     :: Finalize
     PROCEDURE :: SetBoundaryData
   END TYPE
   CHARACTER(LEN=32), PARAMETER  :: boundcond_name = "periodic"
@@ -61,11 +61,10 @@ CONTAINS
     CLASS(boundary_periodic), INTENT(INOUT) :: this
     CLASS(physics_base),      INTENT(IN)    :: Physics
     CLASS(mesh_base),         INTENT(IN)    :: Mesh
-    TYPE(Dict_TYP),POINTER &
-                       :: config
-    INTEGER            :: dir
+    TYPE(Dict_TYP),POINTER                  :: config
+    INTEGER                                 :: dir
     !------------------------------------------------------------------------!
-    INTENT(IN)    :: dir
+    INTENT(IN)                              :: dir
     !------------------------------------------------------------------------!
     CALL this%InitBoundary(Mesh,Physics,PERIODIC,boundcond_name,dir,config)
   END SUBROUTINE InitBoundary_periodic
@@ -79,9 +78,9 @@ CONTAINS
     CLASS(physics_base),      INTENT(IN) :: Physics
     REAL :: pvar(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%vnum)
     !------------------------------------------------------------------------!
-    INTEGER            :: i,j,k
+    INTEGER                              :: i,j,k
     !------------------------------------------------------------------------!
-    INTENT(INOUT)      :: pvar
+    INTENT(INOUT)                        :: pvar
     !------------------------------------------------------------------------!
 !CDIR IEXPAND
     SELECT CASE(this%Direction%GetType())

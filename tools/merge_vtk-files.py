@@ -1,7 +1,7 @@
 import vtk
 import os
 
-def compute_spect(basename, sfiles,nfiles):
+def compute_spect(basename, sfiles, nfiles):
    print "VTS files are joined together via PVTS file into one global file."
    for i in range(sfiles,nfiles+1):
 	if (i < 10):
@@ -16,7 +16,7 @@ def compute_spect(basename, sfiles,nfiles):
 	filename = basename + ext + ".pvts"
 	if not(os.path.isfile(filename)):
 		print "ERROR in file: ", filename
-		print "file not found!" 
+		print "file not found!"
 		break
 	reader = vtk.vtkXMLPStructuredGridReader()
 	reader.SetFileName(filename)
@@ -26,8 +26,8 @@ def compute_spect(basename, sfiles,nfiles):
 	#nx,ny,nz =  mesh.GetDimensions()
 	#print nx, ny, nz
 	print "processing file: ", filename
-	
-	
+
+
 	writer = vtk.vtkXMLStructuredGridWriter()
 	writer.SetInputData(mesh)
 	ofilename = "merged" + basename + ext + ".vts"
@@ -35,7 +35,7 @@ def compute_spect(basename, sfiles,nfiles):
 	writer.SetDataModeToAppended()
 	writer.Write()
    print "finished!"
-   
+
 
 if __name__ == '__main__':
 	import argparse
@@ -43,7 +43,7 @@ if __name__ == '__main__':
 	parser.add_argument('basename', metavar='basename', type=str, help="basename of input file")
 	parser.add_argument('--first','-f',type=int, default=0, help="first index")
 	parser.add_argument('--last','-l',type=int,default=10000, help="last index")
-	
+
 	args = parser.parse_args()
 	compute_spect(args.basename, args.first, args.last)
 

@@ -1,6 +1,6 @@
 !#############################################################################
 !#                                                                           #
-!# fosite - 2D hydrodynamical simulation program                             #
+!# fosite - 3D hydrodynamical simulation program                             #
 !# module: common_types.f90                                                  #
 !#                                                                           #
 !# Copyright (C) 2006-2014                                                   #
@@ -27,7 +27,7 @@
 !> \author Tobias Illenseer
 !! \author Manuel Jung
 !!
-!! \brief Basic fosite module 
+!! \brief Basic fosite module
 !!
 !! This module defines the basic data types and methods inherited by all
 !! fosite modules.
@@ -55,13 +55,13 @@ MODULE logging_base_mod
   !! current MPI process and the total number of processes.
   TYPE logging_base
     PRIVATE
-    INTEGER           :: mod_type           !< module type number
-    CHARACTER(LEN=32) :: mod_name           !< module type name
-    INTEGER           :: err                !< error code
+    INTEGER           :: mod_type                !< module type number
+    CHARACTER(LEN=32) :: mod_name                !< module type name
+    INTEGER           :: err                     !< error code
     LOGICAL           :: isinitialized = .FALSE. !< init status
-    INTEGER, POINTER  :: myrank             !< rank of parallel process
-    INTEGER, POINTER  :: ppnum              !< number of parallel processes
-    LOGICAL, POINTER  :: parinit            !< init status of parallel process
+    INTEGER, POINTER  :: myrank                  !< rank of parallel process
+    INTEGER, POINTER  :: ppnum                   !< number of parallel processes
+    LOGICAL, POINTER  :: parinit                 !< init status of parallel process
   CONTAINS
     PROCEDURE :: InitLogging
     FINAL     :: Finalize
@@ -77,25 +77,24 @@ MODULE logging_base_mod
   ! these variables should be the same for all objects
   ! of the current process
 #ifdef PARALLEL
-  INTEGER, SAVE :: DEFAULT_MPI_REAL = MPI_REAL   !< default real type for MPI
-  INTEGER, SAVE :: DEFAULT_MPI_2REAL = MPI_2REAL !< default 2real type for MPI
-  INTEGER, SAVE :: DEFAULT_MPI_COMPLEX &
-    = MPI_DOUBLE_COMPLEX                         !< default real type for MPI
-  REAL, PARAMETER :: dummy=1.0                   !< check default real type
+  INTEGER, SAVE          :: DEFAULT_MPI_REAL = MPI_REAL              !< default real type for MPI
+  INTEGER, SAVE          :: DEFAULT_MPI_2REAL = MPI_2REAL            !< default 2real type for MPI
+  INTEGER, SAVE          :: DEFAULT_MPI_COMPLEX = MPI_DOUBLE_COMPLEX !< default real type for MPI
+  REAL, PARAMETER        :: dummy   = 1.0                            !< check default real type
 #endif
-  INTEGER, PARAMETER :: STDERR = 0               !< fortran stderr unit
-  INTEGER, PARAMETER :: STDOUT = 6               !< fortran stdout unit
-  INTEGER, SAVE, TARGET :: myrank = 0            !< MPI rank
-  INTEGER, SAVE, TARGET :: ppnum = 1             !< MPI number of processes
-  LOGICAL, SAVE, TARGET :: parinit = .FALSE.     !< MPI initialization status
-  CHARACTER(LEN=1), SAVE :: prefix = ' '         !< preceds info output
+  INTEGER, PARAMETER     :: STDERR  = 0                              !< fortran stderr unit
+  INTEGER, PARAMETER     :: STDOUT  = 6                              !< fortran stdout unit
+  INTEGER, SAVE, TARGET  :: myrank  = 0                              !< MPI rank
+  INTEGER, SAVE, TARGET  :: ppnum   = 1                              !< MPI number of processes
+  LOGICAL, SAVE, TARGET  :: parinit = .FALSE.                        !< MPI initialization status
+  CHARACTER(LEN=1), SAVE :: prefix  = ' '                            !< preceds info output
   !--------------------------------------------------------------------------!
-  PUBLIC :: &
+  PUBLIC ::                 &
        ! types
-       logging_base, &
+       logging_base,        &
 #ifdef PARALLEL
-       DEFAULT_MPI_REAL, &
-       DEFAULT_MPI_2REAL, &
+       DEFAULT_MPI_REAL,    &
+       DEFAULT_MPI_2REAL,   &
        DEFAULT_MPI_COMPLEX, &
 #endif
        SetPrefix
@@ -112,11 +111,11 @@ CONTAINS
   SUBROUTINE InitLogging(this,t,n)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(logging_base),INTENT(INOUT)     :: this !< \param [out] this module type and name
-    INTEGER           :: t    !< \param [in]  t module type identification number
-    CHARACTER(LEN=*)  :: n    !< \param [in]  n module type name
+    CLASS(logging_base), INTENT(INOUT) :: this !< \param [out] this module type and name
+    INTEGER                            :: t    !< \param [in]  t module type identification number
+    CHARACTER(LEN=*)                   :: n    !< \param [in]  n module type name
     !------------------------------------------------------------------------!
-    INTENT(IN)        :: t,n
+    INTENT(IN)                         :: t,n
     !------------------------------------------------------------------------!
     this%mod_type = t
     this%mod_name = n
@@ -163,7 +162,7 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(logging_base), INTENT(IN) :: this !< \param [in] this module type and name
-    INTEGER :: t
+    INTEGER                         :: t
     !------------------------------------------------------------------------!
     t = this%mod_type
   END FUNCTION GetType
@@ -186,7 +185,7 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(logging_base), INTENT(IN) :: this !< \param [in] this module type and name
-    CHARACTER(LEN=32) :: n
+    CHARACTER(LEN=32)               :: n
     !------------------------------------------------------------------------!
     n = this%mod_name
   END FUNCTION GetName
@@ -202,7 +201,7 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(logging_base), INTENT(IN) :: this !< \param [in] this module type and name
-    INTEGER :: r
+    INTEGER                         :: r
     !------------------------------------------------------------------------!
     r = this%myrank
   END FUNCTION GetRank
@@ -216,7 +215,7 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(logging_base), INTENT(IN) :: this !< \param [in] this module type and name
-    INTEGER :: p
+    INTEGER                         :: p
     !------------------------------------------------------------------------!
     p = this%ppnum
   END FUNCTION GetNumProcs
@@ -230,7 +229,7 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(logging_base), INTENT(IN) :: this !< \param [in] this module type and name
-    LOGICAL :: i
+    LOGICAL                         :: i
     !------------------------------------------------------------------------!
 #ifdef PARALLEL
     i = this%isinitialized .AND. this%parinit
@@ -253,11 +252,11 @@ CONTAINS
   SUBROUTINE Info(this,msg,rank,node_info,tostderr)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(logging_base), INTENT(IN)  :: this !< \param [in] this module type and name
-    CHARACTER(LEN=*),  INTENT(IN) :: msg  !< \param [in] msg info message
-    INTEGER, OPTIONAL, INTENT(IN) :: rank !< \param [in] rank MPI rank
-    LOGICAL, OPTIONAL, INTENT(IN) :: node_info !< \param [in] node_info enable rank output
-    LOGICAL, OPTIONAL, INTENT(IN) :: tostderr  !< \param [in] tostderr enable STDERR output
+    CLASS(logging_base), INTENT(IN)  :: this      !< \param [in] this module type and name
+    CHARACTER(LEN=*), INTENT(IN)     :: msg       !< \param [in] msg info message
+    INTEGER, OPTIONAL, INTENT(IN)    :: rank      !< \param [in] rank MPI rank
+    LOGICAL, OPTIONAL, INTENT(IN)    :: node_info !< \param [in] node_info enable rank output
+    LOGICAL, OPTIONAL, INTENT(IN)    :: tostderr  !< \param [in] tostderr enable STDERR output
     !------------------------------------------------------------------------!
 #ifdef PARALLEL
     INTEGER :: ierr
@@ -280,10 +279,10 @@ CONTAINS
     IF (PRESENT(tostderr).AND.tostderr) THEN
        output_unit = STDERR ! print on STDERR if requested
     ENDIF
-#ifdef PARALLEL 
+#ifdef PARALLEL
     IF (.NOT.parinit) CALL MPI_Comm_rank(mpi_comm_world,myrank,ierr)
 #endif
-    ! use "myrank" here instead of "this%myrank" 
+    ! use "myrank" here instead of "this%myrank"
     ! because "this" might be uninitialized
     IF (myrank.EQ.print_rank) THEN
        WRITE (output_unit,'(A)',ADVANCE='NO') prefix
@@ -310,10 +309,10 @@ CONTAINS
   SUBROUTINE Warning(this,modproc,msg,rank)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(logging_base), INTENT(IN) :: this !< \param [in] this module type and name
-    CHARACTER(LEN=*),  INTENT(IN) :: modproc !< \param [in] modproc name of module procedure
-    CHARACTER(LEN=*),  INTENT(IN) :: msg     !< \param [in] msg warning message
-    INTEGER, OPTIONAL, INTENT(IN) :: rank !< \param [in] rank MPI rank
+    CLASS(logging_base), INTENT(IN) :: this    !< \param [in] this module type and name
+    CHARACTER(LEN=*), INTENT(IN)    :: modproc !< \param [in] modproc name of module procedure
+    CHARACTER(LEN=*), INTENT(IN)    :: msg     !< \param [in] msg warning message
+    INTEGER, OPTIONAL, INTENT(IN)   :: rank    !< \param [in] rank MPI rank
     !------------------------------------------------------------------------!
      CALL Info(this,"WARNING in " // TRIM(modproc) // ": " // TRIM(msg),&
                rank,node_info=.TRUE.,tostderr=.TRUE.)
@@ -328,11 +327,11 @@ CONTAINS
   SUBROUTINE Error(this,modproc,msg,rank,node_info)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(logging_base), INTENT(IN)  :: this !< \param [in,out] this module type and name
-    CHARACTER(LEN=*),  INTENT(IN) :: modproc !< \param [in] modproc name of module procedure
-    CHARACTER(LEN=*),  INTENT(IN) :: msg !< \param [in] msg warning message
-    INTEGER, OPTIONAL, INTENT(IN) :: rank !< \param [in] rank MPI rank
-    LOGICAL, OPTIONAL, INTENT(IN) :: node_info !< \param [in] node_info enable rank output
+    CLASS(logging_base), INTENT(IN)  :: this      !< \param [in,out] this module type and name
+    CHARACTER(LEN=*), INTENT(IN)     :: modproc   !< \param [in] modproc name of module procedure
+    CHARACTER(LEN=*), INTENT(IN)     :: msg       !< \param [in] msg warning message
+    INTEGER, OPTIONAL, INTENT(IN)    :: rank      !< \param [in] rank MPI rank
+    LOGICAL, OPTIONAL, INTENT(IN)    :: node_info !< \param [in] node_info enable rank output
     !------------------------------------------------------------------------!
 #ifdef PARALLEL
     INTEGER :: ierr

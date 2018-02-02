@@ -1,11 +1,12 @@
 !#############################################################################
 !#                                                                           #
-!# fosite - 2D hydrodynamical simulation program                             #
+!# fosite - 3D hydrodynamical simulation program                             #
 !# module: fileio_vtk.f90                                                    #
 !#                                                                           #
 !# Copyright (C) 2010-2017                                                   #
-!# Björn Sperling <sperling@astrophysik.uni-kiel.de>                         #
+!# Björn Sperling   <sperling@astrophysik.uni-kiel.de>                       #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
+!# Jannes Klee      <jklee@astrophysik.uni-kiel.de>                          #
 !#                                                                           #
 !# This program is free software; you can redistribute it and/or modify      #
 !# it under the terms of the GNU General Public License as published by      #
@@ -118,20 +119,20 @@ CONTAINS
   SUBROUTINE InitFileIO_vtk(this,Mesh,Physics,Timedisc,Sources,config,IO)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(fileio_vtk),   INTENT(INOUT) :: this    !< \param [in,out] this fileio type
-    CLASS(mesh_base),    INTENT(IN)    :: Mesh    !< \param [in] Mesh mesh type
-    CLASS(physics_base), INTENT(IN)    :: Physics !< \param [in] Physics Physics type
-    CLASS(timedisc_base),INTENT(IN)    :: Timedisc!< \param [in] Physics Physics type
-    CLASS(sources_base), INTENT(IN), POINTER :: Sources !< \param [in] Physics Physics type
-    TYPE(Dict_TYP),      INTENT(IN), POINTER :: config  !< \param [in] IO Dictionary for I/O
-    TYPE(Dict_TYP),      INTENT(IN), POINTER :: IO      !< \param [in] IO Dictionary for I/O
+    CLASS(fileio_vtk),   INTENT(INOUT)       :: this     !< \param [in,out] this fileio type
+    CLASS(mesh_base),    INTENT(IN)          :: Mesh     !< \param [in] Mesh mesh type
+    CLASS(physics_base), INTENT(IN)          :: Physics  !< \param [in] Physics Physics type
+    CLASS(timedisc_base),INTENT(IN)          :: Timedisc !< \param [in] Physics Physics type
+    CLASS(sources_base), INTENT(IN), POINTER :: Sources  !< \param [in] Physics Physics type
+    TYPE(Dict_TYP),      INTENT(IN), POINTER :: config   !< \param [in] IO Dictionary for I/O
+    TYPE(Dict_TYP),      INTENT(IN), POINTER :: IO       !< \param [in] IO Dictionary for I/O
     !------------------------------------------------------------------------!
-    TYPE(Dict_TYP), POINTER            :: node
-    TYPE(real_t)                       :: dummy1
-    INTEGER                            :: k,n,i,j
-    REAL                               :: ftime
-    INTEGER, DIMENSION(:), POINTER     :: sendbuf,recvbuf
-    REAL, DIMENSION(:,:,:,:,:), POINTER  :: corners
+    TYPE(Dict_TYP), POINTER             :: node
+    TYPE(real_t)                        :: dummy1
+    INTEGER                             :: k,n,i,j
+    REAL                                :: ftime
+    INTEGER, DIMENSION(:), POINTER      :: sendbuf,recvbuf
+    REAL, DIMENSION(:,:,:,:,:), POINTER :: corners
     !------------------------------------------------------------------------!
 #ifdef PARALLEL
     this%multfiles = .TRUE.
@@ -143,17 +144,17 @@ CONTAINS
     IF (this%cycles .NE. this%count+1) CALL this%Error('InitFileIO','VTK need filecycles = count+1')
 
     ! allocate memory for auxilliary data fields
-    ALLOCATE(this%binout(MAXCOMP, &
-                         Mesh%IMIN:Mesh%IMAX, &
-                         Mesh%JMIN:Mesh%JMAX, &
-                         Mesh%KMIN:Mesh%KMAX),&
-             this%vtkcoords(3, &
-                         Mesh%IMIN:Mesh%IMAX+1, &
-                         Mesh%JMIN:Mesh%JMAX+1, &
-                         Mesh%KMIN:Mesh%KMAX+1),&
-             this%output(MAXCOLS), &
-             this%tsoutput(MAXCOLS), &
-             this%bflux(Physics%VNUM,6),&
+    ALLOCATE(this%binout(MAXCOMP,                &
+                         Mesh%IMIN:Mesh%IMAX,    &
+                         Mesh%JMIN:Mesh%JMAX,    &
+                         Mesh%KMIN:Mesh%KMAX),   &
+             this%vtkcoords(3,                   &
+                         Mesh%IMIN:Mesh%IMAX+1,  &
+                         Mesh%JMIN:Mesh%JMAX+1,  &
+                         Mesh%KMIN:Mesh%KMAX+1), &
+             this%output(MAXCOLS),               &
+             this%tsoutput(MAXCOLS),             &
+             this%bflux(Physics%VNUM,6),         &
              STAT = this%error_io)
     IF (this%error_io.NE.0) &
          CALL this%Error("InitFileio_vtk", "Unable to allocate memory.")
@@ -255,11 +256,11 @@ CONTAINS
   SUBROUTINE WriteParaviewFile(this)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(fileio_vtk), INTENT(INOUT)  :: this
+    CLASS(fileio_vtk), INTENT(INOUT) :: this
     !------------------------------------------------------------------------!
-    INTEGER             :: i,k
-    REAL                :: ftime
-    CHARACTER(LEN=256)  :: basename
+    INTEGER                          :: i,k
+    REAL                             :: ftime
+    CHARACTER(LEN=256)               :: basename
     !------------------------------------------------------------------------!
     ! write a pvd-file: this is a "master" file of all timesteps of all ranks
     CALL this%OpenFile(REPLACE,'pvd')
@@ -310,16 +311,16 @@ CONTAINS
   SUBROUTINE GetPrecision(this,realsize)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(fileio_vtk), INTENT(INOUT) :: this !< \param [in,out] this fileio type
-    INTEGER            :: realsize  !< \param [out] realsize size of real (byte)
+    CLASS(fileio_vtk), INTENT(INOUT) :: this     !< \param [in,out] this fileio type
+    INTEGER                          :: realsize !< \param [out] realsize size of real (byte)
     !------------------------------------------------------------------------!
-    CHARACTER(LEN=4)   :: cTIPO4
-    CHARACTER(LEN=8)   :: cTIPO8
-    CHARACTER(LEN=16)  :: cTIPO16
-    REAL               :: rTIPO1, rTIPO2
-    INTEGER            :: k,iTIPO
+    CHARACTER(LEN=4)                 :: cTIPO4
+    CHARACTER(LEN=8)                 :: cTIPO8
+    CHARACTER(LEN=16)                :: cTIPO16
+    REAL                             :: rTIPO1, rTIPO2
+    INTEGER                          :: k,iTIPO
     !------------------------------------------------------------------------!
-    INTENT(OUT)        :: realsize
+    INTENT(OUT)                      :: realsize
     !------------------------------------------------------------------------!
 
     !endianness
@@ -354,16 +355,16 @@ CONTAINS
   SUBROUTINE GetEndianness(this, res, littlestr, bigstr)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(fileio_vtk), INTENT(INOUT) :: this !< \param [in,out] this fileio type
-    CHARACTER(LEN=*)  :: res          !< \param [out] res result string
-    CHARACTER(LEN=*)  :: littlestr    !< \param [in] littlestr little endian str
-    CHARACTER(LEN=*)  :: bigstr       !< \param [in] bigstr big endian str
+    CLASS(fileio_vtk), INTENT(INOUT) :: this      !< \param [in,out] this fileio type
+    CHARACTER(LEN=*)                 :: res       !< \param [out] res result string
+    CHARACTER(LEN=*)                 :: littlestr !< \param [in] littlestr little endian str
+    CHARACTER(LEN=*)                 :: bigstr    !< \param [in] bigstr big endian str
     !------------------------------------------------------------------------!
-    INTEGER           :: k,iTIPO
-    CHARACTER, POINTER:: cTIPO(:)
+    INTEGER                          :: k,iTIPO
+    CHARACTER, POINTER               :: cTIPO(:)
     !------------------------------------------------------------------------!
-    INTENT(IN)        :: littlestr, bigstr
-    INTENT(OUT)       :: res
+    INTENT(IN)                       :: littlestr, bigstr
+    INTENT(OUT)                      :: res
     !------------------------------------------------------------------------!
 
     !endianness
@@ -395,20 +396,20 @@ CONTAINS
     !------------------------------------------------------------------------!
     CLASS(fileio_vtk), INTENT(INOUT) :: this !< \param [in,out] this fileio type
     CLASS(mesh_base),  INTENT(IN)    :: Mesh !< \param [in] mesh mesh type
-    TYPE(Dict_TYP),POINTER           :: node !< \param [in,out] node pointer to (sub-)dict
+    TYPE(Dict_TYP),    POINTER       :: node !< \param [in,out] node pointer to (sub-)dict
     INTEGER,           INTENT(INOUT) :: k    !< \param [in,out] k number of data arrays
     INTEGER,           INTENT(INOUT) :: l    !< \param [in,out] l number of data output scalars
     !> \param [in,out] prefix namespace (path) to sub-dict
-    CHARACTER(LEN=*),OPTIONAL, INTENT(INOUT) :: prefix
+    CHARACTER(LEN=*), OPTIONAL, INTENT(INOUT) :: prefix
     !------------------------------------------------------------------------!
-    TYPE(Dict_TYP),POINTER          :: dir
-    CHARACTER(LEN=MAXKEY)           :: key
-    TYPE(real_t)                    :: dummy1
-    REAL,DIMENSION(:,:),POINTER     :: dummy2
-    REAL,DIMENSION(:,:,:),POINTER   :: dummy3
-    REAL,DIMENSION(:,:,:,:),POINTER :: dummy4
-    INTEGER,DIMENSION(4)            :: dims
-    INTEGER                         :: n
+    TYPE(Dict_TYP), POINTER           :: dir
+    CHARACTER(LEN=MAXKEY)             :: key
+    TYPE(real_t)                      :: dummy1
+    REAL, DIMENSION(:,:), POINTER     :: dummy2
+    REAL, DIMENSION(:,:,:), POINTER   :: dummy3
+    REAL, DIMENSION(:,:,:,:), POINTER :: dummy4
+    INTEGER, DIMENSION(4)             :: dims
+    INTEGER                           :: n
     !------------------------------------------------------------------------!
     DO WHILE(ASSOCIATED(node))
       IF(HasChild(node)) THEN
@@ -489,10 +490,9 @@ CONTAINS
   SUBROUTINE OpenFile(this,action,ftype)
      IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(fileio_vtk), INTENT(INOUT) :: this    !< \param [in,out] this fileio type
-    INTEGER,           INTENT(IN)    :: action  !< \param [in] action mode of file access
-    CHARACTER(LEN=*),  INTENT(IN), OPTIONAL &
-                                     :: ftype !< \param [in] file type
+    CLASS(fileio_vtk), INTENT(INOUT)        :: this   !< \param [in,out] this fileio type
+    INTEGER,           INTENT(IN)           :: action !< \param [in] action mode of file access
+    CHARACTER(LEN=*),  INTENT(IN), OPTIONAL :: ftype  !< \param [in] file type
     !------------------------------------------------------------------------!
     CHARACTER(LEN=32)  :: sta,act,pos,fext
     !------------------------------------------------------------------------!
@@ -563,11 +563,11 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(fileio_vtk), INTENT(INOUT) :: this            !< \param [in,out] this fileio type
-    CHARACTER(LEN=*), OPTIONAL :: ftype !< \param [in] file type
+    CHARACTER(LEN=*), OPTIONAL       :: ftype !< \param [in] file type
     !------------------------------------------------------------------------!
-    CHARACTER(LEN=4) :: fext
+    CHARACTER(LEN=4)                 :: fext
     !------------------------------------------------------------------------!
-    INTENT(IN)       :: ftype
+    INTENT(IN)                       :: ftype
     !------------------------------------------------------------------------!
     this%error_io=1
     ! check file type to open
@@ -605,11 +605,11 @@ CONTAINS
   FUNCTION GetSubKey(key) RESULT(subkey)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CHARACTER(LEN=*) :: key
+    CHARACTER(LEN=*)      :: key
     !------------------------------------------------------------------------!
     CHARACTER(LEN=MAXKEY) :: subkey
     !------------------------------------------------------------------------!
-    INTENT(IN)       :: key
+    INTENT(IN)            :: key
     !------------------------------------------------------------------------!
     ! format of key like: "abcd/SUBKEY/efgh"
     subkey = key(SCAN(key,"/",.TRUE.)+1:)
@@ -668,9 +668,9 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(fileio_vtk), INTENT(INOUT) :: this
-    LOGICAL          :: success
+    LOGICAL                          :: success
     !------------------------------------------------------------------------!
-    INTENT(OUT)      :: success
+    INTENT(OUT)                      :: success
     !------------------------------------------------------------------------!
     CALL this%OpenFile(READONLY)
     success = .FALSE.
@@ -714,9 +714,9 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(fileio_vtk), INTENT(INOUT) :: this
-    REAL              :: time
+    REAL                             :: time
     !------------------------------------------------------------------------!
-    INTENT(OUT)       :: time
+    INTENT(OUT)                      :: time
     !------------------------------------------------------------------------!
     CALL this%OpenFile(READONLY)
     time = 0.0
@@ -729,20 +729,20 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(fileio_vtk),    INTENT(INOUT) :: this     !< \param [in,out] this fileio type
-    CLASS(mesh_base)   ,  INTENT(IN)    :: Mesh     !< \param [in] mesh mesh type
+    CLASS(mesh_base),     INTENT(IN)    :: Mesh     !< \param [in] mesh mesh type
     CLASS(physics_base),  INTENT(IN)    :: Physics  !< \param [in] physics physics type
-    CLASS(fluxes_base) ,  INTENT(IN)    :: Fluxes   !< \param [in] fluxes fluxes type
+    CLASS(fluxes_base),   INTENT(IN)    :: Fluxes   !< \param [in] fluxes fluxes type
     CLASS(timedisc_base), INTENT(IN)    :: Timedisc !< \param [in] timedisc timedisc type
     TYPE(Dict_TYP),       POINTER       :: Header   !< \param [in,out] IO I/O dictionary
     TYPE(Dict_TYP),       POINTER       :: IO       !< \param [in,out] IO I/O dictionary
     !------------------------------------------------------------------------!
-    INTEGER                            :: i,j,k,m
-    INTEGER                            :: spos, epos, n, offset
-    CHARACTER(LEN=256)                 :: basename
-    REAL,DIMENSION(:,:),POINTER        :: dummy2
-    REAL,DIMENSION(:,:,:),POINTER      :: dummy3
-    REAL,DIMENSION(:,:,:,:),POINTER    :: dummy4
-    TYPE(Dict_TYP),POINTER             :: node
+    INTEGER                             :: i,j,k,m
+    INTEGER                             :: spos, epos, n, offset
+    CHARACTER(LEN=256)                  :: basename
+    REAL,DIMENSION(:,:),POINTER         :: dummy2
+    REAL,DIMENSION(:,:,:),POINTER       :: dummy3
+    REAL,DIMENSION(:,:,:,:),POINTER     :: dummy4
+    TYPE(Dict_TYP),POINTER              :: node
     !------------------------------------------------------------------------!
     ! this part is formerly from fileio_generic.f90
     ! calculate boundary fluxes, if they were requested for write
@@ -1004,7 +1004,7 @@ CONTAINS
     !------------------------------------------------------------------------!
     CLASS(fileio_vtk), INTENT(INOUT) :: this   !< \param [in,out] this fileio type
     !------------------------------------------------------------------------!
-    INTEGER          :: k
+    INTEGER                          :: k
     !------------------------------------------------------------------------!
     !------------------------------------------------------------------------!
     DO k=1,this%cols

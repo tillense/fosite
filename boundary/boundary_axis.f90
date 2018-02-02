@@ -1,6 +1,6 @@
 !#############################################################################
 !#                                                                           #
-!# fosite - 2D hydrodynamical simulation program                             #
+!# fosite - 3D hydrodynamical simulation program                             #
 !# module: boundary_axis.f90                                                 #
 !#                                                                           #
 !# Copyright (C) 2006-2014                                                   #
@@ -34,7 +34,7 @@
 !----------------------------------------------------------------------------!
 MODULE boundary_axis_mod
   USE mesh_base_mod
-  USE boundary_base_mod 
+  USE boundary_base_mod
   USE physics_base_mod
   USE common_dict
   IMPLICIT NONE
@@ -42,9 +42,9 @@ MODULE boundary_axis_mod
   PRIVATE
   TYPE, EXTENDS(boundary_base) :: boundary_axis
     CONTAINS
-      PROCEDURE :: InitBoundary_axis
-      PROCEDURE :: SetBoundaryData
-      FINAL     :: Finalize
+      PROCEDURE                :: InitBoundary_axis
+      PROCEDURE                :: SetBoundaryData
+      FINAL                    :: Finalize
   END TYPE
   CHARACTER(LEN=32), PARAMETER :: boundcond_name = "axis"
   !--------------------------------------------------------------------------!
@@ -59,19 +59,19 @@ CONTAINS
   SUBROUTINE InitBoundary_axis(this,Mesh,Physics,dir,config)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(boundary_axis),     INTENT(INOUT) :: this
-    CLASS(physics_base),      INTENT(IN)    :: Physics
-    CLASS(mesh_base),         INTENT(IN)    :: Mesh
-    TYPE(Dict_TYP), POINTER,  INTENT(IN)    :: config
-    INTEGER            :: dir
+    CLASS(boundary_axis),    INTENT(INOUT) :: this
+    CLASS(physics_base),     INTENT(IN)    :: Physics
+    CLASS(mesh_base),        INTENT(IN)    :: Mesh
+    TYPE(Dict_TYP), POINTER, INTENT(IN)    :: config
+    INTEGER                                :: dir
     !------------------------------------------------------------------------!
-    INTEGER       :: err
+    INTEGER                                :: err
     !------------------------------------------------------------------------!
     CALL this%InitBoundary(Mesh,Physics,AXIS,boundcond_name,dir,config)
 
     ALLOCATE(this%reflX(Physics%vnum), &
-         this%reflY(Physics%vnum), &
-         this%reflZ(Physics%vnum), &
+         this%reflY(Physics%vnum),     &
+         this%reflZ(Physics%vnum),     &
          STAT=err)
     IF (err.NE.0) THEN
        CALL this%Error("InitBoundary_axis", "Unable to allocate memory.")
@@ -86,7 +86,7 @@ CONTAINS
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     CALL Physics%AxisMasks(this%reflX,this%reflY,this%reflZ)
   END SUBROUTINE InitBoundary_axis
- 
+
   !TODO: NOT VERIFIED
   !> \public Applies the axis/reflecting boundary condition
  PURE SUBROUTINE SetBoundaryData(this,Mesh,Physics,pvar)
@@ -98,7 +98,7 @@ CONTAINS
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
                                 INTENT(INOUT) :: pvar
     !------------------------------------------------------------------------!
-    INTEGER       :: i,j,k
+    INTEGER                                   :: i,j,k
     !------------------------------------------------------------------------!
 !CDIR IEXPAND
     SELECT CASE(this%direction%GetType())

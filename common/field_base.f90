@@ -1,6 +1,6 @@
 !#############################################################################
 !#                                                                           #
-!# fosite - 2D hydrodynamical simulation program                             #
+!# fosite - 3D hydrodynamical simulation program                             #
 !# module: field_base.f90                                                    #
 !#                                                                           #
 !# Copyright (C) 2006-2017                                                   #
@@ -57,9 +57,9 @@ MODULE field_base_mod
     PROCEDURE :: AddFieldS_1
     PROCEDURE :: MultFieldS_0
     PROCEDURE :: MultFieldS_1
-    GENERIC :: ASSIGNMENT(=) => AssignFieldS_0, AssignFieldS_1
-    GENERIC :: OPERATOR(+) => AddFieldS_0, AddFieldS_1
-    GENERIC :: OPERATOR(*) => MultFieldS_0, MultFieldS_1
+    GENERIC   :: ASSIGNMENT(=) => AssignFieldS_0, AssignFieldS_1
+    GENERIC   :: OPERATOR(+) => AddFieldS_0, AddFieldS_1
+    GENERIC   :: OPERATOR(*) => MultFieldS_0, MultFieldS_1
   END TYPE
 
   !> type for vector (rank 1) array data on the mesh
@@ -71,8 +71,8 @@ MODULE field_base_mod
     PROCEDURE :: AssignFieldV_1
     PROCEDURE :: AddFieldV_0
     PROCEDURE :: AddFieldV_1
-    GENERIC :: ASSIGNMENT(=) => AssignFieldV_0, AssignFieldV_1
-    GENERIC :: OPERATOR(+) => AddFieldV_0, AddFieldV_1
+    GENERIC   :: ASSIGNMENT(=) => AssignFieldV_0, AssignFieldV_1
+    GENERIC   :: OPERATOR(+) => AddFieldV_0, AddFieldV_1
   END TYPE
 
   !> type for tensor (rank 2) array data on the mesh
@@ -84,8 +84,8 @@ MODULE field_base_mod
     PROCEDURE :: AssignFieldT_1
     PROCEDURE :: AddFieldT_0
     PROCEDURE :: AddFieldT_1
-    GENERIC :: ASSIGNMENT(=) => AssignFieldT_0, AssignFieldT_1
-    GENERIC :: OPERATOR(+) => AddFieldT_0, AddFieldT_1
+    GENERIC   :: ASSIGNMENT(=) => AssignFieldT_0, AssignFieldT_1
+    GENERIC   :: OPERATOR(+) => AddFieldT_0, AddFieldT_1
   END TYPE
   !--------------------------------------------------------------------------!
 
@@ -95,8 +95,8 @@ CONTAINS
   SUBROUTINE AssignFieldS_0(out,in)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(FieldS),INTENT(IN) :: in
-    CLASS(FieldS),INTENT(OUT) :: out
+    CLASS(FieldS), INTENT(IN)  :: in
+    CLASS(FieldS), INTENT(OUT) :: out
     !------------------------------------------------------------------------!
     out%data(:,:,:) = in%data(:,:,:)
   END SUBROUTINE AssignFieldS_0
@@ -106,7 +106,7 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     REAL, DIMENSION(:,:,:), INTENT(IN) :: in
-    CLASS(FieldS),INTENT(OUT) :: out
+    CLASS(FieldS), INTENT(OUT)         :: out
     !------------------------------------------------------------------------!
     out%data(:,:,:) = in(:,:,:)
   END SUBROUTINE AssignFieldS_1
@@ -115,8 +115,8 @@ CONTAINS
   SUBROUTINE AssignFieldV_0(out,in)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(FieldV),INTENT(IN) :: in
-    CLASS(FieldV),INTENT(OUT) :: out
+    CLASS(FieldV), INTENT(IN)  :: in
+    CLASS(FieldV), INTENT(OUT) :: out
     !------------------------------------------------------------------------!
     out%data(:,:,:,:) = in%data(:,:,:,:)
   END SUBROUTINE AssignFieldV_0
@@ -126,7 +126,7 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     REAL, DIMENSION(:,:,:,:), INTENT(IN) :: in
-    CLASS(FieldV),INTENT(OUT) :: out
+    CLASS(FieldV), INTENT(OUT)           :: out
     !------------------------------------------------------------------------!
     out%data(:,:,:,:) = in(:,:,:,:)
   END SUBROUTINE AssignFieldV_1
@@ -135,8 +135,8 @@ CONTAINS
   SUBROUTINE AssignFieldT_0(out,in)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(FieldT),INTENT(IN) :: in
-    CLASS(FieldT),INTENT(OUT) :: out
+    CLASS(FieldT), INTENT(IN)  :: in
+    CLASS(FieldT), INTENT(OUT) :: out
     !------------------------------------------------------------------------!
     out%data(:,:,:,:,:) = in%data(:,:,:,:,:)
   END SUBROUTINE AssignFieldT_0
@@ -146,7 +146,7 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     REAL, DIMENSION(:,:,:,:,:), INTENT(IN) :: in
-    CLASS(FieldT),INTENT(OUT) :: out
+    CLASS(FieldT), INTENT(OUT)             :: out
     !------------------------------------------------------------------------!
     out%data(:,:,:,:,:) = in(:,:,:,:,:)
   END SUBROUTINE AssignFieldT_1
@@ -155,7 +155,7 @@ CONTAINS
   PURE FUNCTION AddFieldS_0(a,b) RESULT(c)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(FieldS),INTENT(IN) :: a,b
+    CLASS(FieldS), INTENT(IN) :: a,b
     REAL, DIMENSION(SIZE(a%data,1),SIZE(a%data,2),SIZE(a%data,3)) :: c
     !------------------------------------------------------------------------!
     c(:,:,:) = a%data(:,:,:)+b%data(:,:,:)
@@ -166,8 +166,8 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(FieldS),INTENT(IN) :: a
-    REAL, DIMENSION(SIZE(a%data,1),SIZE(a%data,2),SIZE(a%data,3)),INTENT(IN) :: b
-    REAL, DIMENSION(SIZE(a%data,1),SIZE(a%data,2),SIZE(a%data,3)) :: c
+    REAL, DIMENSION(SIZE(a%data,1),SIZE(a%data,2),SIZE(a%data,3)), INTENT(IN) :: b
+    REAL, DIMENSION(SIZE(a%data,1),SIZE(a%data,2),SIZE(a%data,3))             :: c
     !------------------------------------------------------------------------!
     c(:,:,:) = a%data(:,:,:)+b(:,:,:)
   END FUNCTION AddFieldS_1
@@ -177,8 +177,8 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(FieldS),INTENT(IN) :: b
-    REAL, DIMENSION(SIZE(b%data,1),SIZE(b%data,2),SIZE(b%data,3)),INTENT(IN) :: a
-    REAL, DIMENSION(SIZE(b%data,1),SIZE(b%data,2),SIZE(b%data,3)) :: c
+    REAL, DIMENSION(SIZE(b%data,1),SIZE(b%data,2),SIZE(b%data,3)), INTENT(IN) :: a
+    REAL, DIMENSION(SIZE(b%data,1),SIZE(b%data,2),SIZE(b%data,3))             :: c
     !------------------------------------------------------------------------!
     c(:,:,:) = a(:,:,:)+b%data(:,:,:)
   END FUNCTION AddFieldS_2
@@ -198,8 +198,8 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(FieldV),INTENT(IN) :: a
-    REAL, DIMENSION(SIZE(a%data,1),SIZE(a%data,2),SIZE(a%data,3),SIZE(a%data,4)),INTENT(IN) :: b
-    REAL, DIMENSION(SIZE(a%data,1),SIZE(a%data,2),SIZE(a%data,3),SIZE(a%data,4)) :: c
+    REAL, DIMENSION(SIZE(a%data,1),SIZE(a%data,2),SIZE(a%data,3),SIZE(a%data,4)), INTENT(IN) :: b
+    REAL, DIMENSION(SIZE(a%data,1),SIZE(a%data,2),SIZE(a%data,3),SIZE(a%data,4))             :: c
     !------------------------------------------------------------------------!
     c(:,:,:,:) = a%data(:,:,:,:)+b(:,:,:,:)
   END FUNCTION AddFieldV_1
@@ -209,8 +209,8 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(FieldV),INTENT(IN) :: b
-    REAL, DIMENSION(SIZE(b%data,1),SIZE(b%data,2),SIZE(b%data,3),SIZE(b%data,4)),INTENT(IN) :: a
-    REAL, DIMENSION(SIZE(b%data,1),SIZE(b%data,2),SIZE(b%data,3),SIZE(b%data,4)) :: c
+    REAL, DIMENSION(SIZE(b%data,1),SIZE(b%data,2),SIZE(b%data,3),SIZE(b%data,4)), INTENT(IN) :: a
+    REAL, DIMENSION(SIZE(b%data,1),SIZE(b%data,2),SIZE(b%data,3),SIZE(b%data,4))             :: c
     !------------------------------------------------------------------------!
     c(:,:,:,:) = a(:,:,:,:)+b%data(:,:,:,:)
   END FUNCTION AddFieldV_2
@@ -230,8 +230,8 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(FieldT),INTENT(IN) :: a
-    REAL, DIMENSION(SIZE(a%data,1),SIZE(a%data,2),SIZE(a%data,3),SIZE(a%data,4),SIZE(a%data,5)),INTENT(IN) :: b
-    REAL, DIMENSION(SIZE(a%data,1),SIZE(a%data,2),SIZE(a%data,3),SIZE(a%data,4),SIZE(a%data,5)) :: c
+    REAL, DIMENSION(SIZE(a%data,1),SIZE(a%data,2),SIZE(a%data,3),SIZE(a%data,4),SIZE(a%data,5)), INTENT(IN) :: b
+    REAL, DIMENSION(SIZE(a%data,1),SIZE(a%data,2),SIZE(a%data,3),SIZE(a%data,4),SIZE(a%data,5))             :: c
     !------------------------------------------------------------------------!
     c(:,:,:,:,:) = a%data(:,:,:,:,:)+b(:,:,:,:,:)
   END FUNCTION AddFieldT_1
@@ -241,8 +241,8 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(FieldT),INTENT(IN) :: b
-    REAL, DIMENSION(SIZE(b%data,1),SIZE(b%data,2),SIZE(b%data,3),SIZE(b%data,4),SIZE(b%data,5)),INTENT(IN) :: a
-    REAL, DIMENSION(SIZE(b%data,1),SIZE(b%data,2),SIZE(b%data,3),SIZE(b%data,4),SIZE(b%data,5)) :: c
+    REAL, DIMENSION(SIZE(b%data,1),SIZE(b%data,2),SIZE(b%data,3),SIZE(b%data,4),SIZE(b%data,5)), INTENT(IN) :: a
+    REAL, DIMENSION(SIZE(b%data,1),SIZE(b%data,2),SIZE(b%data,3),SIZE(b%data,4),SIZE(b%data,5))             :: c
     !------------------------------------------------------------------------!
     c(:,:,:,:,:) = a(:,:,:,:,:)+b%data(:,:,:,:,:)
   END FUNCTION AddFieldT_2
@@ -251,7 +251,7 @@ CONTAINS
   PURE FUNCTION MultFieldS_0(a,b) RESULT(c)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(FieldS),INTENT(IN)  :: a,b
+    CLASS(FieldS),INTENT(IN) :: a,b
     REAL, DIMENSION(SIZE(a%data,1),SIZE(a%data,2),SIZE(a%data,3)) :: c
     !------------------------------------------------------------------------!
     c(:,:,:) = a%data(:,:,:)*b%data(:,:,:)
@@ -261,9 +261,9 @@ CONTAINS
   PURE FUNCTION MultFieldS_1(a,b) RESULT(c)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(FieldS),INTENT(IN)  :: a
-    REAL, DIMENSION(SIZE(a%data,1),SIZE(a%data,2),SIZE(a%data,3)),INTENT(IN) :: b
-    REAL, DIMENSION(SIZE(a%data,1),SIZE(a%data,2),SIZE(a%data,3)) :: c
+    CLASS(FieldS),INTENT(IN) :: a
+    REAL, DIMENSION(SIZE(a%data,1),SIZE(a%data,2),SIZE(a%data,3)), INTENT(IN) :: b
+    REAL, DIMENSION(SIZE(a%data,1),SIZE(a%data,2),SIZE(a%data,3))             :: c
     !------------------------------------------------------------------------!
     c(:,:,:) = a%data(:,:,:)*b(:,:,:)
   END FUNCTION MultFieldS_1
@@ -272,9 +272,9 @@ CONTAINS
   PURE FUNCTION MultFieldS_2(a,b) RESULT(c)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(FieldS),INTENT(IN)  :: b
-    REAL, DIMENSION(SIZE(b%data,1),SIZE(b%data,2),SIZE(b%data,3)),INTENT(IN) :: a
-    REAL, DIMENSION(SIZE(b%data,1),SIZE(b%data,2),SIZE(b%data,3)) :: c
+    CLASS(FieldS),INTENT(IN) :: b
+    REAL, DIMENSION(SIZE(b%data,1),SIZE(b%data,2),SIZE(b%data,3)), INTENT(IN) :: a
+    REAL, DIMENSION(SIZE(b%data,1),SIZE(b%data,2),SIZE(b%data,3))             :: c
     !------------------------------------------------------------------------!
     c(:,:,:) = a(:,:,:)*b%data(:,:,:)
   END FUNCTION MultFieldS_2

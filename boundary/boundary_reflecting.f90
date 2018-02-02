@@ -1,6 +1,6 @@
 !#############################################################################
 !#                                                                           #
-!# fosite - 2D hydrodynamical simulation program                             #
+!# fosite - 3D hydrodynamical simulation program                             #
 !# module: boundary_reflecting.f90                                           #
 !#                                                                           #
 !# Copyright (C) 2006-2014                                                   #
@@ -64,11 +64,11 @@ CONTAINS
     TYPE(Dict_TYP), POINTER,    INTENT(IN)    :: config
     INTEGER,                    INTENT(IN)    :: dir
     !------------------------------------------------------------------------!
-    INTEGER       :: err
+    INTEGER                                   :: err
     !------------------------------------------------------------------------!
     CALL this%InitBoundary(Mesh,Physics,REFLECTING,boundcond_name,dir,config)
 
-    ALLOCATE( &
+    ALLOCATE(                      &
          this%reflX(Physics%VNUM), &
          this%reflY(Physics%VNUM), &
          this%reflZ(Physics%VNUM), &
@@ -92,7 +92,7 @@ CONTAINS
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
                                 INTENT(INOUT) :: pvar
     !------------------------------------------------------------------------!
-    INTEGER       :: i,j,k
+    INTEGER                                   :: i,j,k
     !------------------------------------------------------------------------!
 !CDIR IEXPAND
     SELECT CASE(this%direction%GetType())
