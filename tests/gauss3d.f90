@@ -1,6 +1,6 @@
 !#############################################################################
 !#                                                                           #
-!# fosite - 2D hydrodynamical simulation program                             #
+!# fosite - 3D hydrodynamical simulation program                             #
 !# module: gauss3d.f90                                                       #
 !#                                                                           #
 !# Copyright (C) 2006-2014                                                   #
@@ -27,10 +27,7 @@
 !> 3D Gaussian pressure or density pulse with and without rotation
 !! \author Tobias Illenseer
 !!
-!! [1] Illenseer, T. F., Duschl, W. J.: Two-dimensional central-upwind schemes
-!!     for curvilinear grids and application to gas dynamics with angular momentum,
-!!     Comput. Phys. Comm. 180 (2009), 2283-2302
-!!     DOI: 10.1016/j.cpc.2009.07.016
+!! \cite illenseer2009
 !----------------------------------------------------------------------------!
 PROGRAM gauss3d
   USE fosite_mod

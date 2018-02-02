@@ -1,11 +1,11 @@
 !#############################################################################
 !#                                                                           #
-!# fosite - 2D hydrodynamical simulation program                             #
+!# fosite - 3D hydrodynamical simulation program                             #
 !# module: constants_SI.f90                                                  #
 !#                                                                           #
 !# Copyright (C) 2007-2016                                                   #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
-!# Manuel Jung <mjung@astrophysik.uni-kiel.de>                               #
+!# Manuel Jung      <mjung@astrophysik.uni-kiel.de>                          #
 !#                                                                           #
 !# This program is free software; you can redistribute it and/or modify      #
 !# it under the terms of the GNU General Public License as published by      #

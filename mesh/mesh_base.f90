@@ -1,6 +1,6 @@
 !#############################################################################
 !#                                                                           #
-!# fosite - 2D hydrodynamical simulation program                             #
+!# fosite - 3D hydrodynamical simulation program                             #
 !# module: mesh_generic.f90                                                  #
 !#                                                                           #
 !# Copyright (C) 2006-2012                                                   #
@@ -55,7 +55,7 @@
 !----------------------------------------------------------------------------!
 !> \author Tobias Illenseer
 !!
-!! \brief generic mesh module
+!! \brief base mesh module
 !!
 !! \ingroup mesh
 !----------------------------------------------------------------------------!
@@ -83,14 +83,14 @@ MODULE mesh_base_mod
   INTEGER, PARAMETER :: MIDPOINT     = 1 !< use midpoint rule to approximate flux integrals
   INTEGER, PARAMETER :: TRAPEZOIDAL  = 2 !< use trapezoidal rule to approximate flux integrals
   !> \}
-  !> \todo 
+  !> \todo
   INTEGER, PARAMETER :: NDIMS  = 3       ! dimensions of cartesian topology
   INTEGER, PARAMETER :: NFACES = 6       ! amount of faces
-  INTEGER, PARAMETER :: VECLEN = &       ! vector length ..
+  INTEGER, PARAMETER :: VECLEN = &       ! vector length ...
 #if defined(NECSX8) || defined(NECSX9) || defined(NECSXACE)
-  256                                    ! .. of NEC SX8/SX9/SX-ACE CPUs
+  256                                    ! ... of NEC SX8/SX9/SX-ACE CPUs
 #else
-  1                                      ! .. of everthing else
+  1                                      ! ... of everthing else
 #endif
   !> \todo Check why this is not in boundary base?!
   INTEGER, PARAMETER :: &
@@ -605,11 +605,11 @@ CONTAINS
   SUBROUTINE SetOutput(this,config,IO)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(mesh_base),INTENT(INOUT):: this   !< \param [in,out] this all mesh data
-    TYPE(Dict_TYP),POINTER  :: config,IO
+    CLASS(mesh_base),INTENT(INOUT) :: this   !< \param [in,out] this all mesh data
+    TYPE(Dict_TYP),POINTER         :: config,IO
     !------------------------------------------------------------------------!
-    TYPE(Dict_TYP),POINTER  :: bary,corners,node
-    INTEGER                 :: writefields
+    TYPE(Dict_TYP),POINTER         :: bary,corners,node
+    INTEGER                        :: writefields
     !------------------------------------------------------------------------!
     !Set OutputDict
     CALL GetAttr(config, "output/corners", writefields, 1)
@@ -709,9 +709,9 @@ CONTAINS
   SUBROUTINE CalculateRotation(this)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(mesh_base)             :: this   !< \param [in,out] this all mesh data
+    CLASS(mesh_base) :: this   !< \param [in,out] this all mesh data
     !------------------------------------------------------------------------!
-    INTEGER        :: status
+    INTEGER          :: status
     REAL,DIMENSION(this%IGMIN:this%IGMAX,this%JGMIN:this%JGMAX,this%KGMIN:this%KGMAX,3) :: cart,curv
     !------------------------------------------------------------------------!
         ALLOCATE(this%rotation(this%IGMIN:this%IGMAX,this%JGMIN:this%JGMAX), &
@@ -737,12 +737,12 @@ CONTAINS
     !------------------------------------------------------------------------!
     CLASS(mesh_base),INTENT(IN)     :: this   !< \param [in,out] this all mesh data
     INTEGER, DIMENSION(6), OPTIONAL :: mask
-    REAL        :: x,y,z
-    LOGICAL     :: ip
+    REAL                            :: x,y,z
+    LOGICAL                         :: ip
     !------------------------------------------------------------------------!
-    INTEGER     :: imin,imax,jmin,jmax,kmin,kmax
+    INTEGER                         :: imin,imax,jmin,jmax,kmin,kmax
     !------------------------------------------------------------------------!
-    INTENT(IN)  :: x,y,z,mask
+    INTENT(IN)                      :: x,y,z,mask
     !------------------------------------------------------------------------!
     ip = .FALSE.
     ! compare with the curvilinear extend (curvilinear domain is always rectangular)
@@ -1124,12 +1124,12 @@ CONTAINS
   SUBROUTINE AllocateMesharrayS(this,ma)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(mesh_base),INTENT(IN) :: this   !< \param [in,out] this all mesh data
-    TYPE(MArrayS_TYP) :: ma       !< \param [out] ma scalar mesh array
+    CLASS(mesh_base),INTENT(IN) :: this !< \param [in,out] this all mesh data
+    TYPE(MArrayS_TYP)           :: ma   !< \param [out] ma scalar mesh array
     !------------------------------------------------------------------------!
-    INTEGER           :: err
+    INTEGER                     :: err
     !------------------------------------------------------------------------!
-    INTENT(OUT)       :: ma
+    INTENT(OUT)                 :: ma
     !------------------------------------------------------------------------!
     ALLOCATE(ma%data(this%IGMIN:this%IGMAX,this%JGMIN:this%JGMAX,this%KGMIN:this%KGMAX,(1+1+6+8)),STAT=err)
     IF (err.NE.0) THEN
@@ -1145,13 +1145,13 @@ CONTAINS
   SUBROUTINE AllocateMesharrayV(this,ma,n)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(mesh_base),INTENT(IN) :: this   !< \param [in,out] this all mesh data
-    TYPE(MArrayV_TYP) :: ma       !< \param [out] ma vector mesh array
-    INTEGER,OPTIONAL  :: n        !< \param [in] n vector dimension
+    CLASS(mesh_base),INTENT(IN) :: this !< \param [in,out] this all mesh data
+    TYPE(MArrayV_TYP)           :: ma   !< \param [out] ma vector mesh array
+    INTEGER,OPTIONAL            :: n    !< \param [in] n vector dimension
     !------------------------------------------------------------------------!
-    INTEGER           :: err,n_def
+    INTEGER                     :: err,n_def
     !------------------------------------------------------------------------!
-    INTENT(OUT)       :: ma
+    INTENT(OUT)                 :: ma
     !------------------------------------------------------------------------!
     IF (PRESENT(n)) THEN
        n_def = n
@@ -1174,13 +1174,13 @@ CONTAINS
   SUBROUTINE AllocateMesharrayT(this,ma,n)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(mesh_base),INTENT(IN) :: this   !< \param [in,out] this all mesh data
-    TYPE(MArrayT_TYP) :: ma       !< \param [out] ma tensor mesh array
-    INTEGER,OPTIONAL  :: n        !< \param [in] n tensor dimension
+    CLASS(mesh_base),INTENT(IN) :: this !< \param [in,out] this all mesh data
+    TYPE(MArrayT_TYP)           :: ma   !< \param [out] ma tensor mesh array
+    INTEGER,OPTIONAL            :: n    !< \param [in] n tensor dimension
     !------------------------------------------------------------------------!
-    INTEGER           :: err,n_def
+    INTEGER                     :: err,n_def
     !------------------------------------------------------------------------!
-    INTENT(OUT)       :: ma
+    INTENT(OUT)                 :: ma
     !------------------------------------------------------------------------!
     IF (PRESENT(n)) THEN
        n_def = n
@@ -1203,12 +1203,12 @@ CONTAINS
   SUBROUTINE DeallocateMesharrayS(this,ma)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(mesh_base),INTENT(IN) :: this   !< \param [in,out] this all mesh data
-    TYPE(MArrayS_TYP) :: ma
+    CLASS(mesh_base),INTENT(IN) :: this !< \param [in,out] this all mesh data
+    TYPE(MArrayS_TYP)           :: ma
     !------------------------------------------------------------------------!
-    INTEGER           :: err
+    INTEGER                     :: err
     !------------------------------------------------------------------------!
-    INTENT(OUT)       :: ma
+    INTENT(OUT)                 :: ma
     !------------------------------------------------------------------------!
     DEALLOCATE(ma%data,STAT=err)
     IF (err.NE.0) THEN
@@ -1221,12 +1221,12 @@ CONTAINS
   SUBROUTINE DeallocateMesharrayV(this,ma)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(mesh_base),INTENT(IN) :: this   !< \param [in,out] this all mesh data
-    TYPE(MArrayV_TYP) :: ma
+    CLASS(mesh_base),INTENT(IN) :: this !< \param [in,out] this all mesh data
+    TYPE(MArrayV_TYP)           :: ma
     !------------------------------------------------------------------------!
-    INTEGER           :: err
+    INTEGER                     :: err
     !------------------------------------------------------------------------!
-    INTENT(OUT)       :: ma
+    INTENT(OUT)                 :: ma
     !------------------------------------------------------------------------!
     DEALLOCATE(ma%data,STAT=err)
     IF (err.NE.0) THEN
@@ -1239,12 +1239,12 @@ CONTAINS
   SUBROUTINE DeallocateMesharrayT(this,ma)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(mesh_base),INTENT(IN) :: this   !< \param [in,out] this all mesh data
-    TYPE(MArrayT_TYP) :: ma
+    CLASS(mesh_base),INTENT(IN) :: this !< \param [in,out] this all mesh data
+    TYPE(MArrayT_TYP)           :: ma
     !------------------------------------------------------------------------!
-    INTEGER           :: err
+    INTEGER                     :: err
     !------------------------------------------------------------------------!
-    INTENT(OUT)       :: ma
+    INTENT(OUT)                 :: ma
     !------------------------------------------------------------------------!
     DEALLOCATE(ma%data,STAT=err)
     IF (err.NE.0) THEN
@@ -1264,12 +1264,12 @@ CONTAINS
   FUNCTION RemapBounds_1(this,array) RESULT(ptr)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(mesh_base)             :: this   !< \param [in,out] this all mesh data
+    CLASS(mesh_base)                :: this !< \param [in,out] this all mesh data
     REAL, DIMENSION(this%IGMIN:,this%JGMIN:,this%KGMIN:), TARGET :: array
     !------------------------------------------------------------------------!
     REAL, DIMENSION(:,:,:), POINTER :: ptr
     !------------------------------------------------------------------------!
-    INTENT(IN)      :: array
+    INTENT(IN)                      :: array
     !------------------------------------------------------------------------!
     ptr => array
   END FUNCTION RemapBounds_1
@@ -1278,14 +1278,13 @@ CONTAINS
   FUNCTION RemapBounds_2(this,array) RESULT(ptr)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(mesh_base)             :: this   !< \param [in,out] this all mesh data
+    CLASS(mesh_base)                  :: this !< \param [in,out] this all mesh data
     REAL, DIMENSION(this%IGMIN:,this%JGMIN:,this%KGMIN:,:), TARGET &
                     :: array
     !------------------------------------------------------------------------!
-    REAL, DIMENSION(:,:,:,:), POINTER &
-                    :: ptr
+    REAL, DIMENSION(:,:,:,:), POINTER :: ptr
     !------------------------------------------------------------------------!
-    INTENT(IN)      :: array
+    INTENT(IN)                        :: array
     !------------------------------------------------------------------------!
     ptr => array
   END FUNCTION RemapBounds_2
@@ -1294,14 +1293,13 @@ CONTAINS
   FUNCTION RemapBounds_3(this,array) RESULT(ptr)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(mesh_base)             :: this   !< \param [in,out] this all mesh data
+    CLASS(mesh_base)                    :: this !< \param [in,out] this all mesh data
     REAL, DIMENSION(this%IGMIN:,this%JGMIN:,this%KGMIN:,:,:), TARGET &
                     :: array
     !------------------------------------------------------------------------!
-    REAL, DIMENSION(:,:,:,:,:), POINTER &
-                    :: ptr
+    REAL, DIMENSION(:,:,:,:,:), POINTER :: ptr
     !------------------------------------------------------------------------!
-    INTENT(IN)      :: array
+    INTENT(IN)                          :: array
     !------------------------------------------------------------------------!
     ptr => array
   END FUNCTION RemapBounds_3
@@ -1310,14 +1308,13 @@ CONTAINS
   FUNCTION RemapBounds_4(this,array) RESULT(ptr)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(mesh_base)             :: this   !< \param [in,out] this all mesh data
+    CLASS(mesh_base)                      :: this !< \param [in,out] this all mesh data
     REAL, DIMENSION(this%IGMIN:,this%JGMIN:,this%KGMIN:,:,:,:), TARGET &
                     :: array
     !------------------------------------------------------------------------!
-    REAL, DIMENSION(:,:,:,:,:,:), POINTER &
-                    :: ptr
+    REAL, DIMENSION(:,:,:,:,:,:), POINTER :: ptr
     !------------------------------------------------------------------------!
-    INTENT(IN)      :: array
+    INTENT(IN)                            :: array
     !------------------------------------------------------------------------!
     ptr => array
   END FUNCTION RemapBounds_4

@@ -1,6 +1,6 @@
 !#############################################################################
 !#                                                                           #
-!# fosite - 2D hydrodynamical simulation program                             #
+!# fosite - 3D hydrodynamical simulation program                             #
 !# module: geometry_generic.f90                                              #
 !#                                                                           #
 !# Copyright (C) 2007-2010                                                   #
@@ -29,7 +29,7 @@
 !! \author Jannes Klee
 !! \author Manuel Jung
 !!
-!! \brief generic module for geometrical properties
+!! \brief base class for geometrical properties
 !!
 !! \ingroup geometry
 !----------------------------------------------------------------------------!
@@ -117,51 +117,51 @@ MODULE geometry_base_mod
     PURE ELEMENTAL SUBROUTINE ScaleFactors_0(this,xi,eta,phi,hx,hy,hz)
       IMPORT geometry_base
       IMPLICIT NONE
-      CLASS(geometry_base), INTENT(IN)         :: this
-      REAL, INTENT(IN)                         :: xi,eta,phi
-      REAL, INTENT(OUT)                        :: hx,hy,hz
+      CLASS(geometry_base), INTENT(IN) :: this
+      REAL, INTENT(IN)                 :: xi,eta,phi
+      REAL, INTENT(OUT)                :: hx,hy,hz
     END SUBROUTINE
     PURE ELEMENTAL SUBROUTINE Radius_0(this,xi,eta,phi,radius)
       IMPORT geometry_base
       IMPLICIT NONE
-      CLASS(geometry_base), INTENT(IN)         :: this
-      REAL, INTENT(IN)                         :: xi,eta,phi
-      REAL, INTENT(OUT)                        :: radius
+      CLASS(geometry_base), INTENT(IN) :: this
+      REAL, INTENT(IN)                 :: xi,eta,phi
+      REAL, INTENT(OUT)                :: radius
     END SUBROUTINE
     PURE ELEMENTAL SUBROUTINE PositionVector_0(this,xi,eta,phi,x,y,z)
       IMPORT geometry_base
       IMPLICIT NONE
-      CLASS(geometry_base), INTENT(IN)         :: this
-      REAL, INTENT(IN)                         :: xi,eta,phi
-      REAL, INTENT(OUT)                        :: x,y,z
+      CLASS(geometry_base), INTENT(IN) :: this
+      REAL, INTENT(IN)                 :: xi,eta,phi
+      REAL, INTENT(OUT)                :: x,y,z
     END SUBROUTINE
     PURE ELEMENTAL SUBROUTINE Convert2Cartesian_coords_0(this,xi,eta,phi,x,y,z)
       IMPORT geometry_base
       IMPLICIT NONE
-      CLASS(geometry_base), INTENT(IN)         :: this
+      CLASS(geometry_base), INTENT(IN) :: this
       REAL, INTENT(IN)  :: xi,eta,phi
       REAL, INTENT(OUT) :: x,y,z
     END SUBROUTINE
     PURE ELEMENTAL SUBROUTINE Convert2Cartesian_vectors_0(this,xi,eta,phi,vxi,veta,vphi,vx,vy,vz)
       IMPORT geometry_base
       IMPLICIT NONE
-      CLASS(geometry_base), INTENT(IN)         :: this
-      REAL, INTENT(IN)                         :: xi,eta,phi,vxi,veta,vphi
-      REAL, INTENT(OUT)                        :: vx,vy,vz
+      CLASS(geometry_base), INTENT(IN) :: this
+      REAL, INTENT(IN)                 :: xi,eta,phi,vxi,veta,vphi
+      REAL, INTENT(OUT)                :: vx,vy,vz
     END SUBROUTINE
     PURE ELEMENTAL SUBROUTINE Convert2Curvilinear_coords_0(this,x,y,z,xi,eta,phi)
       IMPORT geometry_base
       IMPLICIT NONE
-      CLASS(geometry_base), INTENT(IN)         :: this
-      REAL, INTENT(IN)                         :: x,y,z
-      REAL, INTENT(OUT)                        :: xi,eta,phi
+      CLASS(geometry_base), INTENT(IN) :: this
+      REAL, INTENT(IN)                 :: x,y,z
+      REAL, INTENT(OUT)                :: xi,eta,phi
     END SUBROUTINE
     PURE ELEMENTAL SUBROUTINE Convert2Curvilinear_vectors_0(this,xi,eta,phi,vx,vy,vz,vxi,veta,vphi)
       IMPORT geometry_base
       IMPLICIT NONE
-      CLASS(geometry_base), INTENT(IN)         :: this
-      REAL, INTENT(IN)                         :: xi,eta,phi,vx,vy,vz
-      REAL, INTENT(OUT)                        :: vxi,veta,vphi
+      CLASS(geometry_base), INTENT(IN) :: this
+      REAL, INTENT(IN)                 :: xi,eta,phi,vx,vy,vz
+      REAL, INTENT(OUT)                :: vxi,veta,vphi
     END SUBROUTINE
   END INTERFACE
 
@@ -204,16 +204,16 @@ CONTAINS
   SUBROUTINE InitGeometry(this,gnum,gname,config)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(geometry_base), INTENT(INOUT)    :: this
-    TYPE(DICT_TYP),POINTER                 :: config
-    INTEGER                                :: gnum, gt !\todo{same variable}
-    CHARACTER(LEN=*)                       :: gname
-    REAL                                   :: gs_def,gs_def2,gs_def3, dr
+    CLASS(geometry_base), INTENT(INOUT) :: this
+    TYPE(DICT_TYP),POINTER              :: config
+    INTEGER                             :: gnum, gt !\todo{same variable}
+    CHARACTER(LEN=*)                    :: gname
+    REAL                                :: gs_def,gs_def2,gs_def3, dr
     !------------------------------------------------------------------------!
-    CHARACTER(LEN=8)                       :: gs_str
-    REAL                                   :: dz
+    CHARACTER(LEN=8)                    :: gs_str
+    REAL                                :: dz
     !------------------------------------------------------------------------!
-    INTENT(IN)                             :: gnum,gname
+    INTENT(IN)                          :: gnum,gname
     !------------------------------------------------------------------------!
 
     !\todo{Here initcommon is commentet!}
@@ -333,7 +333,7 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(geometry_base), INTENT(IN) :: this
-    REAL :: gp
+    REAL                             :: gp
     !------------------------------------------------------------------------!
     gp = this%geoparam(1)
   END FUNCTION GetScale1
@@ -352,7 +352,7 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(geometry_base), INTENT(INOUT) :: this
-    REAL, INTENT(IN) :: gp
+    REAL, INTENT(IN)                    :: gp
     !------------------------------------------------------------------------!
     this%geoparam(1) = gp
   END SUBROUTINE SetScale1
@@ -361,7 +361,7 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(geometry_base), INTENT(INOUT) :: this
-    REAL, INTENT(IN) :: gp,gp2
+    REAL, INTENT(IN)                    :: gp,gp2
     !------------------------------------------------------------------------!
     this%geoparam(1) = gp
     this%geoparam(2) = gp2
@@ -371,7 +371,7 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(geometry_base), INTENT(INOUT) :: this
-    REAL, INTENT(IN) :: gp,gp2,gp3
+    REAL, INTENT(IN)                    :: gp,gp2,gp3
     !------------------------------------------------------------------------!
     this%geoparam(1) = gp
     this%geoparam(2) = gp2
@@ -407,7 +407,7 @@ CONTAINS
     REAL, INTENT(IN),  DIMENSION(:,:,:,:) :: coords
     REAL, INTENT(OUT), DIMENSION(:,:,:)   :: hx,hy,hz
     !------------------------------------------------------------------------!
-!CDIR IEXPAND    
+!CDIR IEXPAND
        CALL this%ScaleFactors(coords(:,:,:,1),coords(:,:,:,2),coords(:,:,:,3), &
                                   hx(:,:,:)  ,    hy(:,:,:)  ,    hz(:,:,:))
   END SUBROUTINE ScaleFactors_1
@@ -506,7 +506,7 @@ CONTAINS
     !------------------------------------------------------------------------!
 !CDIR IEXPAND
     CALL this%PositionVector(coords(:,:,:,1),coords(:,:,:,2),coords(:,:,:,3), &
-                             posvec(:,:,:,1),posvec(:,:,:,2),posvec(:,:,:,3)) 
+                             posvec(:,:,:,1),posvec(:,:,:,2),posvec(:,:,:,3))
   END SUBROUTINE PositionVector_1
 
   !> \public Compute position vector components
@@ -522,7 +522,7 @@ CONTAINS
     !------------------------------------------------------------------------!
 !CDIR IEXPAND
     CALL this%PositionVector(coords(:,:,:,:,1),coords(:,:,:,:,2),coords(:,:,:,:,3), &
-                             posvec(:,:,:,:,1),posvec(:,:,:,:,2),posvec(:,:,:,:,3)) 
+                             posvec(:,:,:,:,1),posvec(:,:,:,:,2),posvec(:,:,:,:,3))
   END SUBROUTINE PositionVector_2
 
   !> \public Convert curvilinear to cartesian coordinates
@@ -632,7 +632,7 @@ CONTAINS
     CALL this%Convert2Cartesian(  curv(:,:,:,1),  curv(:,:,:,2),  curv(:,:,:,3), &
                                 v_curv(:,:,:,1),v_curv(:,:,:,2),v_curv(:,:,:,3), &
                                 v_cart(:,:,:,1),v_cart(:,:,:,2),v_cart(:,:,:,3))
-  END SUBROUTINE Convert2Cartesian_vectors_1 
+  END SUBROUTINE Convert2Cartesian_vectors_1
 
   !> \public Convert curvilinear vector components to cartesian vector components
   PURE SUBROUTINE Convert2Cartesian_vectors_2(this,curv,v_curv,v_cart)

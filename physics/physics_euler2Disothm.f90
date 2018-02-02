@@ -1,6 +1,6 @@
 !#############################################################################
 !#                                                                           #
-!# fosite - 2D hydrodynamical simulation program                             #
+!# fosite - 3D hydrodynamical simulation program                             #
 !# module: physics_euler2Disothm.f90                                         #
 !#                                                                           #
 !# Copyright (C) 2007-2016                                                   #
@@ -50,7 +50,7 @@ MODULE physics_euler2Dit_mod
   CHARACTER(LEN=32), PARAMETER :: problem_name = "Euler 2D isotherm"
   !--------------------------------------------------------------------------!
 
-  TYPE, EXTENDS(FieldSet) :: FieldSet_isoth_pvar
+  TYPE, EXTENDS(FieldSet)      :: FieldSet_isoth_pvar
     CLASS(FieldS), ALLOCATABLE :: density
     CLASS(FieldS), ALLOCATABLE :: xvelocity
     CLASS(FieldS), ALLOCATABLE :: yvelocity
@@ -103,12 +103,11 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(physics_euler2Dit), INTENT(INOUT) :: this
-    CLASS(mesh_base),INTENT(IN) :: Mesh
-    INTEGER           :: problem
-    TYPE(Dict_TYP),POINTER &
-                      :: config, IO
+    CLASS(mesh_base),INTENT(IN)             :: Mesh
+    INTEGER                                 :: problem
+    TYPE(Dict_TYP),POINTER                  :: config, IO
     !------------------------------------------------------------------------!
-    INTEGER           :: err
+    INTEGER                                 :: err
     !------------------------------------------------------------------------!
     CALL this%InitPhysics(Mesh,config,IO,EULER2D_ISOTHERM,problem_name,num_var)
     !IF (PRESENT(pname).AND.PRESENT(nvar)) THEN
@@ -121,10 +120,10 @@ CONTAINS
     !END IF
 
     ALLOCATE( &
-    this%pvar%density%data(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
+    this%pvar%density%data(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX),   &
     this%pvar%xvelocity%data(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
     this%pvar%yvelocity%data(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
-    this%cvar%density%data(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
+    this%cvar%density%data(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX),   &
     this%cvar%xmomentum%data(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
     this%cvar%ymomentum%data(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
     STAT = err)
@@ -307,7 +306,7 @@ CONTAINS
 !               ( (pvar(i+1,j,this%XVELOCITY) - pvar(i-1,j,this%XVELOCITY)) / Mesh%dlx(i,j) &
 !               + 2.0 * Mesh%cxyx%bcenter(i,j) * pvar(i,j,this%YVELOCITY) ) &
 !               + this%tmp(i,j)
-!               
+!
 !          btyy(i,j) = dynvis(i,j) * &
 !               ( (pvar(i,j+1,this%YVELOCITY) - pvar(i,j-1,this%YVELOCITY)) / Mesh%dly(i,j) &
 !               + 2.0 * Mesh%cyxy%bcenter(i,j) * pvar(i,j,this%XVELOCITY) ) &
@@ -427,7 +426,7 @@ CONTAINS
 !    ! mean values of stress tensor components across the cell interfaces
 !
 !    ! viscosity source terms
-!    sterm(:,:,this%DENSITY) = 0.0 
+!    sterm(:,:,this%DENSITY) = 0.0
 !
 !    ! compute viscous momentum sources
 !    ! divergence of stress tensor with symmetry btyx=btxy
@@ -442,9 +441,9 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(physics_euler2Dit), INTENT(IN) :: this
-    LOGICAL, DIMENSION(this%VNUM) :: reflX,reflY
+    LOGICAL, DIMENSION(this%VNUM)        :: reflX,reflY
     !------------------------------------------------------------------------!
-    INTENT(OUT)       :: reflX,reflY
+    INTENT(OUT)                          :: reflX,reflY
     !------------------------------------------------------------------------!
     ! western / eastern boundary
     reflX(this%DENSITY)   = .FALSE.
@@ -575,11 +574,11 @@ CONTAINS
 !    !------------------------------------------------------------------------!
 !    cslnrho = cs*LOG(rho)
 !    ! compute 1st Riemann invariant (R+)
-!    Rplus = vx + cslnrho     
-!    ! compute 2st Riemann invariant (R-) 
+!    Rplus = vx + cslnrho
+!    ! compute 2st Riemann invariant (R-)
 !    Rminus = vx - cslnrho
 !    ! tangential velocity
-!    Rvt = vy   
+!    Rvt = vy
 !  END SUBROUTINE Prim2Riemann_euler2Dit
 !
 !
@@ -589,8 +588,8 @@ CONTAINS
 !    REAL, INTENT(IN)  :: cs,Rminus,Rvt,Rplus
 !    REAL, INTENT(OUT) :: rho,vx,vy
 !    !------------------------------------------------------------------------!
-!    ! tangential velocity    
-!    vy = Rvt  
+!    ! tangential velocity
+!    vy = Rvt
 !    ! normal velocity
 !    vx = 0.5*(Rplus+Rminus)
 !    ! density
@@ -602,8 +601,8 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(physics_euler2Dit), INTENT(IN) :: this
-    REAL, INTENT(IN)  :: cs,rho,v,m1,m2
-    REAL, INTENT(OUT) :: f1, f2, f3
+    REAL, INTENT(IN)                     :: cs,rho,v,m1,m2
+    REAL, INTENT(OUT)                    :: f1, f2, f3
     !------------------------------------------------------------------------!
     f1 = rho*v
     f2 = m1*v + rho*cs*cs
@@ -617,8 +616,8 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(physics_euler2Dit), INTENT(IN) :: this
-    REAL, INTENT(IN)  :: mx,my,vx,vy,P,cxyx,cyxy,czxz,czyz
-    REAL, INTENT(OUT) :: srho, smx, smy
+    REAL, INTENT(IN)                     :: mx,my,vx,vy,P,cxyx,cyxy,czxz,czyz
+    REAL, INTENT(OUT)                    :: srho, smx, smy
     !------------------------------------------------------------------------!
     srho = 0.
     smx = -my * (cxyx * vx - cyxy * vy) + (cyxy + czxz) * P
@@ -630,8 +629,8 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(physics_euler2Dit), INTENT(IN) :: this
-    REAL, INTENT(IN)  :: rho_in,mu,mv
-    REAL, INTENT(OUT) :: rho_out,u,v
+    REAL, INTENT(IN)                     :: rho_in,mu,mv
+    REAL, INTENT(OUT)                    :: rho_out,u,v
     !------------------------------------------------------------------------!
     REAL :: inv_rho
     !------------------------------------------------------------------------!
@@ -641,19 +640,19 @@ CONTAINS
     v = mv * inv_rho
   END SUBROUTINE Cons2Prim
 
-  
+
   ELEMENTAL SUBROUTINE Prim2Cons(this,rho_in,u,v,rho_out,mu,mv)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(physics_euler2Dit), INTENT(IN) :: this
-    REAL, INTENT(IN)  :: rho_in,u,v
-    REAL, INTENT(OUT) :: rho_out,mu,mv
+    REAL, INTENT(IN)                     :: rho_in,u,v
+    REAL, INTENT(OUT)                    :: rho_out,mu,mv
     !------------------------------------------------------------------------!
     rho_out = rho_in
     mu = rho_in * u
     mv = rho_in * v
   END SUBROUTINE Prim2Cons
-  
+
 
   SUBROUTINE Finalize(this)
     IMPLICIT NONE

@@ -1,10 +1,9 @@
 !#############################################################################
 !#                                                                           #
-!# fosite - 2D hydrodynamical simulation program                             #
+!# fosite - 3D hydrodynamical simulation program                             #
 !# module: rngs.f90                                                          #
 !#                                                                           #
-!# Copyright (C) 2015                                                        #
-!# Manuel Jung <mjung@astrophysik.uni-kiel.de>                               #
+!# Copyright (C) 2015 Manuel Jung <mjung@astrophysik.uni-kiel.de>            #
 !#                                                                           #
 !# This program is free software; you can redistribute it and/or modify      #
 !# it under the terms of the GNU General Public License as published by      #
@@ -24,7 +23,9 @@
 !#############################################################################
 
 !----------------------------------------------------------------------------!
-!> random number generators
+!> \author Manuel Jung
+!!
+!! random number generators
 !! Kiss64: Period: >2^124 \approx 2.1*10^37
 !!   Source: https://de.wikipedia.org/wiki/KISS_(Zufallszahlengenerator)
 !!           http://fortranwiki.org/fortran/show/kiss64
@@ -60,11 +61,11 @@ CONTAINS
   FUNCTION Kiss64(seed) RESULT(res)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    INTEGER(KIND=I8) :: res
+    INTEGER(KIND=I8)           :: res
     INTEGER(KIND=I8), OPTIONAL :: seed
     !------------------------------------------------------------------------!
-    INTEGER(KIND=I8), save :: x, y, z, c
-    INTEGER(KIND=I8) :: t, k, m, s
+    INTEGER(KIND=I8), save     :: x, y, z, c
+    INTEGER(KIND=I8)           :: t, k, m, s
     data x, y, z, c &
       / 1234567890987654321_I8, &
         362436362436362436_I8, &
@@ -85,7 +86,7 @@ CONTAINS
       y = IEOR(y, ISHFT(y,13_I8))
       y = IEOR(y, ISHFT(y,-17_I8))
       y = IEOR(y, ISHFT(y,43_I8))
-  
+
       z = 6906969069_I8 * z + 1234567
       res = x + y + z
     END IF
@@ -94,7 +95,7 @@ CONTAINS
   FUNCTION SuperKiss64() RESULT(x)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    INTEGER(KIND=I8) :: x
+    INTEGER(KIND=I8)       :: x
     !------------------------------------------------------------------------!
     INTEGER(KIND=I8), save :: i,Q(20632),carry,xcng,xs,indx
     data i,carry,xcng,xs,indx &
@@ -104,7 +105,7 @@ CONTAINS
         521288629546311_I8,&
         20633_I8 /
     !------------------------------------------------------------------------!
-! Nec SX internal! compiler error: 
+! Nec SX internal! compiler error:
 ! "f90 fatal: Internal error in optimization phase."
 #if !(defined(NECSX8) || defined(NECSX9) || defined(NECSXACE))
     !Initalize if i=0

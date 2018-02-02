@@ -1,6 +1,6 @@
 !#############################################################################
 !#                                                                           #
-!# fosite - 2D hydrodynamical simulation program                             #
+!# fosite - 3D hydrodynamical simulation program                             #
 !# module: constants_generic.f90                                             #
 !#                                                                           #
 !# Copyright (C) 2007-2008,2011                                              #
@@ -61,7 +61,7 @@ MODULE constants_base_mod
      REAL :: cf_mass                    !< mass scale
      REAL :: cf_momentum                !< momentum scale
      REAL :: cf_energy                  !< energy scale
-     REAL :: cf_power                   !< power scale            
+     REAL :: cf_power                   !< power scale
      REAL :: cf_temperature             !< temperature scale
      REAL :: cf_density                 !< density scale
      REAL :: cf_opacity                 !< opacity scale
@@ -82,10 +82,10 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(constants_base),INTENT(INOUT) :: this
-    INTEGER             :: units
-    CHARACTER(LEN=*)    :: units_name
+    INTEGER                             :: units
+    CHARACTER(LEN=*)                    :: units_name
     !------------------------------------------------------------------------!
-    INTENT(IN)          :: units
+    INTENT(IN)                          :: units
     !------------------------------------------------------------------------!
     CALL this%InitLogging(units,units_name)
 

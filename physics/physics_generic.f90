@@ -1,6 +1,6 @@
 !#############################################################################
 !#                                                                           #
-!# fosite - 2D hydrodynamical simulation program                             #
+!# fosite - 3D hydrodynamical simulation program                             #
 !# module: mesh_generic.f90                                                  #
 !#                                                                           #
 !# Copyright (C) 2016                                                        #
@@ -48,10 +48,10 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(physics_base), ALLOCATABLE :: Physics
-    CLASS(mesh_base), INTENT(IN) :: Mesh
-    TYPE(DICT_TYP), POINTER       :: config, IO
+    CLASS(mesh_base), INTENT(IN)     :: Mesh
+    TYPE(DICT_TYP), POINTER          :: config, IO
     !------------------------------------------------------------------------!
-    INTEGER :: problem
+    INTEGER                          :: problem
     !------------------------------------------------------------------------!
     CALL GetAttr(config,"problem",problem)
 

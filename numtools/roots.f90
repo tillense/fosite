@@ -1,6 +1,6 @@
 !#############################################################################
 !#                                                                           #
-!# fosite - 2D hydrodynamical simulation program                             #
+!# fosite - 3D hydrodynamical simulation program                             #
 !# module: roots.f90                                                         #
 !#                                                                           #
 !# Copyright (C) 2006-2008,2011                                              #
@@ -24,7 +24,9 @@
 !#############################################################################
 
 !----------------------------------------------------------------------------!
-!> root finding subroutines:
+!> \author Tobias Illenseer
+!!
+!!root finding subroutines:
 !! 1. Newton's method combined with bisection, for ill-posed problems
 !! 2. Regula falsi (default)
 !----------------------------------------------------------------------------!
@@ -34,7 +36,7 @@ MODULE roots
   PRIVATE
   LOGICAL, PARAMETER :: DEBUG_ROOTS = .FALSE.
   INTEGER, PARAMETER :: MAX_ITERATIONS = 1000
-  REAL, PARAMETER ::    EPS = 4*EPSILON(EPS)
+  REAL, PARAMETER    ::    EPS = 4*EPSILON(EPS)
   !--------------------------------------------------------------------------!
   ! exclude interface block from doxygen processing
   !> \cond InterfaceBlock
@@ -54,17 +56,17 @@ CONTAINS
   PURE SUBROUTINE GetRoot_newton(funcd,x1,x2,root,error,plist)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    REAL, INTENT(IN) :: x1,x2
-    REAL, INTENT(OUT) :: root
-    INTEGER, INTENT(OUT) :: error
+    REAL, INTENT(IN)                         :: x1, x2
+    REAL, INTENT(OUT)                        :: root
+    INTEGER, INTENT(OUT)                     :: error
     REAL, DIMENSION(:), INTENT(IN), OPTIONAL :: plist
     !------------------------------------------------------------------------!
     INTERFACE
        PURE SUBROUTINE funcd(x,fx,dfx,plist)
          IMPLICIT NONE
-         REAL, INTENT(IN)  :: x
+         REAL, INTENT(IN)                         :: x
          REAL, INTENT(IN), DIMENSION(:), OPTIONAL :: plist
-         REAL, INTENT(OUT) :: fx,dfx
+         REAL, INTENT(OUT)                        :: fx,dfx
        END SUBROUTINE funcd
     END INTERFACE
     !------------------------------------------------------------------------!
@@ -128,17 +130,17 @@ CONTAINS
   PURE SUBROUTINE GetRoot_regfalsi(func,x1,x2,root,error,plist)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    REAL, INTENT(IN) :: x1,x2
-    REAL, INTENT(OUT) :: root
-    INTEGER, INTENT(OUT) :: error
+    REAL, INTENT(IN)                         :: x1,x2
+    REAL, INTENT(OUT)                        :: root
+    INTEGER, INTENT(OUT)                     :: error
     REAL, INTENT(IN), DIMENSION(:), OPTIONAL :: plist
     !------------------------------------------------------------------------!
     INTERFACE
        PURE SUBROUTINE func(x,fx,plist)
          IMPLICIT NONE
-         REAL, INTENT(IN)  :: x
+         REAL, INTENT(IN)                         :: x
          REAL, INTENT(IN), DIMENSION(:), OPTIONAL :: plist
-         REAL, INTENT(OUT) :: fx
+         REAL, INTENT(OUT)                        :: fx
        END SUBROUTINE func
     END INTERFACE
     !------------------------------------------------------------------------!

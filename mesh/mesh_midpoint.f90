@@ -1,10 +1,11 @@
 !#############################################################################
 !#                                                                           #
-!# fosite - 2D hydrodynamical simulation program                             #
+!# fosite - 3D hydrodynamical simulation program                             #
 !# module: mesh_midpoint.f90                                                 #
 !#                                                                           #
 !# Copyright (C) 2006-2012                                                   #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
+!# Manuel Jung                                                               #
 !#                                                                           #
 !# This program is free software; you can redistribute it and/or modify      #
 !# it under the terms of the GNU General Public License as published by      #
@@ -75,7 +76,7 @@ CONTAINS
     CLASS(mesh_midpoint),INTENT(INOUT) :: this
     TYPE(Dict_TYP),POINTER             :: config,IO
     !------------------------------------------------------------------------!
-    INTEGER                                       :: err
+    INTEGER                            :: err
     !------------------------------------------------------------------------!
 
     ! basic mesh and geometry initialization

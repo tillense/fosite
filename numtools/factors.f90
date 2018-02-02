@@ -1,6 +1,6 @@
 !#############################################################################
 !#                                                                           #
-!# fosite - 2D hydrodynamical simulation program                             #
+!# fosite - 3D hydrodynamical simulation program                             #
 !# module: factors.f90                                                       #
 !#                                                                           #
 !# Copyright (C) 2006-2010                                                   #
@@ -63,9 +63,9 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     INTEGER, INTENT(IN) :: number
-    INTEGER :: p
+    INTEGER             :: p
     !------------------------------------------------------------------------!
-    INTEGER :: i
+    INTEGER             :: i
     !------------------------------------------------------------------------!
     p = 0 ! for errornous input return 0
     IF ((number.GT.MAXNUM).OR.(number.LT.1)) RETURN

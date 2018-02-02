@@ -1,6 +1,6 @@
 !#############################################################################
 !#                                                                           #
-!# fosite - 2D hydrodynamical simulation program                             #
+!# fosite - 3D hydrodynamical simulation program                             #
 !# module: vortex2d.f90                                                      #
 !#                                                                           #
 !# Copyright (C) 2006-2014                                                   #
@@ -24,13 +24,11 @@
 !#############################################################################
 
 !----------------------------------------------------------------------------!
-!> 2D isentropic vortex
+!> 3D isentropic vortex
 !! \author Tobias Illenseer
 !!
 !! References:
-!! [1] Yee, H. C. et al.: Low-dissipative high-order shock-capturing methods
-!!     using characteristic-based filters, J. Comput. Phys. 150 (1999), 199-238
-!!     DOI: 10.1006/jcph.1998.6177
+!! \cite yee1999
 !----------------------------------------------------------------------------!
 PROGRAM vortex3d
   USE fosite_mod
@@ -108,26 +106,26 @@ CONTAINS
     USE functions, ONLY : ASINH
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    TYPE(fosite)  :: Sim
-    TYPE(Dict_TYP),POINTER :: config
+    TYPE(fosite)            :: Sim
+    TYPE(Dict_TYP),POINTER  :: config
     !------------------------------------------------------------------------!
     ! Local variable declaration
-    INTEGER           :: bc(6)
+    INTEGER                 :: bc(6)
     TYPE(Dict_TYP), POINTER :: mesh, physics, boundary, datafile, &
                                timedisc, fluxes, sources, rotframe
-    REAL              :: x1,x2,y1,y2,z1,z2
+    REAL                    :: x1,x2,y1,y2,z1,z2
     !------------------------------------------------------------------------!
-    INTENT(INOUT)     :: Sim
+    INTENT(INOUT)           :: Sim
     !------------------------------------------------------------------------!
     ! mesh settings and boundary conditions
     SELECT CASE(MGEO)
     CASE(CARTESIAN)
-       x1 =-RMAX
-       x2 = RMAX
-       y1 =-RMAX
-       y2 = RMAX
-       z1 =-RMAX
-       z2 = RMAX
+       x1 = -RMAX
+       x2 =  RMAX
+       y1 = -RMAX
+       y2 =  RMAX
+       z1 = -RMAX
+       z2 =  RMAX
     CASE(POLAR)
        x1 = RMIN
        x2 = RMAX
@@ -172,18 +170,18 @@ CONTAINS
     !mesh settings
     mesh => Dict( &
               "meshtype" / MIDPOINT, &
-              "geometry" / MGEO, &
-              "omega"    / OMEGA, &
-              "inum"     / XRES, &
-              "jnum"     / YRES, &
-              "knum"     / ZRES, &
-              "xmin"     / x1, &
-              "xmax"     / x2, &
-              "ymin"     / y1, &
-              "ymax"     / y2, &
-              "zmin"     / z1, &
-              "zmax"     / z2, &
-              "gparam"   / GPAR)
+              "geometry" / MGEO,     &
+              "omega"    / OMEGA,    &
+              "inum"     / XRES,     &
+              "jnum"     / YRES,     &
+              "knum"     / ZRES,     &
+              "xmin"     / x1,       &
+              "xmax"     / x2,       &
+              "ymin"     / y1,       &
+              "ymax"     / y2,       &
+              "zmin"     / z1,       &
+              "zmax"     / z2,       &
+              "gparam"   / GPAR      )
 
 
     ! mesh settings and boundary conditions
@@ -208,12 +206,12 @@ CONTAINS
 
     ! boundary conditions
     boundary => Dict( &
-                "western"   / bc(WEST), &
-                "eastern"   / bc(EAST), &
-                "southern"  / bc(SOUTH), &
-                "northern"  / bc(NORTH), &
+                "western"   / bc(WEST),   &
+                "eastern"   / bc(EAST),   &
+                "southern"  / bc(SOUTH),  &
+                "northern"  / bc(NORTH),  &
                 "bottomer"  / bc(BOTTOM), &
-                "topper"    / bc(TOP))
+                "topper"    / bc(TOP)     )
 
     ! physics settings
     IF (CSISO.GT.TINY(CSISO)) THEN
@@ -225,10 +223,10 @@ CONTAINS
           ! possibly other settings; modify this starting with the default of 1.0, if the
           ! results show odd behaviour near the center of rotation; larger values increase
           ! softening; 0.5 give reasonable results for PP limiter on cartesian mesh
-          physics => Dict("problem"   / EULER2D_IAMT, &
-                     "centrot_x" / X0,"centrot_y" / Y0, & ! center of rotation      !
-                     "softening" / 0.5, &                 ! softening parameter     !
-                     "gamma"     / GAMMA)                 ! ratio of specific heats !
+          physics => Dict("problem" / EULER2D_IAMT,        &
+                     "centrot_x"    / X0,"centrot_y" / Y0, & ! center of rotation      !
+                     "softening"    / 0.5,                 & ! softening parameter     !
+                     "gamma"        / GAMMA                ) ! ratio of specific heats !
        ELSE
           physics => Dict("problem"   / EULER2D, &
                     "gamma"     / GAMMA)
@@ -237,12 +235,12 @@ CONTAINS
 
     ! flux calculation and reconstruction method
     fluxes => Dict( &
-              "fluxtype"  / KT, &
+              "fluxtype"  / KT,        &
 !              "order"     / CONSTANT, &
-              "order"     / LINEAR, &
+              "order"     / LINEAR,    &
               "variables" / PRIMITIVE, &
-              "limiter"   / VANLEER, &                      ! PP limiter gives better results than
-              "theta"     / 1.0E-20, &                 ! should be < EPS for PP limiter
+              "limiter"   / VANLEER,   &                     ! PP limiter gives better results than
+              "theta"     / 1.0E-20,   &                     ! should be < EPS for PP limiter
               "output/slopes" / 0)
 
     ! activate inertial forces due to rotating frame if OMEGA > 0
@@ -256,15 +254,15 @@ CONTAINS
 
     ! time discretization settings
     timedisc => Dict(&
-         "method"   / MODIFIED_EULER, &
-         "order"    / 3, &
-         "cfl"      / 0.4, &
-         "stoptime" / TSIM, &
-         "dtlimit"  / 1.0E-4, &
-         "maxiter"  / 1000000, &
-!          "output/fluxes" / 1, &
+         "method"   / MODIFIED_EULER,   &
+         "order"    / 3,                &
+         "cfl"      / 0.4,              &
+         "stoptime" / TSIM,             &
+         "dtlimit"  / 1.0E-4,           &
+         "maxiter"  / 1000000,          &
+!          "output/fluxes" / 1,          &
          "output/iangularmomentum" / 1, &
-         "output/rothalpy" / 1)
+         "output/rothalpy" / 1          )
 
     ! initialize data input/output
      datafile => Dict(&
@@ -274,12 +272,12 @@ CONTAINS
           "count"      / ONUM)
 !    NULLIFY(datafile)
 
-    config => Dict("mesh" / mesh, &
-             "physics"  / physics, &
+    config => Dict("mesh" / mesh,   &
+             "physics"  / physics,  &
              "boundary" / boundary, &
-             "fluxes"   / fluxes, &
+             "fluxes"   / fluxes,   &
              "timedisc" / timedisc, &
-             "datafile" / datafile)
+             "datafile" / datafile  )
 
     ! add sources terms
     IF (ASSOCIATED(sources)) &
@@ -292,8 +290,8 @@ CONTAINS
   FUNCTION Run(Mesh,Physics,Timedisc) RESULT(sigma)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(physics_base),INTENT(IN) :: Physics
-    CLASS(mesh_base),INTENT(IN)    :: Mesh
+    CLASS(physics_base),INTENT(IN)    :: Physics
+    CLASS(mesh_base),INTENT(IN)       :: Mesh
     CLASS(timedisc_base),INTENT(INOUT):: Timedisc
     !------------------------------------------------------------------------!
     ! Local variable declaration

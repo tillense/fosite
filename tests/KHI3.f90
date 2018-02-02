@@ -30,10 +30,8 @@
 !! \author Jubin Lirawi
 !!
 !! References:
-!! -# Lord Kelvin (William Thomson) (1871). "Hydrokinetic solutions and
-!!     observations" Philosophical Magazine 42: 362-377
-!! -# Hermann von Helmholtz (1868). "On the discontinuous movements of fluids"
-!!     Monthly Reports of the Royal Prussian Academy of Philosophy in Berlin 23: 215-228
+!! \cite thomson1871
+!! \cite helmholtz1868
 !----------------------------------------------------------------------------!
 PROGRAM KHI
   USE fosite_mod
@@ -75,7 +73,7 @@ PROGRAM KHI
   INTEGER            :: n
   INTEGER            :: i
   REAL               :: sigma
-  INTEGER, DIMENSION(:), ALLOCATABLE :: seed
+  INTEGER, DIMENSION(:), ALLOCATABLE    :: seed
   REAL, DIMENSION(:,:,:,:), ALLOCATABLE :: pvar
   !--------------------------------------------------------------------------!
   CLASS(fosite), ALLOCATABLE   :: Sim
@@ -99,11 +97,11 @@ PROGRAM KHI
 
   DO i = Sim%Mesh%KGMIN, Sim%Mesh%KGMAX
     ! transpose result and store for comparison with 2nd run
-    pvar(:,:,i,Sim%Physics%DENSITY) = TRANSPOSE(Sim%Timedisc%pvar(:,:,i,Sim%Physics%DENSITY))
+    pvar(:,:,i,Sim%Physics%DENSITY)   = TRANSPOSE(Sim%Timedisc%pvar(:,:,i,Sim%Physics%DENSITY))
     pvar(:,:,i,Sim%Physics%XVELOCITY) = TRANSPOSE(Sim%Timedisc%pvar(:,:,i,Sim%Physics%YVELOCITY))
     pvar(:,:,i,Sim%Physics%YVELOCITY) = TRANSPOSE(Sim%Timedisc%pvar(:,:,i,Sim%Physics%XVELOCITY))
     pvar(:,:,i,Sim%Physics%ZVELOCITY) = TRANSPOSE(Sim%Timedisc%pvar(:,:,i,Sim%Physics%ZVELOCITY))
-    pvar(:,:,i,Sim%Physics%PRESSURE) = TRANSPOSE(Sim%Timedisc%pvar(:,:,i,Sim%Physics%PRESSURE))
+    pvar(:,:,i,Sim%Physics%PRESSURE)  = TRANSPOSE(Sim%Timedisc%pvar(:,:,i,Sim%Physics%PRESSURE))
   END DO
 
   ! test flow along y-direction
@@ -126,13 +124,13 @@ CONTAINS
   SUBROUTINE MakeConfig(Sim, config)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(fosite)          :: Sim
-    TYPE(Dict_TYP),POINTER :: config
+    CLASS(fosite)           :: Sim
+    TYPE(Dict_TYP),POINTER  :: config
     !------------------------------------------------------------------------!
     ! Local variable declaration
     TYPE(Dict_TYP), POINTER :: mesh, physics, boundary, datafile, logfile, &
                                sources, timedisc, fluxes, vis
-    REAL     :: dynvis
+    REAL                    :: dynvis
     !------------------------------------------------------------------------!
     ! mesh settings
     mesh => Dict( &
@@ -155,7 +153,7 @@ CONTAINS
     ! physics settings
     physics => Dict( &
               "problem" / EULER3D_ISOTH, &
-              "gamma"   /   GAMMA  &               ! ratio of specific heats !
+              "gamma"   /         GAMMA  &         ! ratio of specific heats !
     )
 
     ! flux calculation and reconstruction method
@@ -213,7 +211,7 @@ CONTAINS
     datafile => Dict(&
 !        "fileformat" /                          HDF, &
 !        "fileformat" /                          VTK, &
-         "fileformat" /                         XDMF, &
+        "fileformat" /                         XDMF, &
 !        "fileformat" /    GNUPLOT, "filecycles" / 0, &
 !        "fileformat" /                       BINARY, &
 !        "fileformat" /                       NETCDF, &
@@ -245,12 +243,12 @@ CONTAINS
     LOGICAL, OPTIONAL    :: rotate90deg,reuse_random_seed
     !------------------------------------------------------------------------!
     ! Local variable declaration
-    INTEGER           :: i,j
+    INTEGER              :: i,j
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,3) :: dv
-    INTEGER           :: clock
+    INTEGER              :: clock
     !------------------------------------------------------------------------!
-    INTENT(IN)        :: Mesh,Physics,rotate90deg,reuse_random_seed
-    INTENT(INOUT)     :: Timedisc
+    INTENT(IN)           :: Mesh,Physics,rotate90deg,reuse_random_seed
+    INTENT(INOUT)        :: Timedisc
     !------------------------------------------------------------------------!
     ! Seed the random number generator
     IF (.NOT.(PRESENT(reuse_random_seed).AND.reuse_random_seed)) THEN

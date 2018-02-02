@@ -1,6 +1,6 @@
 !#############################################################################
 !#                                                                           #
-!# fosite - 2D hydrodynamical simulation program                             #
+!# fosite - 3D hydrodynamical simulation program                             #
 !# module: geometry_cartesian.f90                                            #
 !#                                                                           #
 !# Copyright (C) 2007-2010                                                   #
@@ -28,7 +28,7 @@
 !> \author Tobias Illenseer
 !! \author Jannes Klee
 !!
-!! \brief define properties of a 2D cartesian mesh
+!! \brief defines properties of a 3D cartesian mesh
 !!
 !! \extends geometry_common
 !! \ingroup geometry
@@ -62,9 +62,9 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(geometry_cartesian), INTENT(INOUT) :: this
-    TYPE(DICT_TYP),POINTER            :: config
+    TYPE(DICT_TYP),POINTER                   :: config
     !------------------------------------------------------------------------!
-    REAL                              :: dz
+    REAL                                     :: dz
     !------------------------------------------------------------------------!
     CALL this%InitGeometry(CARTESIAN,geometry_name,config)
     CALL GetAttr(config, "dz", dz, 1.0)
@@ -74,8 +74,8 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(geometry_cartesian), INTENT(IN) :: this
-    REAL, INTENT(IN)  :: xi,eta,phi
-    REAL, INTENT(OUT) :: hx,hy,hz
+    REAL, INTENT(IN)                      :: xi,eta,phi
+    REAL, INTENT(OUT)                     :: hx,hy,hz
     !------------------------------------------------------------------------!
     ! scale factors are unity
     hx = 1.
@@ -87,8 +87,8 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(geometry_cartesian), INTENT(IN) :: this
-    REAL, INTENT(IN)  :: xi,eta,phi
-    REAL, INTENT(OUT) :: radius
+    REAL, INTENT(IN)                      :: xi,eta,phi
+    REAL, INTENT(OUT)                     :: radius
     !------------------------------------------------------------------------!
     radius = SQRT(xi*xi+eta*eta+phi*phi)
   END SUBROUTINE Radius_0
@@ -97,8 +97,8 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(geometry_cartesian), INTENT(IN) :: this
-    REAL, INTENT(IN)  :: xi,eta,phi
-    REAL, INTENT(OUT) :: x,y,z
+    REAL, INTENT(IN)                      :: xi,eta,phi
+    REAL, INTENT(OUT)                     :: x,y,z
     !------------------------------------------------------------------------!
     x = xi
     y = eta
@@ -110,8 +110,8 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(geometry_cartesian), INTENT(IN) :: this
-    REAL, INTENT(IN)  :: xi,eta,phi
-    REAL, INTENT(OUT) :: x,y,z
+    REAL, INTENT(IN)                      :: xi,eta,phi
+    REAL, INTENT(OUT)                     :: x,y,z
     !------------------------------------------------------------------------!
     x = xi
     y = eta
@@ -122,8 +122,8 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(geometry_cartesian), INTENT(IN) :: this
-    REAL, INTENT(IN)  :: x,y,z
-    REAL, INTENT(OUT) :: xi,eta,phi
+    REAL, INTENT(IN)                      :: x,y,z
+    REAL, INTENT(OUT)                     :: xi,eta,phi
     !------------------------------------------------------------------------!
     xi  = x
     eta = y
@@ -135,8 +135,8 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(geometry_cartesian), INTENT(IN) :: this
-    REAL, INTENT(IN)  :: xi,eta,phi,vxi,veta,vphi
-    REAL, INTENT(OUT) :: vx,vy,vz
+    REAL, INTENT(IN)                      :: xi,eta,phi,vxi,veta,vphi
+    REAL, INTENT(OUT)                     :: vx,vy,vz
     !------------------------------------------------------------------------!
     vx = vxi  * xi
     vy = veta * eta
@@ -147,8 +147,8 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(geometry_cartesian), INTENT(IN) :: this
-    REAL, INTENT(IN)  :: xi,eta,phi,vx,vy,vz
-    REAL, INTENT(OUT) :: vxi,veta,vphi
+    REAL, INTENT(IN)                      :: xi,eta,phi,vx,vy,vz
+    REAL, INTENT(OUT)                     :: vxi,veta,vphi
     !------------------------------------------------------------------------!
     vxi  = vx * xi
     veta = vy * eta

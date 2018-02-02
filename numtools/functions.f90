@@ -26,12 +26,14 @@
 !#############################################################################
 
 !----------------------------------------------------------------------------!
-!> \author Tobias Illenseer, Manuel Jung, Björn Sperling
+!> \author Tobias Illenseer
+!! \author Manuel Jung
+!! \author Björn Sperling
 !!
-!! \brief Mathematical functions.
+!! \brief Mathematical functions
 !!
 !! This module implements several mathematical functions, including
-!! - inverse hyperbolic sine,cosine and tangens
+!! - inverse hyperbolic sine, cosine and tangens
 !! - complete elliptic integrals of first and second kind
 !! - error and inverse error function
 !! - some Bessel functions of the first and second kind
@@ -47,10 +49,10 @@ MODULE functions
   REAL, PARAMETER    :: EPS_AGM = EPSILON(EPS_AGM)   ! precision of the AGM
   INTEGER, PARAMETER :: MAX_AGM_ITERATIONS = 20      ! limit iteration steps
   ! store the first 20 coefficients used in computing the Legendre polynomials
-  INTEGER :: iii
+  INTEGER            :: iii
   INTEGER, PARAMETER :: MAX_PL_COEFF = 20
   REAL, DIMENSION(MAX_PL_COEFF), PARAMETER &
-       :: PL_COEFF = (/ (iii/(iii+1.0), iii=1,MAX_PL_COEFF) /)
+                     :: PL_COEFF = (/ (iii/(iii+1.0), iii=1,MAX_PL_COEFF) /)
   !--------------------------------------------------------------------------!
   ! exclude interface block from doxygen processing
   !> \cond InterfaceBlock
@@ -95,7 +97,7 @@ CONTAINS
     REAL :: fx
     fx = LOG(x+SQRT(x*x+1.0))
   END FUNCTION Asinh
-  
+
 
   !> inverse hyperbolic cosine function
   ! not included in FORTRAN before 2008 standard
@@ -105,7 +107,7 @@ CONTAINS
     REAL :: fx
     fx = LOG(x+SQRT(x*x-1.0))
   END FUNCTION Acosh
-  
+
 
   !> inverse hyperbolic tangens function
   ! not included in FORTRAN before 2008 standard
@@ -115,7 +117,7 @@ CONTAINS
     REAL :: fx
     fx = 0.5*LOG((1.0+x)/(1.0-x))
   END FUNCTION Atanh
-  
+
 
   !> step function
   !      returns:   0   for x<a
@@ -141,10 +143,10 @@ CONTAINS
 
   !> Box-Muller alg. for gaussian distributed random variables
   !! input are uniform distributed random variables [0,1)
-  ELEMENTAL SUBROUTINE NormalRand(u1,u2,x,y) 
+  ELEMENTAL SUBROUTINE NormalRand(u1,u2,x,y)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    REAL, INTENT(IN)  :: u1,u2 
+    REAL, INTENT(IN)  :: u1,u2
     REAL, INTENT(OUT) :: x,y
     !------------------------------------------------------------------------!
     REAL    :: r,t
@@ -158,12 +160,12 @@ CONTAINS
 
   !> compute the complete elliptic integrals of first and second kind
   !! using the AGM method (arithmetic-geometric-mean);
-  !! 
+  !!
   !! Function definitions and algorithm are given in
   !! [1] M. Abramowitz and I. A. Stegun: Handbook of Mathematical Functions,
   !!     Applied Mathematics Series. National Bureau of Standards, Vol. 55, 1964
   !!     online resource: http://people.math.sfu.ca/~cbm/aands/
-  !! 
+  !!
   !! check the value of K(k):
   !! (a) K((SQRT(6)-SQRT(2))/4) = 2**(-7/3) * 3**(1/4) * Gamma(1/3)**3 / PI
   !! (b) K(1/SQRT(2)) = SQRT(PI)/4 * Gamma(1/4)**2
@@ -171,11 +173,11 @@ CONTAINS
   !!
   !! check value of E(k):
   !! (a) E((SQRT(6)-SQRT(2))/4) = SQRT(PI)*3**(-1/4) * (
-  !!        2**(1/3) / SQRT(3) * (SQRT(PI)/Gamma(1/3))**3 
+  !!        2**(1/3) / SQRT(3) * (SQRT(PI)/Gamma(1/3))**3
   !!      + 0.125*(SQRT(3)+1) / (2**(1/3)) * (Gamma(1/3)/SQRT(PI))**3)
   !! (b) E(1/SQRT(2)) = SQRT(PI)*(PI/(Gamma(1/4)**2)+0.125*(Gamma(1/4)**2)/PI)
   !! (a) E((SQRR(6)+SQRT(2))/4) = SQRT(PI)*3**(1/4) * (
-  !!        2**(1/3) / SQRT(3) * (SQRT(PI)/Gamma(1/3))**3 
+  !!        2**(1/3) / SQRT(3) * (SQRT(PI)/Gamma(1/3))**3
   !!      + 0.125*(SQRT(3)-1) / (2**(1/3)) * (Gamma(1/3)/SQRT(PI))**3)
   !!
   !! with Gamma(1/3) = 2.6789385347 ... and Gamma(1/4) = 3.6256099082 ...
@@ -187,8 +189,8 @@ CONTAINS
     REAL, INTENT(IN)  :: k ! elliptic modulus
     REAL, INTENT(OUT) :: Eell,Kell
     !------------------------------------------------------------------------!
-    INTEGER :: i,n
-    REAL    :: an,bn,cn,tmp
+    INTEGER           :: i,n
+    REAL              :: an,bn,cn,tmp
     !------------------------------------------------------------------------!
     tmp = 0.0
     IF (ABS(k).LT.1.0) THEN
@@ -217,7 +219,7 @@ CONTAINS
     END IF
     Eell = (1.0-0.5*tmp)*Kell
   END SUBROUTINE EllipticIntegrals
-  
+
 
   !> compute the complete elliptic integral of the first kind
   !! using the AGM method (arithmetic-geometric-mean)
@@ -255,7 +257,7 @@ CONTAINS
        ! hence return an even better approximation:
        Kell = PI / ( an + bn + TINY(Kell) ) ! avoid division by 0
     ELSE
-       Kell = SQRT(-1.0*ABS(k)) ! return NaN       
+       Kell = SQRT(-1.0*ABS(k)) ! return NaN
     END IF
   END FUNCTION EllipticIntegral_K
 
@@ -267,8 +269,8 @@ CONTAINS
   ELEMENTAL FUNCTION EllipticIntegral_E(k) RESULT(Eell)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    REAL, INTENT(IN) :: k ! elliptic modulus 
-    REAL :: Eell
+    REAL, INTENT(IN) :: k ! elliptic modulus
+    REAL             :: Eell
     !------------------------------------------------------------------------!
     REAL :: dummy
     !------------------------------------------------------------------------!
@@ -278,7 +280,7 @@ CONTAINS
 
   !> Computes Carlson's elliptic integral of the first kind R_F(x,y,z),
   !! y,y,z > 0. One can be zero.
-  !! TINY must be at least 5x the machine underflow limit, BIG at most one 
+  !! TINY must be at least 5x the machine underflow limit, BIG at most one
   !! fifth of the machine overflow limit.
   !! similar to Numerical recipes 2nd edition
   ELEMENTAL FUNCTION rf(x,y,z) RESULT(res)
@@ -322,18 +324,18 @@ CONTAINS
         IF(MAX(ABS(delx),ABS(dely),ABS(delz)).LE.ERRTOL) &
           EXIT
       END DO
-      
+
       e2 = delx*dely-delz**2
       e3 = delx*dely*delz
       res = (1. + (C1*e2-C2-C3*e3)*e2 + C4*e3)/SQRT(ave)
     END IF
   END FUNCTION rf
-  
+
 
   !> Computes Carlson's elliptic integral of the second kind R_D(x,y,z),
   !! y,y > 0. One can be zero. z > 0.
-  !! TINY must be at least twice -2/3 power of the machine underflow limit, 
-  !! BIG at most 0.1 x ERRTOL times the -2/3 power of the machine overflow 
+  !! TINY must be at least twice -2/3 power of the machine underflow limit,
+  !! BIG at most 0.1 x ERRTOL times the -2/3 power of the machine overflow
   !! limit.
   !! similar to Numerical recipes 2nd edition
   ELEMENTAL FUNCTION rd(x,y,z) RESULT(res)
@@ -394,7 +396,7 @@ CONTAINS
   END FUNCTION rd
 
   ! Legendre elliptic integral of the first kind F(phi,k), evaluated using
-  ! Carlson's function R_F. The argument ranges are 0 <= phi <= pi/2, 
+  ! Carlson's function R_F. The argument ranges are 0 <= phi <= pi/2,
   ! 0 <= k*sin(phi) <= 1
   ! similar to Numerical recipes 2nd edition
   ELEMENTAL FUNCTION IncompleteEllipticIntegral_F(phi,ak) RESULT(res)
@@ -412,7 +414,7 @@ CONTAINS
 
 
   !> Legendre elliptic integral of the second kind E(phi,k), evaluated using
-  !! Carlson's function R_D and R_F. The argument ranges are 0 <= phi <= pi/2, 
+  !! Carlson's function R_D and R_F. The argument ranges are 0 <= phi <= pi/2,
   !! 0 <= k*sin(phi) <= 1
   !! similar to Numerical recipes 2nd edition
   ELEMENTAL FUNCTION IncompleteEllipticIntegral_E(phi,ak) RESULT(res)
@@ -449,7 +451,7 @@ CONTAINS
        P(0) = 1.0
        IF (l.GE.1) THEN
           P(1) = x
-          ! use the constant coefficients for the first 
+          ! use the constant coefficients for the first
           ! MAX_PL_COEFF Legendre Polynomials
           DO i=2,MIN(l,MAX_PL_COEFF)
              P(i) = (1.0+PL_COEFF(i))*x*P(i-1) - PL_COEFF(i)*P(i-2)
@@ -489,7 +491,7 @@ CONTAINS
        CASE DEFAULT
           ! speed up things a little with predefined coefficients
           IF (l.LE.MAX_PL_COEFF) THEN
-             c = PL_COEFF(l) 
+             c = PL_COEFF(l)
           ELSE
              c = l/(l+1.0) ! temporary storage
           END IF
@@ -503,13 +505,13 @@ CONTAINS
   ELEMENTAL FUNCTION LegendrePolynomial_all(l,x) RESULT (Pl)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    INTEGER        :: l
-    REAL           :: x,Pl
+    INTEGER    :: l
+    REAL       :: x,Pl
     !------------------------------------------------------------------------!
-    INTEGER        :: i
-    REAL           :: Plminus1,Plminus2
+    INTEGER    :: i
+    REAL       :: Plminus1,Plminus2
     !------------------------------------------------------------------------!
-    INTENT(IN)     :: l,x
+    INTENT(IN) :: l,x
     !------------------------------------------------------------------------!
     IF(l.LT.0) THEN
         Pl = SQRT(1.0*l) ! return NaN
@@ -678,7 +680,7 @@ CONTAINS
 
     END FUNCTION Bessel_K0
 
-!> Compute the exponential scaled modified Bessel function of the second kind 
+!> Compute the exponential scaled modified Bessel function of the second kind
 !! e.g. K0e = EXP(x) * K0(x) as polynomial expansion, using coefficients from
 !! Abramowitz p.379 (http://people.math.sfu.ca/~cbm/aands/page_379.htm) for
 !! x >= 2, and exp(x)*K0(x) directly for 0<x<2.
@@ -787,7 +789,7 @@ CONTAINS
     b = -x + 1.
     Ap1 = b* A0 + a * Am1
     Bp1 = b* B0 + a * Bm1
-    EPS = 10. * EPSILON(x) 
+    EPS = 10. * EPSILON(x)
     j = 1
     a = 1.
     DO WHILE(ABS(Ap1 * B0 - A0 * Bp1).GT.EPS*ABS(A0*Bp1))
@@ -870,8 +872,8 @@ CONTAINS
       7.943916035704453771510e17, 2.111342388647824195000e18,&
       5.614329680810343111535e18, 1.493630213112993142255e19,&
       3.975442747903744836007e19, 1.058563689713169096306e20 /)
-    INTEGER         :: k, j
-    REAL            :: xx,dx,xxj,edx,Sm,Sn,term,factorial,dxj,EPS
+    INTEGER :: k, j
+    REAL    :: xx,dx,xxj,edx,Sm,Sn,term,factorial,dxj,EPS
     !------------------------------------------------------------------------!
     k = NINT(x + 0.5)
     j = 0
@@ -885,7 +887,7 @@ CONTAINS
     factorial = 1.
     dxj = 1.
     EPS = 10.*EPSILON(x)
-    
+
     DO WHILE(ABS(term).GT.EPS*ABS(Sn))
       j = j + 1
       factorial = factorial * j
@@ -899,12 +901,12 @@ CONTAINS
   END FUNCTION Argument_Addition_Series_Ei
 
 
-  !> returns the error function of argument x 
+  !> returns the error function of argument x
   !! calculation of error fuction and complementary errorfunction are based on
   !! M. Abramowitz and I. A. Stegun: Handbook of Mathematical Functions,
   !! Applied Mathematics Series. National Bureau of Standards, Vol. 55, 1964
   !! online resource: http://people.math.sfu.ca/~cbm/aands/
-  !! and 
+  !! and
   !! "Rational Chebyshev approximations for the error function"
   !! by W. J. Cody, Math. Comp., 1969, PP. 631-638.
   !! Coefficients for the Polynoms are taken from the library routine
@@ -912,16 +914,16 @@ CONTAINS
    ELEMENTAL FUNCTION ErrorFunc(x) RESULT(erf)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    REAL, INTENT(IN) :: x  
-    REAL :: erf
+    REAL, INTENT(IN) :: x
+    REAL             :: erf
     !------------------------------------------------------------------------!
-    REAL, PARAMETER :: XERF  = 0.46875
-    REAL, PARAMETER :: XERFC = 4.0
+    REAL, PARAMETER  :: XERF  = 0.46875
+    REAL, PARAMETER  :: XERFC = 4.0
     !------------------------------------------------------------------------!
     !Cody error function approximation
     IF (ABS(x) .LT. TINY(1.) ) THEN !!0 besser abfangen
             erf = 0.0
-    ELSE IF(x.GT.0.0)THEN 
+    ELSE IF(x.GT.0.0)THEN
            IF (x .LT. XERF) THEN
                erf = CodyerfApprox(x)
            ELSE IF (x .LT. XERFC) THEN
@@ -930,7 +932,7 @@ CONTAINS
                erf = 1. - Codycerf2Approx(x)
            END IF
     !use erf,erfc symmetry for negative arguments
-    ELSE 
+    ELSE
            IF (-x .LT. XERF) THEN
                erf = - CodyerfApprox(-x)
            ELSE IF (-x .LT. XERFC) THEN
@@ -942,18 +944,18 @@ CONTAINS
 
   END FUNCTION ErrorFunc
 
-  ! returns the complementary error function 
+  ! returns the complementary error function
   ELEMENTAL FUNCTION CompErrorFunc(x) RESULT(cerf)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    REAL, INTENT(IN) :: x  
-    REAL :: cerf
+    REAL, INTENT(IN) :: x
+    REAL             :: cerf
     !------------------------------------------------------------------------!
-    REAL, PARAMETER :: XERF  = 0.46875
-    REAL, PARAMETER :: XERFC = 4.0
+    REAL, PARAMETER  :: XERF  = 0.46875
+    REAL, PARAMETER  :: XERFC = 4.0
     !------------------------------------------------------------------------!
     !Cody complementary error function approximation
-    IF(x.GE.0.0) THEN  
+    IF(x.GE.0.0) THEN
         IF (x .LT.XERF) THEN
             cerf = 1. - CodyerfApprox(x)
         ELSE IF (x .LT. XERFC) THEN
@@ -962,10 +964,10 @@ CONTAINS
             cerf = Codycerf2Approx(x)
         END IF
     !use erf,erfc symmetry for negative arguments
-    ELSE 
+    ELSE
         IF (-x .LT. XERF) THEN
             cerf = 1. + CodyerfApprox(-x)
-        ELSE IF (-x .LT. XERFC) THEN 
+        ELSE IF (-x .LT. XERFC) THEN
             cerf = 2. - Codycerf1Approx(-x)
         ELSE
             cerf = 2. - Codycerf2Approx(-x)
@@ -978,8 +980,8 @@ CONTAINS
   ELEMENTAL FUNCTION CodyerfApprox(x) RESULT(erf)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    REAL, INTENT(IN) :: x  
-    REAL :: erf
+    REAL, INTENT(IN)  :: x
+    REAL              :: erf
     !------------------------------------------------------------------------!
     INTEGER :: i
     REAL :: denom, nom, x2, x4, x6
@@ -995,12 +997,12 @@ CONTAINS
     x2 = x  * x
     x4 = x2 * x2
     x6 = x4 * x2
-    
+
     nom   = P_nom(1)  + x2 * (P_nom(2)   + P_nom(3)* x2   + P_nom(4) *   x4 &
-            + P_nom(5)*x6) 
+            + P_nom(5)*x6)
     denom = P_denom(1)+ x2 * (P_denom(2) + P_denom(3)* x2 + P_denom(4) * x4 &
             + x6)
-     
+ 
     erf   = x * nom / denom
 
   END FUNCTION CodyerfApprox
@@ -1009,11 +1011,11 @@ CONTAINS
   ELEMENTAL FUNCTION Codycerf1Approx(x) RESULT(cerf)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    REAL, INTENT(IN) :: x  
-    REAL :: cerf
+    REAL, INTENT(IN)  :: x
+    REAL              :: cerf
     !------------------------------------------------------------------------!
-    INTEGER :: i
-    REAL :: denom, nom
+    INTEGER           :: i
+    REAL              :: denom, nom
     REAL,DIMENSION(9) :: P_nom , P_denom
     !------------------------------------------------------------------------!
      P_nom   = (/ 1.23033935479799725E03 , 2.05107837782607147E03 ,&
@@ -1034,29 +1036,29 @@ CONTAINS
         nom   = (nom   + P_nom(9-i))   * x
         denom = (denom + P_denom(9-i)) * x
      END DO
-     
-     nom   = nom   + P_nom(1)  
+
+     nom   = nom   + P_nom(1)
      denom = denom + P_denom(1)
-    
+
      cerf = exp (-x*x)* nom / denom
 
   END FUNCTION Codycerf1Approx
-  
+
   !> Cody approximation for complementary error function for |x| > 4
   ELEMENTAL FUNCTION Codycerf2Approx(x) RESULT(cerf)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    REAL, INTENT(IN) :: x  
-    REAL :: cerf
+    REAL, INTENT(IN)  :: x
+    REAL              :: cerf
     !------------------------------------------------------------------------!
-    INTEGER :: i
-    REAL :: denom, nom, x2, x4, x6, x8
+    INTEGER           :: i
+    REAL              :: denom, nom, x2, x4, x6, x8
     REAL,DIMENSION(5) :: P_denom
-    REAL,DIMENSION(6) :: P_nom 
+    REAL,DIMENSION(6) :: P_nom
     !------------------------------------------------------------------------!
     P_nom   = (/ 6.58749161529837803E-4 , 1.60837851487422766E-2 ,&
                  1.25781726111229246E-1 , 3.60344899949804439E-1 ,&
-                 3.05326634961232344E-1 , 1.63153871373020978E-2 /)    
+                 3.05326634961232344E-1 , 1.63153871373020978E-2 /)
     P_denom = (/ 2.33520497626869185E-3 , 6.05183413124413191E-2 ,&
                  5.27905102951428412E-1 , 1.87295284992346047E00 ,&
                  2.56852019228982242E00 /)
@@ -1076,31 +1078,31 @@ CONTAINS
   END FUNCTION Codycerf2Approx
 
   !> Inverse of the error function
-  !! Argument of this function has to be in ]-1,1[, returns huge(1.0) for 
-  !! values x with abs(x)>=1 without an error !!!! 
-  !! uses and idea of P.J. Acklam 
+  !! Argument of this function has to be in ]-1,1[, returns huge(1.0) for
+  !! values x with abs(x)>=1 without an error !!!!
+  !! uses and idea of P.J. Acklam
   !! http://home.online.no/~pjacklam/notes/invnorm/ to calculate the inverse
-  !! using the Halley root finding algorithm 
-  !! Halley is preferable to Newton- Raphson as the second derivative can 
+  !! using the Halley root finding algorithm
+  !! Halley is preferable to Newton- Raphson as the second derivative can
   !! be computed easily f''(y) = -2y*f'(y) for f(y)=erf(y)
   ELEMENTAL FUNCTION InvErf(x) RESULT(ierf)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    REAL, INTENT(IN) :: x  
-    REAL :: ierf
+    REAL, INTENT(IN) :: x
+    REAL             :: ierf
     !------------------------------------------------------------------------!
 ! FIXME : find global error variable, depending on precision(single,double,..)
-    REAL, PARAMETER :: error = 1e-14
-    REAL            :: q,y ,SQRTPI,SQRTPI_0_5,fy
+    REAL, PARAMETER  :: error = 1e-14
+    REAL             :: q,y ,SQRTPI,SQRTPI_0_5,fy
     !------------------------------------------------------------------------!
-     
+
      IF(x.LT.1.0)THEN
        SQRTPI = SQRT(PI)
-       SQRTPI_0_5 = SQRTPI*0.5 
+       SQRTPI_0_5 = SQRTPI*0.5
 
-       ! initial guess: 
-       y  = SQRTPI*(0.5*x + PI/24.*x**3 + 7.*PI**2/960.*x**5) 
-       q  = SQRTPI_0_5 * EXP(y*y)*(ErrorFunc(y)-x)   !f(y)/f'(y)   
+       ! initial guess:
+       y  = SQRTPI*(0.5*x + PI/24.*x**3 + 7.*PI**2/960.*x**5)
+       q  = SQRTPI_0_5 * EXP(y*y)*(ErrorFunc(y)-x)   !f(y)/f'(y)
        fy = ErrorFunc(y) - x
 
        DO WHILE (ABS(fy) .GT. error)
@@ -1113,7 +1115,7 @@ CONTAINS
      ! infinity
         ierf = HUGE(1.)
      END IF
-     
+
    END FUNCTION InvErf
 
 !> Compute the Gamma function
@@ -1128,8 +1130,8 @@ CONTAINS
   ELEMENTAL FUNCTION Gamma(x) RESULT(res)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    REAL, INTENT(IN):: x
-    REAL            :: res
+    REAL, INTENT(IN) :: x
+    REAL             :: res
     !------------------------------------------------------------------------!
     REAL, DIMENSION(26), PARAMETER :: G = &
     (/ 1.0E0,                 0.5772156649015329E0,&
@@ -1191,25 +1193,25 @@ CONTAINS
  ELEMENTAL  FUNCTION LnGamma(x) RESULT(lg)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    DOUBLE PRECISION    :: x
-    REAL                :: lg
-    DOUBLE PRECISION    :: alpha,beta,Ag,con
-    INTEGER             :: i
+    DOUBLE PRECISION :: x
+    REAL             :: lg
+    DOUBLE PRECISION :: alpha,beta,Ag,con
+    INTEGER          :: i
     !------------------------------------------------------------------------!
-    INTENT(IN)          :: x
+    INTENT(IN)       :: x
     !------------------------------------------------------------------------!
     DOUBLE PRECISION, DIMENSION(15), PARAMETER &
-                        :: p = &
-          (/ .99999999999999709182d0,      57.156235665862923517d0,&
-            -59.597960355475491248d0,      14.136097974741747174d0,&
-            -.49191381609762019978d0,     .33994649984811888699d-4,&
-            .46523628927048575665d-4,    -.98374475304879564677d-4,&
-            .15808870322491248884d-3,    -.21026444172410488319d-3,&
-            .21743961811521264320d-3,    -.16431810653676389022d-3,&
-            .84418223983852743293d-4,    -.26190838401581408670d-4,&
-            .36899182659531622704d-5                                /)
+                     :: p = &
+                 (/ .99999999999999709182d0,      57.156235665862923517d0,&
+                   -59.597960355475491248d0,      14.136097974741747174d0,&
+                   -.49191381609762019978d0,     .33994649984811888699d-4,&
+                   .46523628927048575665d-4,    -.98374475304879564677d-4,&
+                   .15808870322491248884d-3,    -.21026444172410488319d-3,&
+                   .21743961811521264320d-3,    -.16431810653676389022d-3,&
+                   .84418223983852743293d-4,    -.26190838401581408670d-4,&
+                   .36899182659531622704d-5                                /)
 
-    ! prefactor 
+    ! prefactor
     alpha = 2.506628274631000502415d0
     beta  = x + 5.24218750d0
     con = LOG(alpha)+LOG(beta)*(x+0.5d0) - beta
@@ -1222,7 +1224,7 @@ CONTAINS
       END DO
       lg  = con + LOG(Ag)
     ELSE
-!      CALL Error(this,"LnGamma","bad value for for gammafunction") 
+!      CALL Error(this,"LnGamma","bad value for for gammafunction")
     END IF
   END FUNCTION LnGamma
 END MODULE functions

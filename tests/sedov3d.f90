@@ -1,6 +1,6 @@
 !#############################################################################
 !#                                                                           #
-!# fosite - 2D hydrodynamical simulation program                             #
+!# fosite - 3D hydrodynamical simulation program                             #
 !# module: sedov3d.f90                                                       #
 !#                                                                           #
 !# Copyright (C) 2006-2014                                                   #
@@ -28,12 +28,9 @@
 !! \author Tobias Illenseer
 !!
 !! References:
-!! [1] Sedov, L. I.: Unsteady motions of compressible fluids,
-!!     J. Appl. Math. Mech. 9 (1945)
-!! [2] Sedov, L. I.: Similarity and Dimensional Methods in Mechanics
-!!     Academic Press Ltd., New York (1959)
-!! [3] Padmanabhan, T.:Theoretical Astrophysics, Vol. I: Astrophysical
-!!     Processes, Cambridge University Press (2000), Chapter 8.12
+!! \cite sedov1945
+!! \cite sedoc1959
+!! \cite padmanabhan2000
 !----------------------------------------------------------------------------!
 PROGRAM sedov3d
   USE fosite_mod
@@ -90,26 +87,26 @@ CONTAINS
     USE functions, ONLY : Asinh,Acosh
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(fosite)          :: Sim
-    TYPE(Dict_TYP),POINTER :: config
+    CLASS(fosite)           :: Sim
+    TYPE(Dict_TYP),POINTER  :: config
     !------------------------------------------------------------------------!
     ! Local variable declaration
-    INTEGER           :: bc(6)
+    INTEGER                 :: bc(6)
     TYPE(Dict_TYP), POINTER :: mesh, physics, boundary, datafile, logfile, &
                                timedisc, fluxes
-    REAL              :: x1,x2,y1,y2,z1,z2
+    REAL                    :: x1,x2,y1,y2,z1,z2
     !------------------------------------------------------------------------!
-    INTENT(INOUT)     :: Sim
+    INTENT(INOUT)           :: Sim
     !------------------------------------------------------------------------!
     ! mesh settings and boundary conditions
     SELECT CASE(MGEO)
     CASE(CARTESIAN)
        x1 = -0.5
-       x2 = 0.5
+       x2 =  0.5
        y1 = -0.5
-       y2 = 0.5
+       y2 =  0.5
        z1 = -0.5
-       z2 = 0.5
+       z2 =  0.5
        bc(WEST)  = NO_GRADIENTS
        bc(EAST)  = NO_GRADIENTS
        bc(SOUTH) = NO_GRADIENTS
@@ -176,24 +173,24 @@ CONTAINS
     ! mesh settings
     mesh => Dict( &
               "meshtype"    / MIDPOINT, &
-              "geometry"    / MGEO, &
-              "inum"        / XRES, &
-              "jnum"        / YRES, &
-              "knum"        / ZRES, &
-              "xmin"        / x1, &
-              "xmax"        / x2, &
-              "ymin"        / y1, &
-              "ymax"        / y2, &
-              "zmin"        / z1, &
-              "zmax"        / z2, &
-              "gparam"      / GPAR)
+              "geometry"    /     MGEO, &
+              "inum"        /     XRES, &
+              "jnum"        /     YRES, &
+              "knum"        /     ZRES, &
+              "xmin"        /       x1, &
+              "xmax"        /       x2, &
+              "ymin"        /       y1, &
+              "ymax"        /       y2, &
+              "zmin"        /       z1, &
+              "zmax"        /       z2, &
+              "gparam"      /     GPAR  )
 
     ! boundary conditions
     boundary => Dict( &
-              "western"     / bc(WEST), &
-              "eastern"     / bc(EAST), &
-              "southern"    / bc(SOUTH), &
-              "northern"    / bc(NORTH), &
+              "western"     / bc(WEST),   &
+              "eastern"     / bc(EAST),   &
+              "southern"    / bc(SOUTH),  &
+              "northern"    / bc(NORTH),  &
               "bottomer"    / bc(BOTTOM), &
               "topper"      / bc(TOP))
 
@@ -204,35 +201,35 @@ CONTAINS
 
    ! flux calculation and reconstruction method
    fluxes => Dict( &
-              "order"       / LINEAR, &
-              "fluxtype"    / KT, &
+              "order"       / LINEAR,    &
+              "fluxtype"    / KT,        &
               "variables"   / PRIMITIVE, &
               "limiter"     / VANLEER)
 
     ! time discretization settings
     timedisc => Dict( &
-              "method"      / MODIFIED_EULER, &
-              "order"       / 3, &
-              "cfl"         / 0.4, &
-              "stoptime"    / TSIM, &
-              "dtlimit"     / 1.0E-13, &
-              "tol_rel"     / 0.01, &
+              "method"      / MODIFIED_EULER,               &
+              "order"       / 3,                            &
+              "cfl"         / 0.4,                          &
+              "stoptime"    / TSIM,                         &
+              "dtlimit"     / 1.0E-13,                      &
+              "tol_rel"     / 0.01,                         &
               "tol_abs"     / (/1e-5,1e-5,1e-5,1e-5,1e-5/), &
-              "maxiter"     / 1000000)
+              "maxiter"     / 1000000                       )
 
     ! initialize data input/output
     datafile => Dict( &
-              "fileformat"  / VTK, &
+              "fileformat"  / VTK,                          &
               "filename"    / (TRIM(ODIR) // TRIM(OFNAME)), &
               "count"       / ONUM)
 
     config => Dict( &
-              "mesh"        / mesh, &
-              "physics"     / physics, &
+              "mesh"        / mesh,     &
+              "physics"     / physics,  &
               "boundary"    / boundary, &
-              "fluxes"      / fluxes, &
+              "fluxes"      / fluxes,   &
               "timedisc"    / timedisc, &
-              "datafile"    / datafile)
+              "datafile"    / datafile  )
   END SUBROUTINE MakeConfig
 
   SUBROUTINE InitData(Mesh,Physics,Timedisc)
@@ -243,8 +240,8 @@ CONTAINS
     CLASS(timedisc_base), INTENT(INOUT) :: Timedisc
     !------------------------------------------------------------------------!
     ! Local variable declaration
-    INTEGER :: n
-    REAL    :: P1
+    INTEGER                             :: n
+    REAL                                :: P1
     !------------------------------------------------------------------------!
     ! peak pressure
     n  = 3 ! 3 for 3D

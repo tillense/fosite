@@ -1,6 +1,6 @@
 !#############################################################################
 !#                                                                           #
-!# fosite - 2D hydrodynamical simulation program                             #
+!# fosite - 3D hydrodynamical simulation program                             #
 !# module: sources_generic.f90                                               #
 !#                                                                           #
 !# Copyright (C) 2007-2013                                                   #
@@ -331,7 +331,7 @@ MODULE sources_base_mod
 !      dir => GetNext(dir)
 !    END DO
 !
-!    ! finally initialize gravity 
+!    ! finally initialize gravity
 !    IF(ASSOCIATED(gsrc)) THEN
 !       NULLIFY(IOsrc)
 !       CALL SetAttr(gsrc,"update_disk_height", update_disk_height)
@@ -523,7 +523,7 @@ MODULE sources_base_mod
 !    INTENT(IN)        :: Mesh,Fluxes,time,pvar,cvar
 !    INTENT(INOUT)     :: dt,dtcause,Physics
 !    !------------------------------------------------------------------------!
-!    
+!
 !    ! go through all source terms in the list
 !    srcptr => this
 !    DO WHILE(ASSOCIATED(srcptr))
@@ -540,14 +540,14 @@ MODULE sources_base_mod
 !          CALL CalcTimestep_cooling(srcptr,Mesh,Physics,time,pvar,dt_new)
 !       CASE(DISK_COOLING)
 !          CALL CalcTimestep_diskcooling(srcptr,Mesh,Physics,Fluxes,time,pvar,dt_new)
-!       CASE(STELLAR_HEATING)        
+!       CASE(STELLAR_HEATING)
 !           CALL CalcTimestep_StellarHeating(srcptr,Mesh,Physics,Fluxes,time,pvar,dt_new)
 !       CASE(SGS)
 !          CALL CalcTimestep_sgs(srcptr,Mesh,Physics,time,pvar,cvar,dt_new)
 !       CASE(FORCING)
 !          CALL CalcTimestep_forcing(srcptr,Mesh,Physics,pvar,cvar,dt_new)
 !       CASE(PLANET_COOLING)
-!          CALL CalcTimestep_planetcooling(srcptr,Mesh,Physics,time,pvar,dt_new)   
+!          CALL CalcTimestep_planetcooling(srcptr,Mesh,Physics,time,pvar,dt_new)
 !       CASE DEFAULT
 !          CALL Error(srcptr,"CalcTimestep", "unknown source term")
 !       END SELECT
@@ -556,7 +556,7 @@ MODULE sources_base_mod
 !       dt = MIN(dt,dt_new)
 !       ! next source term
 !       srcptr => srcptr%next
-!    END DO    
+!    END DO
 !  END SUBROUTINE CalcTimestep
 !
 !

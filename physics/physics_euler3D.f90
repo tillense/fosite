@@ -118,11 +118,11 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(physics_euler3D), INTENT(INOUT) :: this
-    CLASS(mesh_base),         INTENT(IN)    :: Mesh
-    TYPE(Dict_TYP), POINTER,  INTENT(IN)    :: config, IO
- 
+    CLASS(mesh_base),        INTENT(IN)   :: Mesh
+    TYPE(Dict_TYP), POINTER, INTENT(IN)   :: config, IO
+
     !------------------------------------------------------------------------!
-    INTEGER :: err
+    INTEGER                               :: err
     !------------------------------------------------------------------------!
 !    IF (PRESENT(pname)) THEN
 !       CALL this%InitPhysics(problem,pname,num_var)
@@ -138,8 +138,8 @@ CONTAINS
     this%XMOMENTUM = 2                                 ! x-momentum          !
     this%YVELOCITY = 3                                 ! y-velocity          !
     this%YMOMENTUM = 3                                 ! y-momentum          !
-    this%ZVELOCITY = 4                                 ! z-velocity       !
-    this%ZMOMENTUM = 4                                 ! z-momentum       !
+    this%ZVELOCITY = 4                                 ! z-velocity          !
+    this%ZMOMENTUM = 4                                 ! z-momentum          !
     ! set names for primitive and conservative variables
     this%pvarname(this%DENSITY)   = "density"
     this%pvarname(this%XVELOCITY) = "xvelocity"
@@ -166,7 +166,7 @@ CONTAINS
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
                             INTENT(OUT)   :: amin,amax,bmin,bmax,cmin,cmax
     !------------------------------------------------------------------------!
-    INTEGER           :: i,j,k
+    INTEGER                               :: i,j,k
     !------------------------------------------------------------------------!
     ! compute minimal and maximal wave speeds at cell centers
 !CDIR COLLAPSE
@@ -202,8 +202,8 @@ CONTAINS
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
                             INTENT(OUT)   :: amin,amax,bmin,bmax,cmin,cmax
     !------------------------------------------------------------------------!
-    REAL              :: uRoe,csRoe,aminRoe,amaxRoe
-    INTEGER           :: i,j,k
+    REAL                                  :: uRoe,csRoe,aminRoe,amaxRoe
+    INTEGER                               :: i,j,k
     !------------------------------------------------------------------------!
     ! compute minimal and maximal wave speeds at cell interfaces
 !CDIR COLLAPSE
@@ -425,14 +425,14 @@ CONTAINS
     !------------------------------------------------------------------------!
 !CDIR IEXPAND
     CALL SetFlux( &
-         prim(:,:,:,nmin:nmax,this%DENSITY), &
-         prim(:,:,:,nmin:nmax,this%ZVELOCITY), &
-         prim(:,:,:,nmin:nmax,this%PRESSURE), &
-         cons(:,:,:,nmin:nmax,this%ZMOMENTUM), &
-         cons(:,:,:,nmin:nmax,this%XMOMENTUM), &
-         cons(:,:,:,nmin:nmax,this%YMOMENTUM), &
-         cons(:,:,:,nmin:nmax,this%ENERGY), &
-         zfluxes(:,:,:,nmin:nmax,this%DENSITY), &
+         prim(:,:,:,nmin:nmax,this%DENSITY),      &
+         prim(:,:,:,nmin:nmax,this%ZVELOCITY),    &
+         prim(:,:,:,nmin:nmax,this%PRESSURE),     &
+         cons(:,:,:,nmin:nmax,this%ZMOMENTUM),    &
+         cons(:,:,:,nmin:nmax,this%XMOMENTUM),    &
+         cons(:,:,:,nmin:nmax,this%YMOMENTUM),    &
+         cons(:,:,:,nmin:nmax,this%ENERGY),       &
+         zfluxes(:,:,:,nmin:nmax,this%DENSITY),   &
          zfluxes(:,:,:,nmin:nmax,this%ZMOMENTUM), &
          zfluxes(:,:,:,nmin:nmax,this%XMOMENTUM), &
          zfluxes(:,:,:,nmin:nmax,this%YMOMENTUM), &
@@ -460,7 +460,7 @@ CONTAINS
       DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX) &
                                        :: astar
     !------------------------------------------------------------------------!
-    INTEGER          :: i,j,k
+    INTEGER                            :: i,j,k
     !------------------------------------------------------------------------!
     DO k=Mesh%KMIN,Mesh%KMAX
       DO j=Mesh%JMIN,Mesh%JMAX
@@ -505,7 +505,7 @@ CONTAINS
       DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX) &
                                           :: bstar
     !------------------------------------------------------------------------!
-    INTEGER          :: i,j,k
+    INTEGER                               :: i,j,k
     !------------------------------------------------------------------------!
 !CDIR COLLAPSE
     DO k=Mesh%KGMIN,Mesh%KGMAX
@@ -514,15 +514,15 @@ CONTAINS
         DO i=Mesh%IGMIN,Mesh%IGMAX
 !CDIR IEXPAND
           CALL SetIntermediateState( &
-               prim(i,j,k,4,this%DENSITY),prim(i,j+1,k,3,this%DENSITY), &
+               prim(i,j,k,4,this%DENSITY),prim(i,j+1,k,3,this%DENSITY),     &
                prim(i,j,k,4,this%YVELOCITY),prim(i,j+1,k,3,this%YVELOCITY), &
                prim(i,j,k,4,this%ZVELOCITY),prim(i,j+1,k,3,this%ZVELOCITY), &
                prim(i,j,k,4,this%XVELOCITY),prim(i,j+1,k,3,this%XVELOCITY), &
-               prim(i,j,k,4,this%PRESSURE),prim(i,j+1,k,3,this%PRESSURE), &
-               cons(i,j,k,4,this%ENERGY),cons(i,j+1,k,3,this%ENERGY), &
-               bmin(i,j,k),bmax(i,j,k), &
-               cstar(i,j,k,this%DENSITY),cstar(i,j,k,this%YMOMENTUM), &
-               cstar(i,j,k,this%ZMOMENTUM),cstar(i,j,k,this%XMOMENTUM), &
+               prim(i,j,k,4,this%PRESSURE),prim(i,j+1,k,3,this%PRESSURE),   &
+               cons(i,j,k,4,this%ENERGY),cons(i,j+1,k,3,this%ENERGY),       &
+               bmin(i,j,k),bmax(i,j,k),                                     &
+               cstar(i,j,k,this%DENSITY),cstar(i,j,k,this%YMOMENTUM),       &
+               cstar(i,j,k,this%ZMOMENTUM),cstar(i,j,k,this%XMOMENTUM),     &
                cstar(i,j,k,this%ENERGY),bstar(i,j,k))
         END DO
       END DO
@@ -551,7 +551,7 @@ CONTAINS
       DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX) &
                                           :: bstar
     !------------------------------------------------------------------------!
-    INTEGER          :: i,j,k
+    INTEGER                               :: i,j,k
     !------------------------------------------------------------------------!
 !CDIR COLLAPSE
     DO k=Mesh%KGMIN,Mesh%KGMAX
@@ -560,15 +560,15 @@ CONTAINS
         DO i=Mesh%IGMIN,Mesh%IGMAX
 !CDIR IEXPAND
           CALL SetIntermediateState( &
-               prim(i,j,k,6,this%DENSITY),prim(i,j,k+1,5,this%DENSITY), &
+               prim(i,j,k,6,this%DENSITY),prim(i,j,k+1,5,this%DENSITY),     &
                prim(i,j,k,6,this%ZVELOCITY),prim(i,j,k+1,5,this%ZVELOCITY), &
                prim(i,j,k,6,this%XVELOCITY),prim(i,j,k+1,5,this%XVELOCITY), &
                prim(i,j,k,6,this%YVELOCITY),prim(i,j,k+1,5,this%YVELOCITY), &
-               prim(i,j,k,6,this%PRESSURE),prim(i,j,k+1,5,this%PRESSURE), &
-               cons(i,j,k,6,this%ENERGY),cons(i,j,k+1,5,this%ENERGY), &
-               cmin(i,j,k),cmax(i,j,k), &
-               cstar(i,j,k,this%DENSITY),cstar(i,j,k,this%YMOMENTUM), &
-               cstar(i,j,k,this%ZMOMENTUM),cstar(i,j,k,this%XMOMENTUM), &
+               prim(i,j,k,6,this%PRESSURE),prim(i,j,k+1,5,this%PRESSURE),   &
+               cons(i,j,k,6,this%ENERGY),cons(i,j,k+1,5,this%ENERGY),       &
+               cmin(i,j,k),cmax(i,j,k),                                     &
+               cstar(i,j,k,this%DENSITY),cstar(i,j,k,this%YMOMENTUM),       &
+               cstar(i,j,k,this%ZMOMENTUM),cstar(i,j,k,this%XMOMENTUM),     &
                cstar(i,j,k,this%ENERGY),bstar(i,j,k))
         END DO
       END DO
@@ -1116,7 +1116,7 @@ CONTAINS
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM), &
                             INTENT(OUT)   :: sterm
     !------------------------------------------------------------------------!
-    INTEGER           :: i,j,k
+    INTEGER                               :: i,j,k
     !------------------------------------------------------------------------!
 !CDIR COLLAPSE
     DO k=Mesh%KGMIN,Mesh%KGMAX
@@ -1394,12 +1394,12 @@ CONTAINS
                             INTENT(OUT) :: pvar
     !------------------------------------------------------------------------!
     CALL Cons2Prim(this%gamma, &
-                   cvar(i1:i2,j1:j2,k1:k2,this%DENSITY), &
+                   cvar(i1:i2,j1:j2,k1:k2,this%DENSITY),   &
                    cvar(i1:i2,j1:j2,k1:k2,this%XMOMENTUM), &
                    cvar(i1:i2,j1:j2,k1:k2,this%YMOMENTUM), &
                    cvar(i1:i2,j1:j2,k1:k2,this%ZMOMENTUM), &
-                   cvar(i1:i2,j1:j2,k1:k2,this%ENERGY), &
-                   pvar(i1:i2,j1:j2,k1:k2,this%DENSITY), &
+                   cvar(i1:i2,j1:j2,k1:k2,this%ENERGY),    &
+                   pvar(i1:i2,j1:j2,k1:k2,this%DENSITY),   &
                    pvar(i1:i2,j1:j2,k1:k2,this%XVELOCITY), &
                    pvar(i1:i2,j1:j2,k1:k2,this%YVELOCITY), &
                    pvar(i1:i2,j1:j2,k1:k2,this%ZVELOCITY), &
@@ -1438,12 +1438,12 @@ CONTAINS
                             INTENT(OUT) :: prim
     !------------------------------------------------------------------------!
     CALL Cons2Prim(this%gamma, &
-                   cons(i1:i2,j1:j2,k1:k2,:,this%DENSITY), &
+                   cons(i1:i2,j1:j2,k1:k2,:,this%DENSITY),   &
                    cons(i1:i2,j1:j2,k1:k2,:,this%XMOMENTUM), &
                    cons(i1:i2,j1:j2,k1:k2,:,this%YMOMENTUM), &
                    cons(i1:i2,j1:j2,k1:k2,:,this%ZMOMENTUM), &
-                   cons(i1:i2,j1:j2,k1:k2,:,this%ENERGY), &
-                   prim(i1:i2,j1:j2,k1:k2,:,this%DENSITY), &
+                   cons(i1:i2,j1:j2,k1:k2,:,this%ENERGY),    &
+                   prim(i1:i2,j1:j2,k1:k2,:,this%DENSITY),   &
                    prim(i1:i2,j1:j2,k1:k2,:,this%XVELOCITY), &
                    prim(i1:i2,j1:j2,k1:k2,:,this%YVELOCITY), &
                    prim(i1:i2,j1:j2,k1:k2,:,this%ZVELOCITY), &
@@ -1483,12 +1483,12 @@ CONTAINS
                             INTENT(OUT) :: cvar
     !------------------------------------------------------------------------!
     CALL Prim2Cons(this%gamma, &
-         pvar(i1:i2,j1:j2,k1:k2,this%DENSITY), &
+         pvar(i1:i2,j1:j2,k1:k2,this%DENSITY),   &
          pvar(i1:i2,j1:j2,k1:k2,this%XVELOCITY), &
          pvar(i1:i2,j1:j2,k1:k2,this%YVELOCITY), &
          pvar(i1:i2,j1:j2,k1:k2,this%ZVELOCITY), &
-         pvar(i1:i2,j1:j2,k1:k2,this%PRESSURE), &
-         cvar(i1:i2,j1:j2,k1:k2,this%DENSITY), &
+         pvar(i1:i2,j1:j2,k1:k2,this%PRESSURE),  &
+         cvar(i1:i2,j1:j2,k1:k2,this%DENSITY),   &
          cvar(i1:i2,j1:j2,k1:k2,this%XMOMENTUM), &
          cvar(i1:i2,j1:j2,k1:k2,this%YMOMENTUM), &
          cvar(i1:i2,j1:j2,k1:k2,this%ZMOMENTUM), &
@@ -1528,12 +1528,12 @@ CONTAINS
     !------------------------------------------------------------------------!
     !\todo Is direct call ok?
     CALL Prim2Cons(this%gamma, &
-         prim(i1:i2,j1:j2,k1:k2,:,this%DENSITY), &
+         prim(i1:i2,j1:j2,k1:k2,:,this%DENSITY),   &
          prim(i1:i2,j1:j2,k1:k2,:,this%XVELOCITY), &
          prim(i1:i2,j1:j2,k1:k2,:,this%YVELOCITY), &
          prim(i1:i2,j1:j2,k1:k2,:,this%ZVELOCITY), &
-         prim(i1:i2,j1:j2,k1:k2,:,this%PRESSURE), &
-         cons(i1:i2,j1:j2,k1:k2,:,this%DENSITY), &
+         prim(i1:i2,j1:j2,k1:k2,:,this%PRESSURE),  &
+         cons(i1:i2,j1:j2,k1:k2,:,this%DENSITY),   &
          cons(i1:i2,j1:j2,k1:k2,:,this%XMOMENTUM), &
          cons(i1:i2,j1:j2,k1:k2,:,this%YMOMENTUM), &
          cons(i1:i2,j1:j2,k1:k2,:,this%ZMOMENTUM), &
@@ -1603,7 +1603,7 @@ CONTAINS
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM), &
                             INTENT(INOUT) :: pvar,cvar
     !------------------------------------------------------------------------!
-    INTEGER              :: i,j,k
+    INTEGER                               :: i,j,k
     !------------------------------------------------------------------------!
 !CDIR COLLAPSE
     DO k=Mesh%KGMIN,Mesh%KGMAX
@@ -1730,7 +1730,7 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     REAL, INTENT(IN)  :: gamma,density,pressure
-    REAL :: cs
+    REAL              :: cs
     !------------------------------------------------------------------------!
     cs = SQRT(MAX(2.0*TINY(cs),gamma*pressure/density))
   END FUNCTION GetSoundSpeed
@@ -1743,7 +1743,7 @@ CONTAINS
     REAL, INTENT(IN)  :: gamma,rhoL,rhoR,uL,uR,vL,vR,wL,wR,pL,pR,eL,eR
     REAL, INTENT(OUT) :: u,cs
     !------------------------------------------------------------------------!
-    REAL :: sqrtrhoL,sqrtrhoR,invsqrtrho,v,w,hL,hR,h
+    REAL              :: sqrtrhoL,sqrtrhoR,invsqrtrho,v,w,hL,hR,h
     !------------------------------------------------------------------------!
     sqrtrhoL = SQRT(rhoL)
     sqrtrhoR = SQRT(rhoR)
@@ -1791,7 +1791,7 @@ CONTAINS
     REAL, INTENT(IN)  :: rhoL,rhoR,uL,uR,vl,vR,wl,wR,pL,pR,eL,eR,amin,amax
     REAL, INTENT(OUT) :: rho,mu,mv,mw,e,a
     !------------------------------------------------------------------------!
-    REAL :: qL,qR
+    REAL              :: qL,qR
     !------------------------------------------------------------------------!
     qL = rhoL * (uL-amin)
     qR = rhoR * (uR-amax)
@@ -1824,7 +1824,7 @@ CONTAINS
     REAL, INTENT(IN)  :: gamma,rho1,rho2,u1,u2,v1,v2,w1,w2,P1,P2,l1,l2,l3,l4,l5
     REAL, INTENT(OUT) :: xvar1,xvar2,xvar3,xvar4,xvar5
     !------------------------------------------------------------------------!
-    REAL :: gamcs,dlnP,du
+    REAL              :: gamcs,dlnP,du
     !------------------------------------------------------------------------!
     gamcs= gamma / (l5-l1) ! = 2*gamma/cs
     dlnP = LOG(P2/P1)         ! = LOG(P2)-LOG(P1)
@@ -1845,7 +1845,7 @@ CONTAINS
     REAL, INTENT(IN)  :: gamma,dir,rho1,u1,v1,w1,P1,xvar1,xvar2,xvar3,xvar4,xvar5
     REAL, INTENT(OUT) :: rho2,u2,v2,w2,P2
     !------------------------------------------------------------------------!
-    REAL :: dlnP,csgam
+    REAL              :: dlnP,csgam
     !------------------------------------------------------------------------!
     dlnP = 0.5 * (xvar5+xvar1)
     ! extrapolate boundary values using characteristic variables
@@ -1866,7 +1866,7 @@ CONTAINS
     REAL, INTENT(IN)  :: gamma,rho,vx,vy,vz,p,l1,l2,l3,l4,l5
     REAL, INTENT(OUT) :: Rminus,Rs,Rvt,Rwt,Rplus
     !------------------------------------------------------------------------!
-    REAL :: cs
+    REAL              :: cs
     !------------------------------------------------------------------------!
     cs = l5-l2 ! l2 = v, l5 = v+cs
     ! compute 1st Riemann invariant (R+)
@@ -1889,7 +1889,7 @@ CONTAINS
     REAL, INTENT(IN)  :: gamma,Rminus,Rs,Rvt,Rwt,Rplus
     REAL, INTENT(OUT) :: rho,vx,vy,vz,p
     !------------------------------------------------------------------------!
-    REAL :: cs2gam
+    REAL              :: cs2gam
     !------------------------------------------------------------------------!
     ! tangential velocity
     vy = Rvt
@@ -1925,7 +1925,7 @@ CONTAINS
     REAL, INTENT(IN)  :: gamma,rho_in,mu,mv,mw,E
     REAL, INTENT(OUT) :: rho_out,u,v,w,P
     !------------------------------------------------------------------------!
-    REAL :: inv_rho
+    REAL              :: inv_rho
     !------------------------------------------------------------------------!
     inv_rho = 1./rho_in
     rho_out = rho_in

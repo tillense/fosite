@@ -4,6 +4,8 @@
 !# module: geometry_polar.f90                                                #
 !#                                                                           #
 !# Copyright (C) 2007 Tobias Illenseer <tillense@astrophysik.uni-kiel.de>    #
+!#                    Manuel Jung                                            #
+!#                    Lars Bösch                                             #
 !#                                                                           #
 !# This program is free software; you can redistribute it and/or modify      #
 !# it under the terms of the GNU General Public License as published by      #
@@ -27,7 +29,7 @@
 !! \author Manuel Jung
 !! \author Lars Bösch
 !!
-!! \brief define properties of a 2D polar mesh
+!! \brief defines properties of a 3D spherical mesh
 !!
 !!
 !!
@@ -63,9 +65,9 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(geometry_spherical), INTENT(INOUT) :: this
-    TYPE(DICT_TYP),POINTER            :: config
+    TYPE(DICT_TYP),POINTER                   :: config
     !------------------------------------------------------------------------!
-    REAL                              :: dz
+    REAL                                     :: dz
     !------------------------------------------------------------------------!
     CALL this%InitGeometry(SPHERICAL,geometry_name,config)
     CALL GetAttr(config, "dz", dz, 1.0)
@@ -75,8 +77,8 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(geometry_spherical), INTENT(IN) :: this
-    REAL, INTENT(IN)  :: xi,eta,phi
-    REAL, INTENT(OUT) :: hx,hy,hz
+    REAL, INTENT(IN)                      :: xi,eta,phi
+    REAL, INTENT(OUT)                     :: hx,hy,hz
     !------------------------------------------------------------------------!
     hx = 1.
     hy = xi
@@ -87,8 +89,8 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(geometry_spherical), INTENT(IN) :: this
-    REAL, INTENT(IN)  :: xi,eta,phi
-    REAL, INTENT(OUT) :: radius
+    REAL, INTENT(IN)                      :: xi,eta,phi
+    REAL, INTENT(OUT)                     :: radius
     !------------------------------------------------------------------------!
     radius = xi
   END SUBROUTINE Radius_0
@@ -97,8 +99,8 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(geometry_spherical), INTENT(IN) :: this
-    REAL, INTENT(IN)  :: xi,eta,phi
-    REAL, INTENT(OUT) :: x,y,z
+    REAL, INTENT(IN)                      :: xi,eta,phi
+    REAL, INTENT(OUT)                     :: x,y,z
     !------------------------------------------------------------------------!
     CALL this%Radius_0(xi,eta,phi,x)
     y = 0.0
@@ -110,8 +112,8 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(geometry_spherical), INTENT(IN) :: this
-    REAL, INTENT(IN)  :: xi,eta,phi
-    REAL, INTENT(OUT) :: x,y,z
+    REAL, INTENT(IN)                      :: xi,eta,phi
+    REAL, INTENT(OUT)                     :: x,y,z
     !------------------------------------------------------------------------!
     x = xi*SIN(eta)*COS(phi)
     y = xi*SIN(eta)*SIN(phi)
@@ -122,8 +124,8 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(geometry_spherical), INTENT(IN) :: this
-    REAL, INTENT(IN)  :: x,y,z
-    REAL, INTENT(OUT) :: xi,eta,phi
+    REAL, INTENT(IN)                      :: x,y,z
+    REAL, INTENT(OUT)                     :: xi,eta,phi
     !------------------------------------------------------------------------!
     xi  = SQRT(x*x+y*y+z*z)
     eta = ACOS(z/xi)
@@ -138,8 +140,8 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(geometry_spherical), INTENT(IN) :: this
-    REAL, INTENT(IN)  :: xi,eta,phi,vxi,veta,vphi
-    REAL, INTENT(OUT) :: vx,vy,vz
+    REAL, INTENT(IN)                      :: xi,eta,phi,vxi,veta,vphi
+    REAL, INTENT(OUT)                     :: vx,vy,vz
     !------------------------------------------------------------------------!
     vx = (vxi * COS(eta) - veta * SIN(eta)) * COS(phi) - vphi * SIN(phi)
     vy = (vxi * COS(eta) - veta * SIN(eta)) * SIN(phi) + vphi * COS(phi)
@@ -150,8 +152,8 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(geometry_spherical), INTENT(IN) :: this
-    REAL, INTENT(IN)  :: xi,eta,phi,vx,vy,vz
-    REAL, INTENT(OUT) :: vxi,veta,vphi
+    REAL, INTENT(IN)                      :: xi,eta,phi,vx,vy,vz
+    REAL, INTENT(OUT)                     :: vxi,veta,vphi
     !------------------------------------------------------------------------!
 !    vxi  =  (vx * COS(eta) + vy * SIN(eta)) * COS(phi) + vz * SIN(phi)
 !    veta = -(vx * COS(eta) + vy * SIN(eta)) * SIN(phi) + vz * COS(phi)

@@ -1,6 +1,6 @@
 !#############################################################################
 !#                                                                           #
-!# fosite - 2D hydrodynamical simulation program                             #
+!# fosite - 3D hydrodynamical simulation program                             #
 !# module: mesh_generic.f90                                                  #
 !#                                                                           #
 !# Copyright (C) 2016                                                        #
@@ -24,7 +24,8 @@
 !#                                                                           #
 !#############################################################################
 !----------------------------------------------------------------------------!
-!> \author Jannes Klee
+!> \author Tobias Illenseer
+!! \author Jannes Klee
 !!
 !! \brief constructor for mesh class
 !!
@@ -47,14 +48,14 @@ CONTAINS
   SUBROUTINE new_sources(Sources,Mesh,Fluxes,Physics,config,IO)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(sources_base), POINTER :: Sources
-    CLASS(mesh_base), INTENT(IN) :: Mesh
-    CLASS(fluxes_base), INTENT(IN) :: Fluxes
+    CLASS(sources_base), POINTER    :: Sources
+    CLASS(mesh_base), INTENT(IN)    :: Mesh
+    CLASS(fluxes_base), INTENT(IN)  :: Fluxes
     CLASS(physics_base), INTENT(IN) :: Physics
 !    CLASS(timedisc_base), INTENT(IN) :: Timedisc
-    TYPE(DICT_TYP), POINTER       :: config, IO
+    TYPE(DICT_TYP), POINTER         :: config, IO
     !------------------------------------------------------------------------!
-    INTEGER :: stype
+    INTEGER                         :: stype
     !------------------------------------------------------------------------!
     CALL GetAttr(config,"stype",stype)
 

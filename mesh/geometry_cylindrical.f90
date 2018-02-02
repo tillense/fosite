@@ -3,9 +3,8 @@
 !# fosite - 3D hydrodynamical simulation program                             #
 !# module: geometry_cylindrical.f90                                          #
 !#                                                                           #
-!# Copyright (C) 2007                                                        #
-!# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
-!# Jubin Lirawi     <jlirawi@astrophysik.uni-kiel.de>                        #
+!# Copyright (C) 2007 Tobias Illenseer <tillense@astrophysik.uni-kiel.de>    #
+!#                    Jubin Lirawi     <jlirawi@astrophysik.uni-kiel.de>     #
 !#                                                                           #
 !# This program is free software; you can redistribute it and/or modify      #
 !# it under the terms of the GNU General Public License as published by      #
@@ -28,7 +27,7 @@
 !> \author Tobias Illenseer
 !> \author Jubin Lirawi
 !!
-!! \brief define properties of a 3D cylindrical mesh
+!! \brief defines properties of a 3D cylindrical mesh
 !!
 !! \extends geometry_cartesian
 !! \ingroup geometry
@@ -191,18 +190,6 @@ CONTAINS
     eta = ATAN2(y, x)
     phi = z
   END SUBROUTINE Convert2Curvilinear_coords_0
-
-!  ELEMENTAL SUBROUTINE Convert2Curvilinear_vectors_0(this,xi,eta,phi,vxi,phi1,z2)
-!    IMPLICIT NONE
-!    !------------------------------------------------------------------------!
-!    CLASS(geometry_cylindrical), INTENT(IN) :: this
-!    REAL, INTENT(IN)                        :: xi,eta,phi
-!    REAL, INTENT(OUT)                       :: vxi,phi1,z2
-!    !------------------------------------------------------------------------!
-!    vxi  = SQRT(xi*xi + eta*eta)
-!    phi1 = ATAN2(eta, xi)
-!    z2   = phi
-!  END SUBROUTINE Convert2Curvilinear_vectors_0
 
   ELEMENTAL SUBROUTINE Convert2Curvilinear_vectors_0(this,xi,eta,phi,vx,vy,vz,vxi,veta,vphi)
     IMPLICIT NONE

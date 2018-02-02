@@ -1,6 +1,6 @@
 !#############################################################################
 !#                                                                           #
-!# fosite - 2D hydrodynamical simulation program                             #
+!# fosite - 3D hydrodynamical simulation program                             #
 !# module: constants_geometrical.f90                                         #
 !#                                                                           #
 !# Copyright (C) 2007-2016                                                   #
@@ -58,7 +58,7 @@ CONTAINS
     !------------------------------------------------------------------------!
     CLASS(constants_geometrical), INTENT(INOUT) :: this
     !------------------------------------------------------------------------!
-    REAl :: C, GN, KB, NA, SB, KE
+    REAl                                        :: C, GN, KB, NA, SB, KE
     !------------------------------------------------------------------------!
     CALL this%InitConstants(GEOMETRICAL,units_name)
     ! numerical values of physical constants in geometrical units (c = G = 1)

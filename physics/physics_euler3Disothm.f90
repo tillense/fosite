@@ -1,12 +1,14 @@
 !#############################################################################
 !#                                                                           #
 !# fosite - 3D hydrodynamical simulation program                             #
-!# module: physics_euler3D_isothm.f90                                         #
+!# module: physics_euler3D_isothm.f90                                        #
 !#                                                                           #
 !# Copyright (C) 2007-2017                                                   #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
 !# Björn Sperling   <sperling@astrophysik.uni-kiel.de>                       #
 !# Manuel Jung      <mjung@astrophysik.uni-kiel.de>                          #
+!# Lars Bösch       <lboesch@astrophysik.uni-kiel.de>                        #
+!# Jannes Klee      <jklee@astrophysik.uni-kiel.de>                          #
 !#                                                                           #
 !# This program is free software; you can redistribute it and/or modify      #
 !# it under the terms of the GNU General Public License as published by      #
@@ -46,7 +48,7 @@ MODULE physics_euler3Dit_mod
   IMPLICIT NONE
   !--------------------------------------------------------------------------!
   PRIVATE
-  INTEGER, PARAMETER :: num_var = 4              ! number of variables       !
+  INTEGER, PARAMETER           :: num_var = 4          ! number of variables !
   CHARACTER(LEN=32), PARAMETER :: problem_name = "Euler 3D isotherm"
   !--------------------------------------------------------------------------!
   TYPE,  EXTENDS(physics_base) :: physics_euler3Dit
@@ -125,7 +127,7 @@ CONTAINS
     CLASS(mesh_base),         INTENT(IN)    :: Mesh
     TYPE(Dict_TYP), POINTER,  INTENT(IN)    :: config, IO
     !------------------------------------------------------------------------!
-    INTEGER           :: err
+    INTEGER                                 :: err
     !------------------------------------------------------------------------!
     CALL this%InitPhysics(Mesh,config,IO,EULER3D_ISOTH,problem_name,num_var)
     ! set array indices
@@ -331,7 +333,7 @@ CONTAINS
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM), &
                               INTENT(IN)    :: pvar
     !------------------------------------------------------------------------!
-    INTEGER                                :: i,j,k
+    INTEGER                                 :: i,j,k
     !------------------------------------------------------------------------!
     ! Sound speed is constant - nothing to do.
   END SUBROUTINE UpdateSoundSpeed_center
@@ -348,7 +350,7 @@ CONTAINS
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%NFACES,this%VNUM), &
                               INTENT(IN)    :: prim
     !------------------------------------------------------------------------!
-    INTEGER           :: i,j,k,l
+    INTEGER                                 :: i,j,k,l
     !------------------------------------------------------------------------!
     ! Sound speed is constant - nothing to do.
   END SUBROUTINE UpdateSoundSpeed_faces
@@ -546,12 +548,12 @@ CONTAINS
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM), &
                               INTENT(OUT)   :: sterm
     !------------------------------------------------------------------------!
-    INTEGER                            :: i,j,k
+    INTEGER                                 :: i,j,k
     !------------------------------------------------------------------------!
     ! compute geometrical source only for non-cartesian mesh except for the
     ! EULER2D_IAMROT case for which geometrical sources are always necessary.
     IF ((Mesh%Geometry%GetType().NE.CARTESIAN).OR. &
-        (this%GetType().EQ.EULER2D_IAMROT).OR. &
+        (this%GetType().EQ.EULER2D_IAMROT).OR.     &
         (this%GetType().EQ.EULER2D_ISOIAMROT)) THEN
 
 
@@ -673,13 +675,13 @@ CONTAINS
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%NFACES,this%VNUM), &
                               INTENT(OUT) :: xfluxes
     !------------------------------------------------------------------------!
-    CALL SetFlux(this%fcsound(:,:,:,nmin:nmax), &
-                 prim(:,:,:,nmin:nmax,this%DENSITY), &
-                 prim(:,:,:,nmin:nmax,this%XVELOCITY), &
-                 cons(:,:,:,nmin:nmax,this%XMOMENTUM), &
-                 cons(:,:,:,nmin:nmax,this%YMOMENTUM), &
-                 cons(:,:,:,nmin:nmax,this%ZMOMENTUM), &
-                 xfluxes(:,:,:,nmin:nmax,this%DENSITY), &
+    CALL SetFlux(this%fcsound(:,:,:,nmin:nmax),           &
+                 prim(:,:,:,nmin:nmax,this%DENSITY),      &
+                 prim(:,:,:,nmin:nmax,this%XVELOCITY),    &
+                 cons(:,:,:,nmin:nmax,this%XMOMENTUM),    &
+                 cons(:,:,:,nmin:nmax,this%YMOMENTUM),    &
+                 cons(:,:,:,nmin:nmax,this%ZMOMENTUM),    &
+                 xfluxes(:,:,:,nmin:nmax,this%DENSITY),   &
                  xfluxes(:,:,:,nmin:nmax,this%XMOMENTUM), &
                  xfluxes(:,:,:,nmin:nmax,this%YMOMENTUM), &
                  xfluxes(:,:,:,nmin:nmax,this%ZMOMENTUM))
@@ -697,13 +699,13 @@ CONTAINS
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%NFACES,this%VNUM), &
                               INTENT(OUT) :: yfluxes
     !------------------------------------------------------------------------!
-    CALL SetFlux(this%fcsound(:,:,:,nmin:nmax), &
-                 prim(:,:,:,nmin:nmax,this%DENSITY),&
-                 prim(:,:,:,nmin:nmax,this%YVELOCITY), &
-                 cons(:,:,:,nmin:nmax,this%YMOMENTUM), &
-                 cons(:,:,:,nmin:nmax,this%XMOMENTUM), &
-                 cons(:,:,:,nmin:nmax,this%ZMOMENTUM), &
-                 yfluxes(:,:,:,nmin:nmax,this%DENSITY), &
+    CALL SetFlux(this%fcsound(:,:,:,nmin:nmax),           &
+                 prim(:,:,:,nmin:nmax,this%DENSITY),      &
+                 prim(:,:,:,nmin:nmax,this%YVELOCITY),    &
+                 cons(:,:,:,nmin:nmax,this%YMOMENTUM),    &
+                 cons(:,:,:,nmin:nmax,this%XMOMENTUM),    &
+                 cons(:,:,:,nmin:nmax,this%ZMOMENTUM),    &
+                 yfluxes(:,:,:,nmin:nmax,this%DENSITY),   &
                  yfluxes(:,:,:,nmin:nmax,this%YMOMENTUM), &
                  yfluxes(:,:,:,nmin:nmax,this%XMOMENTUM), &
                  yfluxes(:,:,:,nmin:nmax,this%ZMOMENTUM))
@@ -721,13 +723,13 @@ CONTAINS
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%NFACES,this%VNUM), &
                               INTENT(OUT) :: zfluxes
     !------------------------------------------------------------------------!
-    CALL SetFlux(this%fcsound(:,:,:,nmin:nmax), &
-                 prim(:,:,:,nmin:nmax,this%DENSITY), &
-                 prim(:,:,:,nmin:nmax,this%ZVELOCITY), &
-                 cons(:,:,:,nmin:nmax,this%ZMOMENTUM), &
-                 cons(:,:,:,nmin:nmax,this%YMOMENTUM), &
-                 cons(:,:,:,nmin:nmax,this%XMOMENTUM), &
-                 zfluxes(:,:,:,nmin:nmax,this%DENSITY), &
+    CALL SetFlux(this%fcsound(:,:,:,nmin:nmax),           &
+                 prim(:,:,:,nmin:nmax,this%DENSITY),      &
+                 prim(:,:,:,nmin:nmax,this%ZVELOCITY),    &
+                 cons(:,:,:,nmin:nmax,this%ZMOMENTUM),    &
+                 cons(:,:,:,nmin:nmax,this%YMOMENTUM),    &
+                 cons(:,:,:,nmin:nmax,this%XMOMENTUM),    &
+                 zfluxes(:,:,:,nmin:nmax,this%DENSITY),   &
                  zfluxes(:,:,:,nmin:nmax,this%ZMOMENTUM), &
                  zfluxes(:,:,:,nmin:nmax,this%YMOMENTUM), &
                  zfluxes(:,:,:,nmin:nmax,this%XMOMENTUM))

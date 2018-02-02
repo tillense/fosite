@@ -1,10 +1,9 @@
 !#############################################################################
 !#                                                                           #
-!# fosite - 2D hydrodynamical simulation program                             #
+!# fosite - 3D hydrodynamical simulation program                             #
 !# module: riemannsolver.f90                                                 #
 !#                                                                           #
-!# Copyright (C) 2013                                                        #
-!# Manuel Jung <mjung@astrophysik.uni-kiel.de>                               #
+!# Copyright (C) 2013 Manuel Jung <mjung@astrophysik.uni-kiel.de>            #
 !#                                                                           #
 !# This program is free software; you can redistribute it and/or modify      #
 !# it under the terms of the GNU General Public License as published by      #
@@ -24,7 +23,9 @@
 !#############################################################################
 
 !----------------------------------------------------------------------------!
-!> This program solves the Riemann-Problem. For details please read
+!> \author Manuel Jung
+!!
+!! This program solves the Riemann-Problem. For details please read
 !! chapter 4 of "Riemann Solvers and Numerical Methods for Fluid Dynamics"
 !! from E.F. Toro (Springer 1999, 2nd Ed.).
 !----------------------------------------------------------------------------!
@@ -126,12 +127,12 @@ CONTAINS
       SUBROUTINE sample(x,rho,u,p)
         IMPLICIT NONE
         !----------------------------------------------------------------------!
-        REAL         :: x, rho, u, p
+        REAL        :: x, rho, u, p
         !----------------------------------------------------------------------!
-        REAL         :: S
+        REAL        :: S
         !----------------------------------------------------------------------!
-        INTENT(IN)   :: x
-        INTENT(OUT)  :: rho, u, p
+        INTENT(IN)  :: x
+        INTENT(OUT) :: rho, u, p
         !----------------------------------------------------------------------!
 
         !Sampling the solution
@@ -212,8 +213,8 @@ CONTAINS
   PURE SUBROUTINE f(p,fx,plist)
     IMPLICIT NONE
     !----------------------------------------------------------------------!
-    REAL, INTENT(IN)  :: p
-    REAL, INTENT(OUT) :: fx
+    REAL, INTENT(IN)                         :: p
+    REAL, INTENT(OUT)                        :: fx
     REAL, INTENT(IN), DIMENSION(:), OPTIONAL :: plist
     !----------------------------------------------------------------------!
     fx = f_x(p, rho_L, u_L, p_L, A_L, B_L, c_L) &

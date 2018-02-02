@@ -1,6 +1,6 @@
 !#############################################################################
 !#                                                                           #
-!# fosite - 2D hydrodynamical simulation program                             #
+!# fosite - 3D hydrodynamical simulation program                             #
 !# module: integration.f90                                                   #
 !#                                                                           #
 !# Copyright (C) 2006-2014                                                   #
@@ -26,7 +26,7 @@
 !----------------------------------------------------------------------------!
 !> \author Tobias Illenseer
 !!
-!! \brief Numerical integration 
+!! \brief Numerical integration
 !!
 !! The module implements the Gauss and Romberg quadrature schemes.
 !----------------------------------------------------------------------------!
@@ -105,7 +105,7 @@ MODULE Integration
                      0.186161000015562,   0.166269205816994, &
                      0.139570677926154,   0.107159220467172, &
                      0.070366047488108,   0.03075324199612 /)
-#else 
+#else
 # error Wrong GAUSSN number in numtools/integration.f90
 #endif
   !> \endcond
@@ -119,7 +119,7 @@ CONTAINS
   !> \brief Numerical integration function
   !!
   !! It computes an approximation for the definite integral of some function.
-  !! 
+  !!
   !! \return approximation for integral
   FUNCTION integrate(fkt,xl,xr,eps,plist,method) RESULT(integral)
     IMPLICIT NONE
@@ -148,7 +148,7 @@ CONTAINS
     INTENT(IN)       :: xl,xr,eps,method
     INTENT(INOUT)    :: plist
     !----------------------------------------------------------------------!
-      
+
     IF (xl.EQ.xr) THEN
        integral = 0.
        RETURN
@@ -164,7 +164,7 @@ CONTAINS
        ! default is recursive Gauss
        meth = 1
     END IF
-    
+
     ! tolerance for integration
     err  = ABS(xr-xl) * eps
 
@@ -237,7 +237,7 @@ CONTAINS
     INTENT(IN)        :: oldS, xl, xr, tol
     INTENT(INOUT)    :: plist
     !----------------------------------------------------------------------!
-      
+
     m = 0.5 * (xr+xl)
     resL = qgauss1D(fkt, xl, m, plist)       ! left solution
     resR = qgauss1D(fkt, m, xr, plist)       ! right solution
@@ -342,23 +342,23 @@ CONTAINS
     INTERFACE
        FUNCTION fkt(x,plist) RESULT(fx)
          IMPLICIT NONE
-         REAL, INTENT(IN) :: x
+         REAL, INTENT(IN)                            :: x
          REAL, INTENT(INOUT), DIMENSION(:), OPTIONAL :: plist
-         REAL :: fx
+         REAL                                        :: fx
        END FUNCTION fkt
     END INTERFACE
     !----------------------------------------------------------------------!
-    REAL, INTENT(IN)  :: xl, xr
+    REAL, INTENT(IN)                            :: xl, xr
     REAL, INTENT(INOUT), DIMENSION(:), OPTIONAL :: plist ! additional parameters
-    REAL :: Sgauss
-    REAL :: m, h, t
-    INTEGER :: j
+    REAL                                        :: Sgauss
+    REAL                                        :: m, h, t
+    INTEGER                                     :: j
     !----------------------------------------------------------------------!
-    
+
     m = 0.5 * (xr+xl)
     h = 0.5 * (xr-xl)
     Sgauss = 0.0
-    
+
     DO j=1,GAUSSN2
        t  = h * GaussXk(j)
        Sgauss = Sgauss + GaussAk(j) * (fkt(m-t,plist)+fkt(m+t,plist))
@@ -388,16 +388,16 @@ CONTAINS
        END FUNCTION fkt
     END INTERFACE
     !----------------------------------------------------------------------!
-    REAL, INTENT(IN) :: xl, xr
-    REAL, INTENT(INOUT), DIMENSION(:), OPTIONAL :: plist ! additional parameters 
-    REAL :: Srom
-    INTEGER, PARAMETER :: jmax = 10  ! max refinement
-    REAL, DIMENSION(jmax,jmax) :: res
-    REAL    :: h
-    REAL    :: tol
-    INTEGER :: i, j, n
+    REAL, INTENT(IN)                            :: xl, xr
+    REAL, INTENT(INOUT), DIMENSION(:), OPTIONAL :: plist ! additional parameters
+    REAL                                        :: Srom
+    INTEGER, PARAMETER                          :: jmax = 10  ! max refinement
+    REAL, DIMENSION(jmax,jmax)                  :: res
+    REAL                                        :: h
+    REAL                                        :: tol
+    INTEGER                                     :: i, j, n
     !----------------------------------------------------------------------!
-    
+
     n = 2
     ! step size
     h = (xr - xl) / n
@@ -427,7 +427,7 @@ CONTAINS
        ! check convergence
        IF (ABS(res(j,j)-res(j,j-1))<tol) EXIT
     END DO
-    
+
     Srom = res(j-1,j-1)
   END FUNCTION qromberg
 

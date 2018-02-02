@@ -1,11 +1,10 @@
 !#############################################################################
 !#                                                                           #
-!# fosite - 2D hydrodynamical simulation program                             #
+!# fosite - 3D hydrodynamical simulation program                             #
 !# module: mesh_generic.f90                                                  #
 !#                                                                           #
-!# Copyright (C) 2016                                                        #
-!# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
-!# Jannes Klee      <jklee@astrophysik.uni-kiel.de>                          #
+!# Copyright (C) 2016 Tobias Illenseer <tillense@astrophysik.uni-kiel.de>    #
+!#                    Jannes Klee      <jklee@astrophysik.uni-kiel.de>       #
 !#                                                                           #
 !# This program is free software; you can redistribute it and/or modify      #
 !# it under the terms of the GNU General Public License as published by      #
@@ -24,7 +23,8 @@
 !#                                                                           #
 !#############################################################################
 !----------------------------------------------------------------------------!
-!> \author Jannes Klee
+!> \author Tobias Illenseer
+!! \author Jannes Klee
 !!
 !! \brief constructor for mesh class
 !!
