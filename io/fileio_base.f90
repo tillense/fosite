@@ -297,7 +297,6 @@ CONTAINS
     CHARACTER(LEN=MAX_CHAR_LEN)    :: fname      !< fname file name
     CHARACTER(LEN=MAX_CHAR_LEN)    :: fpath      !< fpath file path
     INTEGER                        :: fcycles    !< fcycles number of file cycles
-    LOGICAL                        :: multfiles  !<  multfiles spread file in parallel i/o
     INTEGER                        :: unit       !<  unit fortran i/o unit number
     LOGICAL                        :: success
     CHARACTER(LEN=32)              :: timestamp
@@ -360,7 +359,6 @@ CONTAINS
 
 #ifdef PARALLEL
     ! turn on multiple file output if requested
-    this%multfiles = multfiles
     IF (this%multfiles) THEN
        ! check number of parallel processes
        IF (this%GetNumProcs().GT.MAXMLTFILES) &
@@ -463,7 +461,6 @@ CONTAINS
 #else
     multstr = ""
 #endif
-
   END FUNCTION MakeMultstr
 
 

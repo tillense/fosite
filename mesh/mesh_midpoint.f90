@@ -34,8 +34,6 @@
 !! \ingroup mesh
 !----------------------------------------------------------------------------!
 MODULE mesh_midpoint_mod
-!  USE mesh_common, InitMesh_common => InitMesh
-!  USE boundary_common, ONLY : EAST,WEST,NORTH,SOUTH
   USE mesh_base_mod
   USE common_dict
   IMPLICIT NONE

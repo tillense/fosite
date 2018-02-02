@@ -133,6 +133,9 @@ CONTAINS
     INTEGER, DIMENSION(:), POINTER     :: sendbuf,recvbuf
     REAL, DIMENSION(:,:,:,:,:), POINTER  :: corners
     !------------------------------------------------------------------------!
+#ifdef PARALLEL
+    this%multfiles = .TRUE.
+#endif
     ! start init form base class in beginning
     CALL this%InitFileIO(Mesh,Physics,Timedisc,Sources,config,IO,"VTK","vts")
 
@@ -178,10 +181,10 @@ CONTAINS
     !         on the receiver node
     IF (this%GetRank() .EQ. 0 ) THEN
        n = this%GetNumProcs()
-       ALLOCATE(this%extent(0:(n-1)),sendbuf(4),recvbuf(4*n),STAT = this%error_io)
+       ALLOCATE(this%extent(0:(n-1)),sendbuf(6),recvbuf(6*n),STAT = this%error_io)
     ELSE
        ! see comment above
-       ALLOCATE(sendbuf(4),recvbuf(1),STAT = this%error_io)
+       ALLOCATE(sendbuf(6),recvbuf(1),STAT = this%error_io)
     END IF
     IF (this%error_io.NE.0) &
        CALL this%Error( "InitFileio_vtk", "Unable to allocate memory.")
@@ -191,17 +194,18 @@ CONTAINS
     sendbuf(2) = Mesh%IMAX+1
     sendbuf(3) = Mesh%JMIN
     sendbuf(4) = Mesh%JMAX+1
+    sendbuf(5) = Mesh%KMIN
+    sendbuf(6) = Mesh%KMAX+1
 
     ! gather information about grid extent on each node at the rank 0 node
-    CALL MPI_Gather(sendbuf, 4, MPI_INTEGER, &
-               recvbuf, 4, MPI_INTEGER, &
+    CALL MPI_Gather(sendbuf, 6, MPI_INTEGER, recvbuf, 6, MPI_INTEGER, &
                0, MPI_COMM_WORLD, this%error_io)
 
     ! store information about grid extent at the rank 0 node
     IF (this%GetRank() .EQ. 0 ) THEN
        DO i=0,n-1
           WRITE(this%extent(i),FMT='(6(I7))',IOSTAT=this%error_io)&
-          recvbuf(i*4+1),recvbuf(i*4+2),recvbuf(i*4+3),recvbuf(i*4+4),1,1
+          recvbuf(i*6+1),recvbuf(i*6+2),recvbuf(i*6+3),recvbuf(i*6+4),recvbuf(i*6+5),recvbuf(i*6+6)
        END DO
     END IF
     ! free buffer memory
