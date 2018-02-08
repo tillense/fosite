@@ -1,23 +1,14 @@
 # CMake project file for FOSITE
 
-IF(NOT DEFINED FC)
-  set(CMAKE_Fortran_COMPILER_LIST
-          sxf03 gfortran ifort ftn 
-          ifort ifc af95 af90 efc f95 pathf2003 pathf95 pgf95 pgfortran lf95 xlf95
-          fort gfortran gfortran-4 g95 f90 pathf90 pgf90 xlf90 epcf90 fort77
+IF( NOT DEFINED ENV{FC})
+  set(CMAKE_Fortran_COMPILER_INIT
+          sxf03 gfortran ifort
+          ifc af95 af90 efc f95 pathf2003 pathf95 pgf95 pgfortran lf95 xlf95
+          fort gfortran-4 g95 f90 pathf90 pgf90 xlf90 epcf90 fort77
           frt pgf77 xlf fl32 af77 g77 f77
           )
-  if(CMAKE_Fortran_COMPILER_INIT)
-      # Search only for the specified compiler.
-      set(CMAKE_Fortran_COMPILER_LIST "${CMAKE_Fortran_COMPILER_INIT}")
-  endif()
-
-  find_program(CMAKE_Fortran_COMPILER NAMES ${CMAKE_Fortran_COMPILER_LIST} DOC "Fortran compiler")
-  if(CMAKE_Fortran_COMPILER_INIT AND NOT CMAKE_Fortran_COMPILER)
-    set_property(CACHE CMAKE_Fortran_COMPILER PROPERTY VALUE "${CMAKE_Fortran_COMPILER_INIT}")
-  endif()
-elseif(DEFINED FC)
-  set(CMAKE_Fortran_COMPILER ${FC})
+elseif(DEFINED ENV{FC})
+  set(CMAKE_Fortran_COMPILER $ENV{FC})
 endif()
  
 
