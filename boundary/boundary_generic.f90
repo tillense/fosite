@@ -443,7 +443,7 @@ CONTAINS
     END IF
     CALL MPI_Sendrecv(this%Boundary(SOUTH)%p%sendbuf, &
         Mesh%GJNUM*(Mesh%IGMAX-Mesh%IGMIN+1)*(Mesh%KGMAX-Mesh%KGMIN+1)*Physics%VNUM, &
-        DEFAULT_MPI_REAL,Mesh%neighbor(SOUTH),10+SOUTH,this(NORTH)%recvbuf,          &
+        DEFAULT_MPI_REAL,Mesh%neighbor(SOUTH),10+SOUTH,this%Boundary(NORTH)%recvbuf,          &
         Mesh%GJNUM*(Mesh%IGMAX-Mesh%IGMIN+1)*(Mesh%KGMAX-Mesh%KGMIN+1)*Physics%VNUM, &
         DEFAULT_MPI_REAL,Mesh%neighbor(NORTH),MPI_ANY_TAG,Mesh%comm_cart,status,ierr)
     IF (Mesh%neighbor(NORTH).NE.MPI_PROC_NULL) THEN
@@ -526,15 +526,15 @@ CONTAINS
          DEFAULT_MPI_REAL,Mesh%neighbor(BOTTOM),10+BOTTOM,this%Boundary(TOP)%p%recvbuf, &
          Mesh%GKNUM*(Mesh%IGMAX-Mesh%IGMIN+1)*(Mesh%JGMAX-Mesh%JGMIN+1)*Physics%VNUM,   &
          DEFAULT_MPI_REAL,Mesh%neighbor(TOP),MPI_ANY_TAG,Mesh%comm_cart,status,ierr)
-    IF (Mesh%neighbor(NORTH).NE.MPI_PROC_NULL) THEN
+    IF (Mesh%neighbor(TOP).NE.MPI_PROC_NULL) THEN
         pvar(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KMAX+1:Mesh%KGMAX,1:Physics%VNUM) = &
-          this%Boundary(NORTH)%p%recvbuf(:,:,:,:)
+          this%Boundary(TOP)%p%recvbuf(:,:,:,:)
     END IF
 #else
    ! receive boundary data from topper neighbor
     CALL MPI_Irecv(this%Boundary(TOP)%p%recvbuf, &
          Mesh%GKNUM*(Mesh%IGMAX-Mesh%IGMIN+1)*(Mesh%JGMAX-Mesh%JGMIN+1)*Physics%VNUM, &
-         DEFAULT_MPI_REAL,Mesh%neighbor(NORTH),10+BOTTOM,Mesh%comm_cart,req(1),ierr)
+         DEFAULT_MPI_REAL,Mesh%neighbor(TOP),10+BOTTOM,Mesh%comm_cart,req(1),ierr)
     ! fill send buffer if bottomer neighbor exists
     IF (Mesh%neighbor(BOTTOM).NE.MPI_PROC_NULL) THEN
          this%Boundary(BOTTOM)%p%sendbuf(:,:,:,:) = pvar(Mesh%IGMIN:Mesh%IGMAX, &

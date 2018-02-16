@@ -474,8 +474,6 @@ CONTAINS
     this%rotcent = (/ 0., 0./)
     CALL GetAttr(config, "rotation_center", this%rotcent, this%rotcent)
 
-
-
     ! basic mesh initialization
 
     ! get geometrical scale factors for all cell positions
@@ -485,16 +483,6 @@ CONTAINS
     ! get square root of determinant of the metric
     ! bary center values are overwritten below
     this%sqrtg = this%hx*this%hy*this%hz
-
-
-    !SELECT CASE(meshtype)
-    !CASE(MIDPOINT)
-    !   CALL InitMesh_midpoint(this,config)
-    !CASE(TRAPEZOIDAL)
-    !   CALL InitMesh_trapezoidal(this,config)
-    !CASE DEFAULT
-    !   CALL Error(this,"InitMesh", "Unknown mesh type.")
-    !END SELECT
 
     ! allocate memory for cartesian positions
     !> Should not exist anymore in 3D coordinates
@@ -786,7 +774,6 @@ CONTAINS
   END FUNCTION InternalPoint
 
 
-!------------------------------------BEGIN PARALLEL------------------------------!
 #ifdef PARALLEL
   !> \public Initialize MPI (parallel mode only)
   SUBROUTINE InitMesh_parallel(this, config)
@@ -827,8 +814,8 @@ CONTAINS
     ! coordinates like as "decomposition" / (/ -1, 1, 1 /)
     WHERE(this%dims.EQ.-1) this%dims=this%GetNumProcs()
 
-    IF((this%dims(1).LE.0).OR.(this%dims(2).LE.0).OR.&
-       (this%dims(1)*this%dims(2).NE.this%GetNumProcs())) THEN
+    IF((this%dims(1).LE.0).OR.(this%dims(2)).LE.0.OR.(this%dims(3).LE.0).OR.&
+       (this%dims(1)*this%dims(2)*this%dims(3).NE.this%GetNumProcs())) THEN
         CALL this%Error("InitMesh_parallel","Invalid user-defined MPI domain "&
             //"decomposition with key='/mesh/decomposition'")
     END IF
