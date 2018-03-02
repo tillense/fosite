@@ -835,6 +835,7 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(fileio_binary), INTENT(INOUT) :: this  !< \param [in,out] this fileio type
+    INTEGER                             :: err
     !------------------------------------------------------------------------!
 #ifdef PARALLEL
     CALL MPI_File_close(this%handle,this%error_io)
