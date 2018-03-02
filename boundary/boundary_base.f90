@@ -168,7 +168,6 @@ CONTAINS
     CHARACTER(LEN=strlen) :: recvbuf
     INTEGER               :: status(MPI_STATUS_SIZE)
     INTEGER               :: ierror
-    INTEGER               :: i
 #endif
     !------------------------------------------------------------------------!
     ! set boundary condition

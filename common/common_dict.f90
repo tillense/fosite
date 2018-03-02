@@ -261,9 +261,8 @@ CONTAINS
     CHARACTER(LEN=*)        :: key
     TYPE(Dict_TYP), TARGET  :: value
     !------------------------------------------------------------------------!
-    TYPE(Dict_TYP), POINTER :: node, parent, val
-    TYPE_DICT_CHAR          :: k, str
-    INTEGER                 :: status
+    TYPE(Dict_TYP), POINTER :: node, parent
+    TYPE_DICT_CHAR          :: k
     !------------------------------------------------------------------------!
     INTENT(IN)              :: key
     !------------------------------------------------------------------------!
@@ -292,9 +291,7 @@ CONTAINS
     INTEGER                :: type
     TYPE_DICT_MOLD         :: value
     !------------------------------------------------------------------------!
-    TYPE(Dict_TYP),POINTER :: node, last
-    TYPE_DICT_CHAR         :: k, key_
-    INTEGER                :: i
+    TYPE(Dict_TYP),POINTER :: node
     !------------------------------------------------------------------------!
     INTENT(IN)             :: key, type, value
     !------------------------------------------------------------------------!
@@ -769,7 +766,6 @@ CONTAINS
   IMPLICIT NONE
     !------------------------------------------------------------------------!
     TYPE(Dict_TYP), POINTER     :: root, outdir, dir, odir, tmp
-    CHARACTER(LEN=MAX_CHAR_LEN) :: key
     !------------------------------------------------------------------------!
     dir => root
     NULLIFY(outdir)
@@ -802,7 +798,6 @@ CONTAINS
   IMPLICIT NONE
     !------------------------------------------------------------------------!
     TYPE(Dict_TYP), POINTER     :: root, outdir, dir, odir
-    CHARACTER(LEN=MAX_CHAR_LEN) :: key
     !------------------------------------------------------------------------!
     dir => root
     NULLIFY(outdir)
@@ -1049,7 +1044,6 @@ CONTAINS
     CHARACTER(LEN=*)        :: key
     !------------------------------------------------------------------------!
     TYPE_DICT_MOLD, POINTER :: value
-    TYPE(real_t)            :: c
     !------------------------------------------------------------------------!
     INTENT(IN)              :: key
     !------------------------------------------------------------------------!
@@ -1070,7 +1064,6 @@ CONTAINS
     CHARACTER(LEN=*)        :: key
     !------------------------------------------------------------------------!
     TYPE_DICT_MOLD, POINTER :: value
-    TYPE(int_t)             :: c
     !------------------------------------------------------------------------!
     INTENT(IN)              :: key
     !------------------------------------------------------------------------!
@@ -1142,8 +1135,7 @@ CONTAINS
     !------------------------------------------------------------------------!
     TYPE(Dict_TYP), POINTER :: root, node, next, child
     !------------------------------------------------------------------------!
-    INTEGER                 :: status
-    TYPE_DICT_CHAR          :: k,str
+    TYPE_DICT_CHAR          :: k
     !------------------------------------------------------------------------!
     node => root
     DO WHILE(ASSOCIATED(node))
@@ -1264,7 +1256,7 @@ CONTAINS
   FUNCTION Assign8(key, val) RESULT(res)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    TYPE(Dict_TYP), POINTER          :: res, tmp
+    TYPE(Dict_TYP), POINTER          :: res
     CHARACTER(LEN=*)                 :: key
     REAL, DIMENSION(:,:,:,:), TARGET :: val
     !------------------------------------------------------------------------!
@@ -1316,7 +1308,7 @@ CONTAINS
   FUNCTION Assign12(key, val) RESULT(res)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    TYPE(Dict_TYP), POINTER            :: res, tmp
+    TYPE(Dict_TYP), POINTER            :: res
     CHARACTER(LEN=*)                   :: key
     REAL, DIMENSION(:,:,:,:,:), TARGET :: val
     !------------------------------------------------------------------------!

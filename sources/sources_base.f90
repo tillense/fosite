@@ -187,7 +187,7 @@ MODULE sources_base_mod
 !    PROCEDURE :: GetSourcesPointer
   END TYPE sources_base
   ! tempory storage for source terms
-  REAL, DIMENSION(:,:,:), ALLOCATABLE, SAVE :: temp_sterm
+!  REAL, DIMENSION(:,:,:), ALLOCATABLE, SAVE :: temp_sterm
   ! flags for source terms
   INTEGER, PARAMETER :: GRAVITY          = 1
   INTEGER, PARAMETER :: DISK_THOMSON     = 2

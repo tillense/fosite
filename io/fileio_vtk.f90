@@ -81,12 +81,12 @@ MODULE fileio_vtk_mod
    INTEGER, PARAMETER      :: MAXKEY   = 64  !< max length of keyname
    CHARACTER, PARAMETER    :: LF = ACHAR(10) !< line feed
    !> names of fluxes
-   CHARACTER(LEN=16),DIMENSION(6),PARAMETER  :: fluxkey = (/'bflux_WEST  ', &
-                                                            'bflux_EAST  ', &
-                                                            'bflux_SOUTH ', &
-                                                            'bflux_NORTH ', &
-                                                            'bflux_BOTTOM', &
-                                                            'bflux_TOP   ' /)
+!   CHARACTER(LEN=16),DIMENSION(6),PARAMETER  :: fluxkey = (/'bflux_WEST  ', &
+!                                                            'bflux_EAST  ', &
+!                                                            'bflux_SOUTH ', &
+!                                                            'bflux_NORTH ', &
+!                                                            'bflux_BOTTOM', &
+!                                                            'bflux_TOP   ' /)
 
   !--------------------------------------------------------------------------!
   TYPE, EXTENDS(fileio_base) :: fileio_vtk
@@ -128,9 +128,7 @@ CONTAINS
     TYPE(Dict_TYP),      INTENT(IN), POINTER :: IO       !< \param [in] IO Dictionary for I/O
     !------------------------------------------------------------------------!
     TYPE(Dict_TYP), POINTER             :: node
-    TYPE(real_t)                        :: dummy1
     INTEGER                             :: k,n,i,j
-    REAL                                :: ftime
     INTEGER, DIMENSION(:), POINTER      :: sendbuf,recvbuf
     REAL, DIMENSION(:,:,:,:,:), POINTER :: corners
     !------------------------------------------------------------------------!
@@ -599,21 +597,21 @@ CONTAINS
        CALL this%Error( "CloseFileIO", "cannot close "//TRIM(fext)//"-file")
   END SUBROUTINE CloseFile
 
-  !> Extract a subkey of a string (obsolete)
-  !!
-  !! Extract a subkey from a string (key) of type "abcd/SUBKEY/efgh"
-  FUNCTION GetSubKey(key) RESULT(subkey)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CHARACTER(LEN=*)      :: key
-    !------------------------------------------------------------------------!
-    CHARACTER(LEN=MAXKEY) :: subkey
-    !------------------------------------------------------------------------!
-    INTENT(IN)            :: key
-    !------------------------------------------------------------------------!
-    ! format of key like: "abcd/SUBKEY/efgh"
-    subkey = key(SCAN(key,"/",.TRUE.)+1:)
-  END FUNCTION GetSubKey
+!  !> Extract a subkey of a string (obsolete)
+!  !!
+!  !! Extract a subkey from a string (key) of type "abcd/SUBKEY/efgh"
+!  FUNCTION GetSubKey(key) RESULT(subkey)
+!    IMPLICIT NONE
+!    !------------------------------------------------------------------------!
+!    CHARACTER(LEN=*)      :: key
+!    !------------------------------------------------------------------------!
+!    CHARACTER(LEN=MAXKEY) :: subkey
+!    !------------------------------------------------------------------------!
+!    INTENT(IN)            :: key
+!    !------------------------------------------------------------------------!
+!    ! format of key like: "abcd/SUBKEY/efgh"
+!    subkey = key(SCAN(key,"/",.TRUE.)+1:)
+!  END FUNCTION GetSubKey
 
   !> \public Writes XML header to file
   !!
@@ -685,7 +683,6 @@ CONTAINS
     CLASS(fileio_vtk) :: this
     REAL              :: time
     !------------------------------------------------------------------------!
-    INTEGER           :: i
     INTENT(IN)        :: time
     !------------------------------------------------------------------------!
     CALL this%OpenFile(APPEND)
@@ -736,13 +733,9 @@ CONTAINS
     TYPE(Dict_TYP),       POINTER       :: Header   !< \param [in,out] IO I/O dictionary
     TYPE(Dict_TYP),       POINTER       :: IO       !< \param [in,out] IO I/O dictionary
     !------------------------------------------------------------------------!
-    INTEGER                             :: i,j,k,m
-    INTEGER                             :: spos, epos, n, offset
+    INTEGER                             :: i,k,m
+    INTEGER                             :: n, offset
     CHARACTER(LEN=256)                  :: basename
-    REAL,DIMENSION(:,:),POINTER         :: dummy2
-    REAL,DIMENSION(:,:,:),POINTER       :: dummy3
-    REAL,DIMENSION(:,:,:,:),POINTER     :: dummy4
-    TYPE(Dict_TYP),POINTER              :: node
     !------------------------------------------------------------------------!
     ! this part is formerly from fileio_generic.f90
     ! calculate boundary fluxes, if they were requested for write

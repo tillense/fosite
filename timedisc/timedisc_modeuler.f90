@@ -95,7 +95,7 @@ CONTAINS
     CLASS(physics_base),  INTENT(IN)        :: Physics
     TYPE(Dict_TYP), POINTER                 :: config, IO
     !------------------------------------------------------------------------!
-    INTEGER                                 :: method,err
+    INTEGER                                 :: method
     !------------------------------------------------------------------------!
     CALL this%InitTimedisc(Mesh,Physics,config,IO,MODIFIED_EULER,ODEsolver_name)
     ! set default order
@@ -137,10 +137,9 @@ CONTAINS
     CLASS(fluxes_base),       INTENT(INOUT) :: Fluxes
     REAL                                    :: time,dt,err
     !------------------------------------------------------------------------!
-    INTEGER                                 :: n,k
+    INTEGER                                 :: n
     INTEGER                                 :: order
-    REAL                                    :: t,dtnew
-    REAL                                    :: rel_err(Physics%VNUM)
+    REAL                                    :: t
     TYPE var_typ
        REAL, DIMENSION(:,:,:,:), POINTER    :: var
     END TYPE var_typ
@@ -220,7 +219,6 @@ CONTAINS
                                             :: cold,pvar,cvar,cnew,rhs
     !------------------------------------------------------------------------!
     INTEGER                                 :: i,j,k,l
-    REAL                                    :: dyflux, wp
     !------------------------------------------------------------------------!
     INTENT(IN)                              :: eta,time,dt,cold,pvar,cvar,rhs
     INTENT(OUT)                             :: cnew

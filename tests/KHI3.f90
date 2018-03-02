@@ -128,9 +128,9 @@ CONTAINS
     TYPE(Dict_TYP),POINTER  :: config
     !------------------------------------------------------------------------!
     ! Local variable declaration
-    TYPE(Dict_TYP), POINTER :: mesh, physics, boundary, datafile, logfile, &
-                               sources, timedisc, fluxes, vis
-    REAL                    :: dynvis
+    TYPE(Dict_TYP), POINTER :: mesh, physics, boundary, datafile, &
+                               sources, timedisc, fluxes!, logfile
+    !REAL                    :: dynvis
     !------------------------------------------------------------------------!
     ! mesh settings
     mesh => Dict( &
@@ -243,7 +243,7 @@ CONTAINS
     LOGICAL, OPTIONAL    :: rotate90deg,reuse_random_seed
     !------------------------------------------------------------------------!
     ! Local variable declaration
-    INTEGER              :: i,j
+    INTEGER              :: i
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,3) :: dv
     INTEGER              :: clock
     !------------------------------------------------------------------------!

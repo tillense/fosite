@@ -45,17 +45,16 @@ CONTAINS
   SUBROUTINE riemann(x0,rho_l_,u_l_,p_l_,rho_r_,u_r_,p_r_,t,x,pvar)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    REAL :: t,x0,rho_l_,u_l_,p_l_,rho_r_,u_r_,p_r_
-    REAL,DIMENSION(:) :: x
+    REAL                :: t,x0,rho_l_,u_l_,p_l_,rho_r_,u_r_,p_r_
+    REAL,DIMENSION(:)   :: x
     REAL,DIMENSION(:,:) :: pvar
     !------------------------------------------------------------------------!
-    INTEGER :: i, j
-    Real :: rho_Lstar, rho_Rstar, p_star, u_star, &
-            c_Lstar, c_Rstar,           &
-            S_L, S_HL, S_TL, S_R, S_HR, S_TR
+    INTEGER :: i
+    Real    :: rho_Lstar, rho_Rstar, p_star, u_star, &
+               c_Lstar, c_Rstar,           &
+               S_L, S_HL, S_TL, S_R, S_HR, S_TR
     INTEGER :: error
     !------------------------------------------------------------------------!
-
     gamma = 1.4                  !heat capacity ratio
 
     rho_L = rho_l_

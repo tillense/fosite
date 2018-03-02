@@ -983,7 +983,6 @@ CONTAINS
     REAL, INTENT(IN)  :: x
     REAL              :: erf
     !------------------------------------------------------------------------!
-    INTEGER :: i
     REAL :: denom, nom, x2, x4, x6
     REAL,DIMENSION(4) :: P_denom
     REAL,DIMENSION(5) :: P_nom
@@ -1002,7 +1001,7 @@ CONTAINS
             + P_nom(5)*x6)
     denom = P_denom(1)+ x2 * (P_denom(2) + P_denom(3)* x2 + P_denom(4) * x4 &
             + x6)
- 
+
     erf   = x * nom / denom
 
   END FUNCTION CodyerfApprox
@@ -1051,7 +1050,6 @@ CONTAINS
     REAL, INTENT(IN)  :: x
     REAL              :: cerf
     !------------------------------------------------------------------------!
-    INTEGER           :: i
     REAL              :: denom, nom, x2, x4, x6, x8
     REAL,DIMENSION(5) :: P_denom
     REAL,DIMENSION(6) :: P_nom

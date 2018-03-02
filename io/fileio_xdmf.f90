@@ -109,10 +109,6 @@ CONTAINS
                                         :: IO       !< \param [in] IO Dictionary for I/O
     !------------------------------------------------------------------------!
     INTEGER               :: err
-#ifdef PARALLEL
-    INTEGER, DIMENSION(2) :: gsizes,lsizes,indices,memsizes
-    INTEGER               :: lb,extent
-#endif
     !------------------------------------------------------------------------!
     !\attention interface changed, however "xdmf" is not passed anymore
     CALL this%InitFileIO_binary(Mesh,Physics,Timedisc,Sources,config,IO)
@@ -155,10 +151,6 @@ CONTAINS
     !------------------------------------------------------------------------!
     CHARACTER(LEN=MAX_CHAR_LEN)        :: str, key
     TYPE(Dict_TYP),POINTER             :: node
-    REAL,DIMENSION(2,Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX) &
-                                       :: buf
-    CHARACTER(LEN=1),DIMENSION(:),POINTER  &
-                                       :: val
     !------------------------------------------------------------------------!
     IF(PRESENT(path)) THEN
         str = path
@@ -223,13 +215,11 @@ CONTAINS
     INTEGER ,           INTENT(INOUT) :: offset   !< \param [in,out] offset
     CHARACTER(LEN=*),   INTENT(IN)    :: filename
     !------------------------------------------------------------------------!
-    TYPE(real_t)                      :: ptr0
-    REAL,DIMENSION(:,:),      POINTER :: ptr2 => null()
     REAL,DIMENSION(:,:,:),    POINTER :: ptr3 => null()
     REAL,DIMENSION(:,:,:,:),  POINTER :: ptr4 => null()
     REAL,DIMENSION(:,:,:,:,:),POINTER :: ptr5 => null()
     INTEGER,DIMENSION(5)              :: dims
-    INTEGER                           :: bytes,k,l
+    INTEGER                           :: bytes
     CHARACTER(LEN=1),DIMENSION(:),POINTER  &
                                       :: val
     LOGICAL                           :: ref
@@ -326,9 +316,8 @@ CONTAINS
     INTEGER,            INTENT(IN)    :: offset     !< \param [in,out] offset
     LOGICAL,            INTENT(IN)    :: ref        !< \param [in] ref
     !------------------------------------------------------------------------!
-    CHARACTER(LEN=8)                  :: inum,jnum
     CHARACTER(LEN=32)                 :: type,center
-    INTEGER                           :: i,dsize, err
+    INTEGER                           :: dsize, err
     !------------------------------------------------------------------------!
     !data size
     dsize = SIZE(dims)
@@ -424,7 +413,7 @@ CONTAINS
     !------------------------------------------------------------------------!
     CHARACTER(LEN=64) :: dims
     CHARACTER(LEN=8)  :: inum, jnum, knum
-    INTEGER           :: i, err
+    INTEGER           :: err
     !------------------------------------------------------------------------!
     WRITE(inum,'(I8)') Mesh%INUM+1
     WRITE(jnum,'(I8)') Mesh%JNUM+1

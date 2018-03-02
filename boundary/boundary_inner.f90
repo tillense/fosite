@@ -98,8 +98,6 @@ CONTAINS
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
                         INTENT(INOUT) :: pvar
     !------------------------------------------------------------------------!
-    INTEGER                           :: i,j,k
-    !------------------------------------------------------------------------!
     ! nothing to do
   END SUBROUTINE SetBoundaryData
 

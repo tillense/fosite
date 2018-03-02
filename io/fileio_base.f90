@@ -296,15 +296,14 @@ CONTAINS
     INTEGER                        :: fileformat !< fmt fileio type number
     CHARACTER(LEN=MAX_CHAR_LEN)    :: fname      !< fname file name
     CHARACTER(LEN=MAX_CHAR_LEN)    :: fpath      !< fpath file path
-    INTEGER                        :: fcycles    !< fcycles number of file cycles
+    !INTEGER                        :: fcycles    !< fcycles number of file cycles
     INTEGER                        :: unit       !<  unit fortran i/o unit number
     LOGICAL                        :: success
     CHARACTER(LEN=32)              :: timestamp
-    INTEGER                        :: i,fstatus
-    INTEGER                        :: count_def, fcycles_def, dtwall_def, ncfmt_def
+    INTEGER                        :: count_def, fcycles_def, dtwall_def
     INTEGER                        :: cartcoords
     REAL                           :: stoptime_def
-    REAL                           :: time,new_time
+    REAL                           :: time
     TYPE(Dict_TYP),POINTER         :: oldconfig => null()
     !------------------------------------------------------------------------!
     ! wall clock time between successive outputs

@@ -66,8 +66,6 @@ CONTAINS
     TYPE(Dict_TYP), POINTER                    :: config
     INTEGER                                    :: dir
     !------------------------------------------------------------------------!
-    INTEGER                                    :: err
-    !------------------------------------------------------------------------!
     INTENT(IN)                                 :: dir
     !------------------------------------------------------------------------!
     CALL this%InitBoundary(Mesh,Physics,NO_GRADIENTS,boundcond_name,dir,config)

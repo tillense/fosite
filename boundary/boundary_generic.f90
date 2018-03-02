@@ -128,7 +128,6 @@ CONTAINS
     INTEGER               :: dir
 #ifdef PARALLEL
     INTEGER               :: comm_old
-    INTEGER               :: sizeofreal, ignum, jgnum, kgnum, twoslices
     INTEGER               :: ierr
     LOGICAL, DIMENSION(SIZE(Mesh%dims)) :: remain_dims = .FALSE.
 #endif

@@ -131,7 +131,6 @@ CONTAINS
     !------------------------------------------------------------------------!
 #ifdef PARALLEL
     INTEGER, DIMENSION(3)                 :: gsizes,lsizes,indices
-    INTEGER                               :: lb,extent
 #endif
     CHARACTER(LEN=1),DIMENSION(:),POINTER :: mold
     REAL                                  :: r
@@ -215,10 +214,10 @@ CONTAINS
     CLASS(fileio_binary), INTENT(INOUT) :: this    !< \param [in,out] this fileio type
     INTEGER                             :: action  !< \param [in] action mode of file access
     !------------------------------------------------------------------------!
-#ifdef PARALLEL
-    INTEGER(KIND=MPI_OFFSET_KIND) :: offset  !< \param [in] offset offset for MPI
-#endif
-    CHARACTER(LEN=3)              :: fformat !< \param [in] fformat file format
+!#ifdef PARALLEL
+!    INTEGER(KIND=MPI_OFFSET_KIND) :: offset  !< \param [in] offset offset for MPI
+!#endif
+!    CHARACTER(LEN=3)              :: fformat !< \param [in] fformat file format
     INTEGER                       :: err
     !------------------------------------------------------------------------!
     INTENT(IN)                    :: action
@@ -519,8 +518,6 @@ CONTAINS
     !------------------------------------------------------------------------!
     CHARACTER(LEN=MAX_CHAR_LEN)             :: str, key
     TYPE(dict_TYP), POINTER                 :: node
-    REAL, DIMENSION(2,Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX) :: buf
-    CHARACTER(LEN=1), DIMENSION(:), POINTER :: val
     !------------------------------------------------------------------------!
     INTENT(IN)                              :: path
     !------------------------------------------------------------------------!
@@ -556,10 +553,9 @@ CONTAINS
     REAL, DIMENSION(:,:,:), POINTER         :: ptr3
     REAL, DIMENSION(:,:,:,:), POINTER       :: ptr4
     REAL, DIMENSION(:,:,:,:,:), POINTER     :: ptr5
-    INTEGER, DIMENSION(5)                   :: dims,dims2
-    INTEGER                                 :: bytes,k,l,pos,imax,jmax
+    INTEGER, DIMENSION(5)                   :: dims
+    INTEGER                                 :: bytes,k,l
     CHARACTER(LEN=1), DIMENSION(:), POINTER :: val
-    REAL, DIMENSION(:,:), ALLOCATABLE       :: buf
 #ifdef PARALLEL
     OFFSET_TYPE                             :: omax,omin
 #endif
@@ -769,8 +765,6 @@ CONTAINS
     CLASS(timedisc_base), INTENT(IN)    :: Timedisc  !< \param [in] timedisc timedisc type
     TYPE(Dict_TYP), POINTER             :: Header,IO !< \param [in,out] IO I/O dictionary
     !------------------------------------------------------------------------!
-    TYPE(Dict_TYP), POINTER             :: meshIO
-    !------------------------------------------------------------------------!
     ! write data
     CALL this%OpenFile(APPEND)
     CALL this%WriteHeader(Mesh,Physics,Header,IO)
@@ -841,7 +835,6 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(fileio_binary), INTENT(INOUT) :: this  !< \param [in,out] this fileio type
-    INTEGER                             :: err
     !------------------------------------------------------------------------!
 #ifdef PARALLEL
     CALL MPI_File_close(this%handle,this%error_io)

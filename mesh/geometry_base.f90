@@ -206,10 +206,9 @@ CONTAINS
     TYPE(DICT_TYP),POINTER              :: config
     INTEGER                             :: gnum, gt !\todo{same variable}
     CHARACTER(LEN=*)                    :: gname
-    REAL                                :: gs_def,gs_def2,gs_def3, dr
+    REAL                                :: gs_def,gs_def2,gs_def3
     !------------------------------------------------------------------------!
     CHARACTER(LEN=8)                    :: gs_str
-    REAL                                :: dz
     !------------------------------------------------------------------------!
     INTENT(IN)                          :: gnum,gname
     !------------------------------------------------------------------------!

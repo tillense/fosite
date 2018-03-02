@@ -117,7 +117,6 @@ CONTAINS
     CLASS(mesh_base),    INTENT(IN)    :: Mesh
     CLASS(physics_base), INTENT(IN)    :: Physics
     TYPE(Dict_TYP),POINTER             :: config,IO
-    INTEGER                            :: scheme
     INTEGER                            :: err
     INTEGER                            :: ftype
     CHARACTER(LEN=*)                   :: fname
@@ -245,8 +244,7 @@ CONTAINS
     INTEGER, OPTIONAL                  :: comm        ! communicator for MPI
     !------------------------------------------------------------------------!
 #ifdef PARALLEL
-    INTEGER, DIMENSION(2)         :: coords
-    REAL, DIMENSION(Physics%VNUM) :: bflux_all,bflux_local
+    REAL, DIMENSION(Physics%VNUM) :: bflux_local
     INTEGER                       :: sender_rank(1),dest_ranks(1),rank0(1)
     INTEGER                       :: dest_comm,union_comm
     INTEGER                       :: world_group,dest_group,union_group,sender_group

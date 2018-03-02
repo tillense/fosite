@@ -112,7 +112,7 @@ CONTAINS
     ! Local variable declaration
     INTEGER                 :: bc(6)
     TYPE(Dict_TYP), POINTER :: mesh, physics, boundary, datafile, &
-                               timedisc, fluxes, sources, rotframe
+                               timedisc, fluxes, sources!, rotframe
     REAL                    :: x1,x2,y1,y2,z1,z2
     !------------------------------------------------------------------------!
     INTENT(INOUT)           :: Sim
@@ -296,9 +296,9 @@ CONTAINS
     !------------------------------------------------------------------------!
     ! Local variable declaration
     INTEGER           :: i,j,k
-    INTEGER           :: dir,ig
-    INTEGER           :: n,clock
-    INTEGER, DIMENSION(:), ALLOCATABLE :: seed
+!    INTEGER           :: dir,ig
+!    INTEGER           :: n,clock
+!    INTEGER, DIMENSION(:), ALLOCATABLE :: seed
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX) :: radius
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX) :: dist_rot
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,3) &

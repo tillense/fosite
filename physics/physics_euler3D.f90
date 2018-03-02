@@ -122,8 +122,6 @@ CONTAINS
     TYPE(Dict_TYP), POINTER, INTENT(IN)   :: config, IO
 
     !------------------------------------------------------------------------!
-    INTEGER                               :: err
-    !------------------------------------------------------------------------!
 !    IF (PRESENT(pname)) THEN
 !       CALL this%InitPhysics(problem,pname,num_var)
 !    ELSE
@@ -1815,94 +1813,94 @@ CONTAINS
     END IF
   END SUBROUTINE SetIntermediateState
 
-  ! \todo CHECK IF RIGHT SINCE 3D
-  !! only for absorbing boundary conditions
-  ELEMENTAL SUBROUTINE SetCharVars(gamma,rho1,rho2,u1,u2,v1,v2,w1,w2,P1,P2, &
-       l1,l2,l3,l4,l5,xvar1,xvar2,xvar3,xvar4,xvar5)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    REAL, INTENT(IN)  :: gamma,rho1,rho2,u1,u2,v1,v2,w1,w2,P1,P2,l1,l2,l3,l4,l5
-    REAL, INTENT(OUT) :: xvar1,xvar2,xvar3,xvar4,xvar5
-    !------------------------------------------------------------------------!
-    REAL              :: gamcs,dlnP,du
-    !------------------------------------------------------------------------!
-    gamcs= gamma / (l5-l1) ! = 2*gamma/cs
-    dlnP = LOG(P2/P1)         ! = LOG(P2)-LOG(P1)
-    du   = u2-u1
-    ! characteristic variables
-    xvar1 = dlnP - gamcs * du
-    xvar2 = -dlnP + gamma * LOG(rho2/rho1)
-    xvar3 = (v2-v1)
-    xvar4 = dlnP + gamcs * du
-  END SUBROUTINE SetCharVars
+!  ! \todo CHECK IF RIGHT SINCE 3D
+!  !! only for absorbing boundary conditions
+!  ELEMENTAL SUBROUTINE SetCharVars(gamma,rho1,rho2,u1,u2,v1,v2,w1,w2,P1,P2, &
+!       l1,l2,l3,l4,l5,xvar1,xvar2,xvar3,xvar4,xvar5)
+!    IMPLICIT NONE
+!    !------------------------------------------------------------------------!
+!    REAL, INTENT(IN)  :: gamma,rho1,rho2,u1,u2,v1,v2,w1,w2,P1,P2,l1,l2,l3,l4,l5
+!    REAL, INTENT(OUT) :: xvar1,xvar2,xvar3,xvar4,xvar5
+!    !------------------------------------------------------------------------!
+!    REAL              :: gamcs,dlnP,du
+!    !------------------------------------------------------------------------!
+!    gamcs= gamma / (l5-l1) ! = 2*gamma/cs
+!    dlnP = LOG(P2/P1)         ! = LOG(P2)-LOG(P1)
+!    du   = u2-u1
+!    ! characteristic variables
+!    xvar1 = dlnP - gamcs * du
+!    xvar2 = -dlnP + gamma * LOG(rho2/rho1)
+!    xvar3 = (v2-v1)
+!    xvar4 = dlnP + gamcs * du
+!  END SUBROUTINE SetCharVars
 
-  ! \todo CHECK IF  RIGHT SINCE 3D
-  !! only for absorbing boundary conditions
-  ELEMENTAL SUBROUTINE SetBoundaryData(gamma,dir,rho1,u1,v1,w1,P1,xvar1, &
-       xvar2,xvar3,xvar4,xvar5,rho2,u2,v2,w2,P2)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    REAL, INTENT(IN)  :: gamma,dir,rho1,u1,v1,w1,P1,xvar1,xvar2,xvar3,xvar4,xvar5
-    REAL, INTENT(OUT) :: rho2,u2,v2,w2,P2
-    !------------------------------------------------------------------------!
-    REAL              :: dlnP,csgam
-    !------------------------------------------------------------------------!
-    dlnP = 0.5 * (xvar5+xvar1)
-    ! extrapolate boundary values using characteristic variables
-    rho2 = rho1 * EXP(dir*(dlnP-xvar2)/gamma)
-    P2   = P1 * EXP(dir*dlnP)
-!CDIR IEXPAND
-    csgam= GetSoundSpeed(gamma,rho1+rho2,P1+P2) / gamma
-    u2   = u1 + dir*csgam * 0.5*(xvar4-xvar1)
-    v2   = v1 + dir*xvar3
-  END SUBROUTINE SetBoundaryData
+!  ! \todo CHECK IF  RIGHT SINCE 3D
+!  !! only for absorbing boundary conditions
+!  ELEMENTAL SUBROUTINE SetBoundaryData(gamma,dir,rho1,u1,v1,w1,P1,xvar1, &
+!       xvar2,xvar3,xvar4,xvar5,rho2,u2,v2,w2,P2)
+!    IMPLICIT NONE
+!    !------------------------------------------------------------------------!
+!    REAL, INTENT(IN)  :: gamma,dir,rho1,u1,v1,w1,P1,xvar1,xvar2,xvar3,xvar4,xvar5
+!    REAL, INTENT(OUT) :: rho2,u2,v2,w2,P2
+!    !------------------------------------------------------------------------!
+!    REAL              :: dlnP,csgam
+!    !------------------------------------------------------------------------!
+!    dlnP = 0.5 * (xvar5+xvar1)
+!    ! extrapolate boundary values using characteristic variables
+!    rho2 = rho1 * EXP(dir*(dlnP-xvar2)/gamma)
+!    P2   = P1 * EXP(dir*dlnP)
+!!CDIR IEXPAND
+!    csgam= GetSoundSpeed(gamma,rho1+rho2,P1+P2) / gamma
+!    u2   = u1 + dir*csgam * 0.5*(xvar4-xvar1)
+!    v2   = v1 + dir*xvar3
+!  END SUBROUTINE SetBoundaryData
 
-  ! \todo CHEKC IF RIGHT SINCE 3D
-  !! only for farfield boundary conditions
-  ELEMENTAL SUBROUTINE Prim2Riemann(gamma,rho,vx,vy,vz,p,&
-                                        l1,l2,l3,l4,l5,Rminus,Rs,Rvt,Rwt,Rplus)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    REAL, INTENT(IN)  :: gamma,rho,vx,vy,vz,p,l1,l2,l3,l4,l5
-    REAL, INTENT(OUT) :: Rminus,Rs,Rvt,Rwt,Rplus
-    !------------------------------------------------------------------------!
-    REAL              :: cs
-    !------------------------------------------------------------------------!
-    cs = l5-l2 ! l2 = v, l5 = v+cs
-    ! compute 1st Riemann invariant (R+)
-    Rplus = vx + 2./(gamma-1.0) * cs
-    ! compute 2st Riemann invariant (R-)
-    Rminus = vx - 2./(gamma-1.0) * cs
-    ! compute entropy
-    Rs = p/rho**gamma
-    ! tangential velocities
-    Rvt = vy
-    Rwt = vz
-  END SUBROUTINE Prim2Riemann
+!  ! \todo CHEKC IF RIGHT SINCE 3D
+!  !! only for farfield boundary conditions
+!  ELEMENTAL SUBROUTINE Prim2Riemann(gamma,rho,vx,vy,vz,p,&
+!                                        l1,l2,l3,l4,l5,Rminus,Rs,Rvt,Rwt,Rplus)
+!    IMPLICIT NONE
+!    !------------------------------------------------------------------------!
+!    REAL, INTENT(IN)  :: gamma,rho,vx,vy,vz,p,l1,l2,l3,l4,l5
+!    REAL, INTENT(OUT) :: Rminus,Rs,Rvt,Rwt,Rplus
+!    !------------------------------------------------------------------------!
+!    REAL              :: cs
+!    !------------------------------------------------------------------------!
+!    cs = l5-l2 ! l2 = v, l5 = v+cs
+!    ! compute 1st Riemann invariant (R+)
+!    Rplus = vx + 2./(gamma-1.0) * cs
+!    ! compute 2st Riemann invariant (R-)
+!    Rminus = vx - 2./(gamma-1.0) * cs
+!    ! compute entropy
+!    Rs = p/rho**gamma
+!    ! tangential velocities
+!    Rvt = vy
+!    Rwt = vz
+!  END SUBROUTINE Prim2Riemann
 
-  ! \todo CHEKC IF RIGHT SINCE 3D
-  !! only for farfield boundary conditions
-  ELEMENTAL SUBROUTINE Riemann2Prim(gamma,Rminus,Rs,Rvt,Rwt,Rplus,&
-       rho,vx,vy,vz,p)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    REAL, INTENT(IN)  :: gamma,Rminus,Rs,Rvt,Rwt,Rplus
-    REAL, INTENT(OUT) :: rho,vx,vy,vz,p
-    !------------------------------------------------------------------------!
-    REAL              :: cs2gam
-    !------------------------------------------------------------------------!
-    ! tangential velocity
-    vy = Rvt
-    vz = Rwt
-    ! normal velocity
-    vx = 0.5*(Rplus+Rminus)
-    ! cs**2 / gamma
-    cs2gam = (0.25*(gamma-1.0)*(Rplus-Rminus))**2 / gamma
-    ! density
-    rho = (cs2gam/Rs)**(1./(gamma-1.0))
-    ! pressure
-    p = cs2gam * rho
-  END SUBROUTINE Riemann2Prim
+!  ! \todo CHEKC IF RIGHT SINCE 3D
+!  !! only for farfield boundary conditions
+!  ELEMENTAL SUBROUTINE Riemann2Prim(gamma,Rminus,Rs,Rvt,Rwt,Rplus,&
+!       rho,vx,vy,vz,p)
+!    IMPLICIT NONE
+!    !------------------------------------------------------------------------!
+!    REAL, INTENT(IN)  :: gamma,Rminus,Rs,Rvt,Rwt,Rplus
+!    REAL, INTENT(OUT) :: rho,vx,vy,vz,p
+!    !------------------------------------------------------------------------!
+!    REAL              :: cs2gam
+!    !------------------------------------------------------------------------!
+!    ! tangential velocity
+!    vy = Rvt
+!    vz = Rwt
+!    ! normal velocity
+!    vx = 0.5*(Rplus+Rminus)
+!    ! cs**2 / gamma
+!    cs2gam = (0.25*(gamma-1.0)*(Rplus-Rminus))**2 / gamma
+!    ! density
+!    rho = (cs2gam/Rs)**(1./(gamma-1.0))
+!    ! pressure
+!    p = cs2gam * rho
+!  END SUBROUTINE Riemann2Prim
 
   !> \todo NOT VERIFIED
   ELEMENTAL SUBROUTINE SetFlux(rho,v,P,m1,m2,m3,E,f1,f2,f3,f4,f5)
@@ -1949,19 +1947,19 @@ CONTAINS
     E = P/(gamma-1.) + 0.5 * rho_in * (u*u+v*v+w*w)
   END SUBROUTINE Prim2Cons
 
-  !> Similar to isothermal version
-  ELEMENTAL SUBROUTINE CalcGeometricalSources(this,mx,my,mz,vx,vy,vz,P,cxyx,cxzx,cyxy,cyzy,czxz,czyz,srho,smx,smy,smz)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(physics_euler3D), INTENT(IN) :: this
-    REAL, INTENT(IN)  :: mx,my,mz,vx,vy,vz,P,cxyx,cxzx,cyxy,cyzy,czxz,czyz
-    REAL, INTENT(OUT) :: srho, smx, smy, smz
-    !------------------------------------------------------------------------!
-    srho =  0.
-    smx  = -my * (cxyx * vx - cyxy * vy) + mz * (czxz * vz - cxzx * vx) + (cyxy + czxz) * P
-    smy  =  mx * (cxyx * vx - cyxy * vy) + mz * (czyz * vz - cyzy * vy) + (cxyx + czyz) * P
-    smz  =  mx * (cxzx * vx - czxz * vz) + my * (cyzy * vy - czyz * vz) + (cxzx + cyzy) * P
-  END SUBROUTINE CalcGeometricalSources
+!  !> Similar to isothermal version
+!  ELEMENTAL SUBROUTINE CalcGeometricalSources(this,mx,my,mz,vx,vy,vz,P,cxyx,cxzx,cyxy,cyzy,czxz,czyz,srho,smx,smy,smz)
+!    IMPLICIT NONE
+!    !------------------------------------------------------------------------!
+!    CLASS(physics_euler3D), INTENT(IN) :: this
+!    REAL, INTENT(IN)  :: mx,my,mz,vx,vy,vz,P,cxyx,cxzx,cyxy,cyzy,czxz,czyz
+!    REAL, INTENT(OUT) :: srho, smx, smy, smz
+!    !------------------------------------------------------------------------!
+!    srho =  0.
+!    smx  = -my * (cxyx * vx - cyxy * vy) + mz * (czxz * vz - cxzx * vx) + (cyxy + czxz) * P
+!    smy  =  mx * (cxyx * vx - cyxy * vy) + mz * (czyz * vz - cyzy * vy) + (cxyx + czyz) * P
+!    smz  =  mx * (cxzx * vx - czxz * vz) + my * (cyzy * vy - czyz * vz) + (cxzx + cyzy) * P
+!  END SUBROUTINE CalcGeometricalSources
 
   SUBROUTINE Finalize(this)
     IMPLICIT NONE

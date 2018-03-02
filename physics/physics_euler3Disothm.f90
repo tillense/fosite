@@ -127,8 +127,6 @@ CONTAINS
     CLASS(mesh_base),         INTENT(IN)    :: Mesh
     TYPE(Dict_TYP), POINTER,  INTENT(IN)    :: config, IO
     !------------------------------------------------------------------------!
-    INTEGER                                 :: err
-    !------------------------------------------------------------------------!
     CALL this%InitPhysics(Mesh,config,IO,EULER3D_ISOTH,problem_name,num_var)
     ! set array indices
     this%DENSITY   = 1                                 ! mass density        !
@@ -333,8 +331,6 @@ CONTAINS
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM), &
                               INTENT(IN)    :: pvar
     !------------------------------------------------------------------------!
-    INTEGER                                 :: i,j,k
-    !------------------------------------------------------------------------!
     ! Sound speed is constant - nothing to do.
   END SUBROUTINE UpdateSoundSpeed_center
 
@@ -349,8 +345,6 @@ CONTAINS
     CLASS(mesh_base),         INTENT(IN)    :: Mesh
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%NFACES,this%VNUM), &
                               INTENT(IN)    :: prim
-    !------------------------------------------------------------------------!
-    INTEGER                                 :: i,j,k,l
     !------------------------------------------------------------------------!
     ! Sound speed is constant - nothing to do.
   END SUBROUTINE UpdateSoundSpeed_faces

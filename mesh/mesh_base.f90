@@ -236,7 +236,6 @@ CONTAINS
     CHARACTER(LEN=32)       :: xres,yres,zres,somega
     INTEGER                 :: meshtype
     INTEGER                 :: i,j,k,err
-    REAL                    :: cart_max
 #ifdef PARALLEL
     INTEGER                 :: inum, jnum, knum
 #endif
@@ -596,7 +595,6 @@ CONTAINS
     CLASS(mesh_base),INTENT(INOUT) :: this   !< \param [in,out] this all mesh data
     TYPE(Dict_TYP),POINTER         :: config,IO
     !------------------------------------------------------------------------!
-    TYPE(Dict_TYP),POINTER         :: bary,corners,node
     INTEGER                        :: writefields
     !------------------------------------------------------------------------!
     !Set OutputDict

@@ -65,7 +65,7 @@ CONTAINS
     INTEGER(KIND=I8), OPTIONAL :: seed
     !------------------------------------------------------------------------!
     INTEGER(KIND=I8), save     :: x, y, z, c
-    INTEGER(KIND=I8)           :: t, k, m, s
+    INTEGER(KIND=I8)           :: t
     data x, y, z, c &
       / 1234567890987654321_I8, &
         362436362436362436_I8, &

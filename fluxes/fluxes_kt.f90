@@ -83,8 +83,6 @@ CONTAINS
     CLASS(physics_base), INTENT(IN)          :: Physics
     TYPE(Dict_TYP),      INTENT(IN), POINTER :: config,IO
     !------------------------------------------------------------------------!
-    INTEGER                                  :: err,n
-    !------------------------------------------------------------------------!
     CALL this%InitFluxes(Mesh,Physics,config,IO,KT,"KT")
 
     ! set relative positions for reconstruction points:

@@ -562,14 +562,7 @@ CONTAINS
     INTEGER                             :: iter
     TYPE(Dict_TYP),       POINTER       :: config,IO
     !------------------------------------------------------------------------!
-    INTEGER                             :: i,j
-#ifdef PARALLEL
-    REAL                                :: err_all,dt_all
-    INTEGER                             :: ierror
-#endif
-    REAL                                :: err,dtold,dt,time,dtmeanold
-    INTEGER                             :: M,k
-    REAL                                :: f
+    REAL                                :: err,dtold,dt,time
     !------------------------------------------------------------------------!
     INTENT(INOUT)                       :: iter
     !------------------------------------------------------------------------!
@@ -912,12 +905,6 @@ CONTAINS
     INTEGER                             :: checkdatabm
     !------------------------------------------------------------------------!
     INTEGER                             :: i,j,k,l
-    REAL                                :: dyflux,wp,phi
-    REAL,DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX, &
-                   Mesh%KGMIN:Mesh%KGMAX)                       &
-                                        :: w
-    CLASS(sources_base), POINTER        :: grav
-    REAL,DIMENSION(:,:,:,:),POINTER     :: pot
     !------------------------------------------------------------------------!
     INTENT(IN)                          :: time,dt,checkdatabm
     INTENT(INOUT)                       :: cvar
@@ -1167,7 +1154,6 @@ CONTAINS
     INTEGER                             :: err
 #endif
     REAL                                :: val
-    INTEGER                             :: i,j
     !------------------------------------------------------------------------!
     IF(IAND(checkdatabm,CHECK_CSOUND).NE.CHECK_NOTHING) THEN
       val = MINVAL(Physics%bccsound)
