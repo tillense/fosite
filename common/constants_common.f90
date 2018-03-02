@@ -226,7 +226,7 @@ CONTAINS
     i = Initialized_common(this%units)
   END FUNCTION ConstantsInitialized
 
- 
+
   !> \public Print information on standard output;
   !! overloads \b Info from \link common_types::Info \endlink
   SUBROUTINE ConstantsInfo(this,msg,rank,node_info,tostderr)

@@ -1,6 +1,7 @@
 before_script:
     - module load gfortran/6.2
     - module load cmake/3.6.1
+    - module load openmpi/3.0.0
 
 stages:
     - build
@@ -17,17 +18,19 @@ serial_build:
     artifacts:
         paths:
         - ./*
+        expire_in: 1 week
 
 parallel_build:
     stage: build
     script:
         - mkdir par_build
         - cd par_build
-        - FC=gfortran cmake ..
+        - FC=mpifort cmake ..
         - make -j
     artifacts:
         paths:
         - ./*
+        expire_in: 1 week
 
 ser_test_gauss3d:
     stage: test
@@ -37,7 +40,7 @@ ser_test_gauss3d:
 par_test_gauss3d:
     stage: test
     script:
-        - ./par_build/tests/gauss3d
+        - mpirun -n 2 ./par_build/tests/gauss3d
 
 ser_test_sedov3d:
     stage: test
@@ -47,4 +50,4 @@ ser_test_sedov3d:
 par_test_sedov3d:
     stage: test
     script:
-        - ./par_build/tests/sedov3d
+        - mpirun -n 2 ./par_build/tests/sedov3d

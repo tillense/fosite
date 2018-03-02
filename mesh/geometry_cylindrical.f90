@@ -42,7 +42,6 @@ MODULE geometry_cylindrical_mod
     PROCEDURE :: InitGeometry_cylindrical
     PROCEDURE :: ScaleFactors_cylindrical
     PROCEDURE :: ScaleFactors_0
-!    PROCEDURE :: Radius_cylindrical
     PROCEDURE :: Radius_0
     PROCEDURE :: PositionVector_0
     PROCEDURE :: Convert2Cartesian_cylindrical

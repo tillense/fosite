@@ -562,7 +562,7 @@ CONTAINS
   SUBROUTINE CloseFile(this,ftype)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(fileio_vtk), INTENT(INOUT) :: this            !< \param [in,out] this fileio type
+    CLASS(fileio_vtk), INTENT(INOUT) :: this  !< \param [in,out] this fileio type
     CHARACTER(LEN=*), OPTIONAL       :: ftype !< \param [in] file type
     !------------------------------------------------------------------------!
     CHARACTER(LEN=4)                 :: fext

@@ -40,27 +40,6 @@ MODULE sources_base_mod
   USE mesh_base_mod
   USE physics_base_mod
   USE fluxes_base_mod
-!  USE mesh_common, ONLY : Mesh_TYP
-!  USE timedisc_common, ONLY : Timedisc_TYP
-!  USE sources_c_accel, InitSources_common => InitSources, &
-!       CloseSources_common => CloseSources
-!  USE sources_diskthomson
-!  USE sources_viscosity
-!  USE sources_wave_damping
-!  USE sources_cooling
-!  USE sources_stellarheating
-!  USE sources_rotframe
-!  USE sources_sgs
-!  USE sources_diskcooling
-!  USE sources_planetheating
-!  USE sources_planetcooling
-!  USE sources_forcing
-!  USE sources_shearbox
-!  USE gravity_generic
-!  USE physics_generic, GeometricalSources_Physics => GeometricalSources, &
-!       ExternalSources_Physics => ExternalSources
-!  USE fluxes_generic
-!  USE mesh_generic
   USE common_dict
   IMPLICIT NONE
   !--------------------------------------------------------------------------!

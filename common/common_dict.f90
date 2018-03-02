@@ -289,8 +289,6 @@ CONTAINS
     !------------------------------------------------------------------------!
     TYPE(Dict_TYP),POINTER :: root
     CHARACTER(LEN=*)       :: key
-    !INTEGER, OPTIONAL :: type
-    !TYPE_DICT_MOLD, OPTIONAL :: value
     INTEGER                :: type
     TYPE_DICT_MOLD         :: value
     !------------------------------------------------------------------------!

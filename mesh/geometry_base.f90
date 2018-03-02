@@ -37,8 +37,6 @@ MODULE geometry_base_mod
   USE logging_base_mod
   USE array, ONLY : MArrayS_TYP, MArrayV_TYP !\todo{new type - not yet implemented as class}
   USE common_dict
-!  USE geometry_cartesian, InitGeometry_common => InitGeometry, &
-!       CloseGeometry_common => CloseGeometry
   !--------------------------------------------------------------------------!
   PRIVATE
   REAL, PARAMETER :: PI = 3.1415926535897932384626433832795028842
@@ -249,66 +247,6 @@ CONTAINS
           CALL GetAttr(config, "gparam3", gs_def3, 1.0)
        END SELECT
     END SELECT
-
-
-    !SELECT CASE(gnum)
-    !CASE(CARTESIAN)
-    !   CALL InitGeometry_cartesian(this,gt)
-    !   CALL GetAttr(config, "dz", dz, 1.0)
-    !CASE(SINHCARTESIAN)
-    !   CALL InitGeometry_sinhcartesian(this,gt,gs_def)
-    !   CALL GetAttr(config, "dz", dz, 1.0)
-    !CASE(POLAR)
-    !   CALL InitGeometry_polar(this,gt)
-    !   CALL GetAttr(config, "dz", dz, 1.0)
-    !CASE(LOGPOLAR)
-    !   CALL InitGeometry_logpolar(this,gt,gs_def)
-    !   CALL GetAttr(config, "dz", dz, 1.0)
-    !CASE(TANPOLAR)
-    !   CALL InitGeometry_tanpolar(this,gt,gs_def)
-    !   CALL GetAttr(config, "dz", dz, 1.0)
-    !CASE(SINHPOLAR)
-    !   CALL InitGeometry_sinhpolar(this,gt,gs_def,gs_def2,gs_def3)
-    !   CALL GetAttr(config, "dz", dz, 1.0)
-    !CASE(SINHTANHPOLAR)
-    !   CALL InitGeometry_sinhtanh(this,gt,gs_def,gs_def2,gs_def3)
-    !   CALL GetAttr(config, "dz", dz, 1.0)
-    !CASE(POLYPOLAR)
-    !   CALL InitGeometry_polypolar(this,gt,gs_def)
-    !   CALL GetAttr(config, "dz", dz, 1.0)
-    !CASE(ELLIPTIC)
-    !   CALL InitGeometry_elliptic(this,gt,gs_def)
-    !   CALL GetAttr(config, "dz", dz, 1.0)
-    !CASE(BIPOLAR)
-    !   CALL InitGeometry_bipolar(this,gt,gs_def)
-    !   CALL GetAttr(config, "dz", dz, 1.0)
-    !CASE(CYLINDRICAL)
-    !   CALL InitGeometry_cylindrical(this,gt)
-    !   CALL GetAttr(config, "dz", dz, 2.0*PI)
-    !CASE(TANCYLINDRICAL)
-    !   CALL InitGeometry_tancyl(this,gt,gs_def)
-    !   CALL GetAttr(config, "dz", dz, 2.0*PI)
-    !CASE(LNCOSHCYLINDRICAL)
-    !   CALL InitGeometry_lncoshcyl(this,gt,gs_def,gs_def2,gs_def3)
-    !   CALL GetAttr(config, "dz", dz, 2.0*PI)
-    !CASE(SPHERICAL)
-    !   CALL InitGeometry_spherical(this,gt)
-    !   CALL GetAttr(config, "dz", dz, 2.0*PI)
-    !CASE(SINHSPHERICAL)
-    !   CALL InitGeometry_sinhspher(this,gt,gs_def)
-    !   CALL GetAttr(config, "dz", dz, 2.0*PI)
-    !CASE(BIANGLESPHERICAL)
-    !   CALL InitGeometry_bianglespher(this,gt,gs_def)
-    !   CALL GetAttr(config, "dz", dz, 1.0)
-    !CASE(OBLATE_SPHEROIDAL)
-    !   CALL InitGeometry_oblatespher(this,gt,gs_def)
-    !   CALL GetAttr(config, "dz", dz, 2.0*PI)
-    !CASE(CHANNEL)
-    !   CALL InitGeometry_channel(this,gt,gs_def)
-    !   CALL GetAttr(config, "dz", dz, 1.0)
-    !CASE DEFAULT
-    !   CALL Error(this,"InitGeometry",  "Unknown geometry.")
-    !END SELECT
 
     ! print some information
     CALL this%Info(" GEOMETRY-> coordinates:       " // TRIM(this%GetName()))
@@ -650,7 +588,6 @@ CONTAINS
                                 v_cart(:,:,:,:,1),v_cart(:,:,:,:,2),v_cart(:,:,:,:,3))
   END SUBROUTINE Convert2Cartesian_vectors_2
 
-  
   !> \public Convert curvilinear vector components to cartesian vector components
   PURE SUBROUTINE Convert2Cartesian_vectors_3(this,curv,v_curv,v_cart)
     IMPLICIT NONE

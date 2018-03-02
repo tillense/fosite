@@ -26,7 +26,7 @@
 !----------------------------------------------------------------------------!
 !> \defgroup array
 !! \{
-!! \brief Family of array moduless
+!! \brief Family of array modules
 !! \}
 !----------------------------------------------------------------------------!
 !> \author Tobias Illenseer

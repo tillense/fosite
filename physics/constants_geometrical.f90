@@ -65,7 +65,7 @@ CONTAINS
     this%C  = 1.0                                   ! lightspeed             !
     this%GN = 1.0                                   ! Newtons grav. constant !
     this%KB = 1.0                                   ! Boltzmann constant     !
-    this%NA = NA  ![1/mol]                            Avogadro constant      !
+    this%NA = NA  ![1/mol]                          ! Avogadro constant      !
     ! factors for conversion to SI units
     ! time and mass have unit of length i.e. metre
 

@@ -56,8 +56,6 @@ CONTAINS
     CALL GetAttr(config,"geometry",geometry_type)
     ! allocate data
     SELECT CASE(geometry_type)
-!    CASE(POLAR)
-!      ALLOCATE(geometry_polar::Geometry)
     CASE(CARTESIAN)
       ALLOCATE(geometry_cartesian::Geometry)
     CASE(CYLINDRICAL)
@@ -71,8 +69,6 @@ CONTAINS
 
     ! call initialization
     SELECT TYPE(geometry_child => Geometry)
-!    TYPE IS (geometry_polar)
-!      CALL geometry_child%InitGeometry_polar(config)
     TYPE IS (geometry_cartesian)
       CALL geometry_child%InitGeometry_cartesian(config)
     TYPE IS (geometry_cylindrical)

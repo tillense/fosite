@@ -78,14 +78,14 @@ CONTAINS
     this%SB = SB
     this%KE = KE
     ! conversion factors to SI units are unity
-    this%cf_time = 1.0
-    this%cf_mass = 1.0
-    this%cf_momentum = 1.0
-    this%cf_energy = 1.0
-    this%cf_power = 1.0
+    this%cf_time        = 1.0
+    this%cf_mass        = 1.0
+    this%cf_momentum    = 1.0
+    this%cf_energy      = 1.0
+    this%cf_power       = 1.0
     this%cf_temperature = 1.0
-    this%cf_density = 1.0
-    this%cf_opacity = 1.0
+    this%cf_density     = 1.0
+    this%cf_opacity     = 1.0
   END SUBROUTINE InitConstants_SI
 
 END MODULE constants_SI_mod
