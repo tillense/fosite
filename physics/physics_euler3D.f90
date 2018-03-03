@@ -161,7 +161,7 @@ CONTAINS
     CLASS(mesh_base),       INTENT(IN)    :: Mesh
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM), &
                             INTENT(IN)    :: pvar
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%DIMS), &
+    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%NDIMS), &
                             INTENT(OUT)   :: minwav,maxwav
     !------------------------------------------------------------------------!
     INTEGER                               :: i,j,k
@@ -197,7 +197,7 @@ CONTAINS
     CLASS(mesh_base),       INTENT(IN)    :: Mesh
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%NFACES,this%VNUM), &
                             INTENT(IN)    :: prim,cons
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%DIMS), &
+    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%NDIMS), &
                             INTENT(OUT)   :: minwav,maxwav
     !------------------------------------------------------------------------!
     REAL                                  :: uRoe,csRoe,aminRoe,amaxRoe
@@ -1293,7 +1293,7 @@ CONTAINS
     CLASS(physics_euler3D), INTENT(IN) :: this
     CLASS(mesh_base),       INTENT(IN) :: Mesh
     REAL,                   INTENT(IN), &
-      DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%DIMS) &
+      DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%NDIMS) &
                                        :: accel
     REAL,                   INTENT(IN), &
       DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM) &

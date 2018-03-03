@@ -132,7 +132,7 @@ CONTAINS
             "ymax"      / y2,   &
             "zmin"      / z1,   &
             "zmax"      / z2,   &
-            "decomposition"/ (/ 1, 1, 1/), &
+            "decomposition"/ (/ 1, 2/), &
             "gparam"    / GPAR)
 
     ! boundary conditions

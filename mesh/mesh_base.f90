@@ -122,7 +122,7 @@ MODULE mesh_base_mod
     INTEGER           :: IGMIN,IGMAX       !< minimal & maximal index in x-direction with ghost cells
     INTEGER           :: JGMIN,JGMAX       !< minimal & maximal index in y-direction with ghost cells
     INTEGER           :: KGMIN,KGMAX       !< minimal & maximal index in z-direction with ghost cells
-    INTEGER           :: DIMS              !< amount of dimension, 1 (1D), 2 (2D), 3 (3D)
+    INTEGER           :: NDIMS              !< amount of dimension, 1 (1D), 2 (2D), 3 (3D)
     INTEGER           :: NFACES            !< amount of faces, 2 (1D), 4 (2D), 6 (3D)
     INTEGER           :: NCORNERS          !< amount of faces, 2 (1D), 4 (2D), 8 (3D)
     INTEGER           :: Ip1,Ip2,Im1,Im2   !< access indices, which might become zero without x-dim
@@ -309,19 +309,19 @@ CONTAINS
        (((this%KNUM.EQ.1).AND.(this%INUM.EQ.1)).AND.(this%JNUM.GT.1))) THEN
       this%NFACES = 2
       this%NCORNERS = 2
-      this%DIMS = 1
+      this%NDIMS = 1
     ELSE IF  & ! case 2D
       ((((this%INUM.EQ.1).AND.(this%JNUM.GT.1)).AND.(this%KNUM.GT.1)) .OR. &
        (((this%JNUM.EQ.1).AND.(this%KNUM.GT.1)).AND.(this%INUM.GT.1)) .OR. &
        (((this%KNUM.EQ.1).AND.(this%INUM.GT.1)).AND.(this%JNUM.GT.1))) THEN
       this%NFACES = 4
       this%NCORNERS = 4
-      this%DIMS = 2
+      this%NDIMS = 2
     ELSE IF  & ! case 3D
       (((this%INUM.GT.1).AND.(this%JNUM.GT.1)).AND.(this%KNUM.GT.1)) THEN
       this%NFACES = 6
       this%NCORNERS = 6
-      this%DIMS = 3
+      this%NDIMS = 3
     ELSE
       CALL this%Error("InitMesh","Cell numbering is not allowed.")
     END IF
@@ -880,11 +880,11 @@ CONTAINS
 
     ! 2. create the cartesian communicator
     ! IMPORTANT: disable reordering of nodes
-    CALL MPI_Cart_create(MPI_COMM_WORLD,NDIMS,this%dims,periods,.TRUE., &
+    CALL MPI_Cart_create(MPI_COMM_WORLD,this%NDIMS,this%dims,periods,.TRUE., &
          this%comm_cart,ierror)
 
     ! 3. inquire and save the own position
-    CALL MPI_Cart_get(this%comm_cart,NDIMS,this%dims,periods,this%mycoords,ierror)
+    CALL MPI_Cart_get(this%comm_cart,this%NDIMS,this%dims,periods,this%mycoords,ierror)
 
     ! 4. create communicators for every column and row of the cartesian topology
     remain_dims = (/ .TRUE., .FALSE., .FALSE. /)
