@@ -59,10 +59,8 @@ MODULE fluxes_base_mod
                                   :: Reconstruction  !< reconstruction method
      !> \name
      !! #### various data fields
-     REAL, DIMENSION(:,:,:), POINTER &
-                                  :: amin,amax, &
-                                     bmin,bmax, &
-                                     cmin,cmax       !< wave speeds
+     REAL, DIMENSION(:,:,:,:), POINTER &
+                                  :: minwav,maxwav   !< wave speeds
      REAL, DIMENSION(:,:,:,:), POINTER &
                                   :: dx,dy,dz, &     !< coordinate differences
                                      bxflux,byflux, &
@@ -141,12 +139,8 @@ CONTAINS
       this%cons(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%NFACES,Physics%VNUM),    &
       this%prim(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%NFACES,Physics%VNUM),    &
       this%pfluxes(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%NFACES,Physics%VNUM), &
-      this%amin(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
-      this%amax(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
-      this%bmin(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
-      this%bmax(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
-      this%cmin(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
-      this%cmax(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
+      this%minwav(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%DIMS), &
+      this%maxwav(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%DIMS), &
       this%bxflux(Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,2,Physics%VNUM),      &
       this%byflux(Mesh%KGMIN:Mesh%KGMAX,Mesh%IGMIN:Mesh%IGMAX,2,Physics%VNUM),      &
       this%bzflux(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,2,Physics%VNUM),      &
@@ -199,18 +193,10 @@ CONTAINS
 
     CALL GetAttr(config, "output/wave_speeds", valwrite, 0)
     IF(valwrite.EQ.1) THEN
-      CALL SetAttr(IO, "amin", &
-                   this%amin(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX))
-      CALL SetAttr(IO, "amax", &
-                   this%amax(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX))
-      CALL SetAttr(IO, "bmin", &
-                   this%bmin(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX))
-      CALL SetAttr(IO, "bmax", &
-                   this%bmax(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX))
-      CALL SetAttr(IO, "cmin", &
-                   this%cmin(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX))
-      CALL SetAttr(IO, "cmax", &
-                   this%cmax(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX))
+      CALL SetAttr(IO, "minwav", &
+                   this%minwav(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,1:Mesh%DIMS))
+      CALL SetAttr(IO, "maxwav", &
+                   this%maxwav(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,1:Mesh%DIMS))
       END IF
 
     ! set reconstruction pointer
@@ -309,7 +295,7 @@ CONTAINS
           bflux_local(:) = 0.0
        END IF
 #else
-       bflux = SUM(SUM(this%byflux(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,1,:),1),1)
+       bflux = SUM(SUM(this%bzflux(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,1,:),1),1)
 #endif
     CASE (TOP) ! topper boundary flux
 #ifdef PARALLEL
@@ -319,7 +305,7 @@ CONTAINS
           bflux_local(:) = 0.0
        END IF
 #else
-       bflux = SUM(SUM(this%byflux(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,2,:),1),1)
+       bflux = SUM(SUM(this%bzflux(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,2,:),1),1)
 #endif
     CASE DEFAULT
        CALL this%Error("GetBoundaryFlux","wrong direction")
@@ -406,8 +392,7 @@ CONTAINS
 
     ! get minimal & maximal wave speeds on cell interfaces
     CALL Physics%UpdateSoundSpeed(Mesh,this%prim)
-    CALL Physics%CalculateWaveSpeeds(Mesh,this%prim,this%cons, &
-                  this%amin,this%amax,this%bmin,this%bmax,this%cmin,this%cmax)
+    CALL Physics%CalculateWaveSpeeds(Mesh,this%prim,this%cons,this%minwav,this%maxwav)
   END SUBROUTINE CalculateFaceData
 
   !> Destructor
@@ -418,8 +403,7 @@ CONTAINS
     !------------------------------------------------------------------------!
     IF (.NOT.this%Initialized()) &
         CALL this%Error("CloseFluxes","not initialized")
-    DEALLOCATE(this%cons,this%prim,this%pfluxes, &
-         this%amin,this%amax,this%bmin,this%bmax,this%cmin,this%cmax, &
+    DEALLOCATE(this%cons,this%prim,this%pfluxes,this%minwav,this%maxwav, &
          this%bxflux,this%byflux,this%bzflux,this%bxfold,this%byfold,this%bzfold)
     DEALLOCATE(this%Reconstruction)
   END SUBROUTINE FinalizeFluxes

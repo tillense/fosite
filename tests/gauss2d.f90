@@ -1,9 +1,9 @@
 !#############################################################################
 !#                                                                           #
 !# fosite - 3D hydrodynamical simulation program                             #
-!# module: gauss3d.f90                                                       #
+!# module: gauss2d.f90                                                       #
 !#                                                                           #
-!# Copyright (C) 2006-2014                                                   #
+!# Copyright (C) 2006-2018                                                   #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
 !#                                                                           #
 !# This program is free software; you can redistribute it and/or modify      #
@@ -24,15 +24,14 @@
 !#############################################################################
 
 !----------------------------------------------------------------------------!
-!> 3D Gaussian pressure or density pulse with and without rotation
+!> 2D Gaussian pressure or density pulse with and without rotation
 !! \author Tobias Illenseer
+!! \author Jannes Klee
 !!
 !! \cite illenseer2009
 !----------------------------------------------------------------------------!
-PROGRAM gauss3d
+PROGRAM gauss2d
   USE fosite_mod
-!  USE physics_base_mod
-!#include "tap.h"
   IMPLICIT NONE
   !--------------------------------------------------------------------------!
   ! simulation parameter
@@ -55,7 +54,7 @@ PROGRAM gauss3d
   INTEGER, PARAMETER  :: MGEO     = CARTESIAN! geometry
   INTEGER, PARAMETER  :: XRES     = 30       ! x-resolution
   INTEGER, PARAMETER  :: YRES     = 30       ! y-resolution
-  INTEGER, PARAMETER  :: ZRES     = 30       ! z-resolution
+  INTEGER, PARAMETER  :: ZRES     = 1        ! z-resolution
   REAL, PARAMETER     :: RMAX     = 1.0      ! width of square that fits into
                                              !   computational domain
   REAL, PARAMETER     :: GPAR     = 0.8      ! geometry scaling parameter
@@ -64,7 +63,7 @@ PROGRAM gauss3d
   CHARACTER(LEN=256), PARAMETER &            ! output data dir
                       :: ODIR     = './'
   CHARACTER(LEN=256), PARAMETER &            ! output data file name
-                      :: OFNAME   = 'gauss3D'
+                      :: OFNAME   = 'gauss2D'
   !--------------------------------------------------------------------------!
   CLASS(fosite), ALLOCATABLE   :: Sim
   !--------------------------------------------------------------------------!
@@ -95,8 +94,8 @@ CONTAINS
     !------------------------------------------------------------------------!
     ! Local variable declaration
     INTEGER                 :: bc(6)
-    TYPE(Dict_TYP), POINTER :: mesh, physics, boundary, datafile, sources, &
-                               timedisc, fluxes
+    TYPE(Dict_TYP), POINTER :: mesh, physics, boundary, datafile, logfile, sources, &
+                               timedisc, fluxes, vis
     REAL                    :: x1,x2,y1,y2,z1,z2
     !------------------------------------------------------------------------!
     INTENT(INOUT)           :: Sim
@@ -108,40 +107,14 @@ CONTAINS
        x2         =  0.5
        y1         = -0.5
        y2         =  0.5
-       z1         = -0.5
-       z2         =  0.5
+       z1         = -0.0
+       z2         =  0.0
        bc(WEST)   = NO_GRADIENTS
        bc(EAST)   = NO_GRADIENTS
        bc(SOUTH)  = NO_GRADIENTS
        bc(NORTH)  = NO_GRADIENTS
        bc(BOTTOM) = NO_GRADIENTS
        bc(TOP)    = NO_GRADIENTS
-    CASE(CYLINDRICAL)
-       x1 = -0.5
-       x2 =  0.5
-       y1 =  0.0
-       y2 = 2*PI
-       z1 = -0.5
-       z2 =  0.5
-       bc(WEST)   = NO_GRADIENTS
-       bc(EAST)   = NO_GRADIENTS
-       bc(SOUTH)  = NO_GRADIENTS
-       bc(NORTH)  = NO_GRADIENTS
-       bc(BOTTOM) = NO_GRADIENTS
-       bc(TOP)    = NO_GRADIENTS
-    CASE(SPHERICAL)
-       x1 = 0.01
-       x2 = RMAX
-       y1 = 0.0
-       y2 = PI
-       z1 = 0.0
-       z2 = 2*PI
-       bc(WEST)  = REFLECTING       !default: REFLECTING
-       bc(EAST)  = REFLECTING       !default: ABSORBING
-       bc(SOUTH) = REFLECTING       !default: AXIS
-       bc(NORTH) = REFLECTING       !default: AXIS
-       bc(BOTTOM)= PERIODIC
-       bc(TOP)   = PERIODIC
     CASE DEFAULT
        CALL Error(Sim%Physics,"InitProgram","geometry not supported for this test")
     END SELECT
@@ -159,7 +132,7 @@ CONTAINS
             "ymax"      / y2,   &
             "zmin"      / z1,   &
             "zmax"      / z2,   &
-            "decomposition"/ (/ 1, 1, 2/), &
+            "decomposition"/ (/ 1, 1, 1/), &
             "gparam"    / GPAR)
 
     ! boundary conditions
@@ -173,7 +146,7 @@ CONTAINS
 
     ! physics settings
     physics => Dict( &
-            "problem"   / EULER3D_ISOTH, &
+            "problem"   / EULER2D_ISOTHERM, &
             "cs"        / CSISO)
 
     ! flux calculation and reconstruction method
@@ -258,12 +231,10 @@ CONTAINS
         END DO
       END DO
     END DO
-!    print *, Timedisc%pvar(:,:,:,Physics%DENSITY)
 
     ! velocities
     Timedisc%pvar(:,:,:,Physics%XVELOCITY) = 0.
     Timedisc%pvar(:,:,:,Physics%YVELOCITY) = 0.
-    Timedisc%pvar(:,:,:,Physics%ZVELOCITY) = 0.
 
     CALL Physics%Convert2Conservative(Mesh,Timedisc%pvar,Timedisc%cvar)
 
@@ -271,4 +242,4 @@ CONTAINS
 
   END SUBROUTINE InitData
 
-END PROGRAM gauss3d
+END PROGRAM gauss2d

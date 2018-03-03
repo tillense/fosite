@@ -230,9 +230,9 @@ CONTAINS
 !    END SELECT
 
     ! store mesh corners in appropriate array for VTK coordinate output
-    DO j=Mesh%JMIN,Mesh%JMAX+1
-       DO i=Mesh%IMIN,Mesh%IMAX+1
-          DO k=Mesh%KMIN,Mesh%KMAX+1
+    DO j=Mesh%JMIN,Mesh%JMAX+Mesh%jp1
+       DO i=Mesh%IMIN,Mesh%IMAX+Mesh%ip1
+          DO k=Mesh%KMIN,Mesh%KMAX+Mesh%kp1
              this%vtkcoords(1:n,i,j,k) = corners(i,j,k,1,1:n)
           END DO
        END DO

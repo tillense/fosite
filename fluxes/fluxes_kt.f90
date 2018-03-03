@@ -149,10 +149,10 @@ CONTAINS
 !CDIR NODEP
               DO i=Mesh%IMIN-1,Mesh%IMAX
                   xfluxdydz(i,j,k,l) = Mesh%dAxdydz(i+1,j,k,1) / &
-                         (this%amax(i,j,k) - this%amin(i,j,k)) * &
-                         (this%amax(i,j,k) * this%pfluxes(i,j,k,2,l) - &
-                          this%amin(i,j,k) * this%pfluxes(i+1,j,k,1,l) + &
-                          this%amin(i,j,k) * this%amax(i,j,k) * &
+                         (this%maxwav(i,j,k,1) - this%minwav(i,j,k,1)) * &
+                         (this%maxwav(i,j,k,1) * this%pfluxes(i,j,k,2,l) - &
+                          this%minwav(i,j,k,1) * this%pfluxes(i+1,j,k,1,l) + &
+                          this%minwav(i,j,k,1) * this%maxwav(i,j,k,1) * &
                       (this%cons(i+1,j,k,1,l) - this%cons(i,j,k,2,l)))
               END DO
             END DO
@@ -173,10 +173,10 @@ CONTAINS
             DO j=Mesh%JMIN-1,Mesh%JMAX
               DO i=Mesh%IGMIN,Mesh%IGMAX
                   yfluxdzdx(i,j,k,l) = Mesh%dAydzdx(i,j+1,k,1) / &
-                         (this%bmax(i,j,k) - this%bmin(i,j,k)) * &
-                         (this%bmax(i,j,k) * this%pfluxes(i,j,k,4,l) - &
-                          this%bmin(i,j,k) * this%pfluxes(i,j+1,k,3,l) + &
-                          this%bmin(i,j,k) * this%bmax(i,j,k) * &
+                         (this%maxwav(i,j,k,2) - this%minwav(i,j,k,2)) * &
+                         (this%maxwav(i,j,k,2) * this%pfluxes(i,j,k,4,l) - &
+                          this%minwav(i,j,k,2) * this%pfluxes(i,j+1,k,3,l) + &
+                          this%minwav(i,j,k,2) * this%maxwav(i,j,k,2) * &
                       (this%cons(i,j+1,k,3,l) - this%cons(i,j,k,4,l)))
               END DO
             END DO
@@ -197,10 +197,10 @@ CONTAINS
 !CDIR NODEP
               DO i=Mesh%IGMIN,Mesh%IGMAX
                   zfluxdxdy(i,j,k,l) = Mesh%dAzdxdy(i,j,k+1,1) / &
-                         (this%cmax(i,j,k) - this%cmin(i,j,k)) * &
-                         (this%cmax(i,j,k) * this%pfluxes(i,j,k,6,l) - &
-                          this%cmin(i,j,k) * this%pfluxes(i,j,k+1,5,l) + &
-                          this%cmin(i,j,k) * this%cmax(i,j,k) * &
+                         (this%maxwav(i,j,k,3) - this%minwav(i,j,k,3)) * &
+                         (this%maxwav(i,j,k,3) * this%pfluxes(i,j,k,6,l) - &
+                          this%minwav(i,j,k,3) * this%pfluxes(i,j,k+1,5,l) + &
+                          this%minwav(i,j,k,3) * this%maxwav(i,j,k,3) * &
                       (this%cons(i,j,k+1,5,l) - this%cons(i,j,k,6,l)))
              END DO
             END DO

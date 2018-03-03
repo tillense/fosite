@@ -242,10 +242,10 @@ CONTAINS
           ! time step update of boundary fluxes
 !CDIR IEXPAND
           Fluxes%bxflux(j,k,1,l) = UpdateTimestep_modeuler(eta,dt,Fluxes%bxfold(j,k,1,l), &
-               Fluxes%bxflux(j,k,1,l),rhs(Mesh%IMIN-1,j,k,l))
+               Fluxes%bxflux(j,k,1,l),rhs(Mesh%IMIN-Mesh%Ip1,j,k,l))
 !CDIR IEXPAND
           Fluxes%bxflux(j,k,2,l) = UpdateTimestep_modeuler(eta,dt,Fluxes%bxfold(j,k,2,l), &
-               Fluxes%bxflux(j,k,2,l),rhs(Mesh%IMAX+1,j,k,l))
+               Fluxes%bxflux(j,k,2,l),rhs(Mesh%IMAX+Mesh%Ip1,j,k,l))
         END DO
       END DO
 
@@ -256,10 +256,10 @@ CONTAINS
           ! time step update of boundary fluxes
 !CDIR IEXPAND
           Fluxes%byflux(k,i,1,l) = UpdateTimestep_modeuler(eta,dt,Fluxes%byfold(k,i,1,l), &
-               Fluxes%byflux(k,i,1,l),rhs(i,Mesh%JMIN-1,k,l))
+               Fluxes%byflux(k,i,1,l),rhs(i,Mesh%JMIN-Mesh%Jp1,k,l))
 !CDIR IEXPAND
           Fluxes%byflux(k,i,2,l) = UpdateTimestep_modeuler(eta,dt,Fluxes%byfold(k,i,2,l), &
-               Fluxes%byflux(k,i,2,l),rhs(i,Mesh%JMAX+1,k,l))
+               Fluxes%byflux(k,i,2,l),rhs(i,Mesh%JMAX+Mesh%Jp1,k,l))
         END DO
       END DO
 
@@ -269,10 +269,10 @@ CONTAINS
         DO i=Mesh%IMIN,Mesh%IMAX
 !CDIR IEXPAND
           Fluxes%bzflux(i,j,1,l) = UpdateTimestep_modeuler(eta,dt,Fluxes%bzfold(i,j,1,l), &
-               Fluxes%bzflux(i,j,1,l),rhs(i,j,Mesh%KMIN-1,l))
+               Fluxes%bzflux(i,j,1,l),rhs(i,j,Mesh%KMIN-Mesh%Kp1,l))
 !CDIR IEXPAND
           Fluxes%bzflux(i,j,2,l) = UpdateTimestep_modeuler(eta,dt,Fluxes%bzfold(i,j,2,l), &
-               Fluxes%bzflux(i,j,2,l),rhs(i,j,Mesh%KMAX+1,l))
+               Fluxes%bzflux(i,j,2,l),rhs(i,j,Mesh%KMAX+Mesh%Kp1,l))
         END DO
       END DO
     END DO

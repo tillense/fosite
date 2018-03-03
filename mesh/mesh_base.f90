@@ -122,7 +122,12 @@ MODULE mesh_base_mod
     INTEGER           :: IGMIN,IGMAX       !< minimal & maximal index in x-direction with ghost cells
     INTEGER           :: JGMIN,JGMAX       !< minimal & maximal index in y-direction with ghost cells
     INTEGER           :: KGMIN,KGMAX       !< minimal & maximal index in z-direction with ghost cells
+    INTEGER           :: DIMS              !< amount of dimension, 1 (1D), 2 (2D), 3 (3D)
     INTEGER           :: NFACES            !< amount of faces, 2 (1D), 4 (2D), 6 (3D)
+    INTEGER           :: NCORNERS          !< amount of faces, 2 (1D), 4 (2D), 8 (3D)
+    INTEGER           :: Ip1,Ip2,Im1,Im2   !< access indices, which might become zero without x-dim
+    INTEGER           :: Jp1,Jp2,Jm1,Jm2   !< access indices, which might become zero without y-dim
+    INTEGER           :: Kp1,Kp2,Km1,Km2   !< access indices, which might become zero without z-dim
     REAL              :: xmin, xmax        !< spatial extent of computational domain in x-direction
     REAL              :: ymin, ymax        !< spatial extent of computational domain in y-direction
     REAL              :: zmin, zmax        !< spatial extent of computational domain in z-direction
@@ -236,6 +241,7 @@ CONTAINS
     CHARACTER(LEN=32)       :: xres,yres,zres,somega
     INTEGER                 :: meshtype
     INTEGER                 :: i,j,k,err
+    REAL                    :: mesh_dx,mesh_dy,mesh_dz
 #ifdef PARALLEL
     INTEGER                 :: inum, jnum, knum
 #endif
@@ -255,19 +261,45 @@ CONTAINS
     CALL GetAttr(config, "jnum", this%jnum)
     CALL GetAttr(config, "knum", this%knum)
 
+    ! set access scalars depending of used dimension
+    this%ip1 = 1
+    this%ip2 = 2
+    this%im1 = -1
+    this%im2 = -2
+    this%jp1 = 1
+    this%jp2 = 2
+    this%jm1 = -1
+    this%jm2 = -2
+    this%kp1 = 1
+    this%kp2 = 2
+    this%km1 = -1
+    this%km2 = -2
+
     ! number of ghost rows/columns
     this%GNUM  = 2
     this%GINUM = this%GNUM
     this%GJNUM = this%GNUM
     this%GKNUM = this%GNUM
 
-    ! set ghost cells zero to not used dimensions
+    ! reset values if dimensions do not exist
     IF (this%INUM.EQ.1) THEN
       this%GINUM = 0
+      this%ip1 = 0
+      this%ip2 = 0
+      this%im1 = 0
+      this%im2 = 0
     ELSE IF (this%JNUM.EQ.1) THEN
       this%GJNUM = 0
+      this%jp1 = 0
+      this%jp2 = 0
+      this%jm1 = 0
+      this%jm2 = 0
     ELSE IF (this%KNUM.EQ.1) THEN
       this%GKNUM = 0
+      this%kp1 = 0
+      this%kp2 = 0
+      this%km1 = 0
+      this%km2 = 0
     END IF
 
     ! set amount of faces
@@ -276,14 +308,20 @@ CONTAINS
        (((this%JNUM.EQ.1).AND.(this%KNUM.EQ.1)).AND.(this%INUM.GT.1)) .OR. &
        (((this%KNUM.EQ.1).AND.(this%INUM.EQ.1)).AND.(this%JNUM.GT.1))) THEN
       this%NFACES = 2
+      this%NCORNERS = 2
+      this%DIMS = 1
     ELSE IF  & ! case 2D
       ((((this%INUM.EQ.1).AND.(this%JNUM.GT.1)).AND.(this%KNUM.GT.1)) .OR. &
        (((this%JNUM.EQ.1).AND.(this%KNUM.GT.1)).AND.(this%INUM.GT.1)) .OR. &
        (((this%KNUM.EQ.1).AND.(this%INUM.GT.1)).AND.(this%JNUM.GT.1))) THEN
       this%NFACES = 4
+      this%NCORNERS = 4
+      this%DIMS = 2
     ELSE IF  & ! case 3D
       (((this%INUM.GT.1).AND.(this%JNUM.GT.1)).AND.(this%KNUM.GT.1)) THEN
       this%NFACES = 6
+      this%NCORNERS = 6
+      this%DIMS = 3
     ELSE
       CALL this%Error("InitMesh","Cell numbering is not allowed.")
     END IF
@@ -298,8 +336,24 @@ CONTAINS
 
     ! coordinate differences in each direction
     this%dx = (this%xmax - this%xmin) / this%inum
+    mesh_dx = this%dx
     this%dy = (this%ymax - this%ymin) / this%jnum
+    mesh_dy = this%dy
     this%dz = (this%zmax - this%zmin) / this%knum
+    mesh_dz = this%dz
+    ! reset dx,dy,dz if dimension does not exists,
+    ! additionally set a mesh_dx,mesh_dy,mesh_dz to set corners, etc.
+    ! for output correctly
+    IF (this%inum.EQ.1 .AND. this%dx.EQ.0.0) THEN
+      this%dx = 1.0
+      mesh_dx = 0.0
+    ELSE IF(this%jnum.EQ.1 .AND. this%dy.EQ.0.0) THEN
+      this%dy = 1.0
+      mesh_dy = 0.0
+    ELSE IF(this%knum.EQ.1 .AND. this%dz.EQ.0.0) THEN
+      this%dz = 1.0
+      mesh_dz = 0.0
+    END IF
 
     ! inverse coordinate differences
     this%invdx = 1./this%dx
@@ -378,24 +432,24 @@ CONTAINS
 
     ! translation vectors for cell faces and cell corners
     ! (with respect to geometrical cell center)
-    cfaces(1,1) = -0.5*this%dx   ! western  x coordinate
+    cfaces(1,1) = -0.5*mesh_dx   ! western  x coordinate
     cfaces(1,2) =  0.0           ! western  y coordinate
     cfaces(1,3) =  0.0           ! western  z coordinate
-    cfaces(2,1) =  0.5*this%dx   ! eastern  x coordinate
+    cfaces(2,1) =  0.5*mesh_dx   ! eastern  x coordinate
     cfaces(2,2) =  0.0           ! eastern  y coordinate
     cfaces(2,3) =  0.0           ! eastern  z coordinate
     cfaces(3,1) =  0.0           ! southern x coordinate
-    cfaces(3,2) = -0.5*this%dy   ! southern y coordinate
+    cfaces(3,2) = -0.5*mesh_dy   ! southern y coordinate
     cfaces(3,3) =  0.0           ! southern z coordinate
     cfaces(4,1) =  0.0           ! northern x coordinate
-    cfaces(4,2) =  0.5*this%dy   ! northern y coordinate
+    cfaces(4,2) =  0.5*mesh_dy   ! northern y coordinate
     cfaces(4,3) =  0.0           ! northern z coordinate
     cfaces(5,1) =  0.0           ! bottom   x coordinate
     cfaces(5,2) =  0.0           ! bottom   y coordinate
-    cfaces(5,3) = -0.5*this%dz   ! bottom   z coordinate
+    cfaces(5,3) =  -0.5*mesh_dz  ! bottom   z coordinate
     cfaces(6,1) =  0.0           ! top      x coordinate
     cfaces(6,2) =  0.0           ! top      y coordinate
-    cfaces(6,3) =  0.5*this%dz   ! top      z coordinate
+    cfaces(6,3) =  0.5*mesh_dz   ! top      z coordinate
 
     ccorners(1,1) = cfaces(1,1) ! bottom-south-west
     ccorners(1,2) = cfaces(3,2)
@@ -426,9 +480,9 @@ CONTAINS
        DO j=this%JGMIN,this%JGMAX
           DO i=this%IGMIN,this%IGMAX
              ! geometrical cell centers
-             this%curv%center(i,j,k,1)    = this%xmin + (2*i-1)*0.5*this%dx    ! x coord
-             this%curv%center(i,j,k,2)    = this%ymin + (2*j-1)*0.5*this%dy    ! y coord
-             this%curv%center(i,j,k,3)    = this%zmin + (2*k-1)*0.5*this%dz    ! z coord
+             this%curv%center(i,j,k,1)    = this%xmin + (2*i-1)*0.5*mesh_dx    ! x coord
+             this%curv%center(i,j,k,2)    = this%ymin + (2*j-1)*0.5*mesh_dy    ! y coord
+             this%curv%center(i,j,k,3)    = this%zmin + (2*k-1)*0.5*mesh_dz    ! z coord
              ! cell face centered positions
              this%curv%faces(i,j,k,1,:)   = this%curv%center(i,j,k,:) + cfaces(1,:)   ! western
              this%curv%faces(i,j,k,2,:)   = this%curv%center(i,j,k,:) + cfaces(2,:)   ! eastern
@@ -605,9 +659,15 @@ CONTAINS
 
     CALL GetAttr(config, "output/grid", writefields, 1)
     IF((writefields.EQ.1).AND.ASSOCIATED(this%ccart)) THEN
-        CALL SetAttr(IO,"grid_x",this%ccart(this%IMIN:this%IMAX+1,this%JMIN:this%JMAX+1,this%KMIN:this%KMAX+1,1,1))
-        CALL SetAttr(IO,"grid_y",this%ccart(this%IMIN:this%IMAX+1,this%JMIN:this%JMAX+1,this%KMIN:this%KMAX+1,1,2))
-        CALL SetAttr(IO,"grid_z",this%ccart(this%IMIN:this%IMAX+1,this%JMIN:this%JMAX+1,this%KMIN:this%KMAX+1,1,3))
+        CALL SetAttr(IO,"grid_x",this%ccart(this%IMIN:this%IMAX+this%ip1, &
+                                            this%JMIN:this%JMAX+this%jp1, &
+                                            this%KMIN:this%KMAX+this%kp1,1,1))
+        CALL SetAttr(IO,"grid_y",this%ccart(this%IMIN:this%IMAX+this%ip1, &
+                                            this%JMIN:this%JMAX+this%jp1, &
+                                            this%KMIN:this%KMAX+this%kp1,1,2))
+        CALL SetAttr(IO,"grid_z",this%ccart(this%IMIN:this%IMAX+this%ip1, &
+                                            this%JMIN:this%JMAX+this%jp1, &
+                                            this%KMIN:this%KMAX+this%kp1,1,3))
     END IF
 
     CALL GetAttr(config, "output/bary_curv", writefields, 1)

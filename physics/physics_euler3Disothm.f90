@@ -350,15 +350,15 @@ CONTAINS
   END SUBROUTINE UpdateSoundSpeed_faces
 
   !> Calculates wave speeds at cell-centers
-  PURE SUBROUTINE CalcWaveSpeeds_center(this,Mesh,pvar,amin,amax,bmin,bmax,cmin,cmax)
+  PURE SUBROUTINE CalcWaveSpeeds_center(this,Mesh,pvar,minwav,maxwav)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(physics_euler3Dit), INTENT(INOUT) :: this
     CLASS(mesh_base),         INTENT(IN)    :: Mesh
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM), &
                               INTENT(IN)    :: pvar
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
-                              INTENT(OUT)   :: amin,amax,bmin,bmax,cmin,cmax
+    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%DIMS), &
+                              INTENT(OUT)   :: minwav,maxwav
     !------------------------------------------------------------------------!
     INTEGER                                 :: i,j,k
     !------------------------------------------------------------------------!
@@ -370,30 +370,30 @@ CONTAINS
           ! x-direction
 !CDIR IEXPAND
           CALL SetWaveSpeeds(this%bccsound(i,j,k),pvar(i,j,k,this%XVELOCITY),&
-               amin(i,j,k),amax(i,j,k))
+               minwav(i,j,k,1),maxwav(i,j,k,1))
           ! y-direction
 !CDIR IEXPAND
           CALL SetWaveSpeeds(this%bccsound(i,j,k),pvar(i,j,k,this%YVELOCITY),&
-               bmin(i,j,k),bmax(i,j,k))
+               minwav(i,j,k,2),maxwav(i,j,k,2))
           ! z-direction
 !CDIR IEXPAND
           CALL SetWaveSpeeds(this%bccsound(i,j,k),pvar(i,j,k,this%ZVELOCITY),&
-               cmin(i,j,k),cmax(i,j,k))
+               minwav(i,j,k,3),maxwav(i,j,k,3))
          END DO
       END DO
     END DO
   END SUBROUTINE CalcWaveSpeeds_center
 
   !> Calculates wave speeds at cell-faces
-  PURE SUBROUTINE CalcWaveSpeeds_faces(this,Mesh,prim,cons,amin,amax,bmin,bmax,cmin,cmax)
+  PURE SUBROUTINE CalcWaveSpeeds_faces(this,Mesh,prim,cons,minwav,maxwav)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(physics_euler3Dit), INTENT(INOUT) :: this
     CLASS(mesh_base),         INTENT(IN)    :: Mesh
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%NFACES,this%VNUM), &
                               INTENT(IN)    :: prim,cons
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
-                              INTENT(OUT)   :: amin,amax,bmin,bmax,cmin,cmax
+    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%DIMS), &
+                              INTENT(OUT)   :: minwav,maxwav
     !------------------------------------------------------------------------!
     REAL                                    :: uRoe, aminRoe, amaxRoe
     INTEGER                                 :: i,j,k
@@ -412,7 +412,7 @@ CONTAINS
 !CDIR IEXPAND
           CALL SetWaveSpeeds(this%fcsound(i,j,k,2), &
                              prim(i,j,k,2,this%XVELOCITY), &
-                             amin(i,j,k),amax(i,j,k))
+                             minwav(i,j,k,1),maxwav(i,j,k,1))
           ! southern
 !CDIR IEXPAND
           CALL SetWaveSpeeds(this%fcsound(i,j,k,3), &
@@ -422,7 +422,7 @@ CONTAINS
 !CDIR IEXPAND
           CALL SetWaveSpeeds(this%fcsound(i,j,k,4), &
                              prim(i,j,k,4,this%YVELOCITY), &
-                             bmin(i,j,k),bmax(i,j,k))
+                             minwav(i,j,k,2),maxwav(i,j,k,2))
           ! bottom
 !CDIR IEXPAND
           CALL SetWaveSpeeds(this%fcsound(i,j,k,5), &
@@ -432,7 +432,7 @@ CONTAINS
 !CDIR IEXPAND
           CALL SetWavespeeds(this%fcsound(i,j,k,6), &
                              prim(i,j,k,6,this%ZVELOCITY), &
-                             cmin(i,j,k),cmax(i,j,k))
+                             minwav(i,j,k,3),maxwav(i,j,k,3))
         END DO
       END DO
     END DO
@@ -451,8 +451,8 @@ CONTAINS
           ! compute Roe averaged wave speeds
 !CDIR IEXPAND
           CALL SetWaveSpeeds(this%fcsound(i,j,k,2),uRoe,aminRoe,amaxRoe)
-          amin(i,j,k) = MIN(aminRoe,this%tmp(i+1,j,k),amin(i,j,k))
-          amax(i,j,k) = MAX(amaxRoe,this%tmp1(i+1,j,k),amax(i,j,k))
+          minwav(i,j,k,1) = MIN(aminRoe,this%tmp(i+1,j,k),minwav(i,j,k,1))
+          maxwav(i,j,k,1) = MAX(amaxRoe,this%tmp1(i+1,j,k),maxwav(i,j,k,1))
         END DO
       END DO
     END DO
@@ -470,8 +470,8 @@ CONTAINS
           ! compute Roe averaged wave speeds
 !CDIR IEXPAND
           CALL SetWaveSpeeds(this%fcsound(i,j,k,4),uRoe,aminRoe,amaxRoe)
-          bmin(i,j,k) = MIN(aminRoe,this%tmp2(i,j+1,k),bmin(i,j,k))
-          bmax(i,j,k) = MAX(amaxRoe,this%tmp3(i,j+1,k),bmax(i,j,k))
+          minwav(i,j,k,2) = MIN(aminRoe,this%tmp2(i,j+1,k),minwav(i,j,k,2))
+          maxwav(i,j,k,2) = MAX(amaxRoe,this%tmp3(i,j+1,k),maxwav(i,j,k,2))
         END DO
       END DO
     END DO
@@ -489,8 +489,8 @@ CONTAINS
           ! compute Roe averaged wave speeds
 !CDIR IEXPAND
           CALL SetWaveSpeeds(this%fcsound(i,j,k,6),uRoe,aminRoe,amaxRoe)
-          cmin(i,j,k) = MIN(aminRoe,this%tmp3(i,j,k+1),bmin(i,j,k))
-          cmax(i,j,k) = MAX(amaxRoe,this%tmp4(i,j,k+1),bmax(i,j,k))
+          minwav(i,j,k,3) = MIN(aminRoe,this%tmp3(i,j,k+1),minwav(i,j,k,2))
+          maxwav(i,j,k,3) = MAX(amaxRoe,this%tmp4(i,j,k+1),maxwav(i,j,k,2))
         END DO
       END DO
     END DO
@@ -501,30 +501,30 @@ CONTAINS
 !CDIR NODEP
         DO i=Mesh%IMIN-1,Mesh%IMAX
           ! western & eastern interfaces
-          amin(i,j,k) = MIN(0.0,this%tmp(i+1,j,k) ,amin(i,j,k))
-          amax(i,j,k) = MAX(0.0,this%tmp1(i+1,j,k),amax(i,j,k))
+            minwav(i,j,k,1) = MIN(0.0,this%tmp(i+1,j,k) ,minwav(i,j,k,1))
+            maxwav(i,j,k,1) = MAX(0.0,this%tmp1(i+1,j,k),maxwav(i,j,k,1))
+          END DO
         END DO
       END DO
-    END DO
-!CDIR COLLAPSE
-    DO k=Mesh%KGMIN,Mesh%KGMAX
-      DO j=Mesh%JMIN-1,Mesh%JMAX
-!CDIR NODEP
-        DO i=Mesh%IGMIN,Mesh%IGMAX
-          ! southern & northern interfaces
-          bmin(i,j,k) = MIN(0.0,this%tmp2(i,j+1,k),bmin(i,j,k))
-          bmax(i,j,k) = MAX(0.0,this%tmp3(i,j+1,k),bmax(i,j,k))
+  !CDIR COLLAPSE
+      DO k=Mesh%KGMIN,Mesh%KGMAX
+        DO j=Mesh%JMIN-1,Mesh%JMAX
+  !CDIR NODEP
+          DO i=Mesh%IGMIN,Mesh%IGMAX
+            ! southern & northern interfaces
+            minwav(i,j,k,2) = MIN(0.0,this%tmp2(i,j+1,k),minwav(i,j,k,2))
+            maxwav(i,j,k,2) = MAX(0.0,this%tmp3(i,j+1,k),maxwav(i,j,k,2))
+          END DO
         END DO
       END DO
-    END DO
-!CDIR COLLAPSE
-    DO k=Mesh%KMIN-1,Mesh%KMAX
-      DO j=Mesh%JGMIN,Mesh%JGMAX
-!CDIR NODEP
-        DO i=Mesh%IGMIN,Mesh%IGMAX
-          ! bottom & top interfaces
-          cmin(i,j,k) = MIN(0.0,this%tmp4(i,j,k+1),cmin(i,j,k))
-          cmax(i,j,k) = MAX(0.0,this%tmp5(i,j,k+1),cmax(i,j,k))
+  !CDIR COLLAPSE
+      DO k=Mesh%KMIN-1,Mesh%KMAX
+        DO j=Mesh%JGMIN,Mesh%JGMAX
+  !CDIR NODEP
+          DO i=Mesh%IGMIN,Mesh%IGMAX
+            ! bottom & top interfaces
+          minwav(i,j,k,3) = MIN(0.0,this%tmp4(i,j,k+1),minwav(i,j,k,3))
+          maxwav(i,j,k,3) = MAX(0.0,this%tmp5(i,j,k+1),maxwav(i,j,k,3))
         END DO
       END DO
     END DO
@@ -734,7 +734,7 @@ CONTAINS
     !------------------------------------------------------------------------!
     CLASS(physics_euler3Dit), INTENT(IN)  :: this
     CLASS(mesh_base),         INTENT(IN)  :: Mesh
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,3), &
+    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%DIMS), &
                               INTENT(IN)  :: accel
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM), &
                               INTENT(IN)  :: pvar,cvar

@@ -688,39 +688,36 @@ CONTAINS
     ! maximal wave speeds in each direction
     IF (.NOT.this%always_update_bccsound) &
        CALL Physics%UpdateSoundSpeed(Mesh,this%pvar)
-    CALL Physics%CalculateWaveSpeeds(Mesh,this%pvar,          &
-                                     Fluxes%amin,Fluxes%amax, &
-                                     Fluxes%bmin,Fluxes%bmax, &
-                                     Fluxes%cmin,Fluxes%cmax)
+    CALL Physics%CalculateWaveSpeeds(Mesh,this%pvar,Fluxes%minwav,Fluxes%maxwav)
 
 
     ! compute maximum of inverse time for CFL condition
     IF ((Mesh%JNUM.EQ.1).AND.(Mesh%KNUM.EQ.1)) THEN
        ! 1D, only x-direction
-       invdt = MAXVAL(MAX(Fluxes%amax(:,:,:),-Fluxes%amin(:,:,:)) / Mesh%dlx(:,:,:))
+       invdt = MAXVAL(MAX(Fluxes%maxwav(:,:,:,1),-Fluxes%minwav(:,:,:,1)) / Mesh%dlx(:,:,:))
     ELSE IF ((Mesh%INUM.EQ.1).AND.(Mesh%KNUM.EQ.1)) THEN
        ! 1D, only y-direction
-       invdt = MAXVAL(MAX(Fluxes%bmax(:,:,:),-Fluxes%bmin(:,:,:)) / Mesh%dly(:,:,:))
+       invdt = MAXVAL(MAX(Fluxes%maxwav(:,:,:,2),-Fluxes%minwav(:,:,:,2)) / Mesh%dly(:,:,:))
     ELSE IF ((Mesh%INUM.EQ.1).AND.(Mesh%JNUM.EQ.1)) THEN
        ! 1D, only z-direction
-       invdt = MAXVAL(MAX(Fluxes%cmax(:,:,:),-Fluxes%cmin(:,:,:)) / Mesh%dlz(:,:,:))
+       invdt = MAXVAL(MAX(Fluxes%maxwav(:,:,:,3),-Fluxes%minwav(:,:,:,3)) / Mesh%dlz(:,:,:))
     ELSE IF ((Mesh%INUM.GT.1).AND.(Mesh%JNUM.GT.1).AND.(Mesh%KNUM.EQ.1)) THEN
        ! 2D, x-y-plane
-       invdt = MAXVAL(MAX(Fluxes%amax(:,:,:),-Fluxes%amin(:,:,:)) / Mesh%dlx(:,:,:) &
-                    + MAX(Fluxes%bmax(:,:,:),-Fluxes%bmin(:,:,:)) / Mesh%dly(:,:,:))
+       invdt = MAXVAL(MAX(Fluxes%maxwav(:,:,:,1),-Fluxes%minwav(:,:,:,1)) / Mesh%dlx(:,:,:) &
+                    + MAX(Fluxes%maxwav(:,:,:,2),-Fluxes%minwav(:,:,:,2)) / Mesh%dly(:,:,:))
     ELSE IF ((Mesh%INUM.GT.1).AND.(Mesh%KNUM.GT.1).AND.(Mesh%JNUM.EQ.1)) THEN
        ! 2D, x-z-plane
-       invdt = MAXVAL(MAX(Fluxes%amax(:,:,:),-Fluxes%amin(:,:,:)) / Mesh%dlx(:,:,:) &
-                    + MAX(Fluxes%cmax(:,:,:),-Fluxes%cmin(:,:,:)) / Mesh%dlz(:,:,:))
+       invdt = MAXVAL(MAX(Fluxes%maxwav(:,:,:,1),-Fluxes%minwav(:,:,:,1)) / Mesh%dlx(:,:,:) &
+                    + MAX(Fluxes%maxwav(:,:,:,3),-Fluxes%minwav(:,:,:,3)) / Mesh%dlz(:,:,:))
     ELSE IF ((Mesh%JNUM.GT.1).AND.(Mesh%KNUM.GT.1).AND.(Mesh%INUM.EQ.1)) THEN
        ! 2D, y-z-plane
-       invdt = MAXVAL(MAX(Fluxes%bmax(:,:,:),-Fluxes%bmin(:,:,:)) / Mesh%dly(:,:,:) &
-                    + MAX(Fluxes%cmax(:,:,:),-Fluxes%cmin(:,:,:)) / Mesh%dlz(:,:,:))
+       invdt = MAXVAL(MAX(Fluxes%maxwav(:,:,:,2),-Fluxes%minwav(:,:,:,2)) / Mesh%dly(:,:,:) &
+                    + MAX(Fluxes%maxwav(:,:,:,3),-Fluxes%minwav(:,:,:,3)) / Mesh%dlz(:,:,:))
     ELSE
        ! full 3D
-       invdt = MAXVAL(MAX(Fluxes%amax(:,:,:),-Fluxes%amin(:,:,:)) / Mesh%dlx(:,:,:) &
-                    + MAX(Fluxes%bmax(:,:,:),-Fluxes%bmin(:,:,:)) / Mesh%dly(:,:,:) &
-                    + MAX(Fluxes%cmax(:,:,:),-Fluxes%cmin(:,:,:)) / Mesh%dlz(:,:,:))
+       invdt = MAXVAL(MAX(Fluxes%maxwav(:,:,:,1),-Fluxes%minwav(:,:,:,1)) / Mesh%dlx(:,:,:) &
+                    + MAX(Fluxes%maxwav(:,:,:,2),-Fluxes%minwav(:,:,:,2)) / Mesh%dly(:,:,:) &
+                    + MAX(Fluxes%maxwav(:,:,:,3),-Fluxes%minwav(:,:,:,3)) / Mesh%dlz(:,:,:))
     END IF
 
     ! largest time step due to CFL condition
@@ -962,22 +959,22 @@ CONTAINS
       DO k=Mesh%KMIN,Mesh%KMAX
         DO j=Mesh%JMIN,Mesh%JMAX
           ! western and eastern boundary fluxes
-          rhs(Mesh%IMIN-1,j,k,l) = Mesh%dy*Mesh%dz * this%xfluxdydz(Mesh%IMIN-1,j,k,l)
-          rhs(Mesh%IMAX+1,j,k,l) = -Mesh%dy*Mesh%dz * this%xfluxdydz(Mesh%IMAX,j,k,l)
+          rhs(Mesh%IMIN-Mesh%Ip1,j,k,l) = Mesh%dy*Mesh%dz * this%xfluxdydz(Mesh%IMIN-Mesh%Ip1,j,k,l)
+          rhs(Mesh%IMAX+Mesh%Ip1,j,k,l) = -Mesh%dy*Mesh%dz * this%xfluxdydz(Mesh%IMAX,j,k,l)
         END DO
       END DO
       DO k=Mesh%KMIN,Mesh%KMAX
         DO i=Mesh%IMIN,Mesh%IMAX
           ! southern and northern boundary fluxes
-          rhs(i,Mesh%JMIN-1,k,l) = Mesh%dz*Mesh%dx * this%yfluxdzdx(i,Mesh%JMIN-1,k,l)
-          rhs(i,Mesh%JMAX+1,k,l) = -Mesh%dz*Mesh%dx * this%yfluxdzdx(i,Mesh%JMAX,k,l)
+          rhs(i,Mesh%JMIN-Mesh%Jp1,k,l) = Mesh%dz*Mesh%dx * this%yfluxdzdx(i,Mesh%JMIN-1,k,l)
+          rhs(i,Mesh%JMAX+Mesh%Jp1,k,l) = -Mesh%dz*Mesh%dx * this%yfluxdzdx(i,Mesh%JMAX,k,l)
         END DO
       END DO
       DO j=Mesh%JMIN,Mesh%JMAX
         DO i=Mesh%IMIN,Mesh%IMAX
           ! bottomer and upper boundary fluxes
-          rhs(i,j,Mesh%KMIN-1,l) = Mesh%dx*Mesh%dy * this%zfluxdxdy(i,j,Mesh%KMIN-1,l)
-          rhs(i,j,Mesh%KMAX+1,l) = -Mesh%dx*Mesh%dy * this%zfluxdxdy(i,j,Mesh%KMAX,l)
+          rhs(i,j,Mesh%KMIN-Mesh%Kp1,l) = Mesh%dx*Mesh%dy * this%zfluxdxdy(i,j,Mesh%KMIN-Mesh%Kp1,l)
+          rhs(i,j,Mesh%KMAX+Mesh%Kp1,l) = -Mesh%dx*Mesh%dy * this%zfluxdxdy(i,j,Mesh%KMAX,l)
         END DO
       END DO
     END DO
@@ -997,10 +994,16 @@ CONTAINS
             DO i=Mesh%IMIN,Mesh%IMAX
               ! update right hand side of ODE
               rhs(i,j,k,l) = &
-                    Mesh%dydzdV(i,j,k)*(this%xfluxdydz(i,j,k,l) - this%xfluxdydz(i-1,j,k,l)) &
-                  + Mesh%dzdxdV(i,j,k)*(this%yfluxdzdx(i,j,k,l) - this%yfluxdzdx(i,j-1,k,l)) &
-                  + Mesh%dxdydV(i,j,k)*(this%zfluxdxdy(i,j,k,l) - this%zfluxdxdy(i,j,k-1,l)) &
+                    Mesh%dydzdV(i,j,k)*(this%xfluxdydz(i,j,k,l) - this%xfluxdydz(i-Mesh%Ip1,j,k,l)) &
+                  + Mesh%dzdxdV(i,j,k)*(this%yfluxdzdx(i,j,k,l) - this%yfluxdzdx(i,j-Mesh%Jp1,k,l)) &
+                  + Mesh%dxdydV(i,j,k)*(this%zfluxdxdy(i,j,k,l) - this%zfluxdxdy(i,j,k-Mesh%Kp1,l)) &
                   - this%geo_src(i,j,k,l) - this%src(i,j,k,l)
+!             ! update right hand side of ODE
+!             rhs(i,j,k) = 
+!                    Mesh%dydV(i,j)*(this%xfluxdy(i,j,k) - this%xfluxdy(i-1,j,k)) &
+!                  + Mesh%dxdV(i,j)*(this%yfluxdx(i,j,k) - this%yfluxdx(i,j-1,k)) &
+!                  - this%geo_src(i,j,k) - this%src(i,j,k)
+
             END DO
           END DO
         END DO

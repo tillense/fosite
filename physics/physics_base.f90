@@ -66,7 +66,7 @@ MODULE physics_base_mod
                             csiso, &              !< isothermal sound speed
                             eps                   !< softening length
      INTEGER             :: VNUM, &               !< number of variables
-                            DIM, &                !< Dimension (2 or 3)
+                            DIM, &                !< Dimension (1, 2 or 3)
                             DENSITY,PRESSURE, &
                             ENERGY,SGSPRESSURE, &
                             SGSENERGY, &
@@ -254,7 +254,7 @@ MODULE physics_base_mod
       IMPORT physics_base, mesh_base
       CLASS(physics_base), INTENT(IN)  :: this
       CLASS(mesh_base),    INTENT(IN)  :: Mesh
-      REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,3), &
+      REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%DIMS), &
                            INTENT(IN)  :: accel
       REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM), &
                            INTENT(IN)  :: pvar,cvar
@@ -282,23 +282,23 @@ MODULE physics_base_mod
       REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%NFACES,this%VNUM), &
                           INTENT(IN)    :: prim
     END SUBROUTINE
-    PURE SUBROUTINE CalcWaveSpeeds_center(this,Mesh,pvar,amin,amax,bmin,bmax,cmin,cmax)
+    PURE SUBROUTINE CalcWaveSpeeds_center(this,Mesh,pvar,minwav,maxwav)
       IMPORT physics_base,mesh_base
       CLASS(physics_base), INTENT(INOUT) :: this
       CLASS(mesh_base),    INTENT(IN)    :: Mesh
       REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM), &
                            INTENT(IN)    :: pvar
-      REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
-                           INTENT(OUT)   :: amin,amax,bmin,bmax,cmin,cmax
+      REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%DIMS), &
+                           INTENT(OUT)   :: minwav,maxwav
     END SUBROUTINE
-    PURE SUBROUTINE CalcWaveSpeeds_faces(this,Mesh,prim,cons,amin,amax,bmin,bmax,cmin,cmax)
+    PURE SUBROUTINE CalcWaveSpeeds_faces(this,Mesh,prim,cons,minwav,maxwav)
       IMPORT physics_base,mesh_base
       CLASS(physics_base), INTENT(INOUT) :: this
       CLASS(mesh_base),    INTENT(IN)    :: Mesh
       REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%NFACES,this%VNUM), &
                            INTENT(IN)    :: prim,cons
-      REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
-                           INTENT(OUT)   :: amin,amax,bmin,bmax,cmin,cmax
+      REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%DIMS), &
+                           INTENT(OUT)   :: minwav,maxwav
     END SUBROUTINE
     PURE SUBROUTINE CalcFluxesX(this,Mesh,nmin,nmax,prim,cons,xfluxes)
       IMPORT physics_base,mesh_base
@@ -579,29 +579,29 @@ CONTAINS
   !> \todo NOT VERIFIED
   !!
   !! global elemental routine
-  ELEMENTAL SUBROUTINE CalcWaveSpeeds(cs,v,amin,amax)
+  ELEMENTAL SUBROUTINE CalcWaveSpeeds(cs,v,minwav,maxwav)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     REAL, INTENT(IN)  :: cs,v
-    REAL, INTENT(OUT) :: amin,amax
+    REAL, INTENT(OUT) :: minwav,maxwav
     !------------------------------------------------------------------------!
     ! minimal and maximal wave speeds
-    amin = MIN(0.,v-cs)
-    amax = MAX(0.,v+cs)
+    minwav = MIN(0.,v-cs)
+    maxwav = MAX(0.,v+cs)
   END SUBROUTINE CalcWaveSpeeds
 
   !> \todo NOT VERIFIED
   !!
   !! global elemental routine
-  ELEMENTAL SUBROUTINE SetWaveSpeeds(cs,v,amin,amax)
+  ELEMENTAL SUBROUTINE SetWaveSpeeds(cs,v,minwav,maxwav)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     REAL, INTENT(IN)  :: cs,v
-    REAL, INTENT(OUT) :: amin,amax
+    REAL, INTENT(OUT) :: minwav,maxwav
     !------------------------------------------------------------------------!
     ! minimal and maximal wave speeds
-    amin = v-cs
-    amax = v+cs
+    minwav = v-cs
+    maxwav = v+cs
   END SUBROUTINE SetWaveSpeeds
 
   !> Destructor

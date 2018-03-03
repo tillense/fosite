@@ -2,9 +2,9 @@ set (EXES
 #  bondi2d
 #  bondi3d
 #  collapse
-#  gauss2d
-   gauss3d
-   KHI3
+  gauss2d
+  gauss3d
+  KHI3
 #  noh2d
 #  noh3d
 #  ode
