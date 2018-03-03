@@ -39,7 +39,7 @@ MODULE Integration
   !< \def GAUSSN
   !! number of abscissas and weights
 #endif
-#define GAUSSN2 (GAUSSN / 2)
+#define GAUSSN2 INT(GAUSSN / 2.0)
   !< \def GAUSSN2
   !! half of GAUSSN (integer division)
   INTEGER, PARAMETER        :: MAXREC = 100  !< maximal depth for recursion

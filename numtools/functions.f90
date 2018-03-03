@@ -1148,6 +1148,7 @@ CONTAINS
     INTEGER         :: M1,K,M
     REAL            :: Z,R,GR
     !------------------------------------------------------------------------!
+    R=1 ! this surpresses the 'maybe-uninitialized' compiler warning
     IF (x.EQ.INT(x)) THEN
       IF (x.GT.0.) THEN
         res=1.0
@@ -1162,7 +1163,7 @@ CONTAINS
       IF (ABS(X).GT.1.) THEN
         Z=ABS(X)
         M=INT(Z)
-        R=1.
+        !R=1.
         DO K=1,M
           R=R*(Z-K)
         END DO
@@ -1213,6 +1214,7 @@ CONTAINS
     alpha = 2.506628274631000502415d0
     beta  = x + 5.24218750d0
     con = LOG(alpha)+LOG(beta)*(x+0.5d0) - beta
+    lg = 0
 
     ! sum
     IF (x.GE.0.0) THEN

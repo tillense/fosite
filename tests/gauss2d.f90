@@ -94,8 +94,8 @@ CONTAINS
     !------------------------------------------------------------------------!
     ! Local variable declaration
     INTEGER                 :: bc(6)
-    TYPE(Dict_TYP), POINTER :: mesh, physics, boundary, datafile, logfile, sources, &
-                               timedisc, fluxes, vis
+    TYPE(Dict_TYP), POINTER :: mesh, physics, boundary, datafile, sources, &
+                               timedisc, fluxes!, logfile, vis
     REAL                    :: x1,x2,y1,y2,z1,z2
     !------------------------------------------------------------------------!
     INTENT(INOUT)           :: Sim
