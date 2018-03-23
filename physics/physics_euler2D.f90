@@ -1,7 +1,7 @@
 !#############################################################################
 !#                                                                           #
 !# fosite - 3D hydrodynamical simulation program                             #
-!# module: physics_euler3D.f90                                               #
+!# module: physics_euler2D.f90                                               #
 !#                                                                           #
 !# Copyright (C) 2007-2012                                                   #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
@@ -38,50 +38,43 @@
 !! \extends physics_common
 !! \ingroup physics
 !----------------------------------------------------------------------------!
-MODULE physics_euler3D_mod
+MODULE physics_euler2D_mod
   USE physics_base_mod
+  USE physics_euler2Dit_mod
   USE mesh_base_mod
   USE common_dict
   IMPLICIT NONE
   !--------------------------------------------------------------------------!
   PRIVATE
-  INTEGER, PARAMETER :: num_var = 5              ! number of variables
-  CHARACTER(LEN=32), PARAMETER :: problem_name = "Euler 3D"
+  INTEGER, PARAMETER :: num_var = 4              ! number of variables
+  CHARACTER(LEN=32), PARAMETER :: problem_name = "Euler 2D"
   !--------------------------------------------------------------------------!
-  TYPE,  EXTENDS(physics_base) :: physics_euler3D
+  TYPE,  EXTENDS(physics_euler2Dit) :: physics_euler2D
   CONTAINS
-    PROCEDURE :: InitPhysics_euler3D             !< constructor
+    PROCEDURE :: InitPhysics_euler2D             !< constructor
     !------Convert2Primitve--------!
-    PROCEDURE :: Convert2Primitive_center
     PROCEDURE :: Convert2Primitive_centsub
-    PROCEDURE :: Convert2Primitive_faces
     PROCEDURE :: Convert2Primitive_facesub
     !------Convert2Conservative----!
-    PROCEDURE :: Convert2Conservative_center
     PROCEDURE :: Convert2Conservative_centsub
-    PROCEDURE :: Convert2Conservative_faces
     PROCEDURE :: Convert2Conservative_facesub
     !------soundspeed routines-----!
     PROCEDURE :: UpdateSoundSpeed_center
     PROCEDURE :: UpdateSoundSpeed_faces
-    !------wavespeed routines------!
-    PROCEDURE :: CalcWaveSpeeds_center
-    PROCEDURE :: CalcWaveSpeeds_faces
     !------flux routines-----------!
     PROCEDURE :: CalcFluxesX
     PROCEDURE :: CalcFluxesY
-    PROCEDURE :: CalcFluxesZ
+    PROCEDURE :: CalcFluxesZ                    ! empty routine
     !------fargo routines----------!
     PROCEDURE :: AddBackgroundVelocity
     PROCEDURE :: SubtractBackgroundVelocity
     !------HLLC routines-----------!
-    PROCEDURE :: CalcIntermediateStateX
-    PROCEDURE :: CalcIntermediateStateY
-    PROCEDURE :: CalcIntermediateStateZ
+!    PROCEDURE :: CalcIntermediateStateX
+!    PROCEDURE :: CalcIntermediateStateY
 
     PROCEDURE :: ExternalSources
     PROCEDURE :: GeometricalSources_center
-    PROCEDURE :: ReflectionMasks           ! for reflecting boundaries
+    PROCEDURE :: ReflectionMasks                ! for reflecting boundaries
 
     ! boundarie routines
 !    PROCEDURE :: SetEigenValues
@@ -106,7 +99,7 @@ MODULE physics_euler3D_mod
   !--------------------------------------------------------------------------!
   PUBLIC :: &
        ! types
-       physics_euler3D, &
+       physics_euler2D, &
        ! elemental procedures
        GetSoundSpeed!, &
 !       SetEigenValues
@@ -114,10 +107,10 @@ MODULE physics_euler3D_mod
 
 CONTAINS
 
-  SUBROUTINE InitPhysics_euler3D(this,Mesh,config,IO)
+  SUBROUTINE InitPhysics_euler2D(this,Mesh,config,IO)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(physics_euler3D), INTENT(INOUT) :: this
+    CLASS(physics_euler2D), INTENT(INOUT) :: this
     CLASS(mesh_base),        INTENT(IN)   :: Mesh
     TYPE(Dict_TYP), POINTER, INTENT(IN)   :: config, IO
 
@@ -127,7 +120,7 @@ CONTAINS
 !    ELSE
 !       CALL this%InitPhysics(problem,problem_name,num_var)
 !    END IF
-       CALL this%InitPhysics(Mesh,config,IO,EULER3D,problem_name,num_var)
+    CALL this%InitPhysics(Mesh,config,IO,EULER2D,problem_name,num_var)
     ! set array indices
     this%DENSITY   = 1                                 ! mass density        !
     this%PRESSURE  = num_var                           ! pressure            !
@@ -136,234 +129,24 @@ CONTAINS
     this%XMOMENTUM = 2                                 ! x-momentum          !
     this%YVELOCITY = 3                                 ! y-velocity          !
     this%YMOMENTUM = 3                                 ! y-momentum          !
-    this%ZVELOCITY = 4                                 ! z-velocity          !
-    this%ZMOMENTUM = 4                                 ! z-momentum          !
     ! set names for primitive and conservative variables
     this%pvarname(this%DENSITY)   = "density"
     this%pvarname(this%XVELOCITY) = "xvelocity"
     this%pvarname(this%YVELOCITY) = "yvelocity"
-    this%pvarname(this%ZVELOCITY) = "zvelocity"
     this%pvarname(this%PRESSURE)  = "pressure"
     this%cvarname(this%DENSITY)   = "density"
     this%cvarname(this%XMOMENTUM) = "xmomentum"
     this%cvarname(this%YMOMENTUM) = "ymomentum"
-    this%cvarname(this%ZMOMENTUM) = "zmomentum"
     this%cvarname(this%ENERGY)    = "energy"
-    this%DIM = 3
-  END SUBROUTINE InitPhysics_euler3D
-
-
- !> Calculate speed of waves
- PURE SUBROUTINE CalcWaveSpeeds_center(this,Mesh,pvar,minwav,maxwav)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(physics_euler3D), INTENT(INOUT) :: this
-    CLASS(mesh_base),       INTENT(IN)    :: Mesh
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM), &
-                            INTENT(IN)    :: pvar
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%NDIMS), &
-                            INTENT(OUT)   :: minwav,maxwav
-    !------------------------------------------------------------------------!
-    INTEGER                               :: i,j,k
-    !------------------------------------------------------------------------!
-    ! compute minimal and maximal wave speeds at cell centers
-!CDIR COLLAPSE
-    DO k=Mesh%KGMIN,Mesh%KGMAX
-       DO j=Mesh%JGMIN,Mesh%JGMAX
-          DO i=Mesh%IGMIN,Mesh%IGMAX
-             ! x-direction
-!CDIR IEXPAND
-             CALL SetWaveSpeeds(this%bccsound(i,j,k),pvar(i,j,k,this%XVELOCITY),&
-                  minwav(i,j,k,1),maxwav(i,j,k,1))
-             ! y-direction
-!CDIR IEXPAND
-             CALL SetWaveSpeeds(this%bccsound(i,j,k),pvar(i,j,k,this%YVELOCITY),&
-                  minwav(i,j,k,2),maxwav(i,j,k,2))
-             ! z-direction
-!CDIR IEXPAND
-             CALL SetWaveSpeeds(this%bccsound(i,j,k),pvar(i,j,k,this%ZVELOCITY),&
-                  minwav(i,j,k,3),maxwav(i,j,k,3))
-          END DO
-       END DO
-    END DO
-  END SUBROUTINE CalcWaveSpeeds_center
-
-
-  !> Calculate speed of waves
-  PURE SUBROUTINE CalcWaveSpeeds_faces(this,Mesh,prim,cons,minwav,maxwav)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(physics_euler3D), INTENT(INOUT) :: this
-    CLASS(mesh_base),       INTENT(IN)    :: Mesh
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%NFACES,this%VNUM), &
-                            INTENT(IN)    :: prim,cons
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%NDIMS), &
-                            INTENT(OUT)   :: minwav,maxwav
-    !------------------------------------------------------------------------!
-    REAL                                  :: uRoe,csRoe,aminRoe,amaxRoe
-    INTEGER                               :: i,j,k
-    !------------------------------------------------------------------------!
-    ! compute minimal and maximal wave speeds at cell interfaces
-!CDIR COLLAPSE
-    DO k=Mesh%KGMIN,Mesh%KGMAX
-      DO j=Mesh%JGMIN,Mesh%JGMAX
-        DO i=Mesh%IGMIN,Mesh%IGMAX
-          ! western
-!CDIR IEXPAND
-          CALL SetWaveSpeeds(&
-               this%fcsound(i,j,k,1),&
-               prim(i,j,k,1,this%XVELOCITY), &
-               this%tmp(i,j,k),this%tmp1(i,j,k))
-          ! eastern
-!CDIR IEXPAND
-          CALL SetWaveSpeeds(&
-               this%fcsound(i,j,k,2),&
-               prim(i,j,k,2,this%XVELOCITY), &
-               minwav(i,j,k,1),maxwav(i,j,k,1))
-          ! southern
-!CDIR IEXPAND
-          CALL SetWaveSpeeds(&
-               this%fcsound(i,j,k,3), &
-               prim(i,j,k,3,this%YVELOCITY), &
-               this%tmp2(i,j,k),this%tmp3(i,j,k))
-          ! northern
-!CDIR IEXPAND
-          CALL SetWaveSpeeds(&
-               this%fcsound(i,j,k,4), &
-               prim(i,j,k,4,this%YVELOCITY), &
-               minwav(i,j,k,2),maxwav(i,j,k,2))
-          ! bottomer
-!CDIR IEXPAND
-          CALL SetWaveSpeeds(&
-               this%fcsound(i,j,k,5), &
-               prim(i,j,k,5,this%ZVELOCITY), &
-               this%tmp4(i,j,k),this%tmp5(i,j,k))
-          ! topper
-!CDIR IEXPAND
-          CALL SetWaveSpeeds(&
-               this%fcsound(i,j,k,6), &
-               prim(i,j,k,6,this%ZVELOCITY), &
-               minwav(i,j,k,3),maxwav(i,j,k,3))
-          END DO
-       END DO
-    END DO
-    ! set minimal and maximal wave speeds at cell interfaces of neighboring cells
-    IF (this%advanced_wave_speeds) THEN
-    DO k=Mesh%KGMIN,Mesh%KGMAX
-      DO j=Mesh%JGMIN,Mesh%JGMAX
-!CDIR NODEP
-        DO i=Mesh%IMIN-1,Mesh%IMAX
-          ! western & eastern interfaces
-          ! get Roe averaged x-velocity
-!CDIR IEXPAND
-          CALL SetRoeAverages( &
-            this%gamma, &
-            prim(i,j,k,2,this%DENSITY),prim(i+1,j,k,1,this%DENSITY), &
-            prim(i,j,k,2,this%XVELOCITY),prim(i+1,j,k,1,this%XVELOCITY), &
-            prim(i,j,k,2,this%YVELOCITY),prim(i+1,j,k,1,this%YVELOCITY), &
-            prim(i,j,k,2,this%ZVELOCITY),prim(i+1,j,k,1,this%ZVELOCITY), &
-            prim(i,j,k,2,this%PRESSURE),prim(i+1,j,k,1,this%PRESSURE), &
-            cons(i,j,k,2,this%ENERGY),cons(i+1,j,k,1,this%ENERGY), &
-            uRoe,csRoe)
-          ! compute Roe averaged wave speeds
-!CDIR IEXPAND
-          CALL SetWaveSpeeds(csRoe,uRoe,aminRoe,amaxRoe)
-          minwav(i,j,k,1) = MIN(aminRoe,this%tmp(i+1,j,k),minwav(i,j,k,1))
-          maxwav(i,j,k,1) = MAX(amaxRoe,this%tmp1(i+1,j,k),maxwav(i,j,k,1))
-        END DO
-      END DO
-    END DO
-!CDIR COLLAPSE
-    DO k=Mesh%KGMIN,Mesh%KGMAX
-      DO j=Mesh%JMIN-1,Mesh%JMAX
-!CDIR NODEP
-        DO i=Mesh%IGMIN,Mesh%IGMAX
-          ! southern & northern interfaces
-          ! get Roe averaged y-velocity
-!CDIR IEXPAND
-          CALL SetRoeAverages( &
-            this%gamma, &
-            prim(i,j,k,4,this%DENSITY),prim(i,j+1,k,3,this%DENSITY), &
-            prim(i,j,k,4,this%YVELOCITY),prim(i,j+1,k,3,this%YVELOCITY), &
-            prim(i,j,k,4,this%XVELOCITY),prim(i,j+1,k,3,this%XVELOCITY), &
-            prim(i,j,k,4,this%ZVELOCITY),prim(i,j+1,k,3,this%ZVELOCITY), &
-            prim(i,j,k,4,this%PRESSURE),prim(i,j+1,k,3,this%PRESSURE), &
-            cons(i,j,k,4,this%ENERGY),cons(i,j+1,k,3,this%ENERGY), &
-            uRoe,csRoe)
-          ! compute Roe averaged wave speeds
-!CDIR IEXPAND
-          CALL SetWaveSpeeds(csRoe,uRoe,aminRoe,amaxRoe)
-          minwav(i,j,k,2) = MIN(aminRoe,this%tmp2(i,j+1,k),minwav(i,j,k,2))
-          maxwav(i,j,k,2) = MAX(amaxRoe,this%tmp3(i,j+1,k),maxwav(i,j,k,2))
-        END DO
-      END DO
-    END DO
-    DO k=Mesh%KMIN-1,Mesh%KMAX
-      DO j=Mesh%JGMIN,Mesh%JGMAX
-!CDIR NODEP
-        DO i=Mesh%IGMIN,Mesh%IGMAX
-          ! bottomer & topper interfaces
-          ! get Roe averaged z-velocity
-!CDIR IEXPAND
-          CALL SetRoeAverages( &
-            this%gamma, &
-            prim(i,j,k,6,this%DENSITY),prim(i,j,k+1,5,this%DENSITY), &
-            prim(i,j,k,6,this%YVELOCITY),prim(i,j,k+1,5,this%YVELOCITY), &
-            prim(i,j,k,6,this%XVELOCITY),prim(i,j,k+1,5,this%XVELOCITY), &
-            prim(i,j,k,6,this%ZVELOCITY),prim(i,j,k+1,5,this%ZVELOCITY), &
-            prim(i,j,k,6,this%PRESSURE),prim(i,j,k+1,5,this%PRESSURE), &
-            cons(i,j,k,6,this%ENERGY),cons(i,j,k+1,5,this%ENERGY), &
-            uRoe,csRoe)
-          ! compute Roe averaged wave speeds
-!CDIR IEXPAND
-          CALL SetWaveSpeeds(csRoe,uRoe,aminRoe,amaxRoe)
-          minwav(i,j,k,3) = MIN(aminRoe,this%tmp4(i,j,k+1),minwav(i,j,k,2))
-          maxwav(i,j,k,3) = MAX(amaxRoe,this%tmp5(i,j,k+1),maxwav(i,j,k,2))
-        END DO
-      END DO
-    END DO
-    ELSE
-    DO k=Mesh%KGMIN,Mesh%KGMAX
-      DO j=Mesh%JGMIN,Mesh%JGMAX
-!CDIR NODEP
-        DO i=Mesh%IMIN-1,Mesh%IMAX
-          ! western & eastern interfaces
-          minwav(i,j,k,1) = MIN(this%tmp(i+1,j,k),minwav(i,j,k,1))
-          maxwav(i,j,k,1) = MAX(this%tmp1(i+1,j,k),maxwav(i,j,k,1))
-        END DO
-      END DO
-    END DO
-!CDIR COLLAPSE
-    DO k=Mesh%KGMIN,Mesh%KGMAX
-      DO j=Mesh%JMIN-1,Mesh%JMAX
-!CDIR NODEP
-        DO i=Mesh%IGMIN,Mesh%IGMAX
-          ! southern & northern interfaces
-          minwav(i,j,k,2) = MIN(this%tmp2(i,j+1,k),minwav(i,j,k,2))
-          maxwav(i,j,k,2) = MAX(this%tmp3(i,j+1,k),maxwav(i,j,k,2))
-        END DO
-      END DO
-    END DO
-    DO k=Mesh%KMIN-1,Mesh%KMAX
-      DO j=Mesh%JGMIN,Mesh%JGMAX
-!CDIR NODEP
-        DO i=Mesh%IGMIN,Mesh%IGMAX
-          ! southern & northern interfaces
-          minwav(i,j,k,3) = MIN(this%tmp4(i,j,k+1),minwav(i,j,k,2))
-          maxwav(i,j,k,3) = MAX(this%tmp5(i,j,k+1),maxwav(i,j,k,2))
-        END DO
-      END DO
-    END DO
-    END IF
-  END SUBROUTINE CalcWaveSpeeds_faces
-
+    this%DIM = 2
+  END SUBROUTINE InitPhysics_euler2D
 
   !> Calculate Fluxes in x-direction
   !\todo NOT VERIFIED
   PURE SUBROUTINE CalcFluxesX(this,Mesh,nmin,nmax,prim,cons,xfluxes)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(physics_euler3D), INTENT(IN)  :: this
+    CLASS(physics_euler2D), INTENT(IN)  :: this
     CLASS(mesh_base),       INTENT(IN)  :: Mesh
     INTEGER,                INTENT(IN)  :: nmin,nmax
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%NFACES,this%VNUM), &
@@ -375,20 +158,17 @@ CONTAINS
     CALL SetFlux( &
          prim(:,:,:,nmin:nmax,this%DENSITY),prim(:,:,:,nmin:nmax,this%XVELOCITY), &
          prim(:,:,:,nmin:nmax,this%PRESSURE),cons(:,:,:,nmin:nmax,this%XMOMENTUM), &
-         cons(:,:,:,nmin:nmax,this%YMOMENTUM),cons(:,:,:,nmin:nmax,this%ZMOMENTUM), &
-         cons(:,:,:,nmin:nmax,this%ENERGY), &
+         cons(:,:,:,nmin:nmax,this%YMOMENTUM),cons(:,:,:,nmin:nmax,this%ENERGY), &
          xfluxes(:,:,:,nmin:nmax,this%DENSITY),xfluxes(:,:,:,nmin:nmax,this%XMOMENTUM), &
-         xfluxes(:,:,:,nmin:nmax,this%YMOMENTUM),xfluxes(:,:,:,nmin:nmax,this%ZMOMENTUM), &
-         xfluxes(:,:,:,nmin:nmax,this%ENERGY))
+         xfluxes(:,:,:,nmin:nmax,this%YMOMENTUM),xfluxes(:,:,:,nmin:nmax,this%ENERGY))
   END SUBROUTINE CalcFluxesX
-
 
   !> Calculate Fluxes in y-direction
   !\todo NOT VERIFIED
   PURE SUBROUTINE CalcFluxesY(this,Mesh,nmin,nmax,prim,cons,yfluxes)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(physics_euler3D), INTENT(IN)  :: this
+    CLASS(physics_euler2D), INTENT(IN)  :: this
     CLASS(mesh_base),       INTENT(IN)  :: Mesh
     INTEGER,                INTENT(IN)  :: nmin,nmax
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%NFACES,this%VNUM), &
@@ -400,20 +180,17 @@ CONTAINS
     CALL SetFlux( &
          prim(:,:,:,nmin:nmax,this%DENSITY),prim(:,:,:,nmin:nmax,this%YVELOCITY), &
          prim(:,:,:,nmin:nmax,this%PRESSURE),cons(:,:,:,nmin:nmax,this%YMOMENTUM), &
-         cons(:,:,:,nmin:nmax,this%ZMOMENTUM),cons(:,:,:,nmin:nmax,this%XMOMENTUM), &
-         cons(:,:,:,nmin:nmax,this%ENERGY), &
+         cons(:,:,:,nmin:nmax,this%XMOMENTUM),cons(:,:,:,nmin:nmax,this%ENERGY), &
          yfluxes(:,:,:,nmin:nmax,this%DENSITY),yfluxes(:,:,:,nmin:nmax,this%YMOMENTUM), &
-         yfluxes(:,:,:,nmin:nmax,this%ZMOMENTUM),yfluxes(:,:,:,nmin:nmax,this%XMOMENTUM), &
-         yfluxes(:,:,:,nmin:nmax,this%ENERGY))
+         yfluxes(:,:,:,nmin:nmax,this%XMOMENTUM),yfluxes(:,:,:,nmin:nmax,this%ENERGY))
   END SUBROUTINE CalcFluxesY
-
 
   !> Calculate Fluxes in z-direction
   !\todo NOT VERIFIED
   PURE SUBROUTINE CalcFluxesZ(this,Mesh,nmin,nmax,prim,cons,zfluxes)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(physics_euler3D), INTENT(IN)  :: this
+    CLASS(physics_euler2D), INTENT(IN)  :: this
     CLASS(mesh_base),       INTENT(IN)  :: Mesh
     INTEGER,                INTENT(IN)  :: nmin,nmax
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%NFACES,this%VNUM), &
@@ -421,165 +198,103 @@ CONTAINS
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%NFACES,this%VNUM), &
                             INTENT(OUT) :: zfluxes
     !------------------------------------------------------------------------!
-!CDIR IEXPAND
-    CALL SetFlux( &
-         prim(:,:,:,nmin:nmax,this%DENSITY),      &
-         prim(:,:,:,nmin:nmax,this%ZVELOCITY),    &
-         prim(:,:,:,nmin:nmax,this%PRESSURE),     &
-         cons(:,:,:,nmin:nmax,this%ZMOMENTUM),    &
-         cons(:,:,:,nmin:nmax,this%XMOMENTUM),    &
-         cons(:,:,:,nmin:nmax,this%YMOMENTUM),    &
-         cons(:,:,:,nmin:nmax,this%ENERGY),       &
-         zfluxes(:,:,:,nmin:nmax,this%DENSITY),   &
-         zfluxes(:,:,:,nmin:nmax,this%ZMOMENTUM), &
-         zfluxes(:,:,:,nmin:nmax,this%XMOMENTUM), &
-         zfluxes(:,:,:,nmin:nmax,this%YMOMENTUM), &
-         zfluxes(:,:,:,nmin:nmax,this%ENERGY))
+    ! routine does not exist in 2D
   END SUBROUTINE CalcFluxesZ
 
-  !> Reconstruction of the intermediate state for HLLC
-  !\todo NOT VERIFIED
-  PURE SUBROUTINE CalcIntermediateStateX(this,Mesh,prim,cons, &
-                  amin,amax,cstar,astar)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(physics_euler3D), INTENT(IN) :: this
-    CLASS(mesh_base),       INTENT(IN) :: Mesh
-    REAL,                   INTENT(IN), &
-      DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%NFACES,this%VNUM) &
-                                       :: prim,cons
-    REAL,                   INTENT(OUT), &
-      DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM) &
-                                       :: cstar
-    REAL,                   INTENT(IN), &
-      DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX) &
-                                       :: amin,amax
-    REAL,                  INTENT(OUT), &
-      DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX) &
-                                       :: astar
-    !------------------------------------------------------------------------!
-    INTEGER                            :: i,j,k
-    !------------------------------------------------------------------------!
-    DO k=Mesh%KMIN,Mesh%KMAX
-      DO j=Mesh%JMIN,Mesh%JMAX
-!CDIR NODEP
-        DO i=Mesh%IMIN-1,Mesh%IMAX
-!CDIR IEXPAND
-          CALL SetIntermediateState( &
-               prim(i,j,k,2,this%DENSITY),prim(i+1,j,k,1,this%DENSITY), &
-               prim(i,j,k,2,this%XVELOCITY),prim(i+1,j,k,1,this%XVELOCITY), &
-               prim(i,j,k,2,this%YVELOCITY),prim(i+1,j,k,1,this%YVELOCITY), &
-               prim(i,j,k,2,this%ZVELOCITY),prim(i+1,j,k,1,this%ZVELOCITY), &
-               prim(i,j,k,2,this%PRESSURE),prim(i+1,j,k,1,this%PRESSURE), &
-               cons(i,j,k,2,this%ENERGY),cons(i+1,j,k,1,this%ENERGY), &
-               amin(i,j,k),amax(i,j,k), &
-               cstar(i,j,k,this%DENSITY),cstar(i,j,k,this%XMOMENTUM), &
-               cstar(i,j,k,this%YMOMENTUM),cstar(i,j,k,this%ZMOMENTUM), &
-               cstar(i,j,k,this%ENERGY),astar(i,j,k))
-         END DO
-       END DO
-    END DO
-  END SUBROUTINE CalcIntermediateStateX
-
-
-  !> Reconstruction of the intermediate state for HLLC
-  !\todo NOT VERIFIED
-  PURE SUBROUTINE CalcIntermediateStateY(this,Mesh,prim,cons, &
-                  bmin,bmax,cstar,bstar)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(physics_euler3D), INTENT(INOUT) :: this
-    CLASS(mesh_base),       INTENT(IN)    :: Mesh
-    REAL,                   INTENT(IN), &
-      DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%NFACES,this%VNUM) &
-                                          :: prim,cons
-    REAL,                   INTENT(OUT), &
-      DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM) &
-                                          :: cstar
-    REAL,                   INTENT(IN), &
-      DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX) &
-                                          :: bmin,bmax
-    REAL,                   INTENT(OUT), &
-      DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX) &
-                                          :: bstar
-    !------------------------------------------------------------------------!
-    INTEGER                               :: i,j,k
-    !------------------------------------------------------------------------!
-!CDIR COLLAPSE
-    DO k=Mesh%KGMIN,Mesh%KGMAX
-      DO j=Mesh%JMIN-1,Mesh%JMAX
-!CDIR NODEP
-        DO i=Mesh%IGMIN,Mesh%IGMAX
-!CDIR IEXPAND
-          CALL SetIntermediateState( &
-               prim(i,j,k,4,this%DENSITY),prim(i,j+1,k,3,this%DENSITY),     &
-               prim(i,j,k,4,this%YVELOCITY),prim(i,j+1,k,3,this%YVELOCITY), &
-               prim(i,j,k,4,this%ZVELOCITY),prim(i,j+1,k,3,this%ZVELOCITY), &
-               prim(i,j,k,4,this%XVELOCITY),prim(i,j+1,k,3,this%XVELOCITY), &
-               prim(i,j,k,4,this%PRESSURE),prim(i,j+1,k,3,this%PRESSURE),   &
-               cons(i,j,k,4,this%ENERGY),cons(i,j+1,k,3,this%ENERGY),       &
-               bmin(i,j,k),bmax(i,j,k),                                     &
-               cstar(i,j,k,this%DENSITY),cstar(i,j,k,this%YMOMENTUM),       &
-               cstar(i,j,k,this%ZMOMENTUM),cstar(i,j,k,this%XMOMENTUM),     &
-               cstar(i,j,k,this%ENERGY),bstar(i,j,k))
-        END DO
-      END DO
-    END DO
-  END SUBROUTINE CalcIntermediateStateY
-
-
-  !> Reconstruction of the intermediate state for HLLC
-  !\todo NOT VERIFIED
-  PURE SUBROUTINE CalcIntermediateStateZ(this,Mesh,prim,cons, &
-                  cmin,cmax,cstar,bstar)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(physics_euler3D), INTENT(INOUT) :: this
-    CLASS(mesh_base),       INTENT(IN)    :: Mesh
-    REAL,                   INTENT(IN), &
-      DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,6,this%VNUM) &
-                                          :: prim,cons
-    REAL,                   INTENT(OUT), &
-      DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM) &
-                                          :: cstar
-    REAL,                   INTENT(IN), &
-      DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX) &
-                                          :: cmin,cmax
-    REAL,                   INTENT(OUT), &
-      DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX) &
-                                          :: bstar
-    !------------------------------------------------------------------------!
-    INTEGER                               :: i,j,k
-    !------------------------------------------------------------------------!
-!CDIR COLLAPSE
-    DO k=Mesh%KGMIN,Mesh%KGMAX
-      DO j=Mesh%JMIN-1,Mesh%JMAX
-!CDIR NODEP
-        DO i=Mesh%IGMIN,Mesh%IGMAX
-!CDIR IEXPAND
-          CALL SetIntermediateState( &
-               prim(i,j,k,6,this%DENSITY),prim(i,j,k+1,5,this%DENSITY),     &
-               prim(i,j,k,6,this%ZVELOCITY),prim(i,j,k+1,5,this%ZVELOCITY), &
-               prim(i,j,k,6,this%XVELOCITY),prim(i,j,k+1,5,this%XVELOCITY), &
-               prim(i,j,k,6,this%YVELOCITY),prim(i,j,k+1,5,this%YVELOCITY), &
-               prim(i,j,k,6,this%PRESSURE),prim(i,j,k+1,5,this%PRESSURE),   &
-               cons(i,j,k,6,this%ENERGY),cons(i,j,k+1,5,this%ENERGY),       &
-               cmin(i,j,k),cmax(i,j,k),                             &
-               cstar(i,j,k,this%DENSITY),cstar(i,j,k,this%YMOMENTUM),       &
-               cstar(i,j,k,this%ZMOMENTUM),cstar(i,j,k,this%XMOMENTUM),     &
-               cstar(i,j,k,this%ENERGY),bstar(i,j,k))
-        END DO
-      END DO
-    END DO
-  END SUBROUTINE CalcIntermediateStateZ
-
+!  !> Reconstruction of the intermediate state for HLLC
+!  !\todo NOT VERIFIED
+!  PURE SUBROUTINE CalcIntermediateStateX(this,Mesh,prim,cons, &
+!                  amin,amax,cstar,astar)
+!    IMPLICIT NONE
+!    !------------------------------------------------------------------------!
+!    CLASS(physics_euler2D), INTENT(IN) :: this
+!    CLASS(mesh_base),       INTENT(IN) :: Mesh
+!    REAL,                   INTENT(IN), &
+!      DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%NFACES,this%VNUM) &
+!                                       :: prim,cons
+!    REAL,                   INTENT(OUT), &
+!      DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM) &
+!                                       :: cstar
+!    REAL,                   INTENT(IN), &
+!      DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX) &
+!                                       :: amin,amax
+!    REAL,                  INTENT(OUT), &
+!      DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX) &
+!                                       :: astar
+!    !------------------------------------------------------------------------!
+!    INTEGER                            :: i,j,k
+!    !------------------------------------------------------------------------!
+!    DO k=Mesh%KMIN,Mesh%KMAX
+!      DO j=Mesh%JMIN,Mesh%JMAX
+!!CDIR NODEP
+!        DO i=Mesh%IMIN-1,Mesh%IMAX
+!!CDIR IEXPAND
+!          CALL SetIntermediateState( &
+!               prim(i,j,k,2,this%DENSITY),prim(i+1,j,k,1,this%DENSITY), &
+!               prim(i,j,k,2,this%XVELOCITY),prim(i+1,j,k,1,this%XVELOCITY), &
+!               prim(i,j,k,2,this%YVELOCITY),prim(i+1,j,k,1,this%YVELOCITY), &
+!               prim(i,j,k,2,this%PRESSURE),prim(i+1,j,k,1,this%PRESSURE), &
+!               cons(i,j,k,2,this%ENERGY),cons(i+1,j,k,1,this%ENERGY), &
+!               amin(i,j,k),amax(i,j,k), &
+!               cstar(i,j,k,this%DENSITY),cstar(i,j,k,this%XMOMENTUM), &
+!               cstar(i,j,k,this%YMOMENTUM),cstar(i,j,k,this%ENERGY), &
+!               astar(i,j,k))
+!         END DO
+!       END DO
+!    END DO
+!  END SUBROUTINE CalcIntermediateStateX
+!
+!
+!  !> Reconstruction of the intermediate state for HLLC
+!  !\todo NOT VERIFIED
+!  PURE SUBROUTINE CalcIntermediateStateY(this,Mesh,prim,cons, &
+!                  bmin,bmax,cstar,bstar)
+!    IMPLICIT NONE
+!    !------------------------------------------------------------------------!
+!    CLASS(physics_euler2D), INTENT(INOUT) :: this
+!    CLASS(mesh_base),       INTENT(IN)    :: Mesh
+!    REAL,                   INTENT(IN), &
+!      DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%NFACES,this%VNUM) &
+!                                          :: prim,cons
+!    REAL,                   INTENT(OUT), &
+!      DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM) &
+!                                          :: cstar
+!    REAL,                   INTENT(IN), &
+!      DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX) &
+!                                          :: bmin,bmax
+!    REAL,                   INTENT(OUT), &
+!      DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX) &
+!                                          :: bstar
+!    !------------------------------------------------------------------------!
+!    INTEGER                               :: i,j,k
+!    !------------------------------------------------------------------------!
+!!CDIR COLLAPSE
+!    DO k=Mesh%KGMIN,Mesh%KGMAX
+!      DO j=Mesh%JMIN-1,Mesh%JMAX
+!!CDIR NODEP
+!        DO i=Mesh%IGMIN,Mesh%IGMAX
+!!CDIR IEXPAND
+!          CALL SetIntermediateState( &
+!               prim(i,j,k,4,this%DENSITY),prim(i,j+1,k,3,this%DENSITY),     &
+!               prim(i,j,k,4,this%YVELOCITY),prim(i,j+1,k,3,this%YVELOCITY), &
+!               prim(i,j,k,4,this%XVELOCITY),prim(i,j+1,k,3,this%XVELOCITY), &
+!               prim(i,j,k,4,this%PRESSURE),prim(i,j+1,k,3,this%PRESSURE),   &
+!               cons(i,j,k,4,this%ENERGY),cons(i,j+1,k,3,this%ENERGY),       &
+!               bmin(i,j,k),bmax(i,j,k),                                     &
+!               cstar(i,j,k,this%DENSITY),cstar(i,j,k,this%YMOMENTUM),       &
+!               cstar(i,j,k,this%XMOMENTUM),cstar(i,j,k,this%ENERGY),        &
+!               bstar(i,j,k))
+!        END DO
+!      END DO
+!    END DO
+!  END SUBROUTINE CalcIntermediateStateY
 
 !  !> Characteristic variables for absorbing boundary conditions
 !  !\todo NOT VERIFIED
 !  PURE SUBROUTINE CalcCharSystemX(this,Mesh,i,dir,pvar,lambda,xvar)
 !    IMPLICIT NONE
 !    !------------------------------------------------------------------------!
-!    CLASS(physics_euler3D), INTENT(IN)    :: this
+!    CLASS(physics_euler2D), INTENT(IN)    :: this
 !    CLASS(mesh_base),       INTENT(IN)    :: Mesh
 !    INTEGER,                INTENT(IN)    :: i,dir
 !    REAL,                   INTENT(IN), &
@@ -637,7 +352,7 @@ CONTAINS
 !  PURE SUBROUTINE CalcCharSystemY(this,Mesh,j,dir,pvar,lambda,xvar)
 !    IMPLICIT NONE
 !    !------------------------------------------------------------------------!
-!    CLASS(physics_euler3D), INTENT(IN)    :: this
+!    CLASS(physics_euler2D), INTENT(IN)    :: this
 !    CLASS(mesh_base),       INTENT(IN)    :: Mesh
 !    INTEGER,                INTENT(IN)    :: j,dir
 !    REAL,                   INTENT(IN), &
@@ -695,7 +410,7 @@ CONTAINS
 !  PURE SUBROUTINE CalcCharSystemZ(this,Mesh,k,dir,pvar,lambda,xvar)
 !    IMPLICIT NONE
 !    !------------------------------------------------------------------------!
-!    CLASS(physics_euler3D), INTENT(IN)    :: this
+!    CLASS(physics_euler2D), INTENT(IN)    :: this
 !    CLASS(mesh_base),       INTENT(IN)    :: Mesh
 !    INTEGER,                INTENT(IN)    :: k,dir
 !    REAL,                   INTENT(IN), &
@@ -753,7 +468,7 @@ CONTAINS
 !  PURE SUBROUTINE CalcBoundaryDataX(this,Mesh,i1,dir,xvar,pvar)
 !    IMPLICIT NONE
 !    !------------------------------------------------------------------------!
-!    CLASS(physics_euler3D), INTENT(IN) :: this
+!    CLASS(physics_euler2D), INTENT(IN) :: this
 !    CLASS(mesh_base),       INTENT(IN) :: Mesh
 !    INTEGER,                INTENT(IN) :: i1,dir
 !    REAL,                   INTENT(IN), &
@@ -791,7 +506,7 @@ CONTAINS
 !  PURE SUBROUTINE CalcBoundaryDataY(this,Mesh,j1,dir,xvar,pvar)
 !    IMPLICIT NONE
 !    !------------------------------------------------------------------------!
-!    CLASS(physics_euler3D), INTENT(IN) :: this
+!    CLASS(physics_euler2D), INTENT(IN) :: this
 !    CLASS(mesh_base),       INTENT(IN) :: Mesh
 !    INTEGER,                INTENT(IN) :: j1,dir
 !    REAL,                   INTENT(IN), &
@@ -829,7 +544,7 @@ CONTAINS
 !  PURE SUBROUTINE CalcBoundaryDataZ(this,Mesh,k1,dir,xvar,pvar)
 !    IMPLICIT NONE
 !    !------------------------------------------------------------------------!
-!    CLASS(physics_euler3D), INTENT(IN) :: this
+!    CLASS(physics_euler2D), INTENT(IN) :: this
 !    CLASS(mesh_base),       INTENT(IN) :: Mesh
 !    INTEGER,                INTENT(IN) :: k1,dir
 !    REAL,                   INTENT(IN), &
@@ -867,7 +582,7 @@ CONTAINS
 !  PURE SUBROUTINE CalcPrim2RiemannX(this,Mesh,i,pvar,lambda,Rinv)
 !    IMPLICIT NONE
 !    !------------------------------------------------------------------------!
-!    CLASS(physics_euler3D), INTENT(IN) :: this
+!    CLASS(physics_euler2D), INTENT(IN) :: this
 !    CLASS(mesh_base),       INTENT(IN) :: Mesh
 !    INTEGER,                INTENT(IN) :: i
 !    REAL,                   INTENT(IN), &
@@ -917,7 +632,7 @@ CONTAINS
 !  PURE SUBROUTINE CalcPrim2RiemannY(this,Mesh,j,pvar,lambda,Rinv)
 !    IMPLICIT NONE
 !    !------------------------------------------------------------------------!
-!    CLASS(physics_euler3D), INTENT(IN) :: this
+!    CLASS(physics_euler2D), INTENT(IN) :: this
 !    CLASS(mesh_base),       INTENT(IN) :: Mesh
 !    INTEGER,                INTENT(IN) :: j
 !    REAL,                   INTENT(IN), &
@@ -967,7 +682,7 @@ CONTAINS
 !  PURE SUBROUTINE CalcPrim2RiemannZ(this,Mesh,k,pvar,lambda,Rinv)
 !    IMPLICIT NONE
 !    !------------------------------------------------------------------------!
-!    CLASS(physics_euler3D), INTENT(IN) :: this
+!    CLASS(physics_euler2D), INTENT(IN) :: this
 !    CLASS(mesh_base),       INTENT(IN) :: Mesh
 !    INTEGER,                INTENT(IN) :: k
 !    REAL,                   INTENT(IN), &
@@ -1017,7 +732,7 @@ CONTAINS
 !  PURE SUBROUTINE CalcRiemann2PrimX(this,Mesh,i,Rinv,pvar)
 !    IMPLICIT NONE
 !    !------------------------------------------------------------------------!
-!    CLASS(physics_euler3D), INTENT(IN) :: this
+!    CLASS(physics_euler2D), INTENT(IN) :: this
 !    CLASS(mesh_base),       INTENT(IN) :: Mesh
 !    INTEGER,                INTENT(IN) :: i
 !    REAL,                   INTENT(IN), &
@@ -1047,7 +762,7 @@ CONTAINS
 !  PURE SUBROUTINE CalcRiemann2PrimY(this,Mesh,j,Rinv,pvar)
 !    IMPLICIT NONE
 !    !------------------------------------------------------------------------!
-!    CLASS(physics_euler3D), INTENT(IN) :: this
+!    CLASS(physics_euler2D), INTENT(IN) :: this
 !    CLASS(mesh_base),       INTENT(IN) :: Mesh
 !    INTEGER,                INTENT(IN) :: j
 !    REAL,                   INTENT(IN), &
@@ -1077,7 +792,7 @@ CONTAINS
 !  PURE SUBROUTINE CalcRiemann2PrimZ(this,Mesh,k,Rinv,pvar)
 !    IMPLICIT NONE
 !    !------------------------------------------------------------------------!
-!    CLASS(physics_euler3D), INTENT(IN) :: this
+!    CLASS(physics_euler2D), INTENT(IN) :: this
 !    CLASS(mesh_base),       INTENT(IN) :: Mesh
 !    INTEGER,                INTENT(IN) :: k
 !    REAL,                   INTENT(IN), &
@@ -1107,7 +822,7 @@ CONTAINS
   PURE SUBROUTINE GeometricalSources_center(this,Mesh,pvar,cvar,sterm)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(physics_euler3D), INTENT(INOUT) :: this
+    CLASS(physics_euler2D), INTENT(INOUT) :: this
     CLASS(mesh_base),       INTENT(IN)    :: Mesh
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM), &
                             INTENT(IN)    :: pvar,cvar
@@ -1116,58 +831,45 @@ CONTAINS
     !------------------------------------------------------------------------!
     INTEGER                               :: i,j,k
     !------------------------------------------------------------------------!
+    ! compute geometrical source only for non-cartesian mesh except for the
+    ! EULER2D_IAMROT case for which geometrical sources are always necessary.
+    IF ((Mesh%Geometry%GetType().NE.CARTESIAN)) THEN
+
 !CDIR COLLAPSE
-    DO k=Mesh%KGMIN,Mesh%KGMAX
-      DO j=Mesh%JGMIN,Mesh%JGMAX
-        DO i=Mesh%IGMIN,Mesh%IGMAX
-          ! no geometrical density or energy sources
-          sterm(i,j,k,this%DENSITY) = 0.
-          sterm(i,j,k,this%ENERGY) = 0.
-          ! geometrical source terms in momentum equationes
-          sterm(i,j,k,this%XMOMENTUM) = MomentumSourcesX( &
-              cvar(i,j,k,this%YMOMENTUM), &
-              cvar(i,j,k,this%ZMOMENTUM), &
-              pvar(i,j,k,this%XVELOCITY), &
-              pvar(i,j,k,this%YVELOCITY), &
-              pvar(i,j,k,this%ZVELOCITY),&
-              pvar(i,j,k,this%PRESSURE), &
-              Mesh%cxyx%bcenter(i,j,k), &
-              Mesh%cyxy%bcenter(i,j,k), &
-              Mesh%czxz%bcenter(i,j,k), &
-              Mesh%cxzx%bcenter(i,j,k))
-          sterm(i,j,k,this%YMOMENTUM) = MomentumSourcesY( &
-              cvar(i,j,k,this%ZMOMENTUM), &
-              cvar(i,j,k,this%XMOMENTUM), &
-              pvar(i,j,k,this%XVELOCITY), &
-              pvar(i,j,k,this%YVELOCITY), &
-              pvar(i,j,k,this%ZVELOCITY), &
-              pvar(i,j,k,this%PRESSURE), &
-              Mesh%cxyx%bcenter(i,j,k), &
-              Mesh%cyxy%bcenter(i,j,k), &
-              Mesh%czxz%bcenter(i,j,k), &
-              Mesh%cyzy%bcenter(i,j,k))
-          sterm(i,j,k,this%ZMOMENTUM) = MomentumSourcesZ( &
-              cvar(i,j,k,this%XMOMENTUM), &
-              cvar(i,j,k,this%YMOMENTUM), &
-              pvar(i,j,k,this%XVELOCITY), &
-              pvar(i,j,k,this%YVELOCITY), &
-              pvar(i,j,k,this%ZVELOCITY), &
-              pvar(i,j,k,this%PRESSURE), &
-              Mesh%cxzx%bcenter(i,j,k), &
-              Mesh%czxz%bcenter(i,j,k), &
-              Mesh%czyz%bcenter(i,j,k), &
-              Mesh%cyzy%bcenter(i,j,k))
+      DO k=Mesh%KGMIN,Mesh%KGMAX
+        DO j=Mesh%JGMIN,Mesh%JGMAX
+           DO i=Mesh%IGMIN,Mesh%IGMAX
+              CALL CalcGeometricalSources(cvar(i,j,k,this%XMOMENTUM),   &
+                                          cvar(i,j,k,this%YMOMENTUM),   &
+                                          pvar(i,j,k,this%XVELOCITY),   &
+                                          pvar(i,j,k,this%YVELOCITY),   &
+                                          pvar(i,j,k,this%PRESSURE),     &
+                                          Mesh%cxyx%bcenter(i,j,k),     &
+                                          Mesh%cyxy%bcenter(i,j,k),     &
+                                          Mesh%czxz%bcenter(i,j,k),     &
+                                          Mesh%czyz%bcenter(i,j,k),     &
+                                          sterm(i,j,k,this%DENSITY),    &
+                                          sterm(i,j,k,this%XMOMENTUM),  &
+                                          sterm(i,j,k,this%YMOMENTUM)   &
+                                          )
+           END DO
         END DO
       END DO
-    END DO
+      ! reset ghost cell data
+      sterm(Mesh%IGMIN:Mesh%IMIN-Mesh%ip1,:,:,:) = 0.0
+      sterm(Mesh%IMAX+Mesh%ip1:Mesh%IGMAX,:,:,:) = 0.0
+      sterm(:,Mesh%JGMIN:Mesh%JMIN-Mesh%jp1,:,:) = 0.0
+      sterm(:,Mesh%JMAX+Mesh%jp1:Mesh%JGMAX,:,:) = 0.0
+      sterm(:,:,Mesh%KGMIN:Mesh%KMIN-Mesh%kp1,:) = 0.0
+      sterm(:,:,Mesh%KMAX+Mesh%kp1:Mesh%KGMAX,:) = 0.0
+    END IF
   END SUBROUTINE GeometricalSources_center
-
 
   !TODO GENAUSO WIE IN GEOMETRICALSOURCES_CENTER, cxyx,... not at all touched!
 !  PURE SUBROUTINE GeometricalSources_faces(this,Mesh,prim,cons,sterm)
 !    IMPLICIT NONE
 !    !------------------------------------------------------------------------!
-!    CLASS(physics_euler3D), INTENT(IN) :: this
+!    CLASS(physics_euler2D), INTENT(IN) :: this
 !    CLASS(mesh_base),       INTENT(IN) :: Mesh
 !    REAL,                   INTENT(IN), &
 !      DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,6,this%VNUM) &
@@ -1290,7 +992,7 @@ CONTAINS
   ! momentum and energy sources due to external force
   PURE SUBROUTINE ExternalSources(this,Mesh,accel,pvar,cvar,sterm)
     !------------------------------------------------------------------------!
-    CLASS(physics_euler3D), INTENT(IN) :: this
+    CLASS(physics_euler2D), INTENT(IN) :: this
     CLASS(mesh_base),       INTENT(IN) :: Mesh
     REAL,                   INTENT(IN), &
       DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%NDIMS) &
@@ -1311,11 +1013,9 @@ CONTAINS
           sterm(i,j,k,this%DENSITY)   = 0.
           sterm(i,j,k,this%XMOMENTUM) = pvar(i,j,k,this%DENSITY) * accel(i,j,k,1)
           sterm(i,j,k,this%YMOMENTUM) = pvar(i,j,k,this%DENSITY) * accel(i,j,k,2)
-          sterm(i,j,k,this%ZMOMENTUM) = pvar(i,j,k,this%DENSITY) * accel(i,j,k,3)
           sterm(i,j,k,this%ENERGY)    = &
                cvar(i,j,k,this%XMOMENTUM) * accel(i,j,k,1) + &
-               cvar(i,j,k,this%YMOMENTUM) * accel(i,j,k,2) + &
-               cvar(i,j,k,this%ZMOMENTUM) * accel(i,j,k,3)
+               cvar(i,j,k,this%YMOMENTUM) * accel(i,j,k,2)
         END DO
       END DO
     END DO
@@ -1326,7 +1026,7 @@ CONTAINS
 !  PURE SUBROUTINE ViscositySources(this,Mesh,pvar,btxx,btxy,btyy,btyz,btzz,btzx,sterm)
 !    IMPLICIT NONE
 !    !------------------------------------------------------------------------!
-!    CLASS(physics_euler3D), INTENT(INOUT) :: this
+!    CLASS(physics_euler2D), INTENT(INOUT) :: this
 !    CLASS(mesh_base),       INTENT(IN)    :: Mesh
 !    REAL,                   INTENT(IN), &
 !      DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM) &
@@ -1363,27 +1063,10 @@ CONTAINS
 
 
   !> Convert to from conservative to primitive variables at cell-centers
-  PURE SUBROUTINE Convert2Primitive_center(this,Mesh,cvar,pvar)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(physics_euler3D), INTENT(IN)  :: this
-    CLASS(mesh_base),       INTENT(IN)  :: Mesh
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%vnum), &
-                            INTENT(IN)  :: cvar
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%vnum), &
-                            INTENT(OUT) :: pvar
-    !------------------------------------------------------------------------!
-!CDIR IEXPAND
-    CALL this%Convert2Primitive_centsub(Mesh,Mesh%IGMIN,Mesh%IGMAX,&
-         Mesh%JGMIN,Mesh%JGMAX,Mesh%KGMIN,Mesh%KGMAX,cvar,pvar)
-  END SUBROUTINE Convert2Primitive_center
-
-
-  !> Convert to from conservative to primitive variables at cell-centers
   PURE SUBROUTINE Convert2Primitive_centsub(this,Mesh,i1,i2,j1,j2,k1,k2,cvar,pvar)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(physics_euler3D), INTENT(IN)  :: this
+    CLASS(physics_euler2D), INTENT(IN)  :: this
     CLASS(mesh_base),       INTENT(IN)  :: Mesh
     INTEGER,                INTENT(IN)  :: i1,i2,j1,j2,k1,k2
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM), &
@@ -1395,39 +1078,18 @@ CONTAINS
                    cvar(i1:i2,j1:j2,k1:k2,this%DENSITY),   &
                    cvar(i1:i2,j1:j2,k1:k2,this%XMOMENTUM), &
                    cvar(i1:i2,j1:j2,k1:k2,this%YMOMENTUM), &
-                   cvar(i1:i2,j1:j2,k1:k2,this%ZMOMENTUM), &
                    cvar(i1:i2,j1:j2,k1:k2,this%ENERGY),    &
                    pvar(i1:i2,j1:j2,k1:k2,this%DENSITY),   &
                    pvar(i1:i2,j1:j2,k1:k2,this%XVELOCITY), &
                    pvar(i1:i2,j1:j2,k1:k2,this%YVELOCITY), &
-                   pvar(i1:i2,j1:j2,k1:k2,this%ZVELOCITY), &
                    pvar(i1:i2,j1:j2,k1:k2,this%PRESSURE))
   END SUBROUTINE Convert2Primitive_centsub
-
-  !> Converts from primitive to conservative variables at cell-faces
-  PURE SUBROUTINE Convert2Primitive_faces(this,Mesh,cons,prim)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(physics_euler3D), INTENT(IN)  :: this
-    CLASS(mesh_base),       INTENT(IN)  :: Mesh
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%NFACES,this%VNUM), &
-                            INTENT(IN)  :: cons
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%NFACES,this%VNUM), &
-                            INTENT(OUT) :: prim
-    !------------------------------------------------------------------------!
-!CDIR IEXPAND
-    CALL this%Convert2Primitive_facesub(Mesh,Mesh%IGMIN,Mesh%IGMAX, &
-                                             Mesh%JGMIN,Mesh%JGMAX, &
-                                             Mesh%KGMIN,Mesh%KGMAX, &
-                                        cons,prim)
-  END SUBROUTINE Convert2Primitive_faces
-
 
   !> Convert to from conservative to primitive variables at cell-faces
   PURE SUBROUTINE Convert2Primitive_facesub(this,Mesh,i1,i2,j1,j2,k1,k2,cons,prim)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(physics_euler3D), INTENT(IN)  :: this
+    CLASS(physics_euler2D), INTENT(IN)  :: this
     CLASS(mesh_base),       INTENT(IN)  :: Mesh
     INTEGER,                INTENT(IN)  :: i1,i2,j1,j2,k1,k2
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%NFACES,this%VNUM), &
@@ -1439,40 +1101,18 @@ CONTAINS
                    cons(i1:i2,j1:j2,k1:k2,:,this%DENSITY),   &
                    cons(i1:i2,j1:j2,k1:k2,:,this%XMOMENTUM), &
                    cons(i1:i2,j1:j2,k1:k2,:,this%YMOMENTUM), &
-                   cons(i1:i2,j1:j2,k1:k2,:,this%ZMOMENTUM), &
                    cons(i1:i2,j1:j2,k1:k2,:,this%ENERGY),    &
                    prim(i1:i2,j1:j2,k1:k2,:,this%DENSITY),   &
                    prim(i1:i2,j1:j2,k1:k2,:,this%XVELOCITY), &
                    prim(i1:i2,j1:j2,k1:k2,:,this%YVELOCITY), &
-                   prim(i1:i2,j1:j2,k1:k2,:,this%ZVELOCITY), &
                    prim(i1:i2,j1:j2,k1:k2,:,this%PRESSURE))
   END SUBROUTINE Convert2Primitive_facesub
-
-
-  !> Convert to from primitve to conservative variables at cell-centers
-  PURE SUBROUTINE Convert2Conservative_center(this,Mesh,pvar,cvar)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(physics_euler3D), INTENT(IN)  :: this
-    CLASS(mesh_base),       INTENT(IN)  :: Mesh
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%vnum), &
-                            INTENT(IN)  :: pvar
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%vnum), &
-                            INTENT(OUT) :: cvar
-    !------------------------------------------------------------------------!
-!CDIR IEXPAND
-    CALL this%Convert2Conservative_centsub(Mesh,Mesh%IGMIN,Mesh%IGMAX, &
-                                                Mesh%JGMIN,Mesh%JGMAX, &
-                                                Mesh%KGMIN,Mesh%KGMAX, &
-                                           pvar,cvar)
-  END SUBROUTINE Convert2Conservative_center
-
 
   !> Convert to from primitve to conservative variables at cell-centers
   PURE SUBROUTINE Convert2Conservative_centsub(this,Mesh,i1,i2,j1,j2,k1,k2,pvar,cvar)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(physics_euler3D), INTENT(IN)  :: this
+    CLASS(physics_euler2D), INTENT(IN)  :: this
     CLASS(mesh_base),       INTENT(IN)  :: Mesh
     INTEGER,                INTENT(IN)  :: i1,i2,j1,j2,k1,k2
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM), &
@@ -1484,39 +1124,18 @@ CONTAINS
          pvar(i1:i2,j1:j2,k1:k2,this%DENSITY),   &
          pvar(i1:i2,j1:j2,k1:k2,this%XVELOCITY), &
          pvar(i1:i2,j1:j2,k1:k2,this%YVELOCITY), &
-         pvar(i1:i2,j1:j2,k1:k2,this%ZVELOCITY), &
          pvar(i1:i2,j1:j2,k1:k2,this%PRESSURE),  &
          cvar(i1:i2,j1:j2,k1:k2,this%DENSITY),   &
          cvar(i1:i2,j1:j2,k1:k2,this%XMOMENTUM), &
          cvar(i1:i2,j1:j2,k1:k2,this%YMOMENTUM), &
-         cvar(i1:i2,j1:j2,k1:k2,this%ZMOMENTUM), &
          cvar(i1:i2,j1:j2,k1:k2,this%ENERGY))
   END SUBROUTINE Convert2Conservative_centsub
-
-
-  !> Convert to from primitve to conservative variables at cell-faces
-  PURE SUBROUTINE Convert2Conservative_faces(this,Mesh,prim,cons)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(physics_euler3D), INTENT(IN)  :: this
-    CLASS(mesh_base),       INTENT(IN)  :: Mesh
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%nfaces,this%vnum), &
-                            INTENT(IN)  :: prim
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%nfaces,this%vnum), &
-                            INTENT(OUT) :: cons
-    !------------------------------------------------------------------------!
-!CDIR IEXPAND
-    CALL this%Convert2Conservative_facesub(Mesh,Mesh%IGMIN,Mesh%IGMAX, &
-                                                Mesh%JGMIN,Mesh%JGMAX, &
-                                                Mesh%KGMIN,Mesh%KGMAX, &
-                                           prim,cons)
-  END SUBROUTINE Convert2Conservative_faces
 
   !> Convert to from primitve to conservative variables at cell-faces
   PURE SUBROUTINE Convert2Conservative_facesub(this,Mesh,i1,i2,j1,j2,k1,k2,prim,cons)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(physics_euler3D), INTENT(IN)  :: this
+    CLASS(physics_euler2D), INTENT(IN)  :: this
     CLASS(mesh_base),       INTENT(IN)  :: Mesh
     INTEGER,                INTENT(IN)  :: i1,i2,j1,j2,k1,k2
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%NFACES,this%VNUM), &
@@ -1529,12 +1148,10 @@ CONTAINS
          prim(i1:i2,j1:j2,k1:k2,:,this%DENSITY),   &
          prim(i1:i2,j1:j2,k1:k2,:,this%XVELOCITY), &
          prim(i1:i2,j1:j2,k1:k2,:,this%YVELOCITY), &
-         prim(i1:i2,j1:j2,k1:k2,:,this%ZVELOCITY), &
          prim(i1:i2,j1:j2,k1:k2,:,this%PRESSURE),  &
          cons(i1:i2,j1:j2,k1:k2,:,this%DENSITY),   &
          cons(i1:i2,j1:j2,k1:k2,:,this%XMOMENTUM), &
          cons(i1:i2,j1:j2,k1:k2,:,this%YMOMENTUM), &
-         cons(i1:i2,j1:j2,k1:k2,:,this%ZMOMENTUM), &
          cons(i1:i2,j1:j2,k1:k2,:,this%ENERGY))
   END SUBROUTINE Convert2Conservative_facesub
 
@@ -1552,7 +1169,7 @@ CONTAINS
   PURE SUBROUTINE AddBackgroundVelocity(this,Mesh,w,pvar,cvar)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(physics_euler3D), INTENT(IN)    :: this
+    CLASS(physics_euler2D), INTENT(IN)    :: this
     CLASS(mesh_base),       INTENT(IN)    :: Mesh
     !------------------------------------------------------------------------!
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX), &
@@ -1593,7 +1210,7 @@ CONTAINS
   PURE SUBROUTINE SubtractBackgroundVelocity(this,Mesh,w,pvar,cvar)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(physics_euler3D), INTENT(IN)    :: this
+    CLASS(physics_euler2D), INTENT(IN)    :: this
     CLASS(mesh_base),       INTENT(IN)    :: Mesh
     !------------------------------------------------------------------------!
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX), &
@@ -1623,7 +1240,7 @@ CONTAINS
   PURE SUBROUTINE ReflectionMasks(this,reflX,reflY,reflZ)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(physics_euler3D), INTENT(IN)  :: this
+    CLASS(physics_euler2D), INTENT(IN)  :: this
     LOGICAL, DIMENSION(this%VNUM), &
                             INTENT(OUT) :: reflX,reflY,reflZ
     !------------------------------------------------------------------------!
@@ -1631,19 +1248,16 @@ CONTAINS
     reflX(this%DENSITY)   = .FALSE.
     reflX(this%XVELOCITY) = .TRUE.
     reflX(this%YVELOCITY) = .FALSE.
-    reflZ(this%ZVELOCITY) = .FALSE.
     reflX(this%PRESSURE)  = .FALSE.
     ! southern / northern boundary
     reflY(this%DENSITY)   = .FALSE.
     reflY(this%XVELOCITY) = .FALSE.
     reflY(this%YVELOCITY) = .TRUE.
-    reflY(this%ZVELOCITY) = .FALSE.
     reflY(this%PRESSURE)  = .FALSE.
     ! bottomer / topper boundary
     reflZ(this%DENSITY)   = .FALSE.
     reflZ(this%XVELOCITY) = .FALSE.
     reflZ(this%YVELOCITY) = .FALSE.
-    reflZ(this%ZVELOCITY) = .TRUE.
     reflZ(this%PRESSURE)  = .FALSE.
   END SUBROUTINE ReflectionMasks
 
@@ -1652,7 +1266,7 @@ CONTAINS
   PURE SUBROUTINE AxisMasks(this,reflX,reflY,reflZ)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(physics_euler3D), INTENT(IN) :: this
+    CLASS(physics_euler2D), INTENT(IN) :: this
     LOGICAL, DIMENSION(this%VNUM), &
                             INTENT(OUT) :: reflX,reflY,reflZ
     !------------------------------------------------------------------------!
@@ -1660,26 +1274,23 @@ CONTAINS
     reflX(this%DENSITY)   = .FALSE.
     reflX(this%XVELOCITY) = .TRUE.
     reflX(this%YVELOCITY) = .TRUE.
-    reflX(this%ZVELOCITY) = .FALSE.
     reflX(this%PRESSURE)  = .FALSE.
     ! southern / northern boundary
     reflY(this%DENSITY)   = .FALSE.
     reflY(this%XVELOCITY) = .FALSE.        !old: .TRUE.
     reflY(this%YVELOCITY) = .TRUE.
-    reflY(this%ZVELOCITY) = .FALSE.
     reflY(this%PRESSURE)  = .FALSE.
     ! bottomer / topper boundary
     reflZ(this%DENSITY)   = .FALSE.
     reflZ(this%XVELOCITY) = .FALSE.
     reflZ(this%YVELOCITY) = .FALSE.
-    reflZ(this%ZVELOCITY) = .FALSE.
     reflZ(this%PRESSURE)  = .FALSE.
   END SUBROUTINE AxisMasks
 
   PURE SUBROUTINE UpdateSoundSpeed_center(this,Mesh,pvar)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(physics_euler3D), INTENT(INOUT) :: this
+    CLASS(physics_euler2D), INTENT(INOUT) :: this
     CLASS(mesh_base),       INTENT(IN)    :: Mesh
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM), &
                             INTENT(IN)    :: pvar
@@ -1702,7 +1313,7 @@ CONTAINS
   PURE SUBROUTINE UpdateSoundSpeed_faces(this,Mesh,prim)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(physics_euler3D), INTENT(INOUT) :: this
+    CLASS(physics_euler2D), INTENT(INOUT) :: this
     CLASS(mesh_base),       INTENT(IN)    :: Mesh
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%NFACES,this%VNUM), &
                             INTENT(IN)    :: prim
@@ -1735,13 +1346,13 @@ CONTAINS
 
   !> \todo NOT VERIFIED
   !! only for advanced wavespeeds
-  ELEMENTAL SUBROUTINE SetRoeAverages(gamma,rhoL,rhoR,ul,uR,vL,vR,wl,wR,pL,pR,eL,eR,u,cs)
+  ELEMENTAL SUBROUTINE SetRoeAverages(gamma,rhoL,rhoR,ul,uR,vL,vR,pL,pR,eL,eR,u,cs)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    REAL, INTENT(IN)  :: gamma,rhoL,rhoR,uL,uR,vL,vR,wL,wR,pL,pR,eL,eR
+    REAL, INTENT(IN)  :: gamma,rhoL,rhoR,uL,uR,vL,vR,pL,pR,eL,eR
     REAL, INTENT(OUT) :: u,cs
     !------------------------------------------------------------------------!
-    REAL              :: sqrtrhoL,sqrtrhoR,invsqrtrho,v,w,hL,hR,h
+    REAL              :: sqrtrhoL,sqrtrhoR,invsqrtrho,v,hL,hR,h
     !------------------------------------------------------------------------!
     sqrtrhoL = SQRT(rhoL)
     sqrtrhoR = SQRT(rhoR)
@@ -1750,13 +1361,12 @@ CONTAINS
     ! velocities
     u = (sqrtrhoL*uL + sqrtrhoR*uR) * invsqrtrho
     v = (sqrtrhoL*vL + sqrtrhoR*vR) * invsqrtrho
-    w = (sqrtrhoL*wL + sqrtrhoR*wR) * invsqrtrho
     ! enthalpy
     hL = (eL + pL) / rhoL
     hR = (eR + pR) / rhoR
     h  = (sqrtrhoL * hL + sqrtrhoR * hR) * invsqrtrho
     ! sound speed
-    cs = SQRT((gamma-1.)*(h-0.5*(u**2+v**2+w**2)))
+    cs = SQRT((gamma-1.)*(h-0.5*(u**2+v**2)))
   END SUBROUTINE SetRoeAverages
 
   !> \todo NOT VERIFIED
@@ -1780,14 +1390,14 @@ CONTAINS
 !    l4 = v
 !  END SUBROUTINE SetEigenValues
 
-  ! \todo CHECK IF RIGHT SINCE 3D
+  ! \todo NOT VERIFIED
   !! only for HLLC fluxes
-  ELEMENTAL SUBROUTINE SetIntermediateState(rhoL,rhoR,uL,uR,vl,vR,wL,wR,&
-       pL,pR,eL,eR,amin,amax,rho,mu,mv,mw,e,a)
+  ELEMENTAL SUBROUTINE SetIntermediateState(rhoL,rhoR,uL,uR,vl,vR,&
+       pL,pR,eL,eR,amin,amax,rho,mu,mv,e,a)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    REAL, INTENT(IN)  :: rhoL,rhoR,uL,uR,vl,vR,wl,wR,pL,pR,eL,eR,amin,amax
-    REAL, INTENT(OUT) :: rho,mu,mv,mw,e,a
+    REAL, INTENT(IN)  :: rhoL,rhoR,uL,uR,vl,vR,pL,pR,eL,eR,amin,amax
+    REAL, INTENT(OUT) :: rho,mu,mv,e,a
     !------------------------------------------------------------------------!
     REAL              :: qL,qR
     !------------------------------------------------------------------------!
@@ -1801,19 +1411,17 @@ CONTAINS
        rho = qL / (a - amin)
        mu  = rho * a
        mv  = rho * vL
-       mw  = rho * wL
        e   = rho * (eL/rhoL + (a - uL) * (a - pL/qL))
     ELSE
        ! right state
        rho = qR / (a - amax)
        mu  = rho * a
        mv  = rho * vR
-       mw  = rho * wR
        e   = rho * (eR/rhoR + (a - uR) * (a - pR/qR))
     END IF
   END SUBROUTINE SetIntermediateState
 
-!  ! \todo CHECK IF RIGHT SINCE 3D
+!  ! \todo NOT VERIFIED
 !  !! only for absorbing boundary conditions
 !  ELEMENTAL SUBROUTINE SetCharVars(gamma,rho1,rho2,u1,u2,v1,v2,w1,w2,P1,P2, &
 !       l1,l2,l3,l4,l5,xvar1,xvar2,xvar3,xvar4,xvar5)
@@ -1834,7 +1442,7 @@ CONTAINS
 !    xvar4 = dlnP + gamcs * du
 !  END SUBROUTINE SetCharVars
 
-!  ! \todo CHECK IF  RIGHT SINCE 3D
+!  ! \todo NOT VERIFIED
 !  !! only for absorbing boundary conditions
 !  ELEMENTAL SUBROUTINE SetBoundaryData(gamma,dir,rho1,u1,v1,w1,P1,xvar1, &
 !       xvar2,xvar3,xvar4,xvar5,rho2,u2,v2,w2,P2)
@@ -1855,7 +1463,7 @@ CONTAINS
 !    v2   = v1 + dir*xvar3
 !  END SUBROUTINE SetBoundaryData
 
-!  ! \todo CHEKC IF RIGHT SINCE 3D
+!  ! \todo NOT VERIFIED
 !  !! only for farfield boundary conditions
 !  ELEMENTAL SUBROUTINE Prim2Riemann(gamma,rho,vx,vy,vz,p,&
 !                                        l1,l2,l3,l4,l5,Rminus,Rs,Rvt,Rwt,Rplus)
@@ -1878,7 +1486,7 @@ CONTAINS
 !    Rwt = vz
 !  END SUBROUTINE Prim2Riemann
 
-!  ! \todo CHEKC IF RIGHT SINCE 3D
+!  ! \todo NOT VERIFIED
 !  !! only for farfield boundary conditions
 !  ELEMENTAL SUBROUTINE Riemann2Prim(gamma,Rminus,Rs,Rvt,Rwt,Rplus,&
 !       rho,vx,vy,vz,p)
@@ -1903,25 +1511,24 @@ CONTAINS
 !  END SUBROUTINE Riemann2Prim
 
   !> \todo NOT VERIFIED
-  ELEMENTAL SUBROUTINE SetFlux(rho,v,P,m1,m2,m3,E,f1,f2,f3,f4,f5)
+  ELEMENTAL SUBROUTINE SetFlux(rho,v,P,m1,m2,E,f1,f2,f3,f4)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    REAL, INTENT(IN)  :: rho,v,P,m1,m2,m3,E
-    REAL, INTENT(OUT) :: f1, f2, f3, f4, f5
+    REAL, INTENT(IN)  :: rho,v,P,m1,m2,E
+    REAL, INTENT(OUT) :: f1, f2, f3, f4
     !------------------------------------------------------------------------!
     f1 = rho*v
     f2 = m1*v + P
     f3 = m2*v
-    f4 = m3*v
-    f5 = (E+P)*v
+    f4 = (E+P)*v
   END SUBROUTINE SetFlux
 
   !> \todo NOT VERIFIED
-  ELEMENTAL SUBROUTINE Cons2Prim(gamma,rho_in,mu,mv,mw,E,rho_out,u,v,w,P)
+  ELEMENTAL SUBROUTINE Cons2Prim(gamma,rho_in,mu,mv,E,rho_out,u,v,P)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    REAL, INTENT(IN)  :: gamma,rho_in,mu,mv,mw,E
-    REAL, INTENT(OUT) :: rho_out,u,v,w,P
+    REAL, INTENT(IN)  :: gamma,rho_in,mu,mv,E
+    REAL, INTENT(OUT) :: rho_out,u,v,P
     !------------------------------------------------------------------------!
     REAL              :: inv_rho
     !------------------------------------------------------------------------!
@@ -1929,29 +1536,27 @@ CONTAINS
     rho_out = rho_in
     u = mu * inv_rho
     v = mv * inv_rho
-    w = mw * inv_rho
-    P = (gamma-1.)*(E - 0.5 * inv_rho * (mu*mu+mv*mv+mw*mw))
+    P = (gamma-1.)*(E - 0.5 * inv_rho * (mu*mu+mv*mv))
   END SUBROUTINE Cons2Prim
 
   !> \todo NOT VERIFIED
-  ELEMENTAL SUBROUTINE Prim2Cons(gamma,rho_in,u,v,w,P,rho_out,mu,mv,mw,E)
+  ELEMENTAL SUBROUTINE Prim2Cons(gamma,rho_in,u,v,P,rho_out,mu,mv,E)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    REAL, INTENT(IN)  :: gamma,rho_in,u,v,w,P
-    REAL, INTENT(OUT) :: rho_out,mu,mv,mw,E
+    REAL, INTENT(IN)  :: gamma,rho_in,u,v,P
+    REAL, INTENT(OUT) :: rho_out,mu,mv,E
     !------------------------------------------------------------------------!
     rho_out = rho_in
     mu = rho_in * u
     mv = rho_in * v
-    mw = rho_in * w
-    E = P/(gamma-1.) + 0.5 * rho_in * (u*u+v*v+w*w)
+    E = P/(gamma-1.) + 0.5 * rho_in * (u*u+v*v)
   END SUBROUTINE Prim2Cons
 
 !  !> Similar to isothermal version
 !  ELEMENTAL SUBROUTINE CalcGeometricalSources(this,mx,my,mz,vx,vy,vz,P,cxyx,cxzx,cyxy,cyzy,czxz,czyz,srho,smx,smy,smz)
 !    IMPLICIT NONE
 !    !------------------------------------------------------------------------!
-!    CLASS(physics_euler3D), INTENT(IN) :: this
+!    CLASS(physics_euler2D), INTENT(IN) :: this
 !    REAL, INTENT(IN)  :: mx,my,mz,vx,vy,vz,P,cxyx,cxzx,cyxy,cyzy,czxz,czyz
 !    REAL, INTENT(OUT) :: srho, smx, smy, smz
 !    !------------------------------------------------------------------------!
@@ -1964,9 +1569,9 @@ CONTAINS
   SUBROUTINE Finalize(this)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(physics_euler3D), INTENT(INOUT) :: this
+    CLASS(physics_euler2D), INTENT(INOUT) :: this
     !------------------------------------------------------------------------!
     CALL this%FinalizePhysics()
   END SUBROUTINE Finalize
 
-END MODULE physics_euler3D_mod
+END MODULE physics_euler2D_mod

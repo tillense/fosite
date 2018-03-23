@@ -173,7 +173,7 @@ CONTAINS
 
     ! physics settings
     physics => Dict( &
-            "problem"   / EULER3D_ISOTH, &
+            "problem"   / EULER3D_ISOTHERM, &
             "cs"        / CSISO)
 
     ! flux calculation and reconstruction method

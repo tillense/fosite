@@ -7,6 +7,7 @@ add_library(physics
   constants_SI.f90
   #physics_euler2Disoiamt.f90
   physics_euler2Disothm.f90
+  physics_euler2D.f90
   physics_euler3D.f90
   physics_euler3Disothm.f90
   #physics_euler3Drotsym.f90

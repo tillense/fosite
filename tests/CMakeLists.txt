@@ -1,10 +1,13 @@
 set (EXES
+  gauss2d
+  gauss3d
+  sedov2d
+  sedov3d
+  KHI3
+  vortex3d
 #  bondi2d
 #  bondi3d
 #  collapse
-  gauss2d
-  gauss3d
-  KHI3
 #  noh2d
 #  noh3d
 #  ode
@@ -14,11 +17,8 @@ set (EXES
 #  riemann3d
 #  rngtest
 #  RTI
-#  sedov2d
-  sedov3d
 #  specialfunctions
 #  vortex2d
-  vortex3d
 )
 foreach (p ${EXES})
   add_executable (${p} "${p}.f90")

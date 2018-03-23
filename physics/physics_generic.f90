@@ -32,9 +32,10 @@
 !----------------------------------------------------------------------------!
 MODULE physics_generic_mod
   USE physics_base_mod
-  USE physics_euler2dit_mod
   USE physics_euler3Dit_mod
   USE physics_euler3D_mod
+  USE physics_euler2Dit_mod
+  USE physics_euler2D_mod
   USE mesh_base_mod
   USE common_dict
 
@@ -57,25 +58,28 @@ CONTAINS
 
     ! allocate data
     SELECT CASE(problem)
+    CASE(EULER3D_ISOTHERM)
+      ALLOCATE(physics_euler3Dit::Physics)
     CASE(EULER3D)
       ALLOCATE(physics_euler3D::Physics)
-    CASE(EULER3D_ISOTH)
-      ALLOCATE(physics_euler3Dit::Physics)
     CASE(EULER2D_ISOTHERM)
       ALLOCATE(physics_euler2Dit::Physics)
+    CASE(EULER2D)
+      ALLOCATE(physics_euler2D::Physics)
     CASE DEFAULT
-  !    ALLOCATE(physics_euler2dit::Physics)
       CALL Physics%Error("new_physics","Unknown physics type.")
     END SELECT
 
     ! call initialization
     SELECT TYPE(obj => Physics)
-    TYPE IS (physics_euler3D)
-      CALL obj%InitPhysics_euler3D(Mesh,config,IO)
     TYPE IS (physics_euler3Dit)
       CALL obj%InitPhysics_euler3Dit(Mesh,config,IO)
+    TYPE IS (physics_euler3D)
+      CALL obj%InitPhysics_euler3D(Mesh,config,IO)
     TYPE IS (physics_euler2Dit)
       CALL obj%InitPhysics_euler2Dit(Mesh,config,IO)
+    TYPE IS (physics_euler2D)
+      CALL obj%InitPhysics_euler2D(Mesh,config,IO)
     END SELECT
   END SUBROUTINE
 END MODULE physics_generic_mod

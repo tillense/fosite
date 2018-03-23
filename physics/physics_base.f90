@@ -359,7 +359,7 @@ MODULE physics_base_mod
   INTEGER, PARAMETER :: EULER2D_IAMT        = 11
   INTEGER, PARAMETER :: EULER2D_IAMROT      = 12
   INTEGER, PARAMETER :: EULER2D_ISOIAMROT   = 13
-  INTEGER, PARAMETER :: EULER3D_ISOTH       = 14
+  INTEGER, PARAMETER :: EULER3D_ISOTHERM    = 14
   INTEGER, PARAMETER :: EULER3D             = 15
   !--------------------------------------------------------------------------!
   PUBLIC :: &
@@ -370,7 +370,7 @@ MODULE physics_base_mod
        EULER2D_SGS, EULER3D_ROTSYMSGS, EULER3D_ROTAMTSGS, &
        SI, CGS, GEOMETRICAL, EULER2D_ISOIAMT, &
        EULER2D_IAMT, EULER2D_IAMROT, EULER2D_ISOIAMROT, &
-       EULER3D_ISOTH, EULER3D, &
+       EULER3D_ISOTHERM, EULER3D, &
        ! methods - only elemental functions
        SetWaveSpeeds, &
        CalcWaveSpeeds, &

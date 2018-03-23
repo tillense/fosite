@@ -152,7 +152,7 @@ CONTAINS
 
     ! physics settings
     physics => Dict( &
-              "problem" / EULER3D_ISOTH, &
+              "problem" / EULER3D_ISOTHERM, &
               "gamma"   /         GAMMA  &         ! ratio of specific heats !
     )
 

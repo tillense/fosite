@@ -111,7 +111,9 @@ MODULE physics_euler2Dit_mod
   !--------------------------------------------------------------------------!
    PUBLIC :: &
        ! types
-       physics_euler2Dit
+       physics_euler2Dit, &
+       ! global elemental procedures
+       CalcGeometricalSources
   !--------------------------------------------------------------------------!
 
 CONTAINS
@@ -409,6 +411,7 @@ CONTAINS
         END DO
       END DO
     END DO
+
     ! set minimal and maximal wave speeds at cell interfaces of neighboring cells
 !    IF (this%advanced_wave_speeds) THEN
 !    DO k=Mesh%KGMIN,Mesh%KGMAX
@@ -468,39 +471,28 @@ CONTAINS
 !      END DO
 !    END DO
 !    ELSE
-!!CDIR COLLAPSE
-!    DO k=Mesh%KGMIN,Mesh%KGMAX
-!      DO j=Mesh%JGMIN,Mesh%JGMAX
-!!CDIR NODEP
-!        DO i=Mesh%IMIN-1,Mesh%IMAX
-!          ! western & eastern interfaces
-!          minwav(i,j,k,1) = MIN(0.0,this%tmp(i+Mesh%ip1,j,k) ,minwav(i,j,k,1))
-!          maxwav(i,j,k,1) = MAX(0.0,this%tmp1(i+Mesh%ip1,j,k),maxwav(i,j,k,1))
-!        END DO
-!      END DO
-!    END DO
-!!CDIR COLLAPSE
-!    DO k=Mesh%KGMIN,Mesh%KGMAX
-!      DO j=Mesh%JMIN-1,Mesh%JMAX
-!!CDIR NODEP
-!        DO i=Mesh%IGMIN,Mesh%IGMAX
-!          ! southern & northern interfaces
-!          minwav(i,j,k,2) = MIN(0.0,this%tmp2(i,j+Mesh%jp1,k),minwav(i,j,k,2))
-!          maxwav(i,j,k,2) = MAX(0.0,this%tmp3(i,j+Mesh%jp1,k),maxwav(i,j,k,2))
-!        END DO
-!      END DO
-!    END DO
-!!CDIR COLLAPSE
-!    DO k=Mesh%KMIN-1,Mesh%KMAX
-!      DO j=Mesh%JGMIN,Mesh%JGMAX
-!!CDIR NODEP
-!        DO i=Mesh%IGMIN,Mesh%IGMAX
-!          ! bottom & top interfaces
-!          minwav(i,j,k,3) = MIN(0.0,this%tmp4(i,j,k+Mesh%kp1),minwav(i,j,k,3))
-!          maxwav(i,j,k,3) = MAX(0.0,this%tmp5(i,j,k+Mesh%kp1),maxwav(i,j,k,3))
-!        END DO
-!      END DO
-!    END DO
+!CDIR COLLAPSE
+    DO k=Mesh%KGMIN,Mesh%KGMAX
+      DO j=Mesh%JGMIN,Mesh%JGMAX
+!CDIR NODEP
+        DO i=Mesh%IMIN-1,Mesh%IMAX
+          ! western & eastern interfaces
+          minwav(i,j,k,1) = MIN(0.0,this%tmp(i+Mesh%ip1,j,k) ,minwav(i,j,k,1))
+          maxwav(i,j,k,1) = MAX(0.0,this%tmp1(i+Mesh%ip1,j,k),maxwav(i,j,k,1))
+        END DO
+      END DO
+    END DO
+!CDIR COLLAPSE
+    DO k=Mesh%KGMIN,Mesh%KGMAX
+      DO j=Mesh%JMIN-1,Mesh%JMAX
+!CDIR NODEP
+        DO i=Mesh%IGMIN,Mesh%IGMAX
+          ! southern & northern interfaces
+          minwav(i,j,k,2) = MIN(0.0,this%tmp2(i,j+Mesh%jp1,k),minwav(i,j,k,2))
+          maxwav(i,j,k,2) = MAX(0.0,this%tmp3(i,j+Mesh%jp1,k),maxwav(i,j,k,2))
+        END DO
+      END DO
+    END DO
 !    END IF
   END SUBROUTINE CalcWaveSpeeds_faces
 
@@ -762,7 +754,8 @@ CONTAINS
   END SUBROUTINE SetFlux
 
   !> momentum source terms due to inertial forces
-  !! P is the isothermal pressure rho*cs*cs
+  !! P is the isothermal pressure rho*cs*cs or the real pressure, because
+  !! the function is inherited by physics_euler2D.
   !!
   !! \todo the syntax of this part was changed during transition to 2D.
   !!       Have a look at physics_euler2D and revert if the solution here is not

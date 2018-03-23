@@ -215,7 +215,7 @@ CONTAINS
 
     ! physics settings
     IF (CSISO.GT.TINY(CSISO)) THEN
-       physics => Dict("problem" / EULER3D_ISOTH, &
+       physics => Dict("problem" / EULER3D_ISOTHERM, &
                  "cs"      / CSISO)                      ! isothermal sound speed  !
     ELSE
        IF (WITH_IAR) THEN
@@ -346,7 +346,7 @@ CONTAINS
             ! local angular velocity of the vortex
             domega = 0.5*VSTR/PI*EXP(0.5*(1.-(dist_rot(i,j,k)/R0)**2))
             SELECT CASE(Physics%GetType())
-            CASE(EULER2D_ISOTHERM,EULER3D_ISOTH,EULER2D_ISOIAMT)
+            CASE(EULER2D_ISOTHERM,EULER3D_ISOTHERM,EULER2D_ISOIAMT)
                ! density
                Timedisc%pvar(i,j,k,Physics%DENSITY) = RHOINF * EXP(-0.5*(R0*domega/CSISO)**2)
             CASE(EULER2D,EULER2D_IAMROT,EULER2D_IAMT)

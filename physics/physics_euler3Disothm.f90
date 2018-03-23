@@ -127,7 +127,7 @@ CONTAINS
     CLASS(mesh_base),         INTENT(IN)    :: Mesh
     TYPE(Dict_TYP), POINTER,  INTENT(IN)    :: config, IO
     !------------------------------------------------------------------------!
-    CALL this%InitPhysics(Mesh,config,IO,EULER3D_ISOTH,problem_name,num_var)
+    CALL this%InitPhysics(Mesh,config,IO,EULER3D_ISOTHERM,problem_name,num_var)
     ! set array indices
     this%DENSITY   = 1                                 ! mass density        !
     this%XVELOCITY = 2                                 ! x-velocity          !
