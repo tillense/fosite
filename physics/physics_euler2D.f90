@@ -92,7 +92,10 @@ MODULE physics_euler2D_mod
 !    PROCEDURE :: CalcRiemann2PrimZ        ! for farfield boundaries
     PROCEDURE :: AxisMasks                 ! for axis boundaries
 !    PROCEDURE :: GeometricalSources_faces
-!    PROCEDURE :: ViscositySources
+    PROCEDURE :: ViscositySources
+    PROCEDURE :: ViscositySources_euler2D
+    PROCEDURE :: CalcStresses_euler
+
 
     PROCEDURE :: Finalize
   END TYPE
@@ -1020,6 +1023,147 @@ CONTAINS
       END DO
     END DO
   END SUBROUTINE ExternalSources
+
+  PURE SUBROUTINE ViscositySources(this,Mesh,pvar,btxx,btxy,btxz,btyy,btyz,btzz,sterm)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(physics_euler2D), INTENT(INOUT) :: this
+    CLASS(mesh_base),       INTENT(IN)    :: Mesh
+    REAL,                   INTENT(IN), &
+       DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM) &
+                                           :: pvar
+    REAL,                   INTENT(IN), &
+       DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX) &
+                                           :: btxx,btxy,btxz,btyy,btyz,btzz
+    REAL,                   INTENT(OUT), &
+       DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM) &
+                                          :: sterm
+   !------------------------------------------------------------------------!
+!CDIR IEXPAND
+   CALL this%ViscositySources_euler2D(Mesh,pvar,btxx,btxy,btyy,sterm)
+ 
+   !compute scalar product of v and tau (x-component)
+   this%tmp(:,:,:) = pvar(:,:,:,this%XVELOCITY)*btxx(:,:,:) &
+                    + pvar(:,:,:,this%YVELOCITY)*btxy(:,:,:) 
+ !                   + pvar(:,:,:,this%ZVELOCITY)*btxz(:,:,:)
+
+   !compute scalar product of v and tau (y-component)
+   this%tmp1(:,:,:) = pvar(:,:,:,this%XVELOCITY)*btxy(:,:,:) &
+                    + pvar(:,:,:,this%YVELOCITY)*btyy(:,:,:) 
+  !                  + pvar(:,:,:,this%ZVELOCITY)*btyz(:,:,:)
+
+   !compute scalar product of v and tau (z-component)
+   !this%tmp2(:,:,:) = pvar(:,:,:,this%XVELOCITY)*btxz(:,:,:) &
+   !                 + pvar(:,:,:,this%YVELOCITY)*btyz(:,:,:) &
+   !                 + pvar(:,:,:,this%ZVELOCITY)*btzz(:,:,:)
+   ! compute vector divergence of scalar product v and tau
+!CDIR IEXPAND
+   CALL Mesh%Divergence(this%tmp(:,:,:),this%tmp1(:,:,:), &
+        sterm(:,:,:,this%ENERGY))
+ END SUBROUTINE ViscositySources
+
+
+
+
+  ! identical to isothermal case
+  PURE SUBROUTINE ViscositySources_euler2D(this,Mesh,pvar,btxx,btxy,btyy,sterm)
+    IMPLICIT NONE
+   !------------------------------------------------------------------------!
+    CLASS(Physics_euler2D),INTENT(IN)  :: this
+    CLASS(Mesh_base),INTENT(IN)        :: Mesh
+    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM) :: &
+          pvar,sterm
+    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX) :: &
+                    btxx,btxy,btyy
+   !------------------------------------------------------------------------!
+   !------------------------------------------------------------------------!
+    INTENT(IN)        :: pvar,btxx,btxy,btyy
+    INTENT(OUT)       :: sterm
+   !------------------------------------------------------------------------!
+   ! mean values of stress tensor components across the cell interfaces
+
+   ! viscosity source terms
+    sterm(:,:,:,this%DENSITY) = 0.0 
+
+   ! compute viscous momentum sources
+   ! divergence of stress tensor with symmetry btyx=btxy
+   !CDIR IEXPAND
+    CALL Mesh%Divergence(btxx,btxy,btxy,btyy,sterm(:,:,:,this%XMOMENTUM), &
+                         sterm(:,:,:,this%YMOMENTUM))
+  END SUBROUTINE ViscositySources_euler2D
+
+  ! identical to isothermal case. 
+  PURE SUBROUTINE CalcStresses_euler(this,Mesh,pvar,dynvis,bulkvis, &
+       btxx,btxy,btxz,btyy,btyz,btzz)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(Physics_euler2D), INTENT(INOUT) :: this
+    CLASS(Mesh_base), INTENT(IN)          :: Mesh
+    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM) :: pvar
+    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX) :: &
+         dynvis,bulkvis,btxx,btxy,btxz,btyy,btyz,btzz
+    !------------------------------------------------------------------------!
+    INTEGER           :: i,j,k
+    !------------------------------------------------------------------------!
+    INTENT(IN)        :: pvar,dynvis,bulkvis
+    INTENT(OUT)       :: btxx,btxy,btxz,btyy,btyz,btzz
+    !------------------------------------------------------------------------!
+    ! compute components of the stress tensor at cell bary centers
+    ! inside the computational domain including one slice of ghost cells
+
+    ! compute bulk viscosity first and store the result in this%tmp
+!CDIR IEXPAND
+    CALL Mesh%Divergence(pvar(:,:,:,this%XVELOCITY),pvar(:,:,:,this%YVELOCITY),this%tmp(:,:,:))
+    this%tmp(:,:,:) = bulkvis(:,:,:)*this%tmp(:,:,:)
+
+!CDIR OUTERUNROLL=8
+  DO k=Mesh%KMIN-1,Mesh%KMAX+1
+    DO j=Mesh%JMIN-1,Mesh%JMAX+1
+!CDIR NODEP
+       DO i=Mesh%IMIN-1,Mesh%IMAX+1
+          ! compute the diagonal elements of the stress tensor
+          btxx(i,j,k) = dynvis(i,j,k) * &
+                ((pvar(i+1,j,k,this%XVELOCITY) - pvar(i-1,j,k,this%XVELOCITY)) / Mesh%dlx(i,j,k) &
+               + 2.0 * Mesh%cxyx%bcenter(i,j,k) * pvar(i,j,k,this%YVELOCITY) ) &
+ !              + 2.0 * Mesh%cxzx%bcenter(i,j,k) * pvar(i,j,k,this%ZVELOCITY) ) &
+               + this%tmp(i,j,k)
+
+          btyy(i,j,k) = dynvis(i,j,k) * &
+               ( (pvar(i,j+1,k,this%YVELOCITY) - pvar(i,j-1,k,this%YVELOCITY)) / Mesh%dly(i,j,k) &
+               + 2.0 * Mesh%cyxy%bcenter(i,j,k) * pvar(i,j,k,this%XVELOCITY) ) &
+!               + 2.0 * Mesh%cyzy%bcenter(i,j,k) * pvar(i,j,k,this%ZVELOCITY) ) &
+               + this%tmp(i,j,k)
+
+!          btzz(i,j,k) = dynvis(i,j,k) * &
+!               ( (pvar(i,j,k+1,this%ZVELOCITY) - pvar(i,j,k-1,this%ZVELOCITY)) / Mesh%dlz(i,j,k) &
+!               + 2.0 * Mesh%czxz%bcenter(i,j,k) * pvar(i,j,k,this%XVELOCITY) &
+!               + 2.0 * Mesh%czyz%bcenter(i,j,k) * pvar(i,j,k,this%YVELOCITY) ) &
+!               + this%tmp(i,j,k)
+
+          ! compute the off-diagonal elements (no bulk viscosity)
+          btxy(i,j,k) = dynvis(i,j,k) * ( 0.5 * &
+               ( (pvar(i+1,j,k,this%YVELOCITY) - pvar(i-1,j,k,this%YVELOCITY)) / Mesh%dlx(i,j,k) &
+               + (pvar(i,j+1,k,this%XVELOCITY) - pvar(i,j-1,k,this%XVELOCITY)) / Mesh%dly(i,j,k) ) &
+               - Mesh%cxyx%bcenter(i,j,k) * pvar(i,j,k,this%XVELOCITY) &
+               - Mesh%cyxy%bcenter(i,j,k) * pvar(i,j,k,this%YVELOCITY) )
+
+!          btxz(i,j,k) = dynvis(i,j,k) * ( 0.5 * &
+!               ( (pvar(i+1,j,k,this%ZVELOCITY) - pvar(i-1,j,k,this%ZVELOCITY)) / Mesh%dlx(i,j,k) &
+!               + (pvar(i,j,k+1,this%XVELOCITY) - pvar(i,j,k-1,this%XVELOCITY)) / Mesh%dlz(i,j,k) ) &
+!               - Mesh%czxz%bcenter(i,j,k) * pvar(i,j,k,this%ZVELOCITY) &
+!               - Mesh%cxzx%bcenter(i,j,k) * pvar(i,j,k,this%XVELOCITY) )
+
+!          btyz(i,j,k) = dynvis(i,j,k) * ( 0.5 * &
+!               ( (pvar(i,j,k+1,this%YVELOCITY) - pvar(i,j,k-1,this%YVELOCITY)) / Mesh%dlz(i,j,k) &
+!               + (pvar(i,j+1,k,this%ZVELOCITY) - pvar(i,j-1,k,this%ZVELOCITY)) / Mesh%dly(i,j,k) ) &
+!               - Mesh%czyz%bcenter(i,j,k) * pvar(i,j,k,this%ZVELOCITY) &
+!               - Mesh%cyzy%bcenter(i,j,k) * pvar(i,j,k,this%YVELOCITY) )
+
+       END DO
+    END DO
+  END DO
+  END SUBROUTINE CalcStresses_euler
+
 
 
 !  !> Calculate viscous forces

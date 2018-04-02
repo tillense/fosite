@@ -4,8 +4,7 @@
 !# module: mesh_generic.f90                                                  #
 !#                                                                           #
 !# Copyright (C) 2016                                                        #
-!# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
-!# Jannes Klee      <jklee@astrophysik.uni-kiel.de>                          #
+!# Manuel Jung <mjung@astrophysik.uni-kiel.de>                               #
 !#                                                                           #
 !# This program is free software; you can redistribute it and/or modify      #
 !# it under the terms of the GNU General Public License as published by      #
@@ -24,55 +23,69 @@
 !#                                                                           #
 !#############################################################################
 !----------------------------------------------------------------------------!
-!> \author Tobias Illenseer
-!! \author Jannes Klee
+!> \author Manuel Jung
+!> \author Lars Boesch
 !!
-!! \brief constructor for mesh class
+!! \brief constructor for sources class
 !!
-!! This module allocates the mesh class and decides which specific
-!! mesh to use from the config.
+!! This module allocates the sources class and decides which specific
+!! source to use from the config.
 !----------------------------------------------------------------------------!
 MODULE sources_generic_mod
   USE sources_base_mod
+  USE sources_viscosity_mod
   USE mesh_base_mod
-  USE fluxes_base_mod
-  USE physics_base_mod
+  USE Fluxes_base_mod
+  USE Physics_base_mod
   USE common_dict
-
-!  INTERFACE sources_base
-!    MODULE PROCEDURE new_sources
-!  END INTERFACE
 
 CONTAINS
 
-  SUBROUTINE new_sources(Sources,Mesh,Fluxes,Physics,config,IO)
+
+  SUBROUTINE New_Sources(this,Mesh,Fluxes,Physics,config,IO)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(sources_base), POINTER    :: Sources
-    CLASS(mesh_base), INTENT(IN)    :: Mesh
-    CLASS(fluxes_base), INTENT(IN)  :: Fluxes
-    CLASS(physics_base), INTENT(IN) :: Physics
-!    CLASS(timedisc_base), INTENT(IN) :: Timedisc
-    TYPE(DICT_TYP), POINTER         :: config, IO
-    !------------------------------------------------------------------------!
-    INTEGER                         :: stype
-    !------------------------------------------------------------------------!
-    CALL GetAttr(config,"stype",stype)
+    CLASS(Sources_base),POINTER :: this
+    CLASS(Mesh_base)    :: Mesh
+    CLASS(Fluxes_base)  :: Fluxes
+    CLASS(Physics_base) :: Physics
+    TYPE(DICT_TYP), POINTER   :: config, IO
 
-!    ! allocate data
-!    SELECT CASE(meshtype)
-!    CASE(MIDPOINT)
-!      ALLOCATE(mesh_midpoint::new_mesh)
-!    CASE(TRAPEZOIDAL)
-!      ALLOCATE(mesh_trapezoidal::new_mesh)
-!    END SELECT
-!
-!    ! call initialization
-!    SELECT TYPE(mesh_child => new_mesh)
-!    TYPE IS (mesh_midpoint)
-!      CALL mesh_child%InitMesh_midpoint(config,IO)
-!    TYPE IS (mesh_trapezoidal)
-!      CALL mesh_child%InitMesh_trapezoidal(config,IO)
-!    END SELECT
-  END SUBROUTINE
+    !------------------------------------------------------------------------!
+    CLASS(Sources_base),POINTER :: newsrc, tmpsrc
+    !CLASS(Sources_base),POINTER :: errsrc      ! we need this only for error reporting !
+    INTEGER           :: err
+    INTEGER           :: stype
+    !------------------------------------------------------------------------!
+    ! allocate memory for new source term
+    CALL GetAttr(config,"vis/stype",stype)
+
+    SELECT CASE(stype)
+    CASE(Viscosity)
+      ALLOCATE(sources_viscosity::newsrc)
+      IF (err.NE.0) CALL newsrc%Error("New_Sources", "Unable allocate memory!")
+    CASE DEFAULT
+      CALL this%Error("New_Sources","Unknown source type")
+    END SELECT
+    
+    ! basic initialization
+    SELECT TYPE(obj => newsrc)
+    TYPE IS (sources_viscosity)
+      CALL obj%InitSources_all(Mesh,Fluxes,Physics,config,IO)
+    END SELECT
+    ! add new source term to beginning of
+    ! list of source terms
+    IF (.NOT.ASSOCIATED(this)) THEN
+       this => newsrc
+       NULLIFY(this%next)
+    ELSE
+       tmpsrc => this
+       this => newsrc
+       this%next => tmpsrc
+    END IF
+  END SUBROUTINE New_Sources
+
+
+
+
 END MODULE sources_generic_mod

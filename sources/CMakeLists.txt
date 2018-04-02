@@ -13,7 +13,7 @@ add_library(sources
 #  sources_c_accel.f90
 #  sources_sgs.f90
 #  sources_diskcooling.f90
-#  sources_viscosity.f90
+  sources_viscosity.f90
 #  gravity_spectral.f90
 #  multipole_generic.f90
 #  sources_wave_damping.f90

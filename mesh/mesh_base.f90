@@ -109,7 +109,7 @@ MODULE mesh_base_mod
      LOGICAL, POINTER  :: mask(:,:)       !< optional selection mask
   END TYPE Selection_TYP
   !> mesh data structure
-  TYPE, EXTENDS(logging_base) :: mesh_base
+  TYPE,ABSTRACT, EXTENDS(logging_base) :: mesh_base
     !PRIVATE
     !> \name Variables
     CLASS(geometry_base),ALLOCATABLE :: Geometry        !< geometrical properties
@@ -201,7 +201,61 @@ MODULE mesh_base_mod
     PROCEDURE, PUBLIC :: InitMesh
     PROCEDURE, PUBLIC :: Finalize
     PROCEDURE, PUBLIC :: InternalPoint
+    PROCEDURE (TensorDivergence3D), DEFERRED :: TensorDivergence3D
+    PROCEDURE (VectorDivergence3D), DEFERRED :: VectorDivergence3D
+    PROCEDURE (TensorDivergence2D_1), DEFERRED :: TensorDivergence2D_1
+    PROCEDURE (VectorDivergence2D_1), DEFERRED :: VectorDivergence2D_1
+    GENERIC, PUBLIC :: DIVERGENCE => TensorDivergence3D, VectorDivergence3D, & 
+                                     VectorDivergence2D_1, &! VectorDivergence2D_2, &
+                                     TensorDivergence2D_1 !, TensorDivergence2D_2, &
+
   END TYPE mesh_base
+  ABSTRACT INTERFACE
+    PURE SUBROUTINE TensorDivergence3D(this,Txx,Txy,Txz,Tyx,Tyy,Tyz,Tzx,Tzy,Tzz, &
+                                       divTx,divTy,divTz)
+      IMPORT mesh_base
+      IMPLICIT NONE
+      !------------------------------------------------------------------------!
+      CLASS(mesh_base), INTENT(IN) :: this
+      REAL, DIMENSION(this%IGMIN:this%IGMAX,this%JGMIN:this%JGMAX,this%KGMIN:this%KGMAX), &
+                    INTENT(IN) :: Txx,Txy,Txz,Tyx,Tyy,Tyz,Tzx,Tzy,Tzz
+      REAL, DIMENSION(this%IGMIN:this%IGMAX,this%JGMIN:this%JGMAX,this%KGMIN:this%KGMAX), &
+                    INTENT(OUT) :: divTx,divTy,divTz
+    END SUBROUTINE
+    PURE SUBROUTINE VectorDivergence3D(this,vx,vy,vz,divv)
+      IMPORT mesh_base
+      IMPLICIT NONE
+      !------------------------------------------------------------------------!
+      CLASS(mesh_base),INTENT(IN) :: this
+      REAL, DIMENSION(this%IGMIN:this%IGMAX,this%JGMIN:this%JGMAX,this%KGMIN:this%KGMAX) &
+                        :: vx,vy,vz,divv
+      !------------------------------------------------------------------------!
+      INTENT(IN)        :: vx,vy,vz
+      INTENT(OUT)       :: divv
+    END SUBROUTINE
+    PURE SUBROUTINE VectorDivergence2D_1(this,vx,vy,divv)
+      IMPORT mesh_base
+      IMPLICIT NONE
+      !------------------------------------------------------------------------!
+      CLASS(mesh_base),INTENT(IN) :: this
+      REAL, DIMENSION(this%IGMIN:this%IGMAX,this%JGMIN:this%JGMAX,this%KGMIN:this%KGMAX) &
+                        :: vx,vy,divv
+      !------------------------------------------------------------------------!
+      INTENT(IN)        :: vx,vy
+      INTENT(OUT)       :: divv
+    END SUBROUTINE
+    PURE SUBROUTINE TensorDivergence2D_1(this,Txx,Txy,Tyx,Tyy,divTx,divTy)
+      IMPORT mesh_base
+      IMPLICIT NONE
+      !------------------------------------------------------------------------!
+      CLASS(mesh_base),INTENT(IN)   :: this
+      REAL, DIMENSION(this%IGMIN:this%IGMAX,this%JGMIN:this%JGMAX,this%KGMIN:this%KGMAX) &
+                        :: Txx,Txy,Tyx,Tyy,divTx,divTy
+      !------------------------------------------------------------------------!
+      INTENT(IN)        :: Txx,Txy,Tyx,Tyy
+      INTENT(OUT)       :: divTx,divTy
+    END SUBROUTINE
+  END INTERFACE
   !> \}
   !--------------------------------------------------------------------------!
   PUBLIC :: &

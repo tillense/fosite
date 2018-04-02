@@ -48,7 +48,7 @@ PROGRAM KHI
   IMPLICIT NONE
   !--------------------------------------------------------------------------!
   ! simulation parameters
-  REAL, PARAMETER    :: TSIM  = 10.0       ! simulation time
+  REAL, PARAMETER    :: TSIM  = 30.0       ! simulation time
   REAL, PARAMETER    :: GAMMA = 1.4        ! ratio of specific heats
   REAL, PARAMETER    :: RE    = 1.0E+4     ! Reynolds number (HUGE(RE) disables viscosity)
   ! initial condition
@@ -60,10 +60,10 @@ PROGRAM KHI
   REAL, PARAMETER    :: P1   = P0          !   pressure
   ! mesh settings
   INTEGER, PARAMETER :: MGEO = CARTESIAN   ! geometry of the mesh
-  INTEGER, PARAMETER :: RES  = 10          ! resolution
+  INTEGER, PARAMETER :: RES  = 20          ! resolution
   REAL, PARAMETER    :: XYZLEN= 1.0        ! spatial extend
   ! output file parameter
-  INTEGER, PARAMETER :: ONUM = 10          ! number of output data sets
+  INTEGER, PARAMETER :: ONUM = 50          ! number of output data sets
   CHARACTER(LEN=256), PARAMETER &          ! output data dir
                      :: ODIR = './'
   CHARACTER(LEN=256), PARAMETER &          ! output data file name
@@ -78,7 +78,6 @@ PROGRAM KHI
   !--------------------------------------------------------------------------!
   CLASS(fosite), ALLOCATABLE   :: Sim
   !--------------------------------------------------------------------------!
-
   TAP_PLAN(1)
 
   ! allocate memory for random seed variable
@@ -103,8 +102,11 @@ PROGRAM KHI
     pvar(:,:,i,Sim%Physics%ZVELOCITY) = TRANSPOSE(Sim%Timedisc%pvar(:,:,i,Sim%Physics%ZVELOCITY))
     pvar(:,:,i,Sim%Physics%PRESSURE)  = TRANSPOSE(Sim%Timedisc%pvar(:,:,i,Sim%Physics%PRESSURE))
   END DO
-
+  
+  DEALLOCATE(SIM)
   ! test flow along y-direction
+  ALLOCATE(Sim)
+ ! ALLOCATE(pvar(Sim%Mesh%IGMIN:Sim%Mesh%IGMAX,Sim%Mesh%JGMIN:Sim%Mesh%JGMAX,Sim%Mesh%KGMIN:Sim%Mesh%KGMAX,Sim%Physics%VNUM))
   CALL Sim%InitFosite()
   CALL MakeConfig(Sim, Sim%config)
   CALL SetAttr(Sim%config, "/datafile/filename", (TRIM(ODIR) // TRIM(OFNAME) // "_rotate"))
@@ -128,9 +130,9 @@ CONTAINS
     TYPE(Dict_TYP),POINTER  :: config
     !------------------------------------------------------------------------!
     ! Local variable declaration
-    TYPE(Dict_TYP), POINTER :: mesh, physics, boundary, datafile, &
-                               sources, timedisc, fluxes!, logfile
-    !REAL                    :: dynvis
+    TYPE(Dict_TYP), POINTER :: mesh, physics, boundary, datafile, logfile, &
+                               sources, timedisc, fluxes, vis
+    REAL                    :: dynvis
     !------------------------------------------------------------------------!
     ! mesh settings
     mesh => Dict( &
@@ -152,7 +154,7 @@ CONTAINS
 
     ! physics settings
     physics => Dict( &
-              "problem" / EULER3D_ISOTHERM, &
+              "problem" /       EULER3D, &
               "gamma"   /         GAMMA  &         ! ratio of specific heats !
     )
 
@@ -178,19 +180,19 @@ CONTAINS
     NULLIFY(sources)
     ! viscosity source term
     ! compute dynamic viscosity constant using typical scales and Reynolds number
-!    dynvis = ABS(RHO0 * XYZLEN * (V0-V1) / RE)
-!    IF (dynvis.GT.TINY(1.0)) THEN
-!       sources => Dict( &
-!          "vis/stype"          /       VISCOSITY, &
-!          "vis/vismodel"       /       MOLECULAR, &
-!          "vis/dynconst"       /          dynvis, &
-!          "vis/bulkconst"      / (-2./3.*dynvis), &
-!          "vis/output/dynvis"  /               0, &
-!          "vis/output/stress"  /               0, &
-!          "vis/output/kinvis"  /               0, &
-!          "vis/output/bulkvis" /               0  &
-!       )
-!    END IF
+    dynvis = ABS(RHO0 * XYZLEN * (V0-V1) / RE)
+    IF (dynvis.GT.TINY(1.0)) THEN
+       sources => Dict( &
+          "vis/stype"          /       VISCOSITY, &
+          "vis/vismodel"       /       MOLECULAR, &
+          "vis/dynconst"       /          dynvis, &
+          "vis/bulkconst"      / (-2./3.*dynvis), &
+          "vis/output/dynvis"  /               0, &
+          "vis/output/stress"  /               0, &
+          "vis/output/kinvis"  /               0, &
+          "vis/output/bulkvis" /               0  &
+       )
+    END IF
 
     ! time discretization settings
     timedisc => Dict( &
@@ -210,8 +212,8 @@ CONTAINS
     ! initialize data input/output
     datafile => Dict(&
 !        "fileformat" /                          HDF, &
-!        "fileformat" /                          VTK, &
-        "fileformat" /                         XDMF, &
+        "fileformat" /                          VTK, &
+!        "fileformat" /                         XDMF, &
 !        "fileformat" /    GNUPLOT, "filecycles" / 0, &
 !        "fileformat" /                       BINARY, &
 !        "fileformat" /                       NETCDF, &
@@ -231,7 +233,6 @@ CONTAINS
 
     IF (ASSOCIATED(sources)) &
        CALL SetAttr(config, "sources", sources)
-
   END SUBROUTINE MakeConfig
 
   SUBROUTINE InitData(Mesh,Physics,Timedisc,rotate90deg,reuse_random_seed)
@@ -243,7 +244,7 @@ CONTAINS
     LOGICAL, OPTIONAL    :: rotate90deg,reuse_random_seed
     !------------------------------------------------------------------------!
     ! Local variable declaration
-    INTEGER              :: i
+    INTEGER              :: i,j
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,3) :: dv
     INTEGER              :: clock
     !------------------------------------------------------------------------!
@@ -258,7 +259,6 @@ CONTAINS
     END IF
     CALL RANDOM_SEED(PUT=seed)
     CALL RANDOM_NUMBER(dv)
-
     ! initial condition
     IF (PRESENT(rotate90deg).AND.rotate90deg) THEN
        ! flow along y-direction:

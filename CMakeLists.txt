@@ -78,7 +78,7 @@ endif (Fortran_COMPILER_NAME MATCHES "(.*)gfortran")
 
 #------------ set includes (which files to compile) ---------------------------#
 # build executables
-set (LIBDIRS numtools common boundary fluxes io mesh physics sources timedisc)
+set (LIBDIRS numtools common boundary fluxes io mesh physics sources timedisc )
 
 #set (EXECUTABLES "NORMA.exe" ${NMPROGRAMS})
 #set (SCRIPTS "gen_pert.sh" "pert_multi_mode.sh")
