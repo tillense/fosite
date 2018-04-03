@@ -686,46 +686,5 @@ CONTAINS
     DEALLOCATE(temp_sterm)
   END SUBROUTINE CloseSources_all
 
-!SUBROUTINE InitSources_common(this,stype,sname)
-!    IMPLICIT NONE
-!    !------------------------------------------------------------------------!
-!    CLASS(Sources_base) :: this
-!    INTEGER           :: stype
-!    CHARACTER(LEN=32) :: sname
-!    !------------------------------------------------------------------------!
-!    CLASS(Sources_base),Allocatable :: newsrc, tmpsrc
-!    !CLASS(Sources_base),POINTER :: errsrc      ! we need this only for error reporting !
-!    INTEGER           :: err
-!    !------------------------------------------------------------------------!
-!    INTENT(IN)        :: stype,sname
-!    !------------------------------------------------------------------------!
-!    ! allocate memory for new source term
-!    ALLOCATE(sources_viscosity::newsrc)
-!    IF (err.NE.0) CALL newsrc%Error("InitSources", "Unable allocate memory!")
-!    
-!     ! basic initialization
-!    CALL newsrc%InitLogging(stype,sname)
-!
-!    ! add new source term to beginning of
-!    ! list of source terms
-!    IF (.NOT.ASSOCIATED(this)) THEN
-!       this => newsrc
-!       NULLIFY(this%next)
-!    ELSE
-!       tmpsrc => this
-!       this => newsrc
-!       this%next => tmpsrc
-!    END IF
-!  END SUBROUTINE InitSources_common
-
-!  SUBROUTINE CloseSources_common(this)
-!    IMPLICIT NONE
-!    !------------------------------------------------------------------------!
-!    CLASS(Sources_base), INTENT(INOUT) :: this
-!    !------------------------------------------------------------------------!
-!    CALL this%Finalize()
-!  END SUBROUTINE CloseSources_common
-
-
 
 END MODULE sources_base_mod

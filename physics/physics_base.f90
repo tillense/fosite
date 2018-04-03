@@ -163,8 +163,6 @@ MODULE physics_base_mod
 !   PROCEDURE ::  CalculatePrim2RiemannY
 !   PROCEDURE ::  CalculateRiemann2PrimX
 !   PROCEDURE ::  CalculateRiemann2PrimY
-!   GENERIC    :: CalcStresses_euler3D => CalcStresses_euler3Dit
-   PROCEDURE :: CalculateStresses
    PROCEDURE (CalcStresses_euler),       DEFERRED :: CalcStresses_euler
    PROCEDURE (ViscositySources),             DEFERRED :: ViscositySources
 !   PROCEDURE ::  SGSSources
@@ -544,62 +542,6 @@ CONTAINS
     CALL this%Info(" PHYSICS--> advection problem: " // TRIM(this%GetName()))
 
   END SUBROUTINE InitPhysics
-
-  PURE SUBROUTINE CalculateStresses(this,Mesh,pvar,dynvis,bulkvis, &
-       btxx,btxy,btxz,btyy,btyz,btzz)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(Physics_base),INTENT(INOUT) :: this
-    CLASS(Mesh_base),INTENT(IN)    :: Mesh
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM) :: pvar
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX) :: &
-         dynvis,bulkvis,btxx,btxy,btxz,btyy,btyz,btzz
-    !------------------------------------------------------------------------!
-    INTENT(IN)        :: pvar,dynvis,bulkvis
-    INTENT(OUT)       :: btxx,btxy,btxz,btyy,btyz,btzz
-    !------------------------------------------------------------------------!
-!CDIR IEXPAND
-    SELECT CASE(this%GetType())
-!    CASE(EULER2D)
-!       CALL CalcStresses_euler2D(this,Mesh,pvar,dynvis,bulkvis, &
-!            btxx,btxy,btyy)
-!    CASE(EULER2D_ISOTHERM)
-!       CALL CalcStresses_euler2Dit(this,Mesh,pvar,dynvis,bulkvis, &
-!            btxx,btxy,btyy)
-!    CASE(EULER3D_ROTSYM)
-!       CALL CalcStresses_euler3Drs(this,Mesh,pvar,dynvis,bulkvis, &
-!            btxx,btxy,btxz,btyy,btyz,btzz)
-!    CASE(EULER3D_ROTAMT)
-!       CALL CalcStresses_euler3Dra(this,Mesh,pvar,dynvis,bulkvis, &
-!            btxx,btxy,btxz,btyy,btyz,btzz)
-!    CASE(EULER3D_ROTSYMSGS)
-!       CALL CalcStresses_euler3Drssgs(this,Mesh,pvar,dynvis,bulkvis, &
-!            btxx,btxy,btxz,btyy,btyz,btzz)
-!    CASE(EULER3D_ROTAMTSGS)
-!       CALL CalcStresses_euler3Drasgs(this,Mesh,pvar,dynvis,bulkvis, &
-!            btxx,btxy,btxz,btyy,btyz,btzz)
-!    CASE(EULER2D_SGS)
-!       CALL CalcStresses_euler2Dsgs(this,Mesh,pvar,dynvis,bulkvis, &
-!            btxx,btxy,btyy)
-!    CASE(EULER2D_IAMT)
-!       CALL CalcStresses_euler2Dia(this,Mesh,pvar,dynvis,bulkvis, &
-!            btxx,btxy,btyy)
-!    CASE(EULER2D_IAMROT)
-!       CALL CalcStresses_euler2Diar(this,Mesh,pvar,dynvis,bulkvis, &
-!            btxx,btxy,btyy)
-!    CASE(EULER2D_ISOIAMT)
-!       CALL CalcStresses_euler2Ditia(this,Mesh,pvar,dynvis,bulkvis, &
-!            btxx,btxy,btyy)
-!    CASE(EULER2D_ISOIAMROT)
-!       CALL CalcStresses_euler2Ditiar(this,Mesh,pvar,dynvis,bulkvis, &
-!            btxx,btxy,btyy)
-     CASE(EULER3D)
-        CALL this%CalcStresses_euler(Mesh,pvar,dynvis,bulkvis,btxx,btxy,btxz,btyy,btyz,btzz)
-     CASE(EULER3D_ISOTHERM)
-        CALL this%CalcStresses_euler(Mesh,pvar,dynvis,bulkvis,btxx,btxy,btxz,btyy,btyz,btzz)
-      END SELECT
-  END SUBROUTINE CalculateStresses
-
 
   !> Sets soundspeeds at cell-centers
   PURE SUBROUTINE SetSoundSpeeds_center(this,Mesh,bccsound)

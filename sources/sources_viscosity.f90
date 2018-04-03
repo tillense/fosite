@@ -452,7 +452,7 @@ CONTAINS
     INTENT(OUT)       :: sterm
     !------------------------------------------------------------------------!
     CALL this%UpdateViscosity(Mesh,Physics,Fluxes,time,pvar,cvar)
-    CALL Physics%CalculateStresses(Mesh,pvar,this%dynvis,this%bulkvis, &
+    CALL Physics%CalcStresses_euler(Mesh,pvar,this%dynvis,this%bulkvis, &
              this%btxx,this%btxy,this%btxz,this%btyy,this%btyz,this%btzz)
     CALL Physics%ViscositySources(Mesh,pvar,this%btxx,this%btxy,this%btxz, &
              this%btyy,this%btyz,this%btzz,sterm)
