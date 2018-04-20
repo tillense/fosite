@@ -201,10 +201,10 @@ MODULE mesh_base_mod
     PROCEDURE, PUBLIC :: InitMesh
     PROCEDURE, PUBLIC :: Finalize
     PROCEDURE, PUBLIC :: InternalPoint
-    PROCEDURE (TensorDivergence3D), DEFERRED :: TensorDivergence3D
-    PROCEDURE (VectorDivergence3D), DEFERRED :: VectorDivergence3D
-    PROCEDURE (TensorDivergence2D_1), DEFERRED :: TensorDivergence2D_1
-    PROCEDURE (VectorDivergence2D_1), DEFERRED :: VectorDivergence2D_1
+    PROCEDURE (TensorDivergence3D), PUBLIC,  DEFERRED :: TensorDivergence3D
+    PROCEDURE (VectorDivergence3D), PUBLIC,  DEFERRED :: VectorDivergence3D
+    PROCEDURE (TensorDivergence2D_1), PUBLIC,  DEFERRED :: TensorDivergence2D_1
+    PROCEDURE (VectorDivergence2D_1), PUBLIC,  DEFERRED :: VectorDivergence2D_1
     GENERIC, PUBLIC :: DIVERGENCE => TensorDivergence3D, VectorDivergence3D, & 
                                      VectorDivergence2D_1, &! VectorDivergence2D_2, &
                                      TensorDivergence2D_1 !, TensorDivergence2D_2, &

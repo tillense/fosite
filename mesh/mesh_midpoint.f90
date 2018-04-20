@@ -487,8 +487,6 @@ CONTAINS
     CLASS(mesh_midpoint),INTENT(INOUT) :: this
     !------------------------------------------------------------------------!
     DEALLOCATE(this%dAx,this%dAy,this%dAz,this%dAxdydz,this%dAydzdx,this%dAzdxdy)
-    ! call basic mesh deconstructor
-    CALL this%Finalize()
   END SUBROUTINE Finalize
 
 END MODULE mesh_midpoint_mod

@@ -527,8 +527,7 @@ CONTAINS
                this%btxx,this%btyy,this%btzz,this%btxy,this%btxz,this%btyz)
     IF(this%use_envelope.EQ.1) &
       DEALLOCATE(this%envelope)
-    CALL this%CloseSources()
   END SUBROUTINE Close_Sources
- 
+
 
 END MODULE sources_viscosity_mod
