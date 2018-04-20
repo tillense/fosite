@@ -42,12 +42,12 @@ MODULE mesh_midpoint_mod
     PRIVATE
   CONTAINS
     PRIVATE
-      PROCEDURE :: VectorDivergence2D_1
+      PROCEDURE, PUBLIC :: VectorDivergence2D_1
 !      PROCEDURE :: VectorDivergence2D_2
-      PROCEDURE :: TensorDivergence2D_1
+      PROCEDURE, PUBLIC :: TensorDivergence2D_1
 !      PROCEDURE :: TensorDivergence2D_2
-      PROCEDURE :: TensorDivergence3D
-      PROCEDURE :: VectorDivergence3D
+      PROCEDURE, PUBLIC:: TensorDivergence3D
+      PROCEDURE, PUBLIC:: VectorDivergence3D
       PROCEDURE, PUBLIC :: InitMesh_midpoint
       PROCEDURE, PUBLIC :: Finalize
   END TYPE mesh_midpoint
