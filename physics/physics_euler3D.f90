@@ -320,8 +320,8 @@ CONTAINS
           ! compute Roe averaged wave speeds
 !CDIR IEXPAND
           CALL SetWaveSpeeds(csRoe,uRoe,aminRoe,amaxRoe)
-          minwav(i,j,k,3) = MIN(aminRoe,this%tmp4(i,j,k+1),minwav(i,j,k,2))
-          maxwav(i,j,k,3) = MAX(amaxRoe,this%tmp5(i,j,k+1),maxwav(i,j,k,2))
+          minwav(i,j,k,3) = MIN(aminRoe,this%tmp4(i,j,k+1),minwav(i,j,k,3))
+          maxwav(i,j,k,3) = MAX(amaxRoe,this%tmp5(i,j,k+1),maxwav(i,j,k,3))
         END DO
       END DO
     END DO
@@ -352,8 +352,8 @@ CONTAINS
 !CDIR NODEP
         DO i=Mesh%IGMIN,Mesh%IGMAX
           ! southern & northern interfaces
-          minwav(i,j,k,3) = MIN(this%tmp4(i,j,k+1),minwav(i,j,k,2))
-          maxwav(i,j,k,3) = MAX(this%tmp5(i,j,k+1),maxwav(i,j,k,2))
+          minwav(i,j,k,3) = MIN(this%tmp4(i,j,k+1),minwav(i,j,k,3))
+          maxwav(i,j,k,3) = MAX(this%tmp5(i,j,k+1),maxwav(i,j,k,3))
         END DO
       END DO
     END DO
