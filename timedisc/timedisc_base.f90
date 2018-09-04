@@ -404,10 +404,9 @@ CONTAINS
       END IF
 #endif
     END IF
-
     ! print some information
-    WRITE (order_str, '(I0)') GetOrder(this)
-    WRITE (cfl_str, '(F4.2)') GetCFL(this)
+    WRITE (order_str, '(I0)') this%GetOrder()
+    WRITE (cfl_str, '(F4.2)') this%GetCFL()
     WRITE (stoptime_str, '(ES10.4)') this%stoptime
     WRITE (dtmax_str, '(ES10.4)') this%dtmax
     WRITE (beta_str, '(ES10.4)') this%beta
@@ -545,7 +544,7 @@ CONTAINS
     ! write bfluxes
     CALL GetAttr(config, "output/" // "bflux", valwrite, 0)
     IF(valwrite.EQ.1) THEN
-        ALLOCATE(this%bflux(Physics%VNUM,4))
+        ALLOCATE(this%bflux(Physics%VNUM,6))
         CALL SetAttr(IO, "bflux", this%bflux)
     ELSE
         NULLIFY(this%bflux)
@@ -772,6 +771,7 @@ CONTAINS
     this%cold(:,:,:,:) = this%cvar(:,:,:,:)
     Fluxes%bxfold(:,:,:,:) = Fluxes%bxflux(:,:,:,:)
     Fluxes%byfold(:,:,:,:) = Fluxes%byflux(:,:,:,:)
+    Fluxes%bzfold(:,:,:,:) = Fluxes%bzflux(:,:,:,:)
     iter = iter + 1
   END SUBROUTINE AcceptSolution
 
@@ -793,6 +793,7 @@ CONTAINS
       this%cvar,CHECK_NOTHING,this%rhs)
     Fluxes%bxflux(:,:,:,:) = Fluxes%bxfold(:,:,:,:)
     Fluxes%byflux(:,:,:,:) = Fluxes%byfold(:,:,:,:)
+    Fluxes%bzflux(:,:,:,:) = Fluxes%bzfold(:,:,:,:)
     ! count adjustments for information
     this%n_adj = this%n_adj + 1
     this%dtcause = DTCAUSE_ERRADJ
@@ -966,7 +967,7 @@ CONTAINS
       DO k=Mesh%KMIN,Mesh%KMAX
         DO i=Mesh%IMIN,Mesh%IMAX
           ! southern and northern boundary fluxes
-          rhs(i,Mesh%JMIN-Mesh%Jp1,k,l) = Mesh%dz*Mesh%dx * this%yfluxdzdx(i,Mesh%JMIN-1,k,l)
+          rhs(i,Mesh%JMIN-Mesh%Jp1,k,l) = Mesh%dz*Mesh%dx * this%yfluxdzdx(i,Mesh%JMIN-Mesh%Jp1,k,l)
           rhs(i,Mesh%JMAX+Mesh%Jp1,k,l) = -Mesh%dz*Mesh%dx * this%yfluxdzdx(i,Mesh%JMAX,k,l)
         END DO
       END DO
@@ -1009,7 +1010,7 @@ CONTAINS
         END DO
       END DO
 
-    CASE(1)
+   CASE(1)
 !    grav => GetSourcesPointer(Physics%Sources, GRAVITY)
 !    NULLIFY(pot)
 !    IF(ASSOCIATED(grav)) THEN

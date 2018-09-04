@@ -478,8 +478,8 @@ CONTAINS
       END DO
     END DO
 !CDIR COLLAPSE
-    DO k=Mesh%KGMIN-1,Mesh%KGMAX
-      DO j=Mesh%JMIN,Mesh%JMAX
+    DO k=Mesh%KMIN-1,Mesh%KMAX
+      DO j=Mesh%JGMIN,Mesh%JGMAX
 !CDIR NODEP
         DO i=Mesh%IGMIN,Mesh%IGMAX
           ! topper & bottomer interfaces
@@ -491,8 +491,8 @@ CONTAINS
           ! compute Roe averaged wave speeds
 !CDIR IEXPAND
           CALL SetWaveSpeeds(this%fcsound(i,j,k,6),uRoe,aminRoe,amaxRoe)
-          minwav(i,j,k,3) = MIN(aminRoe,this%tmp3(i,j,k+1),minwav(i,j,k,2))
-          maxwav(i,j,k,3) = MAX(amaxRoe,this%tmp4(i,j,k+1),maxwav(i,j,k,2))
+          minwav(i,j,k,3) = MIN(aminRoe,this%tmp4(i,j,k+1),minwav(i,j,k,3))
+          maxwav(i,j,k,3) = MAX(amaxRoe,this%tmp5(i,j,k+1),maxwav(i,j,k,3))
         END DO
       END DO
     END DO

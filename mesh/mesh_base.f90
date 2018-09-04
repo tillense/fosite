@@ -124,7 +124,7 @@ MODULE mesh_base_mod
     INTEGER           :: KGMIN,KGMAX       !< minimal & maximal index in z-direction with ghost cells
     INTEGER           :: NDIMS              !< amount of dimension, 1 (1D), 2 (2D), 3 (3D)
     INTEGER           :: NFACES            !< amount of faces, 2 (1D), 4 (2D), 6 (3D)
-    INTEGER           :: NCORNERS          !< amount of faces, 2 (1D), 4 (2D), 8 (3D)
+    INTEGER           :: NCORNERS          !< amount of corners, 2 (1D), 4 (2D), 8 (3D)
     INTEGER           :: Ip1,Ip2,Im1,Im2   !< access indices, which might become zero without x-dim
     INTEGER           :: Jp1,Jp2,Jm1,Jm2   !< access indices, which might become zero without y-dim
     INTEGER           :: Kp1,Kp2,Km1,Km2   !< access indices, which might become zero without z-dim
@@ -374,7 +374,7 @@ CONTAINS
     ELSE IF  & ! case 3D
       (((this%INUM.GT.1).AND.(this%JNUM.GT.1)).AND.(this%KNUM.GT.1)) THEN
       this%NFACES = 6
-      this%NCORNERS = 6
+      this%NCORNERS = 8
       this%NDIMS = 3
     ELSE
       CALL this%Error("InitMesh","Cell numbering is not allowed.")
@@ -500,7 +500,7 @@ CONTAINS
     cfaces(4,3) =  0.0           ! northern z coordinate
     cfaces(5,1) =  0.0           ! bottom   x coordinate
     cfaces(5,2) =  0.0           ! bottom   y coordinate
-    cfaces(5,3) =  -0.5*mesh_dz  ! bottom   z coordinate
+    cfaces(5,3) = -0.5*mesh_dz   ! bottom   z coordinate
     cfaces(6,1) =  0.0           ! top      x coordinate
     cfaces(6,2) =  0.0           ! top      y coordinate
     cfaces(6,3) =  0.5*mesh_dz   ! top      z coordinate
@@ -708,7 +708,7 @@ CONTAINS
     !Set OutputDict
     CALL GetAttr(config, "output/corners", writefields, 1)
     IF((writefields.EQ.1).AND.ASSOCIATED(this%ccart)) &
-        !CALL SetAttr(IO,"corners",this%ccart(this%IMIN:this%IMAX,this%JMIN:this%JMAX,this%KMIN:this%KMAX,:,:))
+        !CALL SetAttr(IO,"corners",this%ccart(this%IGMIN:this%IGMAX,this%JGMIN:this%JGMAX,this%KGMIN:this%KGMAX,:,:))
 !                      Dict("name" / "coordinates:corners"))
 
     CALL GetAttr(config, "output/grid", writefields, 1)
@@ -870,8 +870,8 @@ CONTAINS
           ! compare the curvilinear coordinates at the boundaries of the masked region
           ! with the transformed coordinates of the given point
           IF ((x.GE.this%curv%faces(imin,jmin,kmin,1,1).AND.x.LE.this%curv%faces(imax,jmax,kmax,2,1)).AND. &
-              (y.GE.this%curv%faces(imin,jmin,kmin,1,2).AND.x.LE.this%curv%faces(imax,jmax,kmax,2,2)).AND. &
-              (z.GE.this%curv%faces(imin,jmin,kmin,1,3).AND.x.LE.this%curv%faces(imax,jmax,kmax,2,3))) THEN
+              (y.GE.this%curv%faces(imin,jmin,kmin,1,2).AND.y.LE.this%curv%faces(imax,jmax,kmax,2,2)).AND. &
+              (z.GE.this%curv%faces(imin,jmin,kmin,1,3).AND.z.LE.this%curv%faces(imax,jmax,kmax,2,3))) THEN
              ip = .TRUE.
           END IF
        END IF
@@ -1255,7 +1255,7 @@ CONTAINS
     IF (PRESENT(n)) THEN
        n_def = n
     ELSE
-       ! dimension defaults to 2
+       ! dimension defaults to 3
        n_def = 3
     END IF
     ALLOCATE(ma%data(this%IGMIN:this%IGMAX,this%JGMIN:this%JGMAX,this%KGMIN:this%KGMAX,(1+1+6+8),n_def),STAT=err)
@@ -1284,7 +1284,7 @@ CONTAINS
     IF (PRESENT(n)) THEN
        n_def = n
     ELSE
-       ! dimension defaults to 2
+       ! dimension defaults to 3
        n_def = 3
     END IF
     ALLOCATE(ma%data(this%IGMIN:this%IGMAX,this%JGMIN:this%JGMAX,this%KGMIN:this%KGMAX,(1+1+6+8),n_def,n_def),STAT=err)
@@ -1431,7 +1431,7 @@ CONTAINS
     IF (.NOT.this%Initialized()) &
         CALL this%Error("CloseMesh","not initialized")
 
-    DO i=1,4
+    DO i=1,6
        IF (this%comm_boundaries(i).NE.MPI_COMM_NULL) &
           CALL MPI_Comm_free(this%comm_boundaries(i),ierror)
     END DO

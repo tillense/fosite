@@ -311,9 +311,9 @@ CONTAINS
           CALL SetRoeAverages( &
             this%gamma, &
             prim(i,j,k,6,this%DENSITY),prim(i,j,k+1,5,this%DENSITY), &
-            prim(i,j,k,6,this%YVELOCITY),prim(i,j,k+1,5,this%YVELOCITY), &
-            prim(i,j,k,6,this%XVELOCITY),prim(i,j,k+1,5,this%XVELOCITY), &
             prim(i,j,k,6,this%ZVELOCITY),prim(i,j,k+1,5,this%ZVELOCITY), &
+            prim(i,j,k,6,this%XVELOCITY),prim(i,j,k+1,5,this%XVELOCITY), &
+            prim(i,j,k,6,this%YVELOCITY),prim(i,j,k+1,5,this%YVELOCITY), &
             prim(i,j,k,6,this%PRESSURE),prim(i,j,k+1,5,this%PRESSURE), &
             cons(i,j,k,6,this%ENERGY),cons(i,j,k+1,5,this%ENERGY), &
             uRoe,csRoe)
@@ -426,17 +426,12 @@ CONTAINS
     !------------------------------------------------------------------------!
 !CDIR IEXPAND
     CALL SetFlux( &
-         prim(:,:,:,nmin:nmax,this%DENSITY),      &
-         prim(:,:,:,nmin:nmax,this%ZVELOCITY),    &
-         prim(:,:,:,nmin:nmax,this%PRESSURE),     &
-         cons(:,:,:,nmin:nmax,this%ZMOMENTUM),    &
-         cons(:,:,:,nmin:nmax,this%XMOMENTUM),    &
-         cons(:,:,:,nmin:nmax,this%YMOMENTUM),    &
-         cons(:,:,:,nmin:nmax,this%ENERGY),       &
-         zfluxes(:,:,:,nmin:nmax,this%DENSITY),   &
-         zfluxes(:,:,:,nmin:nmax,this%ZMOMENTUM), &
-         zfluxes(:,:,:,nmin:nmax,this%XMOMENTUM), &
-         zfluxes(:,:,:,nmin:nmax,this%YMOMENTUM), &
+         prim(:,:,:,nmin:nmax,this%DENSITY),prim(:,:,:,nmin:nmax,this%ZVELOCITY),    &
+         prim(:,:,:,nmin:nmax,this%PRESSURE),cons(:,:,:,nmin:nmax,this%ZMOMENTUM),    &
+         cons(:,:,:,nmin:nmax,this%XMOMENTUM),cons(:,:,:,nmin:nmax,this%YMOMENTUM),    &
+         cons(:,:,:,nmin:nmax,this%ENERGY),   &
+         zfluxes(:,:,:,nmin:nmax,this%DENSITY),zfluxes(:,:,:,nmin:nmax,this%ZMOMENTUM), &
+         zfluxes(:,:,:,nmin:nmax,this%XMOMENTUM),zfluxes(:,:,:,nmin:nmax,this%YMOMENTUM), &
          zfluxes(:,:,:,nmin:nmax,this%ENERGY))
   END SUBROUTINE CalcFluxesZ
 
@@ -463,8 +458,9 @@ CONTAINS
     !------------------------------------------------------------------------!
     INTEGER                            :: i,j,k
     !------------------------------------------------------------------------!
-    DO k=Mesh%KMIN,Mesh%KMAX
-      DO j=Mesh%JMIN,Mesh%JMAX
+    !In Fosite 2D sind die Grenzen anders...warum?
+    DO k=Mesh%KGMIN,Mesh%KGMAX
+      DO j=Mesh%JGMIN,Mesh%JGMAX
 !CDIR NODEP
         DO i=Mesh%IMIN-1,Mesh%IMAX
 !CDIR IEXPAND
@@ -555,8 +551,8 @@ CONTAINS
     INTEGER                               :: i,j,k
     !------------------------------------------------------------------------!
 !CDIR COLLAPSE
-    DO k=Mesh%KGMIN,Mesh%KGMAX
-      DO j=Mesh%JMIN-1,Mesh%JMAX
+    DO k=Mesh%KMIN-1,Mesh%KMAX
+      DO j=Mesh%JGMIN,Mesh%JGMAX
 !CDIR NODEP
         DO i=Mesh%IGMIN,Mesh%IGMAX
 !CDIR IEXPAND
@@ -568,8 +564,8 @@ CONTAINS
                prim(i,j,k,6,this%PRESSURE),prim(i,j,k+1,5,this%PRESSURE),   &
                cons(i,j,k,6,this%ENERGY),cons(i,j,k+1,5,this%ENERGY),       &
                cmin(i,j,k),cmax(i,j,k),                             &
-               cstar(i,j,k,this%DENSITY),cstar(i,j,k,this%YMOMENTUM),       &
-               cstar(i,j,k,this%ZMOMENTUM),cstar(i,j,k,this%XMOMENTUM),     &
+               cstar(i,j,k,this%DENSITY),cstar(i,j,k,this%ZMOMENTUM),       &
+               cstar(i,j,k,this%XMOMENTUM),cstar(i,j,k,this%YMOMENTUM),     &
                cstar(i,j,k,this%ENERGY),bstar(i,j,k))
         END DO
       END DO
@@ -1147,8 +1143,8 @@ CONTAINS
               pvar(i,j,k,this%PRESSURE), &
               Mesh%cxyx%bcenter(i,j,k), &
               Mesh%cyxy%bcenter(i,j,k), &
-              Mesh%czxz%bcenter(i,j,k), &
-              Mesh%cyzy%bcenter(i,j,k))
+              Mesh%czyz%bcenter(i,j,k), & !\TODO: aus symmetrie-gründen müsste hier czyz stehen
+              Mesh%cyzy%bcenter(i,j,k))   !vorher stand dort czxz
           sterm(i,j,k,this%ZMOMENTUM) = MomentumSourcesZ( &
               cvar(i,j,k,this%XMOMENTUM), &
               cvar(i,j,k,this%YMOMENTUM), &
@@ -1734,7 +1730,7 @@ CONTAINS
     reflX(this%DENSITY)   = .FALSE.
     reflX(this%XVELOCITY) = .TRUE.
     reflX(this%YVELOCITY) = .FALSE.
-    reflZ(this%ZVELOCITY) = .FALSE.
+    reflX(this%ZVELOCITY) = .FALSE.
     reflX(this%PRESSURE)  = .FALSE.
     ! southern / northern boundary
     reflY(this%DENSITY)   = .FALSE.
