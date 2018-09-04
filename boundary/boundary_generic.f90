@@ -786,7 +786,7 @@ CONTAINS
           END DO
         END IF
       ELSE
-        print *, 'No Setting for corner-GC found! Only for 2D implemented!'
+        CALL this%warning('CenterBoundary', 'No Setting for corner-GC found! Only for 2D implemented!')
       END IF
       ! TODO Ghost cells have to to set for 3D
 
