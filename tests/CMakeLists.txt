@@ -4,6 +4,7 @@ set (EXES
   sedov2d
   sedov3d
   KHI3
+  KHI2D
   vortex3d
 #  bondi2d
 #  bondi3d
@@ -13,7 +14,7 @@ set (EXES
 #  ode
 #  pringle
 #  riemann1d
-#  riemann2d
+  riemann2d
 #  riemann3d
 #  rngtest
 #  RTI
