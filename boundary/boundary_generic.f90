@@ -679,7 +679,9 @@ CONTAINS
                  + pvar(Mesh%IMAX,Mesh%JMIN-j,:,:))
           END DO
         END IF
-      ELSE IF (Mesh%INUM.EQ.1.AND.Mesh%GNUM.NE.1.AND.Mesh%KNUM.NE.1) THEN
+      ELSE IF (Mesh%INUM.EQ.1.AND.Mesh%JNUM.NE.1.AND.Mesh%KNUM.NE.1) THEN
+        !TODO: Hier hatte Jannes JNUM durch GNUM ersetzt...warum? evtl GJNUM
+        !gemeint?
          ! bottom south
         IF(this%Boundary(1)%p%PhysicalCorner) THEN
           DO j=1,Mesh%GJNUM
@@ -690,8 +692,8 @@ CONTAINS
             END DO
             ! interpolate diagonal corner ghost cell values from adjacent cells in
             ! both directions
-            pvar(:,Mesh%JMIN-j,Mesh%KMIN-k,:) = 0.5 * (pvar(Mesh%IMIN-j,Mesh%JMIN,:,:) &
-                 + pvar(:,Mesh%JMIN-j,Mesh%KMIN,:))
+            pvar(:,Mesh%JMIN-j,Mesh%KMIN-k,:) = 0.5 * (pvar(:,Mesh%JMIN,Mesh%KMIN-j,:) &
+                 + pvar(:,Mesh%JMIN-j,Mesh%KMIN,:))  !hier habe ich was korrigiert! Ist das richtig?
           END DO
         END IF
 
@@ -711,7 +713,7 @@ CONTAINS
         IF(this%Boundary(2)%p%PhysicalCorner) THEN
           DO j=1,Mesh%GJNUM
             DO k=j+1,Mesh%GKNUM
-              pvar(:,Mesh%JMAX+j,Mesh%KMAX+k,:) = pvar(:,Mesh%JMAX+j-1,Mesh%KMAX+i,:)
+              pvar(:,Mesh%JMAX+j,Mesh%KMAX+k,:) = pvar(:,Mesh%JMAX+j-1,Mesh%KMAX+k,:)
               pvar(:,Mesh%JMAX+k,Mesh%KMAX+j,:) = pvar(:,Mesh%JMAX+k,Mesh%KMAX+j-1,:)
             END DO
             pvar(:,Mesh%JMAX+j,Mesh%KMAX+j,:) = 0.5 * (pvar(:,Mesh%JMAX,Mesh%KMAX+j,:) &
@@ -730,7 +732,9 @@ CONTAINS
                  + pvar(:,Mesh%JMIN-j,Mesh%KMAX,:))
           END DO
         END IF
-      ELSE IF (Mesh%GNUM.EQ.1.AND.Mesh%INUM.NE.1.AND.Mesh%KNUM.NE.1) THEN
+      ELSE IF (Mesh%JNUM.EQ.1.AND.Mesh%INUM.NE.1.AND.Mesh%KNUM.NE.1) THEN
+        !TODO: Hier hatte Jannes JNUM durch GNUM ersetzt...warum? evtl GJNUM
+        !gemeint?
          ! bottom west
         IF(this%Boundary(1)%p%PhysicalCorner) THEN
           DO i=1,Mesh%GINUM
@@ -751,7 +755,7 @@ CONTAINS
           DO i=1,Mesh%GINUM
             DO k=i+1,Mesh%GKNUM
               pvar(Mesh%IMAX+i,:,Mesh%KMIN-k,:) = pvar(Mesh%IMAX+i-1,:,Mesh%KMIN-k,:)
-              pvar(Mesh%IMAX+i,:,Mesh%KMIN-i,:) = pvar(Mesh%IMAX+k,:,Mesh%KMIN-i+1,:)
+              pvar(Mesh%IMAX+k,:,Mesh%KMIN-i,:) = pvar(Mesh%IMAX+k,:,Mesh%KMIN-i+1,:)
             END DO
             pvar(Mesh%IMAX+i,:,Mesh%KMIN-i,:) = 0.5 * (pvar(Mesh%IMAX,:,Mesh%KMIN-i,:) &
                  + pvar(Mesh%IMAX+i,:,Mesh%KMIN,:))
@@ -762,8 +766,8 @@ CONTAINS
         IF(this%Boundary(2)%p%PhysicalCorner) THEN
           DO i=1,Mesh%GJNUM
             DO k=i+1,Mesh%GKNUM
-              pvar(Mesh%IMAX+i,:,Mesh%KMAX+k,:) = pvar(Mesh%IMAX+i-1,:,Mesh%KMAX+i,:)
-              pvar(Mesh%IMAX+i,:,Mesh%KMAX+i,:) = pvar(Mesh%IMAX+i,:,Mesh%KMAX+i-1,:)
+              pvar(Mesh%IMAX+i,:,Mesh%KMAX+k,:) = pvar(Mesh%IMAX+i-1,:,Mesh%KMAX+k,:)
+              pvar(Mesh%IMAX+k,:,Mesh%KMAX+i,:) = pvar(Mesh%IMAX+k,:,Mesh%KMAX+i-1,:)
             END DO
             pvar(Mesh%IMAX+i,:,Mesh%KMAX+i,:) = 0.5 * (pvar(Mesh%IMAX,:,Mesh%KMAX+i,:) &
                  + pvar(Mesh%IMAX+i,:,Mesh%KMAX,:))
@@ -781,6 +785,8 @@ CONTAINS
                  + pvar(Mesh%IMIN-i,:,Mesh%KMAX,:))
           END DO
         END IF
+      ELSE
+        print *, 'No Setting for corner-GC found! Only for 2D implemented!'
       END IF
       ! TODO Ghost cells have to to set for 3D
 
