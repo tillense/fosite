@@ -10,7 +10,7 @@ add_library(boundary
 #  boundary_extrapolation.f90
   boundary_reflecting.f90
   boundary_generic.f90
-#  boundary_absorbing.f90
+  boundary_absorbing.f90
 #  boundary_folded.f90
   boundary_periodic.f90
   boundary_base.f90

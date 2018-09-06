@@ -73,7 +73,7 @@ CONTAINS
   PURE SUBROUTINE SetBoundaryData(this,Mesh,Physics,pvar)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(boundary_periodic), INTENT(IN) :: this
+    CLASS(boundary_periodic), INTENT(INOUT) :: this
     CLASS(mesh_base),         INTENT(IN) :: Mesh
     CLASS(physics_base),      INTENT(IN) :: Physics
     REAL :: pvar(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%vnum)

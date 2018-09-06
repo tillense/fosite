@@ -82,10 +82,12 @@ MODULE physics_euler2Dit_mod
     PROCEDURE :: ReflectionMasks                      ! for reflecting boundaries
 !    PROCEDURE :: CalcIntermediateStateX_euler2Dit    ! for HLLC
 !    PROCEDURE :: CalcIntermediateStateY_euler2Dit    ! for HLLC
-!    PROCEDURE :: CalcCharSystemX_euler2Dit           ! for absorbing boundaries
-!    PROCEDURE :: CalcCharSystemY_euler2Dit           ! for absorbing boundaries
-!    PROCEDURE :: CalcBoundaryDataX_euler2Dit         ! for absorbing boundaries
-!    PROCEDURE :: CalcBoundaryDataY_euler2Dit         ! for absorbing boundaries
+    PROCEDURE :: CalculateCharSystemX           ! for absorbing boundaries
+    PROCEDURE :: CalculateCharSystemY           ! for absorbing boundaries
+    PROCEDURE :: CalculateCharSystemZ           ! for absorbing boundaries
+    PROCEDURE :: CalculateBoundaryDataX         ! for absorbing boundaries
+    PROCEDURE :: CalculateBoundaryDataY         ! for absorbing boundaries
+    PROCEDURE :: CalculateBoundaryDataZ         ! for absorbing boundaries
 !    PROCEDURE :: CalcPrim2RiemannX_euler2Dit         ! for farfield boundaries
 !    PROCEDURE :: CalcPrim2RiemannY_euler2Dit         ! for farfield boundaries
 !    PROCEDURE :: CalcRiemann2PrimX_euler2Dit         ! for farfield boundaries
@@ -98,9 +100,7 @@ MODULE physics_euler2Dit_mod
     PROCEDURE :: ViscositySources
     PROCEDURE :: ViscositySources_euler2Dit
     PROCEDURE :: CalcStresses_euler
-!    PROCEDURE :: SetEigenValues_euler2Dit
-!    PROCEDURE :: SetBoundaryData_euler2Dit
-!    PROCEDURE :: SetCharVars_euler2Dit
+
 !    PROCEDURE :: CalcFlux_euler2Dit, &
 !    MomentumSourcesX_euler2Dit, &
 !    MomentumSourcesY_euler2Dit, &
@@ -114,7 +114,10 @@ MODULE physics_euler2Dit_mod
        ! types
        physics_euler2Dit, &
        ! global elemental procedures
-       CalcGeometricalSources
+       CalcGeometricalSources, &
+       SetEigenValues, &
+        SetBoundaryData, &
+        SetCharVars
   !--------------------------------------------------------------------------!
 
 CONTAINS
@@ -943,6 +946,273 @@ CONTAINS
     mu = rho_in * u
     mv = rho_in * v
   END SUBROUTINE Prim2Cons
+
+  PURE SUBROUTINE CalculateCharSystemX(this,Mesh,i,dir,pvar,lambda,xvar)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(Physics_euler2dit), INTENT(IN):: this
+    CLASS(Mesh_base), INTENT(IN)   :: Mesh
+    INTEGER, INTENT(IN)          :: i,dir
+    REAL, INTENT(IN), &
+      DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM) :: pvar
+    REAL, &
+      DIMENSION(Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM),INTENT(OUT) :: lambda
+    REAL, INTENT(OUT), &
+      DIMENSION(Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM) :: xvar
+    !------------------------------------------------------------------------!
+    INTEGER           :: i1,i2
+    !------------------------------------------------------------------------!
+    ! compute eigenvalues at i
+    CALL SetEigenValues( &
+          this%bccsound(i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX), &
+          pvar(i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,this%XVELOCITY), &
+          lambda(Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,1), &
+          lambda(Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,2), &
+          lambda(Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,3))
+    ! compute characteristic variables using cell mean values of adjacent
+    ! cells to calculate derivatives and the isothermal speed of sound
+    ! at the intermediate cell face
+    i1 = i + SIGN(1,dir) ! left handed if dir<0 and right handed otherwise
+    i2 = MAX(i,i1)
+    i1 = MIN(i,i1)
+    CALL SetCharVars( &
+          this%fcsound(i2,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,WEST), &
+          pvar(i1,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,this%DENSITY), &
+          pvar(i2,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,this%DENSITY), &
+          pvar(i1,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,this%XVELOCITY), &
+          pvar(i2,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,this%XVELOCITY), &
+          pvar(i1,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,this%YVELOCITY), &
+          pvar(i2,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,this%YVELOCITY), &
+          xvar(Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,1), &
+          xvar(Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,2), &
+          xvar(Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,3))
+  END SUBROUTINE CalculateCharSystemX
+
+
+  PURE SUBROUTINE CalculateCharSystemY(this,Mesh,j,dir,pvar,lambda,xvar)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(Physics_euler2dit),INTENT(IN) :: this
+    CLASS(Mesh_base),INTENT(IN)    :: Mesh
+    INTEGER,INTENT(IN)             :: j,dir
+    REAL, INTENT(IN), &
+       DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM) :: pvar
+    REAL, &
+       DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM),INTENT(OUT) :: lambda
+    REAL, INTENT(OUT), &
+       DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM) :: xvar
+    !------------------------------------------------------------------------!
+    INTEGER           :: j1,j2
+    !------------------------------------------------------------------------!
+    ! compute eigenvalues at j
+    CALL SetEigenValues(this%bccsound(Mesh%IMIN:Mesh%IMAX,j,Mesh%KMIN:Mesh%KMAX), &
+          pvar(Mesh%IMIN:Mesh%IMAX,j,Mesh%KMIN:Mesh%KMAX,this%YVELOCITY), &
+          lambda(Mesh%IMIN:Mesh%IMAX,Mesh%KMIN:Mesh%KMAX,1), &
+          lambda(Mesh%IMIN:Mesh%IMAX,Mesh%KMIN:Mesh%KMAX,2), &
+          lambda(Mesh%IMIN:Mesh%IMAX,Mesh%KMIN:Mesh%KMAX,3))
+    ! compute characteristic variables using cell mean values of adjacent
+    ! cells to calculate derivatives and the isothermal speed of sound
+    ! at the intermediate cell face
+    j1 = j + SIGN(1,dir) ! left handed if dir<0 and right handed otherwise
+    j2 = MAX(j,j1)
+    j1 = MIN(j,j1)
+    CALL SetCharVars(this%fcsound(Mesh%IMIN:Mesh%IMAX,j2,Mesh%KMIN:Mesh%KMAX,SOUTH), &
+          pvar(Mesh%IMIN:Mesh%IMAX,j1,Mesh%KMIN:Mesh%KMAX,this%DENSITY), &
+          pvar(Mesh%IMIN:Mesh%IMAX,j2,Mesh%KMIN:Mesh%KMAX,this%DENSITY), &
+          pvar(Mesh%IMIN:Mesh%IMAX,j1,Mesh%KMIN:Mesh%KMAX,this%YVELOCITY), &
+          pvar(Mesh%IMIN:Mesh%IMAX,j2,Mesh%KMIN:Mesh%KMAX,this%YVELOCITY), &
+          pvar(Mesh%IMIN:Mesh%IMAX,j1,Mesh%KMIN:Mesh%KMAX,this%XVELOCITY), &
+          pvar(Mesh%IMIN:Mesh%IMAX,j2,Mesh%KMIN:Mesh%KMAX,this%XVELOCITY), &
+          xvar(Mesh%IMIN:Mesh%IMAX,Mesh%KMIN:Mesh%KMAX,1), &
+          xvar(Mesh%IMIN:Mesh%IMAX,Mesh%KMIN:Mesh%KMAX,2), &
+          xvar(Mesh%IMIN:Mesh%IMAX,Mesh%KMIN:Mesh%KMAX,3))
+  END SUBROUTINE CalculateCharSystemY
+
+
+  PURE SUBROUTINE CalculateCharSystemZ(this,Mesh,k,dir,pvar,lambda,xvar)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(Physics_euler2dit), INTENT(IN):: this
+    CLASS(Mesh_base), INTENT(IN)   :: Mesh
+    INTEGER, INTENT(IN)          :: k,dir
+    REAL, INTENT(IN), &
+      DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM) :: pvar
+    REAL, &
+       DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,this%VNUM),INTENT(OUT) :: lambda
+    REAL, INTENT(OUT), & 
+     DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,this%VNUM) :: xvar
+    !------------------------------------------------------------------------!
+    INTEGER           :: k1,k2
+    !------------------------------------------------------------------------!
+    !TODO: Should not exist in 2D !
+    ! compute eigenvalues at k
+!    CALL SetEigenValues(this%bccsound(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k), &
+!          pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k,this%ZVELOCITY), &
+!          lambda(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,1), &
+!          lambda(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,2), &
+!          lambda(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,3))
+!    ! compute characteristic variables using cell mean values of adjacent
+!    ! cells to calculate derivatives and the isothermal speed of sound
+!    ! at the intermediate cell face
+!    k1 = k + SIGN(1,dir) ! left handed if dir<0 and right handed otherwise
+!    k2 = MAX(k,k1)
+!    k1 = MIN(k,k1)
+!    CALL SetCharVars(this%fcsound(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k2,BOTTOM), &
+!          pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k1,this%DENSITY), &
+!          pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k2,this%DENSITY), &
+!          pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k1,this%YVELOCITY), &
+!          pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k2,this%YVELOCITY), &
+!          pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k1,this%XVELOCITY), &
+!          pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k2,this%XVELOCITY), &
+!          xvar(Mesh%IMIN:Mesh%IMAX,Mesh%KMIN:Mesh%KMAX,1), &
+!          xvar(Mesh%IMIN:Mesh%IMAX,Mesh%KMIN:Mesh%KMAX,2), &
+!          xvar(Mesh%IMIN:Mesh%IMAX,Mesh%KMIN:Mesh%KMAX,3))
+  END SUBROUTINE CalculateCharSystemZ
+
+  PURE SUBROUTINE CalculateBoundaryDataX(this,Mesh,i1,dir,xvar,pvar)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(Physics_euler2dit), INTENT(IN):: this
+    CLASS(Mesh_base), INTENT(IN)   :: Mesh
+    INTEGER, INTENT(IN)          :: i1,dir
+    REAL, INTENT(IN), &
+      DIMENSION(Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM) :: xvar
+    REAL, INTENT(INOUT), &
+      DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM) :: pvar
+    !------------------------------------------------------------------------!
+    INTEGER           :: i2,fidx
+    !------------------------------------------------------------------------!
+    i2 = i1 + SIGN(1,dir)  ! i +/- 1 depending on the sign of dir
+    IF (i2.LT.i1) THEN
+       fidx = WEST
+    ELSE
+       fidx = EAST
+    END IF
+    CALL SetBoundaryData( &
+          this%fcsound(i1,Mesh%JMIN:Mesh%JMAX,Mesh%KGMIN:Mesh%KGMAX,fidx), &
+          1.0*SIGN(1,dir), &
+          pvar(i1,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,this%DENSITY), &
+          pvar(i1,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,this%XVELOCITY), &
+          pvar(i1,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,this%YVELOCITY), &
+          xvar(Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,1), &
+          xvar(Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,2), &
+          xvar(Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,3), &
+          pvar(i2,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,this%DENSITY), &
+          pvar(i2,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,this%XVELOCITY), &
+          pvar(i2,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,this%YVELOCITY))
+  END SUBROUTINE CalculateBoundaryDataX
+
+
+  PURE SUBROUTINE CalculateBoundaryDataY(this,Mesh,j1,dir,xvar,pvar)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(Physics_euler2Dit), INTENT(IN):: this
+    CLASS(Mesh_base), INTENT(IN)   :: Mesh
+    INTEGER, INTENT(IN)          :: j1,dir
+    REAL, INTENT(IN), &
+      DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM) :: xvar
+    REAL, INTENT(INOUT), &
+      DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM) :: pvar
+    !------------------------------------------------------------------------!
+    INTEGER           :: j2,fidx
+    !------------------------------------------------------------------------!
+    j2 = j1 + SIGN(1,dir)  ! j +/- 1 depending on the sign of dir
+    IF (j2.LT.j1) THEN
+       fidx = SOUTH
+    ELSE
+       fidx = NORTH
+    END IF
+    CALL SetBoundaryData( &
+          this%fcsound(Mesh%IMIN:Mesh%IMAX,j1,Mesh%KMIN:Mesh%KMAX,fidx), &
+          1.0*SIGN(1,dir), &
+          pvar(Mesh%IMIN:Mesh%IMAX,j1,Mesh%KMIN:Mesh%KMAX,this%DENSITY), &
+          pvar(Mesh%IMIN:Mesh%IMAX,j1,Mesh%KMIN:Mesh%KMAX,this%YVELOCITY), &
+          pvar(Mesh%IMIN:Mesh%IMAX,j1,Mesh%KMIN:Mesh%KMAX,this%XVELOCITY), &
+          xvar(Mesh%IMIN:Mesh%IMAX,Mesh%KMIN:Mesh%KMAX,1), &
+          xvar(Mesh%IMIN:Mesh%IMAX,Mesh%KMIN:Mesh%KMAX,2), &
+          xvar(Mesh%IMIN:Mesh%IMAX,Mesh%KMIN:Mesh%KMAX,3), &
+          pvar(Mesh%IMIN:Mesh%IMAX,j2,Mesh%KMIN:Mesh%KMAX,this%DENSITY), &
+          pvar(Mesh%IMIN:Mesh%IMAX,j2,Mesh%KMIN:Mesh%KMAX,this%YVELOCITY), &
+          pvar(Mesh%IMIN:Mesh%IMAX,j2,Mesh%KMIN:Mesh%KMAX,this%XVELOCITY))
+  END SUBROUTINE CalculateBoundaryDataY
+
+  PURE SUBROUTINE CalculateBoundaryDataZ(this,Mesh,k1,dir,xvar,pvar)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(Physics_euler2Dit), INTENT(IN):: this
+    CLASS(Mesh_base), INTENT(IN)   :: Mesh
+    INTEGER, INTENT(IN)          :: k1,dir
+    REAL, INTENT(IN), &
+      DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,this%VNUM) :: xvar
+    REAL, INTENT(INOUT), &
+      DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM) :: pvar
+    !------------------------------------------------------------------------!
+    INTEGER           :: k2,fidx
+    !------------------------------------------------------------------------!
+    !TODO: Should not exist in 2D !
+    !    k2 = k1 + SIGN(1,dir)  ! j +/- 1 depending on the sign of dir
+!    IF (k2.LT.k1) THEN
+!       fidx = BOTTOM
+!    ELSE
+!       fidx = TOP
+!    END IF
+!    CALL SetBoundaryData( &
+!          this%fcsound(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k1,fidx), &
+!          1.0*SIGN(1,dir), &
+!          pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k1,this%DENSITY), &
+!          pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k1,this%YVELOCITY), &
+!          pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k1,this%XVELOCITY), &
+!          xvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,1), &
+!          xvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,2), &
+!          xvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,3), &
+!          pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k2,this%DENSITY), &
+!          pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k2,this%YVELOCITY), &
+!          pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k2,this%XVELOCITY))
+  END SUBROUTINE CalculateBoundaryDataZ
+
+  ELEMENTAL SUBROUTINE SetEigenValues(cs,v,l1,l2,l3)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    REAL, INTENT(IN)  :: cs,v
+    REAL, INTENT(OUT) :: l1,l2,l3
+    !------------------------------------------------------------------------!
+    ! all eigenvalues of the isothermal euler problem
+    l1 = v - cs
+    l2 = v
+    l3 = v + cs
+  END SUBROUTINE SetEigenValues
+
+  ELEMENTAL SUBROUTINE SetCharVars(cs,rho1,rho2,u1,u2,v1,v2,&
+       xvar1,xvar2,xvar3)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    REAL, INTENT(IN)  :: cs,rho1,rho2,u1,u2,v1,v2
+    REAL, INTENT(OUT) :: xvar1,xvar2,xvar3
+    !------------------------------------------------------------------------!
+    REAL :: dlnrho,du
+    !------------------------------------------------------------------------!
+    dlnrho = LOG(rho2/rho1)
+    du = u2-u1
+    ! characteristic variables
+    xvar1 = cs*dlnrho - du
+    xvar2 = v2-v1
+    xvar3 = cs*dlnrho + du
+  END SUBROUTINE SetCharVars
+
+
+  ELEMENTAL SUBROUTINE SetBoundaryData(cs,dir,rho1,u1,v1,xvar1,xvar2, &
+       xvar3,rho2,u2,v2)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    REAL, INTENT(IN)  :: cs,dir,rho1,u1,v1,xvar1,xvar2,xvar3
+    REAL, INTENT(OUT) :: rho2,u2,v2
+    !------------------------------------------------------------------------!
+    ! extrapolate boundary values using characteristic variables
+    rho2 = rho1 * EXP(dir*0.5*(xvar3+xvar1)/cs)
+    u2   = u1 + dir*0.5*(xvar3-xvar1)
+    v2   = v1 + dir*xvar2
+  END SUBROUTINE SetBoundaryData
+
 
 !  ! TODO: Not verified
 !  !!

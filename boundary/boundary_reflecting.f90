@@ -86,7 +86,7 @@ CONTAINS
  PURE SUBROUTINE SetBoundaryData(this,Mesh,Physics,pvar)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(boundary_reflecting), INTENT(IN)    :: this
+    CLASS(boundary_reflecting), INTENT(INOUT)    :: this
     CLASS(mesh_base),           INTENT(IN)    :: Mesh
     CLASS(physics_base),        INTENT(IN)    :: Physics
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &

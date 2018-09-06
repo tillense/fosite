@@ -287,7 +287,6 @@ CONTAINS
 !    CASE(2)
 !      CALL FargoSubstractVelocity(this%Timedisc,this%Mesh,this%Physics)
 !    END SELECT
-
     ! do a complete update of all data
     CALL this%Timedisc%ComputeRHS(this%Mesh,this%Physics,this%Fluxes, &
          this%Timedisc%time,0.0,this%Timedisc%pvar,this%Timedisc%cvar, &

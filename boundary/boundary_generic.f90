@@ -50,6 +50,7 @@ MODULE boundary_generic_mod
   USE boundary_periodic_mod
   USE boundary_inner_mod
   USE boundary_axis_mod
+  USE boundary_absorbing_mod
   USE physics_base_mod
   USE common_dict
 #ifdef PARALLEL
@@ -171,6 +172,8 @@ CONTAINS
         ALLOCATE(boundary_periodic::this%Boundary(dir)%p)
       CASE(AXIS)
         ALLOCATE(boundary_axis::this%Boundary(dir)%p)
+      CASE(ABSORBING)
+        ALLOCATE(boundary_absorbing::this%Boundary(dir)%p)
 #ifdef PARALLEL
       CASE(NONE)
         ALLOCATE(boundary_inner::this%Boundary(dir)%p)
@@ -186,6 +189,8 @@ CONTAINS
         CALL obj%InitBoundary_periodic(Mesh,Physics,dir,config)
       TYPE IS (boundary_axis)
         CALL obj%InitBoundary_axis(Mesh,Physics,dir,config)
+      TYPE IS (boundary_absorbing)
+        CALL obj%InitBoundary_absorbing(Mesh,Physics,dir,config)
 #ifdef PARALLEL
       TYPE IS (boundary_inner)
         CALL obj%InitBoundary_inner(Mesh,Physics,dir,config)
@@ -325,7 +330,6 @@ CONTAINS
     !------------------------------------------------------------------------!
     CALL Physics%Convert2Primitive(Mesh,Mesh%IMIN,Mesh%IMAX,Mesh%JMIN, &
              Mesh%JMAX,Mesh%KMIN,Mesh%KMAX,cvar,pvar)
-
     ! set physical boundary conditions at western and eastern boundaries
     IF (Mesh%INUM.GT.1) THEN
       CALL this%Boundary(WEST)%p%SetBoundaryData(Mesh,Physics,pvar)
@@ -785,8 +789,8 @@ CONTAINS
                  + pvar(Mesh%IMIN-i,:,Mesh%KMAX,:))
           END DO
         END IF
-      ELSE
-        CALL this%warning('CenterBoundary', 'No Setting for corner-GC found! Only for 2D implemented!')
+      !ELSE
+      !  CALL this%warning('CenterBoundary', 'No Setting for corner-GC found! Only for 2D implemented!')
       END IF
       ! TODO Ghost cells have to to set for 3D
 
