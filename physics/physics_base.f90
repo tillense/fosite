@@ -703,8 +703,8 @@ CONTAINS
     REAL, INTENT(OUT) :: minwav,maxwav
     !------------------------------------------------------------------------!
     ! minimal and maximal wave speeds
-    minwav = v-cs
-    maxwav = v+cs
+    minwav = MIN(0.,v-cs)
+    maxwav = MAX(0.,v+cs)
   END SUBROUTINE SetWaveSpeeds
 
   !> Destructor

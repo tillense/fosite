@@ -559,7 +559,7 @@ CONTAINS
     CALL MPI_Sendrecv(this%Boundary(TOP)%p%sendbuf, &
          Mesh%GKNUM*(Mesh%IGMAX-Mesh%IGMIN+1)*(Mesh%JGMAX-Mesh%JGMIN+1)*Physics%VNUM, &
          DEFAULT_MPI_REAL,Mesh%neighbor(TOP),10+TOP,this%Boundary(BOTTOM)%p%recvbuf,  &
-         Mesh%GNUM*(Mesh%IGMAX-Mesh%IGMIN+1)*(Mesh%JGMAX-Mesh%JGMIN+1)*Physics%VNUM,  &
+         Mesh%GKNUM*(Mesh%IGMAX-Mesh%IGMIN+1)*(Mesh%JGMAX-Mesh%JGMIN+1)*Physics%VNUM,  &
          DEFAULT_MPI_REAL,Mesh%neighbor(BOTTOM),MPI_ANY_TAG,Mesh%comm_cart,status,ierr)
     IF (Mesh%neighbor(BOTTOM).NE.MPI_PROC_NULL) THEN
          pvar(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KMIN-1,1:Physics%VNUM) = &

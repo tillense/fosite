@@ -792,7 +792,7 @@ CONTAINS
     CLASS(mesh_base),       INTENT(IN) :: Mesh
     INTEGER,                INTENT(IN) :: j1,dir
     REAL,                   INTENT(IN), &
-      DIMENSION(Mesh%KGMIN:Mesh%KMAX,Mesh%IGMIN:Mesh%IGMAX,this%VNUM) &
+      DIMENSION(Mesh%KGMIN:Mesh%KGMAX,Mesh%IGMIN:Mesh%IGMAX,this%VNUM) &
                                        :: xvar
     REAL,                   INTENT(INOUT), &
       DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM) &
@@ -830,7 +830,7 @@ CONTAINS
     CLASS(mesh_base),       INTENT(IN) :: Mesh
     INTEGER,                INTENT(IN) :: k1,dir
     REAL,                   INTENT(IN), &
-      DIMENSION(Mesh%IGMIN:Mesh%IMAX,Mesh%JGMIN:Mesh%JGMAX,this%VNUM) &
+      DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,this%VNUM) &
                                        :: xvar
     REAL,                   INTENT(INOUT), &
       DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM) &

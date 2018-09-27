@@ -42,10 +42,10 @@ MODULE solutions
     riemann
   !--------------------------------------------------------------------------!
 CONTAINS
-  SUBROUTINE riemann(x0,rho_l_,u_l_,p_l_,rho_r_,u_r_,p_r_,t,x,pvar)
+  SUBROUTINE riemann(x0,gamma_,rho_l_,u_l_,p_l_,rho_r_,u_r_,p_r_,t,x,pvar)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    REAL                :: t,x0,rho_l_,u_l_,p_l_,rho_r_,u_r_,p_r_
+    REAL                :: gamma_,t,x0,rho_l_,u_l_,p_l_,rho_r_,u_r_,p_r_
     REAL,DIMENSION(:)   :: x
     REAL,DIMENSION(:,:) :: pvar
     !------------------------------------------------------------------------!
@@ -55,7 +55,7 @@ CONTAINS
                S_L, S_HL, S_TL, S_R, S_HR, S_TR
     INTEGER :: error
     !------------------------------------------------------------------------!
-    gamma = 1.4                  !heat capacity ratio
+    gamma = gamma_ !1.4                  !heat capacity ratio
 
     rho_L = rho_l_
     rho_R = rho_R_

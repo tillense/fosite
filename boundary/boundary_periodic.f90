@@ -86,32 +86,32 @@ CONTAINS
     SELECT CASE(this%Direction%GetType())
     CASE(WEST)
 !CDIR NODEP
-       DO i=1,Mesh%GNUM
+       DO i=1,Mesh%GINUM
          pvar(Mesh%IMIN-i,:,:,:) = pvar(Mesh%IMAX-i+1,:,:,:)
        END DO
     CASE(EAST)
 !CDIR NODEP
-       DO i=1,Mesh%GNUM
+       DO i=1,Mesh%GINUM
          pvar(Mesh%IMAX+i,:,:,:) = pvar(Mesh%IMIN+i-1,:,:,:)
        END DO
     CASE(SOUTH)
 !CDIR NODEP
-       DO j=1,Mesh%GNUM
+       DO j=1,Mesh%GJNUM
          pvar(:,Mesh%JMIN-j,:,:) = pvar(:,Mesh%JMAX-j+1,:,:)
        END DO
     CASE(NORTH)
 !CDIR NODEP
-       DO j=1,Mesh%GNUM
+       DO j=1,Mesh%GJNUM
          pvar(:,Mesh%JMAX+j,:,:) = pvar(:,Mesh%JMIN+j-1,:,:)
        END DO
     CASE(BOTTOM)
 !CDIR NODEP
-      DO k=1,Mesh%GNUM
+      DO k=1,Mesh%GKNUM
         pvar(:,:,Mesh%KMIN-k,:) = pvar(:,:,Mesh%KMAX-k+1,:)
       END DO
     CASE(TOP)
 !CDIR NODEP
-      DO k=1,Mesh%GNUM
+      DO k=1,Mesh%GKNUM
         pvar(:,:,Mesh%KMAX+k,:) = pvar(:,:,Mesh%KMIN+k-1,:)
       END DO
     END SELECT

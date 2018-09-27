@@ -682,6 +682,7 @@ CONTAINS
     !------------------------------------------------------------------------!
     REAL                                :: invdt
     REAL                                :: dt_cfl, dt_src
+    REAL                                :: invdt_x,invdt_y,invdt_z
     !------------------------------------------------------------------------!
     ! CFL condition:
     ! maximal wave speeds in each direction
@@ -714,9 +715,16 @@ CONTAINS
                     + MAX(Fluxes%maxwav(:,:,:,3),-Fluxes%minwav(:,:,:,3)) / Mesh%dlz(:,:,:))
     ELSE
        ! full 3D
-       invdt = MAXVAL(MAX(Fluxes%maxwav(:,:,:,1),-Fluxes%minwav(:,:,:,1)) / Mesh%dlx(:,:,:) &
-                    + MAX(Fluxes%maxwav(:,:,:,2),-Fluxes%minwav(:,:,:,2)) / Mesh%dly(:,:,:) &
-                    + MAX(Fluxes%maxwav(:,:,:,3),-Fluxes%minwav(:,:,:,3)) / Mesh%dlz(:,:,:))
+       !TODO: Achtung: Hier wurde fuer eine bessere Symmetrie fuer jede Richtung ein eigenes invdt 
+       ! berechnet. Dies koennte jedoch einen Verlust an Stabilitaet bewirken. Hier muesste mal eine
+       ! Stabilitaetsanalyse gemacht werden
+       invdt_x = MAXVAL(MAX(Fluxes%maxwav(:,:,:,1),-Fluxes%minwav(:,:,:,1)) / Mesh%dlx(:,:,:))
+       invdt_y = MAXVAL(MAX(Fluxes%maxwav(:,:,:,2),-Fluxes%minwav(:,:,:,2)) / Mesh%dly(:,:,:))
+       invdt_z = MAXVAL(MAX(Fluxes%maxwav(:,:,:,3),-Fluxes%minwav(:,:,:,3)) / Mesh%dlz(:,:,:))
+       invdt = MAX(invdt_y,invdt_z,invdt_x)
+     !  invdt = MAXVAL(MAX(Fluxes%maxwav(:,:,:,3),-Fluxes%minwav(:,:,:,3)) / Mesh%dlz(:,:,:) &
+     !               + MAX(Fluxes%maxwav(:,:,:,2),-Fluxes%minwav(:,:,:,2)) / Mesh%dly(:,:,:) &
+     !               + MAX(Fluxes%maxwav(:,:,:,1),-Fluxes%minwav(:,:,:,1)) / Mesh%dlx(:,:,:))
     END IF
 
     ! largest time step due to CFL condition

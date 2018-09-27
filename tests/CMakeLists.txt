@@ -13,8 +13,12 @@ set (EXES
 #  noh3d
 #  ode
 #  pringle
-#  riemann1d
+  riemann1d-x
+  riemann1d-2d-x
+  riemann1d-y
+  riemann1d-z
   riemann2d
+  riemann2d-xz
 #  riemann3d
 #  rngtest
 #  RTI
