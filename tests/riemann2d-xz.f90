@@ -731,7 +731,7 @@ CONTAINS
                                           Mesh%KGMIN:Mesh%KGMAX,2) :: vxy
     REAL              :: xmin,zmin,xmax,zmax,x0,z0
 #ifdef PARALLEL
-    REAL              :: xmin_all,xmax_all,ymin_all,ymax_all
+    REAL              :: xmin_all,xmax_all,zmin_all,zmax_all
     INTEGER           :: ierr
 #endif
     CHARACTER(LEN=64) :: teststr
@@ -747,12 +747,12 @@ CONTAINS
 #ifdef PARALLEL
     CALL MPI_Allreduce(xmin,xmin_all,1,DEFAULT_MPI_REAL,MPI_MIN,Mesh%comm_cart,ierr)
     xmin = xmin_all
-    CALL MPI_Allreduce(ymin,ymin_all,1,DEFAULT_MPI_REAL,MPI_MIN,Mesh%comm_cart,ierr)
-    ymin = ymin_all
+    CALL MPI_Allreduce(zmin,zmin_all,1,DEFAULT_MPI_REAL,MPI_MIN,Mesh%comm_cart,ierr)
+    zmin = zmin_all
     CALL MPI_Allreduce(xmax,xmax_all,1,DEFAULT_MPI_REAL,MPI_MAX,Mesh%comm_cart,ierr)
     xmax = xmax_all
-    CALL MPI_Allreduce(ymax,ymax_all,1,DEFAULT_MPI_REAL,MPI_MAX,Mesh%comm_cart,ierr)
-    ymax = ymax_all
+    CALL MPI_Allreduce(zmax,zmax_all,1,DEFAULT_MPI_REAL,MPI_MAX,Mesh%comm_cart,ierr)
+    zmax = zmax_all
 #endif
     x0 = xmin + 0.5*ABS(xmax-xmin)
     z0 = zmin + 0.5*ABS(zmax-zmin)
