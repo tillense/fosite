@@ -317,7 +317,7 @@ CONTAINS
                "cfl"              /            0.4, &
                "stoptime"         /           TSIM, &
                "dtlimit"          /        1.0E-10, &
-               "maxiter"          /         100000, &
+               "maxiter"          /         100000 &
 !               "output/energy"  /              1, &
 !               "output/xmomentum" /              1, &
 !               "output/ymomentum" /              1, &
