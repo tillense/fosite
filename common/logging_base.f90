@@ -291,7 +291,7 @@ CONTAINS
             WRITE (output_unit,'(A,I4.4,A)',ADVANCE='NO') "NODE [", myrank, "] "
 #endif
             WRITE (output_unit,'(A)') TRIM(msg)
-#if defined(NECSXACE) || defined(NECSX9) || defined(NECSX8)
+#if defined(NECSXAURORA)
             ! Do an extra flush on NEC SX, because otherwise the output file is
             ! empty, if the simulation ran into the batch system time limit.
             ! This also makes it possible to peek into the stdout with the qcat

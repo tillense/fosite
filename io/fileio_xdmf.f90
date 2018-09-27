@@ -32,6 +32,7 @@
 !! The xdmf file format [1] carries light data in a xml file and can store
 !! heavy data in binary or hdf5 files. This implementation stores heavy data
 !! in binary files (See fileio_binary.f90).
+!! \todo check if fortran streams are not possible at nec aurora
 !! XDMF file I/O needs Fortran Stream IO (F2003 standard). The exception are
 !! NEC SX Vector machines. Here can the unformatted output be used, if the
 !! record control parts are switched off. To switch it off, choose a high
@@ -122,7 +123,7 @@ CONTAINS
     WRITE(this%realfmt,'(A,I1,A)',IOSTAT=err) '"',this%realsize,'"'
 
 #ifndef PARALLEL
-#if defined(NECSXACE) || defined(NECSX9) || defined(NECSX8)
+#if defined(NECSXAURORA)
     CALL this%Warning("InitFileIO_xdmf","On NEC SX the Environment variable " &
       // "'F_NORCW' and")
     CALL this%Warning("InitFileIO_xdmf","the key 'datafile/unit' have to " &

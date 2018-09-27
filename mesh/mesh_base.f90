@@ -87,7 +87,7 @@ MODULE mesh_base_mod
   INTEGER, PARAMETER :: NDIMS  = 3       ! dimensions of cartesian topology
   INTEGER, PARAMETER :: NFACES = 6       ! amount of faces
   INTEGER, PARAMETER :: VECLEN = &       ! vector length ...
-#if defined(NECSX8) || defined(NECSX9) || defined(NECSXACE)
+#if defined(NECSXAURORA)
   256                                    ! ... of NEC SX8/SX9/SX-ACE CPUs
 #else
   1                                      ! ... of everthing else

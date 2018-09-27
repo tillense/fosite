@@ -43,7 +43,7 @@ MODULE rngs
   IMPLICIT NONE
   !--------------------------------------------------------------------------!
   PRIVATE
-#if defined(NECSX8) || defined(NECSX9) || defined(NECSXACE)
+#if defined(NECSXAURORA)
   INTEGER, PARAMETER :: I8 = 8
 #else
   INTEGER, PARAMETER :: I8 = SELECTED_INT_KIND(18)
@@ -107,7 +107,7 @@ CONTAINS
     !------------------------------------------------------------------------!
 ! Nec SX internal! compiler error:
 ! "f90 fatal: Internal error in optimization phase."
-#if !(defined(NECSX8) || defined(NECSX9) || defined(NECSXACE))
+#if !defined(NECSXAURORA)
     !Initalize if i=0
     IF(i.EQ.0) THEN
       DO i=1,20632
@@ -162,11 +162,11 @@ CONTAINS
     !------------------------------------------------------------------------!
     INTEGER(KIND=I8) :: x
     REAL             :: res
-#if defined(NECSX8) || defined(NECSX9) || defined(NECSXACE)
+#if defined(NECSXAURORA)
     INTEGER(KIND=8)  :: long
 #endif
     !------------------------------------------------------------------------!
-#if defined(NECSX8) || defined(NECSX9) || defined(NECSXACE)
+#if defined(NECSXAURORA)
     ! No idea what is happeing on the SX.., but HUGE(x)!=HUGE(long)
     ! The 2048? This is 2.*1024. No idea, why the 1024 is needed. This shouldn't
     ! be required.

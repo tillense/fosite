@@ -55,8 +55,7 @@
 !----------------------------------------------------------------------------!
 !#ifdef FORTRAN_STREAMS
 #define HAVE_VTK
-!#elif defined(NECSXACE) || defined(NECSX9) || defined(NECSX8)
-!#define HAVE_VTK
+!#elif defined(NECSXAURORA)
 !#define NOSTREAM
 !#endif
 MODULE fileio_binary_mod

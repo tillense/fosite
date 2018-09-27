@@ -206,7 +206,7 @@ CONTAINS
              bn = SQRT(an*bn)
              an = an-cn     ! = 0.5*(an+bn_old)
              i = ISHFT(i,1) ! = 2*i
-#if !(defined(NECSXACE) || defined(NECSX9) || defined(NECSX8))
+#if !defined(NECSXAURORA)
           ELSE
              EXIT  ! exit prohibits vectorization
 #endif
@@ -247,7 +247,7 @@ CONTAINS
              tmp = 0.5*(an + bn)
              bn  = SQRT(an*bn)
              an  = tmp
-#if !(defined(NECSXACE) || defined(NECSX9) || defined(NECSX8))
+#if !defined(NECSXAURORA)
           ELSE
              EXIT  ! exit prohibits vectorization
 #endif
@@ -549,7 +549,7 @@ CONTAINS
              tmp = 0.5*(an + bn)
              bn = SQRT(an*bn)
              an = tmp
-#if !(defined(NECSXACE) || defined(NECSX9) || defined(NECSX8))
+#if !defined(NECSXAURORA)
           ELSE
              EXIT  ! exit prohibits vectorization
 #endif

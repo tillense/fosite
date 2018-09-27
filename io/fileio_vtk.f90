@@ -49,7 +49,7 @@
 !! \extends fileio_common
 !! \ingroup fileio
 !----------------------------------------------------------------------------!
-#if defined(NECSXACE) || defined(NECSX9) || defined(NECSX8)
+#if defined(NECSXAURORA)
 #define NOSTREAM
 #endif
 MODULE fileio_vtk_mod
