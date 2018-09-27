@@ -754,7 +754,6 @@ CONTAINS
 !    ! usually this is only important if fargo advection has been enabled;
 !    ! nothing happens if the background velocity has not been subtracted before
 !    IF (ASSOCIATED(Timedisc%w)) THEN
-!!CDIR IEXPAND
 !      CALL Physics%AddBackgroundVelocity(Mesh,Timedisc%w,Timedisc%pvar,Timedisc%cvar)
 !    END IF
 

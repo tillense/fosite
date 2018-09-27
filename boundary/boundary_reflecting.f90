@@ -94,13 +94,12 @@ CONTAINS
     !------------------------------------------------------------------------!
     INTEGER                                   :: i,j,k
     !------------------------------------------------------------------------!
-!CDIR IEXPAND
     SELECT CASE(this%direction%GetType())
     CASE(WEST)
-!CDIR UNROLL=8
+!NEC$ UNROLL(8)
        DO k=Mesh%KMIN,Mesh%KMAX
          DO j=Mesh%JMIN, Mesh%JMAX
-!CDIR NODEP
+!NEC$ IVDEP
           DO i=1,Mesh%GINUM
              WHERE (this%reflX)
                 pvar(Mesh%IMIN-i,j,k,:) = -pvar(Mesh%IMIN+i-1,j,k,:)
@@ -111,10 +110,10 @@ CONTAINS
         END DO
        END DO
     CASE(EAST)
-!CDIR UNROLL=8
+!NEC$ UNROLL(8)
        DO k=Mesh%KMIN,Mesh%KMAX
          DO j=Mesh%JMIN,Mesh%JMAX
-!CDIR NODEP
+!NEC$ IVDEP
           DO i=1,Mesh%GINUM
              WHERE (this%reflX)
                 pvar(Mesh%IMAX+i,j,k,:) = -pvar(Mesh%IMAX-i+1,j,k,:)
@@ -125,10 +124,10 @@ CONTAINS
         END DO
        END DO
     CASE(SOUTH)
-!CDIR UNROLL=4
+!NEC$ UNROLL(4)
       DO k=Mesh%KMIN,Mesh%KMAX
        DO j=1,Mesh%GJNUM
-!CDIR NODEP
+!NEC$ IVDEP
           DO i=Mesh%IMIN,Mesh%IMAX
              WHERE (this%reflY)
                 pvar(i,Mesh%JMIN-j,k,:) = -pvar(i,Mesh%JMIN+j-1,k,:)
@@ -139,10 +138,10 @@ CONTAINS
        END DO
      END DO
     CASE(NORTH)
-!CDIR UNROLL=4
+!NEC$ UNROLL(4)
       DO k=Mesh%KMIN,Mesh%KMAX
        DO j=1,Mesh%GJNUM
-!CDIR NODEP
+!NEC$ IVDEP
           DO i=Mesh%IMIN,Mesh%IMAX
              WHERE (this%reflY)
                 pvar(i,Mesh%JMAX+j,k,:) = -pvar(i,Mesh%JMAX-j+1,k,:)
@@ -154,10 +153,10 @@ CONTAINS
      END DO
 
     CASE(BOTTOM)
-!CDIR UNROLL=4
+!NEC$ UNROLL(4)
       DO k=1,Mesh%GKNUM
        DO j=Mesh%JMIN,Mesh%JMAX
-!CDIR NODEP
+!NEC$ IVDEP
           DO i=Mesh%IMIN,Mesh%IMAX
              WHERE (this%reflZ)
                 pvar(i,j,Mesh%KMIN-k,:) = -pvar(i,j,Mesh%KMIN+k-1,:)
@@ -168,10 +167,10 @@ CONTAINS
        END DO
      END DO
     CASE(TOP)
-!CDIR UNROLL=4
+!NEC$ UNROLL(4)
       DO k=1,Mesh%GKNUM
        DO j=Mesh%JMIN,Mesh%JMAX
-!CDIR NODEP
+!NEC$ IVDEP
           DO i=Mesh%IMIN,Mesh%IMAX
              WHERE (this%reflZ)
                 pvar(i,j,Mesh%KMAX+k,:) = -pvar(i,j,Mesh%KMAX-k+1,:)

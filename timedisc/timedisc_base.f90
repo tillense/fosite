@@ -575,7 +575,6 @@ CONTAINS
     timestep: DO WHILE (time+dt.LE.this%time+this%dt)
       dtold = dt
 
-!CDIR IEXPAND
 
       CALL this%SolveODE(Mesh,Physics,Fluxes,time,dt,err)
       ! check truncation error and restart if necessary
@@ -632,7 +631,6 @@ CONTAINS
     ! returns the order of the higher order scheme (P-Controller)
 
     IF(maxerr.GT.0.) THEN
-!CDIR IEXPAND
       dttmp = 0.9*dtold*EXP(-LOG(maxerr)/GetOrder(this))
     ELSE
       ! ths limit for maxerr->0 is dttmp -> oo. But this cut off to
@@ -995,9 +993,8 @@ CONTAINS
 !    !small fixes.
     SELECT CASE(this%rhstype)
     CASE(0)
-!CDIR UNROLL=8
+!NEC$ UNROLL(8)
       DO l=1,Physics%VNUM ! to be deleted later
-!CDIR COLLAPSE
         DO k=Mesh%KMIN,Mesh%KMAX
           DO j=Mesh%JMIN,Mesh%JMAX
             DO i=Mesh%IMIN,Mesh%IMAX
@@ -1099,11 +1096,11 @@ CONTAINS
 !      END DO
 !    END DO
 !
-!!CDIR NOVECTOR
+!!NEC$ NOVECTOR
 !    DO k=1,Physics%VNUM
-!!CDIR OUTERUNROLL=8
+!!NEC$ OUTERLOOP_UNROLL(8)
 !      DO j=Mesh%JMIN,Mesh%JMAX
-!!CDIR NODEP
+!!NEC$ IVDEP
 !        DO i=Mesh%IMIN,Mesh%IMAX
 !          ! update right hand side of ODE
 !          IF(k.EQ.Physics%YMOMENTUM) THEN
@@ -1134,11 +1131,11 @@ CONTAINS
 !      END DO
 !    END DO
 !
-!!CDIR NOVECTOR
+!!NEC$ NOVECTOR
 !    DO k=1,Physics%VNUM
-!!CDIR OUTERUNROLL=8
+!!NEC$ OUTERLOOP_UNROLL(8)
 !      DO j=Mesh%JMIN,Mesh%JMAX
-!!CDIR NODEP
+!!NEC$ IVDEP
 !        DO i=Mesh%IMIN,Mesh%IMAX
 !          ! update right hand side of ODE
 !          rhs(i,j,k) = rhs(i,j,k) - this%geo_src(i,j,k) - this%src(i,j,k)

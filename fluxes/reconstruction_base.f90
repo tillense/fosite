@@ -163,7 +163,6 @@ CONTAINS
     CLASS(reconstruction_base), INTENT(IN) :: this
     LOGICAL                                :: pc
     !------------------------------------------------------------------------!
-!CDIR IEXPAND
     pc = this%primcons
   END FUNCTION PrimRecon
 

@@ -105,7 +105,6 @@ CONTAINS
 !    CALL this%InitTimedisc(method,ODEsolver_name)
 
 
-!CDIR IEXPAND
     SELECT CASE(this%GetOrder())
     CASE(1)
        ! set relative error tolarance to value > 1.0
@@ -149,12 +148,11 @@ CONTAINS
     INTENT(INOUT)                           :: dt,err
     !------------------------------------------------------------------------!
     t = time
-!CDIR IEXPAND
     order = this%GetOrder()
     ! check if adaptive step size control is enabled
     IF (this%tol_rel.GE.1.0) THEN
        ! no adaptive step size control
-!CDIR UNROLL=3
+!NEC$ UNROLL(3)
        DO n=1,order
           ! update time variable
           t = time+zeta(n,order)*dt
@@ -176,7 +174,7 @@ CONTAINS
        c(2)%var => Mesh%RemapBounds(this%ctmp)  ! store intermediate result for error control
        c(3)%var => Mesh%RemapBounds(this%cvar)
        c(4)%var => Mesh%RemapBounds(this%cvar)
-!CDIR UNROLL=3
+!NEC$ UNROLL(3)
        DO n=1,order
           ! update time variable
           t = time+zeta(n,order)*dt
@@ -186,7 +184,6 @@ CONTAINS
           ! for 3rd order scheme compute the 2nd order result with the same RHS
           ! and store it in this%ctmp, bfluxes are not required
           IF (n.EQ.2.AND.order.EQ.3) &
-!CDIR IEXPAND
              this%ctmp(:,:,:,:) = UpdateTimestep_modeuler(eta(2,2),dt,this%cold(:,:,:,:), &
                                 this%ctmp(:,:,:,:),this%rhs(:,:,:,:))
           ! compute right hand side for next time step update
@@ -223,12 +220,12 @@ CONTAINS
     INTENT(IN)                              :: eta,time,dt,cold,pvar,cvar,rhs
     INTENT(OUT)                             :: cnew
     !------------------------------------------------------------------------!
-!CDIR NOVECTOR
+!NEC$ NOVECTOR
     DO l=1,Physics%VNUM
-!CDIR OUTERUNROLL=8
+!NEC$ OUTERLOOP_UNROLL(8)
       DO k=Mesh%KMIN,Mesh%KMAX
         DO j=Mesh%JMIN,Mesh%JMAX
-!CDIR NODEP
+!NEC$ IVDEP
           DO i=Mesh%IMIN,Mesh%IMAX
             ! time step update of conservative variables
             cnew(i,j,k,l) = UpdateTimestep_modeuler(eta,dt,cold(i,j,k,l),cvar(i,j,k,l),rhs(i,j,k,l))
@@ -240,10 +237,8 @@ CONTAINS
       DO k=Mesh%KMIN,Mesh%KMAX
         DO j=Mesh%JMIN,Mesh%JMAX
           ! time step update of boundary fluxes
-!CDIR IEXPAND
           Fluxes%bxflux(j,k,1,l) = UpdateTimestep_modeuler(eta,dt,Fluxes%bxfold(j,k,1,l), &
                Fluxes%bxflux(j,k,1,l),rhs(Mesh%IMIN-Mesh%Ip1,j,k,l))
-!CDIR IEXPAND
           Fluxes%bxflux(j,k,2,l) = UpdateTimestep_modeuler(eta,dt,Fluxes%bxfold(j,k,2,l), &
                Fluxes%bxflux(j,k,2,l),rhs(Mesh%IMAX+Mesh%Ip1,j,k,l))
         END DO
@@ -251,13 +246,11 @@ CONTAINS
 
       ! southern and northern boundary fluxes
       DO i=Mesh%IMIN,Mesh%IMAX
-!CDIR NODEP
+!NEC$ IVDEP
         DO k=Mesh%KMIN,Mesh%KMAX
           ! time step update of boundary fluxes
-!CDIR IEXPAND
           Fluxes%byflux(k,i,1,l) = UpdateTimestep_modeuler(eta,dt,Fluxes%byfold(k,i,1,l), &
                Fluxes%byflux(k,i,1,l),rhs(i,Mesh%JMIN-Mesh%Jp1,k,l))
-!CDIR IEXPAND
           Fluxes%byflux(k,i,2,l) = UpdateTimestep_modeuler(eta,dt,Fluxes%byfold(k,i,2,l), &
                Fluxes%byflux(k,i,2,l),rhs(i,Mesh%JMAX+Mesh%Jp1,k,l))
         END DO
@@ -267,10 +260,8 @@ CONTAINS
       DO j=Mesh%JMIN,Mesh%JMAX
         ! time step update of boundary fluxes
         DO i=Mesh%IMIN,Mesh%IMAX
-!CDIR IEXPAND
           Fluxes%bzflux(i,j,1,l) = UpdateTimestep_modeuler(eta,dt,Fluxes%bzfold(i,j,1,l), &
                Fluxes%bzflux(i,j,1,l),rhs(i,j,Mesh%KMIN-Mesh%Kp1,l))
-!CDIR IEXPAND
           Fluxes%bzflux(i,j,2,l) = UpdateTimestep_modeuler(eta,dt,Fluxes%bzfold(i,j,2,l), &
                Fluxes%bzflux(i,j,2,l),rhs(i,j,Mesh%KMAX+Mesh%Kp1,l))
         END DO

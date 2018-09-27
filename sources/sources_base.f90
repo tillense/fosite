@@ -451,7 +451,6 @@ CONTAINS
     IF (srcptr%GetType().EQ.GRAVITY) srcptr => srcptr%next
     DO WHILE (ASSOCIATED(srcptr))
        CALL srcptr%Info(" SOURCES--> source term:       " // srcptr%GetName())
-!CDIR IEXPAND
        SELECT CASE(srcptr%GetType())
 !       CASE(DISK_THOMSON)
 !          CALL InfoSources_diskthomson(srcptr)
@@ -487,7 +486,6 @@ CONTAINS
     INTENT(OUT)       :: sterm
     !------------------------------------------------------------------------!
     ! calculate geometrical sources depending on the integration rule
-!CDIR IEXPAND
     SELECT CASE(Mesh%GetType())
     CASE(MIDPOINT)
        ! use center values for midpoint rule
@@ -522,7 +520,6 @@ CONTAINS
     DO WHILE (ASSOCIATED(srcptr))
        ! call specific subroutine
 
-!CDIR IEXPAND
        SELECT CASE(srcptr%GetType())
 !       CASE(GRAVITY)
 !          CALL GravitySources(srcptr,Mesh,Physics,Fluxes,time,dt,pvar,cvar,temp_sterm)
@@ -596,7 +593,6 @@ CONTAINS
     srcptr => this
     DO WHILE(ASSOCIATED(srcptr))
        ! call specific subroutine
-!CDIR IEXPAND
        SELECT CASE(srcptr%GetType())
        CASE(DISK_THOMSON,C_ACCEL,ROTATING_FRAME,WAVE_DAMPING,GRAVITY,&
          PLANET_HEATING,SHEARBOX)
@@ -648,7 +644,6 @@ CONTAINS
 !        IF (.NOT.Initialized(srcptr)) &
 !             CALL this%Error("CloseSources","not initialized")
        ! call specific deconstructor
-!CDIR IEXPAND
        SELECT CASE(srcptr%GetType())
 !       CASE(GRAVITY)
 !          CALL CloseGravity(srcptr)

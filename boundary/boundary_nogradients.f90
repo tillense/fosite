@@ -85,43 +85,42 @@ CONTAINS
     !------------------------------------------------------------------------!
     INTENT(INOUT)                           :: pvar
     !------------------------------------------------------------------------!
-!CDIR IEXPAND
     SELECT CASE(this%direction%GetType())
     CASE(WEST)
        ! UNROLL=Mesh%GNUM would be sufficient, but the compiler does
        ! not know the value of Mesh%GNUM, hence we set UNROLL=4 and
        ! hope that nobody sets Mesh%GNUM to a value greater than 4
-!CDIR UNROLL=4
+!NEC$ UNROLL(4)
        DO i=1,Mesh%GINUM
           pvar(Mesh%IMIN-i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,:) = &
             pvar(Mesh%IMIN,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,:)
        END DO
     CASE(EAST)
-!CDIR UNROLL=4
+!NEC$ UNROLL(4)
        DO i=1,Mesh%GINUM
           pvar(Mesh%IMAX+i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,:) = &
             pvar(Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,:)
        END DO
     CASE(SOUTH)
-!CDIR UNROLL=4
+!NEC$ UNROLL(4)
        DO j=1,Mesh%GJNUM
           pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN-j,Mesh%KMIN:Mesh%KMAX,:) = &
             pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN,Mesh%KMIN:Mesh%KMAX,:)
        END DO
     CASE(NORTH)
-!CDIR UNROLL=4
+!NEC$ UNROLL(4)
        DO j=1,Mesh%GJNUM
           pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX+j,Mesh%KMIN:Mesh%KMAX,:) = &
             pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,:)
        END DO
     CASE(BOTTOM)
-!CDIR UNROLL=4
+!NEC$ UNROLL(4)
        DO k=1,Mesh%GKNUM
           pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN-k,:) = &
             pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN,:)
        END DO
     CASE(TOP)
-!CDIR UNROLL=4
+!NEC$ UNROLL(4)
        DO k=1,Mesh%GKNUM
           pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMAX+k,:) = &
             pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMAX,:)

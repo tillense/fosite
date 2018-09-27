@@ -344,7 +344,6 @@ CONTAINS
     REAL, INTENT(IN),  DIMENSION(:,:,:,:) :: coords
     REAL, INTENT(OUT), DIMENSION(:,:,:)   :: hx,hy,hz
     !------------------------------------------------------------------------!
-!CDIR IEXPAND
        CALL this%ScaleFactors(coords(:,:,:,1),coords(:,:,:,2),coords(:,:,:,3), &
                                   hx(:,:,:)  ,    hy(:,:,:)  ,    hz(:,:,:))
   END SUBROUTINE ScaleFactors_1
@@ -364,7 +363,6 @@ CONTAINS
     REAL, INTENT(IN),  DIMENSION(:,:,:,:,:) :: coords
     REAL, INTENT(OUT), DIMENSION(:,:,:,:)   :: hx,hy,hz
     !------------------------------------------------------------------------!
-!CDIR IEXPAND
     CALL this%ScaleFactors(coords(:,:,:,:,1),coords(:,:,:,:,2),coords(:,:,:,:,3), &
                                hx(:,:,:,:)  ,    hy(:,:,:,:)  ,    hz(:,:,:,:))
   END SUBROUTINE ScaleFactors_2
@@ -396,7 +394,6 @@ CONTAINS
     REAL, INTENT(IN),  DIMENSION(:,:,:,:) :: coords
     REAL, INTENT(OUT), DIMENSION(:,:,:)   :: radius
     !------------------------------------------------------------------------!
-!CDIR IEXPAND
     CALL this%Radius(coords(:,:,:,1),coords(:,:,:,2),coords(:,:,:,3),radius(:,:,:))
   END SUBROUTINE Radius_1
 
@@ -411,7 +408,6 @@ CONTAINS
     REAL, INTENT(IN),  DIMENSION(:,:,:,:,:) :: coords
     REAL, INTENT(OUT), DIMENSION(:,:,:,:)   :: radius
     !------------------------------------------------------------------------!
-!CDIR IEXPAND
     CALL this%Radius(coords(:,:,:,:,1),coords(:,:,:,:,2),coords(:,:,:,:,3),radius(:,:,:,:))
   END SUBROUTINE Radius_2
 
@@ -441,7 +437,6 @@ CONTAINS
     REAL, INTENT(IN),  DIMENSION(:,:,:,:) :: coords
     REAL, INTENT(OUT), DIMENSION(:,:,:,:) :: posvec
     !------------------------------------------------------------------------!
-!CDIR IEXPAND
     CALL this%PositionVector(coords(:,:,:,1),coords(:,:,:,2),coords(:,:,:,3), &
                              posvec(:,:,:,1),posvec(:,:,:,2),posvec(:,:,:,3))
   END SUBROUTINE PositionVector_1
@@ -457,7 +452,6 @@ CONTAINS
     REAL, INTENT(IN),  DIMENSION(:,:,:,:,:) :: coords
     REAL, INTENT(OUT), DIMENSION(:,:,:,:,:) :: posvec
     !------------------------------------------------------------------------!
-!CDIR IEXPAND
     CALL this%PositionVector(coords(:,:,:,:,1),coords(:,:,:,:,2),coords(:,:,:,:,3), &
                              posvec(:,:,:,:,1),posvec(:,:,:,:,2),posvec(:,:,:,:,3))
   END SUBROUTINE PositionVector_2
@@ -486,7 +480,6 @@ CONTAINS
     INTENT(IN)                      :: curv
     INTENT(OUT)                     :: cart
     !------------------------------------------------------------------------!
-!CDIR IEXPAND
     CALL this%Convert2Cartesian(curv(:,:,:,1),curv(:,:,:,2),curv(:,:,:,3), &
                                 cart(:,:,:,1),cart(:,:,:,2),cart(:,:,:,3))
   END SUBROUTINE Convert2Cartesian_coords_1
@@ -502,7 +495,6 @@ CONTAINS
     INTENT(IN)                      :: curv
     INTENT(OUT)                     :: cart
     !------------------------------------------------------------------------!
-!CDIR IEXPAND
     CALL this%Convert2Cartesian(curv(:,:,:,:,1),curv(:,:,:,:,2),curv(:,:,:,:,3), &
                                 cart(:,:,:,:,1),cart(:,:,:,:,2),cart(:,:,:,:,3))
   END SUBROUTINE Convert2Cartesian_coords_2
@@ -534,7 +526,6 @@ CONTAINS
     INTENT(IN)                           :: cart
     INTENT(OUT)                          :: curv
     !------------------------------------------------------------------------!
-!CDIR IEXPAND
     CALL this%Convert2Curvilinear(cart(:,:,:,1),cart(:,:,:,2),cart(:,:,:,3), &
                                   curv(:,:,:,1),curv(:,:,:,2),curv(:,:,:,3))
   END SUBROUTINE Convert2Curvilinear_coords_1
@@ -550,7 +541,6 @@ CONTAINS
     INTENT(IN)                           :: cart
     INTENT(OUT)                          :: curv
     !------------------------------------------------------------------------!
-!CDIR IEXPAND
     CALL this%Convert2Curvilinear(cart(:,:,:,:,1),cart(:,:,:,:,2),cart(:,:,:,:,3), &
                                   curv(:,:,:,:,1),curv(:,:,:,:,2),curv(:,:,:,:,3))
   END SUBROUTINE Convert2Curvilinear_coords_2
@@ -565,7 +555,6 @@ CONTAINS
     INTENT(IN)                      :: curv,v_curv
     INTENT(OUT)                     :: v_cart
     !------------------------------------------------------------------------!
-!CDIR IEXPAND
     CALL this%Convert2Cartesian(  curv(:,:,:,1),  curv(:,:,:,2),  curv(:,:,:,3), &
                                 v_curv(:,:,:,1),v_curv(:,:,:,2),v_curv(:,:,:,3), &
                                 v_cart(:,:,:,1),v_cart(:,:,:,2),v_cart(:,:,:,3))
@@ -581,7 +570,6 @@ CONTAINS
     INTENT(IN)                      :: curv,v_curv
     INTENT(OUT)                     :: v_cart
     !------------------------------------------------------------------------!
-!CDIR IEXPAND
     CALL this%Convert2Cartesian(  curv(:,:,:,:,1),  curv(:,:,:,:,2),  curv(:,:,:,:,3), &
                                 v_curv(:,:,:,:,1),v_curv(:,:,:,:,2),v_curv(:,:,:,:,3), &
                                 v_cart(:,:,:,:,1),v_cart(:,:,:,:,2),v_cart(:,:,:,:,3))
@@ -597,7 +585,6 @@ CONTAINS
     INTENT(IN)                      :: curv,v_curv
     INTENT(OUT)                     :: v_cart
     !------------------------------------------------------------------------!
-!CDIR IEXPAND
     CALL this%Convert2Cartesian(  curv(1),  curv(2),  curv(3), &
                                 v_curv(1),v_curv(2),v_curv(3), &
                                 v_cart(1),v_cart(2),v_cart(3))
@@ -613,7 +600,6 @@ CONTAINS
     INTENT(IN)                      :: curv,v_cart
     INTENT(OUT)                     :: v_curv
     !------------------------------------------------------------------------!
-!CDIR IEXPAND
     CALL this%Convert2Curvilinear(  curv(:,:,:,1),  curv(:,:,:,2),  curv(:,:,:,3), &
                                   v_cart(:,:,:,1),v_cart(:,:,:,2),v_cart(:,:,:,3), &
                                   v_curv(:,:,:,1),v_curv(:,:,:,2),v_curv(:,:,:,3))
@@ -629,7 +615,6 @@ CONTAINS
     INTENT(IN)                      :: curv,v_cart
     INTENT(OUT)                     :: v_curv
     !------------------------------------------------------------------------!
-!CDIR IEXPAND
     CALL this%Convert2Curvilinear(  curv(:,:,:,:,1),  curv(:,:,:,:,2),  curv(:,:,:,:,3), &
                                   v_cart(:,:,:,:,1),v_cart(:,:,:,:,2),v_cart(:,:,:,:,3), &
                                   v_curv(:,:,:,:,1),v_curv(:,:,:,:,2),v_curv(:,:,:,:,3))
@@ -645,7 +630,6 @@ CONTAINS
     INTENT(IN)                      :: curv,v_cart
     INTENT(OUT)                     :: v_curv
     !------------------------------------------------------------------------!
-!CDIR IEXPAND
     CALL this%Convert2Curvilinear(  curv(1),  curv(2),  curv(3),   &
                                   v_cart(1),v_cart(2),v_cart(3), &
                                   v_curv(1),v_curv(2),v_curv(3))

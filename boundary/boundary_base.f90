@@ -228,7 +228,6 @@ CONTAINS
     CLASS(boundary_base), INTENT(IN) :: this !< \param [in] this boundary type
     INTEGER                          :: dir
     !------------------------------------------------------------------------!
-!CDIR IEXPAND
     dir = this%direction%GetType()
   END FUNCTION GetDirection
 

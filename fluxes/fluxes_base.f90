@@ -200,7 +200,6 @@ CONTAINS
       END IF
 
     ! set reconstruction pointer
-!CDIR IEXPAND
     IF (this%Reconstruction%PrimRecon()) THEN
        this%rstates => Mesh%RemapBounds(this%prim)
     ELSE
@@ -378,7 +377,6 @@ CONTAINS
     !------------------------------------------------------------------------!
 
     ! reconstruct data on cell faces
-!CDIR IEXPAND
     !\todo{Attention here when reconstruction is done}
     IF (this%Reconstruction%PrimRecon()) THEN
        CALL this%Reconstruction%CalculateStates(Mesh,Physics,Mesh%NFACES,this%dx,&

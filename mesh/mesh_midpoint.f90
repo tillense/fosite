@@ -161,12 +161,11 @@ CONTAINS
     !------------------------------------------------------------------------!
     ! we simply use the 3D tensor divergence and set the commutator coefficients
     ! and the off-diagonal tensor components to 0
-!CDIR NODEP
+!NEC$ IVDEP
     DO k=this%KGMIN+1,this%KGMAX-1
       DO j=this%JGMIN+1,this%JGMAX-1
-!CDIR NODEP
+!NEC$ IVDEP
         DO i=this%IGMIN+1,this%IGMAX-1
-!CDIR IEXPAND
           divv(i,j,k) = Divergence3D(this%dAxdydz(i,j,k,1),this%dAxdydz(i,j,k,2), &
                                  this%dAydzdx(i,j,k,1),this%dAydzdx(i,j,k,2), &
                                  this%dAzdxdy(i,j,k,1),this%dAzdxdy(i,j,k,2), &
@@ -200,11 +199,10 @@ CONTAINS
 !    !------------------------------------------------------------------------!
 !    ! we simply use the 3D tensor divergence and set all commutator coefficients
 !    ! and the tensor components Tyx, Tyy, Tzz to zero
-!!CDIR NODEP
+!!NEC$ IVDEP
 !    DO j=this%JGMIN,this%JGMAX
-!!CDIR NODEP
+!!NEC$ IVDEP
 !      DO i=this%IGMIN,this%IGMAX
-!!CDIR IEXPAND
 !         divv(i,j) = Divergence3D(this%dAxdy(i,j,1),this%dAxdy(i,j,2), &
 !                                 this%dAydx(i,j,1),this%dAydx(i,j,2), &
 !                                 this%dxdV(i,j),this%dydV(i,j), &
@@ -236,12 +234,11 @@ CONTAINS
     ! we simply use the 3D tensor divergence and set the commutator coefficient
     ! and the tensor component related to the z-direction to zero
     DO k=this%KGMIN+1,this%KGMAX-1
-!CDIR NODEP
+!NEC$ IVDEP
       DO j=this%JGMIN+1,this%JGMAX-1
-!CDIR NODEP
+!NEC$ IVDEP
         DO i=this%IGMIN+1,this%IGMAX-1
          ! x component of tensor divergence
-!CDIR IEXPAND
          divTx(i,j,k) = Divergence3D(this%dAxdydz(i,j,k,1),this%dAxdydz(i,j,k,2), &
                                  this%dAydzdx(i,j,k,1),this%dAydzdx(i,j,k,2), &
                                  this%dAzdxdy(i,j,k,1),this%dAzdxdy(i,j,k,2), &
@@ -253,7 +250,6 @@ CONTAINS
                                  0.0, 0.0, & ! difference at Bottom and Top faces is 0 because of 2D
                                  Tyx(i,j,k),Tyy(i,j,k),0.0,0.0) ! Tzz = 0 and Tzx = 0 because of 2D
          ! y component of tensor divergence
-!CDIR IEXPAND
          divTy(i,j,k) = Divergence3D(this%dAxdydz(i,j,k,1),this%dAxdydz(i,j,k,2), &
                                  this%dAydzdx(i,j,k,1),this%dAydzdx(i,j,k,2), &
                                  this%dAzdxdy(i,j,k,1),this%dAzdxdy(i,j,k,2), &
@@ -291,9 +287,9 @@ CONTAINS
 !    !------------------------------------------------------------------------!
 !    ! we simply use the 3D tensor divergence and set the commutator coefficient
 !    ! and the tensor component related to the z-direction to zero
-!!CDIR NODEP
+!!NEC$ IVDEP
 !    DO j=this%JGMIN,this%JGMAX
-!!CDIR NODEP
+!!NEC$ IVDEP
 !      DO i=this%IGMIN,this%IGMAX
 !         ! compute mean value of all four face values to obtain cell centered values
 !         Txx = 0.25*SUM(T(i,j,:,1,1))
@@ -301,7 +297,6 @@ CONTAINS
 !         Tyx = 0.25*SUM(T(i,j,:,2,1))
 !         Tyy = 0.25*SUM(T(i,j,:,2,2))
 !         ! x component of tensor divergence
-!!CDIR IEXPAND
 !         divT(i,j,1) = Divergence3D(this%dAxdy(i,j,1),this%dAxdy(i,j,2), &
 !                                 this%dAydx(i,j,1),this%dAydx(i,j,2), &
 !                                 this%dxdV(i,j),this%dydV(i,j), &
@@ -311,7 +306,6 @@ CONTAINS
 !                                 T(i,j,SOUTH,1,2),T(i,j,NORTH,1,2), &
 !                                 Tyx,Tyy,0.0) ! Tzz = 0 because of 2D
 !         ! y component of tensor divergence
-!!CDIR IEXPAND
 !         divT(i,j,2) = Divergence3D(this%dAxdy(i,j,1),this%dAxdy(i,j,2), &
 !                                 this%dAydx(i,j,1),this%dAydx(i,j,2), &
 !                                 this%dxdV(i,j),this%dydV(i,j), &
@@ -343,11 +337,10 @@ CONTAINS
     ! we simply use the 3D tensor divergence and set the commutator coefficients
     ! and the off-diagonal tensor components to 0
     DO k=this%KGMIN+1,this%KGMAX-1
-!CDIR NODEP
+!NEC$ IVDEP
       DO j=this%JGMIN+1,this%JGMAX-1
-!CDIR NODEP
+!NEC$ IVDEP
         DO i=this%IGMIN+1,this%IGMAX-1
-!CDIR IEXPAND
           divv(i,j,k) = Divergence3D(this%dAxdydz(i,j,k,1),this%dAxdydz(i,j,k,2), &
                                      this%dAydzdx(i,j,k,1),this%dAydzdx(i,j,k,2), &
                                      this%dAzdxdy(i,j,k,1),this%dAzdxdy(i,j,k,2), &
@@ -383,14 +376,13 @@ CONTAINS
     INTENT(IN)        :: Txx,Txy,Txz,Tyx,Tyy,Tyz,Tzx,Tzy,Tzz
     INTENT(OUT)       :: divTx,divTy,divTz
     !------------------------------------------------------------------------!
-!CDIR NODEP
+!NEC$ IVDEP
     DO k=this%KGMIN+1,this%KGMAX-1
-!CDIR NODEP
+!NEC$ IVDEP
        DO j=this%JGMIN+1,this%JGMAX-1
-!CDIR NODEP
+!NEC$ IVDEP
           DO i=this%IGMIN+1,this%IGMAX-1
              ! x component of tensor divergence
-!CDIR IEXPAND
              divTx(i,j,k) = Divergence3D(this%dAxdydz(i,j,k,1),this%dAxdydz(i,j,k,2),                                 &
                                          this%dAydzdx(i,j,k,1),this%dAydzdx(i,j,k,2),                                 &
                                          this%dAzdxdy(i,j,k,1),this%dAzdxdy(i,j,k,2),                                 &
@@ -402,7 +394,6 @@ CONTAINS
                                          Tyx(i,j,k),Tzx(i,j,k),Tyy(i,j,k),Tzz(i,j,k))
 
              ! y component of tensor divergence
-!CDIR IEXPAND
              divTy(i,j,k) = Divergence3D(this%dAxdydz(i,j,k,1),this%dAxdydz(i,j,k,2),                                  &
                                          this%dAydzdx(i,j,k,1),this%dAydzdx(i,j,k,2),                                  &
                                          this%dAzdxdy(i,j,k,1),this%dAzdxdy(i,j,k,2),                                  &
@@ -413,7 +404,6 @@ CONTAINS
                                          0.5*(Tyz(i,j,k-1)+Tyz(i,j,k)),0.5*(Tyz(i,j,k+1)+Tyz(i,j,k)),              &
                                          Txx(i,j,k),Tzy(i,j,k),Txy(i,j,k),Tzz(i,j,k))
              ! z component of tensor divergence
-!CDIR IEXPAND
              divTz(i,j,k) = Divergence3D(this%dAxdydz(i,j,k,1),this%dAxdydz(i,j,k,2),                     &
                                          this%dAydzdx(i,j,k,1),this%dAydzdx(i,j,k,2),                     &
                                          this%dAzdxdy(i,j,k,1),this%dAzdxdy(i,j,k,2),                     &

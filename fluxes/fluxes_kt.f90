@@ -141,12 +141,12 @@ CONTAINS
       IF (Mesh%INUM.GT.1) THEN
          ! physical fluxes
         CALL Physics%CalculateFluxesX(Mesh,1,2,this%prim,this%cons,this%pfluxes)
-!CDIR UNROLL=8
+!NEC$ UNROLL(8)
         DO l=1,Physics%VNUM
-!CDIR UNROLL=8
+!NEC$ UNROLL(8)
           DO k=Mesh%KGMIN,Mesh%KGMAX
             DO j=Mesh%JGMIN,Mesh%JGMAX
-!CDIR NODEP
+!NEC$ IVDEP
               DO i=Mesh%IMIN-1,Mesh%IMAX
                   xfluxdydz(i,j,k,l) = Mesh%dAxdydz(i+1,j,k,1) / &
                          (this%maxwav(i,j,k,1) - this%minwav(i,j,k,1)) * &
@@ -166,9 +166,8 @@ CONTAINS
       IF (Mesh%JNUM.GT.1) THEN
         ! physical fluxes
         CALL Physics%CalculateFluxesY(Mesh,3,4,this%prim,this%cons,this%pfluxes)
-!CDIR UNROLL=8
+!NEC$ UNROLL(8)
         DO l=1,Physics%VNUM
-!CDIR COLLAPSE
           DO k=Mesh%KGMIN,Mesh%KGMAX
             DO j=Mesh%JMIN-1,Mesh%JMAX
               DO i=Mesh%IGMIN,Mesh%IGMAX
@@ -189,12 +188,12 @@ CONTAINS
       IF (Mesh%KNUM.GT.1) THEN
          ! physical fluxes
         CALL Physics%CalculateFluxesZ(Mesh,5,6,this%prim,this%cons,this%pfluxes)
-!CDIR UNROLL=8
+!NEC$ UNROLL(8)
         DO l=1,Physics%VNUM
-!CDIR UNROLL=8
+!NEC$ UNROLL(8)
           DO k=Mesh%KMIN-1,Mesh%KMAX
             DO j=Mesh%JGMIN,Mesh%JGMAX
-!CDIR NODEP
+!NEC$ IVDEP
               DO i=Mesh%IGMIN,Mesh%IGMAX
                   zfluxdxdy(i,j,k,l) = Mesh%dAzdxdy(i,j,k+1,1) / &
                          (this%maxwav(i,j,k,3) - this%minwav(i,j,k,3)) * &

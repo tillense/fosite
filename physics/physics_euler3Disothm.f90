@@ -166,7 +166,6 @@ CONTAINS
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM), &
                               INTENT(OUT) :: pvar
     !------------------------------------------------------------------------!
-!CDIR IEXPAND
     CALL this%Convert2Primitive_centsub(Mesh,Mesh%IGMIN,Mesh%IGMAX,&
          Mesh%JGMIN,Mesh%JGMAX,Mesh%KGMIN,Mesh%KGMAX,cvar,pvar)
   END SUBROUTINE Convert2Primitive_center
@@ -183,7 +182,6 @@ CONTAINS
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM), &
                               INTENT(OUT) :: pvar
     !------------------------------------------------------------------------!
-!CDIR IEXPAND
     CALL Cons2Prim(cvar(i1:i2,j1:j2,k1:k2,this%DENSITY),   &
                                 cvar(i1:i2,j1:j2,k1:k2,this%XMOMENTUM), &
                                 cvar(i1:i2,j1:j2,k1:k2,this%YMOMENTUM), &
@@ -206,7 +204,6 @@ CONTAINS
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%NFACES,this%VNUM), &
                               INTENT(OUT) :: prim
     !------------------------------------------------------------------------!
-!CDIR IEXPAND
     CALL this%Convert2Primitive_facesub(Mesh,Mesh%IGMIN,Mesh%IGMAX, &
                                              Mesh%JGMIN,Mesh%JGMAX, &
                                              Mesh%KGMIN,Mesh%KGMAX, &
@@ -225,7 +222,6 @@ CONTAINS
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%NFACES,this%VNUM), &
                               INTENT(OUT) :: prim
     !------------------------------------------------------------------------!
-!CDIR IEXPAND
     CALL Cons2Prim(cons(i1:i2,j1:j2,k1:k2,:,this%DENSITY)  , &
                    cons(i1:i2,j1:j2,k1:k2,:,this%XMOMENTUM), &
                    cons(i1:i2,j1:j2,k1:k2,:,this%YMOMENTUM), &
@@ -248,7 +244,6 @@ CONTAINS
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM), &
                               INTENT(OUT) :: cvar
     !------------------------------------------------------------------------!
-!CDIR IEXPAND
     CALL this%Convert2Conservative_centsub(Mesh,Mesh%IGMIN,Mesh%IGMAX, &
                                                 Mesh%JGMIN,Mesh%JGMAX, &
                                                 Mesh%KGMIN,Mesh%KGMAX, &
@@ -268,7 +263,6 @@ CONTAINS
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM), &
                               INTENT(OUT) :: cvar
     !------------------------------------------------------------------------!
-!CDIR IEXPAND
     CALL Prim2Cons(pvar(i1:i2,j1:j2,k1:k2,this%DENSITY)  , &
                    pvar(i1:i2,j1:j2,k1:k2,this%XVELOCITY), &
                    pvar(i1:i2,j1:j2,k1:k2,this%YVELOCITY), &
@@ -292,7 +286,6 @@ CONTAINS
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%NFACES,this%VNUM), &
                               INTENT(OUT) :: cons
     !------------------------------------------------------------------------!
-!CDIR IEXPAND
     CALL this%Convert2Conservative_facesub(Mesh,Mesh%IGMIN,Mesh%IGMAX, &
                                                 Mesh%JGMIN,Mesh%JGMAX, &
                                                 Mesh%KGMIN,Mesh%KGMAX, &
@@ -312,7 +305,6 @@ CONTAINS
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%NFACES,this%VNUM), &
                               INTENT(OUT) :: cons
     !------------------------------------------------------------------------!
-!CDIR IEXPAND
     CALL Prim2Cons(prim(i1:i2,j1:j2,k1:k2,:,this%DENSITY)  , &
                    prim(i1:i2,j1:j2,k1:k2,:,this%XVELOCITY), &
                    prim(i1:i2,j1:j2,k1:k2,:,this%YVELOCITY), &
@@ -368,20 +360,16 @@ CONTAINS
     INTEGER                                 :: i,j,k
     !------------------------------------------------------------------------!
     ! compute minimal and maximal wave speeds at cell centers
-!CDIR COLLAPSE
     DO k=Mesh%KGMIN,Mesh%KGMAX
       DO j=Mesh%JGMIN,Mesh%JGMAX
          DO i=Mesh%IGMIN,Mesh%IGMAX
           ! x-direction
-!CDIR IEXPAND
           CALL SetWaveSpeeds(this%bccsound(i,j,k),pvar(i,j,k,this%XVELOCITY),&
                minwav(i,j,k,1),maxwav(i,j,k,1))
           ! y-direction
-!CDIR IEXPAND
           CALL SetWaveSpeeds(this%bccsound(i,j,k),pvar(i,j,k,this%YVELOCITY),&
                minwav(i,j,k,2),maxwav(i,j,k,2))
           ! z-direction
-!CDIR IEXPAND
           CALL SetWaveSpeeds(this%bccsound(i,j,k),pvar(i,j,k,this%ZVELOCITY),&
                minwav(i,j,k,3),maxwav(i,j,k,3))
          END DO
@@ -404,37 +392,30 @@ CONTAINS
     INTEGER                                 :: i,j,k
     !------------------------------------------------------------------------!
     ! compute minimal and maximal wave speeds at cell interfaces
-!CDIR COLLAPSE
     DO k=Mesh%KGMIN,Mesh%KGMAX
       DO j=Mesh%JGMIN,Mesh%JGMAX
         DO i=Mesh%IGMIN,Mesh%IGMAX
           ! western
-!CDIR IEXPAND
           CALL SetWaveSpeeds(this%fcsound(i,j,k,1), &
                              prim(i,j,k,1,this%XVELOCITY), &
                              this%tmp(i,j,k),this%tmp1(i,j,k))
           ! eastern
-!CDIR IEXPAND
           CALL SetWaveSpeeds(this%fcsound(i,j,k,2), &
                              prim(i,j,k,2,this%XVELOCITY), &
                              minwav(i,j,k,1),maxwav(i,j,k,1))
           ! southern
-!CDIR IEXPAND
           CALL SetWaveSpeeds(this%fcsound(i,j,k,3), &
                              prim(i,j,k,3,this%YVELOCITY), &
                              this%tmp2(i,j,k),this%tmp3(i,j,k))
           ! northern
-!CDIR IEXPAND
           CALL SetWaveSpeeds(this%fcsound(i,j,k,4), &
                              prim(i,j,k,4,this%YVELOCITY), &
                              minwav(i,j,k,2),maxwav(i,j,k,2))
           ! bottom
-!CDIR IEXPAND
           CALL SetWaveSpeeds(this%fcsound(i,j,k,5), &
                              prim(i,j,k,5,this%ZVELOCITY), &
                              this%tmp4(i,j,k),this%tmp5(i,j,k))
           ! top
-!CDIR IEXPAND
           CALL SetWavespeeds(this%fcsound(i,j,k,6), &
                              prim(i,j,k,6,this%ZVELOCITY), &
                              minwav(i,j,k,3),maxwav(i,j,k,3))
@@ -445,54 +426,46 @@ CONTAINS
     IF (this%advanced_wave_speeds) THEN
     DO k=Mesh%KGMIN,Mesh%KGMAX
       DO j=Mesh%JGMIN,Mesh%JGMAX
-!CDIR NODEP
+!NEC$ IVDEP
         DO i=Mesh%IMIN-1,Mesh%IMAX
           ! western & eastern interfaces
           ! get Roe averaged x-velocity
-!CDIR IEXPAND
           CALL SetRoeAverages(prim(i,j,k,2,this%DENSITY),prim(i+1,j,k,1,this%DENSITY), &
                               prim(i,j,k,2,this%XVELOCITY),prim(i+1,j,k,1,this%XVELOCITY), &
                               uRoe)
           ! compute Roe averaged wave speeds
-!CDIR IEXPAND
           CALL SetWaveSpeeds(this%fcsound(i,j,k,2),uRoe,aminRoe,amaxRoe)
           minwav(i,j,k,1) = MIN(aminRoe,this%tmp(i+1,j,k),minwav(i,j,k,1))
           maxwav(i,j,k,1) = MAX(amaxRoe,this%tmp1(i+1,j,k),maxwav(i,j,k,1))
         END DO
       END DO
     END DO
-!CDIR COLLAPSE
     DO k=Mesh%KGMIN,Mesh%KGMAX
       DO j=Mesh%JMIN-1,Mesh%JMAX
-!CDIR NODEP
+!NEC$ IVDEP
         DO i=Mesh%IGMIN,Mesh%IGMAX
           ! southern & northern interfaces
           ! get Roe averaged y-velocity
-!CDIR IEXPAND
           CALL SetRoeAverages(prim(i,j,k,4,this%DENSITY),prim(i,j+1,k,3,this%DENSITY), &
                               prim(i,j,k,4,this%YVELOCITY),prim(i,j+1,k,3,this%YVELOCITY), &
                               uRoe)
           ! compute Roe averaged wave speeds
-!CDIR IEXPAND
           CALL SetWaveSpeeds(this%fcsound(i,j,k,4),uRoe,aminRoe,amaxRoe)
           minwav(i,j,k,2) = MIN(aminRoe,this%tmp2(i,j+1,k),minwav(i,j,k,2))
           maxwav(i,j,k,2) = MAX(amaxRoe,this%tmp3(i,j+1,k),maxwav(i,j,k,2))
         END DO
       END DO
     END DO
-!CDIR COLLAPSE
     DO k=Mesh%KMIN-1,Mesh%KMAX
       DO j=Mesh%JGMIN,Mesh%JGMAX
-!CDIR NODEP
+!NEC$ IVDEP
         DO i=Mesh%IGMIN,Mesh%IGMAX
           ! topper & bottomer interfaces
           ! get Roe averaged z-velocity
-!CDIR IEXPAND
           CALL SetRoeAverages(prim(i,j,k,6,this%DENSITY),prim(i,j,k+1,5,this%DENSITY), &
                                prim(i,j,k,6,this%ZVELOCITY),prim(i,j,k+1,5,this%ZVELOCITY), &
                                uRoe)
           ! compute Roe averaged wave speeds
-!CDIR IEXPAND
           CALL SetWaveSpeeds(this%fcsound(i,j,k,6),uRoe,aminRoe,amaxRoe)
           minwav(i,j,k,3) = MIN(aminRoe,this%tmp4(i,j,k+1),minwav(i,j,k,3))
           maxwav(i,j,k,3) = MAX(amaxRoe,this%tmp5(i,j,k+1),maxwav(i,j,k,3))
@@ -500,10 +473,9 @@ CONTAINS
       END DO
     END DO
     ELSE
-!CDIR COLLAPSE
     DO k=Mesh%KGMIN,Mesh%KGMAX
       DO j=Mesh%JGMIN,Mesh%JGMAX
-!CDIR NODEP
+!NEC$ IVDEP
         DO i=Mesh%IMIN-1,Mesh%IMAX
           ! western & eastern interfaces
             minwav(i,j,k,1) = MIN(0.0,this%tmp(i+1,j,k) ,minwav(i,j,k,1))
@@ -511,10 +483,9 @@ CONTAINS
           END DO
         END DO
       END DO
-  !CDIR COLLAPSE
       DO k=Mesh%KGMIN,Mesh%KGMAX
         DO j=Mesh%JMIN-1,Mesh%JMAX
-  !CDIR NODEP
+  !NEC$ IVDEP
           DO i=Mesh%IGMIN,Mesh%IGMAX
             ! southern & northern interfaces
             minwav(i,j,k,2) = MIN(0.0,this%tmp2(i,j+1,k),minwav(i,j,k,2))
@@ -522,10 +493,9 @@ CONTAINS
           END DO
         END DO
       END DO
-  !CDIR COLLAPSE
       DO k=Mesh%KMIN-1,Mesh%KMAX
         DO j=Mesh%JGMIN,Mesh%JGMAX
-  !CDIR NODEP
+  !NEC$ IVDEP
           DO i=Mesh%IGMIN,Mesh%IGMAX
             ! bottom & top interfaces
           minwav(i,j,k,3) = MIN(0.0,this%tmp4(i,j,k+1),minwav(i,j,k,3))
@@ -556,7 +526,6 @@ CONTAINS
         (this%GetType().EQ.EULER2D_ISOIAMROT)) THEN
 
 
-!CDIR COLLAPSE
     DO k=Mesh%KGMIN,Mesh%KGMAX
       DO j=Mesh%JGMIN,Mesh%JGMAX
          DO i=Mesh%IGMIN,Mesh%IGMAX
@@ -611,7 +580,6 @@ CONTAINS
 !    IF ((GetType(Mesh%geometry).NE.CARTESIAN).OR. &
 !        (GetType(this).EQ.EULER2D_IAMROT)) THEN
 !    ! calculate geometrical sources depending on the advection problem
-!!CDIR COLLAPSE
 !    DO j=Mesh%JGMIN,Mesh%JGMAX
 !       DO i=Mesh%IGMIN,Mesh%IGMAX
 !          ! no geometrical density sources
@@ -748,7 +716,6 @@ CONTAINS
     !------------------------------------------------------------------------!
     INTEGER                         :: i,j,k
     !------------------------------------------------------------------------!
-!CDIR COLLAPSE
     DO k=Mesh%KGMIN,Mesh%KGMAX
        DO j=Mesh%JGMIN,Mesh%JGMAX
           DO i=Mesh%IGMIN,Mesh%IGMAX
@@ -776,7 +743,6 @@ CONTAINS
        DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM) &
                                           :: sterm
    !------------------------------------------------------------------------!
-!CDIR IEXPAND
    CALL this%ViscositySources_euler3Dit(Mesh,pvar,btxx,btxy,btxz,btyy,btyz,btzz,sterm)
  
    !compute scalar product of v and tau (x-component)
@@ -794,7 +760,6 @@ CONTAINS
                     + pvar(:,:,:,this%YVELOCITY)*btyz(:,:,:) &
                     + pvar(:,:,:,this%ZVELOCITY)*btzz(:,:,:)
    ! compute vector divergence of scalar product v and tau
-!CDIR IEXPAND
    CALL Mesh%Divergence(this%tmp(:,:,:),this%tmp1(:,:,:), &
       this%tmp2(:,:,:),sterm(:,:,:,this%ENERGY))
  END SUBROUTINE ViscositySources
@@ -817,7 +782,6 @@ CONTAINS
     INTEGER                               :: i1,i2
     !------------------------------------------------------------------------!
     ! compute eigenvalues at i
-!CDIR IEXPAND
     CALL SetEigenValues( &
           this%bccsound(i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX), &
           pvar(i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,this%XVELOCITY), &
@@ -829,7 +793,6 @@ CONTAINS
     i1 = i + SIGN(1,dir) ! left handed if dir<0 and right handed otherwise
     i2 = MAX(i,i1)
     i1 = MIN(i,i1)
-!CDIR IEXPAND
     CALL SetCharVars( &
           this%fcsound(i2,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,WEST), &
           pvar(i1,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,this%DENSITY), &
@@ -865,7 +828,6 @@ CONTAINS
     INTEGER           :: j1,j2
     !------------------------------------------------------------------------!
     ! compute eigenvalues at j
-!CDIR IEXPAND
     CALL SetEigenValues( &
           this%bccsound(Mesh%IMIN:Mesh%IMAX,j,Mesh%KMIN:Mesh%KMAX), &
           pvar(Mesh%IMIN:Mesh%IMAX,j,Mesh%KMIN:Mesh%KMAX,this%YVELOCITY), &
@@ -877,7 +839,6 @@ CONTAINS
     j1 = j + SIGN(1,dir) ! left handed if dir<0 and right handed otherwise
     j2 = MAX(j,j1)
     j1 = MIN(j,j1)
-!CDIR IEXPAND
     CALL SetCharVars( &
           this%fcsound(Mesh%IMIN:Mesh%IMAX,j2,Mesh%KMIN:Mesh%KMAX,SOUTH), &
           pvar(Mesh%IMIN:Mesh%IMAX,j1,Mesh%KMIN:Mesh%KMAX,this%DENSITY), &
@@ -913,7 +874,6 @@ CONTAINS
     INTEGER           :: k1,k2
     !------------------------------------------------------------------------!
     ! compute eigenvalues at k
-!CDIR IEXPAND
     CALL SetEigenValues( &
           this%bccsound(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k), &
           pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k,this%ZVELOCITY), &
@@ -925,7 +885,6 @@ CONTAINS
     k1 = k + SIGN(1,dir) ! left handed if dir<0 and right handed otherwise
     k2 = MAX(k,k1)
     k1 = MIN(k,k1)
-!CDIR IEXPAND
     CALL SetCharVars( &
           this%fcsound(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k2,BOTTOM), &
           pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k1,this%DENSITY), &
@@ -966,7 +925,6 @@ CONTAINS
     ELSE
       fidx = 2  !EAST
     END IF
-!CDIR IEXPAND
     CALL SetBoundaryData( &
           this%fcsound(i1,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,fidx), &
           1.0*SIGN(1,dir), &
@@ -1008,7 +966,6 @@ CONTAINS
     ELSE
       fidx = 4  !NORTH
     END IF
-!CDIR IEXPAND
     CALL SetBoundaryData( &
           this%fcsound(Mesh%IMIN:Mesh%IMAX,j1,Mesh%KMIN:Mesh%KMAX,fidx), &
           1.0*SIGN(1,dir), &
@@ -1050,7 +1007,6 @@ CONTAINS
     ELSE
       fidx = 6  !TOP
     END IF
-!CDIR IEXPAND
     CALL SetBoundaryData( &
           this%fcsound(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k1,fidx), &
           1.0*SIGN(1,dir), &
@@ -1126,7 +1082,6 @@ CONTAINS
 
    ! compute viscous momentum sources
    ! divergence of stress tensor with symmetry btyx=btxy
-   !CDIR IEXPAND
     CALL Mesh%Divergence(btxx,btxy,btxz,btxy,btyy,btyz,btxz,btyz,btzz,sterm(:,:,:,this%XMOMENTUM), &
                          sterm(:,:,:,this%YMOMENTUM),sterm(:,:,:,this%ZMOMENTUM))
   END SUBROUTINE ViscositySources_euler3Dit
@@ -1151,14 +1106,13 @@ CONTAINS
     ! inside the computational domain including one slice of ghost cells
 
     ! compute bulk viscosity first and store the result in this%tmp
-!CDIR IEXPAND
     CALL Mesh%Divergence(pvar(:,:,:,this%XVELOCITY),pvar(:,:,:,this%YVELOCITY),pvar(:,:,:,this%ZVELOCITY),this%tmp(:,:,:))
     this%tmp(:,:,:) = bulkvis(:,:,:)*this%tmp(:,:,:)
 
-!CDIR OUTERUNROLL=8
+!NEC$ OUTERLOOP_UNROLL(8)
   DO k=Mesh%KMIN-1,Mesh%KMAX+1
     DO j=Mesh%JMIN-1,Mesh%JMAX+1
-!CDIR NODEP
+!NEC$ IVDEP
        DO i=Mesh%IMIN-1,Mesh%IMAX+1
           ! compute the diagonal elements of the stress tensor
           btxx(i,j,k) = dynvis(i,j,k) * &

@@ -336,9 +336,8 @@ CONTAINS
           END SELECT
 
           DO k=Mesh%KGMIN,Mesh%KGMAX
-!CDIR COLLAPSE
             DO j=Mesh%JGMIN,Mesh%JGMAX
-!CDIR NODEP
+!NEC$ IVDEP
              DO i=Mesh%IGMIN,Mesh%IGMAX
                 ! get/compute pressure and angular velocity
                 P = cs2*pvar(i,j,k,kp)
@@ -354,7 +353,6 @@ CONTAINS
           ! Duschl type beta viscosity
           !TODO Beta-viscosity is NOT converted to 3D!!!!!
           !an usage of beta-viscosity with a cartesian grid will be wrong!!!!!
-!CDIR IEXPAND
           SELECT CASE(Physics%GetType())
           CASE (EULER2D,EULER2D_ISOTHERM)
              this%dynvis(:,:,:) = etafkt_beta(this%dynconst, &
@@ -372,7 +370,6 @@ CONTAINS
                   cvar(:,:,:,Physics%ZMOMENTUM))
           END SELECT
        CASE(PRINGLE) ! constant kinematic viscosity
-!CDIR IEXPAND
           this%dynvis(:,:,:) = etafkt_pringle(this%dynconst,pvar(:,:,:,Physics%DENSITY))
 ! TODO: height of the disk is calculated in another source module, which is not translated yet. Therefore, ALPHA_ALT is not
 ! working

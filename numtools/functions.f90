@@ -198,7 +198,7 @@ CONTAINS
        an  = 1.0
        bn  = SQRT(1.0-k*k)
        cn  = k
-!CDIR UNROLL=20
+!NEC$ UNROLL(20)
        DO n=1,MAX_AGM_ITERATIONS ! do not loop forever
           tmp = tmp + cn*cn*i
           IF (ABS(cn).GT.0.5*EPS_AGM*ABS(an)) THEN
@@ -241,7 +241,7 @@ CONTAINS
     IF (ABS(k).LT.1.0) THEN
        an = 1.0
        bn = SQRT(1.0-k*k) ! = NaN if |k| > 1
-!CDIR UNROLL=20
+!NEC$ UNROLL(20)
        DO i=1,MAX_AGM_ITERATIONS ! do not loop forever
           IF (ABS(an-bn).GT.EPS_AGM*ABS(an)) THEN
              tmp = 0.5*(an + bn)
@@ -516,9 +516,8 @@ CONTAINS
     IF(l.LT.0) THEN
         Pl = SQRT(1.0*l) ! return NaN
     ELSE
-!CDIR UNROLL=20
+!NEC$ UNROLL(20)
         DO i=0,l
-!CDIR IEXPAND
            Pl = LegendrePolynomial_one(i,x,Plminus1,Plminus2)
            Plminus2 = Plminus1
            Plminus1 = Pl
@@ -544,7 +543,7 @@ CONTAINS
     IF (x.GE.1.0) THEN
        an = SQRT(x-1.0)
        bn = SQRT(x+1.0) ! if x < 1 bn = NaN, hence q = NaN
-!CDIR UNROLL=20
+!NEC$ UNROLL(20)
        DO i=1,MAX_AGM_ITERATIONS ! do not loop forever
           IF (ABS(an-bn).GT.EPS_AGM*ABS(an)) THEN
              tmp = 0.5*(an + bn)
