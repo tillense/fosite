@@ -34,6 +34,8 @@
 MODULE sources_generic_mod
   USE sources_base_mod
   USE sources_viscosity_mod
+  USE sources_c_accel_mod
+  USE sources_shearbox_mod
   USE mesh_base_mod
   USE Fluxes_base_mod
   USE Physics_base_mod
@@ -41,51 +43,85 @@ MODULE sources_generic_mod
 
 CONTAINS
 
-
-  SUBROUTINE New_Sources(this,Mesh,Fluxes,Physics,config,IO)
+  SUBROUTINE new_sources(this,Mesh,Fluxes,Physics,config,IO)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(Sources_base),POINTER :: this
-    CLASS(Mesh_base)    :: Mesh
-    CLASS(Fluxes_base)  :: Fluxes
-    CLASS(Physics_base) :: Physics
-    TYPE(DICT_TYP), POINTER   :: config, IO
-
+    CLASS(sources_base), POINTER :: this
+    CLASS(mesh_base)             :: Mesh
+    CLASS(fluxes_base)           :: Fluxes
+    CLASS(physics_base)          :: Physics
+    TYPE(DICT_TYP),      POINTER :: config, IO
     !------------------------------------------------------------------------!
-    CLASS(Sources_base),POINTER :: newsrc, tmpsrc
-    !CLASS(Sources_base),POINTER :: errsrc      ! we need this only for error reporting !
-    INTEGER           :: err
-    INTEGER           :: stype
+    CLASS(sources_base), POINTER :: newsrc, tmpsrc
+    TYPE(Dict_TYP),      POINTER :: dir,src,IOsrc,gsrc => null(),gdir => null()
+    INTEGER                      :: stype
     !------------------------------------------------------------------------!
-    ! allocate memory for new source term
-    CALL GetAttr(config,"vis/stype",stype)
+    dir => config
+    DO WHILE(ASSOCIATED(dir))
+      NULLIFY(IOsrc)
+      IF(HasChild(dir)) THEN
+        src => GetChild(dir)
+        CALL GetAttr(src, "stype", stype)
 
-    SELECT CASE(stype)
-    CASE(Viscosity)
-      ALLOCATE(sources_viscosity::newsrc)
-      IF (err.NE.0) CALL newsrc%Error("New_Sources", "Unable allocate memory!")
-    CASE DEFAULT
-      CALL this%Error("New_Sources","Unknown source type")
-    END SELECT
-    
-    ! basic initialization
-    SELECT TYPE(obj => newsrc)
-    TYPE IS (sources_viscosity)
-      CALL obj%InitSources_all(Mesh,Fluxes,Physics,config,IO)
-    END SELECT
-    ! add new source term to beginning of
-    ! list of source terms
-    IF (.NOT.ASSOCIATED(this)) THEN
-       this => newsrc
-       NULLIFY(this%next)
-    ELSE
-       tmpsrc => this
-       this => newsrc
-       this%next => tmpsrc
-    END IF
+        ! object creation
+        SELECT CASE(stype)
+        CASE(C_ACCEL)
+          ALLOCATE(sources_c_accel::newsrc)
+        CASE(VISCOSITY)
+          ALLOCATE(sources_viscosity::newsrc)
+        CASE DEFAULT
+          CALL this%Error("new_sources","Unknown source type")
+        END SELECT
+
+        ! basic initialization
+        SELECT TYPE(obj => newsrc)
+        TYPE IS (sources_c_accel)
+          CALL obj%InitSources_c_accel(Mesh,Physics,Fluxes,config,IOsrc)
+        TYPE IS (sources_viscosity)
+          CALL obj%InitSources_viscosity(Mesh,Physics,Fluxes,config,IOsrc)
+        END SELECT
+
+        IF(ASSOCIATED(IOsrc)) CALL SetAttr(IO, GetKey(dir), IOsrc)
+
+        IF (.NOT.ASSOCIATED(this)) THEN
+           this => newsrc
+           NULLIFY(this%next)
+        ELSE
+           tmpsrc => this
+           this => newsrc
+           this%next => tmpsrc
+        END IF
+
+      END IF
+      dir => GetNext(dir)
+    END DO
+!
+!!    ! finally initialize gravity
+!!    IF(ASSOCIATED(gsrc)) THEN
+!!       NULLIFY(IOsrc)
+!!       CALL SetAttr(gsrc,"update_disk_height", update_disk_height)
+!!       CALL InitGravity(list,Mesh,Fluxes,Physics,Timedisc%Boundary,GRAVITY,gsrc,IOsrc)
+!!       IF(ASSOCIATED(IOsrc)) &
+!!         CALL SetAttr(IO, GetKey(gdir), IOsrc)
+!!    END IF
+!!
+!!!    IF(ASSOCIATED(ssrc)) THEN
+!!!       NULLIFY(IOsrc)
+!!!       CALL InitSources_shearbox(list,Mesh,Physics,src,IOsrc)
+!!!       IF(ASSOCIATED(IOsrc)) &
+!!!         CALL SetAttr(IO, GetKey(sdir), IOsrc)
+!!!    END IF
+!
+!    ! print some information
+!    CALL list%InfoSources(Mesh)
+
   END SUBROUTINE New_Sources
 
-
-
+  SUBROUTINE close_sources()
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    ! add new source term to beginning of
+    ! list of source terms
+  END SUBROUTINE
 
 END MODULE sources_generic_mod

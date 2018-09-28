@@ -27,8 +27,8 @@
 !!
 !! \brief constructor for physics class
 !!
-!! This module allocates the mesh class and decides which specific
-!! mesh to use from the config.
+!! This module allocates the physics class and decides which specific
+!! physics to use from the config.
 !----------------------------------------------------------------------------!
 MODULE physics_generic_mod
   USE physics_base_mod

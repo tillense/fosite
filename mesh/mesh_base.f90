@@ -134,6 +134,8 @@ MODULE mesh_base_mod
     REAL              :: dx,dy,dz          !< curvilinear spatial differences
     REAL              :: invdx,invdy,invdz !< inverse of curvilinear spatial differences
     REAL              :: omega             !< speed of the rotating frame of ref.
+    REAL              :: Q                 !< shearing parameter
+    INTEGER           :: fargo             !< Fargo parameter (> 0 enabled)
     REAL              :: rotcent(2)        !< center of the rotating frame of ref.
     !> \name
     !! #### cell coordinates

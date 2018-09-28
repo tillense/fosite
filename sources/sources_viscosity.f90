@@ -44,10 +44,6 @@
 !----------------------------------------------------------------------------!
 MODULE sources_viscosity_mod
   USE sources_base_mod
-!  USE common_types, ONLY : Common_TYP, InitCommon
-!  USE timedisc_common, ONLY : Timedisc_TYP
-!  USE sources_c_accel
-!  USE gravity_generic
   USE physics_base_mod
   USE fluxes_base_mod
   USE mesh_base_mod
@@ -67,19 +63,20 @@ MODULE sources_viscosity_mod
                                      "turbulent Duschl                ", &
                                      "const. kinematic viscosity      ", &
                                      "alternative Shakura-Sunyaev     "/)
- 
- 
+
+
   TYPE, EXTENDS(sources_base) :: sources_viscosity
     !CLASS(sources_base), POINTER     :: next => null()
     CHARACTER(LEN=32) :: source_name = "viscosity of Newtonian fluid"
  CONTAINS
-    PROCEDURE :: InitiateSources
+    PROCEDURE :: InitSources_viscosity
     PROCEDURE :: InfoSources
     PROCEDURE :: SetOutput
     PROCEDURE :: UpdateViscosity
-    PROCEDURE :: ExternalSources
-    PROCEDURE :: CalcTimestep 
-    PROCEDURE :: Close_Sources
+    PROCEDURE :: ExternalSources_single
+    PROCEDURE :: CalcTimestep_single
+
+    PROCEDURE :: Finalize
   END TYPE
   !--------------------------------------------------------------------------!
  PUBLIC :: &
@@ -91,14 +88,13 @@ MODULE sources_viscosity_mod
 
 CONTAINS
 
-  SUBROUTINE InitiateSources(this,Mesh,Physics,Fluxes, config,IO) !Timedisc,config,IO)
+  SUBROUTINE InitSources_viscosity(this,Mesh,Physics,Fluxes,config,IO)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(Sources_viscosity) :: this
     CLASS(Mesh_base)    :: Mesh
     CLASS(Physics_base) :: Physics
     CLASS(Fluxes_base)  :: Fluxes
-  !  CLASS(Timedisc_base) :: Timedisc
     TYPE(Dict_TYP),POINTER :: config,IO
     INTEGER           :: stype
     INTEGER           :: model
@@ -107,10 +103,12 @@ CONTAINS
     !------------------------------------------------------------------------!
     INTENT(IN)        :: Mesh,Physics,Fluxes
     !------------------------------------------------------------------------!
-    CALL GetAttr(config, "stype", stype)
+!    CALL GetAttr(config, "stype", stype)
     IF (.NOT.Fluxes%Initialized()) &
          CALL this%Error("InitSources_viscosity","fluxes module uninitialized")
-    CALL this%InitLogging(stype,this%source_name)
+!    CALL this%InitLogging(stype,this%source_name)
+
+    CALL this%InitSources(Mesh,Fluxes,Physics,config,IO)
 
     ! check mesh
     IF (Mesh%GetType().NE.MIDPOINT) &
@@ -212,7 +210,7 @@ CONTAINS
     CALL this%SetOutput(Mesh,Physics,config,IO)
     IF (this%GetType().EQ.ALPHA_ALT) this%update_disk_height = .True.
 
-  END SUBROUTINE InitiateSources
+  END SUBROUTINE InitSources_viscosity
 
   SUBROUTINE SetOutput(this,Mesh,Physics,config,IO)
     IMPLICIT NONE
@@ -224,7 +222,7 @@ CONTAINS
     !------------------------------------------------------------------------!
     INTEGER              :: valwrite
     !------------------------------------------------------------------------!
-   ! Hier wird der Stresstensor per default in 3D ausgegeben! Vorher nur in 2D plus abhängig 
+   ! Hier wird der Stresstensor per default in 3D ausgegeben! Vorher nur in 2D plus abhängig
    ! von der Physik auch die Komponenten der dritten Dimension
     CALL GetAttr(config, "output/stress", valwrite, 0)
     IF (valwrite .EQ. 1) THEN
@@ -311,9 +309,9 @@ CONTAINS
           ! Shakura-Sunyaev type alpha viscosity
           ! standard alpha prescription: nu = alpha*cs*h
           ! or nu = alpha / A * cs**2 / omega with A = -d ln(omega)/d ln(r)
-          ! (see Kato, Fukue & Minishige: Black Hole Accretion Disks, 2008; 
+          ! (see Kato, Fukue & Minishige: Black Hole Accretion Disks, 2008;
           ! equation (3.46))
-          ! 
+          !
           ! this is a rough estimation assuming that the logarithmic derivative
           ! of the angular velocity (d ln(omega)/d ln(r)) is of the order of -1
           !
@@ -341,7 +339,7 @@ CONTAINS
              DO i=Mesh%IGMIN,Mesh%IGMAX
                 ! get/compute pressure and angular velocity
                 P = cs2*pvar(i,j,k,kp)
-                ! consider Omega of rotating frame => Physics%Omega 
+                ! consider Omega of rotating frame => Physics%Omega
                 Omega = pvar(i,j,k,kv)*this%invr(i,j,k) + Mesh%Omega
                 ! compute alpha viscosity
                 this%dynvis(i,j,k) = etafkt_alpha(this%dynconst,P,Omega)
@@ -420,7 +418,7 @@ CONTAINS
       ! L = r * rho * v_phi is the angular momentum
       eta = beta * abs(L)
     END FUNCTION etafkt_beta
-    
+
     ! Pringle disk (kinematic viscosity is constant)
     ELEMENTAL FUNCTION etafkt_pringle(nu,rho) RESULT(eta)
       IMPLICIT NONE
@@ -430,11 +428,11 @@ CONTAINS
       !----------------------------------------------------------------------!
       eta = nu * rho   !nu is the kinematic viscosity
     END FUNCTION etafkt_pringle
-    
+
   END SUBROUTINE UpdateViscosity
 
- 
-  SUBROUTINE ExternalSources(this,Mesh,Physics,Fluxes,time,pvar,cvar,sterm)
+
+  SUBROUTINE ExternalSources_single(this,Mesh,Physics,Fluxes,time,pvar,cvar,sterm)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(Sources_viscosity),INTENT(INOUT) :: this
@@ -453,10 +451,10 @@ CONTAINS
              this%btxx,this%btxy,this%btxz,this%btyy,this%btyz,this%btzz)
     CALL Physics%ViscositySources(Mesh,pvar,this%btxx,this%btxy,this%btxz, &
              this%btyy,this%btyz,this%btzz,sterm)
-  END SUBROUTINE ExternalSources
+  END SUBROUTINE ExternalSources_single
 
-  
-  SUBROUTINE CalcTimestep(this,Mesh,Physics,Fluxes,time,pvar,cvar,dt)
+
+  SUBROUTINE CalcTimestep_single(this,Mesh,Physics,Fluxes,time,pvar,cvar,dt)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(Sources_viscosity),INTENT(INOUT) :: this
@@ -510,10 +508,10 @@ CONTAINS
     ELSE
        dt = HUGE(dt)
     END IF
-  END SUBROUTINE CalcTimestep
+  END SUBROUTINE CalcTimestep_single
 
 
-  SUBROUTINE Close_Sources(this)
+  SUBROUTINE Finalize(this)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(Sources_viscosity) :: this
@@ -524,7 +522,7 @@ CONTAINS
                this%btxx,this%btyy,this%btzz,this%btxy,this%btxz,this%btyz)
     IF(this%use_envelope.EQ.1) &
       DEALLOCATE(this%envelope)
-  END SUBROUTINE Close_Sources
+  END SUBROUTINE Finalize
 
 
 END MODULE sources_viscosity_mod

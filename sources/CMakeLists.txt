@@ -10,7 +10,7 @@ add_library(sources
 #  multipole_spherical.f90
 #  gravity_pointmass.f90
 #  sources_rotframe.f90
-#  sources_c_accel.f90
+  sources_c_accel.f90
 #  sources_sgs.f90
 #  sources_diskcooling.f90
   sources_viscosity.f90
@@ -23,7 +23,7 @@ add_library(sources
 #  sources_stellarheating.f90
 #  sources_planetheating.f90
 #  sources_planetcooling.f90
-#  sources_shearbox.f90
+  sources_shearbox.f90
 #  gravity_sboxspectral.f90
 )
 target_link_libraries(sources fluxes)

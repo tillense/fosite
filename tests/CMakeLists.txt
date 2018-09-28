@@ -21,7 +21,7 @@ set (EXES
   riemann2d-xz
 #  riemann3d
 #  rngtest
-#  RTI
+  RTI
 #  specialfunctions
 #  vortex2d
 )

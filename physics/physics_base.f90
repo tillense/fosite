@@ -49,7 +49,7 @@ MODULE physics_base_mod
   USE constants_generic_mod
   USE logging_base_mod
   USE mesh_base_mod
-!  USE sources_base
+!  USE sources_base_mod
   USE common_dict
   IMPLICIT NONE
   !--------------------------------------------------------------------------!
@@ -58,7 +58,7 @@ MODULE physics_base_mod
      !> \name Variables
 !     CLASS(logging_base)    :: advproblem            !< advection problem
      CLASS(constants_base), ALLOCATABLE :: constants             !< physical constants
-!     TYPE(sources_base, POINTER &
+!     CLASS(sources_base), POINTER &
 !                         :: sources => null()     !< list of source terms
      REAL                :: gamma,&               !< ratio of spec. heats
                             time,&                !< simulation time
@@ -546,7 +546,7 @@ CONTAINS
     ! the center of rotation lies outside of the computational domain
     CALL GetAttr(config, "softening", this%eps, 1.0)
 
-    this%vnum = vnum
+    this%VNUM = VNUM
     ! allocate memory for arrays common to all physics modules
     ALLOCATE(this%pvarname(this%vnum),this%cvarname(this%vnum),                                           &
              this%tmp(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX),                 &
