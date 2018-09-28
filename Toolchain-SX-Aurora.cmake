@@ -22,7 +22,7 @@ SET(CMAKE_RANLIB ${ve}/bin/nranlib)
 # Modifiziere das LINK commmando, da <FLAGS> auch die compile flags enthält und dann der c-preprocessor auf die obj files angewendet wird.
 # Original:
 #SET(CMAKE_Fortran_LINK_EXECUTABLE "<CMAKE_Fortran_COMPILER> <FLAGS> <CMAKE_Fortran_LINK_FLAGS> <LINK_FLAGS> <OBJECTS> -o <TARGET> <LINK_LIBRARIES>")
-SET(CMAKE_Fortran_LINK_EXECUTABLE "<CMAKE_Fortran_COMPILER> <LINK_FLAGS> <OBJECTS> -O3 -proginf -o <TARGET> <LINK_LIBRARIES>")
+SET(CMAKE_Fortran_LINK_EXECUTABLE "<CMAKE_Fortran_COMPILER> <LINK_FLAGS> <OBJECTS> -o <TARGET> <LINK_LIBRARIES>")
 
 
 # search for programs in the build host directories
