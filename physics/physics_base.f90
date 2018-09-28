@@ -474,7 +474,6 @@ MODULE physics_base_mod
        EULER2D_IAMT, EULER2D_IAMROT, EULER2D_ISOIAMROT, &
        EULER3D_ISOTHERM, EULER3D, &
        ! methods - only elemental functions
-       SetWaveSpeeds, &
        CalcWaveSpeeds, &
        MomentumSourcesX, &
        MomentumSourcesY, &
@@ -692,20 +691,6 @@ CONTAINS
     minwav = MIN(0.,v-cs)
     maxwav = MAX(0.,v+cs)
   END SUBROUTINE CalcWaveSpeeds
-
-  !> \todo NOT VERIFIED
-  !!
-  !! global elemental routine
-  ELEMENTAL SUBROUTINE SetWaveSpeeds(cs,v,minwav,maxwav)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    REAL, INTENT(IN)  :: cs,v
-    REAL, INTENT(OUT) :: minwav,maxwav
-    !------------------------------------------------------------------------!
-    ! minimal and maximal wave speeds
-    minwav = MIN(0.,v-cs)
-    maxwav = MAX(0.,v+cs)
-  END SUBROUTINE SetWaveSpeeds
 
   !> Destructor
   SUBROUTINE FinalizePhysics(this)

@@ -1220,6 +1220,18 @@ CONTAINS
     l4 = v + cs
   END SUBROUTINE SetEigenValues
 
+  !> set minimal and maximal wave speeds
+  ELEMENTAL SUBROUTINE SetWaveSpeeds(cs,v,minwav,maxwav)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    REAL, INTENT(IN)  :: cs,v
+    REAL, INTENT(OUT) :: minwav,maxwav
+    !------------------------------------------------------------------------!
+    ! minimal and maximal wave speeds
+    minwav = MIN(0.,v-cs)
+    maxwav = MAX(0.,v+cs)
+  END SUBROUTINE SetWaveSpeeds
+
   !> Set fluxes
   !!
   !! non-global elemtal subroutine

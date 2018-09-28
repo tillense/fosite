@@ -1,9 +1,9 @@
 !#############################################################################
 !#                                                                           #
 !# fosite - 3D hydrodynamical simulation program                             #
-!# module: physics_euler2D_isothm.f90                                        #
+!# module: physics_euler2Disothm.f90                                         #
 !#                                                                           #
-!# Copyright (C) 2007-2017                                                   #
+!# Copyright (C) 2007-2018                                                   #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
 !# Björn Sperling   <sperling@astrophysik.uni-kiel.de>                       #
 !# Manuel Jung      <mjung@astrophysik.uni-kiel.de>                          #
@@ -38,7 +38,7 @@
 !!
 !! \brief basic module for 2D isothermal Euler equations
 !!
-!! \extends physics_common
+!! \extends physics_base
 !! \ingroup physics
 !----------------------------------------------------------------------------!
 MODULE physics_euler2Dit_mod
@@ -804,15 +804,20 @@ CONTAINS
     !------------------------------------------------------------------------!
     INTEGER                         :: i,j,k
     !------------------------------------------------------------------------!
-    DO k=Mesh%KGMIN,Mesh%KGMAX
-       DO j=Mesh%JGMIN,Mesh%JGMAX
-          DO i=Mesh%IGMIN,Mesh%IGMAX
+!     DO k=Mesh%KGMIN,Mesh%KGMAX
+!       DO j=Mesh%JGMIN,Mesh%JGMAX
+!         DO i=Mesh%IGMIN,Mesh%IGMAX
+    FORALL (i=Mesh%IGMIN:Mesh%IGMAX,j=Mesh%JGMIN:Mesh%JGMAX,k=Mesh%KGMIN:Mesh%KGMAX)
              sterm(i,j,k,this%DENSITY)   = 0.
              sterm(i,j,k,this%XMOMENTUM) = pvar(i,j,k,this%DENSITY) * accel(i,j,k,1)
              sterm(i,j,k,this%YMOMENTUM) = pvar(i,j,k,this%DENSITY) * accel(i,j,k,2)
-          END DO
-       END DO
-    END DO
+    END FORALL
+!         END DO
+!       END DO
+!     END DO
+!       sterm(:,:,:,this%DENSITY)   = 0.
+!       sterm(:,:,:,this%XMOMENTUM) = pvar(:,:,:,this%DENSITY) * accel(:,:,:,1)
+!       sterm(:,:,:,this%YMOMENTUM) = pvar(:,:,:,this%DENSITY) * accel(:,:,:,2)
   END SUBROUTINE ExternalSources
 
   !> Maks for reflecting boundaries
@@ -1136,6 +1141,18 @@ CONTAINS
 !          pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k2,this%YVELOCITY), &
 !          pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k2,this%XVELOCITY))
   END SUBROUTINE CalculateBoundaryDataZ
+
+  !> set minimal and maximal wave speeds
+  ELEMENTAL SUBROUTINE SetWaveSpeeds(cs,v,minwav,maxwav)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    REAL, INTENT(IN)  :: cs,v
+    REAL, INTENT(OUT) :: minwav,maxwav
+    !------------------------------------------------------------------------!
+    ! minimal and maximal wave speeds
+    minwav = MIN(0.,v-cs)
+    maxwav = MAX(0.,v+cs)
+  END SUBROUTINE SetWaveSpeeds
 
   ELEMENTAL SUBROUTINE SetEigenValues(cs,v,l1,l2,l3)
     IMPLICIT NONE

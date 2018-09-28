@@ -1490,6 +1490,18 @@ CONTAINS
     cs = SQRT((gamma-1.)*(h-0.5*(u**2+v**2)))
   END SUBROUTINE SetRoeAverages
 
+  !> set minimal and maximal wave speeds
+  ELEMENTAL SUBROUTINE SetWaveSpeeds(cs,v,minwav,maxwav)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    REAL, INTENT(IN)  :: cs,v
+    REAL, INTENT(OUT) :: minwav,maxwav
+    !------------------------------------------------------------------------!
+    ! minimal and maximal wave speeds
+    minwav = MIN(0.,v-cs)
+    maxwav = MAX(0.,v+cs)
+  END SUBROUTINE SetWaveSpeeds
+
   !> \todo NOT VERIFIED
   !! only for boundary conditions - absorbing
   ELEMENTAL SUBROUTINE SetEigenValues(gamma,rho,v,P,l1,l2,l3,l4)
