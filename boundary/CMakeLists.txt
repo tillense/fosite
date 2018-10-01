@@ -5,8 +5,8 @@ add_library(boundary
 #  boundary_farfield.f90
 #  boundary_custom.f90
 #  boundary_noh.f90
-#  boundary_fixed.f90
-#  boundary_noslip.f90
+  boundary_fixed.f90
+  boundary_noslip.f90
 #  boundary_extrapolation.f90
   boundary_reflecting.f90
   boundary_generic.f90

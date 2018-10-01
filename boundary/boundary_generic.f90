@@ -51,6 +51,8 @@ MODULE boundary_generic_mod
   USE boundary_inner_mod
   USE boundary_axis_mod
   USE boundary_absorbing_mod
+  USE boundary_fixed_mod
+  USE boundary_noslip_mod
   USE physics_base_mod
   USE common_dict
 #ifdef PARALLEL
@@ -75,7 +77,6 @@ MODULE boundary_generic_mod
   END TYPE
 
   TYPE, EXTENDS(logging_base)         :: boundary_generic
-    PRIVATE
     !> \name variables
     TYPE(boundary_p)                  :: Boundary(6)
     LOGICAL                           :: PhysicalCorner  !< Is the left corner physical?
@@ -174,6 +175,10 @@ CONTAINS
         ALLOCATE(boundary_axis::this%Boundary(dir)%p)
       CASE(ABSORBING)
         ALLOCATE(boundary_absorbing::this%Boundary(dir)%p)
+      CASE(FIXED)
+        ALLOCATE(boundary_fixed::this%Boundary(dir)%p)
+      CASE(NOSLIP)
+        ALLOCATE(boundary_noslip::this%boundary(dir)%p)
 #ifdef PARALLEL
       CASE(NONE)
         ALLOCATE(boundary_inner::this%Boundary(dir)%p)
@@ -191,6 +196,10 @@ CONTAINS
         CALL obj%InitBoundary_axis(Mesh,Physics,dir,config)
       TYPE IS (boundary_absorbing)
         CALL obj%InitBoundary_absorbing(Mesh,Physics,dir,config)
+      TYPE IS (boundary_fixed)
+        CALL obj%InitBoundary_fixed(Mesh,Physics,dir,config)
+      TYPE IS (boundary_noslip)
+        CALL obj%InitBoundary_noslip(Mesh,Physics,dir,config)
 #ifdef PARALLEL
       TYPE IS (boundary_inner)
         CALL obj%InitBoundary_inner(Mesh,Physics,dir,config)

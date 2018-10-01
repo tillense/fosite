@@ -334,7 +334,6 @@ CONTAINS
 
     ! main loop
     DO WHILE((this%Timedisc%maxiter.LE.0).OR.(this%iter.LE.this%Timedisc%maxiter))
-!      print *,"this%iter: ", this%iter
       IF(this%Step()) EXIT
     END DO
 
