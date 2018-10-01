@@ -76,9 +76,9 @@ CONTAINS
         ! basic initialization
         SELECT TYPE(obj => newsrc)
         TYPE IS (sources_c_accel)
-          CALL obj%InitSources_c_accel(Mesh,Physics,Fluxes,config,IOsrc)
+          CALL obj%InitSources_c_accel(Mesh,Physics,Fluxes,src,IOsrc)
         TYPE IS (sources_viscosity)
-          CALL obj%InitSources_viscosity(Mesh,Physics,Fluxes,config,IOsrc)
+          CALL obj%InitSources_viscosity(Mesh,Physics,Fluxes,src,IOsrc)
         END SELECT
 
         IF(ASSOCIATED(IOsrc)) CALL SetAttr(IO, GetKey(dir), IOsrc)

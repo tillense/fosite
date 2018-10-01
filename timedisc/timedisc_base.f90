@@ -57,9 +57,9 @@ MODULE timedisc_base_mod
   USE boundary_generic_mod
   USE mesh_base_mod
   USE physics_base_mod
+  USE sources_base_mod
   USE fluxes_base_mod
   USE reconstruction_base_mod
-  USE sources_base_mod
   USE field_base_mod
   USE common_dict
 #ifdef PARALLEL
@@ -77,7 +77,6 @@ MODULE timedisc_base_mod
 PRIVATE
   TYPE, ABSTRACT, EXTENDS (logging_base) ::  timedisc_base
      !> \name Variables
-     !CLASS(boundary_base), DIMENSION(4) :: Boundary   !< one for each boundary
      CLASS(boundary_generic), ALLOCATABLE :: Boundary  !< one for each boundary
      INTEGER          :: order                         !< time order
      REAL             :: cfl                           !< Courant number
@@ -155,12 +154,13 @@ PRIVATE
   END TYPE timedisc_base
 !----------------------------------------------------------------------------!
   ABSTRACT INTERFACE
-    SUBROUTINE SolveODE(this,Mesh,Physics,Fluxes,time,dt,err)
-      IMPORT timedisc_base, mesh_base, physics_base, fluxes_base
+    SUBROUTINE SolveODE(this,Mesh,Physics,Sources,Fluxes,time,dt,err)
+      IMPORT timedisc_base, mesh_base, physics_base, fluxes_base, sources_base
       IMPLICIT NONE
       CLASS(timedisc_base), INTENT(INOUT) :: this
       CLASS(mesh_base),     INTENT(IN)    :: Mesh
       CLASS(physics_base),  INTENT(INOUT) :: Physics
+      CLASS(sources_base),  POINTER       :: Sources
       CLASS(fluxes_base),   INTENT(INOUT) :: Fluxes
       REAL,                 INTENT(IN)    :: time
       REAL,                 INTENT(INOUT) :: dt, err
@@ -552,11 +552,12 @@ CONTAINS
   END SUBROUTINE SetOutput
 
 
-  SUBROUTINE IntegrationStep(this,Mesh,Physics,Fluxes,iter,config,IO)
+  SUBROUTINE IntegrationStep(this,Mesh,Physics,Sources,Fluxes,iter,config,IO)
     !------------------------------------------------------------------------!
     CLASS(timedisc_base), INTENT(INOUT) :: this
     CLASS(mesh_base),     INTENT(IN)    :: Mesh
     CLASS(physics_base),  INTENT(INOUT) :: Physics
+    CLASS(sources_base),  POINTER       :: Sources
     CLASS(fluxes_base),   INTENT(INOUT) :: Fluxes
     INTEGER                             :: iter
     TYPE(Dict_TYP),       POINTER       :: config,IO
@@ -576,12 +577,12 @@ CONTAINS
       dtold = dt
 
 
-      CALL this%SolveODE(Mesh,Physics,Fluxes,time,dt,err)
+      CALL this%SolveODE(Mesh,Physics,Sources,Fluxes,time,dt,err)
       ! check truncation error and restart if necessary
       IF (err.LT.1.0) THEN
-         CALL this%AcceptSolution(Mesh,Physics,Fluxes,time,dtold,iter)
+         CALL this%AcceptSolution(Mesh,Physics,Sources,Fluxes,time,dtold,iter)
       ELSE
-         CALL this%RejectSolution(Mesh,Physics,Fluxes,time,dt)
+         CALL this%RejectSolution(Mesh,Physics,Sources,Fluxes,time,dt)
       END IF
 
       IF (dt.LT.this%dtlimit) &
@@ -668,12 +669,13 @@ CONTAINS
 
 
   !> \public Determines the CFL time step and time step limits due to source terms
-  REAL FUNCTION CalcTimestep(this,Mesh,Physics,Fluxes,time,dtcause) RESULT(dt)
+  REAL FUNCTION CalcTimestep(this,Mesh,Physics,Sources,Fluxes,time,dtcause) RESULT(dt)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(timedisc_base), INTENT(INOUT) :: this
     CLASS(mesh_base),     INTENT(IN)    :: Mesh
     CLASS(physics_base),  INTENT(INOUT) :: Physics
+    CLASS(sources_base),  POINTER       :: Sources
     CLASS(fluxes_base),   INTENT(INOUT) :: Fluxes
     REAL,                 INTENT(IN)    :: time
     INTEGER,              INTENT(INOUT) :: dtcause
@@ -732,33 +734,20 @@ CONTAINS
 
     ! initialize this to be sure dt_src > 0
     dt_src = dt_cfl
-    ! \todo{THESE NEEDS TO BE UNCOMMENTED AGAIN WHEN SOURCES IS FINISHED}
-!    CALL CalcTimestep_sources(Physics%sources,Mesh,Physics,Fluxes,time, &
-!         this%pvar,this%cvar,dt_src,dtcause)
-
-
-    ! largest time step due to CFL condition
-    dt_cfl = this%cfl / invdt
-    ! due to cfl = 0
-    dtcause = 0
-
-    ! initialize this to be sure dt_src > 0
-    dt_src = dt_cfl
-    ! \todo{THESE NEEDS TO BE UNCOMMENTED AGAIN WHEN SOURCES IS FINISHED}
-!    CALL CalcTimestep_sources(Physics%sources,Mesh,Physics,Fluxes,time, &
-!         this%pvar,this%cvar,dt_src,dtcause)
+    CALL Sources%CalcTimestep(Mesh,Physics,Fluxes,time,this%pvar,this%cvar,dt_src,dtcause)
 
     dt = MIN(dt_cfl,dt_src)
   END FUNCTION CalcTimestep
 
 
 
-  SUBROUTINE AcceptSolution(this,Mesh,Physics,Fluxes,time,dt,iter)
+  SUBROUTINE AcceptSolution(this,Mesh,Physics,Sources,Fluxes,time,dt,iter)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(timedisc_base), INTENT(INOUT) :: this
     CLASS(mesh_base),     INTENT(IN)    :: Mesh
     CLASS(physics_base),  INTENT(INOUT) :: Physics
+    CLASS(sources_base),  POINTER       :: Sources
     CLASS(fluxes_base),   INTENT(INOUT) :: Fluxes
     REAL                                :: time,dt
     INTEGER                             :: iter
@@ -772,7 +761,7 @@ CONTAINS
     dtmeanold = this%dtmean
     this%dtmean = this%dtmean + (dt - this%dtmean)/this%dtaccept
     this%dtstddev = this%dtstddev + (dt - dtmeanold)*(dt-this%dtmean)
-    CALL this%ComputeRHS(Mesh,Physics,Fluxes,time,dt,this%pvar,&
+    CALL this%ComputeRHS(Mesh,Physics,Sources,Fluxes,time,dt,this%pvar,&
       this%cvar,this%checkdatabm,this%rhs)
     this%cold(:,:,:,:) = this%cvar(:,:,:,:)
     Fluxes%bxfold(:,:,:,:) = Fluxes%bxflux(:,:,:,:)
@@ -781,12 +770,13 @@ CONTAINS
     iter = iter + 1
   END SUBROUTINE AcceptSolution
 
-  SUBROUTINE RejectSolution(this,Mesh,Physics,Fluxes,time,dt)
+  SUBROUTINE RejectSolution(this,Mesh,Physics,Sources,Fluxes,time,dt)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(timedisc_base), INTENT(INOUT) :: this
     CLASS(mesh_base),     INTENT(IN)    :: Mesh
     CLASS(physics_base),  INTENT(INOUT) :: Physics
+    CLASS(sources_base),  POINTER       :: Sources
     CLASS(fluxes_base),   INTENT(INOUT) :: Fluxes
     REAL                                :: time,dt
     !------------------------------------------------------------------------!
@@ -795,7 +785,7 @@ CONTAINS
     !------------------------------------------------------------------------!
     this%cvar(:,:,:,:) = this%cold(:,:,:,:)
     ! This data has already been checked at AcceptSolution
-    CALL this%ComputeRHS(Mesh,Physics,Fluxes,time,dt,this%pvar, &
+    CALL this%ComputeRHS(Mesh,Physics,Sources,Fluxes,time,dt,this%pvar, &
       this%cvar,CHECK_NOTHING,this%rhs)
     Fluxes%bxflux(:,:,:,:) = Fluxes%bxfold(:,:,:,:)
     Fluxes%byflux(:,:,:,:) = Fluxes%byfold(:,:,:,:)
@@ -895,12 +885,13 @@ CONTAINS
   !! 3. update geometrical source terms
   !! 4. update external source terms (this implies an update of all
   !!    auxiliary data arrays used for sources terms)
-  SUBROUTINE ComputeRHS(this,Mesh,Physics,Fluxes,time,dt,pvar,cvar,checkdatabm,rhs)
+  SUBROUTINE ComputeRHS(this,Mesh,Physics,Sources,Fluxes,time,dt,pvar,cvar,checkdatabm,rhs)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(timedisc_base), INTENT(INOUT) :: this
     CLASS(mesh_base),     INTENT(IN)    :: Mesh
     CLASS(physics_base),  INTENT(INOUT) :: Physics
+    CLASS(sources_base),  POINTER       :: Sources
     CLASS(fluxes_base),   INTENT(INOUT) :: Fluxes
     REAL                                :: time, dt
     REAL,DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX, &
@@ -949,10 +940,9 @@ CONTAINS
 
     ! get source terms due to external forces if present
     ! \todo{JUST COMMENTED OUT IN ORDER TO COMPILE (NO SOURCES IMPLEMENTED YET)}
-!    IF (ASSOCIATED(Physics%sources)) &
-!       CALL ExternalSources(Physics%sources,Mesh,Fluxes,Physics, &
-!            time,dt,pvar,cvar,this%src)
-    this%src = 0.
+    IF (ASSOCIATED(Sources)) &
+       CALL Sources%ExternalSources(Mesh,Fluxes,Physics, &
+            time,dt,pvar,cvar,this%src)
 
 !    IF(this%Fargo.NE.0) &
 !      CALL this%FargoSubstractVelocity(Mesh,Physics)

@@ -49,7 +49,6 @@ MODULE physics_base_mod
   USE constants_generic_mod
   USE logging_base_mod
   USE mesh_base_mod
-!  USE sources_base_mod
   USE common_dict
   IMPLICIT NONE
   !--------------------------------------------------------------------------!
@@ -58,8 +57,6 @@ MODULE physics_base_mod
      !> \name Variables
 !     CLASS(logging_base)    :: advproblem            !< advection problem
      CLASS(constants_base), ALLOCATABLE :: constants             !< physical constants
-!     CLASS(sources_base), POINTER &
-!                         :: sources => null()     !< list of source terms
      REAL                :: gamma,&               !< ratio of spec. heats
                             time,&                !< simulation time
                             mu, &                 !< mean molecular weight
@@ -404,7 +401,7 @@ MODULE physics_base_mod
                                             :: pvar
       REAL,DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM), INTENT(OUT) :: lambda
       REAL,DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM), INTENT(OUT)   :: xvar
-   END SUBROUTINE   
+   END SUBROUTINE
    PURE SUBROUTINE CalculateCharSystemZ(this,Mesh,k,dir,pvar,lambda,xvar)
       IMPORT physics_base, mesh_base
       !----------------------------------------------------------------------!

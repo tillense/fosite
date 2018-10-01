@@ -97,13 +97,10 @@ CONTAINS
     !------------------------------------------------------------------------!
     INTEGER                                 :: method
     !------------------------------------------------------------------------!
-    CALL this%InitTimedisc(Mesh,Physics,config,IO,MODIFIED_EULER,ODEsolver_name)
     ! set default order
     CALL GetAttr(config, "order", this%order, 3)
 
     CALL GetAttr(config, "method", method)
-!    CALL this%InitTimedisc(method,ODEsolver_name)
-
 
     SELECT CASE(this%GetOrder())
     CASE(1)
@@ -124,15 +121,19 @@ CONTAINS
     IF ((this%tol_rel.LT.0.0).OR.MINVAL(this%tol_abs(:)).LT.0.0) &
          CALL this%Error("InitTimedisc_modeuler", &
          "error tolerance levels must be greater than 0")
+
+    CALL this%InitTimedisc(Mesh,Physics,config,IO,MODIFIED_EULER,ODEsolver_name)
+
   END SUBROUTINE InitTimedisc_modeuler
 
 
-  SUBROUTINE SolveODE(this,Mesh,Physics,Fluxes,time,dt,err)
+  SUBROUTINE SolveODE(this,Mesh,Physics,Sources,Fluxes,time,dt,err)
   IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(timedisc_modeuler), INTENT(INOUT) :: this
     CLASS(mesh_base),         INTENT(IN)    :: Mesh
     CLASS(physics_base),      INTENT(INOUT) :: Physics
+    CLASS(sources_base),      POINTER       :: Sources
     CLASS(fluxes_base),       INTENT(INOUT) :: Fluxes
     REAL                                    :: time,dt,err
     !------------------------------------------------------------------------!
@@ -160,7 +161,7 @@ CONTAINS
           CALL this%ComputeCVar(Mesh,Physics,Fluxes,eta(n,order), &
                t,dt,this%cold,this%pvar,this%cvar,this%rhs,this%cvar)
           ! compute right hand side for next time step update
-          CALL this%ComputeRHS(Mesh,Physics,Fluxes,t,dt,&
+          CALL this%ComputeRHS(Mesh,Physics,Sources,Fluxes,t,dt,&
                this%pvar,this%cvar,CHECK_NOTHING,this%rhs)
        END DO
        err = 0.0
@@ -188,7 +189,7 @@ CONTAINS
                                 this%ctmp(:,:,:,:),this%rhs(:,:,:,:))
           ! compute right hand side for next time step update
           IF (n.LT.order) &
-             CALL this%ComputeRHS(Mesh,Physics,Fluxes,t,dt,p(n+1)%var,c(n+1)%var,&
+             CALL this%ComputeRHS(Mesh,Physics,Sources,Fluxes,t,dt,p(n+1)%var,c(n+1)%var,&
                CHECK_NOTHING,this%rhs)
        END DO
 

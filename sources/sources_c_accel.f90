@@ -94,6 +94,7 @@ CONTAINS
       CALL GetAttr(config, "zaccel", zaccel, 0.0)
       this%accel(:,:,:,3) = zaccel
     END IF
+
   END SUBROUTINE InitSources_c_accel
 
   SUBROUTINE ExternalSources_single(this,Mesh,Physics,Fluxes,time,pvar,cvar,sterm)
@@ -136,6 +137,14 @@ CONTAINS
     CLASS(sources_c_accel), INTENT(IN) :: this
     CLASS(mesh_base),       INTENT(IN) :: Mesh
     !------------------------------------------------------------------------!
+    CHARACTER(LEN=32) :: accel_str
+    !------------------------------------------------------------------------!
+!    WRITE (accel_str,'(ES9.2)') MAXVAL(this%accel(:,:,:,1))
+!    CALL this%Info("         x-acceleration:   " // TRIM(accel_str))
+!    WRITE (accel_str,'(ES9.2)') MAXVAL(this%accel(:,:,:,2))
+!    CALL this%Info("         y-acceleration:   " // TRIM(accel_str))
+!    WRITE (accel_str,'(ES9.2)') MAXVAL(this%accel(:,:,:,3))
+!    CALL this%Info("         z-acceleration:   " // TRIM(accel_str))
   END SUBROUTINE InfoSources
 
   SUBROUTINE Finalize(this)

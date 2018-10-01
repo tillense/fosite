@@ -288,12 +288,12 @@ CONTAINS
 !      CALL FargoSubstractVelocity(this%Timedisc,this%Mesh,this%Physics)
 !    END SELECT
     ! do a complete update of all data
-    CALL this%Timedisc%ComputeRHS(this%Mesh,this%Physics,this%Fluxes, &
+    CALL this%Timedisc%ComputeRHS(this%Mesh,this%Physics,this%Sources,this%Fluxes, &
          this%Timedisc%time,0.0,this%Timedisc%pvar,this%Timedisc%cvar, &
          CHECK_ALL,this%Timedisc%rhs)
 
     ! calculate timestep
-    this%Timedisc%dt = this%Timedisc%CalcTimestep(this%Mesh,this%Physics,&
+    this%Timedisc%dt = this%Timedisc%CalcTimestep(this%Mesh,this%Physics,this%Sources,&
                             this%Fluxes,this%Timedisc%time,this%Timedisc%dtcause)
 
     IF(this%Physics%csiso.GT.0.) THEN
@@ -395,8 +395,8 @@ CONTAINS
 #endif
 
     ! advance the solution in time
-    CALL this%Timedisc%IntegrationStep(this%Mesh,this%Physics,this%Fluxes,&
-                                       this%iter,this%config,this%IO)
+    CALL this%Timedisc%IntegrationStep(this%Mesh,this%Physics,this%Sources, &
+                                       this%Fluxes,this%iter,this%config,this%IO)
 
     ! \todo{FARGO}
 !    IF(this%Timedisc%Fargo.NE.0) THEN
@@ -469,8 +469,8 @@ CONTAINS
 !      CALL FargoSubstractVelocity(this%Timedisc,this%Mesh,this%Physics)
 
     ! calculate next timestep
-    this%Timedisc%dt = this%Timedisc%CalcTimestep(this%Mesh,this%Physics,&
-                                    this%Fluxes,this%Timedisc%time,this%Timedisc%dtcause)
+    this%Timedisc%dt = this%Timedisc%CalcTimestep(this%Mesh,this%Physics,this%Sources, &
+                            this%Fluxes,this%Timedisc%time,this%Timedisc%dtcause)
   END FUNCTION Step
 
   SUBROUTINE Finalize(this)

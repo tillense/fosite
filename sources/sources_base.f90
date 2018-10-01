@@ -44,7 +44,7 @@ MODULE sources_base_mod
   IMPLICIT NONE
   !--------------------------------------------------------------------------!
   PRIVATE
-  TYPE,ABSTRACT, EXTENDS(logging_base) :: sources_base
+  TYPE, ABSTRACT, EXTENDS(logging_base) :: sources_base
      !> \name Variables
      CLASS(sources_base), POINTER    :: next => null() !< next source in list
      !TYPE(Gravity_TYP), POINTER      :: glist => null()!< gravity list
@@ -215,7 +215,7 @@ MODULE sources_base_mod
       CLASS(physics_base),INTENT(INOUT)   :: Physics
       CLASS(fluxes_base),INTENT(IN)       :: Fluxes
       REAL,INTENT(IN)                     :: time
-      REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%vnum) &
+      REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM) &
                       :: pvar,cvar
       REAL              :: dt
       !------------------------------------------------------------------------!
@@ -231,7 +231,7 @@ MODULE sources_base_mod
       CLASS(physics_base),INTENT(INOUT)   :: Physics
       CLASS(fluxes_base),INTENT(IN)       :: Fluxes
       REAL,INTENT(IN)                     :: time
-      REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%vnum) &
+      REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM) &
                       :: cvar,pvar,sterm
       !------------------------------------------------------------------------!
       INTENT(IN)        :: cvar,pvar
@@ -339,7 +339,7 @@ CONTAINS
     CLASS(Fluxes_base),INTENT(IN)  :: Fluxes
     CLASS(Physics_base),INTENT(INOUT) :: Physics
     REAL              :: time,dt
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%vnum) &
+    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM) &
                       :: cvar,pvar,sterm
     !------------------------------------------------------------------------!
     CLASS(Sources_base), POINTER :: srcptr
@@ -348,7 +348,6 @@ CONTAINS
     INTENT(OUT)       :: sterm
     !------------------------------------------------------------------------!
     ! reset sterm
-    sterm(:,:,:,:) = 0.
     ! go through all source terms in the list
     srcptr => this
     DO WHILE (ASSOCIATED(srcptr))
@@ -373,12 +372,12 @@ CONTAINS
   SUBROUTINE CalcTimestep(this,Mesh,Physics,Fluxes,time,pvar,cvar,dt,dtcause)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(Sources_base),Target,INTENT(IN) :: this !, POINTER :: this
-    CLASS(Mesh_base),INTENT(IN)    :: Mesh
-    CLASS(Physics_base),INTENT(INOUT) :: Physics
-    CLASS(Fluxes_base),INTENT(IN)  :: Fluxes
+    CLASS(sources_base), TARGET, INTENT(IN)    :: this
+    CLASS(mesh_base),            INTENT(IN)    :: Mesh
+    CLASS(physics_base),         INTENT(INOUT) :: Physics
+    CLASS(fluxes_base),          INTENT(IN)    :: Fluxes
     REAL              :: time
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%vnum) &
+    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM) &
                       :: pvar,cvar
     REAL              :: dt
     INTEGER           :: dtcause
