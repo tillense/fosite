@@ -348,6 +348,7 @@ CONTAINS
     INTENT(OUT)       :: sterm
     !------------------------------------------------------------------------!
     ! reset sterm
+    sterm(:,:,:,:) = 0.0
     ! go through all source terms in the list
     srcptr => this
     DO WHILE (ASSOCIATED(srcptr))
@@ -360,12 +361,18 @@ CONTAINS
        srcptr => srcptr%next
     END DO
     ! reset ghost cell data
-    sterm(Mesh%IGMIN:Mesh%IMIN-Mesh%IP1,:,:,:) = 0.0
-    sterm(Mesh%IMAX+Mesh%IP1:Mesh%IGMAX,:,:,:) = 0.0
-    sterm(:,Mesh%JGMIN:Mesh%JMIN-Mesh%JP1,:,:) = 0.0
-    sterm(:,Mesh%JMAX+Mesh%JP1:Mesh%JGMAX,:,:) = 0.0
-    sterm(:,:,Mesh%KGMIN:Mesh%KMIN-Mesh%KP1,:) = 0.0
-    sterm(:,:,Mesh%KMAX+Mesh%KP1:Mesh%KGMAX,:) = 0.0
+    IF (Mesh%GINUM.GT.0) THEN
+      sterm(Mesh%IGMIN:Mesh%IMIN-Mesh%IP1,:,:,:) = 0.0
+      sterm(Mesh%IMAX+Mesh%IP1:Mesh%IGMAX,:,:,:) = 0.0
+    END IF
+    IF (Mesh%GJNUM.GT.0) THEN
+      sterm(:,Mesh%JGMIN:Mesh%JMIN-Mesh%JP1,:,:) = 0.0
+      sterm(:,Mesh%JMAX+Mesh%JP1:Mesh%JGMAX,:,:) = 0.0
+    END IF
+    IF (Mesh%GKNUM.GT.0) THEN
+      sterm(:,:,Mesh%KGMIN:Mesh%KMIN-Mesh%KP1,:) = 0.0
+      sterm(:,:,Mesh%KMAX+Mesh%KP1:Mesh%KGMAX,:) = 0.0
+    END IF
   END SUBROUTINE ExternalSources
 
 
