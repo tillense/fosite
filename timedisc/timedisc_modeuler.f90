@@ -1,9 +1,9 @@
 !#############################################################################
 !#                                                                           #
 !# fosite - 3D hydrodynamical simulation program                             #
-!# module: timedisc_modeuler.f90                                             #
+!# module: timedisc_modeuler.f03                                             #
 !#                                                                           #
-!# Copyright (C) 2007-2012                                                   #
+!# Copyright (C) 2007-2018                                                   #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
 !# Björn Sperling   <sperling@astrophysik.uni-kiel.de>                       #
 !# Jannes Klee      <jklee@astrophysik.uni-kiel.de>                          #
@@ -99,8 +99,9 @@ CONTAINS
     !------------------------------------------------------------------------!
     ! set default order
     CALL GetAttr(config, "order", this%order, 3)
-
     CALL GetAttr(config, "method", method)
+
+    CALL this%InitTimedisc(Mesh,Physics,config,IO,MODIFIED_EULER,ODEsolver_name)
 
     SELECT CASE(this%GetOrder())
     CASE(1)
@@ -121,8 +122,6 @@ CONTAINS
     IF ((this%tol_rel.LT.0.0).OR.MINVAL(this%tol_abs(:)).LT.0.0) &
          CALL this%Error("InitTimedisc_modeuler", &
          "error tolerance levels must be greater than 0")
-
-    CALL this%InitTimedisc(Mesh,Physics,config,IO,MODIFIED_EULER,ODEsolver_name)
 
   END SUBROUTINE InitTimedisc_modeuler
 
