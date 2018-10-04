@@ -70,10 +70,11 @@ CONTAINS
     CLASS(physics_base),    INTENT(IN)    :: Physics
     TYPE(Dict_TYP),           POINTER     :: config, IO
     !------------------------------------------------------------------------!
+    INTEGER :: err, stype
     REAL    :: xaccel, yaccel, zaccel
-    INTEGER :: err
     !------------------------------------------------------------------------!
-    CALL this%InitLogging(C_ACCEL,source_name)
+    CALL GetAttr(config,"stype",stype)
+    CALL this%InitLogging(stype,source_name)
     CALL this%InitSources(Mesh,Fluxes,Physics,config,IO)
 
     ALLOCATE(&

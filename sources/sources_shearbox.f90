@@ -57,10 +57,10 @@ MODULE sources_shearbox_mod
 #endif
   !--------------------------------------------------------------------------!
   PRIVATE
+    CHARACTER(LEN=32) :: source_name = "forces in shearing-box"
   !--------------------------------------------------------------------------!
 
   TYPE, EXTENDS(sources_c_accel) :: sources_shearbox
-    CHARACTER(LEN=32) :: source_name = "forces in shearing-box"
  CONTAINS
     PROCEDURE :: InitSources_shearbox
     PROCEDURE :: InfoSources
@@ -79,21 +79,20 @@ CONTAINS
   !! This subroutine reads the necessary config data for the source module
   !! for a shearingsheet. It initializes the sources type and the
   !! accelerations array.
-  SUBROUTINE InitSources_shearbox(this,Mesh,Physics,config,IO)
+  SUBROUTINE InitSources_shearbox(this,Mesh,Physics,Fluxes,config,IO)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(sources_shearbox)          :: this
     CLASS(mesh_base),     INTENT(IN) :: Mesh
     CLASS(physics_base),  INTENT(IN) :: Physics
+    CLASS(fluxes_base),   INTENT(IN) :: Fluxes
     TYPE(Dict_TYP),          POINTER :: config, IO
-    INTEGER                          :: stype
     !------------------------------------------------------------------------!
-    INTEGER                          :: err,valwrite
-    !------------------------------------------------------------------------!
-    INTENT(IN)                       :: Mesh,Physics
+    INTEGER                          :: err, valwrite, stype
     !------------------------------------------------------------------------!
     CALL GetAttr(config,"stype",stype)
-    CALL this%InitLogging(stype,this%source_name)
+    CALL this%InitLogging(stype,source_name)
+    CALL this%InitSources(Mesh,Fluxes,Physics,config,IO)
 
     SELECT CASE(Physics%GetType())
     CASE(EULER2D,EULER2D_ISOTHERM)
