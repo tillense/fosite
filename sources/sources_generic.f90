@@ -67,6 +67,8 @@ CONTAINS
         SELECT CASE(stype)
         CASE(C_ACCEL)
           ALLOCATE(sources_c_accel::newsrc)
+        CASE(SHEARBOX)
+          ALLOCATE(sources_shearbox::newsrc)
         CASE(VISCOSITY)
           ALLOCATE(sources_viscosity::newsrc)
         CASE DEFAULT
@@ -77,6 +79,8 @@ CONTAINS
         SELECT TYPE(obj => newsrc)
         TYPE IS (sources_c_accel)
           CALL obj%InitSources_c_accel(Mesh,Physics,Fluxes,src,IOsrc)
+        TYPE IS (sources_shearbox)
+          CALL obj%InitSources_shearbox(Mesh,Physics,Fluxes,src,IOsrc)
         TYPE IS (sources_viscosity)
           CALL obj%InitSources_viscosity(Mesh,Physics,Fluxes,src,IOsrc)
         END SELECT

@@ -127,8 +127,6 @@ CONTAINS
                             INTENT(IN)    :: pvar,cvar
     REAL,                   INTENT(OUT)   :: dt
     !------------------------------------------------------------------------!
-    !\todo How should be handled routines where no CalcTimestep normally
-    !!     included. Is this handling ok with just setting the timestep huge?
     dt = HUGE(dt)
   END SUBROUTINE CalcTimestep_single
 

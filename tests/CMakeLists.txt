@@ -13,6 +13,7 @@ set (EXES
 #  noh3d
 #  ode
 #  pringle
+  shear
   riemann1d-x
   riemann1d-2d-x
   riemann1d-y
@@ -20,6 +21,7 @@ set (EXES
   riemann2d
   riemann2d-xz
   poiseuille
+  sblintheo
 #  riemann3d
 #  rngtest
   RTI

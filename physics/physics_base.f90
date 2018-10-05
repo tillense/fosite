@@ -63,6 +63,7 @@ MODULE physics_base_mod
                             csiso, &              !< isothermal sound speed
                             eps                   !< softening length
      INTEGER             :: VNUM, &               !< number of variables
+                            PNUM, &               !< number of passive variables
                             DIM, &                !< Dimension (1, 2 or 3)
                             DENSITY,PRESSURE, &
                             ENERGY,SGSPRESSURE, &
@@ -544,6 +545,8 @@ CONTAINS
     CALL GetAttr(config, "softening", this%eps, 1.0)
 
     this%VNUM = VNUM
+    this%PNUM = 0
+
     ! allocate memory for arrays common to all physics modules
     ALLOCATE(this%pvarname(this%vnum),this%cvarname(this%vnum),                                           &
              this%tmp(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX),                 &

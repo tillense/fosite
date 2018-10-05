@@ -260,7 +260,7 @@ MODULE sources_base_mod
        ! types
        sources_base, &
        ! constants
-       VISCOSITY, C_ACCEL
+       VISCOSITY, C_ACCEL, SHEARBOX
   !--------------------------------------------------------------------------!
 
 CONTAINS

@@ -349,61 +349,93 @@ CONTAINS
 
     CALL GetAttr(config, "output/"//TRIM(Physics%pvarname(1)), d, 1)
 
-    ! call individual constructors
-!    SELECT CASE(method)
-!    CASE(MODIFIED_EULER)
-!       CALL InitTimedisc_modeuler(this,Mesh,Physics,config)
-!    CASE(RK_FEHLBERG)
-!       CALL InitTimedisc_rkfehlberg(this,Mesh,Physics,config)
-!    CASE(CASH_KARP)
-!       CALL InitTimedisc_cashkarp(this,Mesh,Physics,config)
-!    CASE(DORMAND_PRINCE)
-!       CALL InitTimedisc_dormand_prince(this,Mesh,Physics,config)
-!    CASE(MULTISTEP)
-!       CALL InitTimedisc_multistep(this,Mesh,Physics,config)
-!    CASE(SSPRK)
-!       CALL InitTimedisc_ssprk(this,Mesh,Physics,config)
-!    CASE DEFAULT
-!       CALL Error(this,"InitTimedisc", "Unknown ODE solver.")
-!    END SELECT
-
-!    ! check dumpfile
-!    IF (PRESENT(dumpfile)) THEN
-!       IF(.NOT.Dumpfile%Initialized()) &
-!            CALL this%Warning("InitTimedisc", &
-!              "dump file uninitialized, dumping disabled")
-!    END IF
-
     CALL this%SetOutput(Mesh,Physics,config,IO)
 
-    ! check if fargo can be used, if requested
-    IF(this%fargo.NE.0) THEN
-      SELECT CASE(Physics%GetType())
-      CASE(EULER2D_ISOIAMT,EULER2D_IAMT,EULER2D_ISOTHERM,EULER2D)
-        ! do nothing
-      CASE DEFAULT
-        this%fargo = 0
-        CALL this%Warning("InitTimedisc", &
-          "fargo has been disabled, because the physics are not supported.")
-      END SELECT
-      SELECT CASE(Mesh%geometry%GetType())
-      CASE(POLAR,TANPOLAR,LOGPOLAR,SINHPOLAR)
-        ! do nothing
-      CASE DEFAULT
-        this%fargo = 0
-        CALL this%Warning("InitTimedisc", &
-          "fargo has been disabled, because the physics are not supported.")
-      END SELECT
-#ifdef PARALLEL
-      IF(this%fargo.NE.0) THEN
-        ALLOCATE(this%buf(Physics%VNUM,1:Mesh%MINJNUM), &
-                 STAT = err)
-        IF (err.NE.0) THEN
-          CALL this%Error("InitTimedisc", "Unable to allocate memory.")
-        END IF
-      END IF
-#endif
-    END IF
+    ! check if fargo can be used
+    SELECT CASE (Mesh%fargo)
+    CASE(0) ! fargo disabled
+       ! do nothing
+!    CASE(1,2,3) ! fargo enabled
+!       ! check physics
+!       SELECT CASE(GetType(Physics))
+!       CASE(EULER2D_ISOIAMT,EULER2D_IAMT,EULER2D_ISOIAMROT,EULER2D_ISOTHERM,EULER2D)
+!          ! check geometry
+!          SELECT CASE(GetType(Mesh%geometry))
+!          CASE(POLAR,TANPOLAR,LOGPOLAR,SINHPOLAR)
+!             ! allocate data arrays used for fargo
+!             ALLOCATE( &
+!                      this%w(Mesh%IGMIN:Mesh%IGMAX), &
+!                      this%delxy(Mesh%IGMIN:Mesh%IGMAX), &
+!                      this%shift(Mesh%IGMIN:Mesh%IGMAX), &
+!                      this%fargo_src(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Physics%VNUM+Physics%PNUM), &
+!#ifdef PARALLEL
+!                      this%buf(Physics%VNUM+Physics%PNUM,1:Mesh%MINJNUM), &
+!#endif
+!                      STAT = err)
+!             IF (err.NE.0) THEN
+!                CALL Error(this,"InitTimedisc", "Unable to allocate memory for fargo advection.")
+!             END IF
+!             this%fargo_src(:,:,:) = 0.0
+!          CASE(CARTESIAN) ! in cartesian fargo shift can be chosen in either x- or y-direction
+!             IF(Mesh%WE_shear) THEN
+!                ALLOCATE( &
+!                      this%w(Mesh%IGMIN:Mesh%IGMAX), &
+!                      this%delxy(Mesh%IGMIN:Mesh%IGMAX), &
+!                      this%shift(Mesh%IGMIN:Mesh%IGMAX), &
+!#ifdef PARALLEL
+!                      this%buf(Physics%VNUM+Physics%PNUM,1:Mesh%MINJNUM), &
+!#endif
+!                      STAT = err)
+!                IF (err.NE.0) THEN
+!                   CALL Error(this,"InitTimedisc", "Unable to allocate memory for fargo advection.")
+!                END IF
+!             ELSE IF(Mesh%SN_shear) THEN
+!                ALLOCATE( &
+!                      this%w(Mesh%JGMIN:Mesh%JGMAX), &
+!                      this%delxy(Mesh%JGMIN:Mesh%JGMAX), &
+!                      this%shift(Mesh%JGMIN:Mesh%JGMAX), &
+!#ifdef PARALLEL
+!                      this%buf(Physics%VNUM+Physics%PNUM,1:Mesh%MININUM), &
+!#endif
+!                      STAT = err)
+!                IF (err.NE.0) THEN
+!                   CALL Error(this,"InitTimedisc", "Unable to allocate memory for fargo advection.")
+!                END IF
+!             END IF
+!          CASE DEFAULT
+!             ! geometry not supported -> disable fargo
+!             this%fargo = 0
+!             CALL Warning(this,"InitTimedisc", &
+!                 "fargo has been disabled, because the geometry is not supported.")
+!          END SELECT
+!       CASE DEFAULT
+!          ! geometry not supported -> disable fargo
+!          this%fargo = 0
+!          CALL Warning(this,"InitTimedisc","fargo has been disabled, because the physics is not supported.")
+!       END SELECT
+!       ! initialize background velocity field w
+!       SELECT CASE(this%fargo)
+!       CASE(1,2) ! set to 0;
+!                 ! fargo advection type 1: w is computed in each time step (see FargoCalcVelocity)
+!                 ! fargo advection type 2: w is provided by the user, e.g. in InitData
+!          this%w(:) = 0.0
+!          this%shift(:) = 0.0
+!       CASE(3) ! fixed background velocity in shearing box
+!         IF(Mesh%WE_shear) THEN
+!           this%w(:) = -Mesh%Q*Mesh%omega*Mesh%bcenter(:,Mesh%JMIN,1) !-Q*Omega*x
+!           this%shift(:) = 0.0
+!           shear_direction = "west<->east"
+!         ELSE IF (Mesh%SN_shear) THEN
+!           this%w(:) = Mesh%Q*Mesh%omega*Mesh%bcenter(Mesh%IMIN,:,2) !Q*Omega*y
+!           this%shift(:) = 0.0
+!           shear_direction = "south<->north"
+!         END IF
+!       END SELECT
+    CASE DEFAULT
+       CALL this%Error("InitTimedisc","unknown fargo advection scheme")
+    END SELECT
+
+
     ! print some information
     WRITE (order_str, '(I0)') this%GetOrder()
     WRITE (cfl_str, '(F4.2)') this%GetCFL()
@@ -715,7 +747,7 @@ CONTAINS
                     + MAX(Fluxes%maxwav(:,:,:,3),-Fluxes%minwav(:,:,:,3)) / Mesh%dlz(:,:,:))
     ELSE
        ! full 3D
-       !TODO: Achtung: Hier wurde fuer eine bessere Symmetrie fuer jede Richtung ein eigenes invdt 
+       !TODO: Achtung: Hier wurde fuer eine bessere Symmetrie fuer jede Richtung ein eigenes invdt
        ! berechnet. Dies koennte jedoch einen Verlust an Stabilitaet bewirken. Hier muesste mal eine
        ! Stabilitaetsanalyse gemacht werden
        invdt_x = MAXVAL(MAX(Fluxes%maxwav(:,:,:,1),-Fluxes%minwav(:,:,:,1)) / Mesh%dlx(:,:,:))
@@ -995,7 +1027,7 @@ CONTAINS
                   + Mesh%dxdydV(i,j,k)*(this%zfluxdxdy(i,j,k,l) - this%zfluxdxdy(i,j,k-Mesh%Kp1,l)) &
                   - this%geo_src(i,j,k,l) - this%src(i,j,k,l)
 !             ! update right hand side of ODE
-!             rhs(i,j,k) = 
+!             rhs(i,j,k) =
 !                    Mesh%dydV(i,j)*(this%xfluxdy(i,j,k) - this%xfluxdy(i-1,j,k)) &
 !                  + Mesh%dxdV(i,j)*(this%yfluxdx(i,j,k) - this%yfluxdx(i,j-1,k)) &
 !                  - this%geo_src(i,j,k) - this%src(i,j,k)

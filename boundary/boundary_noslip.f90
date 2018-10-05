@@ -1,9 +1,9 @@
 !#############################################################################
 !#                                                                           #
-!# fosite - 2D hydrodynamical simulation program                             #
-!# module: boundary_noslip.f90                                               #
+!# fosite - 3D hydrodynamical simulation program                             #
+!# module: boundary_noslip.f03                                               #
 !#                                                                           #
-!# Copyright (C) 2010-2014                                                   #
+!# Copyright (C) 2010-2018                                                   #
 !# Bjoern Sperling  <sperling@astrophysik.uni-kiel.de>                       #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
 !#                                                                           #
@@ -52,20 +52,7 @@ MODULE boundary_noslip_mod
   !--------------------------------------------------------------------------!
   PUBLIC :: &
        Boundary_noslip, &
-       WEST, EAST, SOUTH, NORTH, BOTTOM, TOP 
-       ! methods
-!       InitBoundary_noslip, &
-!       CenterBoundary_noslip, &
-!       CloseBoundary_noslip, &
-!       GetType, &
-!       GetName, &
-!       GetDirection, &
-!       GetDirectionName, &
-!       GetRank, &
-!       GetNumProcs, &
-!       Info, &
-!       Warning, &
-!       Error
+       WEST, EAST, SOUTH, NORTH, BOTTOM, TOP
   !--------------------------------------------------------------------------!
 
 CONTAINS
@@ -106,12 +93,13 @@ CONTAINS
   END SUBROUTINE InitBoundary_noslip
 
   !> \public Applies the noslip boundary condition
-  PURE SUBROUTINE SetBoundaryData(this,Mesh,Physics,pvar)
+  PURE SUBROUTINE SetBoundaryData(this,Mesh,Physics,time,pvar)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(Boundary_noslip),INTENT(INOUT) :: this
     CLASS(Mesh_base)      ,INTENT(IN) :: Mesh
     CLASS(Physics_base)   ,INTENT(IN) :: Physics
+    REAL                  ,INTENT(IN) :: time
     REAL,INTENT(INOUT) :: pvar(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%vnum)
     !------------------------------------------------------------------------!
     INTEGER       :: i,j,k

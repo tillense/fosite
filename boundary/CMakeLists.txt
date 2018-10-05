@@ -15,6 +15,6 @@ add_library(boundary
   boundary_periodic.f90
   boundary_base.f90
 #  boundary_dmr.f90
-#  boundary_shearing.f90
+  boundary_shearing.f90
 )
 target_link_libraries(boundary physics)

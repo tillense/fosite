@@ -101,12 +101,13 @@ MODULE boundary_base_mod
   ! exclude interface block from doxygen processing
   !> \cond InterfaceBlock
   ABSTRACT INTERFACE
-    PURE SUBROUTINE SetBoundaryData(this,Mesh,Physics,pvar)
+    PURE SUBROUTINE SetBoundaryData(this,Mesh,Physics,time,pvar)
       IMPORT boundary_base,mesh_base,physics_base
       IMPLICIT NONE
       CLASS(boundary_base), INTENT(INOUT)    :: this
       CLASS(mesh_base),     INTENT(IN)    :: Mesh
       CLASS(physics_base),  INTENT(IN)    :: Physics
+      REAL,                 INTENT(IN)    :: time
       REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
                             INTENT(INOUT) :: pvar
     END SUBROUTINE

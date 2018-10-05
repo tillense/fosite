@@ -1,9 +1,9 @@
   !#############################################################################
   !#                                                                           #
-  !# fosite - 2D hydrodynamical simulation program                             #
-  !# module: boundary_shearing.f90                                             #
+  !# fosite - 3D hydrodynamical simulation program                             #
+  !# module: boundary_shearing.f03                                             #
   !#                                                                           #
-  !# Copyright (C) 2006-2015                                                   #
+  !# Copyright (C) 2006-2018                                                   #
   !# Jannes Klee <jklee@astrophysik.uni-kiel.de                                #
   !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
   !#                                                                           #
@@ -52,46 +52,99 @@
   !! </div> <div class="col-md-6">
   !! \image html boundaries_velshift.png "velocity substraction for the v_y component"
   !! </div></div>
-  !!
-  !! \extends boundary_common
-  !! \ingroup boundary
   !----------------------------------------------------------------------------!
-  MODULE boundary_shearing
-    USE mesh_common, ONLY : Mesh_TYP
-    USE physics_common, ONLY : Physics_TYP
-    USE common_dict
-    USE boundary_nogradients
-    USE boundary_common
+MODULE boundary_shearing_mod
+  USE boundary_base_mod
+  USE boundary_periodic_mod
+  USE mesh_base_mod
+  USE physics_base_mod
+  USE common_dict
+#ifdef PARALLEL
+#ifdef HAVE_MPI_MOD
+  USE mpi
+#endif
+#endif
     IMPLICIT NONE
-    !--------------------------------------------------------------------------!
-    PRIVATE
-    CHARACTER(LEN=32), PARAMETER  :: boundcond_name = "shearing"
-    !--------------------------------------------------------------------------!
-    PUBLIC :: &
-         ! types
-         Boundary_TYP, &
-         ! constants
-         WEST, EAST, SOUTH, NORTH, &
-         ! methods
-         InitBoundary_shearing, &
-         CenterBoundary_shearing
-    !--------------------------------------------------------------------------!
+#ifdef PARALLEL
+#ifdef HAVE_MPIF_H
+  include 'mpif.h'
+#endif
+#endif
+  !--------------------------------------------------------------------------!
+  PRIVATE
+  CHARACTER(LEN=32), PARAMETER  :: boundcond_name = "shearing"
 
+  TYPE, EXTENDS(boundary_periodic) :: boundary_shearing
+    REAL, DIMENSION(:), POINTER :: velocity_shift  !< shear box parameter
+    REAL                        :: velocity_offset !< shear box parameter
   CONTAINS
+    PROCEDURE :: InitBoundary_shearing
+    PROCEDURE :: SetBoundaryData
+    FINAL     :: Finalize
+  END TYPE
+  !--------------------------------------------------------------------------!
+  PUBLIC :: boundary_shearing
+  !--------------------------------------------------------------------------!
+
+CONTAINS
 
   !> \public Constructor for shearing boundary conditions.
-  SUBROUTINE InitBoundary_shearing(this,btype,dir,config)
+  SUBROUTINE InitBoundary_shearing(this,Mesh,Physics,dir,config)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    TYPE(Boundary_TYP) :: this
-    TYPE(Dict_TYP),POINTER &
-                       :: config
-    INTEGER            :: btype,dir
+    CLASS(boundary_shearing), INTENT(INOUT) :: this
+    CLASS(mesh_base),         INTENT(IN)    :: Mesh
+    CLASS(physics_base),      INTENT(IN)    :: Physics
+    TYPE(Dict_TYP), POINTER                 :: config
+    INTEGER,                  INTENT(IN)    :: dir
     !------------------------------------------------------------------------!
-    INTENT(IN)         :: btype,dir
-    INTENT(INOUT)      :: this
+    INTEGER            :: btype, err, l
     !------------------------------------------------------------------------!
-    CALL InitBoundary(this,btype,boundcond_name,dir)
+    CALL this%InitBoundary(Mesh,Physics,SHEARING,boundcond_name,dir,config)
+
+    ALLOCATE( &
+             this%velocity_shift(Physics%VNUM+Physics%PNUM), &
+             STAT = err)
+    IF (err.NE.0) THEN
+       CALL this%Error("InitBoundary_shearing", "Unable to allocate memory.")
+    END IF
+
+    DO l=1,Physics%VNUM
+      ! this part for WEST-EAST shear (normal mode)
+      IF (Mesh%WE_shear) THEN
+        IF (l.EQ.Physics%YVELOCITY) THEN
+          IF (Mesh%FARGO.EQ.0) THEN
+            this%velocity_shift(l) = Mesh%Q*Mesh%OMEGA*(Mesh%xmax-Mesh%xmin)
+          ELSE IF (Mesh%FARGO.EQ.3) THEN
+            this%velocity_shift(l) = 0.0
+          ELSE
+            CALL this%Error("InitTimedisc", &
+            "Shearing boundaries are only compatible without Fargo or Fargo type 3 (shearing box).")
+          END IF
+        ELSE
+            this%velocity_shift(l) = 0.0
+        END IF
+      ! this part for SOUTH-NORTH shear
+      ELSE IF (Mesh%SN_shear) THEN
+        IF (l.EQ.Physics%XVELOCITY) THEN
+          IF (Mesh%FARGO.EQ.0) THEN
+            this%velocity_shift(l) = Mesh%Q*Mesh%OMEGA*(Mesh%ymax-Mesh%ymin)
+          ELSE IF (Mesh%FARGO.EQ.3) THEN
+            this%velocity_shift(l) = 0.0
+          ELSE
+            CALL this%Error("InitTimedisc", &
+            "Shearing boundaries are only compatible without Fargo or Fargo type 3 (shearing box).")
+          END IF
+        ELSE
+            this%velocity_shift(l) = 0.0
+        END IF
+      ELSE
+        CALL this%Error("InitBoundary", &
+        "Shearing boundaries in top/south direction not allowed, yet.")
+      END IF
+    END DO
+    this%velocity_offset = Mesh%Q*Mesh%OMEGA*(Mesh%xmax-Mesh%xmin)/Mesh%dy
+
   END SUBROUTINE InitBoundary_shearing
 
   !> \public Applies the shearing boundary conditions.
@@ -100,70 +153,154 @@
   !! overall module descriptions. To the implementation used values which
   !! are calculated during initialization of the \link timedisc_generic \endlink
   !! module.
-  SUBROUTINE CenterBoundary_shearing(this,Mesh,Physics,time,pvar)
+  !!
+  !! \attention The implemenation is done in a way, that periodic boundaries
+  !! are already applied. Thus, only the shifting on the **same** side is
+  !! applied to the primitive variables. This gives us the benefit to be able
+  !! to reuse the periodic boundaries automatically applied by MPI because
+  !! of domain decomposition. When running on a single core the periodic
+  !! boundaries are applied by hand at the beginning.
+  !!
+  !! \attention Currently, this implementation only works parallelized with processes
+  !!  along the y-axis, which means that
+  !!
+  !!                                 NB
+  !!                          ----------------
+  !!                                 p1
+  !!                          ----------------
+  !!                                 p2
+  !!                          ----------------
+  !!                                 p3
+  !!                          ----------------
+  !!                                 p4
+  !!                          ----------------
+  !!                                 SB
+  !!
+  !! \attention Here, NB, SB are northern and southern boundaries, respectively.
+  !! p1,p2,... are the used processes. This kind of parallization goes in
+  !! concordance with the parallelization used for the gravitation fourier
+  !! solvers, which need full strides in one direction. We use solely the
+  !! x-direction, because it is the first dimension and lies coherently behind
+  !! each other for vectorization and generally fast access.
+  PURE SUBROUTINE SetBoundaryData(this,Mesh,Physics,time,pvar)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    TYPE(Boundary_TYP) :: this
-    TYPE(Mesh_TYP)     :: Mesh
-    TYPE(Physics_TYP)  :: Physics
-    REAL               :: time
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Physics%vnum) &
-                       :: pvar
+    CLASS(boundary_shearing), INTENT(INOUT) :: this
+    CLASS(mesh_base),         INTENT(IN)    :: Mesh
+    CLASS(physics_base),      INTENT(IN)    :: Physics
+    REAL,                     INTENT(IN)    :: time
+    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX, &
+                    Physics%VNUM+Physics%PNUM), &
+                              INTENT(INOUT) :: pvar
     !------------------------------------------------------------------------!
-    INTEGER            :: i,j,k
-    REAL               :: velocity_shift,offremain,offset
+    INTEGER            :: i,j,k,l,intshift
+    REAL               :: velocity_shift,offremain,offset,offset_tmp
+    REAL               :: pvar_old,pvar_old2
+#ifdef PARALLEL
+    INTEGER            :: status(MPI_STATUS_SIZE)
+    INTEGER            :: ierror
+    CHARACTER(LEN=80)  :: str
+    REAL               :: mpi_buf(2*Mesh%GNUM)
+#endif
     !------------------------------------------------------------------------!
-    INTENT(IN)         :: this,Mesh,Physics,time
-    INTENT(INOUT)      :: pvar
-    !------------------------------------------------------------------------!
-    DO k=1,Physics%VNUM
-      ! chose velocity offset for fargo and considered pvar
-      IF (k == Physics%YVELOCITY) THEN
-        velocity_shift = this%velocity_shift
-      ELSE
-        velocity_shift = 0.0
-      END IF
 
-      SELECT CASE(GetDirection(this))
-      CASE(WEST)
-      offset = -this%velocity_offset*time
-      offremain = offset - FLOOR(offset)
-!CDIR NODEP
-      DO j=Mesh%JMIN,Mesh%JMAX
-        DO i=1,Mesh%GNUM
-            pvar(Mesh%IMIN-i,j,k) = &
-              (1.0 - offremain) * &
-              pvar(Mesh%IMAX-i+1,1+MODULO(j-1+FLOOR(offset),Mesh%JNUM),k) + &
-              offremain*pvar(Mesh%IMAX-i+1,1+MODULO(j+FLOOR(offset),Mesh%JNUM),k) + &
-              velocity_shift
-          END DO
-        END DO
-      CASE(EAST)
-      offset = this%velocity_offset*time
-      offremain = offset - FLOOR(offset)
-!CDIR NODEP
-      DO j=Mesh%JMIN,Mesh%JMAX
-        DO i=1,Mesh%GNUM
-            pvar(Mesh%IMAX+i,j,k) = &
-              (1.0 - offremain) * &
-              pvar(Mesh%IMIN+i-1,1+MODULO(j-1+FLOOR(offset),Mesh%JNUM),k) + &
-              offremain*pvar(Mesh%IMIN+i-1,1+MODULO(j+FLOOR(offset),Mesh%JNUM),k) - &
-              velocity_shift
-          END DO
-        END DO
-      END SELECT
+    ! the routine below expect that periodic boundaries are already applied
+#ifndef PARALLEL
+    call this%boundary_periodic%SetBoundaryData(Mesh,Physics,time,pvar)
+#endif
+
+    ! make sure all MPI processes use the same step if domain is decomposed
+    ! along the y-direction (can be different due to round-off errors)
+    offset = -this%velocity_offset*time
+    DO WHILE(offset<0)
+      offset = offset + Mesh%JNUM
     END DO
 
-    ! for southern and northern boundaries use periodic
-    SELECT CASE(GetDirection(this))
-    CASE(SOUTH)
-      CALL Error(this,"boundary_shearing", &
-                 "Shearing boundaries not distinguishable from periodic" // &
-                 "ones in southern direction. Use periodic boundaries!")
-    CASE(NORTH)
-      CALL Error(this,"boundary_shearing", &
-                 "Shearing boundaries not distinguishable from periodic" // &
-                 "ones in northern direction. Use periodic boundaries!")
-    END SELECT
-  END SUBROUTINE CenterBoundary_shearing
-END MODULE boundary_shearing
+    DO l=1,Physics%VNUM+Physics%PNUM
+      ! chose velocity offset for fargo and considered pvar
+      SELECT CASE(this%GetDirection())
+      CASE(WEST)
+        offset_tmp = offset
+        intshift = FLOOR(offset_tmp)
+        offremain = offset_tmp - intshift
+        DO i=1,Mesh%GNUM
+          !------- residual shift ---------------------------------------------!
+          DO k=Mesh%KMIN,Mesh%KMAX
+            DO j=Mesh%JMIN,Mesh%JMAX
+              pvar(Mesh%IMIN-i,j,k,l) = (1.0 - offremain)*pvar(Mesh%IMIN-i,j,k,l) + &
+                offremain*pvar(Mesh%IMIN-i,j+1,k,l) + this%velocity_shift(l)
+            END DO
+          END DO
+          !------- integral shift ---------------------------------------------!
+          pvar(Mesh%IMIN-i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,l)  = &
+            CSHIFT(pvar(Mesh%IMIN-i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,l),intshift)
+        END DO
+      CASE(EAST)
+        offset_tmp = -offset
+        intshift = FLOOR(offset_tmp)
+        offremain = offset_tmp - intshift
+        DO i=1,Mesh%GNUM
+          !------- residual shift ---------------------------------------------!
+          DO k=Mesh%KMIN,Mesh%KMAX
+            DO j=Mesh%JMIN,Mesh%JMAX
+              pvar(Mesh%IMAX+i,j,k,l) = (1.0 - offremain)*pvar(Mesh%IMAX+i,j,k,l) + &
+                offremain*pvar(Mesh%IMAX+i,j+1,k,l) - this%velocity_shift(l)
+            END DO
+          END DO
+          !------- integral shift ---------------------------------------------!
+          pvar(Mesh%IMAX+i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,l)  = &
+            CSHIFT(pvar(Mesh%IMAX+i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,l),intshift)
+        END DO
+      CASE(SOUTH)
+        offset_tmp = -offset
+        intshift = FLOOR(offset_tmp)
+        offremain = offset_tmp - intshift
+        DO j=1,Mesh%GNUM
+          !------- residual shift ---------------------------------------------!
+          DO k=Mesh%KMIN,Mesh%KMAX
+            DO i=Mesh%IMIN,Mesh%IMAX
+              pvar(i,Mesh%JMIN-j,k,l) = (1.0 - offremain)*pvar(i,Mesh%JMIN-j,k,l) + &
+                offremain*pvar(i+1,Mesh%JMIN-j,k,l) - this%velocity_shift(l)
+            END DO
+          END DO
+          !------- integral shift ---------------------------------------------!
+          pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN-j,Mesh%KMIN:Mesh%KMAX,l)  = &
+            CSHIFT(pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN-j,Mesh%KMIN:Mesh%KMAX,l),intshift)
+        END DO
+      CASE(NORTH)
+        offset_tmp = offset
+        intshift = FLOOR(offset_tmp)
+        offremain = offset_tmp - intshift
+        DO j=1,Mesh%GNUM
+          !------- residual shift ---------------------------------------------!
+          DO k=Mesh%KMIN,Mesh%KMAX
+            DO i=Mesh%IMIN,Mesh%IMAX
+              pvar(i,Mesh%JMAX+j,k,l) = (1.0 - offremain)*pvar(i,Mesh%JMAX+j,k,l) + &
+                offremain*pvar(i+1,Mesh%JMAX+j,k,l) + this%velocity_shift(l)
+            END DO
+          END DO
+          !------- integral shift ---------------------------------------------!
+          pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX+j,Mesh%KMIN:Mesh%KMAX,l)  = &
+            CSHIFT(pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX+j,Mesh%KMIN:Mesh%KMAX,l),intshift)
+        END DO
+      CASE(BOTTOM)
+       !CALL this%Error("SetBoundary", "Shearing not supported in BOTTOM direction.")
+      CASE(TOP)
+       !CALL this%Error("SetBoundary", "Shearing not supported in TOP direction.")
+      END SELECT
+    END DO
+  END SUBROUTINE SetBoundaryData
+
+
+  !> \public Destructor for periodic boundary conditions
+  SUBROUTINE Finalize(this)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    TYPE(boundary_shearing), INTENT(INOUT) :: this
+    !------------------------------------------------------------------------!
+    CALL this%FinalizeBoundary()
+  END SUBROUTINE Finalize
+
+
+
+END MODULE boundary_shearing_mod

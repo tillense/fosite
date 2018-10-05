@@ -72,12 +72,13 @@ CONTAINS
   END SUBROUTINE InitBoundary_nogradients
 
   !> \public Applies the nogradients boundary condition
-  PURE SUBROUTINE SetBoundaryData(this,Mesh,Physics,pvar)
+  PURE SUBROUTINE SetBoundaryData(this,Mesh,Physics,time,pvar)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(boundary_nogradients), INTENT(INOUT) :: this
     CLASS(mesh_base), INTENT(IN)            :: Mesh
     CLASS(physics_base), INTENT(IN)         :: Physics
+    REAL,                 INTENT(IN)        :: time
     REAL :: pvar(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX, &
                  Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM)
     !------------------------------------------------------------------------!

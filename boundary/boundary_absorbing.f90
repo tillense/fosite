@@ -108,14 +108,15 @@ CONTAINS
   !! for those associates with positive (western/southern) or negative
   !! (eastern/northern) wave speeds. After that it transforms the
   !! new set of characteristic variables back to primitive variables.
-  PURE SUBROUTINE SetBoundaryData(this,Mesh,Physics,pvar)
+  PURE SUBROUTINE SetBoundaryData(this,Mesh,Physics,time,pvar)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(Boundary_absorbing),INTENT(INOUT) :: this
     CLASS(Mesh_base),         INTENT(IN) :: Mesh
     CLASS(Physics_base),      INTENT(IN) :: Physics
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%vnum), &
-                           INTENT(INOUT) :: pvar
+    REAL,                     INTENT(IN) :: time
+    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
+                              INTENT(INOUT) :: pvar
     !------------------------------------------------------------------------!
     INTEGER       :: i,j,k
     !------------------------------------------------------------------------!

@@ -53,6 +53,7 @@ MODULE boundary_generic_mod
   USE boundary_absorbing_mod
   USE boundary_fixed_mod
   USE boundary_noslip_mod
+  USE boundary_shearing_mod
   USE physics_base_mod
   USE common_dict
 #ifdef PARALLEL
@@ -161,24 +162,34 @@ CONTAINS
     IF (Mesh%mycoords(3).NE.Mesh%dims(3)-1)   new(TOP) = NONE
 #endif
 
+    IF (western.EQ.SHEARING.AND.eastern.EQ.SHEARING) THEN
+      Mesh%WE_shear = .TRUE.
+      Mesh%SN_shear = .FALSE.
+    ELSE IF (southern.EQ.SHEARING.AND.northern.EQ.SHEARING) THEN
+      Mesh%WE_shear = .FALSE.
+      Mesh%SN_shear = .TRUE.
+    END IF
+
     ! initialize every boundary
     ! IMPORTANT: do this before anything else
     DO dir=WEST,TOP
       SELECT CASE(new(dir))
-      CASE(REFLECTING)
-        ALLOCATE(boundary_reflecting::this%Boundary(dir)%p)
-      CASE(NO_GRADIENTS)
-        ALLOCATE(boundary_nogradients::this%Boundary(dir)%p)
-      CASE(PERIODIC)
-        ALLOCATE(boundary_periodic::this%Boundary(dir)%p)
-      CASE(AXIS)
-        ALLOCATE(boundary_axis::this%Boundary(dir)%p)
       CASE(ABSORBING)
         ALLOCATE(boundary_absorbing::this%Boundary(dir)%p)
+      CASE(AXIS)
+        ALLOCATE(boundary_axis::this%Boundary(dir)%p)
       CASE(FIXED)
         ALLOCATE(boundary_fixed::this%Boundary(dir)%p)
+      CASE(NO_GRADIENTS)
+        ALLOCATE(boundary_nogradients::this%Boundary(dir)%p)
       CASE(NOSLIP)
         ALLOCATE(boundary_noslip::this%boundary(dir)%p)
+      CASE(PERIODIC)
+        ALLOCATE(boundary_periodic::this%Boundary(dir)%p)
+      CASE(REFLECTING)
+        ALLOCATE(boundary_reflecting::this%Boundary(dir)%p)
+      CASE(SHEARING)
+        ALLOCATE(boundary_shearing::this%Boundary(dir)%p)
 #ifdef PARALLEL
       CASE(NONE)
         ALLOCATE(boundary_inner::this%Boundary(dir)%p)
@@ -186,20 +197,22 @@ CONTAINS
       END SELECT
 
       SELECT TYPE(obj => this%Boundary(dir)%p)
-      TYPE IS (boundary_reflecting)
-        CALL obj%InitBoundary_reflecting(Mesh,Physics,dir,config)
-      TYPE IS (boundary_nogradients)
-        CALL obj%InitBoundary_nogradients(Mesh,Physics,dir,config)
-      TYPE IS (boundary_periodic)
-        CALL obj%InitBoundary_periodic(Mesh,Physics,dir,config)
-      TYPE IS (boundary_axis)
-        CALL obj%InitBoundary_axis(Mesh,Physics,dir,config)
       TYPE IS (boundary_absorbing)
         CALL obj%InitBoundary_absorbing(Mesh,Physics,dir,config)
+      TYPE IS (boundary_axis)
+        CALL obj%InitBoundary_axis(Mesh,Physics,dir,config)
       TYPE IS (boundary_fixed)
         CALL obj%InitBoundary_fixed(Mesh,Physics,dir,config)
+      TYPE IS (boundary_nogradients)
+        CALL obj%InitBoundary_nogradients(Mesh,Physics,dir,config)
       TYPE IS (boundary_noslip)
         CALL obj%InitBoundary_noslip(Mesh,Physics,dir,config)
+      TYPE IS (boundary_periodic)
+        CALL obj%InitBoundary_periodic(Mesh,Physics,dir,config)
+      TYPE IS (boundary_reflecting)
+        CALL obj%InitBoundary_reflecting(Mesh,Physics,dir,config)
+      TYPE IS (boundary_shearing)
+        CALL obj%InitBoundary_shearing(Mesh,Physics,dir,config)
 #ifdef PARALLEL
       TYPE IS (boundary_inner)
         CALL obj%InitBoundary_inner(Mesh,Physics,dir,config)
@@ -208,23 +221,25 @@ CONTAINS
     END DO
 
     ! check periodicity
-    IF (western.EQ.PERIODIC.AND.eastern.EQ.PERIODIC) THEN
-       periods(1) = .TRUE.
+    IF ((western.EQ.PERIODIC.AND.eastern.EQ.PERIODIC) .OR. &
+        (western.EQ.SHEARING.AND.eastern.EQ.SHEARING)) THEN
+        periods(1) = .TRUE.
     ELSE IF (western.EQ.PERIODIC.NEQV.eastern.EQ.PERIODIC) THEN
-       CALL this%Error("InitBoundary", &
+       CALL this%boundary(WEST)%p%Error("InitBoundary", &
             "Opposite boundary should be periodic.")
+    ELSE IF (western.EQ.SHEARING.NEQV.eastern.EQ.SHEARING) THEN
+       CALL this%boundary(WEST)%p%Error("InitBoundary", &
+            "Opposite boundary should be shearing.")
     END IF
-    IF (southern.EQ.PERIODIC.AND.northern.EQ.PERIODIC) THEN
+    IF ((southern.EQ.PERIODIC.AND.northern.EQ.PERIODIC) .OR. &
+        (southern.EQ.SHEARING.AND.northern.EQ.SHEARING)) THEN
        periods(2) = .TRUE.
     ELSE IF (southern.EQ.PERIODIC.NEQV.northern.EQ.PERIODIC) THEN
-       CALL this%Error("InitBoundary", &
+       CALL this%boundary(SOUTH)%p%Error("InitBoundary", &
             "Opposite boundary should be periodic.")
-    END IF
-    IF (top.EQ.PERIODIC.AND.bottom.EQ.PERIODIC) THEN
-       periods(3) = .TRUE.
-    ELSE if (top.EQ.PERIODIC.NEQV.bottom.EQ.PERIODIC) THEN
-       CALL this%Error("InitBoundary", &
-            "Opposite boundary should be periodic.")
+    ELSE IF (southern.EQ.SHEARING.NEQV.northern.EQ.SHEARING) THEN
+       CALL this%boundary(SOUTH)%p%Error("InitBoundary", &
+            "Opposite boundary should be shearing.")
     END IF
 
     ! This sets this%Boundary(dir)%PhysicalCorner to .True., if
@@ -341,20 +356,20 @@ CONTAINS
              Mesh%JMAX,Mesh%KMIN,Mesh%KMAX,cvar,pvar)
     ! set physical boundary conditions at western and eastern boundaries
     IF (Mesh%INUM.GT.1) THEN
-      CALL this%Boundary(WEST)%p%SetBoundaryData(Mesh,Physics,pvar)
-      CALL this%Boundary(EAST)%p%SetBoundaryData(Mesh,Physics,pvar)
+      CALL this%Boundary(WEST)%p%SetBoundaryData(Mesh,Physics,time,pvar)
+      CALL this%Boundary(EAST)%p%SetBoundaryData(Mesh,Physics,time,pvar)
     END IF
 
     ! set physical boundary conditions at southern and northern boundaries
     IF (Mesh%JNUM.GT.1) THEN
-      CALL this%Boundary(SOUTH)%p%SetBoundaryData(Mesh,Physics,pvar)
-      CALL this%Boundary(NORTH)%p%SetBoundaryData(Mesh,Physics,pvar)
+      CALL this%Boundary(SOUTH)%p%SetBoundaryData(Mesh,Physics,time,pvar)
+      CALL this%Boundary(NORTH)%p%SetBoundaryData(Mesh,Physics,time,pvar)
     END IF
 
     ! set physical boundary conditions at top and bottom boundaries
     IF (Mesh%KNUM.GT.1) THEN
-      CALL this%Boundary(BOTTOM)%p%SetBoundaryData(Mesh,Physics,pvar)
-      CALL this%Boundary(TOP)%p%SetBoundaryData(Mesh,Physics,pvar)
+      CALL this%Boundary(BOTTOM)%p%SetBoundaryData(Mesh,Physics,time,pvar)
+      CALL this%Boundary(TOP)%p%SetBoundaryData(Mesh,Physics,time,pvar)
     END IF
 
 

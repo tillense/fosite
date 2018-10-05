@@ -136,6 +136,8 @@ MODULE mesh_base_mod
     REAL              :: omega             !< speed of the rotating frame of ref.
     REAL              :: Q                 !< shearing parameter
     INTEGER           :: fargo             !< Fargo parameter (> 0 enabled)
+    LOGICAL           :: WE_shear          !< shear in y-direction
+    LOGICAL           :: SN_shear          !< shear in x-direction
     REAL              :: rotcent(2)        !< center of the rotating frame of ref.
     !> \name
     !! #### cell coordinates
@@ -578,6 +580,9 @@ CONTAINS
 
     ! angular velocity of the rotating reference frame
     CALL GetAttr(config, "omega", this%omega, 0.0)
+
+    ! shearing force in shearingsheet
+    CALL GetAttr(config, "Q", this%Q, 1.5)
 
     ! center of rotation
     this%rotcent = (/ 0., 0./)

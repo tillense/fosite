@@ -89,12 +89,13 @@ CONTAINS
   !> \public Applies the inner boundary condition
   !!
   !! \attention This routine does nothing.
-  PURE SUBROUTINE SetBoundaryData(this,Mesh,Physics,pvar)
+  PURE SUBROUTINE SetBoundaryData(this,Mesh,Physics,time,pvar)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(boundary_inner), INTENT(INOUT) :: this
     CLASS(mesh_base),      INTENT(IN) :: Mesh
     CLASS(physics_base),   INTENT(IN) :: Physics
+    REAL,                  INTENT(IN) :: time
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
                         INTENT(INOUT) :: pvar
     !------------------------------------------------------------------------!

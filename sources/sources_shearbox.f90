@@ -142,7 +142,7 @@ CONTAINS
   !!                    \mathbf{\hat{e}_x}.
   !! \f]
   !! See for example \cite gammie2001 or \cite hawley1995 .
-  PURE SUBROUTINE ExternalSources_single(this,Mesh,Physics,Fluxes,time,pvar,cvar,sterm)
+  SUBROUTINE ExternalSources_single(this,Mesh,Physics,Fluxes,time,pvar,cvar,sterm)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(sources_shearbox), INTENT(INOUT) :: this
@@ -157,7 +157,8 @@ CONTAINS
     !------------------------------------------------------------------------!
     INTEGER       :: i,j,k
     !------------------------------------------------------------------------!
-    IF (Mesh%fargo.EQ.0) THEN
+    IF (Mesh%FARGO.EQ.0) THEN
+      sterm(:,:,:,:) = 0.0
 !NEC$ IVDEP
       FORALL(i=Mesh%IMIN:Mesh%IMAX,j=Mesh%JMIN:Mesh%JMAX,k=Mesh%KMIN:Mesh%KMAX)
             this%accel(i,j,k,1) = Mesh%OMEGA*2.0*(Mesh%Q*Mesh%OMEGA* &
@@ -166,7 +167,7 @@ CONTAINS
       END FORALL
       ! shearingsheet inertial forces source terms
       CALL Physics%ExternalSources(Mesh,this%accel,pvar,cvar,sterm)
-    ELSE IF (Mesh%fargo.EQ.3) THEN
+    ELSE IF (Mesh%FARGO.EQ.3) THEN
       sterm(:,:,:,Physics%DENSITY) = 0.0
 !NEC$ IVDEP
       FORALL(i=Mesh%IMIN:Mesh%IMAX,j=Mesh%JMIN:Mesh%JMAX,k=Mesh%KMIN:Mesh%KMAX)
