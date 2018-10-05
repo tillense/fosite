@@ -19,6 +19,7 @@ set (EXES
   riemann1d-z
   riemann2d
   riemann2d-xz
+  poiseuille
 #  riemann3d
 #  rngtest
   RTI
