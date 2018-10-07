@@ -68,13 +68,17 @@ MODULE sources_viscosity_mod
 
   TYPE, EXTENDS(sources_base) :: sources_viscosity
     CHARACTER(LEN=32) :: source_name = "viscosity of Newtonian fluid"
+    CLASS(logging_base), ALLOCATABLE :: viscosity
     REAL :: cvis                                    !< viscous Courant no.
     REAL :: dynconst,bulkconst                      !< viscosity const.
-    REAL, DIMENSION(:,:,:), POINTER   :: dynvis, &  !< dynamic viscosity
-                                       kinvis, &    !< kinematic viscosity
-                                       bulkvis, &   !< bulk viscosity
-                                       envelope
-    CLASS(logging_base), ALLOCATABLE :: viscosity
+    REAL, DIMENSION(:,:,:), POINTER  :: dynvis, &   !< dynamic viscosity
+                                        kinvis, &   !< kinematic viscosity
+                                        bulkvis, &  !< bulk viscosity
+                                        envelope
+     REAL, DIMENSION(:,:,:), POINTER :: &           !< comp. of stress tensor
+           btxx,btyy,btzz,btxy,btxz,btyz,tmp,tmp2,tmp3
+     REAL, DIMENSION(:,:), POINTER   :: &
+           Sxx,Syy,Szz,Sxy,Sxz,Syz
  CONTAINS
     PROCEDURE :: InitSources_viscosity
     PROCEDURE :: InfoSources
@@ -298,7 +302,7 @@ CONTAINS
     CLASS(Physics_base),INTENT(INOUT)   :: Physics
     CLASS(Fluxes_base),INTENT(IN)       :: Fluxes
     REAL,INTENT(IN)                     :: time
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%vnum) &
+    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM) &
                       :: pvar,cvar
     !------------------------------------------------------------------------!
     INTEGER           :: i,j,k,kp=0,kv=0
@@ -448,7 +452,7 @@ CONTAINS
     CLASS(Physics_base),INTENT(INOUT)   :: Physics
     CLASS(Fluxes_base),INTENT(IN)       :: Fluxes
     REAL,INTENT(IN)                     :: time
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%vnum) &
+    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM) &
                       :: cvar,pvar,sterm
     !------------------------------------------------------------------------!
     INTENT(IN)        :: cvar,pvar
@@ -470,7 +474,7 @@ CONTAINS
     CLASS(Physics_base),INTENT(INOUT)   :: Physics
     CLASS(Fluxes_base),INTENT(IN)       :: Fluxes
     REAL,INTENT(IN)                     :: time
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%vnum) &
+    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM) &
                       :: pvar,cvar
     REAL              :: dt
     !------------------------------------------------------------------------!

@@ -144,12 +144,6 @@ MODULE sources_base_mod
      REAL, DIMENSION(:,:,:), POINTER :: n
      REAL, DIMENSION(:,:,:), POINTER :: n_cart       !< cartesian n
      REAL, DIMENSION(:,:,:), POINTER :: pot          !< gravitational potential
-     !> components of the stress tensor
-     REAL, DIMENSION(:,:,:), POINTER   :: btxx,btyy,&
-          btzz,btxy,btxz,btyz,tmp,tmp2,tmp3
-     REAL, DIMENSION(:,:,:), POINTER :: tmp4         !<    temp array
-     REAL, DIMENSION(:,:), POINTER   :: Sxx,Syy,&
-          Szz,Sxy,Sxz,Syz
      !> source terms of sgs module
      REAL, DIMENSION(:,:), POINTER   :: diff,rhoeps,&
                                         sigma

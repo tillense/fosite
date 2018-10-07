@@ -1110,10 +1110,10 @@ CONTAINS
     this%tmp(:,:,:) = bulkvis(:,:,:)*this%tmp(:,:,:)
 
 !NEC$ OUTERLOOP_UNROLL(8)
-  DO k=Mesh%KMIN-1,Mesh%KMAX+1
-    DO j=Mesh%JMIN-1,Mesh%JMAX+1
+  DO k=Mesh%KMIN-Mesh%KP1,Mesh%KMAX+Mesh%KP1
+    DO j=Mesh%JMIN-Mesh%JP1,Mesh%JMAX+Mesh%JP1
 !NEC$ IVDEP
-       DO i=Mesh%IMIN-1,Mesh%IMAX+1
+       DO i=Mesh%IMIN-Mesh%IP1,Mesh%IMAX+Mesh%IP1
           ! compute the diagonal elements of the stress tensor
           btxx(i,j,k) = dynvis(i,j,k) * &
                 ((pvar(i+1,j,k,this%XVELOCITY) - pvar(i-1,j,k,this%XVELOCITY)) / Mesh%dlx(i,j,k) &
