@@ -47,6 +47,7 @@ MODULE sources_viscosity_mod
   USE physics_base_mod
   USE fluxes_base_mod
   USE mesh_base_mod
+  USE logging_base_mod
   USE common_dict
   IMPLICIT NONE
   !--------------------------------------------------------------------------!
@@ -66,8 +67,14 @@ MODULE sources_viscosity_mod
 
 
   TYPE, EXTENDS(sources_base) :: sources_viscosity
-    !CLASS(sources_base), POINTER     :: next => null()
     CHARACTER(LEN=32) :: source_name = "viscosity of Newtonian fluid"
+    REAL :: cvis                                    !< viscous Courant no.
+    REAL :: dynconst,bulkconst                      !< viscosity const.
+    REAL, DIMENSION(:,:,:), POINTER   :: dynvis, &  !< dynamic viscosity
+                                       kinvis, &    !< kinematic viscosity
+                                       bulkvis, &   !< bulk viscosity
+                                       envelope
+    CLASS(logging_base), ALLOCATABLE :: viscosity
  CONTAINS
     PROCEDURE :: InitSources_viscosity
     PROCEDURE :: InfoSources
@@ -83,7 +90,7 @@ MODULE sources_viscosity_mod
        ! types
        Sources_viscosity, &
        ! constants
-       MOLECULAR, ALPHA, BETA, PRINGLE, ALPHA_ALT,viscosity_name
+       MOLECULAR,ALPHA,BETA,PRINGLE,ALPHA_ALT,viscosity_name
   !--------------------------------------------------------------------------!
 
 CONTAINS
@@ -97,26 +104,27 @@ CONTAINS
     CLASS(Fluxes_base)  :: Fluxes
     TYPE(Dict_TYP),POINTER :: config,IO
     INTEGER           :: stype
-    INTEGER           :: model
     !------------------------------------------------------------------------!
-    INTEGER           :: err
+    INTEGER           :: err, model
     !------------------------------------------------------------------------!
     INTENT(IN)        :: Mesh,Physics,Fluxes
     !------------------------------------------------------------------------!
-!    CALL GetAttr(config, "stype", stype)
+    CALL GetAttr(config, "stype", stype)
+    CALL this%InitLogging(stype,this%source_name)
+    ! viscosity model
+    CALL GetAttr(config, "vismodel", model)
+    ALLOCATE(logging_base::this%viscosity)
+    CALL this%viscosity%InitLogging(model,viscosity_name(model))
+
+
     IF (.NOT.Fluxes%Initialized()) &
          CALL this%Error("InitSources_viscosity","fluxes module uninitialized")
-!    CALL this%InitLogging(stype,this%source_name)
-
-    CALL this%InitSources(Mesh,Fluxes,Physics,config,IO)
 
     ! check mesh
     IF (Mesh%GetType().NE.MIDPOINT) &
          CALL this%Error("InitSources_viscosity", &
          "only midpoint rule is currently supported")
-    ! viscosity model
-    CALL GetAttr(config, "vismodel", model)
-    CALL this%InitLogging(model,viscosity_name(model))
+
 
     ! dynamic viscosity constant
     CALL GetAttr(config, "dynconst", this%dynconst, 0.1)
@@ -145,7 +153,7 @@ CONTAINS
     IF (err.NE.0) &
          CALL this%Error("InitSources_viscosity","Memory allocation failed.")
     ! do the model specific initialization
-    SELECT CASE(this%GetType())
+    SELECT CASE(this%viscosity%GetType())
     CASE(MOLECULAR,PRINGLE)
        ! do nothing
     CASE(ALPHA)
@@ -162,8 +170,6 @@ CONTAINS
           ! compute inverse of distance to axis
           this%invr(:,:,:) = 1./(TINY(1.0)+Mesh%hz%bcenter(:,:,:))
        CASE DEFAULT
-         print *, Mesh%geometry%GetType()
-         print *, Mesh%GetType()
           CALL this%Error("InitSources_viscosity",&
                "Geometry not supported for alpha-viscosity")
        END SELECT
@@ -209,6 +215,8 @@ CONTAINS
     END IF
     CALL this%SetOutput(Mesh,Physics,config,IO)
     IF (this%GetType().EQ.ALPHA_ALT) this%update_disk_height = .True.
+
+    CALL this%InitSources(Mesh,Fluxes,Physics,config,IO)
 
   END SUBROUTINE InitSources_viscosity
 
@@ -267,8 +275,8 @@ CONTAINS
     !------------------------------------------------------------------------!
     WRITE (dynconst_str,'(ES9.2)') this%dynconst
     WRITE (bulkconst_str,'(ES9.2)') this%bulkconst
-    CALL this%Info("            viscosity model:   " // this%GetName())
-    SELECT CASE(this%GetType())
+    CALL this%Info("            viscosity model:   " // this%viscosity%GetName())
+    SELECT CASE(this%viscosity%GetType())
     CASE(MOLECULAR)
        CALL this%Info("            dynamic viscosity: " // TRIM(dynconst_str))
        CALL this%Info("            bulk viscosity:    " // TRIM(bulkconst_str))
@@ -301,7 +309,7 @@ CONTAINS
     ! only update viscosity if time has changed
     IF ((time.NE.this%time) .OR. (time .EQ. 0.)) THEN
        ! Set the dynamic viscosity
-       SELECT CASE(this%GetType())
+       SELECT CASE(this%viscosity%GetType())
        CASE(MOLECULAR)
           ! do nothing, since it has already been initialized
           ! in InitSources_viscosity
@@ -382,7 +390,7 @@ CONTAINS
          this%dynvis(:,:,:) = this%envelope(:,:,:) * this%dynvis(:,:,:)
 
        ! Set the bulk viscosity
-       SELECT CASE(this%GetType())
+       SELECT CASE(this%viscosity%GetType())
        CASE(MOLECULAR)
          ! do nothing, since it has already been initialized
          ! in InitSources_viscosity

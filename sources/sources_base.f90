@@ -38,6 +38,7 @@
 MODULE sources_base_mod
   USE logging_base_mod
   USE mesh_base_mod
+!  USE gravity_base_mod
   USE physics_base_mod
   USE fluxes_base_mod
   USE common_dict
@@ -47,7 +48,7 @@ MODULE sources_base_mod
   TYPE, ABSTRACT, EXTENDS(logging_base) :: sources_base
      !> \name Variables
      CLASS(sources_base), POINTER    :: next => null() !< next source in list
-     !TYPE(Gravity_TYP), POINTER      :: glist => null()!< gravity list
+     !CLASS(gravity_base), POINTER    :: glist => null()!< gravity list
      REAL                            :: time         !< simulation time
      INTEGER                         :: timeid       !<    update of this id?
      !> 0: no src term in energy equation
@@ -57,8 +58,6 @@ MODULE sources_base_mod
      LOGICAL                         :: update_disk_height !< enable/disable computation of disk scale height
      REAL                            :: mass         !< mass for diskthomson
      REAL                            :: mdot         !< disk accretion rate
-     REAL                            :: dynconst,bulkconst ! viscosity const.
-     REAL                            :: cvis         !< viscous Courant no.
      REAL                            :: eps1,eps2    !< softening parameter
      REAL                            :: gparam       !< geometry parameter
      !> effective surface of the dust grains
@@ -144,10 +143,6 @@ MODULE sources_base_mod
      !> normal vector of the disk surface in curvilinear coordinates
      REAL, DIMENSION(:,:,:), POINTER :: n
      REAL, DIMENSION(:,:,:), POINTER :: n_cart       !< cartesian n
-     REAL, DIMENSION(:,:,:), POINTER   :: dynvis, &    !< dynamic viscosity
-                                        kinvis, &    !< kinematic viscosity
-                                        bulkvis, &   !< bulk viscosity
-                                        envelope
      REAL, DIMENSION(:,:,:), POINTER :: pot          !< gravitational potential
      !> components of the stress tensor
      REAL, DIMENSION(:,:,:), POINTER   :: btxx,btyy,&
@@ -177,7 +172,6 @@ MODULE sources_base_mod
 #endif
   CONTAINS
     PROCEDURE :: InitSources
-!    PROCEDURE :: InfoSources_all
     PROCEDURE (InfoSources),     DEFERRED :: InfoSources
     PROCEDURE :: GeometricalSources
     PROCEDURE :: CloseSources_all
@@ -279,13 +273,12 @@ CONTAINS
     INTEGER :: stype, err
     INTEGER :: update_disk_height = 0
     !------------------------------------------------------------------------!
-    IF (.NOT.Physics%Initialized().OR..NOT.Mesh%Initialized()) &
-         CALL this%Error("InitSources","physics and/or mesh module uninitialized")
-
-    ALLOCATE(&
-      temp_sterm(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
-      STAT=err)
-    IF (err.NE.0) CALL this%Error("InitSources", "Unable allocate memory!")
+    IF (.NOT.ALLOCATED(temp_sterm)) THEN
+      ALLOCATE(&
+        temp_sterm(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM+Physics%PNUM), &
+        STAT=err)
+      IF (err.NE.0) CALL this%Error("InitSources", "Unable allocate memory!")
+    END IF
 
     CALL this%Info(" SOURCES--> source term:       " // this%GetName())
     CALL this%InfoSources(Mesh)

@@ -54,8 +54,12 @@ CONTAINS
     !------------------------------------------------------------------------!
     CLASS(sources_base), POINTER :: newsrc, tmpsrc
     TYPE(Dict_TYP),      POINTER :: dir,src,IOsrc,gsrc => null(),gdir => null()
+    INTEGER                      :: update_disk_height = 0
     INTEGER                      :: stype
     !------------------------------------------------------------------------!
+    IF (.NOT.Physics%Initialized().OR..NOT.Mesh%Initialized()) &
+         CALL this%Error("InitSources","physics and/or mesh module uninitialized")
+
     dir => config
     DO WHILE(ASSOCIATED(dir))
       NULLIFY(IOsrc)
@@ -65,6 +69,11 @@ CONTAINS
 
         ! object creation
         SELECT CASE(stype)
+!        CASE(GRAVITY)
+!           ! skip initialization of gravity modules here and initialize them
+!           ! at the end to make sure gravity is the first source term in the list
+!           gdir => dir
+!           gsrc => src
         CASE(C_ACCEL)
           ALLOCATE(sources_c_accel::newsrc)
         CASE(SHEARBOX)
@@ -74,6 +83,15 @@ CONTAINS
         CASE DEFAULT
           CALL this%Error("new_sources","Unknown source type")
         END SELECT
+
+        IF (.NOT.ASSOCIATED(this)) THEN
+           this => newsrc
+           NULLIFY(this%next)
+        ELSE
+           tmpsrc => this
+           this => newsrc
+           this%next => tmpsrc
+        END IF
 
         ! basic initialization
         SELECT TYPE(obj => newsrc)
@@ -87,37 +105,18 @@ CONTAINS
 
         IF(ASSOCIATED(IOsrc)) CALL SetAttr(IO, GetKey(dir), IOsrc)
 
-        IF (.NOT.ASSOCIATED(this)) THEN
-           this => newsrc
-           NULLIFY(this%next)
-        ELSE
-           tmpsrc => this
-           this => newsrc
-           this%next => tmpsrc
-        END IF
-
       END IF
       dir => GetNext(dir)
     END DO
-!
-!!    ! finally initialize gravity
-!!    IF(ASSOCIATED(gsrc)) THEN
-!!       NULLIFY(IOsrc)
-!!       CALL SetAttr(gsrc,"update_disk_height", update_disk_height)
-!!       CALL InitGravity(list,Mesh,Fluxes,Physics,Timedisc%Boundary,GRAVITY,gsrc,IOsrc)
-!!       IF(ASSOCIATED(IOsrc)) &
-!!         CALL SetAttr(IO, GetKey(gdir), IOsrc)
-!!    END IF
-!!
-!!!    IF(ASSOCIATED(ssrc)) THEN
-!!!       NULLIFY(IOsrc)
-!!!       CALL InitSources_shearbox(list,Mesh,Physics,src,IOsrc)
-!!!       IF(ASSOCIATED(IOsrc)) &
-!!!         CALL SetAttr(IO, GetKey(sdir), IOsrc)
-!!!    END IF
-!
-!    ! print some information
-!    CALL list%InfoSources(Mesh)
+
+!    ! finally initialize gravity
+!    IF(ASSOCIATED(gsrc)) THEN
+!       NULLIFY(IOsrc)
+!       CALL SetAttr(gsrc,"update_disk_height", update_disk_height)
+!       CALL obj%InitGravity(list,Mesh,Fluxes,Physics,Timedisc%Boundary,GRAVITY,gsrc,IOsrc)
+!       IF(ASSOCIATED(IOsrc)) &
+!         CALL SetAttr(IO, GetKey(gdir), IOsrc)
+!    END IF
 
   END SUBROUTINE New_Sources
 
