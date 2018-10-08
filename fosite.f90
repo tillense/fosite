@@ -137,12 +137,8 @@ CONTAINS
       CALL MPI_Init(this%ierror)
 #endif
     !> if Fosite is already initialized, close it, but do not finalize MPI
-    !! \todo the above mentioned not finalization of MPI does not exist at
-    !! the moment, because Final routines cannot take additional arguments.
-    !! Multiple Fosite Initilization will thus lead to problems at the
-    !! moment.
     IF(this%Initialized()) &
-      CALL this%Finalize()
+      CALL this%Finalize(.FALSE.)
 
     CALL this%InitLogging(simtype,simname)
 
@@ -472,11 +468,15 @@ CONTAINS
                             this%Fluxes,this%Timedisc%time,this%Timedisc%dtcause)
   END FUNCTION Step
 
-  SUBROUTINE Finalize(this)
+  SUBROUTINE Finalize(this,mpifinalize_)
     IMPLICIT NONE
     !--------------------------------------------------------------------------!
     CLASS(fosite), INTENT(INOUT) :: this
+    LOGICAL,OPTIONAL, INTENT(IN) :: mpifinalize_
     !--------------------------------------------------------------------------!
+    LOGICAL                      :: mpifinalize = .TRUE.
+    !--------------------------------------------------------------------------!
+    mpifinalize = .TRUE.
     CALL this%ComputeRunTime()
     CALL this%PrintBoundaryFluxes()
     CALL this%PrintSummary()
@@ -502,10 +502,12 @@ CONTAINS
     CALL DeleteDict(this%config)
 
 #ifdef PARALLEL
-    !> \todo not verified: here was a test where fosite was closed but mpi not
-    !!       these feature has been removed at the moment and MPI is just
-    !!       finalized.
-    CALL MPI_Finalize(this%ierror)
+    IF(PRESENT(mpifinalize_)) THEN
+      mpifinalize = mpifinalize_
+    END IF
+    IF(mpifinalize) THEN
+      CALL MPI_Finalize(this%ierror)
+    END IF
 #endif
   END SUBROUTINE Finalize
 

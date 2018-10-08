@@ -103,7 +103,7 @@ PROGRAM KHI
   CALL InitData(Sim%Mesh, Sim%Physics, Sim%Timedisc,'xy',.FALSE.)
   CALL Sim%Run()
   pvar_xy(:,:,:,:) = SIM%Timedisc%pvar(:,:,:,:)
-  CALL Sim%Finalize()
+  CALL Sim%Finalize(.FALSE.)
   DEALLOCATE(SIM)
 
   ! test flow along y-direction
@@ -115,7 +115,7 @@ PROGRAM KHI
   CALL InitData(Sim%Mesh, Sim%Physics, Sim%Timedisc,'yx',.TRUE.)
   CALL Sim%Run()
   pvar_yx(:,:,:,:) = Sim%Timedisc%pvar(:,:,:,:)
-  CALL Sim%Finalize()
+  CALL Sim%Finalize(.FALSE.)
   DEALLOCATE(Sim)
 
   ! test flow along z-direction
@@ -127,7 +127,7 @@ PROGRAM KHI
   CALL InitData(Sim%Mesh, Sim%Physics, Sim%Timedisc,'xz',.TRUE.)
   CALL Sim%Run()
   pvar_xz(:,:,:,:) = Sim%Timedisc%pvar(:,:,:,:)
-  CALL Sim%Finalize()
+  CALL Sim%Finalize(.FALSE.)
   DEALLOCATE(Sim)
 
 
@@ -140,7 +140,7 @@ PROGRAM KHI
   CALL InitData(Sim%Mesh, Sim%Physics, Sim%Timedisc,'zx',.TRUE.)
   CALL Sim%Run()
   pvar_zx(:,:,:,:) = Sim%Timedisc%pvar(:,:,:,:)
-  CALL Sim%Finalize()
+  CALL Sim%Finalize(.FALSE.)
   DEALLOCATE(Sim)
 
 
@@ -152,7 +152,7 @@ PROGRAM KHI
   CALL InitData(Sim%Mesh, Sim%Physics, Sim%Timedisc,'zy',.TRUE.)
   CALL Sim%Run()
   pvar_zy(:,:,:,:) = Sim%Timedisc%pvar(:,:,:,:)
-  CALL Sim%Finalize()
+  CALL Sim%Finalize(.FALSE.)
   DEALLOCATE(Sim)
 
 
@@ -219,7 +219,7 @@ PROGRAM KHI
   END DO
   sigma_6 = SQRT(SUM((pvar_temp(:,:,:,:) -  pvar_xz(:,:,:,:))**2)/SIZE(pvar_temp))
 
-  CALL Sim%Finalize()
+  CALL Sim%Finalize(.TRUE.)
   DEALLOCATE(Sim)
   TAP_CHECK_SMALL(sigma_1,2*EPSILON(sigma_1),"xy-yx symmetry test")
   TAP_CHECK_SMALL(sigma_2,2*EPSILON(sigma_2),"xz-zx symmetry test")
