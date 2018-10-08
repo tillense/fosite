@@ -67,7 +67,4 @@ ser_test_KHI:
     script:
        - ./ser_build/tests/KHI3
 
-par_test_KHI:
-    stage: test
-    script:
-      - mpirun -n 2 ./par_build/tests/KHI3
+
