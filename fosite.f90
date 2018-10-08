@@ -109,7 +109,7 @@ MODULE fosite_mod
     PROCEDURE :: PrintBoundaryFluxes
     PROCEDURE :: PrintSummary
     PROCEDURE :: ComputeRunTime
-    FINAL     :: Finalize
+    PROCEDURE :: Finalize
   END TYPE fosite
   !--------------------------------------------------------------------------!
   PUBLIC  :: fosite
@@ -141,8 +141,8 @@ CONTAINS
     !! the moment, because Final routines cannot take additional arguments.
     !! Multiple Fosite Initilization will thus lead to problems at the
     !! moment.
-!    IF(this%Initialized()) &
-!      CALL this%Finalize()
+    IF(this%Initialized()) &
+      CALL this%Finalize()
 
     CALL this%InitLogging(simtype,simname)
 
@@ -475,23 +475,26 @@ CONTAINS
   SUBROUTINE Finalize(this)
     IMPLICIT NONE
     !--------------------------------------------------------------------------!
-    TYPE(fosite), INTENT(INOUT) :: this
+    CLASS(fosite), INTENT(INOUT) :: this
     !--------------------------------------------------------------------------!
-
     CALL this%ComputeRunTime()
-
     CALL this%PrintBoundaryFluxes()
     CALL this%PrintSummary()
 
     DEALLOCATE(this%Datafile)
     IF (ALLOCATED(this%Logfile)) &
       DEALLOCATE(this%Logfile)
+    CALL this%Timedisc%Finalize()
     DEALLOCATE(this%Timedisc)
 
     IF (ASSOCIATED(this%Sources)) &
-      DEALLOCATE(this%Sources)
+      CALL this%Sources%Finalize()
+    DEALLOCATE(this%Sources)
+    CALL this%Physics%Finalize()
     DEALLOCATE(this%Physics)
+    CALL this%Fluxes%Finalize()
     DEALLOCATE(this%Fluxes)
+    CALL this%Mesh%Finalize()
     DEALLOCATE(this%Mesh)
 
     CALL DeleteDict(this%IO)

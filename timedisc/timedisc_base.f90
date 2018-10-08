@@ -150,7 +150,8 @@ PRIVATE
     PROCEDURE           :: GetOrder
     PROCEDURE           :: GetCFL
     PROCEDURE (SolveODE), DEFERRED :: SolveODE
-    PROCEDURE           :: FinalizeTimedisc
+    PROCEDURE           :: Finalize_base
+    PROCEDURE (Finalize), DEFERRED :: Finalize
   END TYPE timedisc_base
 !----------------------------------------------------------------------------!
   ABSTRACT INTERFACE
@@ -175,6 +176,13 @@ PRIVATE
 !      REAL,                 INTENT(IN)    :: time
 !      INTEGER,              INTENT(INOUT) :: dtcause
 !    END FUNCTION
+  SUBROUTINE Finalize(this)
+    IMPORT timedisc_base
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(timedisc_base) :: this
+  END SUBROUTINE
+
   END INTERFACE
 
   INTEGER, PARAMETER :: MODIFIED_EULER   = 1
@@ -1252,7 +1260,7 @@ CONTAINS
     cfl = this%CFL
   END FUNCTION GetCFL
 
-  SUBROUTINE FinalizeTimedisc(this)
+  SUBROUTINE Finalize_base(this)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(timedisc_base)             :: this
@@ -1261,11 +1269,11 @@ CONTAINS
         CALL this%Error("CloseTimedisc","not initialized")
 
     ! call boundary destructor
-    !CALL this%Boundary%FinalizeBoundary()
+    CALL this%Boundary%Finalize()
 
     DEALLOCATE( &
       this%pvar,this%cvar,this%cold,this%ptmp,this%ctmp, &
-      this%geo_src,this%src, &
+      this%geo_src,this%src, this%rhs, &
       this%xfluxdydz,this%yfluxdzdx,this%zfluxdxdy,this%amax,this%tol_abs,&
       this%dtmean,this%dtstddev,this%time,&
       this%shift,this%w)
@@ -1283,7 +1291,7 @@ CONTAINS
     ! logging desctructor
     ! \todo{CHECK WITH MANUEL IF THIS IS NEEDED}
     !CALL this%Finalize()
-  END SUBROUTINE FinalizeTimedisc
+  END SUBROUTINE Finalize_base
 
 
 !  SUBROUTINE FargoAdvection(this,Fluxes,Mesh,Physics)

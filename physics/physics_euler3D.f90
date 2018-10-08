@@ -103,7 +103,7 @@ MODULE physics_euler3D_mod
     PROCEDURE :: ViscositySources_euler3D
     PROCEDURE :: CalcStresses_euler
 
-    FINAL :: Finalize
+    PROCEDURE :: Finalize
   END TYPE
   !--------------------------------------------------------------------------!
   PUBLIC :: &
@@ -2013,9 +2013,9 @@ CONTAINS
   SUBROUTINE Finalize(this)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    TYPE(physics_euler3D), INTENT(INOUT) :: this
+    CLASS(physics_euler3D), INTENT(INOUT) :: this
     !------------------------------------------------------------------------!
-    CALL this%FinalizePhysics()
+    CALL this%Finalize_base()
   END SUBROUTINE Finalize
 
 END MODULE physics_euler3D_mod

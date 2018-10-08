@@ -68,6 +68,7 @@ PROGRAM RTI
   CALL InitData(Sim%Mesh, Sim%Physics, Sim%Timedisc%pvar, Sim%Timedisc%cvar)
   CALL Sim%Run()
 
+  CALL Sim%Finalize()
   DEALLOCATE(Sim)
 
 !  TAP_CHECK(.TRUE.,"Simulation finished")

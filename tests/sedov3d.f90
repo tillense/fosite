@@ -75,6 +75,7 @@ PROGRAM sedov3d
 
   CALL Sim%Run()
 
+  CALL Sim%Finalize()
   DEALLOCATE(Sim)
 
   TAP_CHECK(.TRUE.,"Finished simulation")

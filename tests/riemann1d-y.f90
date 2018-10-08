@@ -115,6 +115,7 @@ IF(ic.LE.3) TAP_CHECK_SMALL(sigma,err(ic),"Toro test")
   DEALLOCATE(pvar0)
   
 
+  CALL Sim(ic)%Finalize()
 
 
 

@@ -176,7 +176,8 @@ MODULE physics_base_mod
    PROCEDURE (MASKS), DEFERRED :: AxisMasks
 !   PROCEDURE :: GetSoundSpeed_adiabatic
 
-    PROCEDURE :: FinalizePhysics
+    PROCEDURE (Finalize), DEFERRED :: Finalize
+    PROCEDURE :: Finalize_base
   END TYPE physics_base
 
   ABSTRACT INTERFACE
@@ -445,6 +446,12 @@ MODULE physics_base_mod
                                             :: pvar
      REAL,DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,this%VNUM), INTENT(IN)   :: xvar
    END SUBROUTINE
+   SUBROUTINE Finalize(this)
+     IMPORT physics_base
+     IMPLICIT NONE
+     CLASS(physics_base),INTENT(INOUT)  :: this
+   END SUBROUTINE
+
  END INTERFACE
   !--------------------------------------------------------------------------!
   ! flags for advection problems
@@ -693,7 +700,7 @@ CONTAINS
   END SUBROUTINE CalcWaveSpeeds
 
   !> Destructor
-  SUBROUTINE FinalizePhysics(this)
+  SUBROUTINE Finalize_base(this)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(physics_base), INTENT(INOUT) :: this
@@ -703,6 +710,6 @@ CONTAINS
     ! deallocate pointer variables used in all physics modules
     DEALLOCATE(this%tmp,this%tmp1,this%tmp2,this%tmp3,this%tmp4,this%tmp5, &
                this%bccsound,this%fcsound,this%pvarname,this%cvarname)
-  END SUBROUTINE FinalizePhysics
+  END SUBROUTINE Finalize_base
 
 END MODULE physics_base_mod

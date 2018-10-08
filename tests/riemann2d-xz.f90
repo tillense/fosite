@@ -511,6 +511,7 @@ PROGRAM riemann2d
      CALL InitData(Sim(ic)%Mesh, Sim(ic)%Physics, Sim(ic)%Timedisc, ic)
      CALL Sim(ic)%Run()
 
+     CALL Sim(ic)%Finalize()
      TAP_CHECK(.TRUE.,"Simulation finished")
 
   END DO

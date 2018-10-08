@@ -46,7 +46,7 @@ MODULE boundary_noslip_mod
   CONTAINS
     PROCEDURE :: InitBoundary_noslip
     PROCEDURE :: SetBoundaryData
-    FINAL     :: FINALIZE
+    PROCEDURE :: Finalize
   END TYPE boundary_noslip
   CHARACTER(LEN=32), PARAMETER  :: boundcond_name = "noslip"
   !--------------------------------------------------------------------------!
@@ -234,13 +234,13 @@ CONTAINS
   END SUBROUTINE SetBoundaryData
 
   !> \public Destructor for noslip boundary conditions
-  SUBROUTINE FINALIZE(this)
+  SUBROUTINE Finalize(this)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    TYPE(Boundary_noslip), INTENT(INOUT) :: this
+    CLASS(Boundary_noslip), INTENT(INOUT) :: this
     !------------------------------------------------------------------------!
     DEALLOCATE(this%data)
-    CALL this%FinalizeBoundary()
-  END SUBROUTINE FINALIZE
+    CALL this%Finalize_base()
+  END SUBROUTINE Finalize
 
 END MODULE boundary_noslip_mod

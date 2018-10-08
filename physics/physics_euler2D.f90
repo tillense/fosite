@@ -1698,7 +1698,7 @@ CONTAINS
     !------------------------------------------------------------------------!
     CLASS(physics_euler2D), INTENT(INOUT) :: this
     !------------------------------------------------------------------------!
-    CALL this%FinalizePhysics()
+    CALL this%Finalize_base()
   END SUBROUTINE Finalize
 
 END MODULE physics_euler2D_mod

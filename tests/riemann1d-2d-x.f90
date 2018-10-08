@@ -115,12 +115,12 @@ TAP_CHECK_SMALL(sigma,err(ic),"Toro test")
   DEALLOCATE(pvar0)
   
 
-
+  CALL Sim(ic)%Finalize()
 
 
   END DO
 
-!  DEALLOCATE(SIM)
+  DEALLOCATE(SIM)
 
   TAP_DONE
 

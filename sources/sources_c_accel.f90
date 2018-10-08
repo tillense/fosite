@@ -152,7 +152,9 @@ CONTAINS
     CLASS(sources_c_accel), INTENT(INOUT) :: this
     !------------------------------------------------------------------------!
     DEALLOCATE(this%accel)
-    CALL this%FinalizeSources()
+    CALL this%Finalize_base()
+    IF(ASSOCIATED(this%next)) &
+      CALL this%next%Finalize()
   END SUBROUTINE Finalize
 
 END MODULE sources_c_accel_mod

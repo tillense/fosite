@@ -50,7 +50,8 @@ MODULE reconstruction_base_mod
     PROCEDURE                              :: InitReconstruction
     PROCEDURE (CalculateStates), DEFERRED  :: CalculateStates
     PROCEDURE                              :: PrimRecon
-    PROCEDURE                              :: FinalizeReconstruction
+    PROCEDURE                              :: Finalize_base
+    PROCEDURE (Finalize), DEFERRED         :: Finalize
   END TYPE reconstruction_base
 
   ABSTRACT INTERFACE
@@ -71,6 +72,11 @@ MODULE reconstruction_base_mod
                                                   :: rstates
       INTENT(IN)                                  :: npos,dx,dy,dz,rvar
       INTENT(OUT)                                 :: rstates
+    END SUBROUTINE
+    SUBROUTINE Finalize(this)
+      IMPORT reconstruction_base
+      IMPLICIT NONE
+      CLASS(reconstruction_base), INTENT(INOUT)   :: this
     END SUBROUTINE
   END INTERFACE
 
@@ -167,13 +173,13 @@ CONTAINS
   END FUNCTION PrimRecon
 
 
-  SUBROUTINE FinalizeReconstruction(this)
+  SUBROUTINE Finalize_base(this)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(reconstruction_base), INTENT(INOUT) :: this
     !------------------------------------------------------------------------!
     IF (.NOT.this%Initialized()) &
          CALL this%Error("CloseReconstruction","not initialized")
-  END SUBROUTINE FinalizeReconstruction
+  END SUBROUTINE Finalize_base
 
 END MODULE reconstruction_base_mod

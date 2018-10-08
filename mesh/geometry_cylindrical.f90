@@ -50,7 +50,7 @@ MODULE geometry_cylindrical_mod
     PROCEDURE :: Convert2Curvilinear_cylindrical
     PROCEDURE :: Convert2Curvilinear_coords_0
     PROCEDURE :: Convert2Curvilinear_vectors_0
-    FINAL     :: Finalize
+    PROCEDURE :: Finalize
   END TYPE
   PRIVATE
   CHARACTER(LEN=32), PARAMETER :: geometry_name = "cylindrical"
@@ -205,9 +205,9 @@ CONTAINS
   SUBROUTINE Finalize(this)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    TYPE(geometry_cylindrical), INTENT(INOUT) :: this
+    CLASS(geometry_cylindrical), INTENT(INOUT) :: this
     !------------------------------------------------------------------------!
-    CALL this%FinalizeGeometry()
+    CALL this%Finalize_base()
   END SUBROUTINE Finalize
 
 END MODULE geometry_cylindrical_mod

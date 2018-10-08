@@ -78,7 +78,7 @@ PROGRAM gauss3d
   CALL InitData(Sim%Mesh, Sim%Physics, Sim%Timedisc)
 
   CALL Sim%Run()
-
+  CALL Sim%Finalize()
   DEALLOCATE(Sim)
 
 !  TAP_CHECK(.TRUE.,"Finished simulation")

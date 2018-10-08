@@ -192,7 +192,8 @@ CONTAINS
     !------------------------------------------------------------------------!
     CLASS(sources_shearbox), INTENT(INOUT) :: this
     !------------------------------------------------------------------------!
-    CALL this%FinalizeSources()
+    CALL this%sources_c_accel%Finalize()
+    CALL this%next%Finalize()
   END SUBROUTINE Finalize
 
 END MODULE sources_shearbox_mod

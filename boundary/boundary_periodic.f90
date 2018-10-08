@@ -44,7 +44,7 @@ MODULE boundary_periodic_mod
   TYPE, EXTENDS(boundary_base) :: boundary_periodic
   CONTAINS
     PROCEDURE :: InitBoundary_periodic
-    FINAL     :: Finalize
+    PROCEDURE :: Finalize
     PROCEDURE :: SetBoundaryData
   END TYPE
   CHARACTER(LEN=32), PARAMETER  :: boundcond_name = "periodic"
@@ -122,9 +122,9 @@ CONTAINS
   SUBROUTINE Finalize(this)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    TYPE(boundary_periodic), INTENT(INOUT) :: this
+    CLASS(boundary_periodic), INTENT(INOUT) :: this
     !------------------------------------------------------------------------!
-    CALL this%FinalizeBoundary()
+    CALL this%Finalize_base()
   END SUBROUTINE Finalize
 
 

@@ -176,7 +176,8 @@ MODULE sources_base_mod
 !    PROCEDURE (SetName),         DEFERRED :: SetName
 !    PROCEDURE :: GetSourcesPointer
 
-    PROCEDURE :: FinalizeSources
+    PROCEDURE :: Finalize_base
+    PROCEDURE (Finalize), DEFERRED :: Finalize
   END TYPE sources_base
   ABSTRACT INTERFACE
     SUBROUTINE InfoSources(this,Mesh)
@@ -225,6 +226,12 @@ MODULE sources_base_mod
       INTENT(IN)        :: cvar,pvar
       INTENT(OUT)       :: sterm
     END SUBROUTINE
+    SUBROUTINE Finalize(this)
+      Import sources_base
+      IMPLICIT NONE
+      CLASS(sources_base), INTENT(INOUT) :: this
+    END SUBROUTINE
+
   END INTERFACE
   ! tempory storage for source terms
   REAL, DIMENSION(:,:,:,:), ALLOCATABLE, SAVE :: temp_sterm
@@ -419,7 +426,7 @@ CONTAINS
   END SUBROUTINE CloseSources_all
 
   !> Destructor
-  SUBROUTINE FinalizeSources(this)
+  SUBROUTINE Finalize_base(this)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(sources_base) :: this
@@ -427,7 +434,7 @@ CONTAINS
     IF (.NOT.this%Initialized()) &
         CALL this%Error("CloseSources","not initialized")
 
-    DEALLOCATE(temp_sterm)
-  END SUBROUTINE FinalizeSources
+    IF(ALLOCATED(temp_sterm)) DEALLOCATE(temp_sterm)
+  END SUBROUTINE Finalize_base
 
 END MODULE sources_base_mod

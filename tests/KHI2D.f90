@@ -104,7 +104,7 @@ PROGRAM KHI
    ! pvar(:,:,i,Sim%Physics%ZVELOCITY) = TRANSPOSE(Sim%Timedisc%pvar(:,:,i,Sim%Physics%ZVELOCITY))
     pvar(:,:,i,Sim%Physics%PRESSURE)  = TRANSPOSE(Sim%Timedisc%pvar(:,:,i,Sim%Physics%PRESSURE))
   END DO
-
+  CALL Sim%Finalize()
   DEALLOCATE(SIM)
   ALLOCATE(SIM)
   ! test flow along y-direction
@@ -128,7 +128,8 @@ PROGRAM KHI
   sigma_xvel = SQRT(SUM((pvar_1(:,:,:,2)-pvar_2(:,:,:,2))**2))
   sigma_yvel = SQRT(SUM((pvar_1(:,:,:,3)-pvar_2(:,:,:,3))**2))
   sigma_pres = SQRT(SUM((pvar_1(:,:,:,4)-pvar_2(:,:,:,4))**2))
-
+  
+  CALL Sim%Finalize()
   DEALLOCATE(pvar,seed,Sim)
   TAP_CHECK_SMALL(sigma,TINY(sigma),"x-y symmetry test")
   TAP_DONE

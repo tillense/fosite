@@ -40,16 +40,15 @@ MODULE reconstruction_constant_mod
   USE common_dict
   IMPLICIT NONE
   !--------------------------------------------------------------------------!
+  PRIVATE
   TYPE, EXTENDS (reconstruction_base) :: reconstruction_constant
   ! no data declarations
   CONTAINS
-    PRIVATE
-    PROCEDURE, PUBLIC             :: InitReconstruction_constant
-    PROCEDURE, PUBLIC             :: CalculateStates
-    FINAL                         :: Finalize
+    PROCEDURE             :: InitReconstruction_constant
+    PROCEDURE             :: CalculateStates
+    PROCEDURE             :: Finalize
   END TYPE reconstruction_constant
   !--------------------------------------------------------------------------!
-  PRIVATE
   CHARACTER(LEN=32), PARAMETER    :: recontype_name = "constant"
   !--------------------------------------------------------------------------!
   PUBLIC :: &
@@ -101,9 +100,9 @@ CONTAINS
   SUBROUTINE Finalize(this)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    TYPE(reconstruction_constant), INTENT(INOUT) :: this
+    CLASS(reconstruction_constant), INTENT(INOUT) :: this
     !------------------------------------------------------------------------!
-    CALL this%FinalizeReconstruction()
+    CALL this%Finalize_base()
   END SUBROUTINE Finalize
 
 END MODULE reconstruction_constant_mod

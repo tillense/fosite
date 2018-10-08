@@ -526,14 +526,14 @@ CONTAINS
   SUBROUTINE Finalize(this)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(Sources_viscosity) :: this
-    !------------------------------------------------------------------------!
-    INTENT(INOUT)     :: this
+    CLASS(Sources_viscosity),INTENT(INOUT) :: this
     !------------------------------------------------------------------------!
     DEALLOCATE(this%dynvis,this%kinvis,this%bulkvis, &
                this%btxx,this%btyy,this%btzz,this%btxy,this%btxz,this%btyz)
-    IF(this%use_envelope.EQ.1) &
-      DEALLOCATE(this%envelope)
+    IF(this%viscosity%GetType().EQ.ALPHA) DEALLOCATE(this%invr)
+    IF(this%use_envelope.EQ.1) DEALLOCATE(this%envelope)
+    CALL this%Finalize_base()
+    IF(ASSOCIATED(this%next)) CALL this%next%Finalize()
   END SUBROUTINE Finalize
 
 

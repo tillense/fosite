@@ -64,7 +64,7 @@ MODULE timedisc_modeuler_mod
     PROCEDURE :: InitTimedisc_modeuler
     PROCEDURE :: ComputeCVar
     PROCEDURE :: SolveODE
-    PROCEDURE :: FinalizeTimedisc_modeuler
+    PROCEDURE :: Finalize
   END TYPE timedisc_modeuler
   !--------------------------------------------------------------------------!
   CHARACTER(LEN=32), PARAMETER :: ODEsolver_name = "modified Euler"
@@ -270,13 +270,13 @@ CONTAINS
   END SUBROUTINE ComputeCVar
 
 
-  SUBROUTINE FinalizeTimedisc_modeuler(this)
+  SUBROUTINE Finalize(this)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(timedisc_modeuler) :: this
     !------------------------------------------------------------------------!
-    DEALLOCATE(this%rhs)
-  END SUBROUTINE FinalizeTimedisc_modeuler
+    CALL this%Finalize_base()
+  END SUBROUTINE Finalize
 
 
   ELEMENTAL FUNCTION UpdateTimestep_modeuler(eta_n,dt,y0,yn,rhs) RESULT(y)

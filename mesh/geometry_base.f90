@@ -88,7 +88,8 @@ MODULE geometry_base_mod
 
 !    PUBLIC
     PROCEDURE, PUBLIC   :: InitGeometry
-    PROCEDURE, PUBLIC   :: FinalizeGeometry
+    PROCEDURE, PUBLIC   :: Finalize_base
+    PROCEDURE (Finalize), DEFERRED    :: Finalize
 
     GENERIC, PUBLIC     :: ScaleFactors => ScaleFactors_all, ScaleFactors_0, ScaleFactors_1, ScaleFactors_2
     !> \public Convert curvilinear to cartesian coordinates
@@ -160,6 +161,11 @@ MODULE geometry_base_mod
       CLASS(geometry_base), INTENT(IN) :: this
       REAL, INTENT(IN)                 :: xi,eta,phi,vx,vy,vz
       REAL, INTENT(OUT)                :: vxi,veta,vphi
+    END SUBROUTINE
+    SUBROUTINE Finalize(this)
+      IMPORT geometry_base
+      IMPLICIT NONE
+      CLASS(geometry_base), INTENT(INOUT) :: this
     END SUBROUTINE
   END INTERFACE
 
@@ -636,7 +642,7 @@ CONTAINS
   END SUBROUTINE Convert2Curvilinear_vectors_3
 
   !> \public Destructor of generic geometry module
-  SUBROUTINE FinalizeGeometry(this)
+  SUBROUTINE Finalize_base(this)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(geometry_base), INTENT(INOUT) :: this
@@ -644,6 +650,6 @@ CONTAINS
     IF (.NOT.this%Initialized()) &
          CALL this%Error("CloseGeometry","not initialized")
     !CALL this%logging_base%Finalize()
-  END SUBROUTINE FinalizeGeometry
+  END SUBROUTINE Finalize_base
 
 END MODULE geometry_base_mod

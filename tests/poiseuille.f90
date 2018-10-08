@@ -70,7 +70,7 @@ PROGRAM poiseuille
   CALL InitData(Sim%Mesh, Sim%Physics, Sim%Timedisc)
 
   CALL Sim%Run()
-
+  CALL Sim%Finalize()
   DEALLOCATE(Sim)
 
 CONTAINS

@@ -94,7 +94,8 @@ MODULE boundary_base_mod
 
     PROCEDURE :: InitBoundary
     PROCEDURE (SetBoundaryData), DEFERRED :: SetBoundaryData
-    PROCEDURE :: FinalizeBoundary
+    PROCEDURE :: Finalize_base
+    PROCEDURE (Finalize), DEFERRED        :: Finalize
     PROCEDURE :: GetDirection
   END TYPE boundary_base
 
@@ -110,6 +111,11 @@ MODULE boundary_base_mod
       REAL,                 INTENT(IN)    :: time
       REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
                             INTENT(INOUT) :: pvar
+    END SUBROUTINE
+    SUBROUTINE Finalize(this)
+      IMPORT boundary_base
+      IMPLICIT NONE
+      CLASS(boundary_base),INTENT(INOUT)  :: this
     END SUBROUTINE
   END INTERFACE
   !> \endcond
@@ -233,7 +239,7 @@ CONTAINS
   END FUNCTION GetDirection
 
 
-  SUBROUTINE FinalizeBoundary(this)
+  SUBROUTINE Finalize_base(this)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(boundary_base),INTENT(INOUT) :: this
@@ -245,6 +251,6 @@ CONTAINS
     DEALLOCATE(this%sendbuf,this%recvbuf)
 #endif
     DEALLOCATE(this%direction)
-  END SUBROUTINE FinalizeBoundary
+  END SUBROUTINE Finalize_base
 
 END MODULE boundary_base_mod

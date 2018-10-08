@@ -48,7 +48,7 @@ MODULE boundary_absorbing_mod
     CONTAINS
       PROCEDURE :: InitBoundary_absorbing
       PROCEDURE :: SetBoundaryData
-      FINAL     :: FINALIZE
+      PROCEDURE :: Finalize
   END TYPE boundary_absorbing
   CHARACTER(LEN=32), PARAMETER  :: boundcond_name = "absorbing"
   !--------------------------------------------------------------------------!
@@ -187,15 +187,13 @@ CONTAINS
 
 
   !> \public Destructor for absorbing boundary conditions
-  SUBROUTINE FINALIZE(this)
+  SUBROUTINE Finalize(this)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    TYPE(Boundary_absorbing) :: this
-    !------------------------------------------------------------------------!
-    INTENT(INOUT) :: this
+    CLASS(Boundary_absorbing), INTENT(INOUT) :: this
     !------------------------------------------------------------------------!
     DEALLOCATE(this%xvar,this%lambda)
-    CALL this%FinalizeBoundary()
-  END SUBROUTINE FINALIZE
+    CALL this%Finalize_base()
+  END SUBROUTINE Finalize
 
 END MODULE boundary_absorbing_mod

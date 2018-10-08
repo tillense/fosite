@@ -48,7 +48,7 @@ MODULE geometry_cartesian_mod
     PROCEDURE :: Convert2Cartesian_vectors_0
     PROCEDURE :: Convert2Curvilinear_coords_0
     PROCEDURE :: Convert2Curvilinear_vectors_0
-    FINAL     :: Finalize
+    PROCEDURE :: Finalize
   END TYPE
   PRIVATE
   CHARACTER(LEN=32), PARAMETER :: geometry_name = "cartesian"
@@ -158,9 +158,9 @@ CONTAINS
   SUBROUTINE Finalize(this)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    TYPE(geometry_cartesian), INTENT(INOUT) :: this
+    CLASS(geometry_cartesian), INTENT(INOUT) :: this
     !------------------------------------------------------------------------!
-    CALL this%FinalizeGeometry()
+    CALL this%Finalize_base()
   END SUBROUTINE Finalize
 
 END MODULE geometry_cartesian_mod

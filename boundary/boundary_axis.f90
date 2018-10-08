@@ -44,7 +44,7 @@ MODULE boundary_axis_mod
     CONTAINS
       PROCEDURE                :: InitBoundary_axis
       PROCEDURE                :: SetBoundaryData
-      FINAL                    :: Finalize
+      PROCEDURE                :: Finalize
   END TYPE
   CHARACTER(LEN=32), PARAMETER :: boundcond_name = "axis"
   !--------------------------------------------------------------------------!
@@ -195,10 +195,10 @@ CONTAINS
   SUBROUTINE Finalize(this)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    TYPE(boundary_axis), INTENT(INOUT) :: this
+    CLASS(boundary_axis), INTENT(INOUT) :: this
     !------------------------------------------------------------------------!
     DEALLOCATE(this%reflX,this%reflY,this%reflZ)
-    CALL this%FinalizeBoundary()
+    CALL this%Finalize_base()
   END SUBROUTINE Finalize
 
 

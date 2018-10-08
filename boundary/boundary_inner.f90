@@ -59,7 +59,7 @@ MODULE boundary_inner_mod
   TYPE, EXTENDS(boundary_base) :: boundary_inner
   CONTAINS
     PROCEDURE :: InitBoundary_inner
-    FINAL     :: Finalize
+    PROCEDURE :: Finalize
     PROCEDURE :: SetBoundaryData
   END TYPE
   CHARACTER(LEN=32), PARAMETER  :: boundcond_name = "none"
@@ -106,9 +106,9 @@ CONTAINS
   SUBROUTINE Finalize(this)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    TYPE(boundary_inner), INTENT(INOUT) :: this
+    CLASS(boundary_inner), INTENT(INOUT) :: this
     !------------------------------------------------------------------------!
-    CALL this%FinalizeBoundary()
+    CALL this%Finalize_base()
   END SUBROUTINE Finalize
 
 

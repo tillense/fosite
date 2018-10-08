@@ -57,15 +57,13 @@ MODULE fluxes_kt_mod
   include 'mpif.h'
 #endif
 #endif
-  PRIVATE
   !--------------------------------------------------------------------------!
-  TYPE, EXTENDS (fluxes_base) :: fluxes_kt
   PRIVATE
+  TYPE, EXTENDS (fluxes_base) :: fluxes_kt
   CONTAINS
-    PRIVATE
-    PROCEDURE, PUBLIC         :: InitFluxes_kt
-    PROCEDURE, PUBLIC         :: CalculateFluxes
-    FINAL                     :: Finalize
+    PROCEDURE         :: InitFluxes_kt
+    PROCEDURE         :: CalculateFluxes
+    PROCEDURE         :: Finalize
   END TYPE
   !--------------------------------------------------------------------------!
   PUBLIC :: &
@@ -220,10 +218,9 @@ CONTAINS
   SUBROUTINE Finalize(this)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    TYPE(fluxes_kt), INTENT(INOUT)  :: this
+    CLASS(fluxes_kt), INTENT(INOUT)  :: this
     !------------------------------------------------------------------------!
-    DEALLOCATE(this%dx,this%dy,this%dz)
-    CALL this%FinalizeFluxes()
+    CALL this%Finalize_base()
   END SUBROUTINE Finalize
 
 END MODULE fluxes_kt_mod

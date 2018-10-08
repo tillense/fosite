@@ -59,7 +59,7 @@ MODULE reconstruction_linear_mod
     PROCEDURE :: InitReconstruction_linear
     PROCEDURE :: CalculateStates
     PROCEDURE :: CalculateSlopes
-    FINAL     :: Finalize
+    PROCEDURE :: Finalize
   END TYPE reconstruction_linear
   !--------------------------------------------------------------------------!
   INTEGER, PARAMETER :: MINMOD   = 1
@@ -643,11 +643,11 @@ CONTAINS
   SUBROUTINE Finalize(this)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    TYPE(reconstruction_linear), INTENT(INOUT)  :: this
+    CLASS(reconstruction_linear), INTENT(INOUT)  :: this
     !------------------------------------------------------------------------!
     DEALLOCATE(this%xslopes,this%yslopes,this%zslopes)
 
-    CALL this%FinalizeReconstruction()
+    CALL this%Finalize_base()
   END SUBROUTINE Finalize
 
 END MODULE reconstruction_linear_mod

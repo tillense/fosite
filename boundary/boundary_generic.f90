@@ -89,7 +89,7 @@ MODULE boundary_generic_mod
   CONTAINS
     PROCEDURE :: InitBoundary
     PROCEDURE :: CenterBoundary
-    FINAL     :: Finalize
+    PROCEDURE :: Finalize
   END TYPE boundary_generic
   !--------------------------------------------------------------------------!
   !> \name Public Attributes
@@ -837,13 +837,13 @@ CONTAINS
   SUBROUTINE Finalize(this)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    TYPE(boundary_generic), INTENT(INOUT) :: this
+    CLASS(boundary_generic), INTENT(INOUT) :: this
     !------------------------------------------------------------------------!
     INTEGER                               :: dir
     !------------------------------------------------------------------------!
     ! loop over all boundaries
     DO dir=1,6
-       DEALLOCATE(this%Boundary(dir)%p)
+       CALL this%Boundary(dir)%p%Finalize()
     END DO
   END SUBROUTINE Finalize
 

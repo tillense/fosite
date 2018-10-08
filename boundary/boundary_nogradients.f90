@@ -45,7 +45,7 @@ MODULE boundary_nogradients_mod
   CONTAINS
     PROCEDURE :: InitBoundary_nogradients
     PROCEDURE :: SetBoundaryData
-    FINAL     :: Finalize
+    PROCEDURE :: Finalize
   END TYPE boundary_nogradients
   CHARACTER(LEN=32), PARAMETER  :: boundcond_name = "nogradients"
   !--------------------------------------------------------------------------!
@@ -134,9 +134,9 @@ CONTAINS
   SUBROUTINE Finalize(this)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    TYPE(boundary_nogradients), INTENT(INOUT) :: this
+    CLASS(boundary_nogradients), INTENT(INOUT) :: this
     !------------------------------------------------------------------------!
-    CALL this%FinalizeBoundary()
+    CALL this%Finalize_base()
   END SUBROUTINE Finalize
 
 END MODULE boundary_nogradients_mod

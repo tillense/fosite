@@ -107,7 +107,7 @@ MODULE physics_euler2Dit_mod
 !    AddBackgroundVelocity_euler2Dit, &
 !    SubtractBackgroundVelocity_euler2Dit, &
 
-    FINAL     :: Finalize
+    PROCEDURE     :: Finalize
   END TYPE
   !--------------------------------------------------------------------------!
    PUBLIC :: &
@@ -1218,9 +1218,9 @@ CONTAINS
   SUBROUTINE Finalize(this)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    TYPE(physics_euler2Dit), INTENT(INOUT) :: this
+    CLASS(physics_euler2Dit), INTENT(INOUT) :: this
     !------------------------------------------------------------------------!
-    CALL this%FinalizePhysics()
+    CALL this%Finalize_base()
   END SUBROUTINE Finalize
 
 END MODULE physics_euler2Dit_mod

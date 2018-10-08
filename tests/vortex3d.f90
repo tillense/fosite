@@ -97,6 +97,7 @@ PROGRAM vortex3d
 
   TAP_CHECK_SMALL(sigma,3.8E-3,"PP")
 
+  CALL Sim%Finalize()
   DEALLOCATE(Sim)
   TAP_DONE
 

@@ -109,8 +109,8 @@ MODULE mesh_base_mod
      LOGICAL, POINTER  :: mask(:,:)       !< optional selection mask
   END TYPE Selection_TYP
   !> mesh data structure
+  !PRIVATE
   TYPE,ABSTRACT, EXTENDS(logging_base) :: mesh_base
-    !PRIVATE
     !> \name Variables
     CLASS(geometry_base),ALLOCATABLE :: Geometry        !< geometrical properties
     INTEGER           :: GNUM              !< number of ghost cells
@@ -188,7 +188,6 @@ MODULE mesh_base_mod
     INTEGER, DIMENSION(NDIMS)  :: mycoords        !< par. proc coordinates
 #endif
   CONTAINS
-    PRIVATE
     PROCEDURE :: AllocateMesharrayS
     PROCEDURE :: AllocateMesharrayV
     PROCEDURE :: AllocateMesharrayT
@@ -199,17 +198,18 @@ MODULE mesh_base_mod
     PROCEDURE :: RemapBounds_2
     PROCEDURE :: RemapBounds_3
     PROCEDURE :: RemapBounds_4
-    GENERIC, PUBLIC :: AllocateMesharray => AllocateMesharrayS, AllocateMesharrayV, AllocateMesharrayT
-    GENERIC, PUBLIC :: DeallocateMesharray => DeallocateMesharrayS, DeallocateMesharrayV, DeallocateMesharrayT
-    GENERIC, PUBLIC :: RemapBounds => RemapBounds_1, RemapBounds_2, RemapBounds_3, RemapBounds_4
-    PROCEDURE, PUBLIC :: InitMesh
-    PROCEDURE, PUBLIC :: Finalize
-    PROCEDURE, PUBLIC :: InternalPoint
-    PROCEDURE (TensorDivergence3D), PUBLIC,  DEFERRED :: TensorDivergence3D
-    PROCEDURE (VectorDivergence3D), PUBLIC,  DEFERRED :: VectorDivergence3D
-    PROCEDURE (TensorDivergence2D_1), PUBLIC,  DEFERRED :: TensorDivergence2D_1
-    PROCEDURE (VectorDivergence2D_1), PUBLIC,  DEFERRED :: VectorDivergence2D_1
-    GENERIC, PUBLIC :: DIVERGENCE => TensorDivergence3D, VectorDivergence3D, & 
+    GENERIC   :: AllocateMesharray => AllocateMesharrayS, AllocateMesharrayV, AllocateMesharrayT
+    GENERIC   :: DeallocateMesharray => DeallocateMesharrayS, DeallocateMesharrayV, DeallocateMesharrayT
+    GENERIC   :: RemapBounds => RemapBounds_1, RemapBounds_2, RemapBounds_3, RemapBounds_4
+    PROCEDURE :: InitMesh
+    PROCEDURE :: Finalize_base
+    PROCEDURE (Finalize), DEFERRED  :: Finalize
+    PROCEDURE :: InternalPoint
+    PROCEDURE (TensorDivergence3D),   DEFERRED :: TensorDivergence3D
+    PROCEDURE (VectorDivergence3D),   DEFERRED :: VectorDivergence3D
+    PROCEDURE (TensorDivergence2D_1),  DEFERRED :: TensorDivergence2D_1
+    PROCEDURE (VectorDivergence2D_1),  DEFERRED :: VectorDivergence2D_1
+    GENERIC  :: DIVERGENCE => TensorDivergence3D, VectorDivergence3D, & 
                                      VectorDivergence2D_1, &! VectorDivergence2D_2, &
                                      TensorDivergence2D_1 !, TensorDivergence2D_2, &
 
@@ -258,6 +258,12 @@ MODULE mesh_base_mod
       !------------------------------------------------------------------------!
       INTENT(IN)        :: Txx,Txy,Tyx,Tyy
       INTENT(OUT)       :: divTx,divTy
+    END SUBROUTINE
+    SUBROUTINE Finalize(this)
+      IMPORT mesh_base
+      IMPLICIT NONE
+      !------------------------------------------------------------------------!
+      CLASS(mesh_base), INTENT(INOUT) :: this
     END SUBROUTINE
   END INTERFACE
   !> \}
@@ -1427,7 +1433,7 @@ CONTAINS
 
 
   !> \public Destructor of mesh class
-  SUBROUTINE Finalize(this)
+  SUBROUTINE Finalize_base(this)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(mesh_base),INTENT(INOUT) :: this   !< \param [in,out] this all mesh data
@@ -1466,8 +1472,8 @@ CONTAINS
 
     IF (ASSOCIATED(this%rotation)) DEALLOCATE(this%rotation)
 
-    DEALLOCATE(this%Geometry)
-  END SUBROUTINE Finalize
+    CALL this%Geometry%Finalize() !DEALLOCATE(this%Geometry)
+  END SUBROUTINE Finalize_base
 
 
 END MODULE mesh_base_mod

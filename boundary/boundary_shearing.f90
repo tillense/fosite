@@ -80,7 +80,7 @@ MODULE boundary_shearing_mod
   CONTAINS
     PROCEDURE :: InitBoundary_shearing
     PROCEDURE :: SetBoundaryData
-    FINAL     :: Finalize
+    PROCEDURE :: Finalize
   END TYPE
   !--------------------------------------------------------------------------!
   PUBLIC :: boundary_shearing
@@ -296,9 +296,10 @@ CONTAINS
   SUBROUTINE Finalize(this)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    TYPE(boundary_shearing), INTENT(INOUT) :: this
+    CLASS(boundary_shearing), INTENT(INOUT) :: this
     !------------------------------------------------------------------------!
-    CALL this%FinalizeBoundary()
+    DEALLOCATE(this%velocity_shift)
+    CALL this%Finalize_base()
   END SUBROUTINE Finalize
 
 

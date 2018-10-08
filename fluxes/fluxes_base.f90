@@ -71,12 +71,12 @@ MODULE fluxes_base_mod
                                      rstates, &      !< reconstructed data
                                      pfluxes         !< physical fluxes
   CONTAINS
-    PRIVATE
-    PROCEDURE, PUBLIC             :: InitFluxes
-    PROCEDURE (CalculateFluxes), PUBLIC, DEFERRED   :: CalculateFluxes
-    PROCEDURE, PUBLIC             :: CalculateFaceData
-    PROCEDURE, PUBLIC             :: GetBoundaryFlux
-    PROCEDURE, PUBLIC             :: FinalizeFluxes
+    PROCEDURE                               :: InitFluxes
+    PROCEDURE (CalculateFluxes), DEFERRED   :: CalculateFluxes
+    PROCEDURE                               :: CalculateFaceData
+    PROCEDURE                               :: GetBoundaryFlux
+    PROCEDURE (Finalize), DEFERRED          :: Finalize
+    PROCEDURE                               :: Finalize_base
   END TYPE fluxes_base
 
   ABSTRACT INTERFACE
@@ -91,6 +91,11 @@ MODULE fluxes_base_mod
                             INTENT(IN)    :: pvar,cvar
       REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
                             INTENT(OUT)   :: xfluxdydz,yfluxdzdx,zfluxdxdy
+    END SUBROUTINE
+    SUBROUTINE Finalize(this)
+      IMPORT fluxes_base
+      IMPLICIT NONE
+      CLASS(fluxes_base), INTENT(INOUT)   :: this
     END SUBROUTINE
   END INTERFACE
   INTEGER, PARAMETER :: KT       = 1
@@ -394,7 +399,7 @@ CONTAINS
   END SUBROUTINE CalculateFaceData
 
   !> Destructor
-  SUBROUTINE FinalizeFluxes(this)
+  SUBROUTINE Finalize_base(this)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(fluxes_base), INTENT(INOUT) :: this
@@ -402,8 +407,9 @@ CONTAINS
     IF (.NOT.this%Initialized()) &
         CALL this%Error("CloseFluxes","not initialized")
     DEALLOCATE(this%cons,this%prim,this%pfluxes,this%minwav,this%maxwav, &
-         this%bxflux,this%byflux,this%bzflux,this%bxfold,this%byfold,this%bzfold)
-    DEALLOCATE(this%Reconstruction)
-  END SUBROUTINE FinalizeFluxes
+         this%bxflux,this%byflux,this%bzflux,this%bxfold,this%byfold,this%bzfold, &
+         this%dx,this%dy,this%dz)
+    CALL this%Reconstruction%Finalize()
+  END SUBROUTINE Finalize_base
 
 END MODULE fluxes_base_mod

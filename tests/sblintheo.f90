@@ -118,6 +118,7 @@ CALL Sim%Run()
 maximum = MAXVAL(Sim%Timedisc%pvar(:,:,:,Sim%Physics%DENSITY)) - SIGMA0
 TAP_CHECK_CLOSE(maximum, 0.0316463969505, 0.005, "Last max. < 0.005 deviation")
 
+CALL Sim%Finalize()
 DEALLOCATE(Sim)
 
 TAP_DONE

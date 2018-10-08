@@ -61,10 +61,10 @@ PROGRAM KHI
   REAL, PARAMETER    :: P1   = P0          !   pressure
   ! mesh settings
   INTEGER, PARAMETER :: MGEO = CARTESIAN   ! geometry of the mesh
-  INTEGER, PARAMETER :: RES  = 20          ! resolution
+  INTEGER, PARAMETER :: RES  = 10          ! resolution
   REAL, PARAMETER    :: XYZLEN= 1.0        ! spatial extend
   ! output file parameter
-  INTEGER, PARAMETER :: ONUM = 50          ! number of output data sets
+  INTEGER, PARAMETER :: ONUM = 10          ! number of output data sets
   CHARACTER(LEN=256), PARAMETER &          ! output data dir
                      :: ODIR = './'
   CHARACTER(LEN=256), PARAMETER &          ! output data file name
@@ -78,7 +78,7 @@ PROGRAM KHI
   REAL, DIMENSION(:,:,:,:), ALLOCATABLE :: &
          pvar_xy,pvar_xz,pvar_yx,pvar_yz,pvar_zx,pvar_zy, pvar_temp
   !--------------------------------------------------------------------------!
-  CLASS(fosite), ALLOCATABLE   :: Sim_1,SIM_2,Sim_3,Sim_4,Sim_5,Sim_6
+  CLASS(fosite), ALLOCATABLE   :: Sim
   !--------------------------------------------------------------------------!
   TAP_PLAN(6)
 
@@ -87,151 +87,146 @@ PROGRAM KHI
   ALLOCATE(seed(n))
 
   ! test flow along x-direction
-  ALLOCATE(Sim_1)
-  CALL Sim_1%InitFosite()
-  CALL MakeConfig(Sim_1, Sim_1%config)
-  CALL SetAttr(Sim_1%config, "/datafile/filename", (TRIM(ODIR) // TRIM(OFNAME) // "_xy"))
-  CALL Sim_1%Setup()
+  ALLOCATE(Sim)
+  CALL Sim%InitFosite()
+  CALL MakeConfig(Sim, Sim%config)
+  CALL SetAttr(Sim%config, "/datafile/filename", (TRIM(ODIR) // TRIM(OFNAME) // "_xy"))
+  CALL Sim%Setup()
   ! allocate memory to store the result of the first run
-  ALLOCATE(pvar_xy(Sim_1%Mesh%IGMIN:Sim_1%Mesh%IGMAX,Sim_1%Mesh%JGMIN:Sim_1%Mesh%JGMAX,Sim_1%Mesh%KGMIN:Sim_1%Mesh%KGMAX,Sim_1%Physics%VNUM))
-  ALLOCATE(pvar_xz(Sim_1%Mesh%IGMIN:Sim_1%Mesh%IGMAX,Sim_1%Mesh%JGMIN:Sim_1%Mesh%JGMAX,Sim_1%Mesh%KGMIN:Sim_1%Mesh%KGMAX,Sim_1%Physics%VNUM))
-  ALLOCATE(pvar_yx(Sim_1%Mesh%IGMIN:Sim_1%Mesh%IGMAX,Sim_1%Mesh%JGMIN:Sim_1%Mesh%JGMAX,Sim_1%Mesh%KGMIN:Sim_1%Mesh%KGMAX,Sim_1%Physics%VNUM))
-  ALLOCATE(pvar_yz(Sim_1%Mesh%IGMIN:Sim_1%Mesh%IGMAX,Sim_1%Mesh%JGMIN:Sim_1%Mesh%JGMAX,Sim_1%Mesh%KGMIN:Sim_1%Mesh%KGMAX,Sim_1%Physics%VNUM))
-  ALLOCATE(pvar_zx(Sim_1%Mesh%IGMIN:Sim_1%Mesh%IGMAX,Sim_1%Mesh%JGMIN:Sim_1%Mesh%JGMAX,Sim_1%Mesh%KGMIN:Sim_1%Mesh%KGMAX,Sim_1%Physics%VNUM))
-  ALLOCATE(pvar_zy(Sim_1%Mesh%IGMIN:Sim_1%Mesh%IGMAX,Sim_1%Mesh%JGMIN:Sim_1%Mesh%JGMAX,Sim_1%Mesh%KGMIN:Sim_1%Mesh%KGMAX,Sim_1%Physics%VNUM))
-  ALLOCATE(pvar_temp(Sim_1%Mesh%IGMIN:Sim_1%Mesh%IGMAX,Sim_1%Mesh%JGMIN:Sim_1%Mesh%JGMAX,Sim_1%Mesh%KGMIN:Sim_1%Mesh%KGMAX,Sim_1%Physics%VNUM))
+  ALLOCATE(pvar_xy(Sim%Mesh%IGMIN:Sim%Mesh%IGMAX,Sim%Mesh%JGMIN:Sim%Mesh%JGMAX,Sim%Mesh%KGMIN:Sim%Mesh%KGMAX,Sim%Physics%VNUM))
+  ALLOCATE(pvar_xz(Sim%Mesh%IGMIN:Sim%Mesh%IGMAX,Sim%Mesh%JGMIN:Sim%Mesh%JGMAX,Sim%Mesh%KGMIN:Sim%Mesh%KGMAX,Sim%Physics%VNUM))
+  ALLOCATE(pvar_yx(Sim%Mesh%IGMIN:Sim%Mesh%IGMAX,Sim%Mesh%JGMIN:Sim%Mesh%JGMAX,Sim%Mesh%KGMIN:Sim%Mesh%KGMAX,Sim%Physics%VNUM))
+  ALLOCATE(pvar_yz(Sim%Mesh%IGMIN:Sim%Mesh%IGMAX,Sim%Mesh%JGMIN:Sim%Mesh%JGMAX,Sim%Mesh%KGMIN:Sim%Mesh%KGMAX,Sim%Physics%VNUM))
+  ALLOCATE(pvar_zx(Sim%Mesh%IGMIN:Sim%Mesh%IGMAX,Sim%Mesh%JGMIN:Sim%Mesh%JGMAX,Sim%Mesh%KGMIN:Sim%Mesh%KGMAX,Sim%Physics%VNUM))
+  ALLOCATE(pvar_zy(Sim%Mesh%IGMIN:Sim%Mesh%IGMAX,Sim%Mesh%JGMIN:Sim%Mesh%JGMAX,Sim%Mesh%KGMIN:Sim%Mesh%KGMAX,Sim%Physics%VNUM))
+  ALLOCATE(pvar_temp(Sim%Mesh%IGMIN:Sim%Mesh%IGMAX,Sim%Mesh%JGMIN:Sim%Mesh%JGMAX,Sim%Mesh%KGMIN:Sim%Mesh%KGMAX,Sim%Physics%VNUM))
+  CALL InitData(Sim%Mesh, Sim%Physics, Sim%Timedisc,'xy',.FALSE.)
+  CALL Sim%Run()
+  pvar_xy(:,:,:,:) = SIM%Timedisc%pvar(:,:,:,:)
+  CALL Sim%Finalize()
+  DEALLOCATE(SIM)
 
-  CALL InitData(Sim_1%Mesh, Sim_1%Physics, Sim_1%Timedisc,'xy',.FALSE.)
-
-  CALL Sim_1%Run()
-
-  pvar_xy(:,:,:,:) = SIM_1%Timedisc%pvar(:,:,:,:)
-
-  DEALLOCATE(SIM_1)
-
- ! test flow along y-direction
-  ALLOCATE(Sim_2)
-  CALL Sim_2%InitFosite()
-  CALL MakeConfig(Sim_2, Sim_2%config)
-  CALL SetAttr(Sim_2%config, "/datafile/filename", (TRIM(ODIR) // TRIM(OFNAME) // "_yx"))
-  CALL Sim_2%Setup()
-  CALL InitData(Sim_2%Mesh, Sim_2%Physics, Sim_2%Timedisc,'yx',.TRUE.)
-
-  CALL Sim_2%Run()
-
-  pvar_yx(:,:,:,:) = Sim_2%Timedisc%pvar(:,:,:,:)
-
-  DEALLOCATE(Sim_2)
+  ! test flow along y-direction
+  ALLOCATE(Sim)
+  CALL Sim%InitFosite()
+  CALL MakeConfig(Sim, Sim%config)
+  CALL SetAttr(Sim%config, "/datafile/filename", (TRIM(ODIR) // TRIM(OFNAME) // "_yx"))
+  CALL Sim%Setup()
+  CALL InitData(Sim%Mesh, Sim%Physics, Sim%Timedisc,'yx',.TRUE.)
+  CALL Sim%Run()
+  pvar_yx(:,:,:,:) = Sim%Timedisc%pvar(:,:,:,:)
+  CALL Sim%Finalize()
+  DEALLOCATE(Sim)
 
   ! test flow along z-direction
-  ALLOCATE(Sim_3)
- ! ALLOCATE(pvar(Sim%Mesh%IGMIN:Sim%Mesh%IGMAX,Sim%Mesh%JGMIN:Sim%Mesh%JGMAX,Sim%Mesh%KGMIN:Sim%Mesh%KGMAX,Sim%Physics%VNUM))
-  CALL Sim_3%InitFosite()
-  CALL MakeConfig(Sim_3, Sim_3%config)
-  CALL SetAttr(Sim_3%config, "/datafile/filename", (TRIM(ODIR) // TRIM(OFNAME) // "_xz"))
-  CALL Sim_3%Setup()
-  CALL InitData(Sim_3%Mesh, Sim_3%Physics, Sim_3%Timedisc,'xz',.TRUE.)
-
-  CALL Sim_3%Run()
-
-  pvar_xz(:,:,:,:) = Sim_3%Timedisc%pvar(:,:,:,:)
-
-  DEALLOCATE(Sim_3)
+  ALLOCATE(Sim)
+  CALL Sim%InitFosite()
+  CALL MakeConfig(Sim, Sim%config)
+  CALL SetAttr(Sim%config, "/datafile/filename", (TRIM(ODIR) // TRIM(OFNAME) // "_xz"))
+  CALL Sim%Setup()
+  CALL InitData(Sim%Mesh, Sim%Physics, Sim%Timedisc,'xz',.TRUE.)
+  CALL Sim%Run()
+  pvar_xz(:,:,:,:) = Sim%Timedisc%pvar(:,:,:,:)
+  CALL Sim%Finalize()
+  DEALLOCATE(Sim)
 
 
 
-  ALLOCATE(Sim_4)
-  CALL Sim_4%InitFosite()
-  CALL MakeConfig(Sim_4, Sim_4%config)
-  CALL SetAttr(Sim_4%config, "/datafile/filename", (TRIM(ODIR) // TRIM(OFNAME) // "_zx"))
-  CALL Sim_4%Setup()
-  CALL InitData(Sim_4%Mesh, Sim_4%Physics, Sim_4%Timedisc,'zx',.TRUE.)
-  CALL Sim_4%Run()
-  pvar_zx(:,:,:,:) = Sim_4%Timedisc%pvar(:,:,:,:)
-  DEALLOCATE(Sim_4)
+  ALLOCATE(Sim)
+  CALL Sim%InitFosite()
+  CALL MakeConfig(Sim, Sim%config)
+  CALL SetAttr(Sim%config, "/datafile/filename", (TRIM(ODIR) // TRIM(OFNAME) // "_zx"))
+  CALL Sim%Setup()
+  CALL InitData(Sim%Mesh, Sim%Physics, Sim%Timedisc,'zx',.TRUE.)
+  CALL Sim%Run()
+  pvar_zx(:,:,:,:) = Sim%Timedisc%pvar(:,:,:,:)
+  CALL Sim%Finalize()
+  DEALLOCATE(Sim)
 
 
-  ALLOCATE(Sim_5)
-  CALL Sim_5%InitFosite()
-  CALL MakeConfig(Sim_5, Sim_5%config)
-  CALL SetAttr(Sim_5%config, "/datafile/filename", (TRIM(ODIR) // TRIM(OFNAME) // "_zy"))
-  CALL Sim_5%Setup()
-  CALL InitData(Sim_5%Mesh, Sim_5%Physics, Sim_5%Timedisc,'zy',.TRUE.)
-  CALL Sim_5%Run()
-  pvar_zy(:,:,:,:) = Sim_5%Timedisc%pvar(:,:,:,:)
-  DEALLOCATE(Sim_5)
+  ALLOCATE(Sim)
+  CALL Sim%InitFosite()
+  CALL MakeConfig(Sim, Sim%config)
+  CALL SetAttr(Sim%config, "/datafile/filename", (TRIM(ODIR) // TRIM(OFNAME) // "_zy"))
+  CALL Sim%Setup()
+  CALL InitData(Sim%Mesh, Sim%Physics, Sim%Timedisc,'zy',.TRUE.)
+  CALL Sim%Run()
+  pvar_zy(:,:,:,:) = Sim%Timedisc%pvar(:,:,:,:)
+  CALL Sim%Finalize()
+  DEALLOCATE(Sim)
 
 
-  ALLOCATE(Sim_6)
-  CALL Sim_6%InitFosite()
-  CALL MakeConfig(Sim_6, Sim_6%config)
-  CALL SetAttr(Sim_6%config, "/datafile/filename", (TRIM(ODIR) // TRIM(OFNAME) // "_yz"))
-  CALL Sim_6%Setup()
-  CALL InitData(Sim_6%Mesh, Sim_6%Physics, Sim_6%Timedisc,'yz',.TRUE.)
-  CALL Sim_6%Run()
-  pvar_yz(:,:,:,:) = Sim_6%Timedisc%pvar(:,:,:,:)
+  ALLOCATE(Sim)
+  CALL Sim%InitFosite()
+  CALL MakeConfig(Sim, Sim%config)
+  CALL SetAttr(Sim%config, "/datafile/filename", (TRIM(ODIR) // TRIM(OFNAME) // "_yz"))
+  CALL Sim%Setup()
+  CALL InitData(Sim%Mesh, Sim%Physics, Sim%Timedisc,'yz',.TRUE.)
+  CALL Sim%Run()
+  pvar_yz(:,:,:,:) = Sim%Timedisc%pvar(:,:,:,:)
 
-   DO k=Sim_6%Mesh%KGMIN, Sim_6%Mesh%KGMAX
-    pvar_temp(:,:,k,Sim_6%Physics%DENSITY)   = TRANSPOSE(pvar_xy(:,:,k,Sim_6%Physics%DENSITY))
-    pvar_temp(:,:,k,Sim_6%Physics%XVELOCITY) = TRANSPOSE(pvar_xy(:,:,k,Sim_6%Physics%YVELOCITY))
-    pvar_temp(:,:,k,Sim_6%Physics%YVELOCITY) = TRANSPOSE(pvar_xy(:,:,k,Sim_6%Physics%XVELOCITY))
-    pvar_temp(:,:,k,Sim_6%Physics%ZVELOCITY) = TRANSPOSE(pvar_xy(:,:,k,Sim_6%Physics%ZVELOCITY))
-    pvar_temp(:,:,k,Sim_6%Physics%ENERGY)    = TRANSPOSE(pvar_xy(:,:,k,Sim_6%Physics%ENERGY))
+   DO k=Sim%Mesh%KGMIN, Sim%Mesh%KGMAX
+    pvar_temp(:,:,k,Sim%Physics%DENSITY)   = TRANSPOSE(pvar_xy(:,:,k,Sim%Physics%DENSITY))
+    pvar_temp(:,:,k,Sim%Physics%XVELOCITY) = TRANSPOSE(pvar_xy(:,:,k,Sim%Physics%YVELOCITY))
+    pvar_temp(:,:,k,Sim%Physics%YVELOCITY) = TRANSPOSE(pvar_xy(:,:,k,Sim%Physics%XVELOCITY))
+    pvar_temp(:,:,k,Sim%Physics%ZVELOCITY) = TRANSPOSE(pvar_xy(:,:,k,Sim%Physics%ZVELOCITY))
+    pvar_temp(:,:,k,Sim%Physics%ENERGY)    = TRANSPOSE(pvar_xy(:,:,k,Sim%Physics%ENERGY))
   END DO
   sigma_1 = SQRT(SUM((pvar_temp(:,:,:,:) -  pvar_yx(:,:,:,:))**2)/SIZE(pvar_temp))
- 
-  DO j=Sim_6%Mesh%JGMIN, Sim_6%Mesh%JGMAX
-    pvar_temp(:,j,:,Sim_6%Physics%DENSITY)   = TRANSPOSE(pvar_xz(:,j,:,Sim_6%Physics%DENSITY))
-    pvar_temp(:,j,:,Sim_6%Physics%XVELOCITY) = TRANSPOSE(pvar_xz(:,j,:,Sim_6%Physics%ZVELOCITY))
-    pvar_temp(:,j,:,Sim_6%Physics%YVELOCITY) = TRANSPOSE(pvar_xz(:,j,:,Sim_6%Physics%YVELOCITY))
-    pvar_temp(:,j,:,Sim_6%Physics%ZVELOCITY) = TRANSPOSE(pvar_xz(:,j,:,Sim_6%Physics%XVELOCITY))
-    pvar_temp(:,j,:,Sim_6%Physics%ENERGY)    = TRANSPOSE(pvar_xz(:,j,:,Sim_6%Physics%ENERGY))
+
+  DO j=Sim%Mesh%JGMIN, Sim%Mesh%JGMAX
+    pvar_temp(:,j,:,Sim%Physics%DENSITY)   = TRANSPOSE(pvar_xz(:,j,:,Sim%Physics%DENSITY))
+    pvar_temp(:,j,:,Sim%Physics%XVELOCITY) = TRANSPOSE(pvar_xz(:,j,:,Sim%Physics%ZVELOCITY))
+    pvar_temp(:,j,:,Sim%Physics%YVELOCITY) = TRANSPOSE(pvar_xz(:,j,:,Sim%Physics%YVELOCITY))
+    pvar_temp(:,j,:,Sim%Physics%ZVELOCITY) = TRANSPOSE(pvar_xz(:,j,:,Sim%Physics%XVELOCITY))
+    pvar_temp(:,j,:,Sim%Physics%ENERGY)    = TRANSPOSE(pvar_xz(:,j,:,Sim%Physics%ENERGY))
   END DO
   sigma_2 = SQRT(SUM((pvar_temp(:,:,:,:) -  pvar_zx(:,:,:,:))**2)/SIZE(pvar_temp))
 
- DO i=Sim_6%Mesh%IGMIN, Sim_6%Mesh%IGMAX
-    pvar_temp(i,:,:,Sim_6%Physics%DENSITY)   = TRANSPOSE(pvar_zy(i,:,:,Sim_6%Physics%DENSITY))
-    pvar_temp(i,:,:,Sim_6%Physics%XVELOCITY) = TRANSPOSE(pvar_zy(i,:,:,Sim_6%Physics%XVELOCITY))
-    pvar_temp(i,:,:,Sim_6%Physics%YVELOCITY) = TRANSPOSE(pvar_zy(i,:,:,Sim_6%Physics%ZVELOCITY))
-    pvar_temp(i,:,:,Sim_6%Physics%ZVELOCITY) = TRANSPOSE(pvar_zy(i,:,:,Sim_6%Physics%YVELOCITY))
-    pvar_temp(i,:,:,Sim_6%Physics%ENERGY)    = TRANSPOSE(pvar_zy(i,:,:,Sim_6%Physics%ENERGY))
+ DO i=Sim%Mesh%IGMIN, Sim%Mesh%IGMAX
+    pvar_temp(i,:,:,Sim%Physics%DENSITY)   = TRANSPOSE(pvar_zy(i,:,:,Sim%Physics%DENSITY))
+    pvar_temp(i,:,:,Sim%Physics%XVELOCITY) = TRANSPOSE(pvar_zy(i,:,:,Sim%Physics%XVELOCITY))
+    pvar_temp(i,:,:,Sim%Physics%YVELOCITY) = TRANSPOSE(pvar_zy(i,:,:,Sim%Physics%ZVELOCITY))
+    pvar_temp(i,:,:,Sim%Physics%ZVELOCITY) = TRANSPOSE(pvar_zy(i,:,:,Sim%Physics%YVELOCITY))
+    pvar_temp(i,:,:,Sim%Physics%ENERGY)    = TRANSPOSE(pvar_zy(i,:,:,Sim%Physics%ENERGY))
   END DO
   sigma_3 = SQRT(SUM((pvar_temp(:,:,:,:) -  pvar_yz(:,:,:,:))**2)/SIZE(pvar_temp))
 
- DO k=Sim_6%Mesh%KGMIN, Sim_6%Mesh%KGMAX
-    pvar_temp(:,:,k,Sim_6%Physics%DENSITY)   = TRANSPOSE(pvar_zx(:,:,k,Sim_6%Physics%DENSITY))
-    pvar_temp(:,:,k,Sim_6%Physics%XVELOCITY) = TRANSPOSE(pvar_zx(:,:,k,Sim_6%Physics%YVELOCITY))
-    pvar_temp(:,:,k,Sim_6%Physics%YVELOCITY) = TRANSPOSE(pvar_zx(:,:,k,Sim_6%Physics%XVELOCITY))
-    pvar_temp(:,:,k,Sim_6%Physics%ZVELOCITY) = TRANSPOSE(pvar_zx(:,:,k,Sim_6%Physics%ZVELOCITY))
-    pvar_temp(:,:,k,Sim_6%Physics%ENERGY)    = TRANSPOSE(pvar_zx(:,:,k,Sim_6%Physics%ENERGY))
+ DO k=Sim%Mesh%KGMIN, Sim%Mesh%KGMAX
+    pvar_temp(:,:,k,Sim%Physics%DENSITY)   = TRANSPOSE(pvar_zx(:,:,k,Sim%Physics%DENSITY))
+    pvar_temp(:,:,k,Sim%Physics%XVELOCITY) = TRANSPOSE(pvar_zx(:,:,k,Sim%Physics%YVELOCITY))
+    pvar_temp(:,:,k,Sim%Physics%YVELOCITY) = TRANSPOSE(pvar_zx(:,:,k,Sim%Physics%XVELOCITY))
+    pvar_temp(:,:,k,Sim%Physics%ZVELOCITY) = TRANSPOSE(pvar_zx(:,:,k,Sim%Physics%ZVELOCITY))
+    pvar_temp(:,:,k,Sim%Physics%ENERGY)    = TRANSPOSE(pvar_zx(:,:,k,Sim%Physics%ENERGY))
   END DO
   sigma_4 = SQRT(SUM((pvar_temp(:,:,:,:) -  pvar_zy(:,:,:,:))**2)/SIZE(pvar_temp))
 
-  DO j=Sim_6%Mesh%JGMIN, Sim_6%Mesh%JGMAX
-    pvar_temp(:,j,:,Sim_6%Physics%DENSITY)   = TRANSPOSE(pvar_yx(:,j,:,Sim_6%Physics%DENSITY))
-    pvar_temp(:,j,:,Sim_6%Physics%XVELOCITY) = TRANSPOSE(pvar_yx(:,j,:,Sim_6%Physics%ZVELOCITY))
-    pvar_temp(:,j,:,Sim_6%Physics%YVELOCITY) = TRANSPOSE(pvar_yx(:,j,:,Sim_6%Physics%YVELOCITY))
-    pvar_temp(:,j,:,Sim_6%Physics%ZVELOCITY) = TRANSPOSE(pvar_yx(:,j,:,Sim_6%Physics%XVELOCITY))
-    pvar_temp(:,j,:,Sim_6%Physics%ENERGY)    = TRANSPOSE(pvar_yx(:,j,:,Sim_6%Physics%ENERGY))
+  DO j=Sim%Mesh%JGMIN, Sim%Mesh%JGMAX
+    pvar_temp(:,j,:,Sim%Physics%DENSITY)   = TRANSPOSE(pvar_yx(:,j,:,Sim%Physics%DENSITY))
+    pvar_temp(:,j,:,Sim%Physics%XVELOCITY) = TRANSPOSE(pvar_yx(:,j,:,Sim%Physics%ZVELOCITY))
+    pvar_temp(:,j,:,Sim%Physics%YVELOCITY) = TRANSPOSE(pvar_yx(:,j,:,Sim%Physics%YVELOCITY))
+    pvar_temp(:,j,:,Sim%Physics%ZVELOCITY) = TRANSPOSE(pvar_yx(:,j,:,Sim%Physics%XVELOCITY))
+    pvar_temp(:,j,:,Sim%Physics%ENERGY)    = TRANSPOSE(pvar_yx(:,j,:,Sim%Physics%ENERGY))
   END DO
   sigma_5 = SQRT(SUM((pvar_temp(:,:,:,:) -  pvar_yz(:,:,:,:))**2)/SIZE(pvar_temp))
 
- DO i=Sim_6%Mesh%IGMIN, Sim_6%Mesh%IGMAX
-    pvar_temp(i,:,:,Sim_6%Physics%DENSITY)   = TRANSPOSE(pvar_xy(i,:,:,Sim_6%Physics%DENSITY))
-    pvar_temp(i,:,:,Sim_6%Physics%XVELOCITY) = TRANSPOSE(pvar_xy(i,:,:,Sim_6%Physics%XVELOCITY))
-    pvar_temp(i,:,:,Sim_6%Physics%YVELOCITY) = TRANSPOSE(pvar_xy(i,:,:,Sim_6%Physics%ZVELOCITY))
-    pvar_temp(i,:,:,Sim_6%Physics%ZVELOCITY) = TRANSPOSE(pvar_xy(i,:,:,Sim_6%Physics%YVELOCITY))
-    pvar_temp(i,:,:,Sim_6%Physics%ENERGY)    = TRANSPOSE(pvar_xy(i,:,:,Sim_6%Physics%ENERGY))
+ DO i=Sim%Mesh%IGMIN, Sim%Mesh%IGMAX
+    pvar_temp(i,:,:,Sim%Physics%DENSITY)   = TRANSPOSE(pvar_xy(i,:,:,Sim%Physics%DENSITY))
+    pvar_temp(i,:,:,Sim%Physics%XVELOCITY) = TRANSPOSE(pvar_xy(i,:,:,Sim%Physics%XVELOCITY))
+    pvar_temp(i,:,:,Sim%Physics%YVELOCITY) = TRANSPOSE(pvar_xy(i,:,:,Sim%Physics%ZVELOCITY))
+    pvar_temp(i,:,:,Sim%Physics%ZVELOCITY) = TRANSPOSE(pvar_xy(i,:,:,Sim%Physics%YVELOCITY))
+    pvar_temp(i,:,:,Sim%Physics%ENERGY)    = TRANSPOSE(pvar_xy(i,:,:,Sim%Physics%ENERGY))
   END DO
   sigma_6 = SQRT(SUM((pvar_temp(:,:,:,:) -  pvar_xz(:,:,:,:))**2)/SIZE(pvar_temp))
 
-  DEALLOCATE(Sim_6)
-  TAP_CHECK_SMALL(sigma_1,TINY(sigma_1),"xy-yx symmetry test")
-  TAP_CHECK_SMALL(sigma_2,TINY(sigma_2),"xz-zx symmetry test")
-  TAP_CHECK_SMALL(sigma_3,TINY(sigma_3),"zy-yz symmetry test")
-  TAP_CHECK_SMALL(sigma_4,TINY(sigma_4),"zx-zy symmetry test")
-  TAP_CHECK_SMALL(sigma_5,TINY(sigma_5),"yx-yz symmetry test")
-  TAP_CHECK_SMALL(sigma_6,TINY(sigma_6),"xy-xz symmetry test")
+  CALL Sim%Finalize()
+  DEALLOCATE(Sim)
+  TAP_CHECK_SMALL(sigma_1,2*EPSILON(sigma_1),"xy-yx symmetry test")
+  TAP_CHECK_SMALL(sigma_2,2*EPSILON(sigma_2),"xz-zx symmetry test")
+  TAP_CHECK_SMALL(sigma_3,2*EPSILON(sigma_3),"zy-yz symmetry test")
+  TAP_CHECK_SMALL(sigma_4,2*EPSILON(sigma_4),"zx-zy symmetry test")
+  TAP_CHECK_SMALL(sigma_5,2*EPSILON(sigma_5),"yx-yz symmetry test")
+  TAP_CHECK_SMALL(sigma_6,2*EPSILON(sigma_6),"xy-xz symmetry test")
 
 
   TAP_DONE
@@ -296,19 +291,19 @@ CONTAINS
     NULLIFY(sources)
     ! viscosity source term
     ! compute dynamic viscosity constant using typical scales and Reynolds number
-!    dynvis = ABS(RHO0 * XYZLEN * (V0-V1) / RE)
-!    IF (dynvis.GT.TINY(1.0)) THEN
-!       sources => Dict( &
-!          "vis/stype"          /       VISCOSITY, &
-!          "vis/vismodel"       /       MOLECULAR, &
-!          "vis/dynconst"       /          dynvis, &
-!          "vis/bulkconst"      / (-2./3.*dynvis), &
-!          "vis/output/dynvis"  /               0, &
-!          "vis/output/stress"  /               0, &
-!          "vis/output/kinvis"  /               0, &
-!          "vis/output/bulkvis" /               0  &
-!       )
-!    END IF
+    dynvis = ABS(RHO0 * XYZLEN * (V0-V1) / RE)
+    IF (dynvis.GT.TINY(1.0)) THEN
+       sources => Dict( &
+          "vis/stype"          /       VISCOSITY, &
+          "vis/vismodel"       /       MOLECULAR, &
+          "vis/dynconst"       /          dynvis, &
+          "vis/bulkconst"      / (-2./3.*dynvis), &
+          "vis/output/dynvis"  /               0, &
+          "vis/output/stress"  /               0, &
+          "vis/output/kinvis"  /               0, &
+          "vis/output/bulkvis" /               0  &
+       )
+    END IF
 
     ! time discretization settings
     timedisc => Dict( &

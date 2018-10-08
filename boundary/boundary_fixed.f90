@@ -46,7 +46,7 @@ MODULE boundary_fixed_mod
     CONTAINS 
         PROCEDURE :: InitBoundary_fixed
         PROCEDURE :: SetBoundaryData
-        FINAL     :: FINALIZE
+        PROCEDURE :: Finalize
   END TYPE boundary_fixed
   CHARACTER(LEN=32), PARAMETER  :: boundcond_name = "fixed in/outflow"
   !--------------------------------------------------------------------------!
@@ -212,10 +212,10 @@ CONTAINS
   SUBROUTINE FINALIZE(this)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    TYPE(Boundary_fixed),INTENT(INOUT) :: this
+    CLASS(Boundary_fixed),INTENT(INOUT) :: this
     !------------------------------------------------------------------------!
     DEALLOCATE(this%data,this%fixed)
-    CALL this%FinalizeBoundary()
+    CALL this%Finalize_base()
   END SUBROUTINE Finalize
 
 END MODULE boundary_fixed_mod
