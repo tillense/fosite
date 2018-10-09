@@ -188,7 +188,7 @@ MODULE gravity_base_mod
     INTEGER                          :: IMAX, INUM
     !> \name Variables in Parallel Mode
 #ifdef PARALLEL
-    INTEGER                          :: error         !< MPI error flag
+    INTEGER                          :: mpierr         !< MPI error flag
     REAL,DIMENSION(:,:),POINTER      :: sbuf1,sbuf2,rbuf1,rbuf2
     !> displacment and length of domain
     INTEGER,DIMENSION(:),POINTER     :: displ, num
