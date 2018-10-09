@@ -481,9 +481,12 @@ CONTAINS
     CALL this%PrintBoundaryFluxes()
     CALL this%PrintSummary()
 
+    CALL this%Datafile%Finalize()
     DEALLOCATE(this%Datafile)
-    IF (ALLOCATED(this%Logfile)) &
+    IF (ALLOCATED(this%Logfile)) THEN
+      CALL this%Logfile%Finalize()
       DEALLOCATE(this%Logfile)
+    END IF
     CALL this%Timedisc%Finalize()
     DEALLOCATE(this%Timedisc)
 

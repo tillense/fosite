@@ -104,7 +104,7 @@ MODULE fileio_vtk_mod
     PROCEDURE :: GetPrecision
     PROCEDURE :: GetOutputlist
     PROCEDURE :: GetEndianness
-    PROCEDURE :: FinalizeFileio_vtk
+    PROCEDURE :: Finalize
   END TYPE
   !--------------------------------------------------------------------------!
   PUBLIC :: &
@@ -991,7 +991,7 @@ CONTAINS
 
   !> \public Closes the file I/O
   !!
-  SUBROUTINE FinalizeFileIO_vtk(this)
+  SUBROUTINE Finalize(this)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(fileio_vtk), INTENT(INOUT) :: this   !< \param [in,out] this fileio type
@@ -1003,6 +1003,7 @@ CONTAINS
        IF (ASSOCIATED(this%output(k)%p)) DEALLOCATE(this%output(k)%p)
     END DO
     DEALLOCATE(this%binout,this%vtkcoords,this%output,this%tsoutput,this%bflux)
-  END SUBROUTINE FinalizeFileIO_vtk
+    CALL this%Finalize_base()
+  END SUBROUTINE Finalize
 
 END MODULE fileio_vtk_mod

@@ -79,7 +79,7 @@ MODULE fileio_gnuplot_mod
   CONTAINS
     ! methods
     PROCEDURE :: InitFileIO_gnuplot
-    PROCEDURE :: CloseFileIO
+    PROCEDURE :: Finalize
     PROCEDURE :: WriteHeader
 !    PROCEDURE :: ReadHeader
 !    PROCEDURE :: WriteTimestamp
@@ -788,15 +788,16 @@ CONTAINS
 
   !> \public Closes the file I/O
   !!
-  SUBROUTINE CloseFileIO_gnuplot(this)
+  SUBROUTINE Finalize(this)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(fileio_base) :: this  !< \param [in,out] this fileio type
+    CLASS(fileio_gnuplot) :: this  !< \param [in,out] this fileio type
     !------------------------------------------------------------------------!
 #ifdef PARALLEL
     DEALLOCATE(this%outbuf)
 #endif
     DEALLOCATE(this%output)
-  END SUBROUTINE CloseFileIO_gnuplot
+    CALL this%Finalize_base()
+  END SUBROUTINE Finalize
 
 END MODULE fileio_gnuplot_mod

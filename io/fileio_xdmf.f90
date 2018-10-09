@@ -81,6 +81,7 @@ MODULE fileio_xdmf_mod
     PROCEDURE :: WriteMeshXML
     PROCEDURE :: WriteVector
     PROCEDURE :: WriteDataItem
+    PROCEDURE :: Finalize
   END TYPE
   !--------------------------------------------------------------------------!
   PUBLIC :: &
@@ -564,5 +565,13 @@ CONTAINS
     END IF
     DEALLOCATE(buf)
   END FUNCTION GetDimsStr
+
+  SUBROUTINE Finalize(this)
+    IMPLICIT NONE
+    !-----------------------------------------------------------------------!
+    CLASS(fileio_xdmf), INTENT(INOUT) :: this
+    !-----------------------------------------------------------------------!
+    CALL this%fileio_binary%Finalize()
+  END SUBROUTINE
 
 END MODULE fileio_xdmf_mod

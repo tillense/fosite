@@ -220,7 +220,7 @@ PROGRAM KHI
   sigma_6 = SQRT(SUM((pvar_temp(:,:,:,:) -  pvar_xz(:,:,:,:))**2)/SIZE(pvar_temp))
 
   CALL Sim%Finalize(.TRUE.)
-  DEALLOCATE(Sim)
+  DEALLOCATE(Sim,pvar_xy,pvar_xz,pvar_yx,pvar_yz,pvar_zx,pvar_zy,pvar_temp,seed)
   TAP_CHECK_SMALL(sigma_1,2*EPSILON(sigma_1),"xy-yx symmetry test")
   TAP_CHECK_SMALL(sigma_2,2*EPSILON(sigma_2),"xz-zx symmetry test")
   TAP_CHECK_SMALL(sigma_3,2*EPSILON(sigma_3),"zy-yz symmetry test")

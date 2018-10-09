@@ -96,7 +96,7 @@ MODULE fileio_binary_mod
     PROCEDURE :: WriteDataset
     !PROCEDURE :: ReadDataset
     PROCEDURE :: SetMeshDims
-    FINAL     :: Finalize
+    PROCEDURE :: Finalize
     !PRIVATE
     PROCEDURE :: HasMeshDims
     PROCEDURE :: HasCornerDims
@@ -850,12 +850,13 @@ CONTAINS
   SUBROUTINE Finalize(this)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    TYPE(fileio_binary), INTENT(INOUT) :: this
+    CLASS(fileio_binary), INTENT(INOUT) :: this
     !------------------------------------------------------------------------!
 #ifdef PARALLEL
     CALL MPI_Type_free(this%cfiletype,this%error_io)
     CALL MPI_Type_free(this%filetype,this%error_io)
 #endif
+    CALL this%Finalize_base()
   END SUBROUTINE Finalize
 
 END MODULE fileio_binary_mod

@@ -207,7 +207,8 @@ MODULE fileio_base_mod
     PROCEDURE (WriteHeader), DEFERRED :: WriteHeader
     PROCEDURE (WriteDataset), DEFERRED:: WriteDataset
     PROCEDURE :: AdjustTimestep
-    PROCEDURE :: FinalizeFileio
+    PROCEDURE :: Finalize_base
+    PROCEDURE (Finalize), DEFERRED    :: Finalize
     PROCEDURE :: GetFilename
     PROCEDURE :: GetBasename
     PROCEDURE :: MakeMultstr
@@ -233,6 +234,11 @@ MODULE fileio_base_mod
       CLASS(mesh_base),    INTENT(IN)     :: Mesh      !< \param [in] Mesh mesh type
       CLASS(physics_base), INTENT(IN)     :: Physics   !< \param [in] Physics physics type
       TYPE(Dict_TYP), POINTER             :: Header,IO
+    END SUBROUTINE
+    SUBROUTINE Finalize(this)
+      IMPORT fileio_base
+      IMPLICIT NONE
+      CLASS(fileio_base),  INTENT(INOUT)  :: this
     END SUBROUTINE
   END INTERFACE
   !--------------------------------------------------------------------------!
@@ -820,13 +826,13 @@ CONTAINS
 
   !> \public Generic deconstructor of the file I/O
   !!
-  SUBROUTINE FinalizeFileio(this)
+  SUBROUTINE Finalize_base(this)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(fileio_base),INTENT(INOUT) :: this !< \param [in,out] this fileio type
     !------------------------------------------------------------------------!
     IF (.NOT.this%Initialized()) &
         CALL this%Error("CloseFileIO","not initialized")
-  END SUBROUTINE FinalizeFileIO
+  END SUBROUTINE Finalize_base
 
 END MODULE fileio_base_mod
