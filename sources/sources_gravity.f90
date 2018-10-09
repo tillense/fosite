@@ -1,12 +1,12 @@
 !#############################################################################
 !#                                                                           #
 !# fosite - 3D hydrodynamical simulation program                             #
-!# module: sources_c_accel.f03                                               #
+!# module: sources_gravity.f03                                               #
 !#                                                                           #
-!# Copyright (C) 2009,2011,2018                                              #
+!# Copyright (C) 2014-2018                                                   #
 !# Björn Sperling   <sperling@astrophysik.uni-kiel.de>                       #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
-!# Jannes Klee      <tillense@astrophysik.uni-kiel.de>                       #
+!# Jannes Klee      <jklee@astrophysik.uni-kiel.de>                          #
 !#                                                                           #
 !# This program is free software; you can redistribute it and/or modify      #
 !# it under the terms of the GNU General Public License as published by      #
@@ -24,84 +24,82 @@
 !# Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.                 #
 !#                                                                           #
 !#############################################################################
+!> \addtogroup gravity
+!! - general parameters of gravity group as key-values
+!! \key{gtype,INTEGER,Type of gravity source}
+!! \key{energy,INTEGER,Add source terms to energy equation?}
+!! \key{output/accel,INTEGER,enable(=1) output of acceleration}
+!! \key{output/height,INTEGER,enable(=1) output of disc height}
 !----------------------------------------------------------------------------!
 !> \author Björn Sperling
 !! \author Tobias Illenseer
 !! \author Jannes Klee
 !!
-!! \brief source terms module for constant acceleration
-!!
-!! \extends sources_common
-!! \ingroup sources
+!! \brief generic gravity terms module providing functionaly common to all
+!! gravity terms
 !----------------------------------------------------------------------------!
-MODULE sources_c_accel_mod
-  USE sources_base_mod
-  USE fluxes_base_mod
-  USE physics_base_mod
+MODULE sources_gravity_mod
+  USE logging_base_mod
   USE mesh_base_mod
+  USE physics_base_mod
+  USE sources_base_mod
+  USE sources_c_accel_mod
+  USE gravity_base_mod
+  USE gravity_generic_mod
+  USE fluxes_base_mod
+  USE boundary_base_mod
   USE common_dict
   IMPLICIT NONE
   !--------------------------------------------------------------------------!
   PRIVATE
-    CHARACTER(LEN=32) :: source_name = "constant acceleration"
-
-  TYPE, EXTENDS(sources_base) :: sources_c_accel
-    REAL, DIMENSION(:,:,:,:), POINTER :: accel          !< acceleration      !
+  CHARACTER(LEN=32), PARAMETER :: source_name = "gravity"
+  TYPE, EXTENDS(sources_c_accel) :: sources_gravity
+    CLASS(gravity_base),    POINTER :: glist => null() !< list of gravity terms
+    REAL, DIMENSION(:,:,:), POINTER :: height          !< disk scale height
   CONTAINS
-    PROCEDURE :: InitSources_c_accel
-    PROCEDURE :: ExternalSources_single
-    PROCEDURE :: CalcTimestep_single
+    PROCEDURE :: InitSources_gravity
     PROCEDURE :: InfoSources
-    PROCEDURE :: Finalize
-  END TYPE
-
+    PROCEDURE :: ExternalSources_single
+    PROCEDURE :: CloseSources
+  END TYPE sources_gravity
+  ABSTRACT INTERFACE
+  END INTERFACE
+  !--------------------------------------------------------------------------!
   PUBLIC :: &
-       ! classes
-       sources_c_accel
+       ! types
+       sources_gravity
+  !--------------------------------------------------------------------------!
 
 CONTAINS
 
-  SUBROUTINE InitSources_c_accel(this,Mesh,Physics,Fluxes,config,IO)
+  SUBROUTINE InitSources_gravity(this,Mesh,Physics,Fluxes,config,IO)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(sources_c_accel), INTENT(INOUT) :: this
+    CLASS(sources_gravity), INTENT(INOUT) :: this
     CLASS(mesh_base),       INTENT(IN)    :: Mesh
     CLASS(fluxes_base),     INTENT(IN)    :: Fluxes
     CLASS(physics_base),    INTENT(IN)    :: Physics
-    TYPE(Dict_TYP),           POINTER     :: config, IO
+    TYPE(Dict_TYP),         POINTER       :: config, IO
     !------------------------------------------------------------------------!
     INTEGER :: err, stype
-    REAL    :: xaccel, yaccel, zaccel
     !------------------------------------------------------------------------!
     CALL GetAttr(config,"stype",stype)
     CALL this%InitLogging(stype,source_name)
     CALL this%InitSources(Mesh,Fluxes,Physics,config,IO)
 
-    ALLOCATE(&
-      this%accel(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,&
-                 Mesh%KGMIN:Mesh%KGMAX,Physics%DIM), &
-         STAT = err)
-    IF (err.NE.0) &
-         CALL this%Error("InitSources_c_accel","memory allocation failed")
+    ! initialize gravity
+    CALL new_gravity(this%glist,Mesh,Fluxes,Physics,config,IO)
 
-    ! initialize constant acceleration
-    CALL GetAttr(config, "xaccel", xaccel, 0.0)
-    this%accel(:,:,:,1) = xaccel
+  END SUBROUTINE InitSources_gravity
 
-    CALL GetAttr(config, "yaccel", yaccel, 0.0)
-    this%accel(:,:,:,2) = yaccel
-
-    IF (Physics%DIM .GE. 3) THEN
-      CALL GetAttr(config, "zaccel", zaccel, 0.0)
-      this%accel(:,:,:,3) = zaccel
-    END IF
-
-  END SUBROUTINE InitSources_c_accel
-
+  !> Evaluates source-terms by gravitation
+  !!
+  !! The gravitational source term evaluates all forces that are produced by
+  !! gravitational participants.
   SUBROUTINE ExternalSources_single(this,Mesh,Physics,Fluxes,time,dt,pvar,cvar,sterm)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(sources_c_accel), INTENT(INOUT) :: this
+    CLASS(sources_gravity), INTENT(INOUT) :: this
     CLASS(mesh_base),       INTENT(IN)    :: Mesh
     CLASS(physics_base),    INTENT(INOUT) :: Physics
     CLASS(fluxes_base),     INTENT(IN)    :: Fluxes
@@ -111,50 +109,25 @@ CONTAINS
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
                             INTENT(OUT)   :: sterm
     !------------------------------------------------------------------------!
-    ! compute source terms due to constant acceleration
-    CALL Physics%ExternalSources(Mesh,this%accel,pvar,cvar,sterm)
+    ! update acceleration of ALL gravity sources
+    CALL this%glist%GravitySources(Mesh,Physics,Fluxes,time,dt,pvar,cvar,sterm)
   END SUBROUTINE ExternalSources_single
-
-  SUBROUTINE CalcTimestep_single(this,Mesh,Physics,Fluxes,time,pvar,cvar,dt)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(sources_c_accel), INTENT(INOUT) :: this
-    CLASS(mesh_base),       INTENT(IN)    :: Mesh
-    CLASS(physics_base),    INTENT(INOUT) :: Physics
-    CLASS(fluxes_base),     INTENT(IN)    :: Fluxes
-    REAL,                   INTENT(IN)    :: time
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
-                            INTENT(IN)    :: pvar,cvar
-    REAL,                   INTENT(OUT)   :: dt
-    !------------------------------------------------------------------------!
-    dt = HUGE(dt)
-  END SUBROUTINE CalcTimestep_single
 
   SUBROUTINE InfoSources(this,Mesh)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(sources_c_accel), INTENT(IN) :: this
+    CLASS(sources_gravity), INTENT(IN) :: this
     CLASS(mesh_base),       INTENT(IN) :: Mesh
     !------------------------------------------------------------------------!
-    CHARACTER(LEN=32) :: accel_str
-    !------------------------------------------------------------------------!
-!    WRITE (accel_str,'(ES9.2)') MAXVAL(this%accel(:,:,:,1))
-!    CALL this%Info("         x-acceleration:   " // TRIM(accel_str))
-!    WRITE (accel_str,'(ES9.2)') MAXVAL(this%accel(:,:,:,2))
-!    CALL this%Info("         y-acceleration:   " // TRIM(accel_str))
-!    WRITE (accel_str,'(ES9.2)') MAXVAL(this%accel(:,:,:,3))
-!    CALL this%Info("         z-acceleration:   " // TRIM(accel_str))
   END SUBROUTINE InfoSources
 
-  SUBROUTINE Finalize(this)
+  SUBROUTINE CloseSources(this)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(sources_c_accel), INTENT(INOUT) :: this
+    CLASS(sources_gravity) :: this
     !------------------------------------------------------------------------!
-    DEALLOCATE(this%accel)
-    CALL this%Finalize_base()
-    IF(ASSOCIATED(this%next)) &
-      CALL this%next%Finalize()
-  END SUBROUTINE Finalize
+    ! release temporary/global storage
+    ! TODO Wait for Lars' solution
+  END SUBROUTINE CloseSources
 
-END MODULE sources_c_accel_mod
+END MODULE sources_gravity_mod

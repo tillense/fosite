@@ -6,8 +6,8 @@ set (EXES
   KHI3
   KHI2D
   vortex3d
-#  bondi2d
-#  bondi3d
+  bondi2d
+  bondi3d
 #  collapse
 #  noh2d
 #  noh3d

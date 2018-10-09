@@ -3,7 +3,7 @@
 !# fosite - 3D hydrodynamical simulation program                             #
 !# module: mesh_generic.f90                                                  #
 !#                                                                           #
-!# Copyright (C) 2016                                                        #
+!# Copyright (C) 2016-2018                                                   #
 !# Manuel Jung <mjung@astrophysik.uni-kiel.de>                               #
 !#                                                                           #
 !# This program is free software; you can redistribute it and/or modify      #
@@ -24,7 +24,8 @@
 !#############################################################################
 !----------------------------------------------------------------------------!
 !> \author Manuel Jung
-!> \author Lars Boesch
+!! \author Lars Boesch
+!! \author Jannes Klee
 !!
 !! \brief constructor for sources class
 !!
@@ -33,12 +34,13 @@
 !----------------------------------------------------------------------------!
 MODULE sources_generic_mod
   USE sources_base_mod
-  USE sources_viscosity_mod
   USE sources_c_accel_mod
+  USE sources_gravity_mod
   USE sources_shearbox_mod
+  USE sources_viscosity_mod
   USE mesh_base_mod
-  USE Fluxes_base_mod
-  USE Physics_base_mod
+  USE fluxes_base_mod
+  USE physics_base_mod
   USE common_dict
 
 CONTAINS
@@ -58,7 +60,7 @@ CONTAINS
     INTEGER                      :: stype
     !------------------------------------------------------------------------!
     IF (.NOT.Physics%Initialized().OR..NOT.Mesh%Initialized()) &
-         CALL this%Error("InitSources","physics and/or mesh module uninitialized")
+         CALL this%Error("InitGravity","physics and/or mesh module uninitialized")
 
     dir => config
     DO WHILE(ASSOCIATED(dir))
@@ -69,11 +71,11 @@ CONTAINS
 
         ! object creation
         SELECT CASE(stype)
-!        CASE(GRAVITY)
-!           ! skip initialization of gravity modules here and initialize them
-!           ! at the end to make sure gravity is the first source term in the list
-!           gdir => dir
-!           gsrc => src
+        CASE(GRAVITY)
+           ! skip initialization of gravity modules here and initialize them
+           ! at the end to make sure gravity is the first source term in the list
+           gsrc => src
+           gdir => dir
         CASE(C_ACCEL)
           ALLOCATE(sources_c_accel::newsrc)
         CASE(SHEARBOX)
@@ -85,12 +87,12 @@ CONTAINS
         END SELECT
 
         IF (.NOT.ASSOCIATED(this)) THEN
-           this => newsrc
-           NULLIFY(this%next)
+          this => newsrc
+          NULLIFY(this%next)
         ELSE
-           tmpsrc => this
-           this => newsrc
-           this%next => tmpsrc
+          tmpsrc => this
+          this => newsrc
+          this%next => tmpsrc
         END IF
 
         ! basic initialization
@@ -109,14 +111,23 @@ CONTAINS
       dir => GetNext(dir)
     END DO
 
-!    ! finally initialize gravity
-!    IF(ASSOCIATED(gsrc)) THEN
-!       NULLIFY(IOsrc)
-!       CALL SetAttr(gsrc,"update_disk_height", update_disk_height)
-!       CALL obj%InitGravity(list,Mesh,Fluxes,Physics,Timedisc%Boundary,GRAVITY,gsrc,IOsrc)
-!       IF(ASSOCIATED(IOsrc)) &
-!         CALL SetAttr(IO, GetKey(gdir), IOsrc)
-!    END IF
+    ! finally initialize gravity
+    IF(ASSOCIATED(gsrc)) THEN
+      NULLIFY(IOsrc)
+      ALLOCATE(sources_gravity::newsrc)
+
+!      tmpsrc => this
+      this => newsrc
+!      this%next => tmpsrc
+
+      CALL SetAttr(gsrc,"update_disk_height", update_disk_height)
+      SELECT TYPE(obj => newsrc)
+      TYPE IS(sources_gravity)
+        CALL obj%InitSources_gravity(Mesh,Physics,Fluxes,gsrc,IOsrc)
+      END SELECT
+
+      IF(ASSOCIATED(IOsrc)) CALL SetAttr(IO, GetKey(gdir), IOsrc)
+    END IF
 
   END SUBROUTINE New_Sources
 

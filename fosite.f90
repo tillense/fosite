@@ -32,6 +32,7 @@
 MODULE fosite_mod
   USE logging_base_mod
   USE sources_generic_mod
+  USE gravity_generic_mod
   USE physics_generic_mod
   USE fluxes_generic_mod
   USE reconstruction_generic_mod

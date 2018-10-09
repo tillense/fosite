@@ -38,7 +38,7 @@
 MODULE sources_base_mod
   USE logging_base_mod
   USE mesh_base_mod
-!  USE gravity_base_mod
+  USE gravity_base_mod
   USE physics_base_mod
   USE fluxes_base_mod
   USE common_dict
@@ -48,14 +48,11 @@ MODULE sources_base_mod
   TYPE, ABSTRACT, EXTENDS(logging_base) :: sources_base
      !> \name Variables
      CLASS(sources_base), POINTER    :: next => null() !< next source in list
-     !CLASS(gravity_base), POINTER    :: glist => null()!< gravity list
      REAL                            :: time         !< simulation time
-     INTEGER                         :: timeid       !<    update of this id?
      !> 0: no src term in energy equation
      !! 1: src term in energy equation
      LOGICAL                         :: addtoenergy
 !FIXME
-     LOGICAL                         :: update_disk_height !< enable/disable computation of disk scale height
      REAL                            :: mass         !< mass for diskthomson
      REAL                            :: mdot         !< disk accretion rate
      REAL                            :: eps1,eps2    !< softening parameter
@@ -88,6 +85,7 @@ MODULE sources_base_mod
      !> 1: binary primary component or single star heating
      !! 2: secondary
      INTEGER                         :: star
+     LOGICAL                         :: update_disk_height !< enable/disable computation of disk scale height
      REAL, DIMENSION(:,:,:,:), POINTER :: accart !< acceleration
      REAL, DIMENSION(:,:,:,:), POINTER :: bcposvec,bccart !< position vector
      REAL, DIMENSION(:,:,:), POINTER   :: radius       !< distance to origin
@@ -126,9 +124,7 @@ MODULE sources_base_mod
      INTEGER                         :: use_envelope !< enable vicosity envelope
      ! --------------------------------------------------------------------- !
      REAL                            :: Q            !> shearing parameter
-     REAL, DIMENSION(:,:,:), POINTER   :: height,h_ext !< disk scale height
      REAL, DIMENSION(:,:), POINTER   :: Sigma_dust   !< dust surface desnity
-     REAL, DIMENSION(:,:), POINTER   :: invheight2   !< 1/h**2
      REAL, DIMENSION(:,:), POINTER   :: Qstar        !< stellar heating source
      REAL, DIMENSION(:,:), POINTER   :: H_tau1       !< z(tau=1)
      REAL                            :: tau_c        !< cooling time
@@ -164,7 +160,9 @@ MODULE sources_base_mod
      REAL(C_DOUBLE), POINTER         :: temp_c(:,:)  !< fftw temp storage
      REAL(C_DOUBLE), POINTER         :: Ftemp_c(:,:)
 #endif
+
   CONTAINS
+
     PROCEDURE :: InitSources
     PROCEDURE (InfoSources),     DEFERRED :: InfoSources
     PROCEDURE :: GeometricalSources
@@ -211,7 +209,7 @@ MODULE sources_base_mod
       INTENT(IN)        :: pvar,cvar
       INTENT(OUT)       :: dt
     END SUBROUTINE
-    SUBROUTINE ExternalSources_single(this,Mesh,Physics,Fluxes,time,pvar,cvar,sterm)
+    SUBROUTINE ExternalSources_single(this,Mesh,Physics,Fluxes,time,dt,pvar,cvar,sterm)
       IMPORT Sources_base, Mesh_base, Physics_base, Fluxes_base
       IMPLICIT NONE
       !------------------------------------------------------------------------!
@@ -219,7 +217,7 @@ MODULE sources_base_mod
       CLASS(mesh_base),INTENT(IN)         :: Mesh
       CLASS(physics_base),INTENT(INOUT)   :: Physics
       CLASS(fluxes_base),INTENT(IN)       :: Fluxes
-      REAL,INTENT(IN)                     :: time
+      REAL,INTENT(IN)                     :: time, dt
       REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM) &
                       :: cvar,pvar,sterm
       !------------------------------------------------------------------------!
@@ -255,7 +253,7 @@ MODULE sources_base_mod
        ! types
        sources_base, &
        ! constants
-       VISCOSITY, C_ACCEL, SHEARBOX
+       VISCOSITY, C_ACCEL, SHEARBOX, GRAVITY
   !--------------------------------------------------------------------------!
 
 CONTAINS
@@ -285,24 +283,6 @@ CONTAINS
     CALL this%InfoSources(Mesh)
   END SUBROUTINE InitSources
 
-!  SUBROUTINE InfoSources_all(list, Mesh)
-!    IMPLICIT NONE
-!    !------------------------------------------------------------------------!
-!    CLASS(sources_base), TARGET, INTENT(IN) :: list
-!    CLASS(sources_base), POINTER            :: srcptr
-!    CLASS(mesh_base),            INTENT(IN) :: Mesh
-!    !------------------------------------------------------------------------!
-!    ! go through all source terms in the list
-!    srcptr => list
-!    ! skip gravity
-!    IF (srcptr%GetType().EQ.GRAVITY) srcptr => srcptr%next
-!    DO WHILE (ASSOCIATED(srcptr))
-!      CALL srcptr%Info(" SOURCES--> source term:       " // srcptr%GetName())
-!      CALL srcptr%InfoSources(Mesh)
-!      srcptr => srcptr%next
-!    END DO
-!  END SUBROUTINE InfoSources_all
-
 
   SUBROUTINE GeometricalSources(this,Physics,Mesh,Fluxes,pvar,cvar,sterm)
     IMPLICIT NONE
@@ -328,18 +308,17 @@ CONTAINS
   SUBROUTINE ExternalSources(this,Mesh,Fluxes,Physics,time,dt,pvar,cvar,sterm)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(Sources_base),Target,INTENT(IN) :: this !, POINTER :: this
-    CLASS(Mesh_base),INTENT(IN)    :: Mesh
-    CLASS(Fluxes_base),INTENT(IN)  :: Fluxes
-    CLASS(Physics_base),INTENT(INOUT) :: Physics
-    REAL              :: time,dt
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM) &
-                      :: cvar,pvar,sterm
+    CLASS(sources_base), TARGET, INTENT(IN) :: this !, POINTER :: this
+    CLASS(mesh_base),    INTENT(IN)         :: Mesh
+    CLASS(fluxes_base),  INTENT(IN)         :: Fluxes
+    CLASS(physics_base), INTENT(INOUT)      :: Physics
+    REAL,                INTENT(IN)         :: time,dt
+    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
+                         INTENT(IN)         :: cvar,pvar
+    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
+                         INTENT(OUT)        :: sterm
     !------------------------------------------------------------------------!
     CLASS(Sources_base), POINTER :: srcptr
-    !------------------------------------------------------------------------!
-    INTENT(IN)        :: time,dt,pvar,cvar
-    INTENT(OUT)       :: sterm
     !------------------------------------------------------------------------!
     ! reset sterm
     sterm(:,:,:,:) = 0.0
@@ -347,12 +326,13 @@ CONTAINS
     srcptr => this
     DO WHILE (ASSOCIATED(srcptr))
 
-       CALL srcptr%ExternalSources_single(Mesh,Physics,Fluxes,time,pvar,cvar,temp_sterm)
+      CALL srcptr%ExternalSources_single(Mesh,Physics,Fluxes,time,dt,pvar,cvar,temp_sterm)
 
-       ! add to the sources
-       sterm(:,:,:,:) = sterm(:,:,:,:) + temp_sterm(:,:,:,:)
-       ! next source term
-       srcptr => srcptr%next
+      ! add to the sources
+      sterm(:,:,:,:) = sterm(:,:,:,:) + temp_sterm(:,:,:,:)
+      ! next source term
+      srcptr => srcptr%next
+
     END DO
     ! reset ghost cell data
     IF (Mesh%GINUM.GT.0) THEN

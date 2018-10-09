@@ -79,7 +79,7 @@ MODULE sources_viscosity_mod
            btxx,btyy,btzz,btxy,btxz,btyz,tmp,tmp2,tmp3
      REAL, DIMENSION(:,:), POINTER   :: &
            Sxx,Syy,Szz,Sxy,Sxz,Syz
- CONTAINS
+  CONTAINS
     PROCEDURE :: InitSources_viscosity
     PROCEDURE :: InfoSources
     PROCEDURE :: SetOutput
@@ -109,16 +109,16 @@ CONTAINS
     TYPE(Dict_TYP),POINTER :: config,IO
     INTEGER           :: stype
     !------------------------------------------------------------------------!
-    INTEGER           :: err, model
+    INTEGER           :: err, viscosity_number
     !------------------------------------------------------------------------!
     INTENT(IN)        :: Mesh,Physics,Fluxes
     !------------------------------------------------------------------------!
     CALL GetAttr(config, "stype", stype)
     CALL this%InitLogging(stype,this%source_name)
     ! viscosity model
-    CALL GetAttr(config, "vismodel", model)
+    CALL GetAttr(config, "vismodel", viscosity_number)
     ALLOCATE(logging_base::this%viscosity)
-    CALL this%viscosity%InitLogging(model,viscosity_name(model))
+    CALL this%viscosity%InitLogging(viscosity_number,viscosity_name(viscosity_number))
 
 
     IF (.NOT.Fluxes%Initialized()) &
@@ -444,14 +444,14 @@ CONTAINS
   END SUBROUTINE UpdateViscosity
 
 
-  SUBROUTINE ExternalSources_single(this,Mesh,Physics,Fluxes,time,pvar,cvar,sterm)
+  SUBROUTINE ExternalSources_single(this,Mesh,Physics,Fluxes,time,dt,pvar,cvar,sterm)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(Sources_viscosity),INTENT(INOUT) :: this
     CLASS(Mesh_base),INTENT(IN)         :: Mesh
     CLASS(Physics_base),INTENT(INOUT)   :: Physics
     CLASS(Fluxes_base),INTENT(IN)       :: Fluxes
-    REAL,INTENT(IN)                     :: time
+    REAL,INTENT(IN)                     :: time, dt
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM) &
                       :: cvar,pvar,sterm
     !------------------------------------------------------------------------!

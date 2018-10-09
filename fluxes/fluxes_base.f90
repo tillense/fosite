@@ -226,12 +226,12 @@ CONTAINS
   FUNCTION GetBoundaryFlux(this,Mesh,Physics,direction,comm) RESULT(bflux)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(fluxes_base),  INTENT(INOUT) :: this
-    CLASS(mesh_base),    INTENT(IN)    :: Mesh
-    CLASS(physics_base), INTENT(IN)    :: Physics
-    INTEGER                            :: direction
-    REAL, DIMENSION(Physics%VNUM)      :: bflux
-    INTEGER, OPTIONAL                  :: comm        ! communicator for MPI
+    CLASS(fluxes_base),  INTENT(IN) :: this
+    CLASS(mesh_base),    INTENT(IN) :: Mesh
+    CLASS(physics_base), INTENT(IN) :: Physics
+    INTEGER                         :: direction
+    REAL, DIMENSION(Physics%VNUM)   :: bflux
+    INTEGER, OPTIONAL               :: comm        ! communicator for MPI
     !------------------------------------------------------------------------!
 #ifdef PARALLEL
     REAL, DIMENSION(Physics%VNUM) :: bflux_local

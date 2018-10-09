@@ -142,14 +142,14 @@ CONTAINS
   !!                    \mathbf{\hat{e}_x}.
   !! \f]
   !! See for example \cite gammie2001 or \cite hawley1995 .
-  SUBROUTINE ExternalSources_single(this,Mesh,Physics,Fluxes,time,pvar,cvar,sterm)
+  SUBROUTINE ExternalSources_single(this,Mesh,Physics,Fluxes,time,dt,pvar,cvar,sterm)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(sources_shearbox), INTENT(INOUT) :: this
     CLASS(mesh_base),        INTENT(IN)    :: Mesh
     CLASS(physics_base),     INTENT(INOUT) :: Physics
     CLASS(fluxes_base),      INTENT(IN)    :: Fluxes
-    REAL,                    INTENT(IN)    :: time
+    REAL,                    INTENT(IN)    :: time, dt
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
                              INTENT(IN)    :: cvar,pvar
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &

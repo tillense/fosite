@@ -779,8 +779,6 @@ CONTAINS
     dt = MIN(dt_cfl,dt_src)
   END FUNCTION CalcTimestep
 
-
-
   SUBROUTINE AcceptSolution(this,Mesh,Physics,Sources,Fluxes,time,dt,iter)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
