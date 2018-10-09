@@ -37,8 +37,9 @@ MESSAGE( STATUS "Compiler: " ${CMAKE_Fortran_COMPILER})
 
 if (Fortran_COMPILER_NAME MATCHES "(.*)gfortran")
   # gfortran
-  set (CMAKE_Fortran_FLAGS "-fdefault-real-8 -cpp -ffree-line-length-none -std=f2003 -DVERSION='\"v2\"'")
+  set (CMAKE_Fortran_FLAGS "${FCFLAGS} -fdefault-real-8 -cpp -ffree-line-length-none -std=f2003 -DVERSION='\"v2\"'")
   set (CMAKE_Fortran_FLAGS_RELEASE "-funroll-all-loops -fno-f2c -O3")
+  set (CMAKE_Fortran_FLAGS_PROFILING "-funroll-all-loops -fno-f2c -O3 -pg -no-pie")
   set (CMAKE_Fortran_FLAGS_DEBUG   "-fno-f2c -O2 -g -fcheck=all")
   if(CMAKE_Fortran_COMPILER_VERSION VERSION_LESS 4.9)
     message(FATAL_ERROR "Insufficient gfortran version")
@@ -46,20 +47,25 @@ if (Fortran_COMPILER_NAME MATCHES "(.*)gfortran")
 elseif (Fortran_COMPILER_NAME MATCHES "(.*)mpifort")
   # mpifort
   message("Building Fosite in parallel mode")
-  set (CMAKE_Fortran_FLAGS "-fdefault-real-8 -cpp -ffree-line-length-none -std=f2003 -DVERSION='\"v2\"' -DPARALLEL -DHAVE_MPI_MOD")
+  set (CMAKE_Fortran_FLAGS "${FCFLAGS} -fdefault-real-8 -cpp -ffree-line-length-none -std=f2003 -DVERSION='\"v2\"' -DPARALLEL -DHAVE_MPI_MOD")
   set (CMAKE_Fortran_FLAGS_RELEASE "-funroll-all-loops -fno-f2c -O3")
   set (CMAKE_Fortran_FLAGS_DEBUG   "-fno-f2c -O2 -g -fcheck=all -Wunused")
-  if(CMAKE_Fortran_COMPILER_VERSION VERSION_LESS 4.9)
+ if(CMAKE_Fortran_COMPILER_VERSION VERSION_LESS 4.9)
     message(FATAL_ERROR "Insufficient gfortran version")
   endif()
 elseif (Fortran_COMPILER_NAME MATCHES "(.*)ifort")
   # ifort
-  set (CMAKE_Fortran_FLAGS "-cpp -r8 -stand f03 -DVERSION='\"v2\"'")
+  set (CMAKE_Fortran_FLAGS "${FCFLAGS} -cpp -r8 -stand f03 -DVERSION='\"v2\"'")
   set (CMAKE_Fortran_FLAGS_RELEASE "-O3")
   set (CMAKE_Fortran_FLAGS_DEBUG   "-O0 -g")
+  set (CMAKE_Fortran_FLAGS_PROFILING "-O3 -pg")
 elseif (Fortran_COMPILER_NAME MATCHES "(.*)nfort")
-  set (CMAKE_Fortran_FLAGS "-ftrace -proginf -report-all -finline-max-depth=5 -floop-collapse -finline-functions -fdefault-real=8 -x f95-cpp-input -DVERSION='\"v2\"'")
-  SET(CMAKE_EXE_LINKER_FLAGS "-O3 -proginf -ftrace")
+  set (CMAKE_Fortran_FLAGS "${FCFLAGS} -report-all -proginf -fdefault-real=8 -x f95-cpp-input -DVERSION='\"v2\"'")
+  set (CMAKE_Fortran_FLAGS_RELEASE "-finline-max-depth=5 -finline-functions -floop-collapse")
+  set (CMAKE_Fortran_FLAGS_DEBUG   "-O0 -g")
+  set (CMAKE_Fortran_FLAGS_PROFILING "-finline-max-depth=5 -finline-functions -floop-collapse -ftrace")
+  set (CMAKE_EXE_LINKER_FLAGS "-proginf")
+  set (CMAKE_EXE_LINKER_FLAGS_PROFILING "-ftrace")
 elseif (Fortran_COMPILER_NAME MATCHES "g77")
   # g77
   message(FATAL_ERROR "Fortran 77 is oldschool but still not supported.")
@@ -72,6 +78,9 @@ else (Fortran_COMPILER_NAME MATCHES "gfortran.*")
   set (CMAKE_Fortran_FLAGS_DEBUG   "-O0 -g")
 endif (Fortran_COMPILER_NAME MATCHES "(.*)gfortran")
 
+MARK_AS_ADVANCED(CMAKE_Fortran_FLAGS_PROFILING
+    CMAKE_EXE_LINKER_FLAGS_PROFILING)
+    
 #------------ set includes (which files to compile) ---------------------------#
 # build executables
 set (LIBDIRS numtools common boundary fluxes io mesh physics sources timedisc )
