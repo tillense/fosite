@@ -32,9 +32,3 @@ MODULE fftw
     INCLUDE 'fftw3.f03'
 END MODULE fftw
 #endif
-
-#ifdef HAVE_FFTW_LEGACY
-MODULE fftw
-    INCLUDE 'fftw3.f'
-END MODULE fftw
-#endif

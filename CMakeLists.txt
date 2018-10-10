@@ -2,7 +2,7 @@
 
 IF( NOT DEFINED ENV{FC})
   set(CMAKE_Fortran_COMPILER_INIT
-          sxf03 gfortran ifort
+          nfort sxf03 gfortran ifort
           ifc af95 af90 efc f95 pathf2003 pathf95 pgf95 pgfortran lf95 xlf95
           fort gfortran-4 g95 f90 pathf90 pgf90 xlf90 epcf90 fort77
           frt pgf77 xlf fl32 af77 g77 f77
@@ -10,7 +10,7 @@ IF( NOT DEFINED ENV{FC})
 elseif(DEFINED ENV{FC})
   set(CMAKE_Fortran_COMPILER $ENV{FC})
 endif()
- 
+
 
 cmake_minimum_required (VERSION 2.8.10)
 project (FOSITE NONE)
@@ -80,13 +80,24 @@ endif (Fortran_COMPILER_NAME MATCHES "(.*)gfortran")
 
 MARK_AS_ADVANCED(CMAKE_Fortran_FLAGS_PROFILING
     CMAKE_EXE_LINKER_FLAGS_PROFILING)
-    
+
+#message(STATUS "${CMAKE_Fortran_COMPILER_ID}")
+
+#----------------------- FFTW include -----------------------------------------#
+find_library(FFTW
+	NAMES fftw3
+	DOC "Fastest Fourier Transform of the West."
+)
+if(NOT FFTW)
+  message(WARNING "No FFTW Library found.")
+else()
+	message(STATUS "Found FFTW library: ${FFTW}")
+  add_definitions(-DWITH_FFTW)
+endif()
+
 #------------ set includes (which files to compile) ---------------------------#
 # build executables
 set (LIBDIRS numtools common boundary fluxes io mesh physics sources timedisc )
-
-#set (EXECUTABLES "NORMA.exe" ${NMPROGRAMS})
-#set (SCRIPTS "gen_pert.sh" "pert_multi_mode.sh")
 
 foreach (p ${LIBDIRS})
   include_directories(/.$(CMAKE_BINARY_DIR)/${p})
@@ -100,6 +111,9 @@ endforeach (p)
 
 add_library(fosite fosite.f90)
 target_link_libraries(fosite ${LIBDIRS})
+if(FFTW)
+  target_link_libraries(fosite fftw3)
+endif()
 
 #foreach (p ${EXAMPLES})
 #  add_executable (${p} "${p}.f90")
@@ -108,6 +122,7 @@ target_link_libraries(fosite ${LIBDIRS})
 
 #add_subdirectory(examples)
 add_subdirectory(tests)
+
 
 #--------------------- doxygen documentation ----------------------------------#
 option(BUILD_DOC "Build documentation" ON)
@@ -150,7 +165,7 @@ if(DOXYGEN_FOUND)
 endif(DOXYGEN_FOUND)
 
 # install executables and scripts
-#install (TARGETS ${EXECUTABLES} 
+#install (TARGETS ${EXECUTABLES}
 #         RUNTIME DESTINATION "bin")
 #install (PROGRAMS ${SCRIPTS}
-#         DESTINATION "bin") 
+#         DESTINATION "bin")
