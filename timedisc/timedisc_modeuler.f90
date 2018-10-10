@@ -62,7 +62,9 @@ MODULE timedisc_modeuler_mod
   TYPE, EXTENDS (timedisc_base) :: timedisc_modeuler
   CONTAINS
     PROCEDURE :: InitTimedisc_modeuler
-    PROCEDURE :: ComputeCVar
+    PROCEDURE :: ComputeCVar_modeuler
+!    GENERIC   :: ComputeCVar => &
+!                ComputeCVar_modeuler
     PROCEDURE :: SolveODE
     PROCEDURE :: Finalize
   END TYPE timedisc_modeuler
@@ -99,7 +101,7 @@ CONTAINS
     !------------------------------------------------------------------------!
     ! set default order
     CALL GetAttr(config, "order", this%order, 3)
-    CALL GetAttr(config, "method", method)
+!    CALL GetAttr(config, "method", method)
 
     CALL this%InitTimedisc(Mesh,Physics,config,IO,MODIFIED_EULER,ODEsolver_name)
 
@@ -157,7 +159,7 @@ CONTAINS
           ! update time variable
           t = time+zeta(n,order)*dt
           ! time step update of cvar and bfluxes
-          CALL this%ComputeCVar(Mesh,Physics,Fluxes,eta(n,order), &
+          CALL this%ComputeCVar_modeuler(Mesh,Physics,Fluxes,eta(n,order), &
                t,dt,this%cold,this%pvar,this%cvar,this%rhs,this%cvar)
           ! compute right hand side for next time step update
           CALL this%ComputeRHS(Mesh,Physics,Sources,Fluxes,t,dt,&
@@ -179,7 +181,7 @@ CONTAINS
           ! update time variable
           t = time+zeta(n,order)*dt
           ! time step update of cvar and bfluxes
-          CALL this%ComputeCVar(Mesh,Physics,Fluxes,eta(n,order), &
+          CALL this%ComputeCVar_modeuler(Mesh,Physics,Fluxes,eta(n,order), &
                t,dt,this%cold,p(n)%var,c(n)%var,this%rhs,c(n+1)%var)
           ! for 3rd order scheme compute the 2nd order result with the same RHS
           ! and store it in this%ctmp, bfluxes are not required
@@ -202,7 +204,7 @@ CONTAINS
 
   !> \private performs the time step update using the RHS
   !!
-  SUBROUTINE ComputeCVar(this,Mesh,Physics,Fluxes,eta,time,dt, &
+  SUBROUTINE ComputeCVar_modeuler(this,Mesh,Physics,Fluxes,eta,time,dt, &
                                   cold,pvar,cvar,rhs,cnew)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
@@ -267,7 +269,7 @@ CONTAINS
         END DO
       END DO
     END DO
-  END SUBROUTINE ComputeCVar
+  END SUBROUTINE ComputeCVar_modeuler
 
 
   SUBROUTINE Finalize(this)
@@ -275,6 +277,8 @@ CONTAINS
     !------------------------------------------------------------------------!
     CLASS(timedisc_modeuler) :: this
     !------------------------------------------------------------------------!
+    print *,'Finalize_modeuler'
+    DEALLOCATE(this%rhs)
     CALL this%Finalize_base()
   END SUBROUTINE Finalize
 

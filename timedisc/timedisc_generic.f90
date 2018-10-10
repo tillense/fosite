@@ -32,6 +32,10 @@
 MODULE timedisc_generic_mod
   USE timedisc_base_mod
   USE timedisc_modeuler_mod
+  USE timedisc_rkfehlberg_mod
+  USE timedisc_cashkarp_mod
+  USE timedisc_dormand_prince_mod
+  USE timedisc_ssprk_mod
   USE mesh_base_mod
   USE physics_base_mod
   USE common_dict
@@ -58,6 +62,14 @@ CONTAINS
     SELECT CASE(method)
     CASE(MODIFIED_EULER)
       ALLOCATE(timedisc_modeuler::Timedisc)
+    CASE(RK_FEHLBERG)
+      ALLOCATE(timedisc_rkfehlberg::Timedisc)
+    CASE(CASH_KARP)
+      ALLOCATE(timedisc_cashkarp::Timedisc)
+    CASE(DORMAND_PRINCE)
+      ALLOCATE(timedisc_dormand_prince::Timedisc)
+    CASE(SSPRK)
+      ALLOCATE(timedisc_ssprk::Timedisc)
     CASE DEFAULT
       ALLOCATE(timedisc_modeuler::Timedisc)
       CALL Timedisc%Error("new_timedisc","Unknown timedisc integration scheme")
@@ -67,6 +79,14 @@ CONTAINS
     SELECT TYPE(obj => Timedisc)
     TYPE IS (timedisc_modeuler)
       CALL obj%InitTimedisc_modeuler(Mesh,Physics,config,IO)
+    TYPE IS (timedisc_rkfehlberg)
+      CALL obj%InitTimedisc_rkfehlberg(Mesh,Physics,config,IO)
+    TYPE IS (timedisc_cashkarp)
+      CALL obj%InitTimedisc_cashkarp(Mesh,Physics,config,IO)
+    TYPE IS (timedisc_dormand_prince)
+      CALL obj%InitTimedisc_dormand_prince(Mesh,Physics,config,IO)
+    TYPE IS (timedisc_ssprk)
+      CALL obj%InitTimedisc_ssprk(Mesh,Physics,config,IO)
     END SELECT
   END SUBROUTINE
 END MODULE timedisc_generic_mod

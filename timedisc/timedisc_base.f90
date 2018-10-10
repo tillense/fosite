@@ -112,9 +112,7 @@ PRIVATE
      REAL, DIMENSION(:,:,:,:), POINTER :: solution=>Null() !< analytical solution
      REAL, DIMENSION(:,:,:,:), POINTER :: cold             !< old prim/cons vars
      REAL, DIMENSION(:,:,:,:), POINTER :: ptmp,ctmp        !< temporary cvars
-     REAL, DIMENSION(:,:,:,:), POINTER :: coeff            !< coefficents
-     REAL, DIMENSION(:), POINTER       :: b_low,b_high,c   !<    needed by
-     REAL, DIMENSION(:,:), POINTER     :: a                !<    embedded RK
+
      !> multistep vars
      REAL, DIMENSION(:,:,:,:), POINTER :: phi,oldphi_s,&
                                           newphi_s
@@ -189,8 +187,8 @@ PRIVATE
   INTEGER, PARAMETER :: RK_FEHLBERG      = 2
   INTEGER, PARAMETER :: CASH_KARP        = 3
   INTEGER, PARAMETER :: DORMAND_PRINCE   = 4
-  INTEGER, PARAMETER :: MULTISTEP        = 5
-  INTEGER, PARAMETER :: SSPRK            = 6
+!  INTEGER, PARAMETER :: MULTISTEP        = 5
+  INTEGER, PARAMETER :: SSPRK            = 5
   !--------------------------------------------------------------------------!
   INTEGER, PARAMETER :: DTCAUSE_CFL      =  0 ! smallest ts due to cfl cond. !
   INTEGER, PARAMETER :: DTCAUSE_ERRADJ   = -1 ! smallest ts due to err adj.  !
@@ -209,7 +207,7 @@ PRIVATE
        ! types
        timedisc_base, &
        ! constants
-       MODIFIED_EULER, RK_FEHLBERG, CASH_KARP, DORMAND_PRINCE, MULTISTEP, &
+       MODIFIED_EULER, RK_FEHLBERG, CASH_KARP, DORMAND_PRINCE, &! MULTISTEP, &
        SSPRK, &
        DTCAUSE_CFL,DTCAUSE_ERRADJ,DTCAUSE_SMALLERR, DTCAUSE_FILEIO, &
        CHECK_ALL, CHECK_NOTHING, CHECK_CSOUND, CHECK_RHOMIN, CHECK_PMIN, &
@@ -261,6 +259,41 @@ CONTAINS
       this%dtmean, this%dtstddev,        &
       this%time,                         &
       STAT = err)
+!ALLOCATE(this%rhs(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM))             
+!print *,'Allocate_1'
+!ALLOCATE(this%pvar(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM))      
+!print *,'Allocate_2'
+!ALLOCATE(this%cvar(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM))      
+!print *,'Allocate_3'
+!ALLOCATE(this%cold(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM))      
+!print *,'Allocate_4'
+!ALLOCATE(this%ptmp(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM))      
+!print *,'Allocate_5'
+!ALLOCATE(this%ctmp(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM))      
+!print *,'Allocate_6'
+!ALLOCATE(this%geo_src(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM))   
+!print *,'Allocate_7'
+!ALLOCATE(this%src(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM))       
+!print *,'Allocate_8'
+!ALLOCATE(this%xfluxdydz(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM)) 
+!print *,'Allocate_9'
+!ALLOCATE(this%yfluxdzdx(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM)) 
+!print *,'Allocate_10'
+!ALLOCATE(this%zfluxdxdy(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM)) 
+!print *,'Allocate_11'
+!ALLOCATE(this%amax(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,3))                 
+!print *,'Allocate_12'
+!ALLOCATE(this%tol_abs(Physics%VNUM))        
+!print *,'Allocate_13'
+!ALLOCATE(this%w(Mesh%IGMIN:Mesh%IGMAX))     
+!print *,'Allocate_14'
+!ALLOCATE(this%shift(Mesh%IGMIN:Mesh%IGMAX)) 
+!print *,'Allocate_15'
+!ALLOCATE(this%dtmean, this%dtstddev)        
+!print *,'Allocate_16'
+!ALLOCATE(this%time)                         
+!print *,'Allocate_17'
+!err=0
     IF (err.NE.0) THEN
        CALL this%Error("InitTimedisc", "Unable to allocate memory.")
     END IF
@@ -1265,16 +1298,38 @@ CONTAINS
     !------------------------------------------------------------------------!
     IF (.NOT.this%Initialized()) &
         CALL this%Error("CloseTimedisc","not initialized")
-
     ! call boundary destructor
     CALL this%Boundary%Finalize()
 
     DEALLOCATE( &
       this%pvar,this%cvar,this%cold,this%ptmp,this%ctmp, &
-      this%geo_src,this%src, this%rhs, &
+      this%geo_src,this%src, &
       this%xfluxdydz,this%yfluxdzdx,this%zfluxdxdy,this%amax,this%tol_abs,&
       this%dtmean,this%dtstddev,this%time,&
       this%shift,this%w)
+
+!    DEALLOCATE(this%pvar)
+!    DEALLOCATE(this%cvar)
+!    DEALLOCATE(this%cold)
+!    DEALLOCATE(this%ptmp)
+!    DEALLOCATE(this%ctmp)
+!    DEALLOCATE(this%geo_src)
+!    DEALLOCATE(this%src)
+!!    DEALLOCATE(this%rhs)
+!    DEALLOCATE(this%xfluxdydz)
+!    DEALLOCATE(this%yfluxdzdx)
+!    DEALLOCATE(this%zfluxdxdy)
+!    DEALLOCATE(this%amax)
+!    DEALLOCATE(this%tol_abs)
+!    DEALLOCATE(this%dtmean)
+!    DEALLOCATE(this%dtstddev)
+!    DEALLOCATE(this%time)
+!    DEALLOCATE(this%shift)
+!    DEALLOCATE(this%w)
+!    IF(ASSOCIATED(this%rhs)) THEN
+!      print *, 'RHS wird deallokiert'
+!      DEALLOCATE(this%rhs)
+!    END IF
 #ifdef PARALLEL
     IF(this%fargo.NE.0) &
       DEALLOCATE(this%buf)

@@ -11,7 +11,7 @@ set (EXES
 #  collapse
 #  noh2d
 #  noh3d
-#  ode
+  ode
 #  pringle
   shear
   riemann1d-x
