@@ -410,6 +410,7 @@ CONTAINS
          this%bxflux,this%byflux,this%bzflux,this%bxfold,this%byfold,this%bzfold, &
          this%dx,this%dy,this%dz)
     CALL this%Reconstruction%Finalize()
+    DEALLOCATE(this%Reconstruction)
   END SUBROUTINE Finalize_base
 
 END MODULE fluxes_base_mod

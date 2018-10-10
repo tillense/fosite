@@ -1472,7 +1472,8 @@ CONTAINS
 
     IF (ASSOCIATED(this%rotation)) DEALLOCATE(this%rotation)
 
-    CALL this%Geometry%Finalize() !DEALLOCATE(this%Geometry)
+    CALL this%Geometry%Finalize()
+    DEALLOCATE(this%Geometry)
   END SUBROUTINE Finalize_base
 
 
