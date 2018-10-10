@@ -42,6 +42,9 @@ MODULE sources_base_mod
   USE physics_base_mod
   USE fluxes_base_mod
   USE common_dict
+#if defined(HAVE_FFTW)
+  USE fftw
+#endif
   IMPLICIT NONE
   !--------------------------------------------------------------------------!
   PRIVATE

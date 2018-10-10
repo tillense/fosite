@@ -193,15 +193,15 @@ CONTAINS
                 )
 
     ! gravity settings (source term)
-!    grav =>     Dict(&
-!                "stype"               / GRAVITY, &
-!                "self/gtype"          / SBOXSPECTRAL, &
+    grav =>     Dict(&
+                "stype"               / GRAVITY, &
+                "self/gtype"          / SBOXSPECTRAL, &
 !                "output/accel"        / 1, &
 !                "self/fargo"          / FARGO, &
-!                "self/output/phi"     / 0, &
-!                "self/output/accel_x" / 0, &
-!                "self/output/accel_y" / 0 &
-!                )
+                "self/output/phi"     / 0, &
+                "self/output/accel_x" / 0, &
+                "self/output/accel_y" / 0 &
+                )
 
     ! shearing box fictious forces
     shearingbox => Dict(&
@@ -210,7 +210,7 @@ CONTAINS
 
     ! sources settings (contains source terms)
     sources =>  Dict(&
-!                "grav"        / grav, &
+                "grav"        / grav, &
                 "shearing"    / shearingbox &
                 )
 

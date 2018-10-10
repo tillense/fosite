@@ -75,7 +75,6 @@ MODULE gravity_base_mod
      REAL, DIMENSION(:,:,:,:), POINTER   :: posvec_sec   !<   secondary to all cell bary centers
      REAL, DIMENSION(:,:,:,:), POINTER   :: fr_sec
      REAL, DIMENSION(:,:,:,:,:), POINTER :: fposvec_sec
-     REAL, DIMENSION(:,:), POINTER      :: joff, jrem   !< shifting indices (in SB)
      REAL, DIMENSION(:,:,:), POINTER    :: den_ip       !< interpolated density
      REAL, DIMENSION(:,:,:), POINTER    :: omega        !< angular velocity
      REAL, DIMENSION(:,:,:,:), POINTER  :: omega2       !< Omega Kepler squared
@@ -119,67 +118,6 @@ MODULE gravity_base_mod
      INTEGER, DIMENSION(4)            :: Boundary      !< boundary condition
      LOGICAL                          :: DIRICHLET     !< true if min ONE bound.
                                                       !< boundary cond. is
-#if defined(HAVE_FFTW) || defined(HAVE_FFTKEISAN)
-    INTEGER, DIMENSION(:), POINTER    :: sizes
-    INTEGER                           :: MNUM          !< number of modes
-    REAL,DIMENSION(:), POINTER        :: kx            !< wave numbers for FFT (x)
-    REAL,DIMENSION(:), POINTER        :: ky            !< wave numbers for FFT (y)
-    REAL                              :: Lx, Ly
-#endif
-#if defined(HAVE_FFTW)
-    !> \name
-    !!#### spectral poisson solver
-    !> plan for real to complex fourier transforms
-    TYPE(C_PTR)                      :: plan_r2c
-    !> plan for complex to real fourier transforms
-    TYPE(C_PTR)                      :: plan_c2r
-    TYPE(C_PTR)                      :: pFdensity, pFphi
-    REAL(C_DOUBLE), DIMENSION(:,:), POINTER &
-                                     :: Fdensity,Fphi,block
-    COMPLEX(C_DOUBLE_COMPLEX), DIMENSION(:,:), POINTER &
-                                     :: cFdensity, cFphi, cblock
-    !> Important precalculated matrix - fourier transformed I
-    REAL(C_DOUBLE), DIMENSION(:,:,:), POINTER &
-                                     :: FI
-    COMPLEX(C_DOUBLE_COMPLEX), DIMENSION(:,:,:), POINTER &
-                                     :: cFI
-    TYPE(C_PTR)                      :: p_FI
-    !> \name
-    !!#### spectral poisson solver shearing box
-    REAL(C_DOUBLE), POINTER          :: mass2D(:,:)    !< temporary variable
-    COMPLEX(C_DOUBLE_COMPLEX), POINTER &
-                                     :: Fmass2D(:,:)   !< temporary variable
-    REAL, DIMENSION(:,:), POINTER    :: Fmass2D_real   !< temporary variable
-    INTEGER(C_INTPTR_T)              :: local_joff
-#elif defined(HAVE_FFTKEISAN)
-    REAL, DIMENSION(:,:,:), POINTER  :: FI
-    REAL, DIMENSION(:,:), POINTER    :: Fdensity,Fphi,block
-    INTEGER                          :: local_joff
-#endif
-#if defined(HAVE_FFTW) && defined(PARALLEL)
-    INTEGER(C_INTPTR_T)              :: C_INUM, C_JNUM
-    INTEGER(C_INTPTR_T)              :: alloc_local, local_JNUM
-    TYPE(C_PTR)                      :: mass2D_pointer
-    TYPE(C_PTR)                      :: Fmass2D_pointer
-#elif defined(HAVE_FFTKEISAN) && defined(PARALLEL)
-    COMPLEX, DIMENSION(:,:), POINTER :: mpi_sendbuf
-    COMPLEX, DIMENSION(:,:), POINTER :: mpi_recvbuf
-#endif
-#ifdef HAVE_FFTW_LEGACY
-    !> plan for real to complex fourier transforms
-    INTEGER*8                        :: plan_r2c
-    !> plan for complex to real fourier transforms
-    INTEGER*8                        :: plan_c2r
-#endif
-#if defined(HAVE_FFTW_LEGACY) || defined(HAVE_FFTKEISAN)
-#if defined(HAVE_FFTKEISAN) && defined(PARALLEL)
-    COMPLEX, DIMENSION(:,:), POINTER :: mass2D         !< temporary variable
-#else
-    REAL, DIMENSION(:,:), POINTER    :: mass2D         !< temporary variable
-#endif
-    COMPLEX, POINTER                 :: Fmass2D(:,:)   !< temporary variable
-    REAL, DIMENSION(:,:), POINTER    :: Fmass2D_real   !< temporary variable
-#endif
     INTEGER                          :: green
     REAL                             :: sigma, ecut
 !    REAL, DIMENSION(:), POINTER      :: height

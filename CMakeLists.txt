@@ -83,19 +83,30 @@ MARK_AS_ADVANCED(CMAKE_Fortran_FLAGS_PROFILING
 
 #message(STATUS "${CMAKE_Fortran_COMPILER_ID}")
 
-#----------------------- FFTW include -----------------------------------------#
-find_library(FFTW
+#----------------------- search FFTW -----------------------------------------#
+# search for library
+find_library(
+  FFTW_LIB
 	NAMES fftw3
 	DOC "Fastest Fourier Transform of the West."
 )
-if(NOT FFTW)
+# search for headers
+find_path(
+  FFTW_INCLUDE
+  NAMES fftw3.f03
+)
+if(NOT FFTW_LIB)
   message(WARNING "No FFTW Library found.")
 else()
-	message(STATUS "Found FFTW library: ${FFTW}")
-  add_definitions(-DWITH_FFTW)
+  if(NOT FFTW_INCLUDE)
+    message(WARNING "No FFTW header file found.")
+  endif()
+  message(STATUS "Found FFTW library: ${FFTW_LIB}")
+  message(STATUS "FFTW headers: ${FFTW_INCLUDE}")
+  add_definitions(-DHAVE_FFTW)
 endif()
 
-#------------ set includes (which files to compile) ---------------------------#
+#---------------------- set include & link -----------------------------------#
 # build executables
 set (LIBDIRS numtools common boundary fluxes io mesh physics sources timedisc )
 
@@ -104,6 +115,9 @@ foreach (p ${LIBDIRS})
 endforeach (p)
 include_directories(/.$(CMAKE_BINARY_DIR))
 include_directories(/.$(CMAKE_SOURCE_DIR)/common) #because of tap.h
+if(FFTW_INCLUDE)
+  include_directories(${FFTW_INCLUDE})
+endif()
 
 foreach (p ${LIBDIRS})
   add_subdirectory (${p})
@@ -111,7 +125,7 @@ endforeach (p)
 
 add_library(fosite fosite.f90)
 target_link_libraries(fosite ${LIBDIRS})
-if(FFTW)
+if(FFTW_LIB)
   target_link_libraries(fosite fftw3)
 endif()
 
