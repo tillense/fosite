@@ -55,7 +55,8 @@ MODULE sources_gravity_mod
   CHARACTER(LEN=32), PARAMETER :: source_name = "gravity"
   TYPE, EXTENDS(sources_c_accel) :: sources_gravity
     CLASS(gravity_base),    POINTER :: glist => null() !< list of gravity terms
-    REAL, DIMENSION(:,:,:), POINTER :: height          !< disk scale height
+    REAL, DIMENSION(:,:,:), POINTER :: invheight2   !< 1/h**2
+    REAL, DIMENSION(:,:,:), POINTER :: height,h_ext !< disk scale height
   CONTAINS
     PROCEDURE :: InitSources_gravity
     PROCEDURE :: InfoSources
@@ -87,6 +88,13 @@ CONTAINS
     CALL this%InitLogging(stype,source_name)
     CALL this%InitSources(Mesh,Fluxes,Physics,config,IO)
 
+    ALLOCATE(this%accel(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%DIM), &
+             this%pot(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,4), &
+             STAT=err)
+    IF (err.NE.0) CALL this%Error("InitGravity", "Unable allocate memory!")
+    this%accel(:,:,:,:) = 0.
+    NULLIFY(this%height,this%h_ext,this%invheight2)
+
     ! initialize gravity
     CALL new_gravity(this%glist,Mesh,Fluxes,Physics,config,IO)
 
@@ -109,8 +117,43 @@ CONTAINS
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
                             INTENT(OUT)   :: sterm
     !------------------------------------------------------------------------!
-    ! update acceleration of ALL gravity sources
-    CALL this%glist%GravitySources(Mesh,Physics,Fluxes,time,dt,pvar,cvar,sterm)
+    CLASS(gravity_base), POINTER       :: gravptr
+    !------------------------------------------------------------------------!
+    ! update acceleration of all gravity sources
+    ! reset gterm
+    this%pot(:,:,:,:) = 0.
+    this%accel(:,:,:,:) = 0.
+
+    ! go through all gravity terms in the list
+
+    gravptr => this%glist
+    DO WHILE (ASSOCIATED(gravptr))
+      ! call specific subroutine
+!CDIR IEXPAND
+      CALL gravptr%UpdateGravity_single(Mesh,Physics,Fluxes,pvar,time,dt)
+
+      ! add to the sources
+      this%accel(:,:,:,:) = this%accel(:,:,:,:) + gravptr%accel(:,:,:,:)
+      IF(ASSOCIATED(gravptr%pot)) &
+        this%pot(:,:,:,:) = this%pot(:,:,:,:) + gravptr%pot(:,:,:,:)
+
+
+      ! next source term
+      gravptr => gravptr%next
+    END DO
+
+    ! update disk scale height if requested
+    IF (this%glist%update_disk_height) CALL this%glist%CalcDiskHeight(Mesh,Physics,pvar)
+
+    ! gravitational source terms
+    CALL Physics%ExternalSources(Mesh,this%accel,pvar,cvar,sterm)
+
+    ! Set src term in energy equation to zero, if it is handeled in the physics
+    ! module
+    IF((.NOT.this%addtoenergy).AND.(Physics%ENERGY.GT.0)) THEN
+      sterm(:,:,:,Physics%ENERGY) = 0.
+    END IF
+
   END SUBROUTINE ExternalSources_single
 
   SUBROUTINE InfoSources(this,Mesh)

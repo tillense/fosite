@@ -86,15 +86,6 @@ CONTAINS
           CALL this%Error("new_sources","Unknown source type")
         END SELECT
 
-        IF (.NOT.ASSOCIATED(this)) THEN
-          this => newsrc
-          NULLIFY(this%next)
-        ELSE
-          tmpsrc => this
-          this => newsrc
-          this%next => tmpsrc
-        END IF
-
         ! basic initialization
         SELECT TYPE(obj => newsrc)
         TYPE IS (sources_c_accel)
@@ -104,6 +95,17 @@ CONTAINS
         TYPE IS (sources_viscosity)
           CALL obj%InitSources_viscosity(Mesh,Physics,Fluxes,src,IOsrc)
         END SELECT
+
+        IF (stype .NE. GRAVITY) THEN
+          IF (.NOT.ASSOCIATED(this)) THEN
+            this => newsrc
+            NULLIFY(this%next)
+          ELSE
+            tmpsrc => this
+            this => newsrc
+            this%next => tmpsrc
+          END IF
+        END IF
 
         IF(ASSOCIATED(IOsrc)) CALL SetAttr(IO, GetKey(dir), IOsrc)
 
@@ -116,9 +118,9 @@ CONTAINS
       NULLIFY(IOsrc)
       ALLOCATE(sources_gravity::newsrc)
 
-!      tmpsrc => this
+      tmpsrc => this
       this => newsrc
-!      this%next => tmpsrc
+      this%next => tmpsrc
 
       CALL SetAttr(gsrc,"update_disk_height", update_disk_height)
       SELECT TYPE(obj => newsrc)

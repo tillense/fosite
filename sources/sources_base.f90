@@ -142,7 +142,7 @@ MODULE sources_base_mod
      !> normal vector of the disk surface in curvilinear coordinates
      REAL, DIMENSION(:,:,:), POINTER :: n
      REAL, DIMENSION(:,:,:), POINTER :: n_cart       !< cartesian n
-     REAL, DIMENSION(:,:,:), POINTER :: pot          !< gravitational potential
+     REAL, DIMENSION(:,:,:,:), POINTER :: pot          !< gravitational potential
      !> source terms of sgs module
      REAL, DIMENSION(:,:), POINTER   :: diff,rhoeps,&
                                         sigma

@@ -138,8 +138,8 @@ MODULE gravity_base_mod
     PROCEDURE :: InitGravity
     PROCEDURE :: SetOutput
     PROCEDURE (InfoGravity),     DEFERRED :: InfoGravity
-    PROCEDURE :: GravitySources
-    PROCEDURE :: UpdateGravity
+!    PROCEDURE :: GravitySources
+!    PROCEDURE :: UpdateGravity
     PROCEDURE (UpdateGravity_single), DEFERRED :: UpdateGravity_single
     PROCEDURE :: CloseGravity
     PROCEDURE :: CalcDiskHeight
@@ -216,14 +216,6 @@ CONTAINS
     INTEGER                :: gtype,err,i
     LOGICAL                :: external_potential = .FALSE.
     !------------------------------------------------------------------------!
-    ALLOCATE(this%accel(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%DIM), &
-             this%pot(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,4), &
-             STAT=err)
-    IF (err.NE.0) CALL this%Error("InitGravity", "Unable allocate memory!")
-
-    NULLIFY(this%height,this%h_ext,this%invheight2)
-    this%accel(:,:,:,:) = 0.
-
     ! Add source terms to energy equation?
     ! Set this to zero, if a potential is defined in physics_euler2Diamt
     CALL GetAttr(config, "energy", i, 1)
@@ -232,8 +224,6 @@ CONTAINS
     ELSE
       this%addtoenergy = .TRUE.
     END IF
-
-    CALL this%SetOutput(Mesh,config,IO)
 
     ! enable update of disk scale height if requested
     CALL GetAttr(config, "update_disk_height", i, 0)
@@ -262,87 +252,9 @@ CONTAINS
     this%time = -1.0
     this%timeid = 0
 
-
-!    ! add new gravity term to beginning of
-!    ! list of gravity terms
-!    IF (.NOT.ASSOCIATED(this)) THEN
-!       this => newgrav
-!       NULLIFY(this%next)
-!    ELSE
-!       tmpgrav => this
-!       this => newgrav
-!       this%next => tmpgrav
-!    END IF
-!    !- END COMMON PART -!
-
     CALL this%Info(" GRAVITY--> gravity term:      " // this%GetName())
     CALL this%InfoGravity(Mesh)
   END SUBROUTINE InitGravity
-
-  SUBROUTINE GravitySources(this,Mesh,Physics,Fluxes,time,dt,pvar,cvar,gterm)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(gravity_base), TARGET        :: this
-    CLASS(mesh_base),    INTENT(IN)    :: Mesh
-    CLASS(physics_base), INTENT(INOUT) :: Physics
-    CLASS(fluxes_base),  INTENT(IN)    :: Fluxes
-    REAL                               :: time,dt
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
-                         INTENT(IN)    :: cvar,pvar
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
-                         INTENT(OUT)   :: gterm
-    !------------------------------------------------------------------------!
-    ! update acceleration of all gravity sources
-    CALL this%UpdateGravity(Mesh,Physics,Fluxes,time,dt,pvar)
-
-    ! gravitational source terms
-    CALL Physics%ExternalSources(Mesh,this%accel,pvar,cvar,gterm)
-
-    ! Set src term in energy equation to zero, if it is handeled in the physics
-    ! module
-    IF((.NOT.this%addtoenergy).AND.(Physics%ENERGY.GT.0)) THEN
-      gterm(:,:,:,Physics%ENERGY) = 0.
-    END IF
-  END SUBROUTINE GravitySources
-
-  !> Loops over all gravity terms and yiels acceleration and optionally the potential
-  SUBROUTINE UpdateGravity(this,Mesh,Physics,Fluxes,time,dt,pvar)
-  IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(gravity_base), TARGET        :: this
-    CLASS(mesh_base),    INTENT(IN)    :: Mesh
-    CLASS(physics_base), INTENT(INOUT) :: Physics
-    CLASS(fluxes_base),  INTENT(IN)    :: Fluxes
-    REAL                               :: time,dt
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
-                         INTENT(IN)    :: pvar
-    !------------------------------------------------------------------------!
-    CLASS(gravity_base), POINTER       :: gravptr
-    !------------------------------------------------------------------------!
-    ! reset gterm
-    this%pot(:,:,:,:) = 0.
-    this%accel(:,:,:,:) = 0.
-
-    ! go through all gravity terms in the list
-    gravptr => this
-    DO WHILE (ASSOCIATED(gravptr))
-      ! call specific subroutine
-!CDIR IEXPAND
-      CALL gravptr%UpdateGravity_single(Mesh,Physics,Fluxes,pvar,time,dt)
-
-      ! add to the sources
-      this%accel(:,:,:,:) = this%accel(:,:,:,:) + gravptr%accel(:,:,:,:)
-      IF(ASSOCIATED(gravptr%pot)) &
-        this%pot(:,:,:,:) = this%pot(:,:,:,:) + gravptr%pot(:,:,:,:)
-
-      ! next source term
-      gravptr => gravptr%next
-    END DO
-
-    ! update disk scale height if requested
-    IF (this%update_disk_height) CALL this%CalcDiskHeight(Mesh,Physics,pvar)
-
-  END SUBROUTINE UpdateGravity
 
   SUBROUTINE CalcDiskHeight(this,Mesh,Physics,pvar)
     IMPLICIT NONE
@@ -401,15 +313,15 @@ CONTAINS
     CHARACTER(LEN=1) :: xyz(3) = (/"x","y","z"/)
     INTEGER          :: valwrite,err,k
     !------------------------------------------------------------------------!
-    CALL GetAttr(config, "output/accel", valwrite, 0)
+    CALL GetAttr(config, "output/accel", valwrite, 1)
     IF (valwrite .EQ. 1) THEN
-       DO k=1,SIZE(this%accel,3)
+       DO k=1,SIZE(this%accel,4)
           CALL SetAttr(IO, (xyz(k) // "accel"),&
              this%accel(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,k))
        END DO
     END IF
 
-    CALL GetAttr(config, "output/potential", valwrite, 0)
+    CALL GetAttr(config, "output/potential", valwrite, 1)
     IF (valwrite .EQ. 1) &
        CALL SetAttr(IO, "potential",&
          this%pot(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,1))

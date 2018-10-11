@@ -103,7 +103,7 @@ MODULE gravity_sboxspectral_mod
     = 2.50662827463100050241576528481104525300698674
 
   TYPE, EXTENDS(gravity_base) :: gravity_sboxspectral
-    CHARACTER(LEN=32) :: gravity_name = "central point mass"
+    CHARACTER(LEN=32) :: gravity_name = "shearingbox spectral solver"
 #if defined(HAVE_FFTW)
     !> \name
     !!#### spectral poisson solver

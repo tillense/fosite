@@ -200,6 +200,7 @@ CONTAINS
 
     ! define position vector from the central object to all cell bary centers
     ! and the corresponding distances
+    ! TODO Here should be a different evaluation for either 2D or 3D simulation
     IF (ABS(this%pos(1,1)).LE.TINY(this%pos(1,1)).AND.ABS(this%pos(1,2)).LE.TINY(this%pos(1,2))) THEN
        ! no shift: point mass is located at the origin of the mesh
        ! set position vector and inverse radius using appropriate mesh arrays
