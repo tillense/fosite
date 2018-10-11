@@ -84,6 +84,7 @@ MARK_AS_ADVANCED(CMAKE_Fortran_FLAGS_PROFILING
 #message(STATUS "${CMAKE_Fortran_COMPILER_ID}")
 
 #----------------------- search FFTW -----------------------------------------#
+set(CMAKE_FIND_ROOT_PATH ${FFTWDIR})
 # search for library
 find_library(
   FFTW_LIB
