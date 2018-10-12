@@ -47,6 +47,9 @@
   !! shift and a rest one. The latter is done by linear interpolation between
   !! two cells.
   !!
+  !! \attention For a good numerical setup, the shearing boundary should be applied
+  !!            after the other boundaries, because the shearing accesses the edge cells.
+  !!
   !! <div class="row"> <div class="col-md-6">
   !! \image html boundaries_shift.png "illustration of boundary mapping"
   !! </div> <div class="col-md-6">

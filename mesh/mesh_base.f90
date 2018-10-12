@@ -321,9 +321,9 @@ CONTAINS
     ! total resolution
     ! IMPORTANT: The resolution is the key value in order to determine the
     !            used dimensions below
-    CALL GetAttr(config, "inum", this%inum)
-    CALL GetAttr(config, "jnum", this%jnum)
-    CALL GetAttr(config, "knum", this%knum)
+    CALL GetAttr(config, "inum", this%INUM)
+    CALL GetAttr(config, "jnum", this%JNUM)
+    CALL GetAttr(config, "knum", this%KNUM)
 
     ! set access scalars depending of used dimension
     this%ip1 = 1
@@ -428,13 +428,13 @@ CONTAINS
 #ifdef PARALLEL
     CALL InitMesh_parallel(this, config)
     CALL MPI_Barrier(MPI_COMM_WORLD,err)
-    inum = this%IMAX - this%IMIN + 1
+    INUM = this%IMAX - this%IMIN + 1
     CALL MPI_Allreduce(inum,this%MININUM,1,MPI_INTEGER,MPI_MIN,MPI_COMM_WORLD,err)
     CALL MPI_Allreduce(inum,this%MAXINUM,1,MPI_INTEGER,MPI_MAX,MPI_COMM_WORLD,err)
-    jnum = this%JMAX - this%JMIN + 1
+    JNUM = this%JMAX - this%JMIN + 1
     CALL MPI_Allreduce(jnum,this%MINJNUM,1,MPI_INTEGER,MPI_MIN,MPI_COMM_WORLD,err)
     CALL MPI_Allreduce(jnum,this%MAXJNUM,1,MPI_INTEGER,MPI_MAX,MPI_COMM_WORLD,err)
-    knum = this%KMAX - this%KMIN + 1
+    KNUM = this%KMAX - this%KMIN + 1
     CALL MPI_Allreduce(knum,this%MINKNUM,1,MPI_INTEGER,MPI_MIN,MPI_COMM_WORLD,err)
     CALL MPI_Allreduce(knum,this%MAXKNUM,1,MPI_INTEGER,MPI_MAX,MPI_COMM_WORLD,err)
 #else

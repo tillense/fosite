@@ -200,9 +200,9 @@ MODULE gravity_sboxspectral_mod
 #endif
 
     !-------------- checks & warnings for initial conditions ----------------!
-#if !defined(HAVE_FFTW) && !defined(HAVE_FFTW_LEGACY) && !defined(HAVE_FFTKEISAN)
+#if !defined(HAVE_FFTW)
     CALL this%Error("InitGravity_sboxspectral", &
-         "No fft package could be loaded.")
+         "No fftw package could be loaded.")
 #endif
 
 #if defined(HAVE_FFTW)
@@ -240,7 +240,7 @@ MODULE gravity_sboxspectral_mod
              this%phi(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KMAX), &
              this%accel(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%DIM), &
 #if defined(HAVE_FFTW) && !defined(PARALLEL)
-             this%mass2D(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX), & !TODO TODO TODO This needs to be 2D, make difference for 3D
+             this%mass2D(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX), &
              this%Fmass2D(Mesh%IMIN:Mesh%IMAX/2+1,Mesh%JMIN:Mesh%JMAX), &
 #elif defined(HAVE_FFTW) && defined(PARALLEL)
              ! initialization handled by FFTW (see below)
@@ -438,7 +438,7 @@ MODULE gravity_sboxspectral_mod
     INTEGER :: iopt,ier
 #ifdef PARALLEL
     INTEGER :: status(MPI_STATUS_SIZE), ierror
-    REAL    :: mpi_buf(Mesh%IMIN:Mesh%IMAX,Mesh%GNUM) !TODO: ONLY 2D
+    REAL    :: mpi_buf(Mesh%IMIN:Mesh%IMAX,Mesh%GJNUM,Mesh%KMIN:Mesh%KMAX) !TODO: ONLY 2D
 #endif
     !------------------------------------------------------------------------!
 #if defined(HAVE_FFTW)
@@ -568,12 +568,11 @@ CALL ftrace_region_end("backward_fft")
 
     IF(Mesh%WE_shear) THEN
 !NEC$ NODEP
-      DO j = 1,Mesh%GNUM
+      DO j = 1,Mesh%GINUM
         ! southern northern (periodic)
-        this%phi(Mesh%IGMIN:Mesh%IGMAX,Mesh%JMIN-j,Mesh%KMIN:Mesh%KMAX) = this%phi(Mesh%IGMIN:Mesh%IGMAX,Mesh%JMAX-j+1,Mesh%KMIN:Mesh%KMAX)
-        this%phi(Mesh%IGMIN:Mesh%IGMAX,Mesh%JMAX+j,Mesh%KMIN:Mesh%KMAX) = this%phi(Mesh%IGMIN:Mesh%IGMAX,Mesh%JMIN+j-1,Mesh%KMIN:Mesh%KMAX)
+        this%phi(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN-j,Mesh%KMIN:Mesh%KMAX) = this%phi(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX-j+1,Mesh%KMIN:Mesh%KMAX)
+        this%phi(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX+j,Mesh%KMIN:Mesh%KMAX) = this%phi(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN+j-1,Mesh%KMIN:Mesh%KMAX)
       END DO
-
       DO i = 1,Mesh%GNUM
         ! western (shorn periodic) - residual and integer shift
         joff2 = -Mesh%Q*Mesh%OMEGA*(Mesh%XMAX-Mesh%XMIN)*delt/Mesh%dy
@@ -599,15 +598,21 @@ CALL ftrace_region_end("backward_fft")
               CSHIFT(this%phi(Mesh%IMAX+i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX),FLOOR(joff2))
       END DO
 ! Only north-south direction has parallelization allowed
-! \TODO ONLY 2D (Reshapes necessary below, when mpi_buf is in use)
 ! Approach below:
-! Either with or without parallel mode apply peridic boundaries to all cells. In a second step shift the
+! Either with or without parallel mode apply periodic boundaries to all cells. In a second step shift the
 ! cells at the boundaries where it is necessary.
+! Attention: The order of the copies plays a role. First the non-shifted direction needs to be
+! copied, afterwards the shifted.
     ELSE IF(Mesh%SN_shear) THEN
+      DO i = 1,Mesh%GINUM
+        ! western and eastern (always periodic)
+        this%phi(Mesh%IMIN-i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX) = this%phi(Mesh%IMAX-i+1,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX)
+        this%phi(Mesh%IMAX+i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX) = this%phi(Mesh%IMIN+i-1,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX)
+      END DO
 #ifdef PARALLEL
       IF(Mesh%dims(2).GT.1) THEN
-        mpi_buf(Mesh%IMIN:Mesh%IMAX,1:Mesh%GNUM) = &
-        RESHAPE(this%phi(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX-Mesh%GNUM+1:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX),(/ Mesh%IMAX-Mesh%IMIN+1,Mesh%GNUM /))
+        mpi_buf(Mesh%IMIN:Mesh%IMAX,1:Mesh%GJNUM,Mesh%KMIN:Mesh%KMAX) = &
+          this%phi(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX-Mesh%GJNUM+1:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX)
         CALL MPI_Sendrecv_replace(&
           mpi_buf,&
           2*(Mesh%IMAX-Mesh%IMIN+1), &
@@ -616,10 +621,10 @@ CALL ftrace_region_end("backward_fft")
           Mesh%neighbor(SOUTH), MPI_ANY_TAG, &
           Mesh%comm_cart, status, ierror)
         this%phi(Mesh%IMIN:Mesh%IMAX,Mesh%JGMIN:Mesh%JMIN-1,Mesh%KMIN:Mesh%KMAX) = &
-          RESHAPE(mpi_buf(Mesh%IMIN:Mesh%IMAX,1:Mesh%GNUM), (/ Mesh%IMAX-Mesh%IMAX+1, Mesh%GJNUM, Mesh%KMAX-Mesh%KMIN+1 /))
+          mpi_buf(Mesh%IMIN:Mesh%IMAX,1:Mesh%GJNUM,Mesh%KMIN:Mesh%KMAX)
 
-        mpi_buf(Mesh%IMIN:Mesh%IMAX,1:Mesh%GNUM) = &
-        RESHAPE(this%phi(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN+Mesh%GNUM-1:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX),(/ Mesh%IMAX-Mesh%IMIN+1,Mesh%GNUM /))
+        mpi_buf(Mesh%IMIN:Mesh%IMAX,1:Mesh%GJNUM,Mesh%KMIN:Mesh%KMAX) = &
+          this%phi(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMIN+Mesh%GJNUM-1,Mesh%KMIN:Mesh%KMAX)
         CALL MPI_Sendrecv_replace(&
           mpi_buf,&
           2*(Mesh%IMAX-Mesh%IMIN+1), &
@@ -628,31 +633,26 @@ CALL ftrace_region_end("backward_fft")
           Mesh%neighbor(NORTH), MPI_ANY_TAG, &
           Mesh%comm_cart, status, ierror)
         this%phi(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX+1:Mesh%JGMAX,Mesh%KMIN:Mesh%KMAX) = &
-          RESHAPE(mpi_buf(Mesh%IMIN:Mesh%IMAX,1:Mesh%GNUM), (/ Mesh%IMAX-Mesh%IMAX+1, Mesh%GJNUM, Mesh%KMAX-Mesh%KMIN+1 /))
+          mpi_buf(Mesh%IMIN:Mesh%IMAX,1:Mesh%GJNUM,Mesh%KMIN:Mesh%KMAX)
       ELSE
-        DO j = 1,Mesh%GNUM
+        DO j = 1,Mesh%GJNUM
           ! southern northern (periodic in first step - further shift-treatment below)
           this%phi(Mesh%IGMIN:Mesh%IGMAX,Mesh%JMIN-j,Mesh%KGMIN:Mesh%KGMAX) = this%phi(Mesh%IGMIN:Mesh%IGMAX,Mesh%JMAX-j+1,Mesh%KGMIN:Mesh%KGMAX)
           this%phi(Mesh%IGMIN:Mesh%IGMAX,Mesh%JMAX+j,Mesh%KGMIN:Mesh%KGMAX) = this%phi(Mesh%IGMIN:Mesh%IGMAX,Mesh%JMIN+j-1,Mesh%KGMIN:Mesh%KGMAX)
         END DO
       END IF
 #else
-      DO j = 1,Mesh%GNUM
+      DO j = 1,Mesh%GJNUM
         ! southern northern (periodic in first step - further shift-treatment below)
         this%phi(Mesh%IGMIN:Mesh%IGMAX,Mesh%JMIN-j,Mesh%KGMIN:Mesh%KGMAX) = this%phi(Mesh%IGMIN:Mesh%IGMAX,Mesh%JMAX-j+1,Mesh%KGMIN:Mesh%KGMAX)
         this%phi(Mesh%IGMIN:Mesh%IGMAX,Mesh%JMAX+j,Mesh%KGMIN:Mesh%KGMAX) = this%phi(Mesh%IGMIN:Mesh%IGMAX,Mesh%JMIN+j-1,Mesh%KGMIN:Mesh%KGMAX)
       END DO
 #endif
-      DO i = 1,Mesh%GNUM
-        ! western and eastern (always periodic)
-        this%phi(Mesh%IMIN-i,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX) = this%phi(Mesh%IMAX-i+1,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX)
-        this%phi(Mesh%IMAX+i,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX) = this%phi(Mesh%IMIN+i-1,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX)
-      END DO
 
 #ifdef PARALLEL
       IF (Mesh%mycoords(2).EQ.0) THEN
 #endif
-      DO j = 1,Mesh%GNUM
+      DO j = 1,Mesh%GJNUM
         ! southern (shorn periodic) - residual and integer shift
         joff2 = Mesh%Q*Mesh%OMEGA*(Mesh%YMAX-Mesh%YMIN)*delt/Mesh%dx
         jrem2 = joff2 - FLOOR(joff2)
@@ -674,7 +674,7 @@ CALL ftrace_region_end("backward_fft")
 #ifdef PARALLEL
       IF (Mesh%mycoords(2).EQ.Mesh%dims(2)-1) THEN
 #endif
-      DO j = 1,Mesh%GNUM
+      DO j = 1,Mesh%GJNUM
         ! northern (shorn periodic) - residual and integer shift
         joff2 = -Mesh%Q*Mesh%OMEGA*(Mesh%YMAX-Mesh%YMIN)*delt/Mesh%dx
         jrem2 = joff2 - FLOOR(joff2)

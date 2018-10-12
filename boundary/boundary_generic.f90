@@ -165,6 +165,10 @@ CONTAINS
     IF (western.EQ.SHEARING.AND.eastern.EQ.SHEARING) THEN
       Mesh%WE_shear = .TRUE.
       Mesh%SN_shear = .FALSE.
+#ifdef PARALLEL
+      CALL this%Error("InitBoundary", &
+        "Parallel mode is not allowed with shearing in West-East direction.")
+#endif
     ELSE IF (southern.EQ.SHEARING.AND.northern.EQ.SHEARING) THEN
       Mesh%WE_shear = .FALSE.
       Mesh%SN_shear = .TRUE.
@@ -345,6 +349,9 @@ CONTAINS
 #ifdef PARALLEL
     INTEGER                               :: req(4)
     INTEGER                               :: ierr
+!    REAL    :: mpi_buf2(Mesh%IGMIN:Mesh%IGMAX,1:Mesh%GJNUM,Mesh%KGMIN:Mesh%KGMAX,1:Physics%VNUM)
+!    REAL    :: mpi_buf2(Mesh%IMIN:Mesh%IMAX,Mesh%GJNUM,Mesh%KMIN:Mesh%KMAX) !TODO: ONLY 2D
+!    INTEGER :: status2(MPI_STATUS_SIZE)
 #ifdef MPI_USE_SENDRECV
     INTEGER                               :: status(MPI_STATUS_SIZE)
 #else
@@ -354,6 +361,55 @@ CONTAINS
     !------------------------------------------------------------------------!
     CALL Physics%Convert2Primitive(Mesh,Mesh%IMIN,Mesh%IMAX,Mesh%JMIN, &
              Mesh%JMAX,Mesh%KMIN,Mesh%KMAX,cvar,pvar)
+
+    ! set physical boundary conditions at western and eastern boundaries
+    IF (Mesh%INUM.GT.1) THEN
+      CALL this%Boundary(WEST)%p%SetBoundaryData(Mesh,Physics,time,pvar)
+      CALL this%Boundary(EAST)%p%SetBoundaryData(Mesh,Physics,time,pvar)
+    END IF
+
+!    IF (Mesh%SN_shear) THEN
+!      IF(Mesh%dims(2).GT.1) THEN
+!        mpi_buf2(Mesh%IGMIN:Mesh%IGMAX,1:Mesh%GJNUM,Mesh%KGMIN:Mesh%KGMAX,1:Physics%VNUM) = &
+!          pvar(Mesh%IGMIN:Mesh%IGMAX,Mesh%JMAX-Mesh%GJNUM+1:Mesh%JMAX,Mesh%KGMIN:Mesh%KGMAX,1:Physics%VNUM)
+!        CALL MPI_Sendrecv_replace(&
+!          mpi_buf2,&
+!          2*(Mesh%IGMAX-Mesh%IGMIN+1)*Physics%VNUM, &
+!          DEFAULT_MPI_REAL, &
+!          Mesh%neighbor(NORTH), 53+NORTH, &
+!          Mesh%neighbor(SOUTH), MPI_ANY_TAG, &
+!          Mesh%comm_cart, status2, ierr)
+!        pvar(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JMIN-1,Mesh%KGMIN:Mesh%KGMAX,1:Physics%VNUM) = &
+!          mpi_buf2(Mesh%IGMIN:Mesh%IGMAX,1:Mesh%GJNUM,Mesh%KGMIN:Mesh%KGMAX,1:Physics%VNUM)
+!        mpi_buf2(Mesh%IGMIN:Mesh%IGMAX,1:Mesh%GJNUM,Mesh%KGMIN:Mesh%KGMAX,1:Physics%VNUM) = &
+!          pvar(Mesh%IGMIN:Mesh%IGMAX,Mesh%JMIN:Mesh%JMIN+Mesh%GJNUM-1,Mesh%KGMIN:Mesh%KGMAX,1:Physics%VNUM)
+!        CALL MPI_Sendrecv_replace(&
+!          mpi_buf2,&
+!          2*(Mesh%IGMAX-Mesh%IGMIN+1)*Physics%VNUM, &
+!          DEFAULT_MPI_REAL, &
+!          Mesh%neighbor(SOUTH), 53+SOUTH, &
+!          Mesh%neighbor(NORTH), MPI_ANY_TAG, &
+!          Mesh%comm_cart, status2, ierr)
+!        pvar(Mesh%IGMIN:Mesh%IGMAX,Mesh%JMAX+1:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,1:Physics%VNUM) = &
+!          mpi_buf2(Mesh%IGMIN:Mesh%IGMAX,1:Mesh%GJNUM,Mesh%KGMIN:Mesh%KGMAX,1:Physics%VNUM)
+!      ELSE
+!        DO j = 1,Mesh%GJNUM
+!          ! southern northern (periodic in first step - further shift-treatment below)
+!          pvar(Mesh%IGMIN:Mesh%IGMAX,Mesh%JMIN-j,Mesh%KGMIN:Mesh%KGMAX,1:Physics%VNUM) = &
+!            pvar(Mesh%IGMIN:Mesh%IGMAX,Mesh%JMAX-j+1,Mesh%KGMIN:Mesh%KGMAX,1:Physics%VNUM)
+!          pvar(Mesh%IGMIN:Mesh%IGMAX,Mesh%JMAX+j,Mesh%KGMIN:Mesh%KGMAX,1:Physics%VNUM) = &
+!            pvar(Mesh%IGMIN:Mesh%IGMAX,Mesh%JMIN+j-1,Mesh%KGMIN:Mesh%KGMAX,1:Physics%VNUM)
+!        END DO
+!      END IF
+!    END IF
+
+
+    ! set physical boundary conditions at top and bottom boundaries
+    IF (Mesh%KNUM.GT.1) THEN
+      CALL this%Boundary(BOTTOM)%p%SetBoundaryData(Mesh,Physics,time,pvar)
+      CALL this%Boundary(TOP)%p%SetBoundaryData(Mesh,Physics,time,pvar)
+    END IF
+
 
 !> \todo not verified
 #ifdef PARALLEL
@@ -521,6 +577,12 @@ CONTAINS
 #endif
 #endif
 
+    ! set physical boundary conditions at southern and northern boundaries
+    IF (Mesh%JNUM.GT.1) THEN
+      CALL this%Boundary(SOUTH)%p%SetBoundaryData(Mesh,Physics,time,pvar)
+      CALL this%Boundary(NORTH)%p%SetBoundaryData(Mesh,Physics,time,pvar)
+    END IF
+
 #ifdef PARALLEL
    ! initiate bottomer/topper MPI communication
 #ifdef MPI_USE_SENDRECV
@@ -600,25 +662,6 @@ CONTAINS
     END IF
 #endif
 #endif
-
-    ! set physical boundary conditions at western and eastern boundaries
-    IF (Mesh%INUM.GT.1) THEN
-      CALL this%Boundary(WEST)%p%SetBoundaryData(Mesh,Physics,time,pvar)
-      CALL this%Boundary(EAST)%p%SetBoundaryData(Mesh,Physics,time,pvar)
-    END IF
-
-    ! set physical boundary conditions at southern and northern boundaries
-    IF (Mesh%JNUM.GT.1) THEN
-      CALL this%Boundary(SOUTH)%p%SetBoundaryData(Mesh,Physics,time,pvar)
-      CALL this%Boundary(NORTH)%p%SetBoundaryData(Mesh,Physics,time,pvar)
-    END IF
-
-    ! set physical boundary conditions at top and bottom boundaries
-    IF (Mesh%KNUM.GT.1) THEN
-      CALL this%Boundary(BOTTOM)%p%SetBoundaryData(Mesh,Physics,time,pvar)
-      CALL this%Boundary(TOP)%p%SetBoundaryData(Mesh,Physics,time,pvar)
-    END IF
-
 
     ! \todo This module should be not necessary anymore, since the
     !       remaining region vanishes.
