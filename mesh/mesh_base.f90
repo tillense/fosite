@@ -135,7 +135,7 @@ MODULE mesh_base_mod
     REAL              :: invdx,invdy,invdz !< inverse of curvilinear spatial differences
     REAL              :: omega             !< speed of the rotating frame of ref.
     REAL              :: Q                 !< shearing parameter
-    INTEGER           :: fargo             !< Fargo parameter (> 0 enabled)
+    INTEGER           :: FARGO             !< Fargo parameter (> 0 enabled)
     LOGICAL           :: WE_shear          !< shear in y-direction
     LOGICAL           :: SN_shear          !< shear in x-direction
     REAL              :: rotcent(2)        !< center of the rotating frame of ref.
@@ -589,6 +589,11 @@ CONTAINS
 
     ! shearing force in shearingsheet
     CALL GetAttr(config, "Q", this%Q, 1.5)
+
+    ! enable fargo timestepping for polar geometries
+    ! 1 = calculated mean background velocity w
+    ! 2 = fixed user set background velocity w
+    CALL GetAttr(config, "fargo", this%fargo, 0)
 
     ! center of rotation
     this%rotcent = (/ 0., 0./)

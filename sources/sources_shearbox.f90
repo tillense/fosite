@@ -61,7 +61,10 @@ MODULE sources_shearbox_mod
   !--------------------------------------------------------------------------!
 
   TYPE, EXTENDS(sources_c_accel) :: sources_shearbox
- CONTAINS
+    REAL :: SIGN1, SIGN2
+    INTEGER :: VEL1, VEL2
+    INTEGER :: I1,I2
+  CONTAINS
     PROCEDURE :: InitSources_shearbox
     PROCEDURE :: InfoSources
     PROCEDURE :: ExternalSources_single
@@ -113,6 +116,22 @@ CONTAINS
                   Mesh%KGMIN:Mesh%KGMAX,Physics%DIM), &
        STAT = err)
 
+    IF(Mesh%WE_shear) THEN
+      this%Vel1=Physics%YVELOCITY
+      this%Vel2=Physics%XVELOCITY
+      this%SIGN1 = 1.0
+      this%SIGN2 = -1.0
+      this%I1 = 1
+      this%I2 = 2
+    ELSE IF(Mesh%SN_shear) THEN
+      this%Vel1=Physics%XVELOCITY
+      this%Vel2=Physics%YVELOCITY
+      this%SIGN1 = -1.0
+      this%SIGN2 = 1.0
+      this%I1 = 2
+      this%I2 = 1
+    END IF
+
     IF (err.NE.0) CALL this%Error("InitSources_shearbox", "Unable allocate memory!")
 
     ! reset acceleration term
@@ -161,9 +180,8 @@ CONTAINS
       sterm(:,:,:,:) = 0.0
 !NEC$ IVDEP
       FORALL(i=Mesh%IMIN:Mesh%IMAX,j=Mesh%JMIN:Mesh%JMAX,k=Mesh%KMIN:Mesh%KMAX)
-            this%accel(i,j,k,1) = Mesh%OMEGA*2.0*(Mesh%Q*Mesh%OMEGA* &
-              Mesh%bcenter(i,j,k,1) + pvar(i,j,k,Physics%YVELOCITY))
-            this%accel(i,j,k,2) = -Mesh%OMEGA*2.0*pvar(i,j,k,Physics%XVELOCITY)
+        this%accel(i,j,k,this%I1) = Mesh%OMEGA*2.0*(Mesh%Q*Mesh%OMEGA*Mesh%bcenter(i,j,k,this%I1) + this%SIGN1*pvar(i,j,k,this%VEL1))
+        this%accel(i,j,k,this%I2) = this%SIGN2*Mesh%OMEGA*2.0*pvar(i,j,k,this%VEL2)
       END FORALL
       ! shearingsheet inertial forces source terms
       CALL Physics%ExternalSources(Mesh,this%accel,pvar,cvar,sterm)
@@ -171,10 +189,8 @@ CONTAINS
       sterm(:,:,:,Physics%DENSITY) = 0.0
 !NEC$ IVDEP
       FORALL(i=Mesh%IMIN:Mesh%IMAX,j=Mesh%JMIN:Mesh%JMAX,k=Mesh%KMIN:Mesh%KMAX)
-            sterm(i,j,k,Physics%XMOMENTUM) = &
-                pvar(i,j,k,Physics%DENSITY)*Mesh%OMEGA*2.0*pvar(i,j,k,Physics%YVELOCITY)
-            sterm(i,j,k,Physics%YMOMENTUM) = &
-                pvar(i,j,k,Physics%DENSITY)*Mesh%OMEGA*(Mesh%Q-2.0)*pvar(i,j,k,Physics%XVELOCITY)
+        sterm(i,j,k,Physics%XMOMENTUM) = pvar(i,j,k,Physics%DENSITY)*Mesh%OMEGA*2.0*pvar(i,j,k,Physics%YVELOCITY)
+        sterm(i,j,k,Physics%YMOMENTUM) = pvar(i,j,k,Physics%DENSITY)*Mesh%OMEGA*(Mesh%Q-2.0)*pvar(i,j,k,Physics%XVELOCITY)
       END FORALL
       IF (Physics%PRESSURE .GT. 0) THEN
         FORALL(i=Mesh%IMIN:Mesh%IMAX,j=Mesh%JMIN:Mesh%JMAX,k=Mesh%KMIN:Mesh%KMAX)

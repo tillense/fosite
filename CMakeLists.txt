@@ -30,6 +30,10 @@ set (CMAKE_INSTALL_PREFIX ${default_prefix} CACHE STRING
       "Choose the installation directory; by default it installs in the build directory."
       FORCE)
 
+#------------------------ comand line options -------------------------#
+option(PARALLEL "PARALLEL" OFF)
+MESSAGE(STATUS "Running in parallel: " ${PARALLEL})
+
 #-------------------- choose compiler & set flags ---------------------#
 # FFLAGS depend on the compiler
 get_filename_component (Fortran_COMPILER_NAME ${CMAKE_Fortran_COMPILER} NAME)
@@ -50,7 +54,7 @@ elseif (Fortran_COMPILER_NAME MATCHES "(.*)mpifort")
   set (CMAKE_Fortran_FLAGS "${FCFLAGS} -fdefault-real-8 -cpp -ffree-line-length-none -std=f2003 -DVERSION='\"v2\"' -DPARALLEL -DHAVE_MPI_MOD")
   set (CMAKE_Fortran_FLAGS_RELEASE "-funroll-all-loops -fno-f2c -O3")
   set (CMAKE_Fortran_FLAGS_DEBUG   "-fno-f2c -O2 -g -fcheck=all -Wunused")
- if(CMAKE_Fortran_COMPILER_VERSION VERSION_LESS 4.9)
+  if(CMAKE_Fortran_COMPILER_VERSION VERSION_LESS 4.9)
     message(FATAL_ERROR "Insufficient gfortran version")
   endif()
 elseif (Fortran_COMPILER_NAME MATCHES "(.*)ifort")
@@ -86,23 +90,42 @@ MARK_AS_ADVANCED(CMAKE_Fortran_FLAGS_PROFILING
 #----------------------- search FFTW -----------------------------------------#
 set(CMAKE_FIND_ROOT_PATH ${FFTWDIR})
 # search for library
+
 find_library(
   FFTW_LIB
 	NAMES fftw3
 	DOC "Fastest Fourier Transform of the West."
 )
+if(PARALLEL)
+  find_library(
+    FFTWMPI_LIB
+	  NAMES fftw3_mpi
+    DOC "Distributed parallel implementation of FFTW."
+  )
+endif()
+
 # search for headers
+if(PARALLEL)
+  set (fftw_incfile fftw3.f03)
+else()
+  set (fftw_incfile fftw3-mpi.f03)
+endif()
+
 find_path(
   FFTW_INCLUDE
-  NAMES fftw3.f03
+  NAMES ${fftw_incfile}
 )
+
 if(NOT FFTW_LIB)
   message(WARNING "No FFTW Library found.")
 else()
   if(NOT FFTW_INCLUDE)
     message(WARNING "No FFTW header file found.")
   endif()
-  message(STATUS "Found FFTW library: ${FFTW_LIB}")
+  message(STATUS "FFTW library: ${FFTW_LIB}")
+  if(PARALLEL)
+    message(STATUS "FFTW MPI library: ${FFTWMPI_LIB}")
+  endif()
   message(STATUS "FFTW headers: ${FFTW_INCLUDE}")
   add_definitions(-DHAVE_FFTW)
 endif()
@@ -127,7 +150,10 @@ endforeach (p)
 add_library(fosite fosite.f90)
 target_link_libraries(fosite ${LIBDIRS})
 if(FFTW_LIB)
-  target_link_libraries(fosite fftw3)
+  target_link_libraries(fosite ${FFTW_LIB})
+  if(PARALLEL)
+    target_link_libraries(fosite ${FFTWMPI_LIB} m)
+  endif()
 endif()
 
 #foreach (p ${EXAMPLES})

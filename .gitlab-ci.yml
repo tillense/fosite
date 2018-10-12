@@ -26,7 +26,7 @@ parallel_build:
     script:
         - mkdir par_build
         - cd par_build
-        - FC=mpifort cmake -DFFTWDIR=$FFTW ..
+        - FC=mpifort cmake -DPARALLEL=ON -DFFTWDIR=$FFTW ..
         - make -j
     artifacts:
         paths:

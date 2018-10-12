@@ -37,7 +37,6 @@
 !! \key{tol_rel,REAL,relative tolerance for adaptive step size control,0.01}
 !! \key{tol_abs,REAL\, DIMENSION(Physics%VNUM), absolute tolerance for adaptive
 !!   step size control, (/0.001\,0.001\,../)}
-!! \key{fargo,INTEGER,enable(=1) fargo timestepping for polar geometries,0}
 !! \key{beta,REAL,time step friction parameter for PI-Controller,0.08}
 !! \key{always_update_bccsound,INTEGER,enable (=1) update of bccsound at each
 !!      substep (0 disables),1}
@@ -99,7 +98,6 @@ PRIVATE
      INTEGER          :: n_adj                         !< num. of adjustments
      INTEGER          :: m                             !< cal steps in emb. RK
      INTEGER          :: degree                        !< polynom degree index in dumka
-     INTEGER          :: fargo                         !< = 1 fargo enabled
      INTEGER          :: rhstype                       !< rhs type ID
      INTEGER          :: checkdatabm                   !< Check Data Bitmask
      REAL             :: pmin,rhomin,tmin              !< minimum allowed pressure,
@@ -351,10 +349,6 @@ CONTAINS
     ! rhs type. 0 = default, 1 = conserve angular momentum
     CALL GetAttr(config, "rhstype", this%rhstype, 0)
 
-    ! enable fargo timestepping for polar geometries
-    ! 1 = calculated mean background velocity w
-    ! 2 = fixed user set background velocity w
-    CALL GetAttr(config, "fargo", this%fargo, 0)
 
     ! time step friction parameter for PI-Controller
     CALL GetAttr(config, "beta", this%beta, 0.08)
@@ -489,7 +483,7 @@ CONTAINS
     CALL this%Info("            dtmax:             " //TRIM(dtmax_str))
     CALL this%Info("            stoptime:          " //TRIM(stoptime_str))
     CALL this%Info("            beta:              " //TRIM(beta_str))
-    IF(this%fargo.NE.0) &
+    IF(Mesh%FARGO.NE.0) &
       CALL this%Info("            fargo:             " // "enabled")
     ! adaptive step size control
     IF (this%tol_rel.LT.1.0) THEN
@@ -663,7 +657,7 @@ CONTAINS
       ! Break if dt.LT.this%dtlimit or CheckData failed
       IF(this%break) THEN
         ! Do not attempt to fargo shift anymore
-        this%fargo = 0
+!        Mesh%fargo = 0
         EXIT timestep
       END IF
     END DO timestep
@@ -1330,10 +1324,10 @@ CONTAINS
 !      print *, 'RHS wird deallokiert'
 !      DEALLOCATE(this%rhs)
 !    END IF
-#ifdef PARALLEL
-    IF(this%fargo.NE.0) &
-      DEALLOCATE(this%buf)
-#endif
+!#ifdef PARALLEL
+!    IF(Mesh%fargo.NE.0) &
+!      DEALLOCATE(this%buf)
+!#endif
     IF(ASSOCIATED(this%bflux))    &
       DEALLOCATE(this%bflux)
     IF(ASSOCIATED(this%errorval)) &

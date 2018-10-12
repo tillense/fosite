@@ -472,7 +472,7 @@ MODULE gravity_sboxspectral_mod
 ! TODO POTENTIAL ERROR BECAUSE OF RESHAPE FUNCTIONS
 #if defined(HAVE_FFTW) && defined(PARALLEL)
     this%mass2D(1:Mesh%INUM,1:this%local_JNUM) = &
-      RESHAPE(this%den_ip(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX)
+      RESHAPE(this%den_ip(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX), (/ Mesh%INUM,Mesh%JNUM/nprocs /))
 #else
     this%mass2D(1:Mesh%INUM,1:Mesh%JNUM/nprocs) = &
       RESHAPE(this%den_ip(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX), (/ Mesh%INUM,Mesh%JNUM/nprocs /))
@@ -606,7 +606,8 @@ CALL ftrace_region_end("backward_fft")
     ELSE IF(Mesh%SN_shear) THEN
 #ifdef PARALLEL
       IF(Mesh%dims(2).GT.1) THEN
-        mpi_buf(Mesh%IMIN:Mesh%IMAX,1:Mesh%GNUM) = this%phi(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX-Mesh%GNUM+1:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX)
+        mpi_buf(Mesh%IMIN:Mesh%IMAX,1:Mesh%GNUM) = &
+        RESHAPE(this%phi(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX-Mesh%GNUM+1:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX),(/ Mesh%IMAX-Mesh%IMIN+1,Mesh%GNUM /))
         CALL MPI_Sendrecv_replace(&
           mpi_buf,&
           2*(Mesh%IMAX-Mesh%IMIN+1), &
@@ -614,9 +615,11 @@ CALL ftrace_region_end("backward_fft")
           Mesh%neighbor(NORTH), 53+NORTH, &
           Mesh%neighbor(SOUTH), MPI_ANY_TAG, &
           Mesh%comm_cart, status, ierror)
-        this%phi(Mesh%IMIN:Mesh%IMAX,Mesh%JGMIN:Mesh%JMIN-1,Mesh%KMIN:Mesh%KMAX) = mpi_buf(Mesh%IMIN:Mesh%IMAX,1:Mesh%GNUM)
+        this%phi(Mesh%IMIN:Mesh%IMAX,Mesh%JGMIN:Mesh%JMIN-1,Mesh%KMIN:Mesh%KMAX) = &
+          RESHAPE(mpi_buf(Mesh%IMIN:Mesh%IMAX,1:Mesh%GNUM), (/ Mesh%IMAX-Mesh%IMAX+1, Mesh%GJNUM, Mesh%KMAX-Mesh%KMIN+1 /))
 
-        mpi_buf(Mesh%IMIN:Mesh%IMAX,1:Mesh%GNUM) = this%phi(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMIN+Mesh%GNUM-1,Mesh%KMIN:Mesh:KMAX)
+        mpi_buf(Mesh%IMIN:Mesh%IMAX,1:Mesh%GNUM) = &
+        RESHAPE(this%phi(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN+Mesh%GNUM-1:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX),(/ Mesh%IMAX-Mesh%IMIN+1,Mesh%GNUM /))
         CALL MPI_Sendrecv_replace(&
           mpi_buf,&
           2*(Mesh%IMAX-Mesh%IMIN+1), &
@@ -624,7 +627,8 @@ CALL ftrace_region_end("backward_fft")
           Mesh%neighbor(SOUTH), 53+SOUTH, &
           Mesh%neighbor(NORTH), MPI_ANY_TAG, &
           Mesh%comm_cart, status, ierror)
-        this%phi(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX+1:Mesh%JGMAX,Mesh%KMIN:Mesh%KMAX) = mpi_buf(Mesh%IMIN:Mesh%IMAX,1:Mesh%GNUM)
+        this%phi(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX+1:Mesh%JGMAX,Mesh%KMIN:Mesh%KMAX) = &
+          RESHAPE(mpi_buf(Mesh%IMIN:Mesh%IMAX,1:Mesh%GNUM), (/ Mesh%IMAX-Mesh%IMAX+1, Mesh%GJNUM, Mesh%KMAX-Mesh%KMIN+1 /))
       ELSE
         DO j = 1,Mesh%GNUM
           ! southern northern (periodic in first step - further shift-treatment below)
@@ -732,8 +736,8 @@ CALL ftrace_region_begin("forward FFT")
     DO k = Mesh%KMIN,Mesh%KMAX
       DO j = Mesh%JMIN,Mesh%JMAX
         DO i = Mesh%IMIN,Mesh%IMAX/2+1
-          this%Fmass2D_real(2*i-1,j,k) = REAL(REAL(this%Fmass2D(i,j-this%local_joff,k)))
-          this%Fmass2D_real(2*i,j,k)   = REAL(AIMAG(this%Fmass2D(i,j-this%local_joff,k)))
+          this%Fmass2D_real(2*i-1,j,k) = REAL(REAL(this%Fmass2D(i,j-this%local_joff)))
+          this%Fmass2D_real(2*i,j,k)   = REAL(AIMAG(this%Fmass2D(i,j-this%local_joff)))
         END DO
       END DO
     END DO

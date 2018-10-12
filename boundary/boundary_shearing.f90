@@ -4,7 +4,7 @@
   !# module: boundary_shearing.f03                                             #
   !#                                                                           #
   !# Copyright (C) 2006-2018                                                   #
-  !# Jannes Klee <jklee@astrophysik.uni-kiel.de                                #
+  !# Jannes Klee      <jklee@astrophysik.uni-kiel.de>                          #
   !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
   !#                                                                           #
   !# This program is free software; you can redistribute it and/or modify      #
@@ -109,8 +109,8 @@ CONTAINS
        CALL this%Error("InitBoundary_shearing", "Unable to allocate memory.")
     END IF
 
-    DO l=1,Physics%VNUM
-      ! this part for WEST-EAST shear (normal mode)
+    DO l=1,Physics%VNUM + Physics%PNUM
+      ! this part for WEST-EAST shear
       IF (Mesh%WE_shear) THEN
         IF (l.EQ.Physics%YVELOCITY) THEN
           IF (Mesh%FARGO.EQ.0) THEN
@@ -198,15 +198,14 @@ CONTAINS
     REAL               :: pvar_old,pvar_old2
 #ifdef PARALLEL
     INTEGER            :: status(MPI_STATUS_SIZE)
-    INTEGER            :: ierror
+    INTEGER            :: ierror,req(4)
     CHARACTER(LEN=80)  :: str
     REAL               :: mpi_buf(2*Mesh%GNUM)
 #endif
     !------------------------------------------------------------------------!
-
     ! the routine below expect that periodic boundaries are already applied
 #ifndef PARALLEL
-    call this%boundary_periodic%SetBoundaryData(Mesh,Physics,time,pvar)
+    CALL this%boundary_periodic%SetBoundaryData(Mesh,Physics,time,pvar)
 #endif
 
     ! make sure all MPI processes use the same step if domain is decomposed

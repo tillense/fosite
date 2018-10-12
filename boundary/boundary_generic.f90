@@ -354,27 +354,8 @@ CONTAINS
     !------------------------------------------------------------------------!
     CALL Physics%Convert2Primitive(Mesh,Mesh%IMIN,Mesh%IMAX,Mesh%JMIN, &
              Mesh%JMAX,Mesh%KMIN,Mesh%KMAX,cvar,pvar)
-    ! set physical boundary conditions at western and eastern boundaries
-    IF (Mesh%INUM.GT.1) THEN
-      CALL this%Boundary(WEST)%p%SetBoundaryData(Mesh,Physics,time,pvar)
-      CALL this%Boundary(EAST)%p%SetBoundaryData(Mesh,Physics,time,pvar)
-    END IF
-
-    ! set physical boundary conditions at southern and northern boundaries
-    IF (Mesh%JNUM.GT.1) THEN
-      CALL this%Boundary(SOUTH)%p%SetBoundaryData(Mesh,Physics,time,pvar)
-      CALL this%Boundary(NORTH)%p%SetBoundaryData(Mesh,Physics,time,pvar)
-    END IF
-
-    ! set physical boundary conditions at top and bottom boundaries
-    IF (Mesh%KNUM.GT.1) THEN
-      CALL this%Boundary(BOTTOM)%p%SetBoundaryData(Mesh,Physics,time,pvar)
-      CALL this%Boundary(TOP)%p%SetBoundaryData(Mesh,Physics,time,pvar)
-    END IF
-
 
 !> \todo not verified
-!!       CHECK FOR AMOUNTS OF DATA TO SEND. SEEMS TO BE WRONG? ONLY ONE DIMESION AT THE MOMENT
 #ifdef PARALLEL
     ! NOTE: if you want to use MPI_Sendrecv instead of nonblocking
     ! MPI_Irecv and  MPI_Issend for exchange of ghost cell data,
@@ -619,6 +600,24 @@ CONTAINS
     END IF
 #endif
 #endif
+
+    ! set physical boundary conditions at western and eastern boundaries
+    IF (Mesh%INUM.GT.1) THEN
+      CALL this%Boundary(WEST)%p%SetBoundaryData(Mesh,Physics,time,pvar)
+      CALL this%Boundary(EAST)%p%SetBoundaryData(Mesh,Physics,time,pvar)
+    END IF
+
+    ! set physical boundary conditions at southern and northern boundaries
+    IF (Mesh%JNUM.GT.1) THEN
+      CALL this%Boundary(SOUTH)%p%SetBoundaryData(Mesh,Physics,time,pvar)
+      CALL this%Boundary(NORTH)%p%SetBoundaryData(Mesh,Physics,time,pvar)
+    END IF
+
+    ! set physical boundary conditions at top and bottom boundaries
+    IF (Mesh%KNUM.GT.1) THEN
+      CALL this%Boundary(BOTTOM)%p%SetBoundaryData(Mesh,Physics,time,pvar)
+      CALL this%Boundary(TOP)%p%SetBoundaryData(Mesh,Physics,time,pvar)
+    END IF
 
 
     ! \todo This module should be not necessary anymore, since the
