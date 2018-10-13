@@ -56,7 +56,7 @@ MODULE sources_gravity_mod
   TYPE, EXTENDS(sources_c_accel) :: sources_gravity
     CLASS(gravity_base),    POINTER :: glist => null() !< list of gravity terms
     REAL, DIMENSION(:,:,:), POINTER :: invheight2   !< 1/h**2
-    REAL, DIMENSION(:,:,:), POINTER :: height,h_ext !< disk scale height
+    REAL, DIMENSION(:,:,:), POINTER :: h_ext !< disk scale height
   CONTAINS
     PROCEDURE :: InitSources_gravity
     PROCEDURE :: InfoSources

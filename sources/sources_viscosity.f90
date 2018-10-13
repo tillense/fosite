@@ -69,7 +69,6 @@ MODULE sources_viscosity_mod
   TYPE, EXTENDS(sources_base) :: sources_viscosity
     CHARACTER(LEN=32) :: source_name = "viscosity of Newtonian fluid"
     CLASS(logging_base), ALLOCATABLE :: viscosity
-    REAL :: cvis                                    !< viscous Courant no.
     REAL :: dynconst,bulkconst                      !< viscosity const.
     REAL, DIMENSION(:,:,:), POINTER  :: dynvis, &   !< dynamic viscosity
                                         kinvis, &   !< kinematic viscosity

@@ -35,6 +35,7 @@
 MODULE sources_generic_mod
   USE sources_base_mod
   USE sources_c_accel_mod
+  USE sources_diskcooling_mod
   USE sources_gravity_mod
   USE sources_shearbox_mod
   USE sources_viscosity_mod
@@ -78,6 +79,8 @@ CONTAINS
            gdir => dir
         CASE(C_ACCEL)
           ALLOCATE(sources_c_accel::newsrc)
+        CASE(DISK_COOLING)
+          ALLOCATE(sources_diskcooling::newsrc)
         CASE(SHEARBOX)
           ALLOCATE(sources_shearbox::newsrc)
         CASE(VISCOSITY)
@@ -90,6 +93,8 @@ CONTAINS
         SELECT TYPE(obj => newsrc)
         TYPE IS (sources_c_accel)
           CALL obj%InitSources_c_accel(Mesh,Physics,Fluxes,src,IOsrc)
+        TYPE IS (sources_diskcooling)
+          CALL obj%InitSources_diskcooling(Mesh,Physics,Fluxes,src,IOsrc)
         TYPE IS (sources_shearbox)
           CALL obj%InitSources_shearbox(Mesh,Physics,Fluxes,src,IOsrc)
         TYPE IS (sources_viscosity)

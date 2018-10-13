@@ -68,20 +68,15 @@ MODULE sources_base_mod
      REAL                            :: R_star       !< radius star
      REAL                            :: Qabs         !< dust absorption efficiency
      REAL                            :: T_sublim_min !< dust starts to sublimate
+     REAL                            :: cvis         !< viscous Courant no.
      !> dust density = 0.0 due to sublimation
      REAL                            :: T_sublim_max
      !> \name
      !!#### wave_damping
-
      !> inner and outer wave damping boundaries
      REAL, DIMENSION(2)              :: r
      !> time of a orbital period at the inner and outer boundaries
      REAL, DIMENSION(2)              :: tau
-     !> \name
-     !!#### diskcooling
-     REAL                            :: b_cool       !< cooling parameter (Gammie)
-     REAL, DIMENSION(:,:), POINTER   :: Qcool        !< energy sink due to cooling
-     REAL, DIMENSION(:,:,:), POINTER :: ephir        !< azimuthal unit vector / radius
      !> \name
      !!####
      INTEGER                         :: dust_type    !< select mc3d dust catalogue
@@ -89,7 +84,8 @@ MODULE sources_base_mod
      !! 2: secondary
      INTEGER                         :: star
      LOGICAL                         :: update_disk_height !< enable/disable computation of disk scale height
-     REAL, DIMENSION(:,:,:,:), POINTER :: accart !< acceleration
+     REAL, DIMENSION(:,:,:), POINTER   :: height         !< disk scale height
+     REAL, DIMENSION(:,:,:,:), POINTER :: accart       !< acceleration
      REAL, DIMENSION(:,:,:,:), POINTER :: bcposvec,bccart !< position vector
      REAL, DIMENSION(:,:,:), POINTER   :: radius       !< distance to origin
      REAL, DIMENSION(:,:,:), POINTER   :: invr         !< 1./radius
@@ -106,8 +102,8 @@ MODULE sources_base_mod
      REAL, DIMENSION(:,:), POINTER   :: P_s          !< surface pressure
      REAL, DIMENSION(:,:), POINTER   :: T_s          !< temperatur
      REAL                            :: tau_inf      !< optical depth
-     REAL                            :: T_0          !< equilibrium temp
-     REAL                            :: rho_0        !< minimum density
+!     REAL                            :: T_0          !< equilibrium temp (also used in diskcooling)
+!     REAL                            :: rho_0        !< minimum density
      REAL, DIMENSION(:,:), POINTER   :: T_init       !< initial temperatur
      REAL                            :: intensity
      REAL                            :: albedo
@@ -256,7 +252,7 @@ MODULE sources_base_mod
        ! types
        sources_base, &
        ! constants
-       VISCOSITY, C_ACCEL, SHEARBOX, GRAVITY
+       VISCOSITY, C_ACCEL, SHEARBOX, GRAVITY, DISK_COOLING
   !--------------------------------------------------------------------------!
 
 CONTAINS

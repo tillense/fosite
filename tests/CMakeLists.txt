@@ -22,6 +22,7 @@ set (EXES
   riemann2d-xz
   poiseuille
   sblintheo
+  shearingsheet
 #  riemann3d
 #  rngtest
   RTI
