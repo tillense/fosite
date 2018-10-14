@@ -727,7 +727,7 @@ CONTAINS
     !------------------------------------------------------------------------!
     CLASS(fileio_vtk),    INTENT(INOUT) :: this     !< \param [in,out] this fileio type
     CLASS(mesh_base),     INTENT(IN)    :: Mesh     !< \param [in] mesh mesh type
-    CLASS(physics_base),  INTENT(IN)    :: Physics  !< \param [in] physics physics type
+    CLASS(physics_base),  INTENT(INOUT) :: Physics  !< \param [in] physics physics type
     CLASS(fluxes_base),   INTENT(IN)    :: Fluxes   !< \param [in] fluxes fluxes type
     CLASS(timedisc_base), INTENT(IN)    :: Timedisc !< \param [in] timedisc timedisc type
     TYPE(Dict_TYP),       POINTER       :: Header   !< \param [in,out] IO I/O dictionary
@@ -750,12 +750,14 @@ CONTAINS
 !#endif
 !    END IF
 
-!    ! transform to true (non-selenoidal) velocities;
-!    ! usually this is only important if fargo advection has been enabled;
-!    ! nothing happens if the background velocity has not been subtracted before
-!    IF (ASSOCIATED(Timedisc%w)) THEN
-!      CALL Physics%AddBackgroundVelocity(Mesh,Timedisc%w,Timedisc%pvar,Timedisc%cvar)
-!    END IF
+    IF (ASSOCIATED(Timedisc%w)) THEN
+      IF (Mesh%FARGO.EQ.3.AND.Mesh%SN_shear) THEN
+        CALL Physics%AddBackgroundVelocityX(Mesh,Timedisc%w,Timedisc%pvar,Timedisc%cvar)
+      ELSE
+        CALL Physics%AddBackgroundVelocityY(Mesh,Timedisc%w,Timedisc%pvar,Timedisc%cvar)
+      END IF
+    END IF
+
 
     ! write the header if either this is the first data set we write or
     ! each data set is written into a new file

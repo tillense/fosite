@@ -42,12 +42,9 @@ MODULE timedisc_dormand_prince_mod
   USE mesh_base_mod
   USE fluxes_base_mod
   USE boundary_base_mod
-  USE physics_base_mod!, GeometricalSources_Physics => GeometricalSources, &
-!       ExternalSources_Physics => ExternalSources
+  USE physics_base_mod
   USE sources_base_mod
-  USE timedisc_rkfehlberg_mod!, SolveODE_dormand_prince => SolveODE_rkfehlberg, &
-!       CloseTimedisc_dormand_prince => CloseTimedisc_rkfehlberg, &
-!       CalcTimestep_dormand_prince => CalcTimestep_rkfehlberg
+  USE timedisc_rkfehlberg_mod
   USE common_dict
   IMPLICIT NONE
   !--------------------------------------------------------------------------!
@@ -62,13 +59,7 @@ MODULE timedisc_dormand_prince_mod
   !--------------------------------------------------------------------------!
   PUBLIC :: &
        ! types
-       Timedisc_dormand_prince!, &
-       ! methods 
-!       InitTimedisc_dormand_prince, &
-!       CloseTimedisc_dormand_prince, &
-!       SolveODE_dormand_prince, &
-!       CalcTimestep_dormand_prince, &
-
+       timedisc_dormand_prince
   !--------------------------------------------------------------------------!
 
 CONTAINS
@@ -76,26 +67,26 @@ CONTAINS
   SUBROUTINE InitTimedisc_dormand_prince(this,Mesh,Physics,config,IO)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(Timedisc_dormand_prince), INTENT(INOUT) :: this
-    CLASS(Mesh_base),               INTENT(IN)    :: Mesh
-    CLASS(Physics_base),            INTENT(IN)    :: Physics
+    CLASS(timedisc_dormand_prince), INTENT(INOUT) :: this
+    CLASS(mesh_base),               INTENT(INOUT) :: Mesh
+    CLASS(physics_base),            INTENT(IN)    :: Physics
     TYPE(Dict_TYP), POINTER &
                        :: config,IO
     !------------------------------------------------------------------------!
     INTEGER            :: err,method,ShowBut
     !------------------------------------------------------------------------!
-    ! set default order 
+    ! set default order
     CALL GetAttr(config, "order", this%order, 5)
 
     CALL GetAttr(config, "method", method)
     CALL this%InitTimedisc(Mesh,Physics,config,IO,method,ODEsolver_name)
-  
+
 !CDIR IEXPAND
-    SELECT CASE(this%GetOrder())    
+    SELECT CASE(this%GetOrder())
     CASE(5)
        !set number of coefficients
-       this%m = 7 
-       ! allocate memory 
+       this%m = 7
+       ! allocate memory
        ALLOCATE(this%coeff(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM,this%m), &
                 this%b_high(this%m),&
                 this%b_low(this%m),&
@@ -105,7 +96,7 @@ CONTAINS
        IF (err.NE.0) THEN
           CALL this%Error("timedisc_dormand_prince", "Unable to allocate memory.")
        END IF
-       !set coefficient scheme of dormand_prince 
+       !set coefficient scheme of dormand_prince
        this%b_high = (/ 35./384.,0.,500./1113.,125./192.,-2187./6784.,11./84.,0. /)
        this%b_low  = (/ 5179./57600., 0., 7571./16695., 393./640., &
                        -92097./339200., 187./2100., 1./40. /)

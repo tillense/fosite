@@ -685,6 +685,16 @@ CONTAINS
     INTENT(IN)    :: Mesh
     INTENT(INOUT) :: this
     !------------------------------------------------------------------------!
+
+    IF (ASSOCIATED(Timedisc%w)) THEN
+      IF (Mesh%FARGO.EQ.3.AND.Mesh%SN_shear) THEN
+        CALL Physics%AddBackgroundVelocityX(Mesh,Timedisc%w,Timedisc%pvar,Timedisc%cvar)
+      ELSE
+        CALL Physics%AddBackgroundVelocityY(Mesh,Timedisc%w,Timedisc%pvar,Timedisc%cvar)
+      END IF
+    END IF
+
+
 #ifdef PARALLEL
     ! be sure to write at the end by getting the offset from the file's size
     CALL MPI_File_get_size(this%handle,offset,this%error)

@@ -3,7 +3,7 @@
 !# fosite - 3D hydrodynamical simulation program                             #
 !# module: physics_euler3D.f90                                               #
 !#                                                                           #
-!# Copyright (C) 2007-2012                                                   #
+!# Copyright (C) 2007-2018                                                   #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
 !# Björn Sperling   <sperling@astrophysik.uni-kiel.de>                       #
 !# Jannes Klee      <jklee@astrophysik.uni-kiel.de>                          #
@@ -73,8 +73,11 @@ MODULE physics_euler3D_mod
     PROCEDURE :: CalcFluxesY
     PROCEDURE :: CalcFluxesZ
     !------fargo routines----------!
-    PROCEDURE :: AddBackgroundVelocity
-    PROCEDURE :: SubtractBackgroundVelocity
+    PROCEDURE :: AddBackgroundVelocityX
+    PROCEDURE :: SubtractBackgroundVelocityX
+    PROCEDURE :: AddBackgroundVelocityY
+    PROCEDURE :: SubtractBackgroundVelocityY
+    PROCEDURE :: FargoSources
     !------HLLC routines-----------!
     PROCEDURE :: CalcIntermediateStateX
     PROCEDURE :: CalcIntermediateStateY
@@ -413,6 +416,210 @@ CONTAINS
          zfluxes(:,:,:,nmin:nmax,this%XMOMENTUM),zfluxes(:,:,:,nmin:nmax,this%YMOMENTUM), &
          zfluxes(:,:,:,nmin:nmax,this%ENERGY))
   END SUBROUTINE CalcFluxesZ
+
+
+  !> Adds a background velocity field for fargo routines
+  !!
+  !! Calculates
+  !! \f{eqnarray*}{
+  !!    E   &=& E' + m_y' w + \frac{1}{2}\varrho w^2 \\
+  !!    v_y &=& v_y' +  w \\
+  !!    m_y &=& m_y' +  \varrho w,
+  !! \f}
+  !! with \f$ E, v_y, m_y \f$ the total energy, velocity and momentum. The
+  !! \f$ ' \f$ denotes the residual part. \f$ w \f$ is the velocity shift.
+  PURE SUBROUTINE AddBackgroundVelocityY(this,Mesh,w,pvar,cvar)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(physics_euler3D), INTENT(INOUT) :: this
+    CLASS(mesh_base),       INTENT(IN)    :: Mesh
+    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%KGMIN:Mesh%KGMAX), &
+                            INTENT(IN)    :: w
+    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM+this%PNUM), &
+                            INTENT(INOUT) ::  pvar,cvar
+    !------------------------------------------------------------------------!
+    INTEGER                               :: i,j,k
+    !------------------------------------------------------------------------!
+    IF (this%transformed_yvelocity) THEN
+      DO k=Mesh%KGMIN,Mesh%KGMAX
+        DO j=Mesh%JGMIN,Mesh%JGMAX
+          DO i=Mesh%IGMIN,Mesh%IGMAX
+            ! ATTENTION: don't change the order; on the RHS of the first
+            !            assignment there must be the old momentum
+            cvar(i,j,k,this%ENERGY) = cvar(i,j,k,this%ENERGY) &
+                                  + w(i,k)*(cvar(i,j,k,this%YMOMENTUM) &
+                                  + 0.5*cvar(i,j,k,this%DENSITY)*w(i,k))
+            pvar(i,j,k,this%YVELOCITY) = pvar(i,j,k,this%YVELOCITY) + w(i,k)
+            cvar(i,j,k,this%YMOMENTUM) = cvar(i,j,k,this%YMOMENTUM) &
+                                     + cvar(i,j,k,this%DENSITY)*w(i,k)
+          END DO
+        END DO
+      END DO
+      this%transformed_yvelocity = .FALSE.
+    END IF
+  END SUBROUTINE AddBackgroundVelocityY
+
+  !> Adds a background velocity field for fargo routines
+  !!
+  !! Calculates
+  !! \f{eqnarray*}{
+  !!    E   &=& E' + m_x' w + \frac{1}{2}\varrho w^2 \\
+  !!    v_x &=& v_x' +  w \\
+  !!    m_x &=& m_x' +  \varrho w,
+  !! \f}
+  !! with \f$ E, v_y, m_y \f$ the total energy, velocity and momentum. The
+  !! \f$ ' \f$ denotes the residual part. \f$ w \f$ is the velocity shift.
+  PURE SUBROUTINE AddBackgroundVelocityX(this,Mesh,w,pvar,cvar)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(physics_euler3D), INTENT(INOUT) :: this
+    CLASS(mesh_base),       INTENT(IN)    :: Mesh
+    REAL, DIMENSION(Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
+                            INTENT(IN)    :: w
+    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM+this%PNUM), &
+                            INTENT(INOUT) ::  pvar,cvar
+    !------------------------------------------------------------------------!
+    INTEGER                               :: i,j,k
+    !------------------------------------------------------------------------!
+    IF (this%transformed_xvelocity) THEN
+      DO k=Mesh%KGMIN,Mesh%KGMAX
+        DO j=Mesh%JGMIN,Mesh%JGMAX
+          DO i=Mesh%IGMIN,Mesh%IGMAX
+             ! ATTENTION: don't change the order; on the RHS of the first
+             !            assignment there must be the old momentum
+             cvar(i,j,k,this%ENERGY) = cvar(i,j,k,this%ENERGY) &
+                                     + w(j,k)*(cvar(i,j,k,this%XMOMENTUM) &
+                                     + 0.5*cvar(i,j,k,this%DENSITY)*w(j,k))
+             pvar(i,j,k,this%XVELOCITY) = pvar(i,j,k,this%XVELOCITY) + w(j,k)
+             cvar(i,j,k,this%XMOMENTUM) = cvar(i,j,k,this%XMOMENTUM) &
+                                      + cvar(i,j,k,this%DENSITY)*w(j,k)
+          END DO
+        END DO
+      END DO
+      this%transformed_xvelocity = .FALSE.
+    END IF
+  END SUBROUTINE AddBackgroundVelocityX
+
+
+  !> Substracts a background velocity field for fargo routines
+  !!
+  !! Calculates
+  !! \f{eqnarray*}{
+  !!    E'   &=& E - m_y w + \frac{1}{2}\varrho w^2 \\
+  !!    v_y' &=& v_y -  w \\
+  !!    m_y' &=& m_y -  \varrho w,
+  !! \f}
+  !! with \f$ E, v_y, m_y \f$ the total energy, velocity and momentum. The
+  !! \f$ ' \f$ denotes the residual part. \f$ w \f$ is the velocity shift.
+  PURE SUBROUTINE SubtractBackgroundVelocityY(this,Mesh,w,pvar,cvar)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(physics_euler3D), INTENT(INOUT) :: this
+    CLASS(mesh_base),       INTENT(IN)    :: Mesh
+    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%KGMIN:Mesh%KGMAX), &
+                            INTENT(IN)    :: w
+    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM+this%PNUM), &
+                            INTENT(INOUT) :: pvar,cvar
+    !------------------------------------------------------------------------!
+    INTEGER                               :: i,j,k
+    !------------------------------------------------------------------------!
+    IF (.NOT.this%transformed_yvelocity) THEN
+      DO k=Mesh%KGMIN,Mesh%KGMAX
+        DO j=Mesh%JGMIN,Mesh%JGMAX
+          DO i=Mesh%IGMIN,Mesh%IGMAX
+            ! ATTENTION: don't change the order; on the RHS of the first
+            !            assignment there must be the old momentum
+            cvar(i,j,k,this%ENERGY) = cvar(i,j,k,this%ENERGY) &
+                                  - w(i,k)*(cvar(i,j,k,this%YMOMENTUM) &
+                                  - 0.5*cvar(i,j,k,this%DENSITY)*w(i,k))
+            pvar(i,j,k,this%YVELOCITY) = pvar(i,j,k,this%YVELOCITY) - w(i,k)
+            cvar(i,j,k,this%YMOMENTUM) = cvar(i,j,k,this%YMOMENTUM) &
+                                     - cvar(i,j,k,this%DENSITY)*w(i,k)
+          END DO
+        END DO
+      END DO
+      this%transformed_yvelocity = .TRUE.
+    END IF
+  END SUBROUTINE SubtractBackgroundVelocityY
+
+  !> Substracts a background velocity field for fargo routines
+  !!
+  !! Calculates
+  !! \f{eqnarray*}{
+  !!    E'   &=& E - m_x w + \frac{1}{2}\varrho w^2 \\
+  !!    v_x' &=& v_x -  w \\
+  !!    m_x' &=& m_x -  \varrho w,
+  !! \f}
+  !! with \f$ E, v_x, m_x \f$ the total energy, velocity and momentum. The
+  !! \f$ ' \f$ denotes the residual part. \f$ w \f$ is the velocity shift.
+  PURE SUBROUTINE SubtractBackgroundVelocityX(this,Mesh,w,pvar,cvar)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(physics_euler3D), INTENT(INOUT) :: this
+    CLASS(mesh_base),       INTENT(IN)    :: Mesh
+    REAL,DIMENSION(Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
+                            INTENT(IN)    :: w
+    REAL,DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM+this%PNUM), &
+                            INTENT(INOUT) :: pvar,cvar
+    !------------------------------------------------------------------------!
+    INTEGER :: i,j,k
+    !------------------------------------------------------------------------!
+    IF (.NOT.this%transformed_xvelocity) THEN
+      DO k=Mesh%KGMIN,Mesh%KGMAX
+        DO j=Mesh%JGMIN,Mesh%JGMAX
+          DO i=Mesh%IGMIN,Mesh%IGMAX
+            ! ATTENTION: don't change the order; on the RHS of the first
+            !            assignment there must be the old momentum
+            cvar(i,j,k,this%ENERGY) = cvar(i,j,k,this%ENERGY) &
+                                  - w(j,k)*(cvar(i,j,k,this%XMOMENTUM) &
+                                  - 0.5*cvar(i,j,k,this%DENSITY)*w(j,k))
+            pvar(i,j,k,this%XVELOCITY) = pvar(i,j,k,this%XVELOCITY) - w(j,k)
+            cvar(i,j,k,this%XMOMENTUM) = cvar(i,j,k,this%XMOMENTUM) &
+                                     - cvar(i,j,k,this%DENSITY)*w(j,k)
+          END DO
+        END DO
+      END DO
+      this%transformed_xvelocity = .TRUE.
+    END IF
+  END SUBROUTINE SubtractBackgroundVelocityX
+
+  !> \public sources terms for fargo advection
+  !!
+  !! If the background velocity \f$\vec{w}=w\,\hat{e}_\eta\f$ with
+  !! \f$w\f$ independent of \f$\eta\f$ and \f$t\f$ is subtracted from
+  !! the overall velocity of the flow, an additional source term occurs
+  !! in the \f$\eta\f$-momentum equation:
+  !! \f[
+  !!     S_\mathrm{Fargo} = -\varrho u_\xi \frac{1}{h_\xi} \partial_\xi \left(h_\xi w\right)
+  !!                      = -\varrho u_\xi w \,\partial_\xi \left(\ln{|h_\xi w|}\right)
+  !! \f]
+  PURE SUBROUTINE FargoSources(this,Mesh,w,pvar,cvar,sterm)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(physics_euler3D), INTENT(IN)    :: this
+    CLASS(mesh_base),         INTENT(IN)    :: Mesh
+    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%KGMIN:Mesh%KGMAX), &
+                              INTENT(IN)    :: w
+    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM+this%PNUM), &
+                              INTENT(IN)    :: pvar,cvar
+    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM+this%PNUM), &
+                              INTENT(INOUT) :: sterm
+    !------------------------------------------------------------------------!
+    INTEGER           :: i,j,k
+    !------------------------------------------------------------------------!
+    DO k=Mesh%KMIN,Mesh%KMAX
+      DO j=Mesh%JMIN,Mesh%JMAX
+        DO i=Mesh%IMIN,Mesh%IMAX
+!            sterm(i,j,this%XMOMENTUM) = cvar(i,j,this%YMOMENTUM) * w(i) &
+!                   * Mesh%cyxy%bcenter(i,j)
+           sterm(i,j,k,this%YMOMENTUM) = -cvar(i,j,k,this%XMOMENTUM) &
+                  * 0.5 * (w(i+1,k)-w(i-1,k)) / Mesh%dlx(i,j,k)
+        END DO
+      END DO
+    END DO
+  END SUBROUTINE FargoSources
+
+
 
   !> Reconstruction of the intermediate state for HLLC
   !\todo NOT VERIFIED

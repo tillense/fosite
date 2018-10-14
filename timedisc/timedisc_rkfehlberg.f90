@@ -103,7 +103,7 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(Timedisc_rkfehlberg), INTENT(INOUT) :: this
-    CLASS(Mesh_base),           INTENT(IN)    :: Mesh
+    CLASS(Mesh_base),           INTENT(INOUT) :: Mesh
     CLASS(Physics_base),        INTENT(IN)    :: Physics
     TYPE(Dict_TYP), POINTER                   :: config,IO
     !------------------------------------------------------------------------!

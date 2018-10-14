@@ -277,13 +277,15 @@ CONTAINS
             "-------------------------------------------------------------------")
     END IF
 
-    ! \todo{FARGO}
-!    SELECT CASE(this%Timedisc%Fargo)
-!    CASE(1)
-!      CALL FargoCalcVelocity(this%Timedisc,this%Mesh,this%Physics)
-!    CASE(2)
-!      CALL FargoSubstractVelocity(this%Timedisc,this%Mesh,this%Physics)
-!    END SELECT
+    ! determine the background velocity if fargo advection type 1 is enabled
+    IF (this%Mesh%FARGO.EQ.1) THEN
+       ! make sure there is valid data at least in the i-ghost cells
+       CALL this%Timedisc%Boundary%CenterBoundary(this%Mesh,this%Physics,&
+                             0.0,this%Timedisc%pvar,this%Timedisc%cvar)
+       CALL this%Timedisc%CalcBackgroundVelocity(this%Mesh,this%Physics, &
+                             this%Timedisc%pvar,this%Timedisc%cvar,this%Timedisc%w)
+    END IF
+
     ! do a complete update of all data
     CALL this%Timedisc%ComputeRHS(this%Mesh,this%Physics,this%Sources,this%Fluxes, &
          this%Timedisc%time,0.0,this%Timedisc%pvar,this%Timedisc%cvar, &
@@ -303,20 +305,12 @@ CONTAINS
     ! store old values
     this%Timedisc%cold(:,:,:,:) = this%Timedisc%cvar(:,:,:,:)
 
-    ! \todo{FARGO}
-!    IF(this%Timedisc%Fargo.NE.0) &
-!      CALL FargoAddVelocity(this%Timedisc,this%Mesh,this%Physics)
-
     ! store initial data
     IF (this%Timedisc%time.EQ.0.0) THEN
         CALL this%Datafile%WriteDataset(this%Mesh,this%Physics,this%Fluxes,&
                           this%Timedisc,this%config,this%IO)
         IF (this%GetRank().EQ.0) CALL this%PrintInfo(0,0,0.0,0.0,0,this%Timedisc%n_adj)
     END IF
-
-    ! \todo{FARGO}
-!    IF(this%Timedisc%Fargo.NE.0) &
-!      CALL FargoSubstractVelocity(this%Timedisc,this%Mesh,this%Physics)
 
     IF(this%Timedisc%break) &
       CALL this%Error("FirstStep","Initial data invalid!")
@@ -393,33 +387,6 @@ CONTAINS
     ! advance the solution in time
     CALL this%Timedisc%IntegrationStep(this%Mesh,this%Physics,this%Sources, &
                                        this%Fluxes,this%iter,this%config,this%IO)
-
-    ! \todo{FARGO}
-!    IF(this%Timedisc%Fargo.NE.0) THEN
-!      CALL FargoAdvection(this%Timedisc,this%Fluxes,this%Mesh,this%Physics)
-!
-!      SELECT CASE(this%Timedisc%Fargo)
-!      CASE(1)
-!        CALL FargoCalcVelocity(this%Timedisc,this%Mesh,this%Physics)
-!      CASE(2)
-!        pmass => GetGravityPointer(this%Physics%Sources%glist, POINTMASS)
-!        IF(ASSOCIATED(pmass)) THEN
-!          IF(pmass%outbound.NE.0) THEN
-!            CALL FargoAddVelocity(this%Timedisc,this%Mesh,this%Physics)
-!            this%Timedisc%w = SQRT(this%Physics%constants%GN &
-!              * pmass%mass / this%Mesh%radius%bcenter(:,this%Mesh%JMIN)) &
-!              - this%Mesh%radius%bcenter(:,this%Mesh%JMIN) * this%Mesh%Omega
-!            CALL FargoSubstractVelocity(this%Timedisc,this%Mesh,this%Physics)
-!          END IF
-!        END IF
-!      END SELECT
-!
-!      CALL ComputeRHS(this%Timedisc,this%Mesh,this%Physics,this%Fluxes,&
-!        this%Timedisc%time,0.,this%Timedisc%pvar,this%Timedisc%cvar,&
-!        this%Timedisc%checkdata,this%Timedisc%rhs)
-!
-!      CALL FargoAddVelocity(this%Timedisc,this%Mesh,this%Physics)
-!    END IF
 
     ! write output to data file
     IF ((ABS(this%Datafile%time-this%Timedisc%time)&

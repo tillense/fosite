@@ -41,17 +41,13 @@
 !! \ingroup timedisc
 !----------------------------------------------------------------------------!
 MODULE timedisc_cashkarp_mod
-  
-USE timedisc_base_mod
+  USE timedisc_base_mod
   USE mesh_base_mod
   USE fluxes_base_mod
   USE boundary_base_mod
-  USE physics_base_mod!, GeometricalSources_Physics => GeometricalSources, &
-      ! ExternalSources_Physics => ExternalSources
+  USE physics_base_mod
   USE sources_base_mod
-  USE timedisc_rkfehlberg_mod!, SolveODE_cashkarp => SolveODE_rkfehlberg, &
-      ! CloseTimedisc_cashkarp => CloseTimedisc_rkfehlberg, &
-      ! CalcTimestep_cashkarp => CalcTimestep_rkfehlberg
+  USE timedisc_rkfehlberg_mod
   USE common_dict
   IMPLICIT NONE
   !--------------------------------------------------------------------------!
@@ -60,7 +56,6 @@ USE timedisc_base_mod
   CONTAINS
        PROCEDURE :: InitTimedisc_cashkarp
        PROCEDURE :: Finalize
- !      PROCEDURE :: SolveODE_cashkarp
   END TYPE timedisc_cashkarp
   !--------------------------------------------------------------------------!
   CHARACTER(LEN=32), PARAMETER :: ODEsolver_name = "Cash-Karp method"
@@ -68,9 +63,7 @@ USE timedisc_base_mod
   !--------------------------------------------------------------------------!
   PUBLIC :: &
        ! types
-       Timedisc_cashkarp!, &
-       ! methods 
-!       CalcTimestep_cashkarp &
+       timedisc_cashkarp
   !--------------------------------------------------------------------------!
 
 CONTAINS
@@ -78,16 +71,13 @@ CONTAINS
   SUBROUTINE InitTimedisc_cashkarp(this,Mesh,Physics,config,IO)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(Timedisc_cashkarp), INTENT(INOUT) :: this
-    CLASS(Mesh_base),         INTENT(IN)    :: Mesh
-    CLASS(Physics_base),      INTENT(IN)    :: Physics
+    CLASS(timedisc_cashkarp), INTENT(INOUT) :: this
+    CLASS(mesh_base),         INTENT(INOUT) :: Mesh
+    CLASS(physics_base),      INTENT(IN)    :: Physics
     TYPE(Dict_TYP), POINTER &
                        :: config, IO
     !------------------------------------------------------------------------!
     INTEGER            :: err,method,ShowBut
-    !------------------------------------------------------------------------!
-    INTENT(IN)         :: Mesh,Physics
-    INTENT(INOUT)      :: this
     !------------------------------------------------------------------------!
     ! set default order
     CALL GetAttr(config, "order", this%order, 5)

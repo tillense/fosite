@@ -759,11 +759,19 @@ CONTAINS
     !------------------------------------------------------------------------!
     CLASS(fileio_binary), INTENT(INOUT) :: this      !< \param [in,out] this fileio type
     CLASS(mesh_base), INTENT(IN)        :: Mesh      !< \param [in] mesh mesh type
-    CLASS(physics_base), INTENT(IN)     :: Physics   !< \param [in] physics physics type
+    CLASS(physics_base), INTENT(INOUT)  :: Physics   !< \param [in] physics physics type
     CLASS(fluxes_base), INTENT(IN)      :: Fluxes    !< \param [in] fluxes fluxes type
     CLASS(timedisc_base), INTENT(IN)    :: Timedisc  !< \param [in] timedisc timedisc type
     TYPE(Dict_TYP), POINTER             :: Header,IO !< \param [in,out] IO I/O dictionary
     !------------------------------------------------------------------------!
+    IF (ASSOCIATED(Timedisc%w)) THEN
+      IF (Mesh%FARGO.EQ.3.AND.Mesh%SN_shear) THEN
+        CALL Physics%AddBackgroundVelocityX(Mesh,Timedisc%w,Timedisc%pvar,Timedisc%cvar)
+      ELSE
+        CALL Physics%AddBackgroundVelocityY(Mesh,Timedisc%w,Timedisc%pvar,Timedisc%cvar)
+      END IF
+    END IF
+
     ! write data
     CALL this%OpenFile(APPEND)
     CALL this%WriteHeader(Mesh,Physics,Header,IO)

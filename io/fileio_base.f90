@@ -222,7 +222,7 @@ MODULE fileio_base_mod
       IMPLICIT NONE
       CLASS(fileio_base),   INTENT(INOUT) :: this
       CLASS(mesh_base),     INTENT(IN)    :: Mesh
-      CLASS(physics_base),  INTENT(IN)    :: Physics
+      CLASS(physics_base),  INTENT(INOUT) :: Physics
       CLASS(fluxes_base),   INTENT(IN)    :: Fluxes
       CLASS(timedisc_base), INTENT(IN)    :: Timedisc
       TYPE(Dict_TYP), POINTER             :: Header,IO

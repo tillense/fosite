@@ -303,7 +303,7 @@ CONTAINS
     CHARACTER(LEN=32)       :: mname
     !------------------------------------------------------------------------!
     CHARACTER(LEN=32)       :: xres,yres,zres,somega
-    INTEGER                 :: meshtype
+    INTEGER                 :: meshtype,shift_direction
     INTEGER                 :: i,j,k,err
     REAL                    :: mesh_dx,mesh_dy,mesh_dz
 #ifdef PARALLEL
@@ -593,7 +593,19 @@ CONTAINS
     ! enable fargo timestepping for polar geometries
     ! 1 = calculated mean background velocity w
     ! 2 = fixed user set background velocity w
-    CALL GetAttr(config, "fargo", this%fargo, 0)
+    CALL GetAttr(config, "fargo", this%FARGO, 0)
+    this%WE_shear = .FALSE.
+    this%SN_shear = .FALSE.
+    IF(this%FARGO.NE.0) THEN
+      CALL GetAttr(config, "shift_dir", shift_direction, 2)
+      IF(shift_direction.EQ.2) THEN
+        this%WE_shear = .TRUE.
+        this%SN_shear = .FALSE.
+      ELSE IF(shift_direction.EQ.1) THEN
+        this%WE_shear = .FALSE.
+        this%SN_shear = .TRUE.
+      END IF
+    END IF
 
     ! center of rotation
     this%rotcent = (/ 0., 0./)

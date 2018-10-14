@@ -72,6 +72,7 @@ MODULE physics_base_mod
                             YVELOCITY,YMOMENTUM,&
                             ZVELOCITY,ZMOMENTUM   !< array indicies for primitive and conservative variables
      LOGICAL             :: transformed_yvelocity !< .TRUE. if SubtractBackgroundVelocity was called before
+     LOGICAL             :: transformed_xvelocity !< .TRUE. if SubtractBackgroundVelocity was called before
                                                   !! .FALSE. otherwise
      LOGICAL             :: supports_absorbing    !< absorbing boundary conditions supported
                             !! \details .TRUE. if absorbing boundary conditions are supported by the physics module
@@ -145,6 +146,12 @@ MODULE physics_base_mod
     GENERIC   :: CalculateFluxesY => CalcFluxesY
     PROCEDURE (CalcFluxesZ),                  DEFERRED :: CalcFluxesZ
     GENERIC   :: CalculateFluxesZ => CalcFluxesZ
+    !------Fargo Routines-----------!
+    PROCEDURE (AddBackgroundVelocityX),       DEFERRED :: AddBackgroundVelocityX
+    PROCEDURE (SubtractBackgroundVelocityX),  DEFERRED :: SubtractBackgroundVelocityX
+    PROCEDURE (AddBackgroundVelocityY),       DEFERRED :: AddBackgroundVelocityY
+    PROCEDURE (SubtractBackgroundVelocityY),  DEFERRED :: SubtractBackgroundVelocityY
+    PROCEDURE (FargoSources),                 DEFERRED :: FargoSources
     !------Geometry Routines-------!
     PROCEDURE (GeometricalSources_center),    DEFERRED :: GeometricalSources_center!, GeometricalSources_faces
     GENERIC   :: GeometricalSources => &
@@ -337,6 +344,42 @@ MODULE physics_base_mod
       REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%nfaces,this%vnum), &
                            INTENT(OUT) :: zfluxes
     END SUBROUTINE
+    PURE SUBROUTINE AddBackgroundVelocityX(this,Mesh,w,pvar,cvar)
+      IMPORT physics_base,mesh_base
+      CLASS(physics_base), INTENT(INOUT) :: this
+      CLASS(mesh_base),    INTENT(IN)    :: Mesh
+      REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%KGMIN:Mesh%KGMAX), &
+                           INTENT(IN)    :: w
+      REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM+this%PNUM), &
+                           INTENT(INOUT) ::  pvar,cvar
+    END SUBROUTINE AddBackgroundVelocityX
+    PURE SUBROUTINE AddBackgroundVelocityY(this,Mesh,w,pvar,cvar)
+      IMPORT physics_base,mesh_base
+      CLASS(physics_base), INTENT(INOUT) :: this
+      CLASS(mesh_base),    INTENT(IN)    :: Mesh
+      REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%KGMIN:Mesh%KGMAX), &
+                           INTENT(IN)    :: w
+      REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM+this%PNUM), &
+                           INTENT(INOUT) ::  pvar,cvar
+    END SUBROUTINE AddBackgroundVelocityY
+    PURE SUBROUTINE SubtractBackgroundVelocityX(this,Mesh,w,pvar,cvar)
+      IMPORT physics_base,mesh_base
+      CLASS(physics_base), INTENT(INOUT) :: this
+      CLASS(mesh_base),    INTENT(IN)    :: Mesh
+      REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%KGMIN:Mesh%KGMAX), &
+                           INTENT(IN)    :: w
+      REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM+this%PNUM), &
+                           INTENT(INOUT) ::  pvar,cvar
+    END SUBROUTINE SubtractBackgroundVelocityX
+    PURE SUBROUTINE SubtractBackgroundVelocityY(this,Mesh,w,pvar,cvar)
+      IMPORT physics_base,mesh_base
+      CLASS(physics_base), INTENT(INOUT) :: this
+      CLASS(mesh_base),    INTENT(IN)    :: Mesh
+      REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%KGMIN:Mesh%KGMAX), &
+                           INTENT(IN)    :: w
+      REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM+this%PNUM), &
+                           INTENT(INOUT) ::  pvar,cvar
+    END SUBROUTINE SubtractBackgroundVelocityY
     PURE SUBROUTINE GeometricalSources_center(this,Mesh,pvar,cvar,sterm)
       IMPORT physics_base,mesh_base
       CLASS(physics_base), INTENT(INOUT) :: this
@@ -346,6 +389,19 @@ MODULE physics_base_mod
       REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM), &
                            INTENT(OUT)   :: sterm
     END SUBROUTINE
+    PURE SUBROUTINE FargoSources(this,Mesh,w,pvar,cvar,sterm)
+      IMPORT physics_base,mesh_base
+      CLASS(physics_base), INTENT(IN)    :: this
+      CLASS(mesh_base),    INTENT(IN)    :: Mesh
+      REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%KGMIN:Mesh%KGMAX), &
+                           INTENT(IN)    :: w
+      REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM+this%PNUM), &
+                           INTENT(IN)    :: pvar,cvar
+      REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM+this%PNUM), &
+                           INTENT(INOUT) :: sterm
+    END SUBROUTINE FargoSources
+
+
     PURE SUBROUTINE ReflectionMasks(this,reflX,reflY,reflZ)
       IMPORT physics_base
       CLASS(physics_base), INTENT(IN)  :: this

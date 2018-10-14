@@ -40,21 +40,17 @@ MODULE timedisc_generic_mod
   USE physics_base_mod
   USE common_dict
 
-!  INTERFACE timedisc_base
-!    MODULE PROCEDURE new_timedisc
-!  END INTERFACE
-
 CONTAINS
 
   SUBROUTINE new_timedisc(Timedisc,Mesh,Physics,config,IO)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(timedisc_base), ALLOCATABLE :: Timedisc
-    CLASS(mesh_base), INTENT(IN)      :: Mesh
-    CLASS(physics_base), INTENT(IN)   :: Physics
-    TYPE(DICT_TYP), POINTER           :: config, IO
+    CLASS(timedisc_base), ALLOCATABLE   :: Timedisc
+    CLASS(mesh_base),     INTENT(INOUT) :: Mesh
+    CLASS(physics_base),  INTENT(IN)    :: Physics
+    TYPE(DICT_TYP),       POINTER       :: config, IO
     !------------------------------------------------------------------------!
-    INTEGER                           :: method
+    INTEGER                             :: method
     !------------------------------------------------------------------------!
     CALL GetAttr(config,"method",method)
 

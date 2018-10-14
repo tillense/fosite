@@ -93,7 +93,7 @@ PROGRAM sblintheo
   REAL               :: DOMAINX    = 40.0           ! domain size [GEOM]     !
   REAL               :: DOMAINY    = 40.0           ! domain size [GEOM]     !
   ! fargo 0=off, 3=on (for SB)
-  INTEGER, PARAMETER :: FARGO      = 0              ! 3 = Shearingbox        !
+  INTEGER, PARAMETER :: FARGO      = 3              ! 3 = Shearingbox        !
   ! number of output time steps
 !  INTEGER, PARAMETER :: ONUM       = 1
   INTEGER, PARAMETER :: ONUM       = 100
@@ -168,6 +168,7 @@ CONTAINS
                 "zmin"        / ZMIN, &
                 "zmax"        / ZMAX, &
                 "fargo"       / FARGO, &
+                "shift_dir"   / 2, &
                 "omega"       / OMEGA, &
                 "decomposition"/ (/ 1, -1, 1/), &
                 "output/rotation" / 0, &
@@ -187,14 +188,14 @@ CONTAINS
 
     ! boundary conditions
     boundary => Dict(&
-!                "western"     / SHEARING, &
-!                "eastern"     / SHEARING, &
-!                "southern"    / PERIODIC, &
-!                "northern"    / PERIODIC, &
-                "western"     / PERIODIC, &
-                "eastern"     / PERIODIC, &
-                "southern"    / SHEARING, &
-                "northern"    / SHEARING, &
+                "western"     / SHEARING, &
+                "eastern"     / SHEARING, &
+                "southern"    / PERIODIC, &
+                "northern"    / PERIODIC, &
+ !               "western"     / PERIODIC, &
+ !               "eastern"     / PERIODIC, &
+ !               "southern"    / SHEARING, &
+ !               "northern"    / SHEARING, &
                 "bottomer"    / REFLECTING, &
                 "topper"      / REFLECTING &
                 )

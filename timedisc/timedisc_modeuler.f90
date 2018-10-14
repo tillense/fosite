@@ -44,7 +44,6 @@ MODULE timedisc_modeuler_mod
   USE boundary_base_mod
   USE physics_base_mod
   USE sources_base_mod
-!  USE gravity_base
   USE common_dict
 #ifdef PARALLEL
 #ifdef HAVE_MPI_MOD
@@ -63,8 +62,6 @@ MODULE timedisc_modeuler_mod
   CONTAINS
     PROCEDURE :: InitTimedisc_modeuler
     PROCEDURE :: ComputeCVar_modeuler
-!    GENERIC   :: ComputeCVar => &
-!                ComputeCVar_modeuler
     PROCEDURE :: SolveODE
     PROCEDURE :: Finalize
   END TYPE timedisc_modeuler
@@ -83,8 +80,6 @@ MODULE timedisc_modeuler_mod
        CHECK_ALL, CHECK_NOTHING, CHECK_CSOUND, CHECK_PMIN, CHECK_RHOMIN, &
        CHECK_INVALID, CHECK_TMIN
        ! methods
-!       FargoAddVelocity, &
-!       FargoSubstractVelocity, &
   !--------------------------------------------------------------------------!
 
 CONTAINS
@@ -93,9 +88,9 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(timedisc_modeuler), INTENT(INOUT) :: this
-    CLASS(mesh_base),     INTENT(IN)        :: Mesh
-    CLASS(physics_base),  INTENT(IN)        :: Physics
-    TYPE(Dict_TYP), POINTER                 :: config, IO
+    CLASS(mesh_base),         INTENT(INOUT) :: Mesh
+    CLASS(physics_base),      INTENT(IN)    :: Physics
+    TYPE(Dict_TYP),           POINTER       :: config, IO
     !------------------------------------------------------------------------!
     INTEGER                                 :: method
     !------------------------------------------------------------------------!
@@ -296,66 +291,5 @@ CONTAINS
     ! in this way:
     y = yn-dt*rhs+eta_n*(y0-yn+dt*rhs)
   END FUNCTION UpdateTimestep_modeuler
-
-
-!  SUBROUTINE FargoAddVelocity(this,Mesh,Physics)
-!    IMPLICIT NONE
-!    !------------------------------------------------------------------------!
-!    TYPE(timedisc_modeuler)   :: this
-!    TYPE(mesh_base)       :: Mesh
-!    TYPE(physics_base)    :: Physics
-!    !------------------------------------------------------------------------!
-!    INTEGER              :: i,j
-!    !------------------------------------------------------------------------!
-!    INTENT(IN)           :: Mesh,Physics
-!    INTENT(INOUT)        :: this
-!    !------------------------------------------------------------------------!
-!    DO j=Mesh%JGMIN,Mesh%JGMAX
-!      DO i=Mesh%IGMIN,Mesh%IGMAX
-!        IF(Physics%PRESSURE.GT.0) &
-!          this%cvar(i,j,Physics%ENERGY) = &
-!            this%cvar(i,j,Physics%ENERGY) &
-!            + 0.5*this%cvar(i,j,Physics%DENSITY)&
-!              *(2.*this%pvar(i,j,Physics%YVELOCITY)+this%w(i))*this%w(i)
-!        this%pvar(i,j,Physics%YVELOCITY) = &
-!          this%pvar(i,j,Physics%YVELOCITY) &
-!          + this%w(i)
-!        this%cvar(i,j,Physics%YVELOCITY) = &
-!          this%cvar(i,j,Physics%YVELOCITY) &
-!          + this%w(i)*this%cvar(i,j,Physics%DENSITY)
-!      END DO
-!    END DO
-!  END SUBROUTINE FargoAddVelocity
-!
-!
-!  SUBROUTINE FargoSubstractVelocity(this,Mesh,Physics)
-!    IMPLICIT NONE
-!    !------------------------------------------------------------------------!
-!    TYPE(timedisc_modeuler)   :: this
-!    TYPE(mesh_base)       :: Mesh
-!    TYPE(physics_base)    :: Physics
-!    !------------------------------------------------------------------------!
-!    INTEGER              :: i,j
-!    !------------------------------------------------------------------------!
-!    INTENT(IN)           :: Mesh,Physics
-!    INTENT(INOUT)        :: this
-!    !------------------------------------------------------------------------!
-!    DO j=Mesh%JGMIN,Mesh%JGMAX
-!      DO i=Mesh%IGMIN,Mesh%IGMAX
-!        this%pvar(i,j,Physics%YVELOCITY) = &
-!          this%pvar(i,j,Physics%YVELOCITY) &
-!          - this%w(i)
-!        this%cvar(i,j,Physics%YVELOCITY) = &
-!          this%cvar(i,j,Physics%YVELOCITY) &
-!          - this%w(i)*this%cvar(i,j,Physics%DENSITY)
-!        IF(Physics%PRESSURE.GT.0) &
-!          this%cvar(i,j,Physics%ENERGY) = &
-!            this%cvar(i,j,Physics%ENERGY) &
-!            - 0.5*this%cvar(i,j,Physics%DENSITY)&
-!              *(2.*this%pvar(i,j,Physics%YVELOCITY)+this%w(i))*this%w(i)
-!      END DO
-!    END DO
-!  END SUBROUTINE FargoSubstractVelocity
-
 
 END MODULE timedisc_modeuler_mod

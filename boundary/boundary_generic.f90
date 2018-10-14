@@ -162,16 +162,19 @@ CONTAINS
     IF (Mesh%mycoords(3).NE.Mesh%dims(3)-1)   new(TOP) = NONE
 #endif
 
-    IF (western.EQ.SHEARING.AND.eastern.EQ.SHEARING) THEN
-      Mesh%WE_shear = .TRUE.
-      Mesh%SN_shear = .FALSE.
+    ! Check for correct shifting and boundaries
+    IF (Mesh%FARGO.EQ.3.AND.western.EQ.SHEARING.AND.eastern.EQ.SHEARING) THEN
+      IF (.NOT.Mesh%WE_shear) &
+        CALL this%Error("InitBoundary", &
+          "Please apply shifting in second dimension, when applying shearing boundaries at western/eastern.")
 #ifdef PARALLEL
       CALL this%Error("InitBoundary", &
         "Parallel mode is not allowed with shearing in West-East direction.")
 #endif
-    ELSE IF (southern.EQ.SHEARING.AND.northern.EQ.SHEARING) THEN
-      Mesh%WE_shear = .FALSE.
-      Mesh%SN_shear = .TRUE.
+    ELSE IF (Mesh%FARGO.EQ.3.AND.southern.EQ.SHEARING.AND.northern.EQ.SHEARING) THEN
+      IF (.NOT.Mesh%SN_shear) &
+        CALL this%Error("InitBoundary", &
+          "Please apply shifting in first dimension, when applying shearing boundaries at northern/southern.")
     END IF
 
     ! initialize every boundary

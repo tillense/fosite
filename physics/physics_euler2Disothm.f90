@@ -75,6 +75,12 @@ MODULE physics_euler2Dit_mod
     PROCEDURE :: CalcFluxesX
     PROCEDURE :: CalcFluxesY
     PROCEDURE :: CalcFluxesZ       ! empty (fulfill deferred)
+    !------Fargo Routines----------!
+    PROCEDURE :: AddBackgroundVelocityX
+    PROCEDURE :: AddBackgroundVelocityY
+    PROCEDURE :: SubtractBackgroundVelocityX
+    PROCEDURE :: SubtractBackgroundVelocityY
+    PROCEDURE :: FargoSources
 
     PROCEDURE :: GeometricalSources_center
     PROCEDURE :: ExternalSources
@@ -94,7 +100,6 @@ MODULE physics_euler2Dit_mod
 !    PROCEDURE :: CalcRiemann2PrimY_euler2Dit         ! for farfield boundaries
 !    PROCEDURE :: CalcRoeAverages_euler2Dit           ! for advanced wavespeeds
 !    PROCEDURE :: ExternalSources_euler2Dit
-!    PROCEDURE :: FargoSources_euler2Dit
 !    PROCEDURE :: GeometricalSources_faces
     PROCEDURE :: AxisMasks
     PROCEDURE :: ViscositySources
@@ -104,8 +109,6 @@ MODULE physics_euler2Dit_mod
 !    PROCEDURE :: CalcFlux_euler2Dit, &
 !    MomentumSourcesX_euler2Dit, &
 !    MomentumSourcesY_euler2Dit, &
-!    AddBackgroundVelocity_euler2Dit, &
-!    SubtractBackgroundVelocity_euler2Dit, &
 
     PROCEDURE     :: Finalize
   END TYPE
@@ -652,6 +655,7 @@ CONTAINS
     ! routine does not exist in 2D
   END SUBROUTINE CalcFluxesZ
 
+
   PURE SUBROUTINE ViscositySources(this,Mesh,pvar,btxx,btxy,btxz,btyy,btyz,btzz,sterm)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
@@ -687,9 +691,6 @@ CONTAINS
    CALL Mesh%Divergence(this%tmp(:,:,:),this%tmp1(:,:,:), &
         sterm(:,:,:,this%ENERGY))
  END SUBROUTINE ViscositySources
-
-
-
 
   ! identical to isothermal case
   PURE SUBROUTINE ViscositySources_euler2Dit(this,Mesh,pvar,btxx,btxy,btyy,sterm)
@@ -788,8 +789,6 @@ CONTAINS
   END DO
   END SUBROUTINE CalcStresses_euler
 
-
-
   ! momentum and energy sources due to external force
   PURE SUBROUTINE ExternalSources(this,Mesh,accel,pvar,cvar,sterm)
     !------------------------------------------------------------------------!
@@ -819,6 +818,153 @@ CONTAINS
 !       sterm(:,:,:,this%XMOMENTUM) = pvar(:,:,:,this%DENSITY) * accel(:,:,:,1)
 !       sterm(:,:,:,this%YMOMENTUM) = pvar(:,:,:,this%DENSITY) * accel(:,:,:,2)
   END SUBROUTINE ExternalSources
+
+
+  PURE SUBROUTINE AddBackgroundVelocityY(this,Mesh,w,pvar,cvar)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(physics_euler2Dit), INTENT(INOUT) :: this
+    CLASS(mesh_base),         INTENT(IN)    :: Mesh
+    !------------------------------------------------------------------------!
+    REAL,DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%KGMIN:Mesh%KGMAX), &
+                              INTENT(IN)    :: w
+    REAL,DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM+this%PNUM), &
+                              INTENT(INOUT) :: pvar,cvar
+    !------------------------------------------------------------------------!
+    INTEGER              :: i,j,k
+    !------------------------------------------------------------------------!
+    IF (this%transformed_yvelocity) THEN
+      DO k=Mesh%KGMIN,Mesh%KGMAX
+        DO j=Mesh%JGMIN,Mesh%JGMAX
+          DO i=Mesh%IGMIN,Mesh%IGMAX
+             pvar(i,j,k,this%YVELOCITY) = pvar(i,j,k,this%YVELOCITY) + w(i,k)
+             cvar(i,j,k,this%YMOMENTUM) = cvar(i,j,k,this%YMOMENTUM) &
+                                      + cvar(i,j,k,this%DENSITY)*w(i,k)
+          END DO
+        END DO
+      END DO
+      this%transformed_yvelocity = .FALSE.
+    END IF
+  END SUBROUTINE AddBackgroundVelocityY
+
+
+  PURE SUBROUTINE AddBackgroundVelocityX(this,Mesh,w,pvar,cvar)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(physics_euler2Dit), INTENT(INOUT) :: this
+    CLASS(mesh_base),         INTENT(IN)    :: Mesh
+    !------------------------------------------------------------------------!
+    REAL,DIMENSION(Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
+                              INTENT(IN)    :: w
+    REAL,DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM+this%PNUM), &
+                              INTENT(INOUT) :: pvar,cvar
+    !------------------------------------------------------------------------!
+    INTEGER              :: i,j,k
+    !------------------------------------------------------------------------!
+    IF (this%transformed_xvelocity) THEN
+      DO k=Mesh%KGMIN,Mesh%KGMAX
+        DO j=Mesh%JGMIN,Mesh%JGMAX
+          DO i=Mesh%IGMIN,Mesh%IGMAX
+             pvar(i,j,k,this%XVELOCITY) = pvar(i,j,k,this%XVELOCITY) + w(j,k)
+             cvar(i,j,k,this%XMOMENTUM) = cvar(i,j,k,this%XMOMENTUM) &
+                                      + cvar(i,j,k,this%DENSITY)*w(j,k)
+          END DO
+        END DO
+      END DO
+      this%transformed_xvelocity = .FALSE.
+    END IF
+  END SUBROUTINE AddBackgroundVelocityX
+
+
+  PURE SUBROUTINE SubtractBackgroundVelocityY(this,Mesh,w,pvar,cvar)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(physics_euler2Dit), INTENT(INOUT) :: this
+    CLASS(mesh_base),         INTENT(IN)    :: Mesh
+    !------------------------------------------------------------------------!
+    REAL,DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%KGMIN:Mesh%KGMAX), &
+                              INTENT(IN)    :: w
+    REAL,DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM+this%PNUM), &
+                              INTENT(INOUT) :: pvar,cvar
+    !------------------------------------------------------------------------!
+    INTEGER              :: i,j,k
+    !------------------------------------------------------------------------!
+    IF (.NOT.this%transformed_yvelocity) THEN
+      DO k=Mesh%KGMIN,Mesh%KGMAX
+        DO j=Mesh%JGMIN,Mesh%JGMAX
+          DO i=Mesh%IGMIN,Mesh%IGMAX
+            pvar(i,j,k,this%YVELOCITY) = pvar(i,j,k,this%YVELOCITY) - w(i,k)
+            cvar(i,j,k,this%YMOMENTUM) = cvar(i,j,k,this%YMOMENTUM) &
+                                     - cvar(i,j,k,this%DENSITY)*w(i,k)
+          END DO
+        END DO
+      END DO
+      this%transformed_yvelocity = .TRUE.
+    END IF
+  END SUBROUTINE SubtractBackgroundVelocityY
+
+  PURE SUBROUTINE SubtractBackgroundVelocityX(this,Mesh,w,pvar,cvar)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(physics_euler2Dit), INTENT(INOUT) :: this
+    CLASS(mesh_base),         INTENT(IN)    :: Mesh
+    !------------------------------------------------------------------------!
+    REAL,DIMENSION(Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
+                              INTENT(IN)    :: w
+    REAL,DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM+this%PNUM), &
+                              INTENT(INOUT) :: pvar,cvar
+    !------------------------------------------------------------------------!
+    INTEGER              :: i,j,k
+    !------------------------------------------------------------------------!
+    IF (.NOT.this%transformed_xvelocity) THEN
+      DO k=Mesh%KGMIN,Mesh%KGMAX
+        DO j=Mesh%JGMIN,Mesh%JGMAX
+          DO i=Mesh%IGMIN,Mesh%IGMAX
+            pvar(i,j,k,this%XVELOCITY) = pvar(i,j,k,this%XVELOCITY) - w(j,k)
+            cvar(i,j,k,this%XMOMENTUM) = cvar(i,j,k,this%XMOMENTUM) &
+                                     - cvar(i,j,k,this%DENSITY)*w(j,k)
+          END DO
+        END DO
+      END DO
+      this%transformed_xvelocity = .TRUE.
+    END IF
+  END SUBROUTINE SubtractBackgroundVelocityX
+
+  !> \public sources terms for fargo advection
+  !!
+  !! If the background velocity \f$\vec{w}=w\,\hat{e}_\eta\f$ with
+  !! \f$w\f$ independent of \f$\eta\f$ and \f$t\f$ is subtracted from
+  !! the overall velocity of the flow, an additional source term occurs
+  !! in the \f$\eta\f$-momentum equation:
+  !! \f[
+  !!     S_\mathrm{Fargo} = -\varrho u_\xi \frac{1}{h_\xi} \partial_\xi \left(h_\xi w\right)
+  !!                      = -\varrho u_\xi w \,\partial_\xi \left(\ln{|h_\xi w|}\right)
+  !! \f]
+  PURE SUBROUTINE FargoSources(this,Mesh,w,pvar,cvar,sterm)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(physics_euler2Dit), INTENT(IN)    :: this
+    CLASS(mesh_base),         INTENT(IN)    :: Mesh
+    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%KGMIN:Mesh%KGMAX), &
+                              INTENT(IN)    :: w
+    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM+this%PNUM), &
+                              INTENT(IN)    :: pvar,cvar
+    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM+this%PNUM), &
+                              INTENT(INOUT) :: sterm
+    !------------------------------------------------------------------------!
+    INTEGER           :: i,j,k
+    !------------------------------------------------------------------------!
+    DO k=Mesh%KMIN,Mesh%KMAX
+      DO j=Mesh%JMIN,Mesh%JMAX
+        DO i=Mesh%IMIN,Mesh%IMAX
+!            sterm(i,j,this%XMOMENTUM) = cvar(i,j,this%YMOMENTUM) * w(i) &
+!                   * Mesh%cyxy%bcenter(i,j)
+           sterm(i,j,k,this%YMOMENTUM) = -cvar(i,j,k,this%XMOMENTUM) &
+                  * 0.5 * (w(i+1,k)-w(i-1,k)) / Mesh%dlx(i,j,k)
+        END DO
+      END DO
+    END DO
+  END SUBROUTINE FargoSources
 
   !> Maks for reflecting boundaries
   PURE SUBROUTINE ReflectionMasks(this,reflX,reflY,reflZ)

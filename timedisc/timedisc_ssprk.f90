@@ -41,12 +41,9 @@ USE timedisc_base_mod
   USE mesh_base_mod
   USE fluxes_base_mod
   USE boundary_base_mod
-  USE physics_base_mod!, GeometricalSources_Physics => GeometricalSources, &
-!       ExternalSources_Physics => ExternalSources
+  USE physics_base_mod
   USE sources_base_mod
-  USE timedisc_rkfehlberg_mod!, SolveODE_ssprk => SolveODE_rkfehlberg, &
-!       CloseTimedisc_ssprk => CloseTimedisc_rkfehlberg, &
-!       CalcTimestep_ssprk => CalcTimestep_rkfehlberg
+  USE timedisc_rkfehlberg_mod
   USE common_dict
   IMPLICIT NONE
   !--------------------------------------------------------------------------!
@@ -61,22 +58,7 @@ USE timedisc_base_mod
   !--------------------------------------------------------------------------!
   PUBLIC :: &
        ! types
-       Timedisc_ssprk!, &
-       ! methods 
-!       InitTimedisc_ssprk, &
-!       CloseTimedisc_ssprk, &
-!       SolveODE_ssprk, &
-!       CalcTimestep_ssprk, &
-!       GetOrder, &
-!       GetCFL, &
-!       GetType, &
-!       GetName, &
-!       GetRank, &
-!       GetNumProcs, &
-!       Initialized, &
-!       Info, &
-!       Warning, &
-!       Error
+       timedisc_ssprk
   !--------------------------------------------------------------------------!
 
 CONTAINS
@@ -85,7 +67,7 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(Timedisc_ssprk), INTENT(INOUT) :: this
-    CLASS(Mesh_base),      INTENT(IN)    :: Mesh
+    CLASS(Mesh_base),      INTENT(INOUT) :: Mesh
     CLASS(Physics_base),   INTENT(IN)    :: Physics
     TYPE(Dict_TYP), POINTER &
                        :: config,IO
