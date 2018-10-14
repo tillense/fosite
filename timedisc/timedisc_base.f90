@@ -1456,60 +1456,60 @@ CONTAINS
     END DO
 
 
-    !TODO HERE WAS NOTHING CHANGED TO THE 3D transition
-#ifdef PARALLEL
-    ! We only need to do something, if we (also) are dealing with domain decomposition in
-    ! the second (phi) direction
-    IF(PAR_DIMS.GT.1) THEN
-      DO i=GMIN1,GMAX1
-        IF(this%shift(i).GT.0) THEN
-          DO k=1,Physics%VNUM+Physics%PNUM
-            IF(Mesh%SN_shear) THEN
-              this%buf(k,1:this%shift(i)) = this%cvar(MAX2-this%shift(i)+1:MAX2,i,k)
-            ELSE
-              this%buf(k,1:this%shift(i)) = this%cvar(i,MAX2-this%shift(i)+1:MAX2,k)
-            END IF
-          END DO
-          CALL MPI_Sendrecv_replace(&
-            this%buf,&
-            this%shift(i)*Physics%VNUM, &
-            DEFAULT_MPI_REAL, &
-            Mesh%neighbor(DIRECTION1), i+Mesh%GNUM, &
-            Mesh%neighbor(DIRECTION2), i+Mesh%GNUM, &
-            Mesh%comm_cart, status, ierror)
-          DO k=1,Physics%VNUM
-            IF(Mesh%SN_shear) THEN
-              this%cvar(MAX2-this%shift(i)+1:MAX2,i,k) = this%buf(k,1:this%shift(i))
-            ELSE
-              this%cvar(i,MAX2-this%shift(i)+1:MAX2,k) = this%buf(k,1:this%shift(i))
-            END IF
-          END DO
-        ELSE IF(this%shift(i).LT.0) THEN
-          DO k=1,Physics%VNUM
-            IF(Mesh%SN_shear) THEN
-              this%buf(k,1:-this%shift(i)) = this%cvar(MIN2:MIN2-this%shift(i)-1,i,k)
-            ELSE
-              this%buf(k,1:-this%shift(i)) = this%cvar(i,MIN2:MIN2-this%shift(i)-1,k)
-            END IF
-          END DO
-          CALL MPI_Sendrecv_replace(&
-            this%buf,&
-            -this%shift(i)*Physics%VNUM, &
-            DEFAULT_MPI_REAL, &
-            Mesh%neighbor(DIRECTION2), i+Mesh%GNUM, &
-            Mesh%neighbor(DIRECTION1), i+Mesh%GNUM, &
-            Mesh%comm_cart, status, ierror)
-          DO k=1,Physics%VNUM
-            IF (Mesh%SN_shear) THEN
-              this%cvar(MIN2:MIN2-this%shift(i)-1,i,k) = this%buf(k,1:-this%shift(i))
-            ELSE
-              this%cvar(i,MIN2:MIN2-this%shift(i)-1,k) = this%buf(k,1:-this%shift(i))
-            END IF
-          END DO
-        END IF
-      END DO
-    END IF
-#endif
+!#ifdef PARALLEL
+!    ! We only need to do something, if we (also) are dealing with domain decomposition in
+!    ! the second (phi) direction
+!    IF(PAR_DIMS.GT.1) THEN
+!        DO i=GMIN1,GMAX1
+!          IF(this%shift(i,k).GT.0) THEN
+!            DO l=1,Physics%VNUM+Physics%PNUM
+!              IF(Mesh%SN_shear) THEN
+!                this%buf(k,1:this%shift(i)) = this%cvar(MAX2-this%shift(i)+1:MAX2,i,k)
+!              ELSE
+!                this%buf(k,1:this%shift(i)) = this%cvar(i,MAX2-this%shift(i)+1:MAX2,k)
+!              END IF
+!            END DO
+!            CALL MPI_Sendrecv_replace(&
+!              this%buf,&
+!              this%shift(i)*Physics%VNUM, &
+!              DEFAULT_MPI_REAL, &
+!              Mesh%neighbor(DIRECTION1), i+Mesh%GNUM, &
+!              Mesh%neighbor(DIRECTION2), i+Mesh%GNUM, &
+!              Mesh%comm_cart, status, ierror)
+!            DO k=1,Physics%VNUM
+!              IF(Mesh%SN_shear) THEN
+!                this%cvar(MAX2-this%shift(i)+1:MAX2,i,k) = this%buf(k,1:this%shift(i))
+!              ELSE
+!                this%cvar(i,MAX2-this%shift(i)+1:MAX2,k) = this%buf(k,1:this%shift(i))
+!              END IF
+!            END DO
+!          ELSE IF(this%shift(i).LT.0) THEN
+!            DO k=1,Physics%VNUM
+!              IF(Mesh%SN_shear) THEN
+!                this%buf(k,1:-this%shift(i)) = this%cvar(MIN2:MIN2-this%shift(i)-1,i,k)
+!              ELSE
+!                this%buf(k,1:-this%shift(i)) = this%cvar(i,MIN2:MIN2-this%shift(i)-1,k)
+!              END IF
+!            END DO
+!            CALL MPI_Sendrecv_replace(&
+!              this%buf,&
+!              -this%shift(i)*Physics%VNUM, &
+!              DEFAULT_MPI_REAL, &
+!              Mesh%neighbor(DIRECTION2), i+Mesh%GNUM, &
+!              Mesh%neighbor(DIRECTION1), i+Mesh%GNUM, &
+!              Mesh%comm_cart, status, ierror)
+!            DO k=1,Physics%VNUM
+!              IF (Mesh%SN_shear) THEN
+!                this%cvar(MIN2:MIN2-this%shift(i)-1,i,k) = this%buf(k,1:-this%shift(i))
+!              ELSE
+!                this%cvar(i,MIN2:MIN2-this%shift(i)-1,k) = this%buf(k,1:-this%shift(i))
+!              END IF
+!            END DO
+!          END IF
+!        END DO
+!      END DO
+!    END IF
+!#endif
 
     ! Integer shift along x- or y-direction
     IF (Mesh%SN_shear) THEN
@@ -1857,10 +1857,10 @@ CONTAINS
       this%xfluxdydz,this%yfluxdzdx,this%zfluxdxdy,this%amax,this%tol_abs,&
       this%dtmean,this%dtstddev,this%time,&
       this%shift,this%w)
-#ifdef PARALLEL
-    IF(Mesh%FARGO.NE.0) &
-      DEALLOCATE(this%buf)
-#endif
+!#ifdef PARALLEL
+!    IF(Mesh%FARGO.NE.0) &
+!      DEALLOCATE(this%buf)
+!#endif
     IF(ASSOCIATED(this%bflux))    &
       DEALLOCATE(this%bflux)
     IF(ASSOCIATED(this%errorval)) &
