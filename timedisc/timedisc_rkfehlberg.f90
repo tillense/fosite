@@ -67,7 +67,7 @@ MODULE timedisc_rkfehlberg_mod
   !--------------------------------------------------------------------------!
   PRIVATE
   TYPE, EXTENDS (timedisc_modeuler) :: timedisc_rkfehlberg
-     REAL, DIMENSION(:,:,:,:,:), POINTER :: coeff            !< coefficents
+     REAL, DIMENSION(:,:,:,:,:),POINTER :: coeff            !< coefficents
      REAL, DIMENSION(:), POINTER       :: b_low,b_high,c   !<    needed by
      REAL, DIMENSION(:,:), POINTER     :: a                !<    embedded RK
   CONTAINS
@@ -75,9 +75,6 @@ MODULE timedisc_rkfehlberg_mod
     PROCEDURE :: Finalize
     PROCEDURE :: SolveODE
     PROCEDURE :: ComputeCVar_rkfehlberg
-!    GENERIC   :: ComputeCVar => &
-!                ComputeCVar_modeuler, &
-!                ComputeCVar_rkfehlberg
     PROCEDURE :: ShowButcherTableau
   END TYPE timedisc_rkfehlberg
   CHARACTER(LEN=32), PARAMETER :: ODEsolver_name = "Runge-Kutta Fehlberg"
@@ -115,7 +112,7 @@ CONTAINS
  !   CALL GetAttr(config, "method", method)
     CALL this%InitTimedisc(Mesh,Physics,config,IO,RK_FEHLBERG,ODEsolver_name)
 
-!CDIR IEXPAND
+!NEC$ IEXPAND
     ! set number of coefficients
     SELECT CASE(this%GetOrder())
     CASE(3)
@@ -126,7 +123,7 @@ CONTAINS
        CALL this%Error("InitTimedisc_rkfehlberg","time order must be 3 or 5")
     END SELECT
 
-    ! allocate memory 
+    ! allocate memory
     ALLOCATE(this%coeff(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM,this%m), &
              this%b_high(this%m),&
              this%b_low(this%m),&
@@ -140,7 +137,7 @@ CONTAINS
     ! set RHS pointer to the first entry of the coeff field
     this%rhs => Mesh%RemapBounds(this%coeff(:,:,:,:,1))
 
-!CDIR IEXPAND
+!NEC$ IEXPAND
     SELECT CASE(this%GetOrder())
     CASE(3)
        !set coefficient scheme of RK-Fehlberg rkf23
@@ -197,7 +194,7 @@ CONTAINS
     !------------------------------------------------------------------------!
     INTEGER            :: n,i,j,k,l,m
     REAL               :: t
-    !------------------------------------------------------------------------!    
+    !------------------------------------------------------------------------!
     t = time
     ! ATTENTION: coeff(:,:,:,:,1) should already be up to date. In the very first
     ! step this is done in FirstStepFosite, any later step must update coeff(:,:,:,1)
@@ -205,24 +202,25 @@ CONTAINS
     ! or RejectTimestep. Don't forget: this%rhs => this%coeff(:,:,:,1).
     DO m=2,this%m
        ! time step update of cell mean values
-!CDIR IEXPAND
+!NEC$ IEXPAND
        CALL this%ComputeCVar_rkfehlberg(Mesh,Physics,Fluxes,dt,m,this%coeff,this%cvar,this%ctmp)
        ! compute right-hand-side
        ! coeff_m is k_m/dt from Butcher tableau
        CALL this%ComputeRHS(Mesh,Physics,Sources,Fluxes,t+this%c(m)*dt,dt,&
                            this%ptmp,this%ctmp,CHECK_NOTHING,this%coeff(:,:,:,:,m))
     END DO
-   
+
     !reset ctmp
-    this%ctmp(:,:,:,:) = this%cvar(:,:,:,:) 
-!CDIR NOVECTOR   
+    this%ctmp(:,:,:,:) = this%cvar(:,:,:,:)
+!NEC$ NOVECTOR
     DO m=1,this%m
-!CDIR NOVECTOR
+!NEC$ NOVECTOR
       DO l=1,Physics%VNUM
-!CDIR COLLAPSE
+!NEC$ COLLAPSE
        DO k=Mesh%KMIN,Mesh%KMAX
+!NEC$ COLLAPSE
         DO j=Mesh%JMIN,Mesh%JMAX
-!CDIR NODEP
+!NEC$ IVDEP
           DO i=Mesh%IGMIN,Mesh%IGMAX
              ! compute two solutions with different numerical orders
              ! y_n+1 = y_n + SUM(b_i*k_i) = y_n + SUM(b_i*dt*coeff_i)
@@ -242,7 +240,7 @@ CONTAINS
       DO l=1,Physics%VNUM
         ! western and eastern
         DO k=Mesh%KMIN,Mesh%KMAX
-!CDIR NODEP
+!NEC$ IVDEP
           DO j=Mesh%JMIN,Mesh%JMAX
              Fluxes%bxflux(j,k,1,l) = Fluxes%bxflux(j,k,1,l) &
                                - dt*this%b_high(m)*this%coeff(Mesh%IMIN-Mesh%IP1,j,k,l,m)
@@ -250,7 +248,7 @@ CONTAINS
                                - dt*this%b_high(m)*this%coeff(Mesh%IMAX+Mesh%IP1,j,k,l,m)
           END DO
         ! southern and northern
-!CDIR NODEP
+!NEC$ IVDEP
           DO i=Mesh%IMIN,Mesh%IMAX
             Fluxes%byflux(k,i,1,l) = Fluxes%byflux(k,i,1,l) &
                               - dt*this%b_high(m)*this%coeff(i,Mesh%JMIN-Mesh%JP1,k,l,m)
@@ -313,7 +311,7 @@ CONTAINS
 !     END DO
 ! 
 !    ! southern and northern boundary fluxes
-! !CDIR NODEP
+! !NEC$ IVDEP
 !    DO i=Mesh%IMIN,Mesh%IMAX
 !       ! time step update of boundary fluxes
 !       Fluxes%byflux(i,1,:) = Fluxes%byflux(i,1,:) - this%a(m,1)*dt*coeff(i,Mesh%JMIN-1,:,1)
@@ -321,7 +319,7 @@ CONTAINS
 !    END DO
 
    cnew(:,:,:,:) = cvar(:,:,:,:)
-!CDIR NOVECTOR   
+!NEC$ NOVECTOR   
     DO mm=1,m-1
        cnew(:,:,:,:) = cnew(:,:,:,:) - this%a(m,mm)*dt*coeff(:,:,:,:,mm)
 
@@ -333,7 +331,7 @@ CONTAINS
 !        END DO
 ! 
 !        ! southern and northern boundary fluxes
-! !CDIR NODEP
+! !NEC IVDEP
 !        DO i=Mesh%IMIN,Mesh%IMAX
 !           ! time step update of boundary fluxes
 !           Fluxes%byflux(i,1,k) = Fluxes%byflux(i,1,k) - this%a(m,mm)*dt*coeff(i,Mesh%JMIN-1,k,mm)
@@ -381,12 +379,12 @@ CONTAINS
     !------------------------------------------------------------------------!
     CLASS(Timedisc_rkfehlberg)   :: this
     !------------------------------------------------------------------------!
-    !   DEALLOCATE(this%rhs)
-       DEALLOCATE(this%coeff,this%b_high,this%b_low,this%c,this%a)
-     !  DEALLOCATE(this%b_high,this%b_low,this%c,this%a)
-     ! NULLIFY(this%coeff)
-     CALL this%Finalize_base()
-     !  CALL this%timedisc_modeuler%Finalize()
+     DEALLOCATE(this%b_high,this%b_low,this%c,this%a)
+
+     IF(ASSOCIATED(this%coeff)) &
+      DEALLOCATE(this%coeff)
+
+    CALL this%timedisc_modeuler%Finalize()
   END SUBROUTINE Finalize
 
 END MODULE timedisc_rkfehlberg_mod

@@ -247,10 +247,15 @@ CONTAINS
 
     IF (.NOT.Physics%Initialized().OR..NOT.Mesh%Initialized()) &
          CALL this%Error("InitTimedisc","physics and/or mesh module uninitialized")
+    ! For other methods the data is stored in this%coeff and rhs points to it. Therefore an allocation is
+    ! not necessary or rather leads to memory leaks.
+    IF(this%GetType().EQ.MODIFIED_EULER) THEN
+      ALLOCATE(this%rhs(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM))
+      this%rhs  = 0.
+    END IF
 
-    ! allocate memory for data structures needed in all timedisc modules
+      ! allocate memory for data structures needed in all timedisc modules
     ALLOCATE( &
-      this%rhs(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM),       &
       this%pvar(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM),      &
       this%cvar(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM),      &
       this%cold(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM),      &
@@ -273,7 +278,6 @@ CONTAINS
     END IF
 
     ! initialize all variables
-    this%rhs       = 0.
     this%pvar      = 0.
     this%cvar      = 0.
     this%cold      = 0.
@@ -1857,6 +1861,10 @@ CONTAINS
       this%xfluxdydz,this%yfluxdzdx,this%zfluxdxdy,this%amax,this%tol_abs,&
       this%dtmean,this%dtstddev,this%time,&
       this%shift,this%w)
+
+    IF(this%GetType().EQ.MODIFIED_EULER) & 
+      DEALLOCATE(this%rhs)
+
 !#ifdef PARALLEL
 !    IF(Mesh%FARGO.NE.0) &
 !      DEALLOCATE(this%buf)

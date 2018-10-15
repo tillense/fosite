@@ -272,8 +272,6 @@ CONTAINS
     !------------------------------------------------------------------------!
     CLASS(timedisc_modeuler) :: this
     !------------------------------------------------------------------------!
-    print *,'Finalize_modeuler'
-    DEALLOCATE(this%rhs)
     CALL this%Finalize_base()
   END SUBROUTINE Finalize
 

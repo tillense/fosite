@@ -58,8 +58,8 @@ PROGRAM ode_test
 !!$  INTEGER, PARAMETER :: MGEO = LOGPOLAR
 !!$  INTEGER, PARAMETER :: MGEO = TANPOLAR
 !!$  INTEGER, PARAMETER :: MGEO = SINHPOLAR
-  INTEGER, PARAMETER :: XRES = 20         ! x-resolution
-  INTEGER, PARAMETER :: YRES = 20         ! y-resolution
+  INTEGER, PARAMETER :: XRES = 100         ! x-resolution
+  INTEGER, PARAMETER :: YRES = 100         ! y-resolution
   INTEGER, PARAMETER :: ZRES = 1           ! z-resolution
   REAL, PARAMETER    :: RMIN = 1.0E-3      ! inner radius for polar grids
   REAL, PARAMETER    :: RMAX = 0.3         ! outer radius
@@ -74,16 +74,14 @@ PROGRAM ode_test
   CLASS(fosite),ALLOCATABLE      :: Sim
   !--------------------------------------------------------------------------!
   INTEGER, PARAMETER    :: NUM = 5 ! last ODE-solver
-  INTEGER               :: ode, i!,var
+  INTEGER               :: ode, i
   CHARACTER(LEN=256),DIMENSION(NUM) :: odename
   REAL,DIMENSION(NUM)   :: time
   CHARACTER(LEN=256)    :: PREFIX, buffer
   !--------------------------------------------------------------------------!
 
   TAP_PLAN(NUM)
-!  var=5
-DO ode=1,NUM, 1
- ! IF(ode.EQ.var) CYCLE
+DO ode=1,NUM
   ALLOCATE(SIM)
   CALL Sim%InitFosite()
 
@@ -109,7 +107,6 @@ DO ode=1,NUM, 1
 END DO
   CALL Sim%Info(repeat("*",64))
   DO i=1,NUM
-!    IF(i.EQ.var) CYCLE
     WRITE(buffer,'((a),(I2),(A),(F5.2))') "#", i, ". RUN, ODE solver:  " //TRIM(odename(i)) //", runtime: ", time(i)
     CALL Sim%Info(buffer)
   END DO
