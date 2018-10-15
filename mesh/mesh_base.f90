@@ -966,6 +966,7 @@ CONTAINS
          this%comm_cart,ierror)
 
     ! 3. inquire and save the own position
+    this%mycoords(:) = 0
     CALL MPI_Cart_get(this%comm_cart,this%NDIMS,this%dims,periods,this%mycoords,ierror)
 
     ! 4. create communicators for every column and row of the cartesian topology
