@@ -427,10 +427,6 @@ CONTAINS
 !      END IF
 !    END IF
 
-    ! \todo{FARGO}
-!    IF(this%Timedisc%Fargo.NE.0) &
-!      CALL FargoSubstractVelocity(this%Timedisc,this%Mesh,this%Physics)
-
     ! calculate next timestep
     this%Timedisc%dt = this%Timedisc%CalcTimestep(this%Mesh,this%Physics,this%Sources, &
                             this%Fluxes,this%Timedisc%time,this%Timedisc%dtcause)

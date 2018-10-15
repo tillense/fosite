@@ -596,15 +596,13 @@ CONTAINS
     CALL GetAttr(config, "fargo", this%FARGO, 0)
     this%WE_shear = .FALSE.
     this%SN_shear = .FALSE.
-    IF(this%FARGO.NE.0) THEN
-      CALL GetAttr(config, "shift_dir", shift_direction, 2)
-      IF(shift_direction.EQ.2) THEN
-        this%WE_shear = .TRUE.
-        this%SN_shear = .FALSE.
-      ELSE IF(shift_direction.EQ.1) THEN
-        this%WE_shear = .FALSE.
-        this%SN_shear = .TRUE.
-      END IF
+    CALL GetAttr(config, "shift_dir", shift_direction, 2)
+    IF(shift_direction.EQ.2) THEN
+      this%WE_shear = .TRUE.
+      this%SN_shear = .FALSE.
+    ELSE IF(shift_direction.EQ.1) THEN
+      this%WE_shear = .FALSE.
+      this%SN_shear = .TRUE.
     END IF
 
     ! center of rotation

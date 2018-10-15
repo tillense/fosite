@@ -658,6 +658,10 @@ CONTAINS
        this%supports_farfield  = .FALSE.
     END SELECT
 
+    ! no background velocity subtracted (important for fargo advection)
+    this%transformed_yvelocity = .FALSE.
+    this%transformed_xvelocity = .FALSE.
+
     ! reset source term pointer
     !NULLIFY(this%sources)
 
