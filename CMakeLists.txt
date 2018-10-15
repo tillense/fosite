@@ -106,9 +106,9 @@ endif()
 
 # search for headers
 if(PARALLEL)
-  set (fftw_incfile fftw3.f03)
-else()
   set (fftw_incfile fftw3-mpi.f03)
+else()
+  set (fftw_incfile fftw3.f03)
 endif()
 
 find_path(
