@@ -104,13 +104,13 @@ CONTAINS
     !------------------------------------------------------------------------!
     INTEGER       :: i,j,k
     !------------------------------------------------------------------------!
-!CDIR IEXPAND
+!NEC$ IEXPAND
     SELECT CASE(this%direction%GetType())
     CASE(WEST)
        ! UNROLL=Mesh%GNUM would be sufficient, but the compiler does
        ! not know the value of Mesh%GNUM, hence we set UNROLL=4 and
        ! hope that nobody sets Mesh%GNUM to a value greater than 4
-!CDIR UNROLL=4
+!NEC$ UNROLL(4)
        DO i=1,Mesh%GINUM
           ! vanishing density gradient at the boundary
           pvar(Mesh%IMIN-i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,Physics%DENSITY) &
@@ -130,7 +130,7 @@ CONTAINS
           END IF
        END DO
     CASE(EAST)
-!CDIR UNROLL=4
+!NEC$ UNROLL(4)
        DO i=1,Mesh%GNUM
           ! vanishing density gradient at the boundary
           pvar(Mesh%IMAX+i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,Physics%DENSITY) &
@@ -150,7 +150,7 @@ CONTAINS
           END IF
        END DO
     CASE(SOUTH)
-!CDIR UNROLL=4
+!NEC$ UNROLL(4)
        DO j=1,Mesh%GJNUM
           ! vanishing density gradient at the boundary
           pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN-j,Mesh%KMIN:Mesh%KMAX,Physics%DENSITY) &
@@ -170,7 +170,7 @@ CONTAINS
           END IF
        END DO
     CASE(NORTH)
-!CDIR UNROLL=4
+!NEC$ UNROLL(4)
        DO j=1,Mesh%GNUM
           ! vanishing density gradient at the boundary
           pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX+j,Mesh%KMIN:Mesh%KMAX,Physics%DENSITY) &
@@ -190,7 +190,7 @@ CONTAINS
           END IF
        END DO
     CASE(BOTTOM)
-!CDIR UNROLL=4
+!NEC$ UNROLL(4)
        DO k=1,Mesh%GKNUM
           ! vanishing density gradient at the boundary
           pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN-k,Physics%DENSITY) &
@@ -210,7 +210,7 @@ CONTAINS
           END IF
        END DO
     CASE(TOP)
-!CDIR UNROLL=4
+!NEC$ UNROLL(4)
        DO k=1,Mesh%GKNUM
           ! vanishing density gradient at the boundary
           pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMAX+k,Physics%DENSITY) &

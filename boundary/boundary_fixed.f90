@@ -114,13 +114,13 @@ CONTAINS
 !    INTENT(IN)    :: Mesh,Physics
 !    INTENT(INOUT) :: this,pvar
     !------------------------------------------------------------------------!
-!CDIR IEXPAND
+!NEC$ IEXPAND
     SELECT CASE(this%direction%GetType())
     CASE(WEST)
        ! UNROLL=Mesh%GNUM would be sufficient, but the compiler does
        ! not know the value of Mesh%GNUM, hence we set UNROLL=4 and
        ! hope that nobody sets Mesh%GNUM to a value greater than 4
-!CDIR UNROLL=4
+!NEC$ UNROLL(4)
        DO i=1,Mesh%GINUM
           WHERE(this%fixed(Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,:))
              ! set fixed boundary data
@@ -135,7 +135,7 @@ CONTAINS
 
        END DO
     CASE(EAST)
-!CDIR UNROLL=4
+!NEC$ UNROLL(4)
        DO i=1,Mesh%GINUM
           WHERE(this%fixed(Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,:))
              ! set fixed boundary data
@@ -149,7 +149,7 @@ CONTAINS
           END WHERE
         END DO
     CASE(SOUTH)
-!CDIR UNROLL=4
+!NEC$ UNROLL(4)
        DO j=1,Mesh%GJNUM
           WHERE(this%fixed(Mesh%KMIN:Mesh%KMAX,Mesh%IMIN:Mesh%IMAX,:))
              ! set fixed boundary data
@@ -163,7 +163,7 @@ CONTAINS
           END WHERE
         END DO
     CASE(NORTH)
-!CDIR UNROLL=4
+!NEC$ UNROLL(4)
        DO j=1,Mesh%GJNUM
           WHERE(this%fixed(Mesh%KMIN:Mesh%KMAX,Mesh%IMIN:Mesh%IMAX,:))
              ! set fixed boundary data
@@ -178,7 +178,7 @@ CONTAINS
 
        END DO
     CASE(BOTTOM)
-!CDIR UNROLL=4
+!NEC$ UNROLL(4)
           DO k=1,Mesh%GKNUM
             WHERE(this%fixed(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,:))
              ! set fixed boundary data
@@ -192,7 +192,7 @@ CONTAINS
           END WHERE
           END DO
     CASE(TOP)
-!CDIR UNROLL=4
+!NEC$ UNROLL(4)
        DO k=1,Mesh%GKNUM
           WHERE(this%fixed(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,:))
              ! set fixed boundary data
