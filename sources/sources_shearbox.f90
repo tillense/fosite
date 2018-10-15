@@ -61,9 +61,10 @@ MODULE sources_shearbox_mod
   !--------------------------------------------------------------------------!
 
   TYPE, EXTENDS(sources_c_accel) :: sources_shearbox
-    REAL :: SIGN1, SIGN2
-    INTEGER :: VEL1, VEL2
-    INTEGER :: I1,I2
+    REAL      :: SIGN1, SIGN2
+    INTEGER   :: VEL1, VEL2
+    INTEGER   :: I1, I2
+    INTEGER   :: MOMENTUM1, MOMENTUM2
   CONTAINS
     PROCEDURE :: InitSources_shearbox
     PROCEDURE :: InfoSources
@@ -123,6 +124,8 @@ CONTAINS
       this%SIGN2 = -1.0
       this%I1 = 1
       this%I2 = 2
+      this%MOMENTUM1 = Physics%XMOMENTUM
+      this%MOMENTUM2 = Physics%YMOMENTUM
     ELSE IF(Mesh%SN_shear) THEN
       this%Vel1=Physics%XVELOCITY
       this%Vel2=Physics%YVELOCITY
@@ -130,6 +133,8 @@ CONTAINS
       this%SIGN2 = 1.0
       this%I1 = 2
       this%I2 = 1
+      this%MOMENTUM1 = Physics%YMOMENTUM
+      this%MOMENTUM2 = Physics%XMOMENTUM
     END IF
 
     IF (err.NE.0) CALL this%Error("InitSources_shearbox", "Unable allocate memory!")
@@ -189,14 +194,14 @@ CONTAINS
       sterm(:,:,:,Physics%DENSITY) = 0.0
 !NEC$ IVDEP
       FORALL(i=Mesh%IMIN:Mesh%IMAX,j=Mesh%JMIN:Mesh%JMAX,k=Mesh%KMIN:Mesh%KMAX)
-        sterm(i,j,k,Physics%XMOMENTUM) = pvar(i,j,k,Physics%DENSITY)*Mesh%OMEGA*2.0*pvar(i,j,k,Physics%YVELOCITY)
-        sterm(i,j,k,Physics%YMOMENTUM) = pvar(i,j,k,Physics%DENSITY)*Mesh%OMEGA*(Mesh%Q-2.0)*pvar(i,j,k,Physics%XVELOCITY)
+        sterm(i,j,k,this%MOMENTUM1) = pvar(i,j,k,Physics%DENSITY)*Mesh%OMEGA*2.0*this%SIGN1*pvar(i,j,k,this%VEL1)
+        sterm(i,j,k,this%MOMENTUM2) = pvar(i,j,k,Physics%DENSITY)*Mesh%OMEGA*(2.0-Mesh%Q)*this%SIGN2*pvar(i,j,k,this%VEL2)
       END FORALL
       IF (Physics%PRESSURE .GT. 0) THEN
         FORALL(i=Mesh%IMIN:Mesh%IMAX,j=Mesh%JMIN:Mesh%JMAX,k=Mesh%KMIN:Mesh%KMAX)
             sterm(i,j,k,Physics%ENERGY) = &
-                 pvar(i,j,k,Physics%DENSITY)*Mesh%Q*Mesh%OMEGA* &
-                 pvar(i,j,k,Physics%XVELOCITY)*pvar(i,j,k,Physics%YVELOCITY)
+                 this%SIGN1*pvar(i,j,k,Physics%DENSITY)*Mesh%Q*Mesh%OMEGA* &
+                 pvar(i,j,k,this%VEL2)*pvar(i,j,k,this%VEL1)
         END FORALL
       END IF
     END IF
