@@ -33,6 +33,7 @@
 !----------------------------------------------------------------------------!
 MODULE gravity_generic_mod
   USE gravity_base_mod
+  USE gravity_binary_mod
   USE gravity_pointmass_mod
   USE gravity_sboxspectral_mod
   USE mesh_base_mod
@@ -66,6 +67,8 @@ CONTAINS
         SELECT CASE(gtype)
         CASE(POINTMASS)
           ALLOCATE(gravity_pointmass::newgrav)
+        CASE(POINTMASS_BINARY)
+          ALLOCATE(gravity_binary::newgrav)
         CASE(SBOXSPECTRAL)
           ALLOCATE(gravity_sboxspectral::newgrav)
         CASE DEFAULT
@@ -85,7 +88,10 @@ CONTAINS
         TYPE IS (gravity_pointmass)
            ! gravitational acceleration due to point mass
            CALL obj%InitGravity_pointmass(Mesh,Physics,grav,IOgrav)
-       TYPE IS (gravity_sboxspectral)
+        TYPE IS (gravity_binary)
+           ! gravitational acceleration due to two circling point masses
+           CALL obj%InitGravity_binary(Mesh,Physics,grav,IOgrav)
+        TYPE IS (gravity_sboxspectral)
            ! self-gravitation in flat geometries periodic in both dimensions
            CALL obj%InitGravity_sboxspectral(Mesh,Physics,grav,IOgrav)
         END SELECT

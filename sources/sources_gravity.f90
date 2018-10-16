@@ -60,6 +60,7 @@ MODULE sources_gravity_mod
   CONTAINS
     PROCEDURE :: InitSources_gravity
     PROCEDURE :: InfoSources
+    PROCEDURE :: UpdateGravity
     PROCEDURE :: ExternalSources_single
     PROCEDURE :: Finalize
   END TYPE sources_gravity
@@ -117,14 +118,42 @@ CONTAINS
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
                             INTENT(OUT)   :: sterm
     !------------------------------------------------------------------------!
-    CLASS(gravity_base), POINTER       :: gravptr
-    !------------------------------------------------------------------------!
     ! update acceleration of all gravity sources
     ! reset gterm
     this%pot(:,:,:,:) = 0.
     this%accel(:,:,:,:) = 0.
 
     ! go through all gravity terms in the list
+    CALL this%UpdateGravity(Mesh,Physics,Fluxes,pvar,time,dt)
+
+        ! update disk scale height if requested
+    IF (this%glist%update_disk_height) CALL this%glist%CalcDiskHeight(Mesh,Physics,pvar)
+
+    ! gravitational source terms
+    CALL Physics%ExternalSources(Mesh,this%accel,pvar,cvar,sterm)
+
+    ! Set src term in energy equation to zero, if it is handeled in the physics
+    ! module
+    IF((.NOT.this%addtoenergy).AND.(Physics%ENERGY.GT.0)) THEN
+      sterm(:,:,:,Physics%ENERGY) = 0.
+    END IF
+
+  END SUBROUTINE ExternalSources_single
+
+  !> Updates gravity of all gravity source modules
+  SUBROUTINE UpdateGravity(this,Mesh,Physics,Fluxes,pvar,time,dt)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(sources_gravity), TARGET, INTENT(INOUT) :: this
+    CLASS(mesh_base),    INTENT(IN)    :: Mesh
+    CLASS(physics_base), INTENT(INOUT) :: Physics
+    CLASS(fluxes_base),  INTENT(IN)    :: Fluxes
+    REAL,                INTENT(IN)    :: time, dt
+    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
+                         INTENT(IN)    :: pvar
+    !------------------------------------------------------------------------!
+    CLASS(gravity_base), POINTER       :: gravptr
+    !------------------------------------------------------------------------!
 
     gravptr => this%glist
     DO WHILE (ASSOCIATED(gravptr))
@@ -141,20 +170,9 @@ CONTAINS
       ! next source term
       gravptr => gravptr%next
     END DO
+  END SUBROUTINE
 
-    ! update disk scale height if requested
-    IF (this%glist%update_disk_height) CALL this%glist%CalcDiskHeight(Mesh,Physics,pvar)
 
-    ! gravitational source terms
-    CALL Physics%ExternalSources(Mesh,this%accel,pvar,cvar,sterm)
-
-    ! Set src term in energy equation to zero, if it is handeled in the physics
-    ! module
-    IF((.NOT.this%addtoenergy).AND.(Physics%ENERGY.GT.0)) THEN
-      sterm(:,:,:,Physics%ENERGY) = 0.
-    END IF
-
-  END SUBROUTINE ExternalSources_single
 
   SUBROUTINE InfoSources(this,Mesh)
     IMPLICIT NONE

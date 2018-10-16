@@ -141,7 +141,7 @@ MODULE mesh_base_mod
     INTEGER           :: FARGO             !< Fargo parameter (> 0 enabled)
     LOGICAL           :: WE_shear          !< shear in y-direction
     LOGICAL           :: SN_shear          !< shear in x-direction
-    REAL              :: rotcent(2)        !< center of the rotating frame of ref.
+    REAL              :: rotcent(3)        !< center of the rotating frame of ref.
     !> \name
     !! #### cell coordinates
     TYPE(marray_cellvector) :: curv, &     !< curvilinear coordinates
@@ -612,7 +612,7 @@ CONTAINS
     END IF
 
     ! center of rotation
-    this%rotcent = (/ 0., 0./)
+    this%rotcent = (/ 0., 0., 0./)
     CALL GetAttr(config, "rotation_center", this%rotcent, this%rotcent)
 
     ! basic mesh initialization

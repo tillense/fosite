@@ -156,14 +156,8 @@ if(FFTW_LIB)
   endif()
 endif()
 
-#foreach (p ${EXAMPLES})
-#  add_executable (${p} "${p}.f90")
-#  target_link_libraries(${p} fosite)
-#endforeach (p)
-
-#add_subdirectory(examples)
+add_subdirectory(examples)
 add_subdirectory(tests)
-
 
 #--------------------- doxygen documentation ----------------------------------#
 option(BUILD_DOC "Build documentation" ON)

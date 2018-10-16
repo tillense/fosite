@@ -171,7 +171,7 @@ MODULE sources_base_mod
     PROCEDURE :: CalcTimestep
     PROCEDURE (CalcTimestep_single),    DEFERRED :: CalcTimestep_single
 !    PROCEDURE (SetName),         DEFERRED :: SetName
-!    PROCEDURE :: GetSourcesPointer
+    PROCEDURE :: GetSourcesPointer
 
     PROCEDURE :: Finalize_base
     PROCEDURE (Finalize), DEFERRED :: Finalize
@@ -383,6 +383,23 @@ CONTAINS
        srcptr => srcptr%next
     END DO
   END SUBROUTINE CalcTimestep
+
+  !> \public
+  FUNCTION GetSourcesPointer(list,stype) RESULT(sp)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(sources_base), TARGET, INTENT(IN) :: list
+    CLASS(sources_base), POINTER :: sp
+    INTEGER, INTENT(IN)          :: stype
+    !------------------------------------------------------------------------!
+    sp => list
+    DO
+       IF (ASSOCIATED(sp).EQV..FALSE.) EXIT
+!CDIR IEXPAND
+       IF (sp%GetType().EQ.stype) RETURN
+       sp => sp%next
+    END DO
+  END FUNCTION GetSourcesPointer
 
   SUBROUTINE CloseSources_all(this,Fluxes)
     IMPLICIT NONE

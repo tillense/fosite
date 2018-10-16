@@ -53,16 +53,9 @@ MODULE gravity_base_mod
      CLASS(logging_base), ALLOCATABLE :: gravitytype  !< type of gravity term
      CLASS(gravity_base), POINTER     :: next => null() !< next gravity in list
      REAL                             :: time         !< last update
-     REAL, POINTER                    :: mass2        !< 2nd mass for binaries
-     REAL                             :: excent       !< excentricity
-     REAL                             :: semaaxis     !< semi major axis
-     REAL                             :: period       !< period of binaries
-     REAL                             :: eps1,eps2    !< softening parameter
      REAL                             :: alphag,alphah!< viscosity parameter
      LOGICAL                          :: CALCALPHA    !< true if alpha output is on
      !> time when the pointmass is fully switched on
-     REAL                             :: switchon
-     REAL                             :: switchon2    !< same for secondary in binary systems
      REAL                             :: scaling      !< scaling for switchon procedure
      !> angular velocity of rotating reference frame
      REAL                             :: omega_rot
@@ -71,10 +64,6 @@ MODULE gravity_base_mod
      INTEGER                          :: outbound     !< outflow boundary
      REAL, DIMENSION(:,:,:,:), POINTER   :: accel        !< acceleration
      REAL, DIMENSION(:,:,:), POINTER     :: radius,radius3!< distance to origin
-     REAL, DIMENSION(:,:,:), POINTER     :: r_sec        !<    and to secondary point mass
-     REAL, DIMENSION(:,:,:,:), POINTER   :: posvec_sec   !<   secondary to all cell bary centers
-     REAL, DIMENSION(:,:,:,:), POINTER   :: fr_sec
-     REAL, DIMENSION(:,:,:,:,:), POINTER :: fposvec_sec
      REAL, DIMENSION(:,:,:), POINTER    :: den_ip       !< interpolated density
      REAL, DIMENSION(:,:,:), POINTER    :: omega        !< angular velocity
      REAL, DIMENSION(:,:,:,:), POINTER  :: omega2       !< Omega Kepler squared
@@ -104,8 +93,6 @@ MODULE gravity_base_mod
 !     INTEGER                         :: MINRES        !< min resolution
      REAL, DIMENSION(:,:,:), POINTER    :: phi           !< potential
      REAL, DIMENSION(:,:,:,:), POINTER  :: pot           !< general potential
-     REAL, DIMENSION(:,:,:,:), POINTER  :: pot_prim      !< potential second component
-     REAL, DIMENSION(:,:,:,:), POINTER  :: pot_sec       !< potential second component
      REAL, DIMENSION(:,:,:,:,:), POINTER :: mpot        !< multiple potentials
      REAL, DIMENSION(:,:,:), POINTER    :: rho_ext       !< disk density in equatorial plane
                                                       !< of the external potentials
@@ -261,6 +248,7 @@ CONTAINS
     CALL this%InfoGravity(Mesh)
   END SUBROUTINE InitGravity
 
+
   SUBROUTINE CalcDiskHeight(this,Mesh,Physics,pvar)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
@@ -308,11 +296,12 @@ CONTAINS
 
   END SUBROUTINE CalcDiskHeight
 
-  SUBROUTINE SetOutput(this,Mesh,config,IO)
+  SUBROUTINE SetOutput(this,Mesh,Physics,config,IO)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(gravity_base), INTENT(INOUT) :: this
     CLASS(mesh_base),    INTENT(IN)    :: Mesh
+    CLASS(physics_base), INTENT(IN)    :: Physics
     TYPE(Dict_TYP),      POINTER       :: config,IO
     !------------------------------------------------------------------------!
     CHARACTER(LEN=1) :: xyz(3) = (/"x","y","z"/)

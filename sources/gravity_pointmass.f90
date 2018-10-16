@@ -65,6 +65,7 @@ MODULE gravity_pointmass_mod
 #endif
   !--------------------------------------------------------------------------!
   PRIVATE
+  CHARACTER(LEN=32) :: gravity_name = "central point mass"
   CHARACTER(LEN=16), PARAMETER :: potential_name(2) = (/ &
                                   "Newton          ", &
                                   "Paczynski-Wiita " /)
@@ -72,7 +73,6 @@ MODULE gravity_pointmass_mod
   INTEGER, PARAMETER :: WIITA  = 2
 
   TYPE, EXTENDS(gravity_base) :: gravity_pointmass
-    CHARACTER(LEN=32) :: gravity_name = "central point mass"
     CLASS(logging_base), ALLOCATABLE    :: potential    !< newton or wiita
     REAL, POINTER                       :: mass         !< mass of pointmass
     REAL, POINTER                       :: accrate      !< true (limited) accretion rate
@@ -85,6 +85,8 @@ MODULE gravity_pointmass_mod
     REAL, DIMENSION(:,:,:,:),   POINTER :: fr_prim
     REAL, DIMENSION(:,:,:,:),   POINTER :: posvec_prim  !< pos. vectors from primary
     REAL, DIMENSION(:,:,:,:,:), POINTER :: fposvec_prim !< face pos.
+    REAL                                :: switchon
+    REAL, DIMENSION(:,:,:,:), POINTER   :: pot_prim      !< potential second component
   CONTAINS
     PROCEDURE :: InitGravity_pointmass
     PROCEDURE :: CalcPotential
@@ -99,7 +101,9 @@ MODULE gravity_pointmass_mod
        ! types
        gravity_pointmass, &
        ! constants
-       NEWTON, WIITA
+       NEWTON, WIITA, &
+       ! elemental functions
+       GetDiskHeight
   !--------------------------------------------------------------------------!
 
 CONTAINS
@@ -134,7 +138,7 @@ CONTAINS
     !------------------------------------------------------------------------!
     CALL GetAttr(config, "gtype", gtype)
     ! allocate memory for new gravity term
-    CALL this%InitLogging(gtype,this%gravity_name)
+    CALL this%InitLogging(gtype,gravity_name)
     ! type of the potential
     CALL GetAttr(config, "potential", potential_number, NEWTON)
     ALLOCATE(logging_base::this%potential)

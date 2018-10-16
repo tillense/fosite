@@ -23,7 +23,7 @@ add_library(sources
   gravity_generic.f90
   gravity_sboxspectral.f90
 #  gravity_monopol.f90
-#  gravity_binary.f90
+  gravity_binary.f90
 #  gravity_multigrid.f90
 #  gravity_spectral.f90
 #  gravity_potential.f90

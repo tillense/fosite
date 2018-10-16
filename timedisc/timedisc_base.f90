@@ -148,6 +148,7 @@ PRIVATE
     PROCEDURE           :: RejectSolution
     PROCEDURE           :: CheckData
     PROCEDURE           :: ComputeError
+    PROCEDURE           :: GetCentrifugalVelocity
     PROCEDURE           :: GetOrder
     PROCEDURE           :: GetCFL
     PROCEDURE           :: FargoAdvection
@@ -1707,139 +1708,136 @@ CONTAINS
   END SUBROUTINE CalcBackgroundVelocity
 
 
-!  FUNCTION GetCentrifugalVelocity(this,Mesh,Physics,Fluxes,&
-!                       dir_omega_,accel_,centrot) RESULT(velo)
-!    IMPLICIT NONE
-!    !------------------------------------------------------------------------!
-!    CLASS(timedisc_base):: this
-!    CLASS(mesh_base)    :: Mesh
-!    CLASS(physics_base) :: Physics
-!    CLASS(fluxes_base)  :: Fluxes
-!    REAL              :: time
-!    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Physics%DIM) &
-!                      :: velo
-!    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,2),OPTIONAL &
-!                      :: accel_
-!    REAL, DIMENSION(2), OPTIONAL :: centrot
-!    REAL, DIMENSION(3):: dir_omega_
-!    !------------------------------------------------------------------------!
-!    REAL, DIMENSION(3):: dir_omega
-!    REAL              :: omega2
-!    INTEGER           :: k,i,j
-!    REAL              :: rotoemga
-!    REAL,DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,2) &
-!                      :: bccart, bcposvec,  accel
-!    REAL,DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX) &
-!                      :: tmp
-!    !------------------------------------------------------------------------!
-!    INTENT(IN)        :: Mesh,centrot,dir_omega_,accel_
-!    INTENT(INOUT)     :: this,Physics,Fluxes
-!    !------------------------------------------------------------------------!
-!
-!    IF(PRESENT(accel_)) THEN
-!      accel = accel_
-!    ELSE
-!      ! Works only for centrot = 0
-!      IF(PRESENT(centrot)) &
-!        CALL Error(this,"GetCentrifugalVelocity","You are not allowed to "&
-!          //"define centrot without accel.")
-!      ! This may not work for physics with unusual conservative variables.
-!      ! We assume
-!      !   conservative momentum = density * velocity
-!      ! This is not true for the second component of physics with
-!      ! angular momentum transport, but that component should be zero.
-!      SELECT CASE(GetType(Physics))
-!      CASE(EULER2D,EULER2D_ISOTHERM,EULER3D_ROTSYM,EULER3D_ROTAMT,&
-!           EULER3D_ROTSYMSGS,EULER2D_SGS,EULER3D_ROTAMTSGS,EULER2D_ISOIAMT, &
-!           EULER2D_IAMT,EULER2D_ISOIAMROT)
-!        ! do nothing
-!      CASE DEFAULT
-!        CALL Error(this,"GetCentrifugalVelocity","It is unknown, if the "&
-!          //"selected physics module works with this routine.")
-!      END SELECT
-!      CALL ComputeRHS(this,Mesh,Physics,Fluxes,&
-!        this%time,0.,this%pvar,this%cvar,this%checkdatabm,this%rhs)
-!      DO k=Physics%XMOMENTUM,Physics%YMOMENTUM
-!        accel(:,:,k-Physics%XMOMENTUM+1) = -1. * this%rhs(:,:,k) &
-!                                           / this%pvar(:,:,Physics%DENSITY)
-!      END DO
-!    END IF
-!
-!    dir_omega = dir_omega_
-!
-!    ! be sure: |dir_omega| == 1
-!    omega2 = SUM(dir_omega(:)*dir_omega(:))
-!    ! omega must not be the zero vector
-!    IF (omega2 .EQ. 0.0) &
-!        CALL Error(this,"GetCentrifugalVelocity", &
-!           "omega must not be the zero vector")
-!    ! norm must be one
-!    IF (omega2 .NE. 1.0) dir_omega(:) = dir_omega(:) / SQRT(omega2)
-!
-!    IF ((Physics%DIM .EQ. 2) .AND. &
-!        ((dir_omega(1) .NE. 0.0) .OR. (dir_omega(2) .NE. 0.0))) &
-!        CALL Error(this,"GetCentrifugalVelocity", &
-!           "the direction of omega should be (0,0,+-1) in case of two dimensions")
-!
-!!attention: centrot is in cartesian coor
-!    IF (present(centrot)) THEN
-!      ! translate the position vector to the center of rotation
-!      bccart(:,:,1) = Mesh%bccart(:,:,1) - centrot(1)
-!      bccart(:,:,2) = Mesh%bccart(:,:,2) - centrot(2)
-!
-!      ! compute curvilinear components of translated position vectors
-!      CALL Convert2Curvilinear(Mesh%geometry,Mesh%bcenter,bccart,bcposvec)
-!    ELSE
-!      bcposvec = Mesh%posvec%bcenter
-!    END IF
-!
-!
-!    ! compute distance to axis of rotation (It is automatically fulfilled in 2D.)
-!    IF (Physics%DIM .GT. 2) THEN
-!      tmp(:,:) =  bcposvec(:,:,1)*dir_omega(1)&
-!                    + bcposvec(:,:,2)*dir_omega(2)
-!      bcposvec(:,:,1) = bcposvec(:,:,1) - tmp(:,:)*dir_omega(1)
-!      bcposvec(:,:,2) = bcposvec(:,:,2) - tmp(:,:)*dir_omega(2)
-!    END IF
-!
-!    ! compute omega = SQRT(-dot(g,r)/|r|**2)
-!    tmp(:,:) = SQRT(MAX(0.0,-SUM(accel(:,:,1:2)*bcposvec(:,:,:),DIM=3))&
-!                    / SUM(bcposvec(:,:,:)*bcposvec(:,:,:),DIM=3))
-!
-!    ! v / |omega| = dir_omega x r
-!    velo(:,:,:) = CROSS_PRODUCT(Mesh,Physics,dir_omega,bcposvec)
-!    ! v = |omega| * dir_omega x r
-!    DO k=1,Physics%DIM
-!      velo(:,:,k) = tmp(:,:)*velo(:,:,k)
-!    END DO
-!
-!  CONTAINS
-!    FUNCTION CROSS_PRODUCT(Mesh,Physics,a,b) RESULT(cp)
-!      IMPLICIT NONE
-!      !------------------------------------------------------------------------!
-!      CLASS(mesh_base)    :: Mesh
-!      CLASS(physics_base) :: Physics
-!      REAL, DIMENSION(3):: a
-!      REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,2) &
-!                        :: b
-!      REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Physics%DIM) &
-!                        :: cp
-!      !------------------------------------------------------------------------!
-!      INTENT(IN)        :: Mesh,Physics,a,b
-!      !------------------------------------------------------------------------!
-!      IF (Physics%DIM .EQ. 3) THEN
-!        ! cp(:,:,1) = a(2)*b(:,:,3) - a(3)*b(:,:,2)
-!        ! cp(:,:,2) = a(3)*b(:,:,1) - a(1)*b(:,:,3)
-!        ! due to symmetry => axis of rotation only along 1,2 => a(3) == 0 and b(,3) == 0
-!        cp(:,:,1:2) = 0.
-!        cp(:,:,3) = a(1)*b(:,:,2) - a(2)*b(:,:,1)
-!      ELSE
-!        ! => a(1) = a(2) = 0 and a(3) = 1 or -1
-!        cp(:,:,1) = - a(3)*b(:,:,2)
-!        cp(:,:,2) = a(3)*b(:,:,1)
-!      END IF
-!     END FUNCTION CROSS_PRODUCT
-!  END FUNCTION GetCentrifugalVelocity
+  FUNCTION GetCentrifugalVelocity(this,Mesh,Physics,Fluxes,Sources,&
+                       dir_omega_,accel_,centrot) RESULT(velo)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(timedisc_base), INTENT(INOUT) :: this
+    CLASS(mesh_base),     INTENT(IN)    :: Mesh
+    CLASS(physics_base),  INTENT(INOUT) :: Physics
+    CLASS(fluxes_base),   INTENT(INOUT) :: Fluxes
+    CLASS(sources_base),  POINTER       :: Sources
+    REAL, DIMENSION(3),   INTENT(IN)    :: dir_omega_
+    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,3), OPTIONAL, &
+                          INTENT(IN)    :: accel_
+    REAL, DIMENSION(3), OPTIONAL, &
+                          INTENT(IN)    :: centrot
+    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%DIM) &
+                                        :: velo
+    !------------------------------------------------------------------------!
+    REAL               :: time
+    REAL, DIMENSION(3) :: dir_omega
+    REAL               :: omega2
+    INTEGER            :: k,i,j
+    REAL               :: rotoemga
+    REAL,DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,3) &
+                       :: bccart, bcposvec,  accel
+    REAL,DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX) &
+                       :: tmp
+    !------------------------------------------------------------------------!
+
+    IF(PRESENT(accel_)) THEN
+      accel = accel_
+    ELSE
+      ! Works only for centrot = 0
+      IF(PRESENT(centrot)) &
+        CALL this%Error("GetCentrifugalVelocity","You are not allowed to "&
+          //"define centrot without accel.")
+      ! This may not work for physics with unusual conservative variables.
+      ! We assume
+      !   conservative momentum = density * velocity
+      ! This is not true for the second component of physics with
+      ! angular momentum transport, but that component should be zero.
+      SELECT CASE(Physics%GetType())
+      CASE(EULER2D,EULER2D_ISOTHERM,EULER3D_ROTSYM,EULER3D_ROTAMT,&
+           EULER3D_ROTSYMSGS,EULER2D_SGS,EULER3D_ROTAMTSGS,EULER2D_ISOIAMT, &
+           EULER2D_IAMT,EULER2D_ISOIAMROT)
+        ! do nothing
+      CASE DEFAULT
+        CALL this%Error("GetCentrifugalVelocity","It is unknown, if the "&
+          //"selected physics module works with this routine.")
+      END SELECT
+      CALL this%ComputeRHS(Mesh,Physics,Sources,Fluxes,this%time,0.0,this%pvar,this%cvar,this%checkdatabm,this%rhs)
+      ! HERE DEPENDEND ON Physics
+      DO k=Physics%XMOMENTUM,Physics%XMOMENTUM+Physics%DIM-1
+        accel(:,:,:,k-Physics%XMOMENTUM+1) = -1. * this%rhs(:,:,:,k) &
+                                           / this%pvar(:,:,:,Physics%DENSITY)
+      END DO
+    END IF
+
+    dir_omega = dir_omega_
+
+    ! be sure: |dir_omega| == 1
+    omega2 = SUM(dir_omega(:)*dir_omega(:))
+    ! omega must not be the zero vector
+    IF (omega2 .EQ. 0.0) &
+        CALL this%Error("GetCentrifugalVelocity", &
+           "omega must not be the zero vector")
+    ! norm must be one
+    IF (omega2 .NE. 1.0) dir_omega(:) = dir_omega(:) / SQRT(omega2)
+
+    IF ((Physics%DIM .EQ. 2) .AND. &
+        ((dir_omega(1) .NE. 0.0) .OR. (dir_omega(2) .NE. 0.0))) &
+        CALL this%Error("GetCentrifugalVelocity", &
+           "the direction of omega should be (0,0,+-1) in case of two dimensions")
+
+
+    IF (present(centrot)) THEN
+      ! translate the position vector to the center of rotation
+      bccart(:,:,:,1) = Mesh%bccart(:,:,:,1) - centrot(1)
+      bccart(:,:,:,2) = Mesh%bccart(:,:,:,2) - centrot(2)
+
+      ! compute curvilinear components of translated position vectors
+      CALL Mesh%Geometry%Convert2Curvilinear(Mesh%bcenter,bccart,bcposvec)
+    ELSE
+      bcposvec = Mesh%posvec%bcenter
+    END IF
+
+
+    ! compute distance to axis of rotation (It is automatically fulfilled in 2D.)
+    IF (Physics%DIM .GT. 2) THEN
+      tmp(:,:,:) =  bcposvec(:,:,:,1)*dir_omega(1) &
+                  + bcposvec(:,:,:,2)*dir_omega(2) &
+                  + bcposvec(:,:,:,3)*dir_omega(3)
+      bcposvec(:,:,:,1) = bcposvec(:,:,:,1) - tmp(:,:,:)*dir_omega(1)
+      bcposvec(:,:,:,2) = bcposvec(:,:,:,2) - tmp(:,:,:)*dir_omega(2)
+      bcposvec(:,:,:,3) = bcposvec(:,:,:,3) - tmp(:,:,:)*dir_omega(3)
+    END IF
+
+    ! compute omega = SQRT(-dot(g,r)/|r|**2)
+    tmp(:,:,:) = SQRT(MAX(0.0,-SUM(accel(:,:,:,1:3)*bcposvec(:,:,:,:),DIM=4))&
+                    / SUM(bcposvec(:,:,:,:)*bcposvec(:,:,:,:),DIM=4))
+
+    ! v / |omega| = dir_omega x r
+    velo(:,:,:,:) = CROSS_PRODUCT(Mesh,Physics,dir_omega,bcposvec)
+    ! v = |omega| * dir_omega x r
+    DO k=1,Physics%DIM
+      velo(:,:,:,k) = tmp(:,:,:)*velo(:,:,:,k)
+    END DO
+
+  CONTAINS
+    FUNCTION CROSS_PRODUCT(Mesh,Physics,a,b) RESULT(cp)
+      IMPLICIT NONE
+      !------------------------------------------------------------------------!
+      CLASS(mesh_base),    INTENT(IN)    :: Mesh
+      CLASS(physics_base), INTENT(IN) :: Physics
+      REAL, DIMENSION(3),  INTENT(IN) :: a
+      REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,3), &
+                           INTENT(IN) :: b
+      REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%DIM) &
+                                      :: cp
+      !------------------------------------------------------------------------!
+      IF (Physics%DIM .EQ. 3) THEN
+        cp(:,:,:,1) = a(2)*b(:,:,:,3) - a(3)*b(:,:,:,2)
+        cp(:,:,:,2) = a(3)*b(:,:,:,1) - a(1)*b(:,:,:,3)
+        cp(:,:,:,3) = a(1)*b(:,:,:,2) - a(2)*b(:,:,:,1)
+      ELSE
+        ! => a(1) = a(2) = 0 and a(3) = 1 or -1
+        cp(:,:,:,1) = - a(3)*b(:,:,:,2)
+        cp(:,:,:,2) = a(3)*b(:,:,:,1)
+      END IF
+     END FUNCTION CROSS_PRODUCT
+  END FUNCTION GetCentrifugalVelocity
 
   SUBROUTINE Finalize_base(this)
     IMPLICIT NONE
