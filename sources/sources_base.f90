@@ -114,8 +114,6 @@ MODULE sources_base_mod
      REAL                            :: phi0         !< shifting phi-angle
      REAL                            :: omegasun     !< day-night omega
      REAL                            :: year         !< trop. year of a planet
-     REAL, DIMENSION(:,:,:), POINTER :: centproj     !< rot.frame centr.3d->2d
-     REAL, DIMENSION(:,:,:), POINTER :: cos1
      REAL, DIMENSION(:,:,:), POINTER :: sin1
      REAL                            :: c_p          !< spec. heat cap.
      REAL                            :: gacc         !< grav. acceleration
@@ -145,7 +143,6 @@ MODULE sources_base_mod
      REAL, DIMENSION(:,:,:), POINTER :: ftxx,ftyy,&
           ftzz,ftxy,ftxz,ftyz
      REAL, DIMENSION(:,:), POINTER   :: delta        !< half-width of the filter
-     REAL, DIMENSION(:,:,:), POINTER :: cent         !< rot. frame centrifugal
      REAL, DIMENSION(:,:,:), POINTER :: init_pvar    !< pvar state from init
      REAL, DIMENSION(:,:,:), POINTER  :: ptr3        !< 3d pointer
 #ifdef HAVE_FFTW
@@ -252,7 +249,7 @@ MODULE sources_base_mod
        ! types
        sources_base, &
        ! constants
-       VISCOSITY, C_ACCEL, SHEARBOX, GRAVITY, DISK_COOLING
+       VISCOSITY, C_ACCEL, SHEARBOX, GRAVITY, DISK_COOLING, ROTATING_FRAME
   !--------------------------------------------------------------------------!
 
 CONTAINS

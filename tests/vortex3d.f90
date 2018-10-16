@@ -113,7 +113,7 @@ CONTAINS
     ! Local variable declaration
     INTEGER                 :: bc(6)
     TYPE(Dict_TYP), POINTER :: mesh, physics, boundary, datafile, &
-                               timedisc, fluxes, sources!, rotframe
+                               timedisc, fluxes, sources, rotframe
     REAL                    :: x1,x2,y1,y2,z1,z2
     !------------------------------------------------------------------------!
     INTENT(INOUT)           :: Sim
@@ -246,12 +246,12 @@ CONTAINS
 
     ! activate inertial forces due to rotating frame if OMEGA > 0
     NULLIFY(sources)
-!    IF (OMEGA.GT.TINY(OMEGA)) THEN
-!       rotframe => Dict("stype" / ROTATING_FRAME, &
-!               "x"     / X0, &
-!               "y"     / Y0)
-!       sources => Dict("rotframe" / rotframe)
-!    END IF
+    IF (OMEGA.GT.TINY(OMEGA)) THEN
+       rotframe => Dict("stype" / ROTATING_FRAME, &
+               "x"     / X0, &
+               "y"     / Y0)
+       sources => Dict("rotframe" / rotframe)
+    END IF
 
     ! time discretization settings
     timedisc => Dict(&

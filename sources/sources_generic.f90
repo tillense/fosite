@@ -37,6 +37,7 @@ MODULE sources_generic_mod
   USE sources_c_accel_mod
   USE sources_diskcooling_mod
   USE sources_gravity_mod
+  USE sources_rotframe_mod
   USE sources_shearbox_mod
   USE sources_viscosity_mod
   USE mesh_base_mod
@@ -81,6 +82,8 @@ CONTAINS
           ALLOCATE(sources_c_accel::newsrc)
         CASE(DISK_COOLING)
           ALLOCATE(sources_diskcooling::newsrc)
+        CASE(ROTATING_FRAME)
+          ALLOCATE(sources_rotframe::newsrc)
         CASE(SHEARBOX)
           ALLOCATE(sources_shearbox::newsrc)
         CASE(VISCOSITY)
@@ -95,6 +98,8 @@ CONTAINS
           CALL obj%InitSources_c_accel(Mesh,Physics,Fluxes,src,IOsrc)
         TYPE IS (sources_diskcooling)
           CALL obj%InitSources_diskcooling(Mesh,Physics,Fluxes,src,IOsrc)
+        TYPE IS (sources_rotframe)
+          CALL obj%InitSources_rotframe(Mesh,Physics,Fluxes,src,IOsrc)
         TYPE IS (sources_shearbox)
           CALL obj%InitSources_shearbox(Mesh,Physics,Fluxes,src,IOsrc)
         TYPE IS (sources_viscosity)
