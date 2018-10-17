@@ -62,6 +62,7 @@
 MODULE mesh_base_mod
   USE logging_base_mod
   USE array
+  USE marray_base_mod
   USE geometry_base_mod
   USE geometry_generic_mod
   USE common_dict
@@ -141,6 +142,7 @@ MODULE mesh_base_mod
     REAL              :: rotcent(2)        !< center of the rotating frame of ref.
     !> \name
     !! #### cell coordinates
+    TYPE(marray_base) :: dummy
     TYPE(MArrayV_TYP) :: curv, &         !< curvilinear coordinates
                          cart            !< cartesian coordinates
     REAL, DIMENSION(:,:,:,:), POINTER :: &
@@ -390,6 +392,10 @@ CONTAINS
       CALL this%Error("InitMesh","Cell numbering is not allowed.")
     END IF
 
+    ! initialize mesh arrays
+    CALL InitMeshProperties(this%IGMIN,this%IGMAX,this%JGMIN,this%JGMAX,this%KGMIN,this%KGMAX)
+    this%dummy = marray_base()
+    
     ! coordinate domain
     CALL GetAttr(config, "xmin", this%xmin)
     CALL GetAttr(config, "xmax", this%xmax)
@@ -1488,6 +1494,9 @@ CONTAINS
 
     IF (ASSOCIATED(this%rotation)) DEALLOCATE(this%rotation)
 
+    CALL this%dummy%Destroy()
+    CALL CloseMeshProperties
+    
     CALL this%Geometry%Finalize()
     DEALLOCATE(this%Geometry)
   END SUBROUTINE Finalize_base
