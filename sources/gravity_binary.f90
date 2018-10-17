@@ -95,7 +95,7 @@ MODULE gravity_binary_mod
     PROCEDURE :: GetMass_primary
     PROCEDURE :: GetMass_secondary
     PROCEDURE :: CalcDiskHeight_single
-    PROCEDURE :: FinalizeGravity
+    PROCEDURE :: Finalize
   END TYPE
 
   PUBLIC :: &
@@ -566,15 +566,18 @@ CONTAINS
   END FUNCTION GetMass_secondary
 
   !> \public Closes the binary source term
-  SUBROUTINE FinalizeGravity(this)
+  SUBROUTINE Finalize(this)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(gravity_binary), INTENT(INOUT) :: this
     !------------------------------------------------------------------------!
     DEALLOCATE(this%mass,this%mass2,this%pos,this%r0,this%accel,this%omega2,this%omega,&
-               this%r_prim,this%r_sec,this%posvec_prim,this%posvec_sec)
-    CALL this%CloseGravity()
-  END SUBROUTINE FinalizeGravity
+               this%r_prim,this%r_sec,this%posvec_prim,this%posvec_sec,this%pot,&
+               this%pot_prim,this%pot_sec,this%fr_prim,this%fr_sec,this%fposvec_prim, &
+               this%fposvec_sec)
+
+    CALL this%Finalize_base()
+  END SUBROUTINE Finalize
 
 
   !> find root of the Kepler equation
