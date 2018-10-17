@@ -934,7 +934,8 @@ CALL ftrace_region_end("foward FFT")
     CALL fftw_destroy_plan(this%plan_r2c)
     CALL fftw_destroy_plan(this%plan_c2r)
 #if defined(PARALLEL)
-    fftw_free(this%mass2D,this%Fmass2D)
+    CALL fftw_free(this%mass2D_pointer)
+    CALL fftw_free(this%Fmass2D_pointer)
 #else
     DEALLOCATE(this%mass2D,this%Fmass2D)
 #endif
