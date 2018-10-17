@@ -1,5 +1,6 @@
 add_library(mesh 
   marray_base.f90
+  marray_cellscalar.f90
   #mesh_trapezoidal.f90
   #geometry_channel.f90
   geometry_cylindrical.f90

@@ -35,6 +35,7 @@
 !----------------------------------------------------------------------------!
 MODULE geometry_base_mod
   USE logging_base_mod
+  USE marray_cellscalar_mod
   USE array, ONLY : MArrayS_TYP, MArrayV_TYP !\todo{new type - not yet implemented as class}
   USE common_dict
   !--------------------------------------------------------------------------!
@@ -381,7 +382,7 @@ CONTAINS
     !------------------------------------------------------------------------!
     CLASS(geometry_base), INTENT(IN)     :: this
     TYPE(MArrayV_TYP), INTENT(IN)        :: coords
-    TYPE(MArrayS_TYP), INTENT(OUT)       :: radius
+    TYPE(marray_cellscalar), INTENT(OUT) :: radius
     !------------------------------------------------------------------------!
     CALL this%Radius_1(coords%center ,radius%center)
     CALL this%Radius_1(coords%bcenter,radius%bcenter)

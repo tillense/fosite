@@ -63,6 +63,7 @@ MODULE mesh_base_mod
   USE logging_base_mod
   USE array
   USE marray_base_mod
+  USE marray_cellscalar_mod
   USE geometry_base_mod
   USE geometry_generic_mod
   USE common_dict
@@ -142,7 +143,6 @@ MODULE mesh_base_mod
     REAL              :: rotcent(2)        !< center of the rotating frame of ref.
     !> \name
     !! #### cell coordinates
-    TYPE(marray_base) :: dummy
     TYPE(MArrayV_TYP) :: curv, &         !< curvilinear coordinates
                          cart            !< cartesian coordinates
     REAL, DIMENSION(:,:,:,:), POINTER :: &
@@ -168,7 +168,7 @@ MODULE mesh_base_mod
                          cyxy,cyzy,cxzx,cxyx,czxz,czyz !< commutator coefficients
     !> \name
     !! #### radius and curvilinear position vector
-    TYPE(MArrayS_TYP) :: radius      !< real distance to coordinate origin
+    TYPE(marray_cellscalar) :: radius      !< real distance to coordinate origin
     TYPE(MArrayV_TYP) :: posvec      !< curvilinear position vector
     !> \name
     !! #### other geometrial quantities
@@ -392,10 +392,6 @@ CONTAINS
       CALL this%Error("InitMesh","Cell numbering is not allowed.")
     END IF
 
-    ! initialize mesh arrays
-    CALL InitMeshProperties(this%IGMIN,this%IGMAX,this%JGMIN,this%JGMAX,this%KGMIN,this%KGMAX)
-    this%dummy = marray_base()
-    
     ! coordinate domain
     CALL GetAttr(config, "xmin", this%xmin)
     CALL GetAttr(config, "xmax", this%xmax)
@@ -460,6 +456,9 @@ CONTAINS
     this%KGMIN = this%KMIN - this%GKNUM
     this%KGMAX = this%KMAX + this%GKNUM
 
+    ! initialize mesh arrays
+    CALL InitMeshProperties(this%IGMIN,this%IGMAX,this%JGMIN,this%JGMAX,this%KGMIN,this%KGMAX)
+    
     ! allocate memory for curvilinear positions
     CALL this%AllocateMesharray(this%curv)
     this%center  => this%RemapBounds(this%curv%center)
@@ -645,7 +644,8 @@ CONTAINS
     CALL this%Geometry%Convert2Cartesian(this%curv,this%cart)
 
     ! allocate memory for radius
-    CALL this%AllocateMesharray(this%radius)
+!     CALL this%AllocateMesharray(this%radius)
+    this%radius = marray_cellscalar()
 
     ! get radii and position vectors for all cell positions
     CALL this%geometry%Radius(this%curv,this%radius)
@@ -1489,12 +1489,12 @@ CONTAINS
 
 
     CALL this%DeallocateMesharray(this%cart)
-    CALL this%DeallocateMesharray(this%radius)
+!     CALL this%DeallocateMesharray(this%radius)
+    CALL this%radius%Destroy()
     CALL this%DeallocateMesharray(this%posvec)
 
     IF (ASSOCIATED(this%rotation)) DEALLOCATE(this%rotation)
 
-    CALL this%dummy%Destroy()
     CALL CloseMeshProperties
     
     CALL this%Geometry%Finalize()

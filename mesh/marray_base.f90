@@ -28,10 +28,9 @@
 !!
 !! \brief base class for mesh arrays
 !!
-!! \ingroup mesh
+!! \ingroup marray
 !----------------------------------------------------------------------------!
 MODULE marray_base_mod
-  USE logging_base_mod
   IMPLICIT NONE
   !--------------------------------------------------------------------------!
   PRIVATE
@@ -54,7 +53,11 @@ MODULE marray_base_mod
     REAL, POINTER :: data4d(:,:,:,:) => null()
     REAL, POINTER :: data5d(:,:,:,:,:) => null()
     CONTAINS
-    PROCEDURE, PRIVATE :: AssignPointers
+    PROCEDURE :: AssignPointers
+    PROCEDURE :: RemapBounds_0
+    PROCEDURE :: RemapBounds_1
+    PROCEDURE :: RemapBounds_2
+    GENERIC   :: RemapBounds => RemapBounds_0, RemapBounds_1, RemapBounds_2
     PROCEDURE :: AssignMArray_0
     PROCEDURE :: AssignMArray_1
     PROCEDURE :: AssignMArray_2
@@ -62,7 +65,7 @@ MODULE marray_base_mod
     PROCEDURE :: AssignMArray_4
     PROCEDURE :: AssignMArray_5
     GENERIC   :: ASSIGNMENT (=) => AssignMArray_0 , AssignMArray_1, AssignMArray_2, &
-                                   AssignMArray_3 , AssignMArray_4, AssignMArray_5
+                                AssignMArray_3 , AssignMArray_4, AssignMArray_5
     PROCEDURE :: AddMArray_0
     PROCEDURE :: AddMArray_1
     PROCEDURE :: AddMArray_2
@@ -156,6 +159,7 @@ MODULE marray_base_mod
                         this%data2d,[inum*jnum,knum])
         CALL C_F_POINTER(C_LOC(this%data1d(LBOUND(this%data1d,1))), &
                         this%data3d,[inum,jnum,knum])
+        this%data3d => this%RemapBounds(this%data3d)
       CASE(1)
         CALL C_F_POINTER(C_LOC(this%data1d(LBOUND(this%data1d,1))), &
                         this%data2d,[inum*jnum*knum,this%DIMS(1)])
@@ -163,6 +167,7 @@ MODULE marray_base_mod
                         this%data3d,[inum*jnum,knum,this%DIMS(1)])
         CALL C_F_POINTER(C_LOC(this%data1d(LBOUND(this%data1d,1))), &
                         this%data4d,[inum,jnum,knum,this%DIMS(1)])
+        this%data4d => this%RemapBounds(this%data4d)
       CASE(2)
         CALL C_F_POINTER(C_LOC(this%data1d(LBOUND(this%data1d,1))), &
                         this%data2d,[inum*jnum*knum*this%DIMS(1),this%DIMS(2)])
@@ -172,9 +177,59 @@ MODULE marray_base_mod
                         this%data4d,[inum,jnum,knum,this%DIMS(1)*this%DIMS(2)])
         CALL C_F_POINTER(C_LOC(this%data1d(LBOUND(this%data1d,1))), &
                         this%data5d,[inum,jnum,knum,this%DIMS(1),this%DIMS(2)])
+        this%data5d => this%RemapBounds(this%data5d)
       END SELECT
     END IF
   END SUBROUTINE AssignPointers
+
+  !> \public remap lower bounds in the first 3 dimensions of rank 0 mesh arrays
+  !!
+  !! This is a short hack to obviate a restriction in the generation of
+  !! subarray pointers. The indices of subarrays usually start with a lower
+  !! bound of 1, but Fosite requires that all mesh data arrays start with
+  !! lower bounds of IGMIN, JGMIN and KGMIN, which are not equal to 1 in general.
+  FUNCTION RemapBounds_0(this,array) RESULT(ptr)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(marray_base)                :: this !< \param [in,out] this all mesh data
+    REAL, DIMENSION(IGMIN:,JGMIN:,KGMIN:), TARGET :: array
+    !------------------------------------------------------------------------!
+    REAL, DIMENSION(:,:,:), POINTER :: ptr
+    !------------------------------------------------------------------------!
+    INTENT(IN)                      :: array
+    !------------------------------------------------------------------------!
+    ptr => array
+  END FUNCTION RemapBounds_0
+
+  !> \public remap lower bounds in the first 3 dimensions of rank 1 mesh arrays
+  FUNCTION RemapBounds_1(this,array) RESULT(ptr)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(marray_base)                  :: this !< \param [in,out] this all mesh data
+    REAL, DIMENSION(IGMIN:,JGMIN:,KGMIN:,:), TARGET &
+                    :: array
+    !------------------------------------------------------------------------!
+    REAL, DIMENSION(:,:,:,:), POINTER :: ptr
+    !------------------------------------------------------------------------!
+    INTENT(IN)                        :: array
+    !------------------------------------------------------------------------!
+    ptr => array
+  END FUNCTION RemapBounds_1
+
+  !> \public remap lower bounds in the first 3 dimensions of rank 2 mesh arrays
+  FUNCTION RemapBounds_2(this,array) RESULT(ptr)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(marray_base) :: this      !< \param [in,out] 
+    REAL, DIMENSION(IGMIN:,JGMIN:,KGMIN:,:,:), TARGET &
+                       :: array
+    !------------------------------------------------------------------------!
+    REAL, DIMENSION(:,:,:,:,:), POINTER :: ptr
+    !------------------------------------------------------------------------!
+    INTENT(IN)                          :: array
+    !------------------------------------------------------------------------!
+    ptr => array
+  END FUNCTION RemapBounds_2
 
   SUBROUTINE AssignMArray_0(this,ma)
     IMPLICIT NONE
