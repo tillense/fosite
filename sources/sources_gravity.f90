@@ -126,7 +126,7 @@ CONTAINS
     ! go through all gravity terms in the list
     CALL this%UpdateGravity(Mesh,Physics,Fluxes,pvar,time,dt)
 
-        ! update disk scale height if requested
+    ! update disk scale height if requested
     IF (this%glist%update_disk_height) CALL this%glist%CalcDiskHeight(Mesh,Physics,pvar)
 
     ! gravitational source terms

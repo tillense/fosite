@@ -348,6 +348,7 @@ CONTAINS
 !CDIR IEXPAND
     this%omega2(:,:,:,1) = Physics%Constants%GN*this%GetMass_primary(time) &
                           / (this%r_prim(:,:,:)**3 + this%eps1**3)
+
     ! and SECONDARY star
     this%omega2(:,:,:,2) = Physics%Constants%GN*this%GetMass_secondary(time) &
                           / (this%r_sec(:,:,:)**3 + this%eps2**3)
@@ -491,6 +492,7 @@ CONTAINS
     r1               = this%mass/(this%mass+this%mass2)*r
     this%pos(1,2) = r1*COS(phi)
     this%pos(2,2) = r1*SIN(phi)
+    this%pos(3,2) = 0.0
     ! and PRIMARY COMPONENT
     this%pos(:,1) = -this%pos(:,2) * this%mass2/this%mass
     ! shift with respect to center of rotation
