@@ -55,12 +55,30 @@ MODULE marray_base_mod
     REAL, POINTER :: data5d(:,:,:,:,:) => null()
     CONTAINS
     PROCEDURE, PRIVATE :: AssignPointers
-    PROCEDURE :: AssignMArray_0 !, AssignMArray_1, AssignMArray_2
-    GENERIC   :: ASSIGNMENT (=) => AssignMArray_0 !, AssignMArray_1, AssignMArray_2
-!     PROCEDURE :: AddMArray_0, AddMArray_1, AddMArray_2
-!     GENERIC   :: OPERATOR (+) => AddMArray_0, AddMArray_1, AddMArray_2
-!     PROCEDURE :: MultMArray_0, MultMArray_1, MultMArray_2
-!     GENERIC   :: OPERATOR (*) => MultMArray_0, MultMArray_1, MultMArray_2
+    PROCEDURE :: AssignMArray_0
+    PROCEDURE :: AssignMArray_1
+    PROCEDURE :: AssignMArray_2
+    PROCEDURE :: AssignMArray_3
+    PROCEDURE :: AssignMArray_4
+    PROCEDURE :: AssignMArray_5
+    GENERIC   :: ASSIGNMENT (=) => AssignMArray_0 , AssignMArray_1, AssignMArray_2, &
+                                   AssignMArray_3 , AssignMArray_4, AssignMArray_5
+    PROCEDURE :: AddMArray_0
+    PROCEDURE :: AddMArray_1
+    PROCEDURE :: AddMArray_2
+    PROCEDURE :: AddMArray_3
+    PROCEDURE :: AddMArray_4
+    PROCEDURE :: AddMArray_5
+    GENERIC   :: OPERATOR (+) => AddMArray_0, AddMArray_1, AddMArray_2, &
+                                 AddMArray_3, AddMArray_4, AddMArray_5
+    PROCEDURE :: MultMArray_0
+    PROCEDURE :: MultMArray_1
+    PROCEDURE :: MultMArray_2
+    PROCEDURE :: MultMArray_3
+    PROCEDURE :: MultMArray_4
+    PROCEDURE :: MultMArray_5
+    GENERIC   :: OPERATOR (*) => MultMArray_0, MultMArray_1, MultMArray_2, &
+                                 MultMArray_3, MultMArray_4, MultMArray_5
     PROCEDURE :: Destroy
   END TYPE
   INTERFACE marray_base
@@ -174,6 +192,182 @@ MODULE marray_base_mod
     CALL this%AssignPointers()
   END SUBROUTINE AssignMArray_0
   
+  SUBROUTINE AssignMArray_1(this,a)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(marray_base),INTENT(INOUT) :: this
+    REAL, DIMENSION(INUM*JNUM*KNUM*this%DIMS(1)*this%DIMS(2)), INTENT(IN) :: a
+    !------------------------------------------------------------------------!
+    this%data1d(:) = a(:)
+  END SUBROUTINE AssignMArray_1
+
+  SUBROUTINE AssignMArray_2(this,a)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(marray_base),INTENT(INOUT) :: this
+    REAL, DIMENSION(SIZE(this%data2d,1),SIZE(this%data2d,2)), INTENT(IN) :: a
+    !------------------------------------------------------------------------!
+    this%data2d(:,:) = a(:,:)
+  END SUBROUTINE AssignMArray_2
+
+  SUBROUTINE AssignMArray_3(this,a)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(marray_base),INTENT(INOUT) :: this
+    REAL, DIMENSION(SIZE(this%data3d,1),SIZE(this%data3d,2),SIZE(this%data3d,3)), &
+                          INTENT(IN) :: a
+    !------------------------------------------------------------------------!
+    this%data3d(:,:,:) = a(:,:,:)
+  END SUBROUTINE AssignMArray_3
+
+  SUBROUTINE AssignMArray_4(this,a)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(marray_base),INTENT(INOUT) :: this
+    REAL, DIMENSION(SIZE(this%data4d,1),SIZE(this%data4d,2),SIZE(this%data4d,3), &
+                SIZE(this%data4d,4)), INTENT(IN) :: a
+    !------------------------------------------------------------------------!
+    this%data4d(:,:,:,:) = a(:,:,:,:)
+  END SUBROUTINE AssignMArray_4
+
+  SUBROUTINE AssignMArray_5(this,a)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(marray_base),INTENT(INOUT) :: this
+    REAL, DIMENSION(SIZE(this%data5d,1),SIZE(this%data5d,2),SIZE(this%data5d,3), &
+                SIZE(this%data5d,4),SIZE(this%data5d,5)), INTENT(IN) :: a
+    !------------------------------------------------------------------------!
+    this%data5d(:,:,:,:,:) = a(:,:,:,:,:)
+  END SUBROUTINE AssignMArray_5
+
+  PURE FUNCTION AddMArray_0(a,b) RESULT(c)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(marray_base),INTENT(IN) :: a,b
+    REAL, DIMENSION(SIZE(a%data1d)) :: c
+    !------------------------------------------------------------------------!
+    IF (SIZE(a%data1d).EQ.SIZE(b%data1d)) &
+        c(:) = a%data1d(:) + b%data1d(:)
+  END FUNCTION AddMArray_0
+
+  PURE FUNCTION AddMArray_1(a,b) RESULT(c)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(marray_base),INTENT(IN) :: a
+    REAL, DIMENSION(SIZE(a%data1d)),INTENT(IN) :: b
+    REAL, DIMENSION(SIZE(a%data1d)) :: c
+    !------------------------------------------------------------------------!
+    c(:) = a%data1d(:) + b(:)
+  END FUNCTION AddMArray_1
+
+  PURE FUNCTION AddMArray_2(a,b) RESULT(c)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(marray_base),INTENT(IN) :: a
+    REAL, DIMENSION(SIZE(a%data2d,1),SIZE(a%data2d,2)),INTENT(IN) :: b
+    REAL, DIMENSION(SIZE(a%data2d,1),SIZE(a%data2d,2)) :: c
+    !------------------------------------------------------------------------!
+    c(:,:) = a%data2d(:,:) + b(:,:)
+  END FUNCTION AddMArray_2
+
+  PURE FUNCTION AddMArray_3(a,b) RESULT(c)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(marray_base),INTENT(IN) :: a
+    REAL, DIMENSION(SIZE(a%data3d,1),SIZE(a%data3d,2),SIZE(a%data3d,3)),INTENT(IN) :: b
+    REAL, DIMENSION(SIZE(a%data3d,1),SIZE(a%data3d,2),SIZE(a%data3d,3)) :: c
+    !------------------------------------------------------------------------!
+    c(:,:,:) = a%data3d(:,:,:) + b(:,:,:)
+  END FUNCTION AddMArray_3
+
+  PURE FUNCTION AddMArray_4(a,b) RESULT(c)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(marray_base),INTENT(IN) :: a
+    REAL, DIMENSION(SIZE(a%data4d,1),SIZE(a%data4d,2),SIZE(a%data4d,3), &
+          SIZE(a%data4d,4)),INTENT(IN) :: b
+    REAL, DIMENSION(SIZE(a%data4d,1),SIZE(a%data4d,2),SIZE(a%data4d,3), &
+          SIZE(a%data4d,4)) :: c
+    !------------------------------------------------------------------------!
+    c(:,:,:,:) = a%data4d(:,:,:,:) + b(:,:,:,:)
+  END FUNCTION AddMArray_4
+
+  PURE FUNCTION AddMArray_5(a,b) RESULT(c)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(marray_base),INTENT(IN) :: a
+    REAL, DIMENSION(SIZE(a%data5d,1),SIZE(a%data5d,2),SIZE(a%data5d,3), &
+          SIZE(a%data5d,4),SIZE(a%data5d,5)),INTENT(IN) :: b
+    REAL, DIMENSION(SIZE(a%data5d,1),SIZE(a%data5d,2),SIZE(a%data5d,3), &
+          SIZE(a%data5d,4),SIZE(a%data5d,5)) :: c
+    !------------------------------------------------------------------------!
+    c(:,:,:,:,:) = a%data5d(:,:,:,:,:) + b(:,:,:,:,:)
+  END FUNCTION AddMArray_5
+
+  PURE FUNCTION MultMArray_0(a,b) RESULT(c)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(marray_base),INTENT(IN) :: a,b
+    REAL, DIMENSION(SIZE(a%data1d)) :: c
+    !------------------------------------------------------------------------!
+    IF (SIZE(a%data1d).EQ.SIZE(b%data1d)) &
+        c(:) = a%data1d(:) * b%data1d(:)
+  END FUNCTION MultMArray_0
+
+  PURE FUNCTION MultMArray_1(a,b) RESULT(c)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(marray_base),INTENT(IN) :: a
+    REAL, DIMENSION(SIZE(a%data1d)),INTENT(IN) :: b
+    REAL, DIMENSION(SIZE(a%data1d)) :: c
+    !------------------------------------------------------------------------!
+    c(:) = a%data1d(:) * b(:)
+  END FUNCTION MultMArray_1
+
+  PURE FUNCTION MultMArray_2(a,b) RESULT(c)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(marray_base),INTENT(IN) :: a
+    REAL, DIMENSION(SIZE(a%data2d,1),SIZE(a%data2d,2)),INTENT(IN) :: b
+    REAL, DIMENSION(SIZE(a%data2d,1),SIZE(a%data2d,2)) :: c
+    !------------------------------------------------------------------------!
+    c(:,:) = a%data2d(:,:) * b(:,:)
+  END FUNCTION MultMArray_2
+
+  PURE FUNCTION MultMArray_3(a,b) RESULT(c)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(marray_base),INTENT(IN) :: a
+    REAL, DIMENSION(SIZE(a%data3d,1),SIZE(a%data3d,2),SIZE(a%data3d,3)),INTENT(IN) :: b
+    REAL, DIMENSION(SIZE(a%data3d,1),SIZE(a%data3d,2),SIZE(a%data3d,3)) :: c
+    !------------------------------------------------------------------------!
+    c(:,:,:) = a%data3d(:,:,:) * b(:,:,:)
+  END FUNCTION MultMArray_3
+
+  PURE FUNCTION MultMArray_4(a,b) RESULT(c)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(marray_base),INTENT(IN) :: a
+    REAL, DIMENSION(SIZE(a%data4d,1),SIZE(a%data4d,2),SIZE(a%data4d,3), &
+          SIZE(a%data4d,4)),INTENT(IN) :: b
+    REAL, DIMENSION(SIZE(a%data4d,1),SIZE(a%data4d,2),SIZE(a%data4d,3), &
+          SIZE(a%data4d,4)) :: c
+    !------------------------------------------------------------------------!
+    c(:,:,:,:) = a%data4d(:,:,:,:) * b(:,:,:,:)
+  END FUNCTION MultMArray_4
+
+  PURE FUNCTION MultMArray_5(a,b) RESULT(c)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(marray_base),INTENT(IN) :: a
+    REAL, DIMENSION(SIZE(a%data5d,1),SIZE(a%data5d,2),SIZE(a%data5d,3), &
+          SIZE(a%data5d,4),SIZE(a%data5d,5)),INTENT(IN) :: b
+    REAL, DIMENSION(SIZE(a%data5d,1),SIZE(a%data5d,2),SIZE(a%data5d,3), &
+          SIZE(a%data5d,4),SIZE(a%data5d,5)) :: c
+    !------------------------------------------------------------------------!
+    c(:,:,:,:,:) = a%data5d(:,:,:,:,:) * b(:,:,:,:,:)
+  END FUNCTION MultMArray_5
+
   SUBROUTINE Destroy(this)
     IMPLICIT NONE
     !-------------------------------------------------------------------!
