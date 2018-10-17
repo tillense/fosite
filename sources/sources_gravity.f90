@@ -61,7 +61,7 @@ MODULE sources_gravity_mod
     PROCEDURE :: InitSources_gravity
     PROCEDURE :: InfoSources
     PROCEDURE :: ExternalSources_single
-    PROCEDURE :: CloseSources
+    PROCEDURE :: Finalize
   END TYPE sources_gravity
   ABSTRACT INTERFACE
   END INTERFACE
@@ -164,13 +164,24 @@ CONTAINS
     !------------------------------------------------------------------------!
   END SUBROUTINE InfoSources
 
-  SUBROUTINE CloseSources(this)
+  SUBROUTINE Finalize(this)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(sources_gravity) :: this
+    CLASS(sources_gravity), INTENT(INOUT) :: this
+    CLASS(gravity_base),    POINTER       :: gravptr
     !------------------------------------------------------------------------!
-    ! release temporary/global storage
-    ! TODO Wait for Lars' solution
-  END SUBROUTINE CloseSources
+    DEALLOCATE(this%pot,this%accel)
+
+    gravptr => this%glist
+    DO WHILE (ASSOCIATED(gravptr))
+
+      CALL gravptr%Finalize()
+
+      gravptr => gravptr%next
+    END DO
+
+    CALL this%Finalize_base()
+    IF(ASSOCIATED(this%next)) CALL this%next%Finalize()
+  END SUBROUTINE Finalize
 
 END MODULE sources_gravity_mod

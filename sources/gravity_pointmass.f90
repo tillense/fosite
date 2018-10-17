@@ -91,7 +91,7 @@ MODULE gravity_pointmass_mod
     PROCEDURE :: UpdateGravity_single
     PROCEDURE :: InfoGravity
     PROCEDURE :: CalcDiskHeight_single
-    PROCEDURE :: CloseGravity_pointmass
+    PROCEDURE :: Finalize
   END TYPE
 
   !--------------------------------------------------------------------------!
@@ -412,7 +412,7 @@ CONTAINS
     h_ext(:,:,:) = GetDiskHeight(bccsound(:,:,:),this%omega(:,:,:))
   END SUBROUTINE CalcDiskHeight_single
 
-  SUBROUTINE CloseGravity_pointmass(this)
+  SUBROUTINE Finalize(this)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(gravity_pointmass), INTENT(INOUT) :: this
@@ -428,10 +428,14 @@ CONTAINS
           CALL this%Info(buffer)
        END IF
     END IF
-    DEALLOCATE(this%accel,this%omega,this%omega2,this%posvec_prim,this%r_prim,this%mass,&
-               this%pot, this%accrate, this%massloss)
-    CALL this%CloseGravity()
-  END SUBROUTINE CloseGravity_pointmass
+
+    DEALLOCATE(this%accel,this%pot,this%omega,this%omega2,this%r_prim,this%fr_prim, &
+               this%posvec_prim,this%fposvec_prim,this%mass,this%accrate,this%massloss,this%pos)
+
+    DEALLOCATE(this%potential)
+
+    CALL this%Finalize_base()
+  END SUBROUTINE Finalize
 
   !> \public return pressure scale height of a geometrically thin Keplerian disk
   !!

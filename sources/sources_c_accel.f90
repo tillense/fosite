@@ -153,8 +153,8 @@ CONTAINS
     !------------------------------------------------------------------------!
     DEALLOCATE(this%accel)
     CALL this%Finalize_base()
-    IF(ASSOCIATED(this%next)) &
-      CALL this%next%Finalize()
+
+    IF(ASSOCIATED(this%next)) CALL this%next%Finalize()
   END SUBROUTINE Finalize
 
 END MODULE sources_c_accel_mod

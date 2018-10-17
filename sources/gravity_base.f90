@@ -141,11 +141,11 @@ MODULE gravity_base_mod
 !    PROCEDURE :: GravitySources
 !    PROCEDURE :: UpdateGravity
     PROCEDURE (UpdateGravity_single), DEFERRED :: UpdateGravity_single
-    PROCEDURE :: CloseGravity
     PROCEDURE :: CalcDiskHeight
     PROCEDURE (CalcDiskHeight_single), DEFERRED :: CalcDiskHeight_single
     PROCEDURE :: GetGravityPointer
-
+    PROCEDURE :: Finalize_base
+    PROCEDURE (Finalize), DEFERRED :: Finalize
   END TYPE gravity_base
   ABSTRACT INTERFACE
     SUBROUTINE InfoGravity(this,Mesh)
@@ -182,6 +182,11 @@ MODULE gravity_base_mod
                            INTENT(OUT)   :: h_ext
       REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
                            INTENT(INOUT) :: height
+    END SUBROUTINE
+    SUBROUTINE Finalize(this)
+      IMPORT gravity_base
+      IMPLICIT NONE
+      CLASS(gravity_base), INTENT(INOUT) :: this
     END SUBROUTINE
   END INTERFACE
   ! flags for source terms
@@ -357,7 +362,7 @@ CONTAINS
     END DO
   END FUNCTION GetGravityPointer
 
-  SUBROUTINE CloseGravity(this)
+  SUBROUTINE Finalize_base(this)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(gravity_base) :: this
@@ -365,22 +370,9 @@ CONTAINS
     CLASS(gravity_base), POINTER :: gravptr,ptemp
     !------------------------------------------------------------------------!
     ! release temporary/global storage
-    DEALLOCATE(this%accel,this%pot)
-    ! TODO Wait for Lars' solution
-!    IF (this%update_disk_height) DEALLOCATE(this%height,this%h_ext,this%invheight2)
-!    gravptr => this%glist
-!    ! call deallocation procedures for all source terms
-!    DO
-!       IF (.NOT.ASSOCIATED(gravptr)) EXIT
-!       IF (.NOT.Initialized(gravptr)) &
-!            CALL Error(gravptr,"CloseGravity","not initialized")
-!       ! call specific deconstructor
-!!CDIR IEXPAND
-!       ! deallocate source term structure
-!       ptemp=>gravptr
-!       gravptr=>gravptr%next
-!       DEALLOCATE(ptemp)
-!    END DO
-  END SUBROUTINE CloseGravity
+    IF(ASSOCIATED(this%h_ext)) DEALLOCATE(this%h_ext)
+    IF(ASSOCIATED(this%height)) DEALLOCATE(this%height)
+
+  END SUBROUTINE Finalize_base
 
 END MODULE gravity_base_mod

@@ -124,11 +124,11 @@ PRIVATE
      REAL, DIMENSION(:,:), POINTER     :: bflux           !< boundary fluxes for output
      REAL, DIMENSION(:,:,:,:), POINTER :: errorval        !< max. wave speeds
      LOGICAL                           :: write_error     !< enable err writing
-     INTEGER, DIMENSION(:,:), POINTER  :: shift           !< fargo annulus shift
-     REAL, DIMENSION(:,:), POINTER     :: buf             !< fargo MPI buffer
-     REAL, DIMENSION(:,:), POINTER     :: w               !< fargo background velocity
-     REAL, DIMENSION(:,:), POINTER     :: delxy           !< fargo residual shift
-     REAL, DIMENSION(:,:,:,:), POINTER :: fargo_src       !< fargo source terms
+     INTEGER, DIMENSION(:,:), POINTER  :: shift=>null()   !< fargo annulus shift
+     REAL, DIMENSION(:,:), POINTER     :: buf=>null()     !< fargo MPI buffer
+     REAL, DIMENSION(:,:), POINTER     :: w=>null()       !< fargo background velocity
+     REAL, DIMENSION(:,:), POINTER     :: delxy =>null()  !< fargo residual shift
+     REAL, DIMENSION(:,:,:,:), POINTER :: fargo_src =>null() !< fargo source terms
      INTEGER                           :: fargo_order     !< used in FargoAdvection
 
 
@@ -268,8 +268,6 @@ CONTAINS
       this%zfluxdxdy(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
       this%amax(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,3),                 &
       this%tol_abs(Physics%VNUM),        &
-      this%w(Mesh%IGMIN:Mesh%IGMAX,Mesh%KGMIN:Mesh%KGMAX),     &
-      this%shift(Mesh%IGMIN:Mesh%IGMAX,Mesh%KGMIN:Mesh%KGMAX), &
       this%dtmean, this%dtstddev,        &
       this%time,                         &
       STAT = err)
@@ -290,8 +288,6 @@ CONTAINS
     this%zfluxdxdy = 0.
     this%amax      = 0.
     this%tol_abs   = 0.
-    this%w         = 0.
-    this%shift     = 0.
     this%dtmean    = 0.
     this%dtstddev  = 0.
     this%time      = 0.
@@ -1859,26 +1855,17 @@ CONTAINS
       this%pvar,this%cvar,this%cold,this%ptmp,this%ctmp, &
       this%geo_src,this%src, &
       this%xfluxdydz,this%yfluxdzdx,this%zfluxdxdy,this%amax,this%tol_abs,&
-      this%dtmean,this%dtstddev,this%time,&
-      this%shift,this%w)
+      this%dtmean,this%dtstddev,this%time)
 
-    IF(this%GetType().EQ.MODIFIED_EULER) & 
-      DEALLOCATE(this%rhs)
-
-!#ifdef PARALLEL
-!    IF(Mesh%FARGO.NE.0) &
-!      DEALLOCATE(this%buf)
-!#endif
-    IF(ASSOCIATED(this%bflux))    &
-      DEALLOCATE(this%bflux)
-    IF(ASSOCIATED(this%errorval)) &
-      DEALLOCATE(this%errorval)
-    IF(ASSOCIATED(this%solution)) &
-      DEALLOCATE(this%solution)
-
-    ! logging desctructor
-    ! \todo{CHECK WITH MANUEL IF THIS IS NEEDED}
-    !CALL this%Finalize()
+    IF (ASSOCIATED(this%w)) DEALLOCATE(this%w)
+    IF (ASSOCIATED(this%delxy))DEALLOCATE(this%delxy)
+    IF (ASSOCIATED(this%shift))DEALLOCATE(this%shift)
+#ifdef PARALLEL
+    IF(ASSOCIATED(this%buf))  DEALLOCATE(this%buf)
+#endif
+    IF(ASSOCIATED(this%bflux)) DEALLOCATE(this%bflux)
+    IF(this%write_error) DEALLOCATE(this%errorval)
+    IF(ASSOCIATED(this%solution)) DEALLOCATE(this%solution)
   END SUBROUTINE Finalize_base
 
 

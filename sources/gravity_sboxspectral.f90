@@ -154,7 +154,7 @@ MODULE gravity_sboxspectral_mod
     PROCEDURE :: FFT_Backward
     PROCEDURE :: CalcDiskHeight_single
     PROCEDURE :: FieldShift
-    PROCEDURE :: FinalizeGravity_sboxspectral
+    PROCEDURE :: Finalize
   END TYPE
 
   !--------------------------------------------------------------------------!
@@ -925,32 +925,30 @@ CALL ftrace_region_end("foward FFT")
   END SUBROUTINE FieldShift
 
   !> \public Closes the gravity term of the shearingsheet spectral solver.
-  SUBROUTINE FinalizeGravity_sboxspectral(this)
+  SUBROUTINE Finalize(this)
    IMPLICIT NONE
    !------------------------------------------------------------------------!
-   CLASS(gravity_sboxspectral) :: this
+   CLASS(gravity_sboxspectral), INTENT(INOUT) :: this
    !------------------------------------------------------------------------!
-#if defined(HAVE_FFTW) || defined(HAVE_FFTW_LEGACY) || defined(HAVE_FFTKEISAN)
-    ! Destroy plans
 #ifdef HAVE_FFTW
     CALL fftw_destroy_plan(this%plan_r2c)
     CALL fftw_destroy_plan(this%plan_c2r)
-#endif
-#if defined(HAVE_FFTW) && defined(PARALLEL)
-!    fftw_free(this%mass2D,this%Fmass2D)
+#if defined(PARALLEL)
+    fftw_free(this%mass2D,this%Fmass2D)
+#else
+    DEALLOCATE(this%mass2D,this%Fmass2D)
 #endif
     ! Free memory
     DEALLOCATE(&
                this%phi, &
                this%accel, &
-               this%mass2D, &
-               this%Fmass2D, &
                this%Fmass2D_real, &
+               this%kx, this%ky, &
                this%joff, &
                this%jrem, &
                this%den_ip &
                )
 #endif
-    END SUBROUTINE FinalizeGravity_sboxspectral
+    END SUBROUTINE Finalize
 
 END MODULE gravity_sboxspectral_mod
