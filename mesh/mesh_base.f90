@@ -163,9 +163,9 @@ MODULE mesh_base_mod
                          dAxdydz,dAydzdx,dAzdxdy  !< dAx/dydz, dAy/dxdz and dAz/dxdy
     !> \name
     !! #### scale factors and related quantities
-    TYPE(MArrayS_TYP) :: hx,hy,hz, &     !< scale factors
-                         sqrtg, &        !< sqrt(det(metric))
-                         cyxy,cyzy,cxzx,cxyx,czxz,czyz !< commutator coefficients
+    TYPE(marray_cellscalar) :: hx,hy,hz, &     !< scale factors
+                               sqrtg, &        !< sqrt(det(metric))
+                 cyxy,cyzy,cxzx,cxyx,czxz,czyz !< commutator coefficients
     !> \name
     !! #### radius and curvilinear position vector
     TYPE(marray_cellscalar) :: radius      !< real distance to coordinate origin
@@ -464,21 +464,21 @@ CONTAINS
     this%center  => this%RemapBounds(this%curv%center)
     this%bcenter => this%RemapBounds(this%curv%bcenter)
 
-    ! allocate memory for scale factors
-    CALL this%AllocateMesharray(this%hx)
-    CALL this%AllocateMesharray(this%hy)
-    CALL this%AllocateMesharray(this%hz)
+    ! create mesh arrays for scale factors
+    this%hx = marray_cellscalar()
+    this%hy = marray_cellscalar()
+    this%hz = marray_cellscalar()
 
-    ! allocate memory for square root of determinant of metric
-    CALL this%AllocateMesharray(This%sqrtg)
+    ! create mesh array for square root of determinant of metric
+    this%sqrtg = marray_cellscalar()
 
-    ! allocate memory for commutator coefficients
-    CALL this%AllocateMesharray(this%cxyx)
-    CALL this%AllocateMesharray(this%cxzx)
-    CALL this%AllocateMesharray(this%cyxy)
-    CALL this%AllocateMesharray(this%cyzy)
-    CALL this%AllocateMesharray(this%czxz)
-    CALL this%AllocateMesharray(this%czyz)
+    ! create mesh arrays for commutator coefficients
+    this%cxyx = marray_cellscalar()
+    this%cxzx = marray_cellscalar()
+    this%cyxy = marray_cellscalar()
+    this%cyzy = marray_cellscalar()
+    this%czxz = marray_cellscalar()
+    this%czyz = marray_cellscalar()
 
     ! allocate memory for all pointers that are independent of fluxtype
     ALLOCATE( &
@@ -622,7 +622,7 @@ CONTAINS
 
     ! get square root of determinant of the metric
     ! bary center values are overwritten below
-    this%sqrtg = this%hx*this%hy*this%hz
+    this%sqrtg = this%hx*(this%hy*this%hz)
 
     ! allocate memory for cartesian positions
     !> Should not exist anymore in 3D coordinates
@@ -1472,16 +1472,17 @@ CONTAINS
     END DO
 #endif
     CALL this%DeallocateMesharray(this%curv)
-    CALL this%DeallocateMesharray(this%hx)
-    CALL this%DeallocateMesharray(this%hy)
-    CALL this%DeallocateMesharray(this%hz)
-    CALL this%DeallocateMesharray(this%sqrtg)
-    CALL this%DeallocateMesharray(this%cxyx)
-    CALL this%DeallocateMesharray(this%cxzx)
-    CALL this%DeallocateMesharray(this%cyxy)
-    CALL this%DeallocateMesharray(this%cyzy)
-    CALL this%DeallocateMesharray(this%czxz)
-    CALL this%DeallocateMesharray(this%czyz)
+!     CALL this%curv%Destroy()
+    CALL this%hx%Destroy()
+    CALL this%hy%Destroy()
+    CALL this%hz%Destroy()
+    CALL this%sqrtg%Destroy()
+    CALL this%cxyx%Destroy()
+    CALL this%cxzx%Destroy()
+    CALL this%cyxy%Destroy()
+    CALL this%cyzy%Destroy()
+    CALL this%czxz%Destroy()
+    CALL this%czyz%Destroy()
 
     DEALLOCATE(this%volume,this%dxdydV,this%dydzdV,this%dzdxdV,this%dlx,this%dly,this%dlz)
     IF(ASSOCIATED(this%rotation)) &
@@ -1489,7 +1490,7 @@ CONTAINS
 
 
     CALL this%DeallocateMesharray(this%cart)
-!     CALL this%DeallocateMesharray(this%radius)
+    
     CALL this%radius%Destroy()
     CALL this%DeallocateMesharray(this%posvec)
 

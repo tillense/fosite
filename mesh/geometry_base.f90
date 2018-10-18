@@ -336,7 +336,7 @@ CONTAINS
     !------------------------------------------------------------------------!
     CLASS(geometry_base), INTENT(IN)   :: this
     TYPE(MArrayV_TYP), INTENT(IN)      :: coords    !\TODO{ARRAY KLASSEN HIER NOCH EINTRAGEN (BISHER IM MESH)}
-    TYPE(MArrayS_TYP), INTENT(OUT)     :: hx,hy,hz
+    TYPE(marray_cellscalar), INTENT(INOUT) :: hx,hy,hz
     !------------------------------------------------------------------------!
     CALL this%ScaleFactors_1(coords%center ,hx%center ,hy%center ,hz%center)
     CALL this%ScaleFactors_1(coords%bcenter,hx%bcenter,hy%bcenter,hz%bcenter)
@@ -382,7 +382,7 @@ CONTAINS
     !------------------------------------------------------------------------!
     CLASS(geometry_base), INTENT(IN)     :: this
     TYPE(MArrayV_TYP), INTENT(IN)        :: coords
-    TYPE(marray_cellscalar), INTENT(OUT) :: radius
+    TYPE(marray_cellscalar), INTENT(INOUT) :: radius
     !------------------------------------------------------------------------!
     CALL this%Radius_1(coords%center ,radius%center)
     CALL this%Radius_1(coords%bcenter,radius%bcenter)

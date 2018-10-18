@@ -60,11 +60,6 @@ CONTAINS
     !-------------------------------------------------------------------!
     ! create new rank 1 mesh array
     new_cs = marray_base(1+1+6+8)
-    ! assign array pointers
-    new_cs%center  => new_cs%RemapBounds(new_cs%data4d(:,:,:,1))
-    new_cs%bcenter => new_cs%RemapBounds(new_cs%data4d(:,:,:,2))
-    new_cs%faces   => new_cs%RemapBounds(new_cs%data4d(:,:,:,3:8))
-    new_cs%corners => new_cs%RemapBounds(new_cs%data4d(:,:,:,9:16))
   END FUNCTION CreateMArray_cellscalar
   
   SUBROUTINE AssignPointers(this)
