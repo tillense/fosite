@@ -36,7 +36,7 @@
 MODULE geometry_base_mod
   USE logging_base_mod
   USE marray_cellscalar_mod
-  USE array, ONLY : MArrayS_TYP, MArrayV_TYP !\todo{new type - not yet implemented as class}
+  USE marray_cellvector_mod
   USE common_dict
   !--------------------------------------------------------------------------!
   PRIVATE
@@ -335,7 +335,7 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(geometry_base), INTENT(IN)   :: this
-    TYPE(MArrayV_TYP), INTENT(IN)      :: coords    !\TODO{ARRAY KLASSEN HIER NOCH EINTRAGEN (BISHER IM MESH)}
+    TYPE(marray_cellvector), INTENT(IN)    :: coords
     TYPE(marray_cellscalar), INTENT(INOUT) :: hx,hy,hz
     !------------------------------------------------------------------------!
     CALL this%ScaleFactors_1(coords%center ,hx%center ,hy%center ,hz%center)
@@ -375,13 +375,15 @@ CONTAINS
   END SUBROUTINE ScaleFactors_2
 
 
-  !> \public Compute radial distances to the origin
-  !! for all cell positions
+  !> \public Compute radial distances to the origin for all cell positions
+  !!
+  !! ATTENTION: radius should actually be intent(out), but this breaks the
+  !!            pointer assignment to radius%data1d in the mesh array
   PURE SUBROUTINE Radius_all(this,coords,radius)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(geometry_base), INTENT(IN)     :: this
-    TYPE(MArrayV_TYP), INTENT(IN)        :: coords
+    TYPE(marray_cellvector), INTENT(IN)    :: coords
     TYPE(marray_cellscalar), INTENT(INOUT) :: radius
     !------------------------------------------------------------------------!
     CALL this%Radius_1(coords%center ,radius%center)
@@ -418,14 +420,16 @@ CONTAINS
     CALL this%Radius(coords(:,:,:,:,1),coords(:,:,:,:,2),coords(:,:,:,:,3),radius(:,:,:,:))
   END SUBROUTINE Radius_2
 
-  !> \public compute position vector components
-  !! for all cell positions
+  !> \public compute position vector components for all cell positions
+  !!
+  !! ATTENTION: posvec should actually be intent(out), but this breaks the
+  !!            pointer assignment to posvec%data1d in the mesh array
   PURE SUBROUTINE PositionVector_all(this,coords,posvec)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(geometry_base), INTENT(IN) :: this
-    TYPE(MArrayV_TYP), INTENT(IN)    :: coords
-    TYPE(MArrayV_TYP), INTENT(OUT)   :: posvec
+    TYPE(marray_cellvector), INTENT(IN)    :: coords
+    TYPE(marray_cellvector), INTENT(INOUT) :: posvec
     !------------------------------------------------------------------------!
     CALL this%PositionVector_1(coords%center ,posvec%center)
     CALL this%PositionVector_1(coords%bcenter,posvec%bcenter)
@@ -464,12 +468,15 @@ CONTAINS
   END SUBROUTINE PositionVector_2
 
   !> \public Convert curvilinear to cartesian coordinates
+  !!
+  !! ATTENTION: cart should actually be intent(out), but this breaks the
+  !!            pointer assignment to cart%data1d in the mesh array
   PURE SUBROUTINE Convert2Cartesian_all(this,curv,cart)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(geometry_base), INTENT(IN)     :: this  !> \param [in] this geometry class
-    TYPE(MArrayV_TYP), INTENT(OUT)       :: curv  !> \param [in] curv curvilinear coordinates
-    TYPE(MArrayV_TYP), INTENT(OUT)       :: cart  !> \param [out] cart cartesian coordinates
+    CLASS(geometry_base), INTENT(IN)       :: this  !> \param [in] this geometry class
+    TYPE(marray_cellvector), INTENT(IN  )  :: curv  !> \param [in] curv curvilinear coordinates
+    TYPE(marray_cellvector), INTENT(INOUT) :: cart  !> \param [out] cart cartesian coordinates
     !------------------------------------------------------------------------!
     CALL this%Convert2Cartesian_coords_1(curv%center ,cart%center)
     CALL this%Convert2Cartesian_coords_1(curv%bcenter,cart%bcenter)
@@ -508,12 +515,15 @@ CONTAINS
 
 
   !> \public Convert cartesian to curvilinear coordinates
+  !!
+  !! ATTENTION: curv should actually be intent(out), but this breaks the
+  !!            pointer assignment to curv%data1d in the mesh array
   PURE SUBROUTINE Convert2Curvilinear_all(this,cart,curv)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(geometry_base), INTENT(IN)     :: this  !> \param [in] this geometry type
-    TYPE(MArrayV_TYP), INTENT(IN)        :: cart  !> \param [in] cart cartesian coordinates
-    TYPE(MArrayV_TYP), INTENT(OUT)       :: curv  !> \param [out] curv curvilinear coordinates
+    CLASS(geometry_base), INTENT(IN)       :: this  !> \param [in] this geometry type
+    TYPE(marray_cellvector), INTENT(IN)    :: cart  !> \param [in] cart cartesian coordinates
+    TYPE(marray_cellvector), INTENT(INOUT) :: curv  !> \param [out] curv curvilinear coordinates
     !------------------------------------------------------------------------!
     CALL this%Convert2Curvilinear_coords_1(cart%center ,curv%center)
     CALL this%Convert2Curvilinear_coords_1(cart%bcenter,curv%bcenter)

@@ -64,6 +64,7 @@ MODULE mesh_base_mod
   USE array
   USE marray_base_mod
   USE marray_cellscalar_mod
+  USE marray_cellvector_mod
   USE geometry_base_mod
   USE geometry_generic_mod
   USE common_dict
@@ -143,8 +144,8 @@ MODULE mesh_base_mod
     REAL              :: rotcent(2)        !< center of the rotating frame of ref.
     !> \name
     !! #### cell coordinates
-    TYPE(MArrayV_TYP) :: curv, &         !< curvilinear coordinates
-                         cart            !< cartesian coordinates
+    TYPE(marray_cellvector) :: curv, &     !< curvilinear coordinates
+                               cart        !< cartesian coordinates
     REAL, DIMENSION(:,:,:,:), POINTER :: &
                          center, &       !< geometrical centers
                          bcenter, &      !< bary centers
@@ -169,7 +170,7 @@ MODULE mesh_base_mod
     !> \name
     !! #### radius and curvilinear position vector
     TYPE(marray_cellscalar) :: radius      !< real distance to coordinate origin
-    TYPE(MArrayV_TYP) :: posvec      !< curvilinear position vector
+    TYPE(marray_cellvector) :: posvec      !< curvilinear position vector
     !> \name
     !! #### other geometrial quantities
     REAL, DIMENSION(:,:), POINTER :: &
@@ -460,9 +461,9 @@ CONTAINS
     CALL InitMeshProperties(this%IGMIN,this%IGMAX,this%JGMIN,this%JGMAX,this%KGMIN,this%KGMAX)
     
     ! allocate memory for curvilinear positions
-    CALL this%AllocateMesharray(this%curv)
-    this%center  => this%RemapBounds(this%curv%center)
-    this%bcenter => this%RemapBounds(this%curv%bcenter)
+    this%curv = marray_cellvector()
+    this%center  => this%curv%RemapBounds(this%curv%center)
+    this%bcenter => this%curv%RemapBounds(this%curv%bcenter)
 
     ! create mesh arrays for scale factors
     this%hx = marray_cellscalar()
@@ -624,8 +625,7 @@ CONTAINS
     ! bary center values are overwritten below
     this%sqrtg = this%hx*(this%hy*this%hz)
 
-    ! allocate memory for cartesian positions
-    !> Should not exist anymore in 3D coordinates
+    !> This hack shouldn't be necesary anymore for true 3D coordinates
 !    IF (this%Geometry%GetType().EQ.BIANGLESPHERICAL) THEN
 !      !> \todo: insert passage in mesh_common.f90 (ll. 264), problem: mixed dimensions in
 !      !! bianglespherical for curvilinear and cartesian coordinates -> no generality
@@ -633,22 +633,24 @@ CONTAINS
 !      CALL this%AllocateMesharray(this%cart,3)
 !      CALL this%AllocateMesharray(this%posvec,3)
 !    ELSE
-      CALL this%AllocateMesharray(this%cart)
-      CALL this%AllocateMesharray(this%posvec)
+!      CALL this%AllocateMesharray(this%cart)
+!      CALL this%AllocateMesharray(this%posvec)
 !    END IF
-    this%bccart => this%RemapBounds(this%cart%bcenter)
-    this%fccart => this%RemapBounds(this%cart%faces)
-    this%ccart  => this%RemapBounds(this%cart%corners)
+    ! create mesh array for cartesian coordinates
+    this%cart = marray_cellvector()
+    this%bccart => this%cart%RemapBounds(this%cart%bcenter)
+    this%fccart => this%cart%RemapBounds(this%cart%faces)
+    this%ccart  => this%cart%RemapBounds(this%cart%corners)
 
     ! compute cartesian coordinates for all cell positions (center,bcenter,faces,corners)
     CALL this%Geometry%Convert2Cartesian(this%curv,this%cart)
 
-    ! allocate memory for radius
-!     CALL this%AllocateMesharray(this%radius)
+    ! create mesh array for distance to the origin of the mesh
     this%radius = marray_cellscalar()
-
-    ! get radii and position vectors for all cell positions
     CALL this%geometry%Radius(this%curv,this%radius)
+    
+    ! create mesh array for position vector
+    this%posvec = marray_cellvector()
     CALL this%geometry%PositionVector(this%curv,this%posvec)
 
 !    ! This is a quick hack for VTK and XDMF output on bipolar mesh.
@@ -1471,8 +1473,7 @@ CONTAINS
           CALL MPI_Comm_free(this%comm_boundaries(i),ierror)
     END DO
 #endif
-    CALL this%DeallocateMesharray(this%curv)
-!     CALL this%curv%Destroy()
+    CALL this%curv%Destroy()
     CALL this%hx%Destroy()
     CALL this%hy%Destroy()
     CALL this%hz%Destroy()
@@ -1489,10 +1490,10 @@ CONTAINS
         DEALLOCATE(this%rotation)
 
 
-    CALL this%DeallocateMesharray(this%cart)
+    CALL this%cart%Destroy()
     
     CALL this%radius%Destroy()
-    CALL this%DeallocateMesharray(this%posvec)
+    CALL this%posvec%Destroy()
 
     IF (ASSOCIATED(this%rotation)) DEALLOCATE(this%rotation)
 
