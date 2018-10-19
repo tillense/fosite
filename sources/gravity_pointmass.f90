@@ -346,10 +346,8 @@ CONTAINS
     IF (this%outbound.NE.0) THEN
        ! get boundary flux
 #ifdef PARALLEL
-!NEC$ IEXPAND
        bflux(:)  = Fluxes%GetBoundaryFlux(Mesh,Physics,this%outbound,MPI_COMM_WORLD)
 #else
-!NEC$ IEXPAND
        bflux(:)  = Fluxes%GetBoundaryFlux(Mesh,Physics,this%outbound)
 #endif
        ! store old mass

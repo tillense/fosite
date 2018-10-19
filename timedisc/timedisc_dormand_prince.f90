@@ -81,7 +81,6 @@ CONTAINS
     CALL GetAttr(config, "method", method)
     CALL this%InitTimedisc(Mesh,Physics,config,IO,method,ODEsolver_name)
 
-!NEC$ IEXPAND
     SELECT CASE(this%GetOrder())
     CASE(5)
        !set number of coefficients

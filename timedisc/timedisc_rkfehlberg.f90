@@ -112,7 +112,6 @@ CONTAINS
  !   CALL GetAttr(config, "method", method)
     CALL this%InitTimedisc(Mesh,Physics,config,IO,RK_FEHLBERG,ODEsolver_name)
 
-!NEC$ IEXPAND
     ! set number of coefficients
     SELECT CASE(this%GetOrder())
     CASE(3)
@@ -137,7 +136,6 @@ CONTAINS
     ! set RHS pointer to the first entry of the coeff field
     this%rhs => Mesh%RemapBounds(this%coeff(:,:,:,:,1))
 
-!NEC$ IEXPAND
     SELECT CASE(this%GetOrder())
     CASE(3)
        !set coefficient scheme of RK-Fehlberg rkf23
@@ -202,7 +200,6 @@ CONTAINS
     ! or RejectTimestep. Don't forget: this%rhs => this%coeff(:,:,:,1).
     DO m=2,this%m
        ! time step update of cell mean values
-!NEC$ IEXPAND
        CALL this%ComputeCVar_rkfehlberg(Mesh,Physics,Fluxes,dt,m,this%coeff,this%cvar,this%ctmp)
        ! compute right-hand-side
        ! coeff_m is k_m/dt from Butcher tableau

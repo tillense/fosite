@@ -104,7 +104,6 @@ CONTAINS
     !------------------------------------------------------------------------!
     INTEGER       :: i,j,k
     !------------------------------------------------------------------------!
-!NEC$ IEXPAND
     SELECT CASE(this%direction%GetType())
     CASE(WEST)
        ! UNROLL=Mesh%GNUM would be sufficient, but the compiler does
