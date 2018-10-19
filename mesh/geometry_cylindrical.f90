@@ -137,6 +137,7 @@ CONTAINS
   END SUBROUTINE Convert2Curvilinear_coords_0
 
 
+  !> Reference: \cite bronstein2008 , Tabelle 13.1
   ELEMENTAL SUBROUTINE Convert2Cartesian_vectors_0(this,xi,eta,phi,vxi,veta,vphi,vx,vy,vz)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
@@ -144,12 +145,13 @@ CONTAINS
     REAL, INTENT(IN)                        :: xi,eta,phi,vxi,veta,vphi
     REAL, INTENT(OUT)                       :: vx,vy,vz
     !------------------------------------------------------------------------!
-    vx = vxi*COS(eta) + veta*SIN(eta)
-    vy = -vxi*SIN(eta) + veta*COS(eta)
+    vx = vxi*COS(eta) - veta*SIN(eta)
+    vy = vxi*SIN(eta) + veta*COS(eta)
     vz = vphi
   END SUBROUTINE Convert2Cartesian_vectors_0
 
 
+  !> Reference: \cite bronstein2008 , Tabelle 13.1
   ELEMENTAL SUBROUTINE Convert2Curvilinear_vectors_0(this,xi,eta,phi,vx,vy,vz,vxi,veta,vphi)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
@@ -157,8 +159,8 @@ CONTAINS
     REAL, INTENT(IN)                        :: xi,eta,phi,vx,vy,vz
     REAL, INTENT(OUT)                       :: vxi,veta,vphi
     !------------------------------------------------------------------------!
-    vxi  = vx*COS(eta) - vy*SIN(eta)
-    veta = vx*SIN(eta) + vy*COS(eta)
+    vxi  = vx*COS(eta) + vy*SIN(eta)
+    veta = -vx*SIN(eta) + vy*COS(eta)
     vphi = vz
   END SUBROUTINE Convert2Curvilinear_vectors_0
 

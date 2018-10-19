@@ -135,7 +135,7 @@ CONTAINS
     END IF
   END SUBROUTINE Convert2Curvilinear_coords_0
 
-  ! vector transformations
+  !> Reference: \cite bronstein2008 , Tabelle 13.1
   ELEMENTAL SUBROUTINE Convert2Cartesian_vectors_0(this,xi,eta,phi,vxi,veta,vphi,vx,vy,vz)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
@@ -143,11 +143,12 @@ CONTAINS
     REAL, INTENT(IN)                      :: xi,eta,phi,vxi,veta,vphi
     REAL, INTENT(OUT)                     :: vx,vy,vz
     !------------------------------------------------------------------------!
-    vx = vxi*SIN(eta)*COS(phi) + veta*SIN(eta)*SIN(phi) + vphi*COS(eta)
-    vy = vxi*COS(eta)*COS(phi) + veta*COS(eta)*SIN(phi) - vphi*SIN(eta)
-    vz = -vxi*SIN(phi) + veta*COS(phi)
+    vx = vxi*SIN(eta)*COS(phi) + veta*COS(eta)*COS(phi) - vphi*SIN(phi)
+    vy = vxi*SIN(eta)*SIN(phi) + veta*COS(eta)*SIN(phi) + vphi*COS(phi)
+    vz = vxi*COS(eta) - veta*SIN(eta)
   END SUBROUTINE Convert2Cartesian_vectors_0
 
+  !> Reference: \cite bronstein2008 , Tabelle 13.1
   ELEMENTAL SUBROUTINE Convert2Curvilinear_vectors_0(this,xi,eta,phi,vx,vy,vz,vxi,veta,vphi)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
@@ -155,9 +156,9 @@ CONTAINS
     REAL, INTENT(IN)                      :: xi,eta,phi,vx,vy,vz
     REAL, INTENT(OUT)                     :: vxi,veta,vphi
     !------------------------------------------------------------------------!
-    vxi  = vx*SIN(eta)*COS(phi) + vy*COS(eta)*COS(phi) - vz*SIN(phi)
-    veta = vx*SIN(eta)*SIN(phi) + vy*COS(eta)*SIN(phi) + vz*COS(phi)
-    vphi = vx*COS(eta) - vy*SIN(eta)
+    vxi  = vx*SIN(eta)*COS(phi) + vy*SIN(eta)*SIN(phi) + vz*COS(eta)
+    veta = vx*COS(eta)*COS(phi) + vy*COS(eta)*SIN(phi) - vz*SIN(eta)
+    vphi = -vx*SIN(phi) + vy*COS(phi)
   END SUBROUTINE Convert2Curvilinear_vectors_0
 
   SUBROUTINE Finalize(this)
