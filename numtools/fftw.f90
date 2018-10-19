@@ -26,14 +26,11 @@
 !> fftw module
 !----------------------------------------------------------------------------!
 
+MODULE fftw
+  USE, INTRINSIC :: iso_c_binding
 #if defined(HAVE_FFTW) && !defined(PARALLEL)
-MODULE fftw
-    USE, INTRINSIC :: iso_c_binding
-    INCLUDE 'fftw3.f03'
-END MODULE fftw
+  INCLUDE 'fftw3.f03'
 #elif defined(HAVE_FFTW) && defined(PARALLEL)
-MODULE fftw
-USE, INTRINSIC :: iso_c_binding
-INCLUDE 'fftw3-mpi.f03'
-END MODULE
+  INCLUDE 'fftw3-mpi.f03'
 #endif
+END MODULE fftw

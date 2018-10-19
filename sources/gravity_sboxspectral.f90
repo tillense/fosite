@@ -82,9 +82,7 @@ MODULE gravity_sboxspectral_mod
   USE mesh_base_mod
   USE logging_base_mod
   USE common_dict
-#if defined(HAVE_FFTW)
   USE fftw
-#endif
 #ifdef PARALLEL
 #ifdef HAVE_MPI_MOD
   USE mpi
@@ -104,7 +102,7 @@ MODULE gravity_sboxspectral_mod
 
   TYPE, EXTENDS(gravity_base) :: gravity_sboxspectral
     CHARACTER(LEN=32) :: gravity_name = "shearingbox spectral solver"
-#if defined(HAVE_FFTW)
+#ifdef HAVE_FFTW
     !> \name
     !!#### spectral poisson solver
     !> plan for real to complex fourier transforms
@@ -135,26 +133,27 @@ MODULE gravity_sboxspectral_mod
     REAL,DIMENSION(:), POINTER       :: ky            !< wave numbers for FFT (y)
     REAL                             :: Lx, Ly
     REAL, DIMENSION(:), POINTER      :: joff, jrem   !< shifting indices (in SB)
-#endif
-#if defined(HAVE_FFTW) && defined(PARALLEL)
+#ifdef PARALLEL
     INTEGER(C_INTPTR_T)              :: C_INUM, C_JNUM
     INTEGER(C_INTPTR_T)              :: alloc_local, local_JNUM
     TYPE(C_PTR)                      :: mass2D_pointer
     TYPE(C_PTR)                      :: Fmass2D_pointer
 #endif
-
+#endif
 
   CONTAINS
 
     PROCEDURE :: InitGravity_sboxspectral
     PROCEDURE :: UpdateGravity_single
     PROCEDURE :: InfoGravity
+    PROCEDURE :: CalcDiskHeight_single
+    PROCEDURE :: Finalize
+#ifdef HAVE_FFTW
     PROCEDURE :: CalcPotential
     PROCEDURE :: FFT_Forward
     PROCEDURE :: FFT_Backward
-    PROCEDURE :: CalcDiskHeight_single
     PROCEDURE :: FieldShift
-    PROCEDURE :: Finalize
+#endif
   END TYPE
 
   !--------------------------------------------------------------------------!
@@ -192,20 +191,18 @@ MODULE gravity_sboxspectral_mod
     CALL GetAttr(config, "gtype", gravity_number)
     CALL this%InitLogging(gravity_number,this%gravity_name)
 
+    !-------------- checks & warnings for initial conditions ----------------!
+#if !defined(HAVE_FFTW)
+    CALL this%Error("InitGravity_sboxspectral", &
+         "No fftw package could be loaded.")
+#else
     !>\todo{implement a check for equidistant mesh}
-#if defined(HAVE_FFTW) && defined(PARALLEL)
+#ifdef PARALLEL
     CALL fftw_mpi_init()
     C_INUM = Mesh%INUM
     C_JNUM = Mesh%JNUM
 #endif
 
-    !-------------- checks & warnings for initial conditions ----------------!
-#if !defined(HAVE_FFTW)
-    CALL this%Error("InitGravity_sboxspectral", &
-         "No fftw package could be loaded.")
-#endif
-
-#if defined(HAVE_FFTW)
     ! Check even number of cells
     IF(.NOT.(MOD(Mesh%JMAX-Mesh%JMIN+1,2)==0)) THEN
       CALL this%Error("InitGravity_sboxspectral", &
@@ -217,7 +214,7 @@ MODULE gravity_sboxspectral_mod
 
     ! check the dimensions if fftw should be used in parallel in order to
     ! know how to allocate the local arrays
-#if (defined(HAVE_FFTW) && defined(PARALLEL))
+#ifdef PARALLEL
     CALL MPI_Comm_size(MPI_COMM_WORLD, nprocs, err)
     IF (nprocs.GT.1 .AND. Mesh%WE_shear) THEN
       CALL this%Error("InitGravity_sboxspectral", &
@@ -239,10 +236,10 @@ MODULE gravity_sboxspectral_mod
     ALLOCATE( &
              this%phi(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KMAX), &
              this%accel(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%DIM), &
-#if defined(HAVE_FFTW) && !defined(PARALLEL)
+#if !defined(PARALLEL)
              this%mass2D(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX), &
              this%Fmass2D(Mesh%IMIN:Mesh%IMAX/2+1,Mesh%JMIN:Mesh%JMAX), &
-#elif defined(HAVE_FFTW) && defined(PARALLEL)
+#else
              ! initialization handled by FFTW (see below)
 #endif
              this%Fmass2D_real(Mesh%IMIN:Mesh%IMAX+2,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX), &
@@ -259,7 +256,7 @@ MODULE gravity_sboxspectral_mod
 
     ! use special allocation pattern from fftw when using MPI in order to
     ! assure good alignment
-#if defined(HAVE_FFTW) && defined(PARALLEL)
+#if defined(PARALLEL)
     this%alloc_local     = fftw_mpi_local_size_2d(C_JNUM, C_INUM, &
                               MPI_COMM_WORLD, this%local_JNUM, this%local_joff)
     this%mass2D_pointer  = fftw_alloc_real(2*this%alloc_local)
@@ -275,14 +272,14 @@ MODULE gravity_sboxspectral_mod
     ! are switched because of C -> row-major, Fortran -> column-major),      !
     ! BUT ONLY in modern Fortran UNLIKE the legacy version                   !
     ! ------------ plans are allocated in dictionary ------------------------!
-#if defined(HAVE_FFTW) && !defined(PARALLEL)
+#if  !defined(PARALLEL)
     this%plan_r2c = fftw_plan_dft_r2c_2d(Mesh%JMAX-Mesh%JMIN+1, &
                                          Mesh%IMAX-Mesh%IMIN+1,this%mass2D, &
                                          this%Fmass2D,FFTW_MEASURE)
     this%plan_c2r = fftw_plan_dft_c2r_2d(Mesh%JMAX-Mesh%JMIN+1, &
                                          Mesh%IMAX-Mesh%IMIN+1, this%Fmass2D, &
                                          this%mass2D, FFTW_MEASURE)
-#elif defined(HAVE_FFTW) && defined(PARALLEL)
+#elif defined(PARALLEL)
     this%plan_r2c = fftw_mpi_plan_dft_r2c_2d(C_JNUM,C_INUM, &
                                              this%mass2D,this%Fmass2D, &
                                              MPI_COMM_WORLD, FFTW_MEASURE)
@@ -357,6 +354,7 @@ MODULE gravity_sboxspectral_mod
     INTEGER :: i,j,k
     REAL    :: w1,w2
     !------------------------------------------------------------------------!
+#ifdef HAVE_FFTW
     ! calc potential first
     CALL this%CalcPotential(Mesh,Physics,time,pvar)
 
@@ -384,6 +382,7 @@ MODULE gravity_sboxspectral_mod
         END DO
       END DO
     END DO
+#endif
   END SUBROUTINE UpdateGravity_single
 
   !> \public Computes the potential with FFT method within a shearingsheet.
@@ -421,6 +420,7 @@ MODULE gravity_sboxspectral_mod
   !!
   !! The acceleration is eventually calculated in \link
   !! gravity_sboxspectral::updategravity_sboxspectral \endlink.
+#ifdef HAVE_FFTW
   SUBROUTINE CalcPotential(this,Mesh,Physics,time,pvar)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
@@ -441,7 +441,6 @@ MODULE gravity_sboxspectral_mod
     REAL    :: mpi_buf(Mesh%IMIN:Mesh%IMAX,Mesh%GJNUM,Mesh%KMIN:Mesh%KMAX) !TODO: ONLY 2D
 #endif
     !------------------------------------------------------------------------!
-#if defined(HAVE_FFTW)
     !---------------- fourier transformation of density ---------------------!
     ! calculate the shift of the indice at time t                            !
     ! shift density to pretend periodic behavior with interpolation          !
@@ -470,7 +469,7 @@ MODULE gravity_sboxspectral_mod
               this%den_ip(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX))
 
 ! TODO POTENTIAL ERROR BECAUSE OF RESHAPE FUNCTIONS
-#if defined(HAVE_FFTW) && defined(PARALLEL)
+#if defined(PARALLEL)
     this%mass2D(1:Mesh%INUM,1:this%local_JNUM) = &
       RESHAPE(this%den_ip(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX), (/ Mesh%INUM,Mesh%JNUM/nprocs /))
 #else
@@ -543,10 +542,8 @@ CALL ftrace_region_end("backward_fft")
     DO k = Mesh%KMIN,Mesh%KMAX
       DO j = Mesh%JMIN,Mesh%JMAX
         DO i = Mesh%IMIN,Mesh%IMAX
-#if defined(HAVE_FFTW)
           this%phi(i,j,k) = this%mass2D(i,j-this%local_joff)/ &
                (Mesh%JNUM*Mesh%INUM)                        ! no norm. by FFTW !
-#endif
         END DO
       END DO
     END DO
@@ -693,7 +690,6 @@ CALL ftrace_region_end("backward_fft")
       END IF
 #endif
     END IF
-#endif
   END SUBROUTINE CalcPotential
 
 
@@ -720,7 +716,7 @@ CALL ftrace_region_end("backward_fft")
 CALL ftrace_region_begin("forward FFT")
 #endif
 
-#if defined(HAVE_FFTW) && !defined(PARALLEL)
+#if !defined(PARALLEL)
     CALL fftw_execute_dft_r2c(this%plan_r2c, this%mass2D, this%Fmass2D)
     ! turn complex array to real one for output
     DO k = Mesh%KMIN,Mesh%KMAX
@@ -731,7 +727,7 @@ CALL ftrace_region_begin("forward FFT")
         END DO
       END DO
     END DO
-#elif defined(HAVE_FFTW) && defined(PARALLEL)
+#else
     CALL fftw_mpi_execute_dft_r2c(this%plan_r2c,this%mass2D, this%Fmass2D)
     DO k = Mesh%KMIN,Mesh%KMAX
       DO j = Mesh%JMIN,Mesh%JMAX
@@ -769,13 +765,13 @@ CALL ftrace_region_end("foward FFT")
     CALL MPI_Comm_size(MPI_COMM_WORLD, nprocs, ier)
 #endif
 
-#if defined(HAVE_FFTW) && !defined(PARALLEL)
-    CALL fftw_execute_dft_c2r(this%plan_c2r, this%Fmass2D, this%mass2D)
-#elif defined(HAVE_FFTW) && defined(PARALLEL)
+#if defined(PARALLEL)
     CALL fftw_mpi_execute_dft_c2r(this%plan_c2r,this%Fmass2D, this%mass2D)
+#else
+    CALL fftw_execute_dft_c2r(this%plan_c2r, this%Fmass2D, this%mass2D)
 #endif
   END SUBROUTINE
-
+#endif
 
 
   !> \public Compute disk pressure scale height for geometrically thin
@@ -824,6 +820,7 @@ CALL ftrace_region_end("foward FFT")
     INTEGER           :: i,j,k
     REAL              :: cs2,p,q
     !------------------------------------------------------------------------!
+#ifdef HAVE_FFTW
     ! pure self-gravitating shearing sheet with external point mass potential
 !NEC$ COLLAPSE
     DO k=Mesh%KGMIN,Mesh%KGMAX
@@ -838,7 +835,7 @@ CALL ftrace_region_end("foward FFT")
         END DO
       END DO
     END DO
-
+#endif
   END SUBROUTINE CalcDiskHeight_single
 
   !> Prints out information
@@ -848,15 +845,15 @@ CALL ftrace_region_end("foward FFT")
     CLASS(gravity_sboxspectral), INTENT(IN) :: this
     CLASS(mesh_base),            INTENT(IN) :: Mesh
     !------------------------------------------------------------------------!
-#if defined(HAVE_FFTW)
+#ifdef HAVE_FFTW
     CALL this%Info( "            FFT-Package:       FFTW " // &
 #if defined(PARALLEL)
                                                     "- parallel mode")
-#elif !defined(PARALLEL)
+#else
                                                     "- serial mode")
 #endif
-#endif
     CALL this%Info("            .. done initializing")
+#endif
   END SUBROUTINE InfoGravity
 
   !> \public Shifts the whole field to the next periodic point.
@@ -868,6 +865,7 @@ CALL ftrace_region_end("foward FFT")
   !! with \f$ t_p = \text{NINT}(q\Omega t) / (q\Omega) \f$. In order to map
   !! the continuous shift at the discrete field linear interpolation is used,
   !! and assumes periodic behaviour along the y-direction.
+#ifdef HAVE_FFTW
   SUBROUTINE FieldShift(this,Mesh,Physics,delt,field,mass2D)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
@@ -876,7 +874,7 @@ CALL ftrace_region_end("foward FFT")
     CLASS(physics_base), INTENT(IN)  :: Physics
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
                          INTENT(IN)  :: field
-#if defined(HAVE_FFTW) && defined(PARALLEL)
+#if defined(PARALLEL)
     REAL, DIMENSION(1:Mesh%INUM,1:this%local_JNUM), &
                          INTENT(OUT) :: mass2D
 #else
@@ -923,7 +921,7 @@ CALL ftrace_region_end("foward FFT")
       END DO
     END IF
   END SUBROUTINE FieldShift
-
+#endif
   !> \public Closes the gravity term of the shearingsheet spectral solver.
   SUBROUTINE Finalize(this)
    IMPLICIT NONE
