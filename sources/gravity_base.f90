@@ -45,6 +45,9 @@ MODULE gravity_base_mod
   USE fluxes_base_mod
   USE boundary_base_mod
   USE common_dict
+#if defined(HAVE_FFTW)
+  USE fftw
+#endif
   IMPLICIT NONE
   !--------------------------------------------------------------------------!
   PRIVATE
@@ -105,18 +108,19 @@ MODULE gravity_base_mod
      INTEGER, DIMENSION(4)            :: Boundary      !< boundary condition
      LOGICAL                          :: DIRICHLET     !< true if min ONE bound.
                                                       !< boundary cond. is
-    INTEGER                          :: green
-    REAL                             :: sigma, ecut
 !    REAL, DIMENSION(:), POINTER      :: height
-    INTEGER, POINTER                 :: mcut
     !> local IMAX, INUM
-    INTEGER                          :: IMAX, INUM
+    INTEGER                          :: IMAX, KMAX
+    !> plan for real to complex fourier transforms
+#ifdef HAVE_FFTW
+    TYPE(C_PTR)                      :: plan_r2c
+    !> plan for complex to real fourier transforms
+    TYPE(C_PTR)                      :: plan_c2r
+#endif
     !> \name Variables in Parallel Mode
 #ifdef PARALLEL
     INTEGER                          :: mpierr         !< MPI error flag
     REAL,DIMENSION(:,:),POINTER      :: sbuf1,sbuf2,rbuf1,rbuf2
-    !> displacment and length of domain
-    INTEGER,DIMENSION(:),POINTER     :: displ, num
 #endif
     INTEGER, DIMENSION(:),POINTER :: relaxcount
 
@@ -166,9 +170,7 @@ MODULE gravity_base_mod
       REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
                            INTENT(IN)    :: bccsound
       REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
-                           INTENT(OUT)   :: h_ext
-      REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
-                           INTENT(INOUT) :: height
+                           INTENT(INOUT) :: h_ext,height
     END SUBROUTINE
     SUBROUTINE Finalize(this)
       IMPORT gravity_base
@@ -220,22 +222,25 @@ CONTAINS
     ! enable update of disk scale height if requested
     CALL GetAttr(config, "update_disk_height", i, 0)
     IF (i.EQ.1) THEN
-       IF (Physics%DIM.EQ.2) THEN
-          this%update_disk_height = .TRUE.
-          IF (.NOT.ASSOCIATED(this%height)) &
-             ALLOCATE(this%height(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
-                      STAT=err)
-          IF (err.EQ.0) &
-             ALLOCATE(this%h_ext(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
-                      this%invheight2(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
-                      STAT=err)
-          IF (err.NE.0) CALL this%Error("InitGravity","Memory allocation failed!")
-          IF (external_potential) &
-             CALL this%Warning("InitGravity", &
-             "calculation of disk height not fully supported for external potential")
-       ELSE
-          CALL this%Error("InitGravity", "DiskHeight is only supported in 2D")
-       END IF
+      IF (Physics%DIM.EQ.2) THEN
+        this%update_disk_height = .TRUE.
+        IF (.NOT.ASSOCIATED(this%height)) &
+          ALLOCATE(this%height(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
+                   STAT=err)
+          this%height = 0.0
+        IF (err.EQ.0) &
+          ALLOCATE(this%h_ext(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
+                   this%invheight2(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
+                   STAT=err)
+          this%h_ext = 0.0
+          this%invheight2 = 0.0
+        IF (err.NE.0) CALL this%Error("InitGravity","Memory allocation failed!")
+        IF (external_potential) &
+          CALL this%Warning("InitGravity", &
+          "calculation of disk height not fully supported for external potential")
+      ELSE
+         CALL this%Error("InitGravity", "DiskHeight is only supported in 2D")
+      END IF
     ELSE
        this%update_disk_height = .FALSE.
     END IF

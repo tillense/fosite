@@ -524,9 +524,7 @@ CONTAINS
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
                            INTENT(IN)    :: bccsound
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
-                           INTENT(OUT)   :: h_ext
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
-                           INTENT(INOUT) :: height
+                           INTENT(INOUT) :: height, h_ext
     !------------------------------------------------------------------------!
     ! compute the effective omega
     this%omega(:,:,:) = SQRT(this%omega2(:,:,:,1) + this%omega2(:,:,:,2))

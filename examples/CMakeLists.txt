@@ -15,7 +15,7 @@ set (EXES
   #  linearwave
   #  markward
   mmsn
-  #  orbitingcylinders
+  orbitingcylinders
   #  planet2d
   #  planeteu
   #  poiseuille

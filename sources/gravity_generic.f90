@@ -36,6 +36,7 @@ MODULE gravity_generic_mod
   USE gravity_binary_mod
   USE gravity_pointmass_mod
   USE gravity_sboxspectral_mod
+  USE gravity_spectral_mod
   USE mesh_base_mod
   USE fluxes_base_mod
   USE physics_base_mod
@@ -71,6 +72,8 @@ CONTAINS
           ALLOCATE(gravity_binary::newgrav)
         CASE(SBOXSPECTRAL)
           ALLOCATE(gravity_sboxspectral::newgrav)
+        CASE(SPECTRAL)
+          ALLOCATE(gravity_spectral::newgrav)
         CASE DEFAULT
           CALL this%Error("new_gravity","Unknown gravity type")
         END SELECT
@@ -94,6 +97,9 @@ CONTAINS
         TYPE IS (gravity_sboxspectral)
            ! self-gravitation in flat geometries periodic in both dimensions
            CALL obj%InitGravity_sboxspectral(Mesh,Physics,grav,IOgrav)
+        TYPE IS (gravity_spectral)
+           ! self-gravitation in flat geometries periodic in both dimensions
+           CALL obj%InitGravity_spectral(Mesh,Physics,grav,IOgrav)
         END SELECT
 
         ! print some information

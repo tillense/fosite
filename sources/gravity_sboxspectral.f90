@@ -76,6 +76,7 @@
 !----------------------------------------------------------------------------!
 MODULE gravity_sboxspectral_mod
   USE gravity_base_mod
+  USE gravity_spectral_mod
   USE boundary_base_mod
   USE fluxes_base_mod
   USE physics_base_mod
@@ -96,30 +97,12 @@ MODULE gravity_sboxspectral_mod
 #endif
   !--------------------------------------------------------------------------!
   PRIVATE
-  CHARACTER(LEN=32), PARAMETER :: solver_name  = "sboxspectral"
+  CHARACTER(LEN=32), PARAMETER :: solver_name  = "shearingbox spectral solver"
   REAL, PARAMETER              :: SQRTTWOPI &
     = 2.50662827463100050241576528481104525300698674
 
   TYPE, EXTENDS(gravity_base) :: gravity_sboxspectral
-    CHARACTER(LEN=32) :: gravity_name = "shearingbox spectral solver"
 #ifdef HAVE_FFTW
-    !> \name
-    !!#### spectral poisson solver
-    !> plan for real to complex fourier transforms
-    TYPE(C_PTR)                      :: plan_r2c
-    !> plan for complex to real fourier transforms
-    TYPE(C_PTR)                      :: plan_c2r
-    TYPE(C_PTR)                      :: pFdensity, pFphi
-    REAL(C_DOUBLE), DIMENSION(:,:), POINTER &
-                                     :: Fdensity,Fphi,block
-    COMPLEX(C_DOUBLE_COMPLEX), DIMENSION(:,:), POINTER &
-                                     :: cFdensity, cFphi, cblock
-    !> Important precalculated matrix - fourier transformed I
-    REAL(C_DOUBLE), DIMENSION(:,:,:), POINTER &
-                                     :: FI
-    COMPLEX(C_DOUBLE_COMPLEX), DIMENSION(:,:,:), POINTER &
-                                     :: cFI
-    TYPE(C_PTR)                      :: p_FI
     !> \name
     !!#### spectral poisson solver shearing box
     REAL(C_DOUBLE), POINTER          :: mass2D(:,:)    !< temporary variable
@@ -127,8 +110,6 @@ MODULE gravity_sboxspectral_mod
                                      :: Fmass2D(:,:)   !< temporary variable
     REAL, DIMENSION(:,:,:), POINTER  :: Fmass2D_real   !< temporary variable
     INTEGER(C_INTPTR_T)              :: local_joff
-    INTEGER, DIMENSION(:), POINTER   :: sizes
-    INTEGER                          :: MNUM          !< number of modes
     REAL,DIMENSION(:), POINTER       :: kx            !< wave numbers for FFT (x)
     REAL,DIMENSION(:), POINTER       :: ky            !< wave numbers for FFT (y)
     REAL                             :: Lx, Ly
@@ -189,7 +170,7 @@ MODULE gravity_sboxspectral_mod
 #endif
     !------------------------------------------------------------------------!
     CALL GetAttr(config, "gtype", gravity_number)
-    CALL this%InitLogging(gravity_number,this%gravity_name)
+    CALL this%InitLogging(gravity_number,solver_name)
 
     !-------------- checks & warnings for initial conditions ----------------!
 #if !defined(HAVE_FFTW)
@@ -812,10 +793,8 @@ CALL ftrace_region_end("foward FFT")
                          INTENT(IN)    :: pvar
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KMIN:Mesh%KMAX), &
                          INTENT(IN)    :: bccsound
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
-                         INTENT(OUT)   :: h_ext
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KMIN:Mesh%KMAX), &
-                         INTENT(INOUT) :: height
+                         INTENT(INOUT) :: h_ext, height
     !------------------------------------------------------------------------!
     INTEGER           :: i,j,k
     REAL              :: cs2,p,q

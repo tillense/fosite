@@ -19,13 +19,13 @@ add_library(sources
 #  multipole_spherical.f90
 #  multipole_generic.f90
   gravity_base.f90
-  gravity_pointmass.f90
-  gravity_generic.f90
-  gravity_sboxspectral.f90
-#  gravity_monopol.f90
   gravity_binary.f90
+  gravity_generic.f90
+  gravity_pointmass.f90
+  gravity_sboxspectral.f90
+  gravity_spectral.f90
+#  gravity_monopol.f90
 #  gravity_multigrid.f90
-#  gravity_spectral.f90
 #  gravity_potential.f90
 )
 target_link_libraries(sources fluxes)
