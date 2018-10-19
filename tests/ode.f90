@@ -277,6 +277,7 @@ CONTAINS
 
 
   SUBROUTINE InitData(Mesh,Physics,Timedisc)
+    USE physics_euler2d_mod
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(Physics_base) :: Physics
@@ -290,9 +291,16 @@ CONTAINS
     INTENT(IN)        :: Mesh,Physics
     INTENT(INOUT)     :: Timedisc
     !------------------------------------------------------------------------!
-    ! compute peak pressure
-    n  = 2 ! 2 for 2D
-    P1 = 3.*(Physics%gamma-1.0) * E1 / ((n + 1) * PI * R0**n)
+    ! isothermal modules are excluded
+    SELECT TYPE (phys => Physics)
+    CLASS IS(physics_euler2d)
+      ! peak pressure
+      n  = 2 ! 3 for 3D
+      P1 = 3.*(phys%gamma - 1.0)*E1 / ((n + 1)*PI*R0**n)
+    CLASS DEFAULT
+      ! abort
+      CALL phys%Error("InitData","physics not supported")
+    END SELECT
 
     ! uniform density
     Timedisc%pvar(:,:,:,Physics%DENSITY)   = RHO0

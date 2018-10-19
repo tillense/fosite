@@ -387,7 +387,7 @@ CONTAINS
     CALL Physics%Convert2Conservative(Mesh,Timedisc%pvar,Timedisc%cvar)
     CALL Mesh%Info(" DATA-----> initial condition: " // TRIM(TESTSTR))
 
-    CALL riemann(x0,Physics%gamma,rho_l,u_l,p_l,rho_r,u_r,p_r,TSIM,&
+    CALL riemann(x0,GAMMA,rho_l,u_l,p_l,rho_r,u_r,p_r,TSIM,&
                  Mesh%bcenter(Mesh%IMIN,Mesh%JMIN,Mesh%KMIN:Mesh%KMAX,3),pvar0)
  !   print *,'HUHUHU', pvar0(:,2) 
   END SUBROUTINE InitData

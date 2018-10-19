@@ -41,6 +41,7 @@
 !----------------------------------------------------------------------------!
 MODULE physics_euler3D_mod
   USE physics_base_mod
+  USE physics_euler2D_mod
   USE mesh_base_mod
   USE common_dict
   IMPLICIT NONE
@@ -49,7 +50,7 @@ MODULE physics_euler3D_mod
   INTEGER, PARAMETER :: num_var = 5              ! number of variables
   CHARACTER(LEN=32), PARAMETER :: problem_name = "Euler 3D"
   !--------------------------------------------------------------------------!
-  TYPE,  EXTENDS(physics_base) :: physics_euler3D
+  TYPE,  EXTENDS(physics_euler2D) :: physics_euler3D
   CONTAINS
     PROCEDURE :: InitPhysics_euler3D             !< constructor
     !------Convert2Primitve--------!
@@ -129,12 +130,11 @@ CONTAINS
     TYPE(Dict_TYP), POINTER, INTENT(IN)   :: config, IO
 
     !------------------------------------------------------------------------!
-!    IF (PRESENT(pname)) THEN
-!       CALL this%InitPhysics(problem,pname,num_var)
-!    ELSE
-!       CALL this%InitPhysics(problem,problem_name,num_var)
-!    END IF
-       CALL this%InitPhysics(Mesh,config,IO,EULER3D,problem_name,num_var)
+    CALL this%InitPhysics(Mesh,config,IO,EULER3D,problem_name,num_var)
+
+    ! ratio of specific heats
+    CALL GetAttr(config, "gamma", this%gamma, 1.4)
+    
     ! set array indices
     this%DENSITY   = 1                                 ! mass density        !
     this%PRESSURE  = num_var                           ! pressure            !

@@ -1,9 +1,9 @@
 !#############################################################################
 !#                                                                           #
 !# fosite - 3D hydrodynamical simulation program                             #
-!# module: physics_generic.f90                                               #
+!# module: physics_base.f90                                                  #
 !#                                                                           #
-!# Copyright (C) 2007 - 2016                                                 #
+!# Copyright (C) 2007 - 2018                                                 #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
 !# Björn Sperling   <sperling@astrophysik.uni-kiel.de>                       #
 !# Manuel Jung      <mjung@astrophysik.uni-kiel.de>                          #
@@ -41,7 +41,7 @@
 !! \author Manuel Jung
 !! \author Jannes Klee
 !!
-!! \brief generic module for the advection problem
+!! \brief abstract module for the advection problem
 !!
 !! \ingroup physics
 !----------------------------------------------------------------------------!
@@ -55,10 +55,8 @@ MODULE physics_base_mod
   PRIVATE
   TYPE, ABSTRACT, EXTENDS(logging_base) :: physics_base
      !> \name Variables
-!     CLASS(logging_base)    :: advproblem            !< advection problem
-     CLASS(constants_base), ALLOCATABLE :: constants             !< physical constants
-     REAL                :: gamma,&               !< ratio of spec. heats
-                            time,&                !< simulation time
+     CLASS(constants_base), ALLOCATABLE :: constants  !< physical constants
+     REAL                :: time,&                !< simulation time
                             mu, &                 !< mean molecular weight
                             csiso, &              !< isothermal sound speed
                             eps                   !< softening length
@@ -102,6 +100,7 @@ MODULE physics_base_mod
   CONTAINS
     PROCEDURE :: InitPhysics
     PROCEDURE (ExternalSources),              DEFERRED :: ExternalSources
+    PROCEDURE (EnableOutput),                 DEFERRED :: EnableOutput
     !------Convert2Primitve--------!
     PROCEDURE (Convert2Primitive_center),     DEFERRED :: Convert2Primitive_center
     PROCEDURE (Convert2Primitive_centsub),    DEFERRED :: Convert2Primitive_centsub
@@ -188,6 +187,14 @@ MODULE physics_base_mod
   END TYPE physics_base
 
   ABSTRACT INTERFACE
+    SUBROUTINE EnableOutput(this,Mesh,config,IO)
+      USE common_dict
+      IMPORT physics_base, mesh_base
+      IMPLICIT NONE
+      CLASS(physics_base), INTENT(INOUT) :: this
+      CLASS(mesh_base),        INTENT(IN)   :: Mesh
+      TYPE(Dict_TYP), POINTER, INTENT(IN)   :: config, IO
+    END SUBROUTINE
     PURE SUBROUTINE Convert2Primitive_center(this,Mesh,cvar,pvar)
       IMPORT physics_base, mesh_base
       CLASS(physics_base), INTENT(IN)  :: this
@@ -577,9 +584,6 @@ CONTAINS
 
     !CALL GetAttr(config, "problem", problem)
 
-    ! ratio of specific heats
-    CALL GetAttr(config, "gamma", this%gamma, 1.4)
-
     ! mean molecular weight
     CALL GetAttr(config, "mu", this%mu, 0.029)
 
@@ -664,17 +668,6 @@ CONTAINS
 
     ! reset source term pointer
     !NULLIFY(this%sources)
-
-    ! check if output of sound speeds is requested
-    CALL GetAttr(config, "output/bccsound", valwrite, 0)
-    IF (valwrite .EQ. 1) &
-       CALL SetAttr(IO, "bccsound",&
-                    this%bccsound(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX))
-
-    CALL GetAttr(config, "output/fcsound", valwrite, 0)
-    IF (valwrite .EQ. 1) &
-       CALL Setattr(IO, "fcsound",&
-                    this%fcsound(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,:))
 
     this%time = -1.
     ! print some information

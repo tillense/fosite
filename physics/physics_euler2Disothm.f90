@@ -54,6 +54,7 @@ MODULE physics_euler2Dit_mod
   TYPE,  EXTENDS(physics_base) :: physics_euler2Dit
   CONTAINS
     PROCEDURE :: InitPhysics_euler2Dit
+    PROCEDURE :: EnableOutput
 
     !------Convert2Primitive-------!
     PROCEDURE :: Convert2Primitive_center
@@ -115,12 +116,7 @@ MODULE physics_euler2Dit_mod
   !--------------------------------------------------------------------------!
    PUBLIC :: &
        ! types
-       physics_euler2Dit, &
-       ! global elemental procedures
-       CalcGeometricalSources, &
-       SetEigenValues, &
-        SetBoundaryData, &
-        SetCharVars
+       physics_euler2Dit
   !--------------------------------------------------------------------------!
 
 CONTAINS
@@ -155,6 +151,28 @@ CONTAINS
     this%DIM = 2
   END SUBROUTINE InitPhysics_euler2Dit
 
+  !> Enables output of certain arrays defined in this class
+  SUBROUTINE EnableOutput(this,Mesh,config,IO)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(physics_euler2Dit), INTENT(INOUT) :: this
+    CLASS(mesh_base),        INTENT(IN)   :: Mesh
+    TYPE(Dict_TYP), POINTER, INTENT(IN)   :: config, IO
+    !------------------------------------------------------------------------!
+    INTEGER :: valwrite
+    !------------------------------------------------------------------------!
+    ! check if output of sound speeds is requested
+    CALL GetAttr(config, "output/bccsound", valwrite, 0)
+    IF (valwrite .EQ. 1) &
+       CALL SetAttr(IO, "bccsound",&
+                    this%bccsound(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX))
+
+    CALL GetAttr(config, "output/fcsound", valwrite, 0)
+    IF (valwrite .EQ. 1) &
+       CALL Setattr(IO, "fcsound",&
+                    this%fcsound(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,:))
+  END SUBROUTINE EnableOutput
+  
   !> Converts to primitives at cell centers
   PURE SUBROUTINE Convert2Primitive_center(this,Mesh,cvar,pvar)
     IMPLICIT NONE

@@ -234,6 +234,7 @@ CONTAINS
   END SUBROUTINE MakeConfig
 
   SUBROUTINE InitData(Mesh,Physics,Timedisc)
+    USE physics_euler2d_mod
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(physics_base),  INTENT(IN)    :: Physics
@@ -244,9 +245,16 @@ CONTAINS
     INTEGER                             :: n
     REAL                                :: P1
     !------------------------------------------------------------------------!
-    ! peak pressure
-    n  = 2 ! 3 for 3D
-    P1 = 3.*(Physics%gamma - 1.0)*E1 / ((n + 1)*PI*R0**n)
+    ! isothermal modules are excluded
+    SELECT TYPE (phys => Physics)
+    CLASS IS(physics_euler2d)
+      ! peak pressure
+      n  = 2 ! 3 for 3D
+      P1 = 3.*(phys%gamma - 1.0)*E1 / ((n + 1)*PI*R0**n)
+    CLASS DEFAULT
+      ! abort
+      CALL phys%Error("InitData","physics not supported")
+    END SELECT
 
     ! uniform density
     Timedisc%pvar(:,:,:,Physics%DENSITY)   = RHO0
@@ -261,8 +269,6 @@ CONTAINS
        ! in front of the shock front (ambient medium)
        Timedisc%pvar(:,:,:,Physics%PRESSURE)  = P0
     END WHERE
-    print *, MAXVAL(Timedisc%pvar(:,:,:,Physics%PRESSURE)), MINVAL(Timedisc%pvar(:,:,:,Physics%PRESSURE))
-    print *, SUM(Timedisc%pvar(:,:,:,Physics%PRESSURE))
 
     CALL Physics%Convert2Conservative(Mesh,Timedisc%pvar,Timedisc%cvar)
     CALL Mesh%Info(" DATA-----> initial condition: 2D Sedov explosion")

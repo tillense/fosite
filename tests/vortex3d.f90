@@ -61,9 +61,9 @@ PROGRAM vortex3d
 !!$  INTEGER, PARAMETER :: MGEO = SINHPOLAR
 !!$  INTEGER, PARAMETER :: MGEO = BIPOLAR
 !!$  INTEGER, PARAMETER :: MGEO = ELLIPTIC
-  INTEGER, PARAMETER :: XRES = 40         ! x-resolution
-  INTEGER, PARAMETER :: YRES = 40         ! y-resolution
-  INTEGER, PARAMETER :: ZRES = 40           ! y-resolution
+  INTEGER, PARAMETER :: XRES = 40          ! x-resolution
+  INTEGER, PARAMETER :: YRES = 40          ! y-resolution
+  INTEGER, PARAMETER :: ZRES = 1           ! z-resolution
   REAL, PARAMETER    :: RMIN = 1.0E-2      ! inner radius for polar grids
   REAL, PARAMETER    :: RMAX = 5.0         ! outer radius
   REAL, PARAMETER    :: GPAR = 1.0         ! geometry scaling parameter     !

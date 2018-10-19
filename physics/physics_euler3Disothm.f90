@@ -42,6 +42,7 @@
 !! \ingroup physics
 !----------------------------------------------------------------------------!
 MODULE physics_euler3Dit_mod
+  USE physics_euler2dit_mod
   USE physics_base_mod
   USE mesh_base_mod
   USE common_dict
@@ -51,10 +52,9 @@ MODULE physics_euler3Dit_mod
   INTEGER, PARAMETER           :: num_var = 4          ! number of variables !
   CHARACTER(LEN=32), PARAMETER :: problem_name = "Euler 3D isotherm"
   !--------------------------------------------------------------------------!
-  TYPE,  EXTENDS(physics_base) :: physics_euler3Dit
+  TYPE,  EXTENDS(physics_euler2Dit) :: physics_euler3Dit
   CONTAINS
     PROCEDURE :: InitPhysics_euler3Dit
-
     !------Convert2Primitive-------!
     PROCEDURE :: Convert2Primitive_center
     PROCEDURE :: Convert2Primitive_centsub

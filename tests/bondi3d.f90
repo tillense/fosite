@@ -48,7 +48,7 @@ PROGRAM bondi3d
   REAL, PARAMETER    :: MSUN    = 1.989E+30   ! solar mass [kg]              !
   REAL, PARAMETER    :: GN      = 6.67408E-11 ! gravitional constant (SI)    !
   ! simulation parameters
-  REAL, PARAMETER    :: TSIM    = 10.0        ! simulation time [TAU]        !
+  REAL, PARAMETER    :: TSIM    = 0.1        ! simulation time [TAU]        !
   REAL, PARAMETER    :: ACCMASS = 1.0*MSUN    ! mass of the accreting object !
   REAL, PARAMETER    :: GAMMA   = 1.4         ! ratio of specific heats      !
   ! boundary conditions
@@ -56,9 +56,9 @@ PROGRAM bondi3d
   REAL, PARAMETER    :: CSINF   = 537.0       ! sound speed at infinity [m/s]!
   ! mesh settings
   INTEGER, PARAMETER :: MGEO    = SPHERICAL   ! geometry of the mesh         !
-  INTEGER, PARAMETER :: XRES    = 50          ! x-resolution                 !
+  INTEGER, PARAMETER :: XRES    = 100          ! x-resolution                 !
   INTEGER, PARAMETER :: YRES    = 10          ! y-resolution                 !
-  INTEGER, PARAMETER :: ZRES    = 10          ! y-resolution                 !
+  INTEGER, PARAMETER :: ZRES    = 1           ! z-resolution                 !
   REAL, PARAMETER    :: RIN     = 0.1         ! inner/outer radii in terms of!
   REAL, PARAMETER    :: ROUT    = 2.0         ! the Bondi radius RB, ROUT > 1!
   ! output parameters
@@ -132,12 +132,13 @@ CONTAINS
           "ymax"        / y2, &
           "zmin"        / z1, &
           "zmax"        / z2, &
+          "output/radius" / 1, &
           "gparam"      / RB)
 
     ! geometry dependent setttings
     SELECT CASE(MGEO)
     CASE(SPHERICAL)
-       bc(WEST)   = ABSORBING
+       bc(WEST)   = NO_GRADIENTS !ABSORBING
 !       bc(EAST)   = FIXED
        bc(EAST)   = REFLECTING
        bc(SOUTH)  = AXIS

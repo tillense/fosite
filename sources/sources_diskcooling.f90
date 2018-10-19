@@ -134,6 +134,7 @@ CONTAINS
 
   !> \public Constructor of disk cooling module
   SUBROUTINE InitSources_diskcooling(this,Mesh,Physics,Fluxes,config,IO)
+    USE physics_euler2d_mod, ONLY : physics_euler2d
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(sources_diskcooling) :: this
@@ -147,14 +148,21 @@ CONTAINS
     !------------------------------------------------------------------------!
     CALL GetAttr(config, "stype", stype)
     CALL this%InitLogging(stype,this%source_name)
+    
     ! some sanity checks
-    SELECT CASE(Physics%GetType())
-    CASE(EULER2D,EULER2D_SGS,EULER2D_IAMROT)
+    ! isothermal modules are excluded
+    SELECT TYPE (phys => Physics)
+    CLASS IS(physics_euler2d)
       ! do nothing
-    CASE DEFAULT
+    CLASS DEFAULT
       ! abort
       CALL this%Error("InitSources_diskcooling","physics not supported")
     END SELECT
+!     SELECT CASE(Physics%GetType())
+!     CASE(EULER2D,EULER2D_SGS,EULER2D_IAMROT)
+!       ! do nothing
+!     CASE DEFAULT
+!     END SELECT
 
     ! get cooling method
     CALL GetAttr(config,"method",cooling_func)
@@ -279,6 +287,7 @@ CONTAINS
 
 
   SUBROUTINE ExternalSources_single(this,Mesh,Physics,Fluxes,time,dt,pvar,cvar,sterm)
+    USE physics_euler2d_mod, ONLY : physics_euler2d
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(sources_diskcooling), INTENT(INOUT) :: this
@@ -295,11 +304,13 @@ CONTAINS
     sterm(:,:,:,Physics%XMOMENTUM) = 0.0
     sterm(:,:,:,Physics%YMOMENTUM) = 0.0
 
-    CALL this%UpdateCooling(Mesh,Physics,time,pvar)
+    SELECT TYPE(phys => Physics)
+    TYPE IS (physics_euler2d)
+       CALL this%UpdateCooling(Mesh,phys,time,pvar)
+    END SELECT
     ! energy loss due to radiation processes
     sterm(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,Physics%ENERGY) = &
          -this%Qcool(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX)
-
   END SUBROUTINE ExternalSources_single
 
 
@@ -329,11 +340,12 @@ CONTAINS
 
   !> \private Updates the cooling function at each time step.
   SUBROUTINE UpdateCooling(this,Mesh,Physics,time,pvar)
+    USE physics_euler2d_mod
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(sources_diskcooling)         :: this
     CLASS(mesh_base),    INTENT(IN)    :: Mesh
-    CLASS(physics_base), INTENT(INOUT) :: Physics
+    CLASS(physics_euler2d), INTENT(INOUT) :: Physics
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
                          INTENT(IN)    :: pvar
     REAL,                INTENT(IN)    :: time

@@ -47,6 +47,7 @@ MODULE physics_euler2D_mod
   CHARACTER(LEN=32), PARAMETER :: problem_name = "Euler 2D"
   !--------------------------------------------------------------------------!
   TYPE,  EXTENDS(physics_euler2Dit) :: physics_euler2D
+    REAL                :: gamma                 !< ratio of spec. heats
   CONTAINS
     PROCEDURE :: InitPhysics_euler2D             !< constructor
     !------Convert2Primitve--------!
@@ -100,28 +101,25 @@ MODULE physics_euler2D_mod
   !--------------------------------------------------------------------------!
   PUBLIC :: &
        ! types
-       physics_euler2D, &
-       ! elemental procedures
-       GetSoundSpeed, &
-       SetEigenValues
+       physics_euler2D
   !--------------------------------------------------------------------------!
 
 CONTAINS
 
+  !> constructor of physics_euler2D class
   SUBROUTINE InitPhysics_euler2D(this,Mesh,config,IO)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(physics_euler2D), INTENT(INOUT) :: this
     CLASS(mesh_base),        INTENT(IN)   :: Mesh
     TYPE(Dict_TYP), POINTER, INTENT(IN)   :: config, IO
-
     !------------------------------------------------------------------------!
-!    IF (PRESENT(pname)) THEN
-!       CALL this%InitPhysics(problem,pname,num_var)
-!    ELSE
-!       CALL this%InitPhysics(problem,problem_name,num_var)
-!    END IF
+    ! call InitPhysics from base class
     CALL this%InitPhysics(Mesh,config,IO,EULER2D,problem_name,num_var)
+
+    ! ratio of specific heats
+    CALL GetAttr(config, "gamma", this%gamma, 1.4)
+    
     ! set array indices
     this%DENSITY   = 1                                 ! mass density        !
     this%PRESSURE  = num_var                           ! pressure            !

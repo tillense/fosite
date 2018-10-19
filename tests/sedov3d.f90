@@ -56,7 +56,7 @@ PROGRAM sedov3d
   REAL, PARAMETER    :: RMAX    = 0.4         ! outer radius of comput. domain
   REAL, PARAMETER    :: GPAR    = 0.2         ! geometry scaling parameter
   ! output parameters
-  INTEGER, PARAMETER :: ONUM    = 100         ! number of output data sets
+  INTEGER, PARAMETER :: ONUM    = 10          ! number of output data sets
   CHARACTER(LEN=256), PARAMETER &             ! output data dir
                      :: ODIR    = './'
   CHARACTER(LEN=256), PARAMETER &             ! output data file name
@@ -234,6 +234,7 @@ CONTAINS
   END SUBROUTINE MakeConfig
 
   SUBROUTINE InitData(Mesh,Physics,Timedisc)
+    USE physics_euler3d_mod
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(physics_base),  INTENT(IN)    :: Physics
@@ -244,9 +245,16 @@ CONTAINS
     INTEGER                             :: n
     REAL                                :: P1
     !------------------------------------------------------------------------!
-    ! peak pressure
-    n  = 3 ! 3 for 3D
-    P1 = 3.*(Physics%gamma - 1.0)*E1 / ((n + 1)*PI*R0**n)
+    ! isothermal modules are excluded
+    SELECT TYPE (phys => Physics)
+    CLASS IS(physics_euler3d)
+      ! peak pressure
+      n  = 3 ! 3 for 3D
+      P1 = 3.*(phys%gamma - 1.0)*E1 / ((n + 1)*PI*R0**n)
+    CLASS DEFAULT
+      ! abort
+      CALL phys%Error("InitData","physics not supported")
+    END SELECT
 
     ! uniform density
     Timedisc%pvar(:,:,:,Physics%DENSITY)   = RHO0
@@ -262,18 +270,6 @@ CONTAINS
        ! in front of the shock front (ambient medium)
        Timedisc%pvar(:,:,:,Physics%PRESSURE)  = P0
     END WHERE
-
-
-!    DO k=Mesh%KGMIN,Mesh%KGMAX
-!      DO j=Mesh%JGMIN,Mesh%JGMAX
-!        DO i=Mesh%IGMIN,Mesh%IGMAX
-!          Timedisc%pvar(i,j,k,Physics%DENSITY)  = RHO0 + RHO1*EXP(-LOG(2.0) &
-!               * (radius(i,j,k)/RWIDTH)**2)
-!        END DO
-!      END DO
-!    END DO
-
-
 
     CALL Physics%Convert2Conservative(Mesh,Timedisc%pvar,Timedisc%cvar)
     CALL Mesh%Info(" DATA-----> initial condition: 3D Sedov explosion")
