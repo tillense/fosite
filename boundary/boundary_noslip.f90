@@ -120,8 +120,10 @@ CONTAINS
           ! tangential velocities
           pvar(Mesh%IMIN-i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,Physics%YVELOCITY) &
                = this%data(i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,Physics%YVELOCITY)
+          IF (Physics%ZVELOCITY.GT.0) THEN
           pvar(Mesh%IMIN-i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,Physics%ZVELOCITY) &
                = this%data(i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,Physics%ZVELOCITY)
+          END IF
           ! vanishing pressure gradient at the boundary
           IF (Physics%PRESSURE.GT.0) THEN
              pvar(Mesh%IMIN-i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,Physics%PRESSURE) &
@@ -140,8 +142,10 @@ CONTAINS
           ! tangential velocities
           pvar(Mesh%IMAX+i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,Physics%YVELOCITY) &
                = this%data(i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,Physics%YVELOCITY)
+          IF (Physics%ZVELOCITY.GT.0) THEN
           pvar(Mesh%IMAX+i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,Physics%ZVELOCITY) &
                = this%data(i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,Physics%ZVELOCITY)
+          END IF
           ! vanishing pressure gradient at the boundary
           IF (Physics%PRESSURE.GT.0) THEN
              pvar(Mesh%IMAX+i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,Physics%PRESSURE) &
@@ -160,8 +164,10 @@ CONTAINS
           ! tangential velocities
           pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN-j,Mesh%KMIN:Mesh%KMAX,Physics%XVELOCITY) &
                = this%data(Mesh%IMIN:Mesh%IMAX,j,Mesh%KMIN:Mesh%KMAX,Physics%XVELOCITY)
+          IF (Physics%ZVELOCITY.GT.0) THEN
           pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN-j,Mesh%KMIN:Mesh%KMAX,Physics%ZVELOCITY) &
                = this%data(Mesh%IMIN:Mesh%IMAX,j,Mesh%KMIN:Mesh%KMAX,Physics%ZVELOCITY)
+          END IF
           ! vanishing pressure gradient at the boundary
           IF (Physics%PRESSURE.GT.0) THEN
              pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN-j,Mesh%KMIN:Mesh%KMAX,Physics%PRESSURE) &
@@ -180,10 +186,12 @@ CONTAINS
           ! tangential velocities
           pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX+j,Mesh%KMIN:Mesh%KMAX,Physics%XVELOCITY) &
                = this%data(Mesh%IMIN:Mesh%IMAX,j,Mesh%KMIN:Mesh%KMAX,Physics%XVELOCITY)
+          IF (Physics%ZVELOCITY.GT.0) THEN
           pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX+j,Mesh%KMIN:Mesh%KMAX,Physics%ZVELOCITY) &
                = this%data(Mesh%IMIN:Mesh%IMAX,j,Mesh%KMIN:Mesh%KMAX,Physics%ZVELOCITY)
+          END IF
           ! vanishing pressure gradient at the boundary
-          IF (Physics%PRESSURE.NE.0.0) THEN
+          IF (Physics%PRESSURE.GT.0) THEN
              pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX+j,Mesh%KMIN:Mesh%KMAX,Physics%PRESSURE) &
                   = pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX-j+1,Mesh%KMIN:Mesh%KMAX,Physics%PRESSURE)
           END IF
@@ -195,8 +203,10 @@ CONTAINS
           pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN-k,Physics%DENSITY) &
                = pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%kMIN+k-1,Physics%DENSITY)
           ! normal velocity
+          IF (Physics%ZVELOCITY.GT.0) THEN
           pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN-k,Physics%ZVELOCITY) &
                = -pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN+k-1,Physics%ZVELOCITY)
+          END IF
           ! tangential velocities
           pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN-k,Physics%XVELOCITY) &
                = this%data(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k,Physics%XVELOCITY)
@@ -215,15 +225,17 @@ CONTAINS
           pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMAX+k,Physics%DENSITY) &
                = pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMAX-k+1,Physics%DENSITY)
           ! normal velocity
+          IF (Physics%ZVELOCITY.GT.0) THEN
           pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMAX+k,Physics%ZVELOCITY) &
                = -pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMAX-k+1,Physics%ZVELOCITY)
+          END IF
           ! tangential velocities
           pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMAX+k,Physics%XVELOCITY) &
                = this%data(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k,Physics%XVELOCITY)
           pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMAX+k,Physics%YVELOCITY) &
                = this%data(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k,Physics%YVELOCITY)
           ! vanishing pressure gradient at the boundary
-          IF (Physics%PRESSURE.NE.0.0) THEN
+          IF (Physics%PRESSURE.GT.0) THEN
              pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMAX+k,Physics%PRESSURE) &
                   = pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMAX-k+1,Physics%PRESSURE)
           END IF
