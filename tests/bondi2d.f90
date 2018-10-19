@@ -115,8 +115,6 @@ CONTAINS
                                     grav, pmass, timedisc, fluxes
     REAL                         :: x1,x2,y1,y2,z1,z2
     !------------------------------------------------------------------------!
-    INTENT(INOUT)     :: Sim
-    !------------------------------------------------------------------------!
     ! derived constants
     RB  = GN * ACCMASS / CSINF**2           ! bondi radius [m]               !
     TAU = RB / CSINF                        ! free fall time scale [s]       !
