@@ -14,7 +14,7 @@ serial_build:
     script:
         - mkdir ser_build
         - cd ser_build
-        - FC=gfortran cmake -DFFTWDIR=$FFTW ..
+        - FC=gfortran cmake -DFFTW_DIR=$FFTW ..
         - make -j
     artifacts:
         paths:

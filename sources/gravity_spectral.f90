@@ -105,9 +105,7 @@ MODULE gravity_spectral_mod
   !--------------------------------------------------------------------------!
   PUBLIC :: &
        ! types
-       gravity_spectral, &
-       ! elemental function
-       GreenFunction
+       gravity_spectral
   !--------------------------------------------------------------------------!
   CONTAINS
 
