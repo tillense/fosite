@@ -45,6 +45,7 @@ MODULE boundary_generic_mod
   USE logging_base_mod
   USE mesh_base_mod
   USE boundary_base_mod
+  USE boundary_custom_mod
   USE boundary_reflecting_mod
   USE boundary_nogradients_mod
   USE boundary_periodic_mod
@@ -185,6 +186,8 @@ CONTAINS
         ALLOCATE(boundary_absorbing::this%Boundary(dir)%p)
       CASE(AXIS)
         ALLOCATE(boundary_axis::this%Boundary(dir)%p)
+      CASE(CUSTOM)
+        ALLOCATE(boundary_custom::this%Boundary(dir)%p)
       CASE(FIXED)
         ALLOCATE(boundary_fixed::this%Boundary(dir)%p)
       CASE(NO_GRADIENTS)
@@ -208,6 +211,8 @@ CONTAINS
         CALL obj%InitBoundary_absorbing(Mesh,Physics,dir,config)
       TYPE IS (boundary_axis)
         CALL obj%InitBoundary_axis(Mesh,Physics,dir,config)
+      TYPE IS (boundary_custom)
+        CALL obj%InitBoundary_custom(Mesh,Physics,dir,config)
       TYPE IS (boundary_fixed)
         CALL obj%InitBoundary_fixed(Mesh,Physics,dir,config)
       TYPE IS (boundary_nogradients)

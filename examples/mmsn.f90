@@ -151,10 +151,8 @@ CONTAINS
 
     ! boundary conditions
     boundary => Dict( &
-!              "western"         / CUSTOM,&
-!              "eastern"         / CUSTOM,&
-              "western"         / REFLECTING,&
-              "eastern"         / REFLECTING,&
+              "western"         / CUSTOM,&
+              "eastern"         / CUSTOM,&
               "southern"        / PERIODIC, &
               "northern"        / PERIODIC, &
               "bottomer"        / REFLECTING,&
@@ -340,16 +338,16 @@ CONTAINS
 
     ! boundary conditions
     ! custom boundary conditions at western boundary if requested
-!    IF ((Timedisc%Boundary%boundary(WEST)%p%GetType()).EQ.CUSTOM) THEN
-!       Timedisc%Boundary%boundary(WEST)%p%cbtype(:,Physics%DENSITY) = CUSTOM_NOGRAD
-!       Timedisc%Boundary%boundary(WEST)%p%cbtype(:,Physics%XVELOCITY) = CUSTOM_OUTFLOW
-!       Timedisc%Boundary%boundary(WEST)%p%cbtype(:,Physics%YVELOCITY) = CUSTOM_KEPLER
-!    END IF
-!    IF ((Timedisc%Boundary%boundary(EAST)%p%GetType()).EQ.CUSTOM) THEN
-!       Timedisc%Boundary%boundary(EAST)%p%cbtype(:,Physics%DENSITY) = CUSTOM_NOGRAD
-!       Timedisc%Boundary%boundary(EAST)%p%cbtype(:,Physics%XVELOCITY) = CUSTOM_OUTFLOW
-!       Timedisc%Boundary%boundary(EAST)%p%cbtype(:,Physics%YVELOCITY) = CUSTOM_KEPLER
-!    END IF
+    IF ((Timedisc%Boundary%boundary(WEST)%p%GetType()).EQ.CUSTOM) THEN
+       Timedisc%Boundary%boundary(WEST)%p%cbtype(:,:,Physics%DENSITY) = CUSTOM_NOGRAD
+       Timedisc%Boundary%boundary(WEST)%p%cbtype(:,:,Physics%XVELOCITY) = CUSTOM_OUTFLOW
+       Timedisc%Boundary%boundary(WEST)%p%cbtype(:,:,Physics%YVELOCITY) = CUSTOM_KEPLER
+    END IF
+    IF ((Timedisc%Boundary%boundary(EAST)%p%GetType()).EQ.CUSTOM) THEN
+       Timedisc%Boundary%boundary(EAST)%p%cbtype(:,:,Physics%DENSITY) = CUSTOM_NOGRAD
+       Timedisc%Boundary%boundary(EAST)%p%cbtype(:,:,Physics%XVELOCITY) = CUSTOM_OUTFLOW
+       Timedisc%Boundary%boundary(EAST)%p%cbtype(:,:,Physics%YVELOCITY) = CUSTOM_KEPLER
+    END IF
 
     ! print some information on stdout
     CALL Mesh%Info(" DATA-----> initial condition:   " // "MMSN - Setup")

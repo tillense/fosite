@@ -43,7 +43,7 @@ MODULE boundary_fixed_mod
   !--------------------------------------------------------------------------!
   PRIVATE
   TYPE, EXTENDS(boundary_base)  :: boundary_fixed
-    CONTAINS 
+    CONTAINS
         PROCEDURE :: InitBoundary_fixed
         PROCEDURE :: SetBoundaryData
         PROCEDURE :: Finalize
@@ -71,31 +71,29 @@ CONTAINS
     INTENT(IN)    :: Mesh,Physics,config
     INTENT(INOUT) :: this
     !------------------------------------------------------------------------!
-       CALL this%InitBoundary(Mesh,Physics,FIXED,boundcond_name,dir,config)
+    CALL this%InitBoundary(Mesh,Physics,FIXED,boundcond_name,dir,config)
+
     ! allocate memory for boundary data and mask
     SELECT CASE(this%direction%GetType())
     CASE(WEST,EAST)
        ALLOCATE(this%data(Mesh%GINUM,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
             this%fixed(Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
             STAT=err)
-!       print *, 'IGMIN', Mesh%IGMIN,Mesh%IGMAX,Mesh%JGMIN,Mesh%JGMAX,Mesh%KGMIN,Mesh%KGMAX
      CASE(SOUTH,NORTH)
        ALLOCATE(this%data(Mesh%IGMIN:Mesh%IGMAX,Mesh%GJNUM,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
             this%fixed(Mesh%KGMIN:Mesh%KGMAX,Mesh%IGMIN:Mesh%IGMAX,Physics%VNUM), &
-            STAT=err)   
-!       print *, 'IGMIN', Mesh%IGMIN,Mesh%IGMAX,Mesh%JGMIN,Mesh%JGMAX,Mesh%KGMIN,Mesh%KGMAX
+            STAT=err)
      CASE(Bottom,Top)
        ALLOCATE(this%data(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%GKNUM,Physics%VNUM), &
             this%fixed(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Physics%VNUM), &
             STAT=err)
-!       print *, 'IGMIN', Mesh%IGMIN,Mesh%IGMAX,Mesh%JGMIN,Mesh%JGMAX,Mesh%KGMIN,Mesh%KGMAX
     END SELECT
     IF (err.NE.0) THEN
        CALL this%Error("InitBoundary_fixed", "Unable to allocate memory.")
     END IF
     ! fixed(:,:,:) defaults to EXTRAPOLATION everywhere
-!    this%fixed(:,:,:) = .FALSE.
-!    this%data(:,:,:,:) = 0.0
+    this%fixed(:,:,:) = .FALSE.
+    this%data(:,:,:,:) = 0.0
   END SUBROUTINE InitBoundary_fixed
 
 
@@ -110,9 +108,6 @@ CONTAINS
     REAL,INTENT(INOUT) :: pvar(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%vnum)
     !------------------------------------------------------------------------!
     INTEGER       :: i,j,k,l
-    !------------------------------------------------------------------------!
-!    INTENT(IN)    :: Mesh,Physics
-!    INTENT(INOUT) :: this,pvar
     !------------------------------------------------------------------------!
     SELECT CASE(this%direction%GetType())
     CASE(WEST)
