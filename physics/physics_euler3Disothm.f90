@@ -133,7 +133,13 @@ CONTAINS
     CLASS(mesh_base),         INTENT(IN)    :: Mesh
     TYPE(Dict_TYP), POINTER,  INTENT(IN)    :: config, IO
     !------------------------------------------------------------------------!
+    INTEGER :: err
+    !------------------------------------------------------------------------!
     CALL this%InitPhysics(Mesh,config,IO,EULER3D_ISOTHERM,problem_name,num_var)
+
+    ! isothermal sound speed
+    CALL GetAttr(config, "cs", this%csiso, 0.0)
+   
     ! set array indices
     this%DENSITY   = 1                                 ! mass density        !
     this%XVELOCITY = 2                                 ! x-velocity          !
@@ -154,6 +160,22 @@ CONTAINS
     this%cvarname(this%YMOMENTUM) = "ymomentum"
     this%cvarname(this%ZMOMENTUM) = "zmomentum"
     this%DIM = 3
+        
+    ! allocate memory for arrays common to all physics modules
+    ALLOCATE(this%bccsound(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX),            &
+             this%fcsound(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%nfaces), &
+             STAT = err)
+    IF (err.NE.0) &
+         CALL this%Error("InitPhysics_euler3dit", "Unable to allocate memory.")
+
+    IF(this%csiso.GT.0.) THEN
+      this%bccsound(:,:,:)  = this%csiso
+      this%fcsound(:,:,:,:) = this%csiso
+    ELSE
+      this%bccsound(:,:,:)  = 0.
+      this%fcsound(:,:,:,:) = 0.
+    END IF
+
   END SUBROUTINE InitPhysics_euler3Dit
 
   !> Converts to primitives at cell centers

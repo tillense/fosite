@@ -52,6 +52,11 @@ MODULE physics_euler2Dit_mod
   CHARACTER(LEN=32), PARAMETER :: problem_name = "Euler 2D isotherm"
   !--------------------------------------------------------------------------!
   TYPE,  EXTENDS(physics_base) :: physics_euler2Dit
+    REAL                 :: csiso                 !< isothermal sound speed
+    REAL, DIMENSION(:,:,:), POINTER &
+                         :: bccsound           !< bary centered speed of sound
+    REAL, DIMENSION(:,:,:,:), POINTER &
+                         :: fcsound            !< speed of sound faces                         
   CONTAINS
     PROCEDURE :: InitPhysics_euler2Dit
     PROCEDURE :: EnableOutput
@@ -69,6 +74,9 @@ MODULE physics_euler2Dit_mod
     !------Soundspeed Routines-----!
     PROCEDURE :: UpdateSoundSpeed_center
     PROCEDURE :: UpdateSoundSpeed_faces
+    PROCEDURE :: SetSoundSpeeds_center
+    PROCEDURE :: SetSoundSpeeds_faces
+    GENERIC   :: SetSoundSpeeds => SetSoundSpeeds_center, SetSoundSpeeds_faces
     !------Wavespeed Routines------!
     PROCEDURE :: CalcWaveSpeeds_center
     PROCEDURE :: CalcWaveSpeeds_faces
@@ -130,6 +138,8 @@ CONTAINS
     CLASS(mesh_base),         INTENT(IN)    :: Mesh
     TYPE(Dict_TYP), POINTER,  INTENT(IN)    :: config, IO
     !------------------------------------------------------------------------!
+    INTEGER :: err
+    !------------------------------------------------------------------------!
     CALL this%InitPhysics(Mesh,config,IO,EULER2D_ISOTHERM,problem_name,num_var)
     ! set array indices
     this%DENSITY   = 1                                 ! mass density        !
@@ -149,6 +159,25 @@ CONTAINS
     this%cvarname(this%XMOMENTUM) = "xmomentum"
     this%cvarname(this%YMOMENTUM) = "ymomentum"
     this%DIM = 2
+    
+     ! isothermal sound speed
+    CALL GetAttr(config, "cs", this%csiso, 0.0)
+   
+    ! allocate memory for arrays common to all physics modules
+    ALLOCATE(this%bccsound(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX),            &
+             this%fcsound(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%nfaces), &
+             STAT = err)
+    IF (err.NE.0) &
+         CALL this%Error("InitPhysics_euler2dit", "Unable to allocate memory.")
+
+    IF(this%csiso.GT.0.) THEN
+      this%bccsound(:,:,:)  = this%csiso
+      this%fcsound(:,:,:,:) = this%csiso
+    ELSE
+      this%bccsound(:,:,:)  = 0.
+      this%fcsound(:,:,:,:) = 0.
+    END IF
+
   END SUBROUTINE InitPhysics_euler2Dit
 
   !> Enables output of certain arrays defined in this class
@@ -172,6 +201,30 @@ CONTAINS
        CALL Setattr(IO, "fcsound",&
                     this%fcsound(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,:))
   END SUBROUTINE EnableOutput
+
+  !> Sets soundspeeds at cell-centers
+  PURE SUBROUTINE SetSoundSpeeds_center(this,Mesh,bccsound)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(physics_euler2Dit), INTENT(INOUT) :: this
+    CLASS(mesh_base),    INTENT(IN)    :: Mesh
+    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
+                         INTENT(IN)    :: bccsound
+    !------------------------------------------------------------------------!
+    this%bccsound(:,:,:) = bccsound(:,:,:)
+  END SUBROUTINE SetSoundSpeeds_center
+
+  !> Sets soundspeeds at cell-faces
+  PURE SUBROUTINE SetSoundSpeeds_faces(this,Mesh,fcsound)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(physics_euler2Dit), INTENT(INOUT) :: this
+    CLASS(mesh_base),    INTENT(IN)    :: Mesh
+    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%NFACES), &
+                         INTENT(IN)    :: fcsound
+    !------------------------------------------------------------------------!
+    this%fcsound(:,:,:,:) = fcsound(:,:,:,:)
+  END SUBROUTINE SetSoundSpeeds_faces
   
   !> Converts to primitives at cell centers
   PURE SUBROUTINE Convert2Primitive_center(this,Mesh,cvar,pvar)
@@ -1374,6 +1427,7 @@ CONTAINS
     !------------------------------------------------------------------------!
     CLASS(physics_euler2Dit), INTENT(INOUT) :: this
     !------------------------------------------------------------------------!
+    DEALLOCATE(this%bccsound,this%fcsound)
     CALL this%Finalize_base()
   END SUBROUTINE Finalize
 

@@ -291,8 +291,15 @@ CONTAINS
       fcsound(:,:,:,i) = HRATIO*SQRT((MBH1+MBH2)*Physics%constants%GN/r_faces(:,:,:,i))
     END DO
 
-    CALL Physics%SetSoundSpeeds(Mesh,bccsound)
-    CALL Physics%SetSoundSpeeds(Mesh,fcsound)
+    ! set isothermal sound speeds
+    SELECT TYPE (phys => Physics)
+    CLASS IS(physics_euler2dit)
+      CALL phys%SetSoundSpeeds(Mesh,bccsound)
+      CALL phys%SetSoundSpeeds(Mesh,fcsound)
+    CLASS DEFAULT
+      ! abort
+      CALL phys%Error("InitData","physics not supported")
+    END SELECT
 
     ! 2. azimuthal velocity: balance initial radial acceleration with centrifugal acceleration
     ! get gravitational acceleration

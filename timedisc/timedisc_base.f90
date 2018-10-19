@@ -348,7 +348,7 @@ CONTAINS
 
     ! check data bit mask
     ! \todo{expected argument list...}
-    CALL GetAttr(config, "checkdata", this%checkdatabm, CHECK_ALL)
+    CALL GetAttr(config, "checkdata", this%checkdatabm, CHECK_INVALID)
 
     ! pressure minimum to check if CHECK_PMIN is active
     CALL GetAttr(config, "pmin", this%pmin, TINY(this%pmin))
@@ -1242,6 +1242,8 @@ CONTAINS
   !> \public compute the RHS of the spatially discretized PDE
   !!
   SUBROUTINE CheckData(this,Mesh,Physics,Fluxes,pvar,cvar,checkdatabm)
+    USE physics_euler2dit_mod, ONLY : physics_euler2dit
+    USE physics_euler2d_mod, ONLY : physics_euler2d
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(timedisc_base), INTENT(INOUT) :: this
@@ -1259,32 +1261,49 @@ CONTAINS
     REAL                                :: val
     !------------------------------------------------------------------------!
     IF(IAND(checkdatabm,CHECK_CSOUND).NE.CHECK_NOTHING) THEN
-      val = MINVAL(Physics%bccsound)
-      IF(val.LE.0.) THEN
-        ! warn now and stop after file output
-        CALL this%Warning("CheckData","Illegal speed of sound value less than 0.")
-        this%break = .TRUE.
-      END IF
+      ! check for speed of sound
+      SELECT TYPE(phys => Physics)
+      CLASS IS(physics_euler2dit)
+        val = MINVAL(phys%bccsound)
+        IF(val.LE.0.) THEN
+          ! warn now and stop after file output
+          CALL this%Warning("CheckData","Illegal speed of sound value less than 0.")
+          this%break = .TRUE.
+        END IF
+      CLASS DEFAULT
+        CALL this%Warning("CheckData","check speed of sound selected, but bccsound not defined")
+      END SELECT
     END IF
-
-    IF((IAND(checkdatabm,CHECK_PMIN).NE.CHECK_NOTHING).AND.(Physics%PRESSURE.GT.0)) THEN
-      val = MINVAL(pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX, &
-                        Mesh%KMIN:Mesh%KMAX,Physics%PRESSURE))
-      IF(val.LT.this%pmin) THEN
-        ! warn now and stop after file output
-        CALL this%Warning("CheckData","Pressure below allowed pmin value.")
-        this%break = .TRUE.
-      END IF
+    IF((IAND(checkdatabm,CHECK_PMIN).NE.CHECK_NOTHING)) THEN
+      ! check for non-isothermal physics with pressure defined
+      SELECT TYPE(phys => Physics)
+      CLASS IS(physics_euler2d)
+        val = MINVAL(pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX, &
+                          Mesh%KMIN:Mesh%KMAX,phys%PRESSURE))
+        IF(val.LT.this%pmin) THEN
+          ! warn now and stop after file output
+          CALL this%Warning("CheckData","Pressure below allowed pmin value.")
+          this%break = .TRUE.
+        END IF
+      CLASS DEFAULT
+        CALL this%Warning("CheckData","check pressure selected for isothermal physics")
+      END SELECT
     END IF
 
     IF(IAND(checkdatabm,CHECK_RHOMIN).NE.CHECK_NOTHING) THEN
-      val = MINVAL(pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX, &
-                        Mesh%KMIN:Mesh%KMAX,Physics%DENSITY))
-      IF(val.LT.this%rhomin) THEN
-        ! warn now and stop after file output
-        CALL this%Warning("CheckData","Density below allowed rhomin value.")
-        this%break = .TRUE.
-      END IF
+      ! check for physics with density defined
+      SELECT TYPE(phys => Physics)
+      CLASS IS(physics_euler2dit)
+        val = MINVAL(pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX, &
+                          Mesh%KMIN:Mesh%KMAX,phys%DENSITY))
+        IF(val.LT.this%rhomin) THEN
+            ! warn now and stop after file output
+            CALL this%Warning("CheckData","Density below allowed rhomin value.")
+            this%break = .TRUE.
+        END IF
+      CLASS DEFAULT
+        CALL this%Warning("CheckData","check density selected, but density not defined physics")
+      END SELECT
     END IF
 
     IF(IAND(checkdatabm,CHECK_INVALID).NE.CHECK_NOTHING) THEN

@@ -243,6 +243,7 @@ CONTAINS
 
 
   SUBROUTINE FirstStep(this)
+    USE physics_euler2dit_mod, ONLY : physics_euler2dit
     IMPLICIT NONE
     !--------------------------------------------------------------------------!
     CLASS(fosite), INTENT(INOUT) :: this
@@ -295,12 +296,18 @@ CONTAINS
     this%Timedisc%dt = this%Timedisc%CalcTimestep(this%Mesh,this%Physics,this%Sources,&
                             this%Fluxes,this%Timedisc%time,this%Timedisc%dtcause)
 
-    IF(this%Physics%csiso.GT.0.) THEN
-      IF(ANY(this%Physics%bccsound.NE.this%Physics%csiso)) THEN
-        CALL this%Error("FirstStep","isothermal sound speed set, but "&
-        // "arrays bccsound and/or fcsound have been overwritten.")
+    SELECT TYPE(phys => this%Physics)
+    CLASS IS(physics_euler2dit)
+      IF(phys%csiso.GT.0.) THEN
+        IF(ANY(phys%bccsound.NE.phys%csiso)) THEN
+            CALL this%Error("FirstStep","isothermal sound speed set, but "&
+            // "arrays bccsound and/or fcsound have been overwritten.")
+        END IF
       END IF
-    END IF
+    CLASS DEFAULT
+      ! do nothing
+    END SELECT
+
 
     ! store old values
     this%Timedisc%cold(:,:,:,:) = this%Timedisc%cvar(:,:,:,:)

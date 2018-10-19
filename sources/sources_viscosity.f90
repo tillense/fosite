@@ -294,6 +294,8 @@ CONTAINS
 
 
   SUBROUTINE UpdateViscosity(this,Mesh,Physics,Fluxes,time,pvar,cvar)
+    USE physics_euler2dit_mod, ONLY : physics_euler2dit
+    USE physics_euler2d_mod, ONLY : physics_euler2d
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(Sources_viscosity),INTENT(INOUT) :: this
@@ -304,8 +306,8 @@ CONTAINS
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM) &
                       :: pvar,cvar
     !------------------------------------------------------------------------!
-    INTEGER           :: i,j,k,kp=0,kv=0
-    REAL              :: P,Omega,rotOmega,cs2=1.0
+    INTEGER           :: i,j,k,kv=0
+    REAL              :: Omega,rotOmega
     !------------------------------------------------------------------------!
     INTENT(IN)        :: pvar,cvar
     !------------------------------------------------------------------------!
@@ -326,16 +328,6 @@ CONTAINS
           ! this is a rough estimation assuming that the logarithmic derivative
           ! of the angular velocity (d ln(omega)/d ln(r)) is of the order of -1
           !
-          ! check if PRESSURE exists
-          IF (Physics%PRESSURE.EQ.0) THEN
-             ! isothermal Physics
-             kp  = Physics%DENSITY
-             cs2 = Physics%csiso**2
-          ELSE
-             ! non-isothermal Physics
-             kp  = Physics%PRESSURE
-             cs2 = 1.0
-          END IF
           ! check for 2D / 3D
           SELECT CASE(Physics%DIM)
           CASE(2)
@@ -344,20 +336,19 @@ CONTAINS
              kv  = Physics%ZVELOCITY
           END SELECT
 
-          DO k=Mesh%KGMIN,Mesh%KGMAX
-            DO j=Mesh%JGMIN,Mesh%JGMAX
-!NEC$ IVDEP
-             DO i=Mesh%IGMIN,Mesh%IGMAX
-                ! get/compute pressure and angular velocity
-                P = cs2*pvar(i,j,k,kp)
-                ! consider Omega of rotating frame => Physics%Omega
-                Omega = pvar(i,j,k,kv)*this%invr(i,j,k) + Mesh%Omega
-                ! compute alpha viscosity
-                this%dynvis(i,j,k) = etafkt_alpha(this%dynconst,P,Omega)
-                ! trace-free condition!
-             END DO
-            END DO
-          END DO
+          ! check for non-isothermal physics
+          SELECT TYPE(phys => Physics)
+          CLASS IS(physics_euler2d)
+            ! compute alpha viscosity
+            this%dynvis(:,:,:) = etafkt_alpha(this%dynconst,pvar(:,:,:,phys%PRESSURE), &
+                                    pvar(:,:,:,kv)*this%invr(:,:,:) + Mesh%Omega)
+          CLASS IS(physics_euler2dit)
+            ! compute alpha viscosity
+            this%dynvis(:,:,:) = etafkt_alpha(this%dynconst, &
+                                    phys%bccsound(:,:,:)**2*pvar(:,:,:,phys%DENSITY), &
+                                    pvar(:,:,:,kv)*this%invr(:,:,:) + Mesh%Omega)            
+          END SELECT
+
        CASE(BETA)
           ! Duschl type beta viscosity
           !TODO Beta-viscosity is NOT converted to 3D!!!!!

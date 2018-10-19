@@ -58,7 +58,6 @@ MODULE physics_base_mod
      CLASS(constants_base), ALLOCATABLE :: constants  !< physical constants
      REAL                :: time,&                !< simulation time
                             mu, &                 !< mean molecular weight
-                            csiso, &              !< isothermal sound speed
                             eps                   !< softening length
      INTEGER             :: VNUM, &               !< number of variables
                             PNUM, &               !< number of passive variables
@@ -79,15 +78,13 @@ MODULE physics_base_mod
      LOGICAL             :: advanced_wave_speeds  !< use Roe averages for min/max wave speed estimates
      CHARACTER(LEN=16), DIMENSION(:), POINTER &
                          :: pvarname,cvarname     !< names of variables
-     REAL, DIMENSION(:,:,:), POINTER &
-                         :: bccsound, &           !< bary centered speed of sound
+     REAL, DIMENSION(:,:,:), POINTER :: &
                             bcradius, &           !< distance to the origin bary center values
                             divposvec, &          !< divergence of the position vector
                             bphi, &               !< bary centered constant gravitational potential
                             tmp,tmp1,tmp2,tmp3, &
                             tmp4,tmp5             !< temporary storage
-     REAL, DIMENSION(:,:,:,:), POINTER &
-                         :: fcsound, &            !< speed of sound faces
+     REAL, DIMENSION(:,:,:,:), POINTER :: &
                             fradius, &            !< distance to the origin face values
                             bcposvec, &           !< curvilinear components of the position vector bary center values
                             w => NULL(), &        !< fargo bulk velocity
@@ -121,12 +118,6 @@ MODULE physics_base_mod
                    Convert2Conservative_centsub, &
                    Convert2Conservative_faces, &
                    Convert2Conservative_facesub
-    !------Soundspeed Routines-----!
-    PROCEDURE :: SetSoundSpeeds_center
-    PROCEDURE :: SetSoundSpeeds_faces
-    GENERIC   :: SetSoundSpeeds => &
-                   SetSoundSpeeds_center, &
-                   SetSoundSpeeds_faces
     PROCEDURE (UpdateSoundSpeed_center),     DEFERRED :: UpdateSoundSpeed_center
     PROCEDURE (UpdateSoundSpeed_faces),      DEFERRED :: UpdateSoundSpeed_faces
     GENERIC   :: UpdateSoundSpeed => &
@@ -584,9 +575,6 @@ CONTAINS
     ! mean molecular weight
     CALL GetAttr(config, "mu", this%mu, 0.029)
 
-    ! isothermal sound speed
-    CALL GetAttr(config, "cs", this%csiso, 0.0)
-
     ! enable advanced wave speed estimates (computationally more expensive)
     ! uses Roe averages between cell boundaries
     CALL GetAttr(config, "advanced_wave_speeds", valwrite, 0)
@@ -619,8 +607,6 @@ CONTAINS
              this%tmp3(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX),                &
              this%tmp4(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX),                &
              this%tmp5(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX),                &
-             this%bccsound(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX),            &
-             this%fcsound(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%nfaces), &
              STAT = err)
     IF (err.NE.0) &
          CALL this%Error("InitPhysics", "Unable to allocate memory.")
@@ -631,14 +617,6 @@ CONTAINS
     this%tmp3(:,:,:) = 0.
     this%tmp4(:,:,:) = 0.
     this%tmp5(:,:,:) = 0.
-
-    IF(this%csiso.GT.0.) THEN
-      this%bccsound(:,:,:)  = this%csiso
-      this%fcsound(:,:,:,:) = this%csiso
-    ELSE
-      this%bccsound(:,:,:)  = 0.
-      this%fcsound(:,:,:,:) = 0.
-    END IF
 
    ! enable/disable absorbing and farfield boundary conditions
    ! TODO Not yet tested for 3D
@@ -672,30 +650,6 @@ CONTAINS
 
   END SUBROUTINE InitPhysics
 
-  !> Sets soundspeeds at cell-centers
-  PURE SUBROUTINE SetSoundSpeeds_center(this,Mesh,bccsound)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(physics_base), INTENT(INOUT) :: this
-    CLASS(mesh_base),    INTENT(IN)    :: Mesh
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
-                         INTENT(IN)    :: bccsound
-    !------------------------------------------------------------------------!
-    this%bccsound(:,:,:) = bccsound(:,:,:)
-  END SUBROUTINE SetSoundSpeeds_center
-
-  !> Sets soundspeeds at cell-faces
-  PURE SUBROUTINE SetSoundSpeeds_faces(this,Mesh,fcsound)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(physics_base), INTENT(INOUT) :: this
-    CLASS(mesh_base),    INTENT(IN)    :: Mesh
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%NFACES), &
-                         INTENT(IN)    :: fcsound
-    !------------------------------------------------------------------------!
-    this%fcsound(:,:,:,:) = fcsound(:,:,:,:)
-  END SUBROUTINE SetSoundSpeeds_faces
-
   !> \todo NOT VERIFIED
   !!
   !! global elemental routine
@@ -720,7 +674,7 @@ CONTAINS
         CALL this%Error("ClosePhysics","not initialized")
     ! deallocate pointer variables used in all physics modules
     DEALLOCATE(this%tmp,this%tmp1,this%tmp2,this%tmp3,this%tmp4,this%tmp5, &
-               this%bccsound,this%fcsound,this%pvarname,this%cvarname)
+               this%pvarname,this%cvarname)
   END SUBROUTINE Finalize_base
 
 END MODULE physics_base_mod

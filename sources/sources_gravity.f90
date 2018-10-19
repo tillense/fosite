@@ -106,6 +106,7 @@ CONTAINS
   !! The gravitational source term evaluates all forces that are produced by
   !! gravitational participants.
   SUBROUTINE ExternalSources_single(this,Mesh,Physics,Fluxes,time,dt,pvar,cvar,sterm)
+    USE physics_euler2dit_mod, ONLY : physics_euler2dit
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(sources_gravity), INTENT(INOUT) :: this
@@ -127,7 +128,12 @@ CONTAINS
     CALL this%UpdateGravity(Mesh,Physics,Fluxes,pvar,time,dt)
 
     ! update disk scale height if requested
-    IF (this%glist%update_disk_height) CALL this%glist%CalcDiskHeight(Mesh,Physics,pvar)
+    IF (this%glist%update_disk_height) THEN
+      SELECT TYPE(phys => Physics)
+      CLASS IS (physics_euler2dit)
+        CALL this%glist%CalcDiskHeight(Mesh,phys,pvar)
+      END SELECT
+    END IF
 
     ! gravitational source terms
     CALL Physics%ExternalSources(Mesh,this%accel,pvar,cvar,sterm)
@@ -171,8 +177,6 @@ CONTAINS
       gravptr => gravptr%next
     END DO
   END SUBROUTINE
-
-
 
   SUBROUTINE InfoSources(this,Mesh)
     IMPLICIT NONE

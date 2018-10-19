@@ -340,7 +340,7 @@ CONTAINS
 
   !> \private Updates the cooling function at each time step.
   SUBROUTINE UpdateCooling(this,Mesh,Physics,time,pvar)
-    USE physics_euler2d_mod
+    USE physics_euler2d_mod, ONLY : physics_euler2d
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(sources_diskcooling)         :: this

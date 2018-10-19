@@ -128,7 +128,8 @@ CONTAINS
     CLASS(physics_euler3D), INTENT(INOUT) :: this
     CLASS(mesh_base),        INTENT(IN)   :: Mesh
     TYPE(Dict_TYP), POINTER, INTENT(IN)   :: config, IO
-
+    !------------------------------------------------------------------------!
+    INTEGER :: err
     !------------------------------------------------------------------------!
     CALL this%InitPhysics(Mesh,config,IO,EULER3D,problem_name,num_var)
 
@@ -157,6 +158,15 @@ CONTAINS
     this%cvarname(this%ZMOMENTUM) = "zmomentum"
     this%cvarname(this%ENERGY)    = "energy"
     this%DIM = 3
+    
+    ! allocate memory for arrays common to all physics modules
+    ALLOCATE(this%bccsound(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX),            &
+             this%fcsound(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%nfaces), &
+             STAT = err)
+    IF (err.NE.0) &
+         CALL this%Error("InitPhysics_euler3d", "Unable to allocate memory.")
+
+
   END SUBROUTINE InitPhysics_euler3D
 
 
