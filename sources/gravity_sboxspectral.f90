@@ -76,7 +76,6 @@
 !----------------------------------------------------------------------------!
 MODULE gravity_sboxspectral_mod
   USE gravity_base_mod
-  USE gravity_spectral_mod
   USE boundary_base_mod
   USE fluxes_base_mod
   USE physics_base_mod

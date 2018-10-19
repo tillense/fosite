@@ -49,9 +49,7 @@ MODULE gravity_spectral_mod
   USE logging_base_mod
   USE functions
   USE common_dict
-#if defined(HAVE_FFTW)
   USE fftw
-#endif
 #ifdef PARALLEL
   USE mpi
 #endif
@@ -89,17 +87,20 @@ MODULE gravity_spectral_mod
 #if defined(PARALLEL)
     !> displacment and length of domain
     INTEGER,DIMENSION(:),POINTER     :: displ, num
+    INTEGER                          :: mpi_error
 #endif
 #endif
   CONTAINS
     PROCEDURE :: InitGravity_spectral
     PROCEDURE :: UpdateGravity_single
     PROCEDURE :: InfoGravity
-    PROCEDURE :: CalcPotential
     PROCEDURE :: CalcDiskHeight_single
+    PROCEDURE :: Finalize
+#ifdef HAVE_FFTW
+    PROCEDURE :: CalcPotential
     PROCEDURE :: PrecomputeI
     PROCEDURE :: CalcMcut
-    PROCEDURE :: Finalize
+#endif
   END TYPE
   !--------------------------------------------------------------------------!
   PUBLIC :: &
@@ -214,8 +215,7 @@ MODULE gravity_spectral_mod
     CALL this%Info(" POISSON--> sigma:             " // TRIM(info_str))
 
 
-!\todo only 2D variables
-#if defined(HAVE_FFTW)
+    !\todo only 2D variables
     this%p_FI = fftw_alloc_real(INT(2*this%MNUM * (this%INUM)*(Mesh%INUM), C_SIZE_T))
     CALL C_F_POINTER(this%p_FI, this%FI, &
                      [2*this%MNUM,this%INUM,Mesh%INUM])
@@ -234,21 +234,18 @@ MODULE gravity_spectral_mod
                      [2*this%MNUM, this%INUM])
     CALL C_F_POINTER(this%pFphi, this%cFphi, &
                      [Mesh%JNUM/2+1, this%INUM])
-#endif
+
     IF (err.NE.0) &
         CALL this%Error("InitGravity_spectral","Memory allocation failed.")
 
     this%block => this%Fdensity(:,Mesh%IMIN:Mesh%IMAX)
-#if defined(HAVE_FFTW)
     this%cblock => this%cFdensity(:,Mesh%IMIN:Mesh%IMAX)
-#endif
 
     this%phi2D(:,:) = 0.
     this%accel(:,:,:,:) = 0.
     this%pot(:,:,:,:) = 0.
     this%tmp2D(:,:) = 0.
 
-#if defined(HAVE_FFTW)
     ! Create plans for fftw
 
     ! Use FFTW_MEASURE for calculating the fastest plan, but this
@@ -268,7 +265,6 @@ MODULE gravity_spectral_mod
                                            this%Fphi, this%sizes, &
                                            1, 2*this%MNUM, &
                                            FFTW_MEASURE)
-#endif
 
     CALL GetAttr(config, "output/potential", valwrite, 0)
     IF (valwrite .EQ. 1) &
@@ -281,9 +277,9 @@ MODULE gravity_spectral_mod
     this%displ((this%GetRank())) = (Mesh%IMIN-1)*2*this%mcut
     this%num((this%GetRank())) = (Mesh%IMAX-Mesh%IMIN+1)*2*this%mcut
     CALL MPI_AllGather(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL, &
-                       this%displ, 1, MPI_INTEGER, MPI_COMM_WORLD, this%error)
+                       this%displ, 1, MPI_INTEGER, MPI_COMM_WORLD, this%mpi_error)
     CALL MPI_AllGather(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL, &
-                       this%num, 1, MPI_INTEGER, MPI_COMM_WORLD, this%error)
+                       this%num, 1, MPI_INTEGER, MPI_COMM_WORLD, this%mpi_error)
 #endif
 
     CALL this%PrecomputeI(Mesh, Physics)
@@ -296,6 +292,7 @@ MODULE gravity_spectral_mod
   END SUBROUTINE InitGravity_spectral
 
 
+#ifdef HAVE_FFTW
   FUNCTION CalcMcut(this,Mesh) RESULT(res)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
@@ -304,12 +301,9 @@ MODULE gravity_spectral_mod
     INTEGER                      :: res
     !------------------------------------------------------------------------!
     INTEGER           :: m,i,ier
-#if defined(HAVE_FFTW)
     REAL              :: cumsum(this%MNUM)
-#endif
     INTEGER           :: mcut(Mesh%IMIN:Mesh%IMAX)
     !------------------------------------------------------------------------!
-#if defined(HAVE_FFTW)
     DO i=Mesh%IMIN,Mesh%IMAX
       cumsum(1) = this%Fdensity(2*1-1,i)**2 + this%Fdensity(2*1,i)**2
       DO m=2,this%MNUM
@@ -327,10 +321,8 @@ MODULE gravity_spectral_mod
 #ifdef PARALLEL
     CALL MPI_Allreduce(MPI_IN_PLACE,res,1,MPI_INTEGER,MPI_MAX,MPI_COMM_WORLD,ier)
 #endif
-#else
-    res = 0
-#endif
   END FUNCTION CalcMcut
+#endif
 
   !> Prints out information
   SUBROUTINE InfoGravity(this,Mesh)
@@ -342,7 +334,7 @@ MODULE gravity_spectral_mod
   END SUBROUTINE InfoGravity
 
 
-
+#if defined(HAVE_FFTW)
   SUBROUTINE CalcPotential(this,Mesh,Physics,pvar)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
@@ -357,7 +349,6 @@ MODULE gravity_spectral_mod
     INTEGER           :: status(MPI_STATUS_SIZE)
 #endif
     !------------------------------------------------------------------------!
-#if defined(HAVE_FFTW)
     ! Fourier transform the density with respect to Phi
     DO k=Mesh%KMIN, Mesh%KMAX
       DO i=Mesh%IMIN, Mesh%IMAX
@@ -383,7 +374,7 @@ MODULE gravity_spectral_mod
       CALL MPI_AllGatherV(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL,&
                           this%Fdensity(1:2*this%mcut,1:Mesh%INUM), &
                           this%num, this%displ, DEFAULT_MPI_REAL, &
-                          MPI_COMM_WORLD, this%error)
+                          MPI_COMM_WORLD, this%mpi_error)
 #endif
 
     ! Integrate in radial direction by numerical quadrature
@@ -414,9 +405,7 @@ MODULE gravity_spectral_mod
     END DO
 
     ! Inverse fourier transform Fphi with respect to Phi
-#if defined(HAVE_FFTW)
     CALL fftw_execute_dft_c2r(this%plan_c2r, this%cFphi, this%Fphi)
-#endif
 
     DO i=1,this%INUM
       this%phi2D(i+Mesh%IMIN-1,Mesh%JMIN:Mesh%JMAX) = this%FPhi(1:Mesh%JNUM,i)
@@ -430,7 +419,7 @@ MODULE gravity_spectral_mod
     CALL MPI_Sendrecv(this%sbuf1,Mesh%GNUM*Mesh%JNUM, &
          DEFAULT_MPI_REAL,Mesh%neighbor(WEST),10+WEST,this%rbuf1, &
          Mesh%GNUM*Mesh%JNUM,DEFAULT_MPI_REAL,Mesh%neighbor(EAST), &
-         MPI_ANY_TAG,Mesh%comm_cart,status,this%error)
+         MPI_ANY_TAG,Mesh%comm_cart,status,this%mpi_error)
     IF (Mesh%neighbor(EAST).NE.MPI_PROC_NULL) &
          this%phi2D(Mesh%IMAX+1:Mesh%IGMAX,Mesh%JMIN:Mesh%JMAX) = this%rbuf1
     ! send boundary data to western and receive from eastern neighbor
@@ -439,7 +428,7 @@ MODULE gravity_spectral_mod
     CALL MPI_Sendrecv(this%sbuf2,Mesh%GNUM*Mesh%JNUM, &
          DEFAULT_MPI_REAL,Mesh%neighbor(EAST),10+EAST,this%rbuf2, &
          Mesh%GNUM*Mesh%JNUM,DEFAULT_MPI_REAL,Mesh%neighbor(WEST), &
-         MPI_ANY_TAG,Mesh%comm_cart,status,this%error)
+         MPI_ANY_TAG,Mesh%comm_cart,status,this%mpi_error)
     IF (Mesh%neighbor(WEST).NE.MPI_PROC_NULL) &
          this%phi2D(Mesh%IGMIN:Mesh%IMIN-1,Mesh%JMIN:Mesh%JMAX) = this%rbuf2
 #endif
@@ -448,8 +437,8 @@ MODULE gravity_spectral_mod
     this%phi2D(Mesh%IGMIN:Mesh%IGMAX,Mesh%JMAX+1:Mesh%JGMAX) &
       = this%phi2D(Mesh%IGMIN:Mesh%IGMAX,Mesh%JMIN:Mesh%JMIN+Mesh%GNUM-1)
 
-#endif
   END SUBROUTINE CalcPotential
+#endif
 
   !> Green's function
   !!
@@ -468,6 +457,7 @@ MODULE gravity_spectral_mod
   !! \f]
   !! with \f$ R^2 = r^2 + r'^2 - 2\,r\,r'\cos{(\phi)} + \epsilon^2)/(H(r'))^2 \f$
   !! and \f$ K_0 \f$ the modified Bessel function of the second kind.
+#ifdef HAVE_FFTW
   ELEMENTAL FUNCTION GreenFunction(dr2, green, sigma) RESULT(G)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
@@ -489,6 +479,7 @@ MODULE gravity_spectral_mod
         G = 0.0
     END SELECT
   END FUNCTION GreenFunction
+#endif
 
   !> Precomputes the fourier transform
   !!
@@ -511,6 +502,7 @@ MODULE gravity_spectral_mod
   !! (H(r')\right)^2 \f$
   !!
   !! (epsilon is a small softening parameter)
+#ifdef HAVE_FFTW
   SUBROUTINE PrecomputeI(this, Mesh, Physics)
    IMPLICIT NONE
    !------------------------------------------------------------------------!
@@ -518,9 +510,7 @@ MODULE gravity_spectral_mod
    CLASS(mesh_base),        INTENT(IN) :: Mesh
    CLASS(physics_base)                 :: Physics
    !------------------------------------------------------------------------!
-#if defined(HAVE_FFTW)
    TYPE(C_PTR)        :: plan_r2c
-#endif
    INTEGER            :: i0, i1, i, j, k, m
    REAL               :: r0, notzero
    CHARACTER(LEN=128) :: str
@@ -535,10 +525,9 @@ MODULE gravity_spectral_mod
    INTEGER, DIMENSION(1) &
                       :: n
 #ifdef PARALLEL
-   INTEGER, DIMENSION(0:GetNumProcs(this)-1) :: num,displ
+   INTEGER, DIMENSION(0:(this%GetNumProcs())-1) :: num,displ
 #endif
    !------------------------------------------------------------------------!
-#if defined(HAVE_FFTW)
     n(1)    = Mesh%JNUM
     rank    = 1
     howmany = this%INUM * Mesh%INUM
@@ -564,18 +553,18 @@ MODULE gravity_spectral_mod
     displ(this%GetRank()) = (Mesh%IMIN-1)
     num(this%GetRank()) = this%INUM
     CALL MPI_AllGather(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL, &
-                       displ, 1, MPI_INTEGER, MPI_COMM_WORLD, this%error)
+                       displ, 1, MPI_INTEGER, MPI_COMM_WORLD, this%mpi_error)
     CALL MPI_AllGather(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL, &
-                       num, 1, MPI_INTEGER, MPI_COMM_WORLD, this%error)
+                       num, 1, MPI_INTEGER, MPI_COMM_WORLD, this%mpi_error)
     CALL MPI_AllGatherV(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL, &
                         r, num, displ, &
-                        DEFAULT_MPI_REAL, MPI_COMM_WORLD, this%error)
+                        DEFAULT_MPI_REAL, MPI_COMM_WORLD, this%mpi_error)
     CALL MPI_AllGatherV(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL, &
                         hx, num, displ, &
-                        DEFAULT_MPI_REAL, MPI_COMM_WORLD, this%error)
+                        DEFAULT_MPI_REAL, MPI_COMM_WORLD, this%mpi_error)
     CALL MPI_AllGatherV(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL, &
                         hy, num, displ, &
-                        DEFAULT_MPI_REAL, MPI_COMM_WORLD, this%error)
+                        DEFAULT_MPI_REAL, MPI_COMM_WORLD, this%mpi_error)
 #endif
 
     DO k=Mesh%KMIN,Mesh%KMAX
@@ -609,7 +598,7 @@ MODULE gravity_spectral_mod
 #ifdef PARALLEL
     CALL MPI_Allreduce(MPI_IN_PLACE, notzero, 1, DEFAULT_MPI_REAL, &
       MPI_MAX, &
-      MPI_COMM_WORLD, this%error)
+      MPI_COMM_WORLD, this%mpi_error)
 #endif
     IF(notzero.GT.1.) THEN
       WRITE(str,'(A,ES12.4,A)')"Imag(FI) should be zero, but ",notzero,&
@@ -618,8 +607,8 @@ MODULE gravity_spectral_mod
     END IF
 
     this%FI(2:2*this%MNUM:2,:,:) = 0.
-#endif
   END SUBROUTINE PrecomputeI
+#endif
 
   !> \attention This routine only works in 2D
   SUBROUTINE UpdateGravity_single(this,Mesh,Physics,Fluxes,pvar,time,dt)
@@ -635,6 +624,7 @@ MODULE gravity_spectral_mod
     !------------------------------------------------------------------------!
     INTEGER              :: i, j, k
     !------------------------------------------------------------------------!
+#ifdef HAVE_FFTW
     ! calc potential first
     CALL this%CalcPotential(Mesh,Physics,pvar)
 
@@ -656,6 +646,7 @@ MODULE gravity_spectral_mod
         END DO
       END DO
     END DO
+#endif
   END SUBROUTINE UpdateGravity_single
 
 
@@ -716,6 +707,7 @@ MODULE gravity_spectral_mod
     INTEGER           :: i,j,k
     REAL              :: cs2,p,q
     !------------------------------------------------------------------------!
+#ifdef HAVE_FFTW
     ! compute the laplacian of the gravitational potential in the disks
     ! equatorial plane; gravity_generic updates the gravitational acceleration
     DO k=Mesh%KMIN-1,Mesh%KMAX
@@ -766,6 +758,7 @@ MODULE gravity_spectral_mod
           END DO
         END DO
       END DO
+#endif
   END SUBROUTINE CalcDiskHeight_single
 
 
@@ -774,13 +767,10 @@ MODULE gravity_spectral_mod
    !------------------------------------------------------------------------!
    CLASS(gravity_spectral), INTENT(INOUT) :: this
    !------------------------------------------------------------------------!
-#if defined(HAVE_FFTW) || defined(HAVE_FFTKEISAN)
-
 #if defined(HAVE_FFTW)
     ! Destroy plans
     CALL fftw_destroy_plan(this%plan_r2c)
     CALL fftw_destroy_plan(this%plan_c2r)
-#endif
 
     ! Free memomry
     DEALLOCATE(&
@@ -798,14 +788,10 @@ MODULE gravity_spectral_mod
                this%sizes, &
                this%mcut &
                )
-#if defined(HAVE_FFTW)
+
     CALL fftw_free(this%p_FI)
     CALL fftw_free(this%pFdensity)
     CALL fftw_free(this%pFphi)
-#elif defined(HAVE_FFTKEISAN)
-    DEALLOCATE(this%FI,this%Fdensity,this%Fphi,this%height1D)
-#endif
-
 #endif
     END SUBROUTINE Finalize
 
