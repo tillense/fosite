@@ -41,7 +41,7 @@ MESSAGE( STATUS "Compiler: " ${CMAKE_Fortran_COMPILER})
 
 if (Fortran_COMPILER_NAME MATCHES "(.*)gfortran")
   # gfortran
-  set (CMAKE_Fortran_FLAGS "${FCFLAGS} -fdefault-real-8 -cpp -ffree-line-length-none -std=f2003 -DVERSION='\"v2\"'")
+  set (CMAKE_Fortran_FLAGS "${FCFLAGS} -fdefault-real-8 -cpp -ffree-line-length-none -DVERSION='\"v2\"'")
   set (CMAKE_Fortran_FLAGS_RELEASE "-funroll-all-loops -fno-f2c -O3")
   set (CMAKE_Fortran_FLAGS_PROFILING "-funroll-all-loops -fno-f2c -O3 -pg -no-pie")
   set (CMAKE_Fortran_FLAGS_DEBUG   "-fno-f2c -O2 -g -fcheck=all")
@@ -51,7 +51,7 @@ if (Fortran_COMPILER_NAME MATCHES "(.*)gfortran")
 elseif (Fortran_COMPILER_NAME MATCHES "(.*)mpifort")
   # mpifort
   message("Building Fosite in parallel mode")
-  set (CMAKE_Fortran_FLAGS "${FCFLAGS} -fdefault-real-8 -cpp -ffree-line-length-none -std=f2003 -DVERSION='\"v2\"' -DPARALLEL -DHAVE_MPI_MOD")
+  set (CMAKE_Fortran_FLAGS "${FCFLAGS} -fdefault-real-8 -cpp -ffree-line-length-none -DVERSION='\"v2\"' -DPARALLEL -DHAVE_MPI_MOD")
   set (CMAKE_Fortran_FLAGS_RELEASE "-funroll-all-loops -fno-f2c -O3")
   set (CMAKE_Fortran_FLAGS_DEBUG   "-fno-f2c -O2 -g -fcheck=all -Wunused")
   if(CMAKE_Fortran_COMPILER_VERSION VERSION_LESS 4.9)
@@ -88,7 +88,7 @@ MARK_AS_ADVANCED(CMAKE_Fortran_FLAGS_PROFILING
 #message(STATUS "${CMAKE_Fortran_COMPILER_ID}")
 
 #----------------------- search FFTW -----------------------------------------#
-set(CMAKE_FIND_ROOT_PATH ${FFTWDIR})
+set(CMAKE_FIND_ROOT_PATH ${FFTW_DIR})
 # search for library
 
 find_library(
