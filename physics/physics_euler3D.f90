@@ -1261,7 +1261,6 @@ CONTAINS
 !  END SUBROUTINE CalcRiemann2PrimZ
 
 
-  ! \todo HIER BLICKE ICH NICHT DURCH!!! HIER FEHLEN SICHERLICH FAKTOREN
   !> Calculate geometrical sources at the center
   PURE SUBROUTINE GeometricalSources_center(this,Mesh,pvar,cvar,sterm)
     IMPLICIT NONE
@@ -1275,49 +1274,40 @@ CONTAINS
     !------------------------------------------------------------------------!
     INTEGER                               :: i,j,k
     !------------------------------------------------------------------------!
-    DO k=Mesh%KGMIN,Mesh%KGMAX
-      DO j=Mesh%JGMIN,Mesh%JGMAX
-        DO i=Mesh%IGMIN,Mesh%IGMAX
-          ! no geometrical density or energy sources
-          sterm(i,j,k,this%DENSITY) = 0.
-          sterm(i,j,k,this%ENERGY) = 0.
-          ! geometrical source terms in momentum equationes
-          sterm(i,j,k,this%XMOMENTUM) = MomentumSourcesX( &
-              cvar(i,j,k,this%YMOMENTUM), &
-              cvar(i,j,k,this%ZMOMENTUM), &
-              pvar(i,j,k,this%XVELOCITY), &
-              pvar(i,j,k,this%YVELOCITY), &
-              pvar(i,j,k,this%ZVELOCITY),&
-              pvar(i,j,k,this%PRESSURE), &
-              Mesh%cxyx%bcenter(i,j,k), &
-              Mesh%cyxy%bcenter(i,j,k), &
-              Mesh%czxz%bcenter(i,j,k), &
-              Mesh%cxzx%bcenter(i,j,k))
-          sterm(i,j,k,this%YMOMENTUM) = MomentumSourcesY( &
-              cvar(i,j,k,this%ZMOMENTUM), &
-              cvar(i,j,k,this%XMOMENTUM), &
-              pvar(i,j,k,this%XVELOCITY), &
-              pvar(i,j,k,this%YVELOCITY), &
-              pvar(i,j,k,this%ZVELOCITY), &
-              pvar(i,j,k,this%PRESSURE), &
-              Mesh%cxyx%bcenter(i,j,k), &
-              Mesh%cyxy%bcenter(i,j,k), &
-              Mesh%czyz%bcenter(i,j,k), & !\TODO: aus symmetrie-gründen müsste hier czyz stehen
-              Mesh%cyzy%bcenter(i,j,k))   !vorher stand dort czxz
-          sterm(i,j,k,this%ZMOMENTUM) = MomentumSourcesZ( &
-              cvar(i,j,k,this%XMOMENTUM), &
-              cvar(i,j,k,this%YMOMENTUM), &
-              pvar(i,j,k,this%XVELOCITY), &
-              pvar(i,j,k,this%YVELOCITY), &
-              pvar(i,j,k,this%ZVELOCITY), &
-              pvar(i,j,k,this%PRESSURE), &
-              Mesh%cxzx%bcenter(i,j,k), &
-              Mesh%czxz%bcenter(i,j,k), &
-              Mesh%czyz%bcenter(i,j,k), &
-              Mesh%cyzy%bcenter(i,j,k))
+    IF ((Mesh%Geometry%GetType().NE.CARTESIAN)) THEN
+      DO k=Mesh%KGMIN,Mesh%KGMAX
+        DO j=Mesh%JGMIN,Mesh%JGMAX
+          DO i=Mesh%IGMIN,Mesh%IGMAX
+            CALL CalcGeometricalSources(cvar(i,j,k,this%XMOMENTUM), &
+                                        cvar(i,j,k,this%YMOMENTUM), &
+                                        cvar(i,j,k,this%ZMOMENTUM), &
+                                        pvar(i,j,k,this%XVELOCITY), &
+                                        pvar(i,j,k,this%YVELOCITY), &
+                                        pvar(i,j,k,this%ZVELOCITY), &
+                                        pvar(i,j,k,this%PRESSURE),  &
+                           Mesh%cxyx%bcenter(i,j,k),                &
+                           Mesh%cxzx%bcenter(i,j,k),                &
+                           Mesh%cyxy%bcenter(i,j,k),                &
+                           Mesh%cyzy%bcenter(i,j,k),                &
+                           Mesh%czxz%bcenter(i,j,k),                &
+                           Mesh%czyz%bcenter(i,j,k),                &
+                                       sterm(i,j,k,this%DENSITY),   &
+                                       sterm(i,j,k,this%XMOMENTUM), &
+                                       sterm(i,j,k,this%YMOMENTUM), &
+                                       sterm(i,j,k,this%ZMOMENTUM), &
+                                       sterm(i,j,k,this%ENERGY) &
+                                           )
+          END DO
         END DO
       END DO
-    END DO
+      ! reset ghost cell data
+      sterm(Mesh%IGMIN:Mesh%IMIN-1,:,:,:) = 0.0
+      sterm(Mesh%IMAX+1:Mesh%IGMAX,:,:,:) = 0.0
+      sterm(:,Mesh%JGMIN:Mesh%JMIN-1,:,:) = 0.0
+      sterm(:,Mesh%JMAX+1:Mesh%JGMAX,:,:) = 0.0
+      sterm(:,:,Mesh%KGMIN:Mesh%KMIN-1,:) = 0.0
+      sterm(:,:,Mesh%KMAX+1:Mesh%KGMAX,:) = 0.0
+    END IF
   END SUBROUTINE GeometricalSources_center
 
 
@@ -2203,19 +2193,20 @@ CONTAINS
     E = P/(gamma-1.) + 0.5 * rho_in * (u*u+v*v+w*w)
   END SUBROUTINE Prim2Cons
 
-!  !> Similar to isothermal version
-!  ELEMENTAL SUBROUTINE CalcGeometricalSources(this,mx,my,mz,vx,vy,vz,P,cxyx,cxzx,cyxy,cyzy,czxz,czyz,srho,smx,smy,smz)
-!    IMPLICIT NONE
-!    !------------------------------------------------------------------------!
-!    CLASS(physics_euler3D), INTENT(IN) :: this
-!    REAL, INTENT(IN)  :: mx,my,mz,vx,vy,vz,P,cxyx,cxzx,cyxy,cyzy,czxz,czyz
-!    REAL, INTENT(OUT) :: srho, smx, smy, smz
-!    !------------------------------------------------------------------------!
-!    srho =  0.
-!    smx  = -my * (cxyx * vx - cyxy * vy) + mz * (czxz * vz - cxzx * vx) + (cyxy + czxz) * P
-!    smy  =  mx * (cxyx * vx - cyxy * vy) + mz * (czyz * vz - cyzy * vy) + (cxyx + czyz) * P
-!    smz  =  mx * (cxzx * vx - czxz * vz) + my * (cyzy * vy - czyz * vz) + (cxzx + cyzy) * P
-!  END SUBROUTINE CalcGeometricalSources
+
+  !> Similar to isothermal version
+  ELEMENTAL SUBROUTINE CalcGeometricalSources(mx,my,mz,vx,vy,vz,P,cxyx,cxzx,cyxy,cyzy,czxz,czyz,srho,smx,smy,smz,sen)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    REAL, INTENT(IN)  :: mx,my,mz,vx,vy,vz,P,cxyx,cxzx,cyxy,cyzy,czxz,czyz
+    REAL, INTENT(OUT) :: srho, smx, smy, smz, sen
+    !------------------------------------------------------------------------!
+    srho =  0.
+    sen  =  0.
+    smx  = -my * (cxyx * vx - cyxy * vy) + mz * (czxz * vz - cxzx * vx) + (cyxy + czxz) * P
+    smy  =  mx * (cxyx * vx - cyxy * vy) + mz * (czyz * vz - cyzy * vy) + (cxyx + czyz) * P
+    smz  =  mx * (cxzx * vx - czxz * vz) + my * (cyzy * vy - czyz * vz) + (cxzx + cyzy) * P
+  END SUBROUTINE CalcGeometricalSources
 
   SUBROUTINE Finalize(this)
     IMPLICIT NONE

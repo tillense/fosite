@@ -108,8 +108,6 @@ MODULE physics_euler2Dit_mod
     PROCEDURE :: CalcStresses_euler
 
 !    PROCEDURE :: CalcFlux_euler2Dit, &
-!    MomentumSourcesX_euler2Dit, &
-!    MomentumSourcesY_euler2Dit, &
 
     PROCEDURE     :: Finalize
   END TYPE
@@ -139,6 +137,8 @@ CONTAINS
     this%XMOMENTUM = 2                                 ! x-momentum          !
     this%YVELOCITY = 3                                 ! y-velocity          !
     this%YMOMENTUM = 3                                 ! y-momentum          !
+    this%ZVELOCITY = 0                                 ! z-velocity          !
+    this%ZMOMENTUM = 0                                 ! z-momentum          !
     this%PRESSURE  = 0                                 ! no pressure         !
     this%ENERGY    = 0                                 ! no total energy     !
     ! set names for primitive and conservative variables
@@ -513,11 +513,9 @@ CONTAINS
     IF ((Mesh%Geometry%GetType().NE.CARTESIAN).OR. &
         (this%GetType().EQ.EULER2D_IAMROT).OR.     &
         (this%GetType().EQ.EULER2D_ISOIAMROT)) THEN
-
-
-    DO k=Mesh%KGMIN,Mesh%KGMAX
-      DO j=Mesh%JGMIN,Mesh%JGMAX
-         DO i=Mesh%IGMIN,Mesh%IGMAX
+      DO k=Mesh%KGMIN,Mesh%KGMAX
+        DO j=Mesh%JGMIN,Mesh%JGMAX
+          DO i=Mesh%IGMIN,Mesh%IGMAX
             CALL CalcGeometricalSources(cvar(i,j,k,this%XMOMENTUM),                       &
                                         cvar(i,j,k,this%YMOMENTUM),                       &
                                         pvar(i,j,k,this%XVELOCITY),                       &
@@ -531,16 +529,14 @@ CONTAINS
                                         sterm(i,j,k,this%XMOMENTUM),                      &
                                         sterm(i,j,k,this%YMOMENTUM)                       &
                                         )
-         END DO
+          END DO
+        END DO
       END DO
-   END DO
-    ! reset ghost cell data
-    sterm(Mesh%IGMIN:Mesh%IMIN-Mesh%ip1,:,:,:) = 0.0
-    sterm(Mesh%IMAX+Mesh%ip1:Mesh%IGMAX,:,:,:) = 0.0
-    sterm(:,Mesh%JGMIN:Mesh%JMIN-Mesh%jp1,:,:) = 0.0
-    sterm(:,Mesh%JMAX+Mesh%jp1:Mesh%JGMAX,:,:) = 0.0
-    sterm(:,:,Mesh%KGMIN:Mesh%KMIN-Mesh%kp1,:) = 0.0
-    sterm(:,:,Mesh%KMAX+Mesh%kp1:Mesh%KGMAX,:) = 0.0
+      ! reset ghost cell data
+      sterm(Mesh%IGMIN:Mesh%IMIN-Mesh%ip1,:,:,:) = 0.0
+      sterm(Mesh%IMAX+Mesh%ip1:Mesh%IGMAX,:,:,:) = 0.0
+      sterm(:,Mesh%JGMIN:Mesh%JMIN-Mesh%jp1,:,:) = 0.0
+      sterm(:,Mesh%JMAX+Mesh%jp1:Mesh%JGMAX,:,:) = 0.0
     END IF
   END SUBROUTINE GeometricalSources_center
 
@@ -1034,24 +1030,6 @@ CONTAINS
     f3 = m2*v
   END SUBROUTINE SetFlux
 
-  !> momentum source terms due to inertial forces
-  !! P is the isothermal pressure rho*cs*cs or the real pressure, because
-  !! the function is inherited by physics_euler2D.
-  !!
-  !! \todo the syntax of this part was changed during transition to 2D.
-  !!       Have a look at physics_euler2D and revert if the solution here is not
-  !!       so nice.
-  ELEMENTAL SUBROUTINE CalcGeometricalSources(mx,my,vx,vy,P,cxyx,cyxy,czxz,czyz,srho,smx,smy)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    REAL, INTENT(IN)                     :: mx,my,vx,vy,P,cxyx,cyxy,czxz,czyz
-    REAL, INTENT(OUT)                    :: srho, smx, smy
-    !------------------------------------------------------------------------!
-    srho = 0.
-    smx = -my * (cxyx * vx - cyxy * vy) + (cyxy + czxz) * P
-    smy = mx * (cxyx * vx - cyxy * vy) + (cxyx + czyz) * P
-  END SUBROUTINE CalcGeometricalSources
-
   !> Convert to from conservative to primitive variables
   !!
   !! non-global elemental routine
@@ -1361,6 +1339,18 @@ CONTAINS
     v2   = v1 + dir*xvar2
   END SUBROUTINE SetBoundaryData
 
+
+  !> momentum source terms due to inertial forces
+  ELEMENTAL SUBROUTINE CalcGeometricalSources(mx,my,vx,vy,P,cxyx,cyxy,czxz,czyz,srho,smx,smy)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    REAL, INTENT(IN)  :: mx,my,vx,vy,P,cxyx,cyxy,czxz,czyz
+    REAL, INTENT(OUT) :: srho, smx, smy
+    !------------------------------------------------------------------------!
+    srho = 0.
+    smx = -my * (cxyx * vx - cyxy * vy) + (cyxy + czxz) * P
+    smy = mx * (cxyx * vx - cyxy * vy) + (cxyx + czyz) * P
+  END SUBROUTINE CalcGeometricalSources
 
 !  ! TODO: Not verified
 !  !!

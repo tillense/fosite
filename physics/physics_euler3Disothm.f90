@@ -108,9 +108,6 @@ MODULE physics_euler3Dit_mod
 !    PROCEDURE :: GeometricalSources_faces
     PROCEDURE :: AxisMasks
 !    PROCEDURE :: CalcFlux_euler2Dit, &
-!    MomentumSourcesX_euler2Dit, &
-!    MomentumSourcesY_euler2Dit, &
-
     PROCEDURE     :: Finalize
   END TYPE
   !--------------------------------------------------------------------------!
@@ -528,11 +525,9 @@ CONTAINS
     IF ((Mesh%Geometry%GetType().NE.CARTESIAN).OR. &
         (this%GetType().EQ.EULER2D_IAMROT).OR.     &
         (this%GetType().EQ.EULER2D_ISOIAMROT)) THEN
-
-
-    DO k=Mesh%KGMIN,Mesh%KGMAX
-      DO j=Mesh%JGMIN,Mesh%JGMAX
-         DO i=Mesh%IGMIN,Mesh%IGMAX
+      DO k=Mesh%KGMIN,Mesh%KGMAX
+        DO j=Mesh%JGMIN,Mesh%JGMAX
+          DO i=Mesh%IGMIN,Mesh%IGMAX
             CALL CalcGeometricalSources(cvar(i,j,k,this%XMOMENTUM),                       &
                                              cvar(i,j,k,this%YMOMENTUM),                       &
                                              cvar(i,j,k,this%ZMOMENTUM),                       &
@@ -551,9 +546,9 @@ CONTAINS
                                             sterm(i,j,k,this%YMOMENTUM),                       &
                                             sterm(i,j,k,this%ZMOMENTUM)                        &
                                            )
-         END DO
+          END DO
+        END DO
       END DO
-   END DO
     ! reset ghost cell data
     sterm(Mesh%IGMIN:Mesh%IMIN-1,:,:,:) = 0.0
     sterm(Mesh%IMAX+1:Mesh%IGMAX,:,:,:) = 0.0
@@ -1396,24 +1391,6 @@ CONTAINS
     f4 = m3*v
   END SUBROUTINE SetFlux
 
-  !> momentum source terms due to inertial forces
-  !! P is the isothermal pressure rho*cs*cs
-  !!
-  !! \todo the syntax of this part was changed during transition to 3D.
-  !!       Have a look at physics_euler3D and revert if the solution here is not
-  !!       so nice.
-  ELEMENTAL SUBROUTINE CalcGeometricalSources(mx,my,mz,vx,vy,vz,P,cxyx,cxzx,cyxy,cyzy,czxz,czyz,srho,smx,smy,smz)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    REAL, INTENT(IN)  :: mx,my,mz,vx,vy,vz,P,cxyx,cxzx,cyxy,cyzy,czxz,czyz
-    REAL, INTENT(OUT) :: srho, smx, smy, smz
-    !------------------------------------------------------------------------!
-    srho =  0.
-    smx  = -my * (cxyx * vx - cyxy * vy) + mz * (czxz * vz - cxzx * vx) + (cyxy + czxz) * P
-    smy  =  mx * (cxyx * vx - cyxy * vy) + mz * (czyz * vz - cyzy * vy) + (cxyx + czyz) * P
-    smz  =  mx * (cxzx * vx - czxz * vz) + my * (cyzy * vy - czyz * vz) + (cxzx + cyzy) * P
-  END SUBROUTINE CalcGeometricalSources
-
   !> Convert to from conservative to primitive variables
   !!
   !! non-global elemental routine
@@ -1462,6 +1439,22 @@ CONTAINS
     sqrtrhoR = SQRT(rhoR)
     v = 0.5*(sqrtrhoL*vL + sqrtrhoR*vR) / (sqrtrhoL + sqrtrhoR)
   END SUBROUTINE SetRoeAverages
+
+
+  !> momentum source terms due to inertial forces
+  !! P is the isothermal pressure rho*cs*cs
+  ELEMENTAL SUBROUTINE CalcGeometricalSources(mx,my,mz,vx,vy,vz,P,cxyx,cxzx,cyxy,cyzy,czxz,czyz,srho,smx,smy,smz)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    REAL, INTENT(IN)  :: mx,my,mz,vx,vy,vz,P,cxyx,cxzx,cyxy,cyzy,czxz,czyz
+    REAL, INTENT(OUT) :: srho, smx, smy, smz
+    !------------------------------------------------------------------------!
+    srho =  0.
+    smx  = -my * (cxyx * vx - cyxy * vy) + mz * (czxz * vz - cxzx * vx) + (cyxy + czxz) * P
+    smy  =  mx * (cxyx * vx - cyxy * vy) + mz * (czyz * vz - cyzy * vy) + (cxyx + czyz) * P
+    smz  =  mx * (cxzx * vx - czxz * vz) + my * (cyzy * vy - czyz * vz) + (cxzx + cyzy) * P
+  END SUBROUTINE CalcGeometricalSources
+
 
   !> Destructor
   SUBROUTINE Finalize(this)

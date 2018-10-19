@@ -542,10 +542,7 @@ MODULE physics_base_mod
        EULER2D_IAMT, EULER2D_IAMROT, EULER2D_ISOIAMROT, &
        EULER3D_ISOTHERM, EULER3D, &
        ! methods - only elemental functions
-       CalcWaveSpeeds, &
-       MomentumSourcesX, &
-       MomentumSourcesY, &
-       MomentumSourcesZ
+       CalcWaveSpeeds
   !--------------------------------------------------------------------------!
 
 CONTAINS
@@ -698,45 +695,6 @@ CONTAINS
     !------------------------------------------------------------------------!
     this%fcsound(:,:,:,:) = fcsound(:,:,:,:)
   END SUBROUTINE SetSoundSpeeds_faces
-
-  !> \todo NOT VERIFIED - most probably wrong: taken from CalcGeometricalSources in euler3Disotherm
-  !! at least order is not consistent
-  !!
-  !! global elemental routine
-  ELEMENTAL FUNCTION MomentumSourcesX(my,mz,vx,vy,vz,P,cxyx,cyxy,czxz,cxzx) RESULT(st)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    REAL, INTENT(IN)  :: my,mz,vx,vy,vz,P,cxyx,cyxy,czxz,cxzx
-    REAL :: st
-    !------------------------------------------------------------------------!
-    st  = -my * (cxyx * vx - cyxy * vy) + mz * (czxz * vz - cxzx * vx) + (cyxy + czxz) * P
-  END FUNCTION MomentumSourcesX
-
-  !> \todo NOT VERIFIED - most probably wrong: taken from CalcGeometricalSources in euler3Disotherm
-  !! at least order is not consistent
-  !!
-  !! global elemental routine
-  ELEMENTAL FUNCTION MomentumSourcesY(mz,mx,vx,vy,vz,P,cxyx,cyxy,czyz,cyzy) RESULT(st)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    REAL, INTENT(IN)  :: mx,mz,vx,vy,vz,P,cxyx,cyxy,czyz,cyzy
-    REAL :: st
-    !------------------------------------------------------------------------!
-    st = mx * (cxyx * vx - cyxy * vy) + mz * (czyz * vz - cyzy * vy) + (cxyx + czyz) * P
-  END FUNCTION MomentumSourcesY
-
-  !> \todo NOT VERIFIED - most probably wrong: taken from CalcGeometricalSources in euler3Disotherm
-  !! at least order is not consistent
-  !!
-  !! global elemental routine
-  ELEMENTAL FUNCTION MomentumSourcesZ(mx,my,vx,vy,vz,P,cxzx,czxz,czyz,cyzy) RESULT(st)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    REAL, INTENT(IN)  :: mx,my,vx,vy,vz,P,cxzx,czxz,czyz,cyzy
-    REAL :: st
-    !------------------------------------------------------------------------!
-    st  =  mx * (cxzx * vx - czxz * vz) + my * (cyzy * vy - czyz * vz) + (cxzx + cyzy) * P
-  END FUNCTION MomentumSourcesZ
 
   !> \todo NOT VERIFIED
   !!
