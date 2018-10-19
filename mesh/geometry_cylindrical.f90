@@ -25,7 +25,8 @@
 
 !----------------------------------------------------------------------------!
 !> \author Tobias Illenseer
-!> \author Jubin Lirawi
+!! \author Jubin Lirawi
+!! \author Jannes Klee
 !!
 !! \brief defines properties of a 3D cylindrical mesh
 !!
@@ -40,14 +41,11 @@ MODULE geometry_cylindrical_mod
   TYPE, EXTENDS (geometry_base) :: geometry_cylindrical
   CONTAINS
     PROCEDURE :: InitGeometry_cylindrical
-    PROCEDURE :: ScaleFactors_cylindrical
     PROCEDURE :: ScaleFactors_0
     PROCEDURE :: Radius_0
     PROCEDURE :: PositionVector_0
-    PROCEDURE :: Convert2Cartesian_cylindrical
     PROCEDURE :: Convert2Cartesian_coords_0
     PROCEDURE :: Convert2Cartesian_vectors_0
-    PROCEDURE :: Convert2Curvilinear_cylindrical
     PROCEDURE :: Convert2Curvilinear_coords_0
     PROCEDURE :: Convert2Curvilinear_vectors_0
     PROCEDURE :: Finalize
@@ -66,21 +64,11 @@ CONTAINS
     CLASS(geometry_cylindrical), INTENT(INOUT) :: this
     TYPE(DICT_TYP), POINTER                    :: config
     !------------------------------------------------------------------------!
+    REAL                                     :: dz
+    !------------------------------------------------------------------------!
     CALL this%InitGeometry(CYLINDRICAL,geometry_name,config)
+    CALL GetAttr(config, "dz", dz, 1.0)
   END SUBROUTINE InitGeometry_cylindrical
-
-
-  ELEMENTAL SUBROUTINE ScaleFactors_cylindrical(this,r,hr,hphi,hz)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(geometry_cylindrical), INTENT(IN) :: this
-    REAL, INTENT(IN)                        :: r
-    REAL, INTENT(OUT)                       :: hr,hphi,hz
-    !------------------------------------------------------------------------!
-    hr   = 1.
-    hphi = r
-    hz   = 1.
-  END SUBROUTINE ScaleFactors_cylindrical
 
 
   ELEMENTAL SUBROUTINE ScaleFactors_0(this,xi,eta,phi,hx,hy,hz)
@@ -90,9 +78,9 @@ CONTAINS
     REAL, INTENT(IN)                        :: xi,eta,phi
     REAL, INTENT(OUT)                       :: hx,hy,hz
     !------------------------------------------------------------------------!
-    hx   = 1.
+    hx = 1.
     hy = xi
-    hz   = 1.
+    hz = 1.
   END SUBROUTINE ScaleFactors_0
 
 
@@ -107,7 +95,6 @@ CONTAINS
   END SUBROUTINE Radius_0
 
 
-
   ELEMENTAL SUBROUTINE PositionVector_0(this,xi,eta,phi,x,y,z)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
@@ -115,26 +102,10 @@ CONTAINS
     REAL, INTENT(IN)                        :: xi,eta,phi
     REAL, INTENT(OUT)                       :: x,y,z
     !------------------------------------------------------------------------!
-    x = xi
-    y = eta
+    CALL this%Radius_0(xi,eta,phi,x)
+    y = 0.0
     z = phi
   END SUBROUTINE PositionVector_0
-
-
-  ! coordinate/vector transformation
-  ! cylindrical -> cartesian
-  ! this works for both, vectors and coords
-  ELEMENTAL SUBROUTINE Convert2Cartesian_cylindrical(this,r,phi,z1,x,y,z2)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(geometry_cylindrical), INTENT(IN) :: this
-    REAL, INTENT(IN)                        :: r,phi,z2
-    REAL, INTENT(OUT)                       :: x,y,z1
-    !------------------------------------------------------------------------!
-    x = r * COS(phi)
-    y = r * SIN(phi)
-    z1 = z2
-  END SUBROUTINE Convert2Cartesian_cylindrical
 
 
   ELEMENTAL SUBROUTINE Convert2Cartesian_coords_0(this,xi,eta,phi,x,y,z)
@@ -144,39 +115,11 @@ CONTAINS
     REAL, INTENT(IN)                        :: xi,eta,phi
     REAL, INTENT(OUT)                       :: x,y,z
     !------------------------------------------------------------------------!
-    x = xi * COS(eta)
-    y = xi * SIN(eta)
+    x = xi*COS(eta)
+    y = xi*SIN(eta)
     z = phi
   END SUBROUTINE Convert2Cartesian_coords_0
 
-
-  ELEMENTAL SUBROUTINE Convert2Cartesian_vectors_0(this,xi,eta,phi,vxi,veta,vphi,vx,vy,vz)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(geometry_cylindrical), INTENT(IN) :: this
-    REAL, INTENT(IN)                        :: xi,eta,phi,vxi,veta,vphi
-    REAL, INTENT(OUT)                       :: vx,vy,vz
-    !------------------------------------------------------------------------!
-    vx = vxi * xi * COS(eta)
-    vy = vxi * xi * SIN(eta)
-    vz = vphi * phi
-  END SUBROUTINE Convert2Cartesian_vectors_0
-
-
-  ! coordinate/vector transformation
-  ! cartesian -> cylindrical
-  ! this works for both, vectors and coords
-  ELEMENTAL SUBROUTINE Convert2Curvilinear_cylindrical(this,x,y,z1,r,phi,z2)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(geometry_cylindrical), INTENT(IN) :: this
-    REAL, INTENT(IN)                        :: x,y,z1
-    REAL, INTENT(OUT)                       :: r,phi,z2
-    !------------------------------------------------------------------------!
-    r = SQRT(x*x + y*y)
-    phi = ATAN2(y, x)
-    z2 = z1
-  END SUBROUTINE Convert2Curvilinear_cylindrical
 
   ELEMENTAL SUBROUTINE Convert2Curvilinear_coords_0(this,x,y,z,xi,eta,phi)
     IMPLICIT NONE
@@ -188,7 +131,24 @@ CONTAINS
     xi = SQRT(x*x + y*y)
     eta = ATAN2(y, x)
     phi = z
+    IF(phi.LT.0.0) THEN
+      eta = eta + 2.0*PI
+    END IF
   END SUBROUTINE Convert2Curvilinear_coords_0
+
+
+  ELEMENTAL SUBROUTINE Convert2Cartesian_vectors_0(this,xi,eta,phi,vxi,veta,vphi,vx,vy,vz)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(geometry_cylindrical), INTENT(IN) :: this
+    REAL, INTENT(IN)                        :: xi,eta,phi,vxi,veta,vphi
+    REAL, INTENT(OUT)                       :: vx,vy,vz
+    !------------------------------------------------------------------------!
+    vx = vxi*COS(eta) - veta*SIN(eta)
+    vy = vxi*SIN(eta) + veta*COS(eta)
+    vz = vphi
+  END SUBROUTINE Convert2Cartesian_vectors_0
+
 
   ELEMENTAL SUBROUTINE Convert2Curvilinear_vectors_0(this,xi,eta,phi,vx,vy,vz,vxi,veta,vphi)
     IMPLICIT NONE

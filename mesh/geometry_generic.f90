@@ -63,7 +63,6 @@ CONTAINS
     CASE(SPHERICAL)
       ALLOCATE(geometry_spherical::Geometry)
     CASE DEFAULT
-      ALLOCATE(geometry_spherical::Geometry)
       CALL Geometry%Error("new_geometry","Unknown geometry")
     END SELECT
 
