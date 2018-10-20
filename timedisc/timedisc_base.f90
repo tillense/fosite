@@ -56,7 +56,9 @@ MODULE timedisc_base_mod
   USE boundary_generic_mod
   USE mesh_base_mod
   USE physics_base_mod
+  USE physics_euler2Dit_mod
   USE sources_base_mod
+  USE sources_gravity_mod
   USE fluxes_base_mod
   USE reconstruction_base_mod
   USE field_base_mod
@@ -325,7 +327,9 @@ CONTAINS
 
     ! rhs type. 0 = default, 1 = conserve angular momentum
     CALL GetAttr(config, "rhstype", this%rhstype, 0)
-
+    IF (this%rhstype.NE.0.AND.Physics%DIM.NE.2) THEN
+      CALL this%Error("InitTimedisc", "Alternative rhstype only works in 2D.")
+    END IF
 
     ! time step friction parameter for PI-Controller
     CALL GetAttr(config, "beta", this%beta, 0.08)
@@ -979,6 +983,12 @@ CONTAINS
     !------------------------------------------------------------------------!
     INTEGER                             :: i,j,k,l
     REAL                                :: t
+    REAL                                :: phi,dyflux,wp
+    REAL,DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX) &
+                                        :: w
+    REAL, DIMENSION(:,:,:,:), POINTER   :: pot
+    CLASS(sources_base),      POINTER   :: sp
+    CLASS(sources_gravity),   POINTER   :: grav
     !------------------------------------------------------------------------!
     t = time
     SELECT CASE(Mesh%FARGO)
@@ -1108,135 +1118,164 @@ CONTAINS
           END DO
         END DO
       END DO
+    CASE(1)
+      sp => Sources
+      DO
+        IF (ASSOCIATED(sp).EQV..FALSE.) RETURN
+        SELECT TYPE(sp)
+        CLASS IS(sources_gravity)
+          grav => sp
+          EXIT
+        END SELECT
+        sp => sp%next
+      END DO
 
-   CASE(1)
-!    grav => GetSourcesPointer(Physics%Sources, GRAVITY)
-!    NULLIFY(pot)
-!    IF(ASSOCIATED(grav)) THEN
-!      IF(.NOT.grav%addtoenergy) THEN
-!        pot => RemapBounds(Mesh,grav%pot(:,:,:))
-!      END IF
-!    END IF
-!    phi = 0.
-!    DO j=Mesh%JMIN-1,Mesh%JMAX
-!      DO i=Mesh%IMIN-1,Mesh%IMAX
-!        wp = 0.5*(this%w(i)+this%w(i+1)) + Mesh%hy%faces(i+1,j,1)*Mesh%omega
-!        IF(ASSOCIATED(pot)) &
-!          phi = pot(i,j,2)
-!        IF(Physics%PRESSURE.GT.0) &
-!          this%xfluxdy(i,j,Physics%ENERGY) &
-!            = this%xfluxdy(i,j,Physics%ENERGY) &
-!              + wp * (0.5 * wp * this%xfluxdy(i,j,Physics%DENSITY) &
-!                      + this%xfluxdy(i,j,Physics%YMOMENTUM)) &
-!              + phi*this%xfluxdy(i,j,Physics%DENSITY)
-!
-!        this%xfluxdy(i,j,Physics%YMOMENTUM) &
-!          = (this%xfluxdy(i,j,Physics%YMOMENTUM) &
-!            + wp * this%xfluxdy(i,j,Physics%DENSITY)) * Mesh%hy%faces(i+1,j,1)
-!
-!        wp = this%w(i) + Mesh%radius%bcenter(i,j)*Mesh%omega
-!        IF(ASSOCIATED(pot)) &
-!          phi = pot(i,j,3)
-!        IF(Physics%PRESSURE.GT.0) &
-!          this%yfluxdx(i,j,Physics%ENERGY) &
-!            = this%yfluxdx(i,j,Physics%ENERGY) &
-!             + wp * ( 0.5 * wp * this%yfluxdx(i,j,Physics%DENSITY) &
-!                       + this%yfluxdx(i,j,Physics%YMOMENTUM)) &
-!             + phi*this%yfluxdx(i,j,Physics%DENSITY)
-!!
-!        this%yfluxdx(i,j,Physics%YMOMENTUM) &
-!          = this%yfluxdx(i,j,Physics%YMOMENTUM) &
-!            + wp * this%yfluxdx(i,j,Physics%DENSITY) !* Mesh%hy%bcenter(i,j)
-!      END DO
-!    END DO
-!
-!    DO j=Mesh%JMIN,Mesh%JMAX
-!     DO i=Mesh%IMIN,Mesh%IMAX
-!        wp = pvar(i,j,Physics%YVELOCITY) + this%w(i) + Mesh%radius%bcenter(i,j)*Mesh%omega
-!        this%geo_src(i,j,Physics%XMOMENTUM) &
-!          = pvar(i,j,Physics%DENSITY) * wp**2 * Mesh%cyxy%bcenter(i,j) &
-!            + pvar(i,j,Physics%DENSITY) * pvar(i,j,Physics%XVELOCITY) * wp * Mesh%cxyx%bcenter(i,j)
-!
-!        this%geo_src(i,j,Physics%YMOMENTUM) &
-!          = cvar(i,j,Physics%XMOMENTUM) &
-!            * ( pvar(i,j,Physics%XVELOCITY) * Mesh%cxyx%center(i,j) )
-!
-!        IF(Physics%PRESSURE.GT.0) THEN
-!          this%geo_src(i,j,Physics%XMOMENTUM) &
-!            = this%geo_src(i,j,Physics%XMOMENTUM) &
-!             +pvar(i,j,Physics%PRESSURE) &
-!                *( Mesh%cyxy%center(i,j) + Mesh%czxz%center(i,j) )
-!          this%geo_src(i,j,Physics%YMOMENTUM) &
-!            = this%geo_src(i,j,Physics%YMOMENTUM) &
-!              + pvar(i,j,Physics%PRESSURE) &
-!                *( Mesh%cxyx%center(i,j) + Mesh%czyz%center(i,j) )
-!!          this%geo_src(i,j,Physics%XMOMENTUM) &
-!!            = this%geo_src(i,j,Physics%XMOMENTUM) &
-!!              - 0.5*(pvar(i+1,j,Physics%PRESSURE) - pvar(i-1,j,Physics%PRESSURE))/Mesh%dlx(i,j)
-!!          this%geo_src(i,j,Physics%YMOMENTUM) &
-!!            = this%geo_src(i,j,Physics%YMOMENTUM) &
-!!              - 0.5*(pvar(i,j+1,Physics%PRESSURE) - pvar(i,j-1,Physics%PRESSURE))/Mesh%dly(i,j)
-!          this%geo_src(i,j,Physics%ENERGY) = 0.
-!        ELSE
-!          this%geo_src(i,j,Physics%XMOMENTUM) &
-!           = this%geo_src(i,j,Physics%XMOMENTUM) &
-!             +pvar(i,j,Physics%DENSITY)*Physics%bccsound(i,j)**2 &
-!                * ( Mesh%cyxy%center(i,j) + Mesh%czxz%center(i,j) )
-!          this%geo_src(i,j,Physics%YMOMENTUM) &
-!            = this%geo_src(i,j,Physics%YMOMENTUM) &
-!              + pvar(i,j,Physics%DENSITY)*Physics%bccsound(i,j)**2 &
-!                *( Mesh%cxyx%center(i,j) + Mesh%czyz%center(i,j) )
-!        END IF
-!      END DO
-!    END DO
-!
-!!NEC$ NOVECTOR
-!    DO k=1,Physics%VNUM
-!!NEC$ OUTERLOOP_UNROLL(8)
-!      DO j=Mesh%JMIN,Mesh%JMAX
-!!NEC$ IVDEP
-!        DO i=Mesh%IMIN,Mesh%IMAX
-!          ! update right hand side of ODE
-!          IF(k.EQ.Physics%YMOMENTUM) THEN
-!            rhs(i,j,k) = Mesh%dydV(i,j)*(this%xfluxdy(i,j,k) - this%xfluxdy(i-1,j,k)) &
-!                         / Mesh%hy%center(i,j)
-!          ELSE
-!            rhs(i,j,k) = Mesh%dydV(i,j)*(this%xfluxdy(i,j,k) - this%xfluxdy(i-1,j,k))
-!          END IF
-!          ! time step update
-!          rhs(i,j,k) = rhs(i,j,k) &
-!                       + Mesh%dxdV(i,j)*(this%yfluxdx(i,j,k) - this%yfluxdx(i,j-1,k))
-!        END DO
-!      END DO
-!    END DO
-!
-!    DO j=Mesh%JMIN,Mesh%JMAX
-!      DO i=Mesh%IMIN,Mesh%IMAX
-!        IF(ASSOCIATED(pot)) &
-!          phi = pot(i,j,1)
-!        wp = this%w(i) + Mesh%radius%bcenter(i,j) * Mesh%omega
-!        rhs(i,j,Physics%YMOMENTUM) = rhs(i,j,Physics%YMOMENTUM) &
-!          - wp * rhs(i,j,Physics%DENSITY)
-!        IF(Physics%PRESSURE.GT.0) &
-!          rhs(i,j,Physics%ENERGY) = rhs(i,j,Physics%ENERGY) &
-!            - wp*( rhs(i,j,Physics%YMOMENTUM) &
-!                   + 0.5 * wp* rhs(i,j,Physics%DENSITY)) &
-!            - phi * rhs(i,j,Physics%DENSITY)
-!      END DO
-!    END DO
-!
-!!NEC$ NOVECTOR
-!    DO k=1,Physics%VNUM
-!!NEC$ OUTERLOOP_UNROLL(8)
-!      DO j=Mesh%JMIN,Mesh%JMAX
-!!NEC$ IVDEP
-!        DO i=Mesh%IMIN,Mesh%IMAX
-!          ! update right hand side of ODE
-!          rhs(i,j,k) = rhs(i,j,k) - this%geo_src(i,j,k) - this%src(i,j,k)
-!        END DO
-!      END DO
-!    END DO
-    END SELECT
+      NULLIFY(pot)
+      IF(ASSOCIATED(grav)) THEN
+        IF(.NOT.grav%addtoenergy) THEN
+          pot => Mesh%RemapBounds(grav%pot(:,:,:,:))
+        END IF
+      END IF
+
+      phi = 0.
+
+      DO k=Mesh%KMIN-Mesh%KP1,Mesh%KMAX
+        DO j=Mesh%JMIN-1,Mesh%JMAX
+          DO i=Mesh%IMIN-1,Mesh%IMAX
+            wp = 0.5*(this%w(i,k)+this%w(i+1,k)) + Mesh%hy%faces(i+1,j,k,1)*Mesh%OMEGA
+            IF(ASSOCIATED(pot)) &
+              phi = pot(i,j,k,2)
+            IF(Physics%PRESSURE.GT.0) &
+              this%xfluxdydz(i,j,k,Physics%ENERGY) &
+                = this%xfluxdydz(i,j,k,Physics%ENERGY) &
+                  + wp * (0.5 * wp * this%xfluxdydz(i,j,k,Physics%DENSITY) &
+                  + this%xfluxdydz(i,j,k,Physics%YMOMENTUM)) &
+                  + phi*this%xfluxdydz(i,j,k,Physics%DENSITY)
+
+            this%xfluxdydz(i,j,k,Physics%YMOMENTUM) &
+              = (this%xfluxdydz(i,j,k,Physics%YMOMENTUM) &
+                + wp * this%xfluxdydz(i,j,k,Physics%DENSITY)) * Mesh%hy%faces(i+1,j,k,1)
+
+            wp = this%w(i,k) + Mesh%radius%bcenter(i,j,k)*Mesh%OMEGA
+            IF(ASSOCIATED(pot)) &
+              phi = pot(i,j,k,3)
+            IF(Physics%PRESSURE.GT.0) &
+              this%yfluxdzdx(i,j,k,Physics%ENERGY) &
+                = this%yfluxdzdx(i,j,k,Physics%ENERGY) &
+                 + wp * ( 0.5 * wp * this%yfluxdzdx(i,j,k,Physics%DENSITY) &
+                 + this%yfluxdzdx(i,j,k,Physics%YMOMENTUM)) &
+                 + phi*this%yfluxdzdx(i,j,k,Physics%DENSITY)
+
+            this%yfluxdzdx(i,j,k,Physics%YMOMENTUM) &
+              = this%yfluxdzdx(i,j,k,Physics%YMOMENTUM) &
+                + wp * this%yfluxdzdx(i,j,k,Physics%DENSITY) !* Mesh%hy%bcenter(i,j)
+          END DO
+        END DO
+      END DO
+
+      ! set isothermal sound speeds
+      SELECT TYPE (phys => Physics)
+      CLASS IS (physics_euler2dit)
+        DO k=Mesh%KMIN,Mesh%KMAX
+          DO j=Mesh%JMIN,Mesh%JMAX
+            DO i=Mesh%IMIN,Mesh%IMAX
+              wp = pvar(i,j,k,Physics%YVELOCITY) + this%w(i,k) + Mesh%radius%bcenter(i,j,k)*Mesh%OMEGA
+              this%geo_src(i,j,k,Physics%XMOMENTUM) &
+                = pvar(i,j,k,Physics%DENSITY) * wp**2 * Mesh%cyxy%bcenter(i,j,k) &
+                  + pvar(i,j,k,Physics%DENSITY) * pvar(i,j,k,Physics%XVELOCITY) * wp * Mesh%cxyx%bcenter(i,j,k)
+
+              this%geo_src(i,j,k,Physics%YMOMENTUM) &
+                = cvar(i,j,k,Physics%XMOMENTUM) &
+                  * ( pvar(i,j,k,Physics%XVELOCITY) * Mesh%cxyx%center(i,j,k) )
+
+              IF(Physics%PRESSURE.GT.0) THEN
+                this%geo_src(i,j,k,Physics%XMOMENTUM) &
+                  = this%geo_src(i,j,k,Physics%XMOMENTUM) &
+                   +pvar(i,j,k,Physics%PRESSURE) &
+                      *( Mesh%cyxy%center(i,j,k) + Mesh%czxz%center(i,j,k) )
+                this%geo_src(i,j,k,Physics%YMOMENTUM) &
+                  = this%geo_src(i,j,k,Physics%YMOMENTUM) &
+                    + pvar(i,j,k,Physics%PRESSURE) &
+                      *( Mesh%cxyx%center(i,j,k) + Mesh%czyz%center(i,j,k) )
+!                this%geo_src(i,j,Physics%XMOMENTUM) &
+!                  = this%geo_src(i,j,Physics%XMOMENTUM) &
+!                    - 0.5*(pvar(i+1,j,Physics%PRESSURE) - pvar(i-1,j,Physics%PRESSURE))/Mesh%dlx(i,j)
+!                this%geo_src(i,j,Physics%YMOMENTUM) &
+!                  = this%geo_src(i,j,Physics%YMOMENTUM) &
+!                    - 0.5*(pvar(i,j+1,Physics%PRESSURE) - pvar(i,j-1,Physics%PRESSURE))/Mesh%dly(i,j)
+                this%geo_src(i,j,k,Physics%ENERGY) = 0.
+              ELSE
+
+                this%geo_src(i,j,k,Physics%XMOMENTUM) &
+                 = this%geo_src(i,j,k,Physics%XMOMENTUM) &
+                   +pvar(i,j,k,Physics%DENSITY)*phys%bccsound(i,j,k)**2 &
+                      * ( Mesh%cyxy%center(i,j,k) + Mesh%czxz%center(i,j,k) )
+                this%geo_src(i,j,k,Physics%YMOMENTUM) &
+                  = this%geo_src(i,j,k,Physics%YMOMENTUM) &
+                    + pvar(i,j,k,Physics%DENSITY)*phys%bccsound(i,j,k)**2 &
+                      *( Mesh%cxyx%center(i,j,k) + Mesh%czyz%center(i,j,k) )
+              END IF
+            END DO
+          END DO
+        END DO
+      CLASS DEFAULT
+        ! abort
+      END SELECT
+
+
+!NEC$ NOVECTOR
+      DO l=1,Physics%VNUM+Physics%PNUM
+!NEC$ OUTERLOOP_UNROLL(8)
+        DO k=Mesh%KMIN,Mesh%KMAX
+          DO j=Mesh%JMIN,Mesh%JMAX
+!NEC$ IVDEP
+            DO i=Mesh%IMIN,Mesh%IMAX
+              ! update right hand side of ODE
+              IF(l.EQ.Physics%YMOMENTUM) THEN
+                rhs(i,j,k,l) = Mesh%dydzdV(i,j,k)*(this%xfluxdydz(i,j,k,l) - this%xfluxdydz(i-1,j,k,l)) &
+                             / Mesh%hy%center(i,j,k)
+              ELSE
+                rhs(i,j,k,l) = Mesh%dydzdV(i,j,k)*(this%xfluxdydz(i,j,k,l) - this%xfluxdydz(i-1,j,k,l))
+              END IF
+              ! time step update
+              rhs(i,j,k,l) = rhs(i,j,k,l) &
+                           + Mesh%dzdxdV(i,j,k)*(this%yfluxdzdx(i,j,k,l) - this%yfluxdzdx(i,j-1,k,l))
+            END DO
+          END DO
+        END DO
+      END DO
+
+      DO k=Mesh%KMIN,Mesh%KMAX
+        DO j=Mesh%JMIN,Mesh%JMAX
+          DO i=Mesh%IMIN,Mesh%IMAX
+            IF(ASSOCIATED(pot)) &
+              phi = pot(i,j,k,1)
+            wp = this%w(i,k) + Mesh%radius%bcenter(i,j,k) * Mesh%OMEGA
+            rhs(i,j,k,Physics%YMOMENTUM) = rhs(i,j,k,Physics%YMOMENTUM) &
+              - wp * rhs(i,j,k,Physics%DENSITY)
+            IF(Physics%PRESSURE.GT.0) &
+              rhs(i,j,k,Physics%ENERGY) = rhs(i,j,k,Physics%ENERGY) &
+                - wp*( rhs(i,j,k,Physics%YMOMENTUM) &
+                       + 0.5 * wp* rhs(i,j,k,Physics%DENSITY)) &
+                - phi * rhs(i,j,k,Physics%DENSITY)
+          END DO
+        END DO
+      END DO
+
+!NEC$ NOVECTOR
+      DO l=1,Physics%VNUM+Physics%PNUM
+!NEC$ OUTERLOOP_UNROLL(8)
+        DO k=Mesh%KMIN,Mesh%KMAX
+          DO j=Mesh%JMIN,Mesh%JMAX
+!NEC$ IVDEP
+            DO i=Mesh%IMIN,Mesh%IMAX
+              ! update right hand side of ODE
+              rhs(i,j,k,l) = rhs(i,j,k,l) - this%geo_src(i,j,k,l) - this%src(i,j,k,l)
+            END DO
+          END DO
+        END DO
+      END DO
+      END SELECT
   END SUBROUTINE ComputeRHS
 
   !> \public compute the RHS of the spatially discretized PDE

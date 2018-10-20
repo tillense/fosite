@@ -1,10 +1,11 @@
 !#############################################################################
 !#                                                                           #
-!# fosite - 2D hydrodynamical simulation program                             #
-!# module: orbitingcylinders.f90                                             #
+!# fosite - 3D hydrodynamical simulation program                             #
+!# module: orbitingcylinders.f03                                             #
 !#                                                                           #
-!# Copyright (C) 2013                                                        #
+!# Copyright (C) 2013-2018                                                   #
 !# Manuel Jung <mjung@astrophysik.uni-kiel.de>                               #
+!# Jannes Klee <jklee@astrophysik.uni-kiel.de>                               #
 !#                                                                           #
 !# This program is free software; you can redistribute it and/or modify      #
 !# it under the terms of the GNU General Public License as published by      #
@@ -28,7 +29,7 @@
 !!
 !! \author Manuel Jung
 !!
-!! \example orbitingcylinders.f90
+!! \example orbitingcylinders.f03
 !!
 !! This part is adapted (and translated) from the PhD-thesis from Jung (2016,
 !! \cite jung2016 ). It contains two different types of tests with cylinders.
@@ -300,12 +301,12 @@ CONTAINS
                "z"     / 0.0)
 
     sources => Dict( &
-              "rotframe"        / rotframe, &
+!              "rotframe"        / rotframe, &
               "grav"            / grav)
 
     timedisc => Dict( &
         "method" / SSPRK, &
-        "rhstype" / 0, &
+        "rhstype" / 1, &
 !        "dtmax" / 8., &
 !        "fargo" / 1, &
 !        "method" / RK_FEHLBERG, &
