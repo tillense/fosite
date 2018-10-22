@@ -1450,7 +1450,7 @@ CONTAINS
     CLASS(physics_euler3D), INTENT(IN) :: this
     CLASS(mesh_base),       INTENT(IN) :: Mesh
     REAL,                   INTENT(IN), &
-      DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%NDIMS) &
+      DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%DIM) &
                                        :: accel
     REAL,                   INTENT(IN), &
       DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM) &
