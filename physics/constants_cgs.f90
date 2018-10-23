@@ -58,8 +58,17 @@ CONTAINS
     CLASS(constants_cgs), INTENT(INOUT) :: this
     INTEGER,              INTENT(IN)    :: units
     !------------------------------------------------------------------------!
+    REAl                                :: C, GN, KB, NA, SB, KE
+    !------------------------------------------------------------------------!
+    ! numerical values of physical constants in SI units
+    C  = this%constants_SI%C
+    GN = this%constants_SI%GN
+    KB = this%constants_SI%KB
+    NA = this%constants_SI%NA
+    SB = this%constants_SI%SB
+    KE = this%constants_SI%KE
+
     ! assign numerical values of physical constants in cgs units;
-    ! (C, GN, etc. are defined in constants_common)
     this%C  = C*1.0e2           !< vacuum speed of light [cm/s]
     this%GN = GN*1.0e3          !< gravitational constant [cm^3/g/s^2]
     this%KB = KB*1.0e7          !< Boltzmann constant [erg/K]

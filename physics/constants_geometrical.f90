@@ -58,7 +58,7 @@ CONTAINS
     !------------------------------------------------------------------------!
     CLASS(constants_geometrical), INTENT(INOUT) :: this
     !------------------------------------------------------------------------!
-    REAl                                        :: C, GN, KB, NA, SB, KE
+    REAL                                        :: C, GN, KB, NA, SB, KE
     !------------------------------------------------------------------------!
     ! numerical values of physical constants in geometrical units (c = G = 1)
     this%C  = 1.0                                   ! lightspeed             !
