@@ -38,7 +38,7 @@ MODULE constants_base_mod
   !--------------------------------------------------------------------------!
   PRIVATE
   INTEGER, PARAMETER :: SI          = 1
-  INTEGER, PARAMETER :: CGS         = 2 !< \warning CGS units currently not implemented
+  INTEGER, PARAMETER :: CGS         = 2
   INTEGER, PARAMETER :: GEOMETRICAL = 3
   !> physical constants data structure
   !!
