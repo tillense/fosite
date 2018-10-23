@@ -31,13 +31,10 @@
 !----------------------------------------------------------------------------!
 MODULE constants_generic_mod
   USE constants_base_mod
+  USE constants_cgs_mod
   USE constants_geometrical_mod
   USE constants_SI_mod
   USE common_dict
-
-!  INTERFACE constants_base
-!    MODULE PROCEDURE new_constants
-!  END INTERFACE
 
 CONTAINS
 
@@ -51,6 +48,8 @@ CONTAINS
 
     ! allocate data
     SELECT CASE(units)
+    CASE(CGS)
+      ALLOCATE(constants_cgs::Constants)
     CASE(GEOMETRICAL)
       ALLOCATE(constants_geometrical::Constants)
     CASE(SI)
@@ -59,6 +58,8 @@ CONTAINS
 
     ! call initialization
     SELECT TYPE(obj => Constants)
+    TYPE IS (constants_cgs)
+      CALL obj%InitConstants_cgs()
     TYPE IS (constants_geometrical)
       CALL obj%InitConstants_geometrical()
     TYPE IS (constants_SI)
