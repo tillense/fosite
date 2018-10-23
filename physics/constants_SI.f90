@@ -68,7 +68,6 @@ CONTAINS
     !------------------------------------------------------------------------!
     CLASS(constants_SI), INTENT(INOUT) :: this
     !------------------------------------------------------------------------!
-    CALL this%InitConstants(SI,units_name)
     ! assign numerical values of physical constants in SI units;
     ! (C, GN, etc. are defined in constants_common)
     this%C  = C
@@ -86,6 +85,8 @@ CONTAINS
     this%cf_temperature = 1.0
     this%cf_density     = 1.0
     this%cf_opacity     = 1.0
+
+    CALL this%InitConstants(SI,units_name)
   END SUBROUTINE InitConstants_SI
 
 END MODULE constants_SI_mod

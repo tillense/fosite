@@ -60,7 +60,6 @@ CONTAINS
     !------------------------------------------------------------------------!
     REAl                                        :: C, GN, KB, NA, SB, KE
     !------------------------------------------------------------------------!
-    CALL this%InitConstants(GEOMETRICAL,units_name)
     ! numerical values of physical constants in geometrical units (c = G = 1)
     this%C  = 1.0                                   ! lightspeed             !
     this%GN = 1.0                                   ! Newtons grav. constant !
@@ -84,6 +83,8 @@ CONTAINS
     this%cf_density = this%cf_mass
     ! some scaled constants
     this%KE = KE*C/(GN/C)               !  [m]        electron scat. opacity !
+
+    CALL this%InitConstants(GEOMETRICAL,units_name)
   END SUBROUTINE InitConstants_geometrical
 
 END MODULE constants_geometrical_mod
