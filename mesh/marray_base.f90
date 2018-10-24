@@ -43,10 +43,7 @@ MODULE marray_base_mod
   LOGICAL, SAVE          :: IDX_INIT = .FALSE.            !< init status
   !> basic mesh array class
   TYPE :: marray_base
-!     INTEGER, PRIVATE, POINTER :: IGMIN => null(),IGMAX => null()
-!     INTEGER, PRIVATE, POINTER :: JGMIN => null(),JGMAX => null()
-!     INTEGER, PRIVATE, POINTER :: KGMIN => null(),KGMAX => null()
-    INTEGER       :: RANK = 0,DIMS(2) = 1
+    INTEGER       :: RANK = 0,DIMS(2) = 0
     REAL, POINTER :: data1d(:) => null()
     REAL, POINTER :: data2d(:,:) => null()
     REAL, POINTER :: data3d(:,:,:) => null()
@@ -94,6 +91,7 @@ MODULE marray_base_mod
 
   CONTAINS
 
+  !> constructor for mesh arrays
   FUNCTION CreateMArray(m,n) RESULT(new_ma)
     IMPLICIT NONE
     !-------------------------------------------------------------------!
@@ -119,6 +117,9 @@ MODULE marray_base_mod
     END IF
   END FUNCTION CreateMArray
   
+  !> sets global mesh properties
+  !!
+  !! This subroutine should be called only once in MeshInit.
   SUBROUTINE InitMeshProperties(igmin_,igmax_,jgmin_,jgmax_,kgmin_,kgmax_)
     IMPLICIT NONE
     !-------------------------------------------------------------------!
@@ -138,6 +139,9 @@ MODULE marray_base_mod
     END IF
   END SUBROUTINE InitMeshProperties
   
+  !> unsets global mesh properties
+  !!
+  !! This subroutine should be called only once in MeshClose.
   SUBROUTINE CloseMeshProperties
     IMPLICIT NONE
     !-------------------------------------------------------------------!
@@ -146,6 +150,7 @@ MODULE marray_base_mod
     END IF
   END SUBROUTINE CloseMeshProperties
   
+  !> assign pointers of different shapes to the 1D data
   SUBROUTINE AssignPointers(this)
     USE, INTRINSIC :: ISO_C_BINDING
     IMPLICIT NONE
@@ -191,7 +196,7 @@ MODULE marray_base_mod
   FUNCTION RemapBounds_0(this,array) RESULT(ptr)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(marray_base)                :: this !< \param [in,out] this all mesh data
+    CLASS(marray_base)                :: this !< \param [in,out] this
     REAL, DIMENSION(IGMIN:,JGMIN:,KGMIN:), TARGET :: array
     !------------------------------------------------------------------------!
     REAL, DIMENSION(:,:,:), POINTER :: ptr
@@ -205,7 +210,7 @@ MODULE marray_base_mod
   FUNCTION RemapBounds_1(this,array) RESULT(ptr)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(marray_base)                  :: this !< \param [in,out] this all mesh data
+    CLASS(marray_base)                  :: this !< \param [in,out] this
     REAL, DIMENSION(IGMIN:,JGMIN:,KGMIN:,:), TARGET &
                     :: array
     !------------------------------------------------------------------------!
@@ -231,6 +236,7 @@ MODULE marray_base_mod
     ptr => array
   END FUNCTION RemapBounds_2
 
+  !> assigns one mesh array to another mesh array
   SUBROUTINE AssignMArray_0(this,ma)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
@@ -247,6 +253,7 @@ MODULE marray_base_mod
     CALL this%AssignPointers()
   END SUBROUTINE AssignMArray_0
   
+  !> assign 1D fortran array to mesh array
   SUBROUTINE AssignMArray_1(this,a)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
@@ -256,6 +263,7 @@ MODULE marray_base_mod
     this%data1d(:) = a(:)
   END SUBROUTINE AssignMArray_1
 
+  !> assign 2D fortran array to mesh array
   SUBROUTINE AssignMArray_2(this,a)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
@@ -265,6 +273,7 @@ MODULE marray_base_mod
     this%data2d(:,:) = a(:,:)
   END SUBROUTINE AssignMArray_2
 
+  !> assign 3D fortran array to mesh array
   SUBROUTINE AssignMArray_3(this,a)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
@@ -275,6 +284,7 @@ MODULE marray_base_mod
     this%data3d(:,:,:) = a(:,:,:)
   END SUBROUTINE AssignMArray_3
 
+  !> assign 4D fortran array to mesh array
   SUBROUTINE AssignMArray_4(this,a)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
@@ -285,6 +295,7 @@ MODULE marray_base_mod
     this%data4d(:,:,:,:) = a(:,:,:,:)
   END SUBROUTINE AssignMArray_4
 
+  !> assign 5D fortran array to mesh array
   SUBROUTINE AssignMArray_5(this,a)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
@@ -295,6 +306,7 @@ MODULE marray_base_mod
     this%data5d(:,:,:,:,:) = a(:,:,:,:,:)
   END SUBROUTINE AssignMArray_5
 
+  !> add 2 mesh arrays
   PURE FUNCTION AddMArray_0(a,b) RESULT(c)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
@@ -305,6 +317,7 @@ MODULE marray_base_mod
         c(:) = a%data1d(:) + b%data1d(:)
   END FUNCTION AddMArray_0
 
+  !> add 1D fortran array and mesh array
   PURE FUNCTION AddMArray_1(a,b) RESULT(c)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
@@ -315,6 +328,7 @@ MODULE marray_base_mod
     c(:) = a%data1d(:) + b(:)
   END FUNCTION AddMArray_1
 
+  !> add 2D fortran array and mesh array
   PURE FUNCTION AddMArray_2(a,b) RESULT(c)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
@@ -325,6 +339,7 @@ MODULE marray_base_mod
     c(:,:) = a%data2d(:,:) + b(:,:)
   END FUNCTION AddMArray_2
 
+  !> add 3D fortran array and mesh array
   PURE FUNCTION AddMArray_3(a,b) RESULT(c)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
@@ -335,6 +350,7 @@ MODULE marray_base_mod
     c(:,:,:) = a%data3d(:,:,:) + b(:,:,:)
   END FUNCTION AddMArray_3
 
+  !> add 4D fortran array and mesh array
   PURE FUNCTION AddMArray_4(a,b) RESULT(c)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
@@ -347,6 +363,7 @@ MODULE marray_base_mod
     c(:,:,:,:) = a%data4d(:,:,:,:) + b(:,:,:,:)
   END FUNCTION AddMArray_4
 
+  !> add 5D fortran array and mesh array
   PURE FUNCTION AddMArray_5(a,b) RESULT(c)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
@@ -359,6 +376,7 @@ MODULE marray_base_mod
     c(:,:,:,:,:) = a%data5d(:,:,:,:,:) + b(:,:,:,:,:)
   END FUNCTION AddMArray_5
 
+  !> multiply 2 mesh arrays
   PURE FUNCTION MultMArray_0(a,b) RESULT(c)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
@@ -369,6 +387,7 @@ MODULE marray_base_mod
         c(:) = a%data1d(:) * b%data1d(:)
   END FUNCTION MultMArray_0
 
+  !> multiply 1D fortran array and mesh arrays
   PURE FUNCTION MultMArray_1(a,b) RESULT(c)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
@@ -379,6 +398,7 @@ MODULE marray_base_mod
     c(:) = a%data1d(:) * b(:)
   END FUNCTION MultMArray_1
 
+  !> multiply 2D fortran array and mesh arrays
   PURE FUNCTION MultMArray_2(a,b) RESULT(c)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
@@ -389,6 +409,7 @@ MODULE marray_base_mod
     c(:,:) = a%data2d(:,:) * b(:,:)
   END FUNCTION MultMArray_2
 
+  !> multiply 3D fortran array and mesh arrays
   PURE FUNCTION MultMArray_3(a,b) RESULT(c)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
@@ -399,6 +420,7 @@ MODULE marray_base_mod
     c(:,:,:) = a%data3d(:,:,:) * b(:,:,:)
   END FUNCTION MultMArray_3
 
+  !> multiply 4D fortran array and mesh arrays
   PURE FUNCTION MultMArray_4(a,b) RESULT(c)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
@@ -411,6 +433,7 @@ MODULE marray_base_mod
     c(:,:,:,:) = a%data4d(:,:,:,:) * b(:,:,:,:)
   END FUNCTION MultMArray_4
 
+  !> multiply 5D fortran array and mesh arrays
   PURE FUNCTION MultMArray_5(a,b) RESULT(c)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
@@ -423,12 +446,16 @@ MODULE marray_base_mod
     c(:,:,:,:,:) = a%data5d(:,:,:,:,:) * b(:,:,:,:,:)
   END FUNCTION MultMArray_5
 
+  !> deconstructor of the mesh array
   SUBROUTINE Destroy(this)
     IMPLICIT NONE
     !-------------------------------------------------------------------!
     CLASS(marray_base) :: this
     !-------------------------------------------------------------------!
     DEALLOCATE(this%data1d)
+    NULLIFY(this%data1d,this%data2d,this%data3d,this%data4d,this%data5d)
+    this%RANK = 0
+    this%DIMS = 0
   END SUBROUTINE Destroy
 
 

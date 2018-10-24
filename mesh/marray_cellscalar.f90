@@ -63,7 +63,6 @@ CONTAINS
   END FUNCTION CreateMArray_cellscalar
   
   SUBROUTINE AssignPointers(this)
-    USE, INTRINSIC :: ISO_C_BINDING
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(marray_cellscalar),INTENT(INOUT) :: this

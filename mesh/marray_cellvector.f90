@@ -63,7 +63,6 @@ CONTAINS
   END FUNCTION CreateMArray_cellvector
   
   SUBROUTINE AssignPointers(this)
-    USE, INTRINSIC :: ISO_C_BINDING
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(marray_cellvector),INTENT(INOUT) :: this
