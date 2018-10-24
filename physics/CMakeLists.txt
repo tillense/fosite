@@ -9,6 +9,7 @@ add_library(physics
   physics_generic.f90
   #physics_euler2Diamt.f90
   #physics_euler2Disoiamt.f90
+  physics_eulerisotherm.f90
   physics_euler2Disothm.f90
   physics_euler2D.f90
   physics_euler3D.f90

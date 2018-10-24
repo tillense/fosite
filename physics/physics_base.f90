@@ -510,6 +510,8 @@ MODULE physics_base_mod
   !--------------------------------------------------------------------------!
   ! flags for advection problems
   INTEGER, PARAMETER :: EULER2D             = 1
+  INTEGER, PARAMETER :: EULER_ISOTHERM      = 16 !> \todo should become 2 in the future,
+                                                 !! if all isothermal modules are merged
   INTEGER, PARAMETER :: EULER2D_ISOTHERM    = 2
   INTEGER, PARAMETER :: EULER3D_ROTSYM      = 3
   INTEGER, PARAMETER :: EULER3D_ROTAMT      = 4
