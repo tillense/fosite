@@ -359,7 +359,7 @@ CONTAINS
 !    IF (this%error_code.NE. 0) CALL this%Error("OpenFile_vtk","Can't open file")
 !#endif
 !#endif
-    OPEN(this%unit,FILE=this%GetFilename(),ACCESS='STREAM',POSITION='APPEND',IOSTAT=err)
+    OPEN(this%unit,FILE=this%GetFilename(),ACCESS='STREAM',IOSTAT=err)
     IF (err.NE. 0) CALL this%Error("OpenFile_vtk","Can't open file")
   END SUBROUTINE OpenFile
 
