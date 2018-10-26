@@ -44,6 +44,7 @@ MODULE marray_compound_mod
     CONTAINS
     PROCEDURE :: AssignMArray_0
     PROCEDURE :: AppendMArray
+    PROCEDURE :: Destroy
   END TYPE
   INTERFACE marray_compound
     MODULE PROCEDURE CreateMArray_compound
