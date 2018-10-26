@@ -33,6 +33,7 @@
 MODULE physics_generic_mod
   USE physics_base_mod
   USE physics_eulerisotherm_mod
+  USE physics_euler_mod
   USE physics_euler3Dit_mod
   USE physics_euler3D_mod
   USE physics_euler2Dit_mod
@@ -61,6 +62,8 @@ CONTAINS
     SELECT CASE(problem)
     CASE(EULER_ISOTHERM)
       ALLOCATE(physics_eulerisotherm::Physics)
+    CASE(EULER)
+      ALLOCATE(physics_euler::Physics)
     CASE(EULER3D_ISOTHERM)
       ALLOCATE(physics_euler3Dit::Physics)
     CASE(EULER3D)
@@ -70,13 +73,15 @@ CONTAINS
     CASE(EULER2D)
       ALLOCATE(physics_euler2D::Physics)
     CASE DEFAULT
-      CALL Physics%Error("new_physics","Unknown physics type.")
+      CALL Physics%Error("physics_generic::new_physics","Unknown physics type.")
     END SELECT
 
     ! call initialization
     SELECT TYPE(obj => Physics)
     TYPE IS (physics_eulerisotherm)
       CALL obj%InitPhysics_eulerisotherm(Mesh,config,IO)
+    TYPE IS (physics_euler)
+      CALL obj%InitPhysics_euler(Mesh,config,IO)
     TYPE IS (physics_euler3Dit)
       CALL obj%InitPhysics_euler3Dit(Mesh,config,IO)
     TYPE IS (physics_euler3D)

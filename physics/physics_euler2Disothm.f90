@@ -43,6 +43,7 @@
 !----------------------------------------------------------------------------!
 MODULE physics_euler2Dit_mod
   USE physics_base_mod
+  USE physics_eulerisotherm_mod
   USE mesh_base_mod
   USE marray_base_mod
   USE common_dict
@@ -52,12 +53,7 @@ MODULE physics_euler2Dit_mod
   INTEGER, PARAMETER           :: num_var = 3          ! number of variables !
   CHARACTER(LEN=32), PARAMETER :: problem_name = "Euler 2D isotherm"
   !--------------------------------------------------------------------------!
-  TYPE,  EXTENDS(physics_base) :: physics_euler2Dit
-    REAL                 :: csiso                 !< isothermal sound speed
-    REAL, DIMENSION(:,:,:), POINTER &
-                         :: bccsound           !< bary centered speed of sound
-    REAL, DIMENSION(:,:,:,:), POINTER &
-                         :: fcsound            !< speed of sound faces
+  TYPE,  EXTENDS(physics_eulerisotherm) :: physics_euler2Dit
   CONTAINS
     PROCEDURE :: InitPhysics_euler2Dit
     PROCEDURE :: EnableOutput
@@ -75,9 +71,6 @@ MODULE physics_euler2Dit_mod
     !------Soundspeed Routines-----!
     PROCEDURE :: UpdateSoundSpeed_center
     PROCEDURE :: UpdateSoundSpeed_faces
-    PROCEDURE :: SetSoundSpeeds_center
-    PROCEDURE :: SetSoundSpeeds_faces
-    GENERIC   :: SetSoundSpeeds => SetSoundSpeeds_center, SetSoundSpeeds_faces
     !------Wavespeed Routines------!
     PROCEDURE :: CalcWaveSpeeds_center
     PROCEDURE :: CalcWaveSpeeds_faces
@@ -215,30 +208,6 @@ CONTAINS
       CALL this%Error("CreateStatevector", "Physics not initialized.")
   END FUNCTION
   
-  !> Sets soundspeeds at cell-centers
-  PURE SUBROUTINE SetSoundSpeeds_center(this,Mesh,bccsound)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(physics_euler2Dit), INTENT(INOUT) :: this
-    CLASS(mesh_base),    INTENT(IN)    :: Mesh
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
-                         INTENT(IN)    :: bccsound
-    !------------------------------------------------------------------------!
-    this%bccsound(:,:,:) = bccsound(:,:,:)
-  END SUBROUTINE SetSoundSpeeds_center
-
-  !> Sets soundspeeds at cell-faces
-  PURE SUBROUTINE SetSoundSpeeds_faces(this,Mesh,fcsound)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(physics_euler2Dit), INTENT(INOUT) :: this
-    CLASS(mesh_base),    INTENT(IN)    :: Mesh
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%NFACES), &
-                         INTENT(IN)    :: fcsound
-    !------------------------------------------------------------------------!
-    this%fcsound(:,:,:,:) = fcsound(:,:,:,:)
-  END SUBROUTINE SetSoundSpeeds_faces
-
   !> Converts to primitives at cell centers
   PURE SUBROUTINE Convert2Primitive_center(this,Mesh,cvar,pvar)
     IMPLICIT NONE

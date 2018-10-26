@@ -134,7 +134,8 @@ MODULE physics_eulerisotherm_mod
   !--------------------------------------------------------------------------!
    PUBLIC :: &
        ! types
-       physics_eulerisotherm
+       physics_eulerisotherm, &
+       statevector_eulerisotherm
   !--------------------------------------------------------------------------!
 
 CONTAINS
@@ -223,10 +224,10 @@ DEALLOCATE(pvar)
     !-------------------------------------------------------------------!
     CLASS(physics_eulerisotherm), INTENT(IN) :: this
     INTEGER, OPTIONAL :: flavour
-    CLASS(marray_base), ALLOCATABLE :: new_sv
+    CLASS(marray_compound), ALLOCATABLE :: new_sv
     !-------------------------------------------------------------------!
     IF (.NOT.this%Initialized()) &
-      CALL this%Error("CreateStatevector", "Physics not initialized.")
+      CALL this%Error("physics_eulerisotherm::CreateStatevector", "Physics not initialized.")
 
     ! create new empty mesh array of rank 2 with dims=0
     ALLOCATE(statevector_eulerisotherm::new_sv)
@@ -260,7 +261,7 @@ DEALLOCATE(pvar)
         CALL svec%AppendMArray(svec%density)
         CALL svec%AppendMArray(svec%momentum)
       CASE DEFAULT
-        CALL this%Warning("CreateStatevector", "Empty state vector created.")
+        CALL this%Warning("physics_eulerisotherm::CreateStateVector", "Empty state vector created.")
       END SELECT
     END SELECT
   END FUNCTION CreateStateVector

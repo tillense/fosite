@@ -49,7 +49,7 @@ MODULE physics_base_mod
   USE constants_generic_mod
   USE logging_base_mod
   USE mesh_base_mod
-  USE marray_base_mod
+  USE marray_compound_mod
   USE common_dict
   IMPLICIT NONE
   !--------------------------------------------------------------------------!
@@ -193,12 +193,12 @@ MODULE physics_base_mod
       TYPE(Dict_TYP), POINTER, INTENT(IN)   :: config, IO
     END SUBROUTINE
     FUNCTION CreateStatevector(this,flavour) RESULT(new_sv)
-      IMPORT physics_base, marray_base
+      IMPORT physics_base, marray_compound
       IMPLICIT NONE
       !-------------------------------------------------------------------!
       CLASS(physics_base), INTENT(IN) :: this
       INTEGER, OPTIONAL :: flavour
-      CLASS(marray_base), ALLOCATABLE :: new_sv
+      CLASS(marray_compound), ALLOCATABLE :: new_sv
     END FUNCTION
     PURE SUBROUTINE Convert2Primitive_center(this,Mesh,cvar,pvar)
       IMPORT physics_base, mesh_base
@@ -524,8 +524,10 @@ MODULE physics_base_mod
   !--------------------------------------------------------------------------!
   ! flags for advection problems
   INTEGER, PARAMETER :: EULER2D             = 1
-  INTEGER, PARAMETER :: EULER_ISOTHERM      = 16 !> \todo should become 2 in the future,
+  INTEGER, PARAMETER :: EULER_ISOTHERM      = 16 !> \todo should become 1 in the future,
                                                  !! if all isothermal modules are merged
+  INTEGER, PARAMETER :: EULER               = 17 !> \todo should become 2 in the future,
+                                                 !! if euler2D/euler3D modules are merged
   INTEGER, PARAMETER :: EULER2D_ISOTHERM    = 2
   INTEGER, PARAMETER :: EULER3D_ROTSYM      = 3
   INTEGER, PARAMETER :: EULER3D_ROTAMT      = 4
@@ -543,7 +545,7 @@ MODULE physics_base_mod
        ! types
        physics_base, &
        ! constants - flags for  identification in dictionary by an integer
-       EULER2D, EULER_ISOTHERM, EULER2D_ISOTHERM, EULER3D_ROTSYM, EULER3D_ROTAMT, &
+       EULER2D, EULER_ISOTHERM, EULER, EULER2D_ISOTHERM, EULER3D_ROTSYM, EULER3D_ROTAMT, &
        EULER2D_SGS, EULER3D_ROTSYMSGS, EULER3D_ROTAMTSGS, &
        SI, CGS, GEOMETRICAL, EULER2D_ISOIAMT, &
        EULER2D_IAMT, EULER2D_IAMROT, EULER2D_ISOIAMROT, &
