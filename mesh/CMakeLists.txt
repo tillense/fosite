@@ -5,6 +5,7 @@ add_library(mesh
   mesh_base.f90
   mesh_generic.f90
   mesh_midpoint.f90
+  marray_compound.f90
   #mesh_trapezoidal.f90
   geometry_base.f90
   geometry_cartesian.f90

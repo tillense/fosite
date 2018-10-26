@@ -157,7 +157,7 @@ MODULE marray_base_mod
     !------------------------------------------------------------------------!
     CLASS(marray_base),INTENT(INOUT) :: this
     !------------------------------------------------------------------------!
-    IF (ASSOCIATED(this%data1d)) THEN
+    IF (ASSOCIATED(this%data1d).AND.SIZE(this%data1d).GT.0) THEN
       SELECT CASE(this%RANK)
       CASE(0)
         CALL C_F_POINTER(C_LOC(this%data1d(LBOUND(this%data1d,1))), &
@@ -243,14 +243,24 @@ MODULE marray_base_mod
     CLASS(marray_base),INTENT(INOUT) :: this
     CLASS(marray_base),INTENT(IN)    :: ma
     !------------------------------------------------------------------------!
-    this%RANK    = ma%RANK
-    this%DIMS(:) = ma%DIMS(:)
-    IF (.NOT.ASSOCIATED(this%data1d)) THEN
-        ALLOCATE(this%data1d(SIZE(ma%data1d,1)),SOURCE=ma%data1d)
+    IF (.NOT.ASSOCIATED(ma%data1d)) THEN
+      ! error
     ELSE
-        this%data1d(:) = ma%data1d(:)
+      this%RANK    = ma%RANK
+      this%DIMS(:) = ma%DIMS(:)
+      IF (ASSOCIATED(this%data1d)) THEN
+        IF (SIZE(this%data1d).EQ.SIZE(ma%data1d)) THEN
+          ! just copy the data
+          this%data1d(:) = ma%data1d(:)
+        ELSE ! is associated, but with size 0
+          DEALLOCATE(this%data1d)
+          ALLOCATE(this%data1d(SIZE(ma%data1d,1)),SOURCE=ma%data1d)
+        END IF
+      ELSE
+        ALLOCATE(this%data1d(SIZE(ma%data1d,1)),SOURCE=ma%data1d)        
+      END IF
+      CALL this%AssignPointers()
     END IF
-    CALL this%AssignPointers()
   END SUBROUTINE AssignMArray_0
   
   !> assign 1D fortran array to mesh array
