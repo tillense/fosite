@@ -49,10 +49,15 @@ MODULE physics_base_mod
   USE constants_generic_mod
   USE logging_base_mod
   USE mesh_base_mod
+  USE marray_base_mod
   USE common_dict
   IMPLICIT NONE
   !--------------------------------------------------------------------------!
   PRIVATE
+  !> named integer constants for flavour of state vectors
+  ENUM, BIND(C)
+    ENUMERATOR :: UNDEFINED=0, PRIMITIVE=1, CONSERVATIVE=2
+  END ENUM
   TYPE, ABSTRACT, EXTENDS(logging_base) :: physics_base
      !> \name Variables
      CLASS(constants_base), ALLOCATABLE :: constants  !< physical constants
@@ -98,6 +103,7 @@ MODULE physics_base_mod
     PROCEDURE :: InitPhysics
     PROCEDURE (ExternalSources),              DEFERRED :: ExternalSources
     PROCEDURE (EnableOutput),                 DEFERRED :: EnableOutput
+    PROCEDURE (CreateStateVector),            DEFERRED :: CreateStateVector
     !------Convert2Primitve--------!
     PROCEDURE (Convert2Primitive_center),     DEFERRED :: Convert2Primitive_center
     PROCEDURE (Convert2Primitive_centsub),    DEFERRED :: Convert2Primitive_centsub
@@ -186,6 +192,14 @@ MODULE physics_base_mod
       CLASS(mesh_base),        INTENT(IN)   :: Mesh
       TYPE(Dict_TYP), POINTER, INTENT(IN)   :: config, IO
     END SUBROUTINE
+    FUNCTION CreateStatevector(this,flavour) RESULT(new_sv)
+      IMPORT physics_base, marray_base
+      IMPLICIT NONE
+      !-------------------------------------------------------------------!
+      CLASS(physics_base), INTENT(IN) :: this
+      INTEGER, OPTIONAL :: flavour
+      CLASS(marray_base), ALLOCATABLE :: new_sv
+    END FUNCTION
     PURE SUBROUTINE Convert2Primitive_center(this,Mesh,cvar,pvar)
       IMPORT physics_base, mesh_base
       CLASS(physics_base), INTENT(IN)  :: this
@@ -529,11 +543,12 @@ MODULE physics_base_mod
        ! types
        physics_base, &
        ! constants - flags for  identification in dictionary by an integer
-       EULER2D, EULER2D_ISOTHERM, EULER3D_ROTSYM, EULER3D_ROTAMT, &
+       EULER2D, EULER_ISOTHERM, EULER2D_ISOTHERM, EULER3D_ROTSYM, EULER3D_ROTAMT, &
        EULER2D_SGS, EULER3D_ROTSYMSGS, EULER3D_ROTAMTSGS, &
        SI, CGS, GEOMETRICAL, EULER2D_ISOIAMT, &
        EULER2D_IAMT, EULER2D_IAMROT, EULER2D_ISOIAMROT, &
        EULER3D_ISOTHERM, EULER3D, &
+       UNDEFINED, PRIMITIVE, CONSERVATIVE, &
        ! methods - only elemental functions
        CalcWaveSpeeds
   !--------------------------------------------------------------------------!

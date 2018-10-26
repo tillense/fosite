@@ -44,6 +44,7 @@
 MODULE physics_euler2Dit_mod
   USE physics_base_mod
   USE mesh_base_mod
+  USE marray_base_mod
   USE common_dict
   IMPLICIT NONE
   !--------------------------------------------------------------------------!
@@ -60,7 +61,7 @@ MODULE physics_euler2Dit_mod
   CONTAINS
     PROCEDURE :: InitPhysics_euler2Dit
     PROCEDURE :: EnableOutput
-
+    PROCEDURE :: CreateStateVector
     !------Convert2Primitive-------!
     PROCEDURE :: Convert2Primitive_center
     PROCEDURE :: Convert2Primitive_centsub
@@ -202,6 +203,18 @@ CONTAINS
                     this%fcsound(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,:))
   END SUBROUTINE EnableOutput
 
+  !> transitional dummy function, whole module will be removed in future version
+  FUNCTION CreateStateVector(this,flavour) RESULT(new_sv)
+    IMPLICIT NONE
+    !-------------------------------------------------------------------!
+    CLASS(physics_euler2Dit), INTENT(IN) :: this
+    INTEGER, OPTIONAL :: flavour
+    CLASS(marray_base), ALLOCATABLE :: new_sv
+    !-------------------------------------------------------------------!
+    IF (.NOT.this%Initialized()) &
+      CALL this%Error("CreateStatevector", "Physics not initialized.")
+  END FUNCTION
+  
   !> Sets soundspeeds at cell-centers
   PURE SUBROUTINE SetSoundSpeeds_center(this,Mesh,bccsound)
     IMPLICIT NONE

@@ -82,10 +82,10 @@ MODULE reconstruction_base_mod
 
   !--------------------------------------------------------------------------!
 
-  !\todo{here something is still not right! (constant, linear, primitive, conservative all at this place?)}
+  !> \todo{here something is still not right! (constant, linear all at this place?)}
   !> \name Public Attributes
-  INTEGER, PARAMETER :: PRIMITIVE    = 1           ! True  ! not type LOGICAL!
-  INTEGER, PARAMETER :: CONSERVATIVE = 0           ! False ! because it cant !
+!   INTEGER, PARAMETER :: PRIMITIVE    = 1           ! True  ! not type LOGICAL!
+!   INTEGER, PARAMETER :: CONSERVATIVE = 0           ! False ! because it cant !
 
   INTEGER, PARAMETER :: CONSTANT     = 1
   INTEGER, PARAMETER :: LINEAR       = 2
@@ -94,8 +94,7 @@ MODULE reconstruction_base_mod
        ! types
        reconstruction_base, &
        ! constants
-       CONSTANT, LINEAR,    &
-       PRIMITIVE, CONSERVATIVE
+       CONSTANT, LINEAR
   !--------------------------------------------------------------------------!
 
 CONTAINS

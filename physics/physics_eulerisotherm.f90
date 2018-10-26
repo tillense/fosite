@@ -44,6 +44,8 @@
 MODULE physics_eulerisotherm_mod
   USE physics_base_mod
   USE mesh_base_mod
+  USE marray_base_mod
+  USE marray_compound_mod
   USE common_dict
   IMPLICIT NONE
   !--------------------------------------------------------------------------!
@@ -60,7 +62,7 @@ MODULE physics_eulerisotherm_mod
   CONTAINS
     PROCEDURE :: InitPhysics_eulerisotherm
     PROCEDURE :: EnableOutput
-
+    PROCEDURE :: CreateStateVector
     !------Convert2Primitive-------!
     PROCEDURE :: Convert2Primitive_center
     PROCEDURE :: Convert2Primitive_centsub
@@ -119,6 +121,16 @@ MODULE physics_eulerisotherm_mod
 
     PROCEDURE     :: Finalize
   END TYPE
+  TYPE, EXTENDS(marray_compound) :: statevector_eulerisotherm
+    INTEGER :: flavour = UNDEFINED
+    TYPE(marray_base), POINTER &
+                            :: density => null(), &
+                               velocity => null(), &
+                               momentum => null()
+  END TYPE
+  INTERFACE statevector_eulerisotherm
+    MODULE PROCEDURE CreateStatevector
+  END INTERFACE
   !--------------------------------------------------------------------------!
    PUBLIC :: &
        ! types
@@ -139,8 +151,9 @@ CONTAINS
     TYPE(Dict_TYP), POINTER,  INTENT(IN)    :: config, IO
     !------------------------------------------------------------------------!
     INTEGER :: err
+CLASS(statevector_eulerisotherm), ALLOCATABLE :: pvar
     !------------------------------------------------------------------------!
-    CALL this%InitPhysics(Mesh,config,IO,EULER2D_ISOTHERM,problem_name,num_var)
+    CALL this%InitPhysics(Mesh,config,IO,EULER_ISOTHERM,problem_name,num_var)
     ! set array indices
     this%DENSITY   = 1                                 ! mass density        !
     this%XVELOCITY = 2                                 ! x-velocity          !
@@ -168,7 +181,7 @@ CONTAINS
              this%fcsound(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%nfaces), &
              STAT = err)
     IF (err.NE.0) &
-         CALL this%Error("InitPhysics_euler2dit", "Unable to allocate memory.")
+         CALL this%Error("InitPhysics_eulerisotherm", "Unable to allocate memory.")
 
     IF(this%csiso.GT.0.) THEN
       this%bccsound(:,:,:)  = this%csiso
@@ -177,7 +190,10 @@ CONTAINS
       this%bccsound(:,:,:)  = 0.
       this%fcsound(:,:,:,:) = 0.
     END IF
-
+ALLOCATE(pvar)
+pvar = CreateStateVector(this,PRIMITIVE)
+CALL pvar%Destroy()
+DEALLOCATE(pvar)
   END SUBROUTINE InitPhysics_eulerisotherm
 
   !> Enables output of certain arrays defined in this class
@@ -202,6 +218,53 @@ CONTAINS
                     this%fcsound(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,:))
   END SUBROUTINE EnableOutput
 
+  FUNCTION CreateStateVector(this,flavour) RESULT(new_sv)
+    IMPLICIT NONE
+    !-------------------------------------------------------------------!
+    CLASS(physics_eulerisotherm), INTENT(IN) :: this
+    INTEGER, OPTIONAL :: flavour
+    CLASS(marray_base), ALLOCATABLE :: new_sv
+    !-------------------------------------------------------------------!
+    IF (.NOT.this%Initialized()) &
+      CALL this%Error("CreateStatevector", "Physics not initialized.")
+
+    ! create new empty mesh array of rank 2 with dims=0
+    ALLOCATE(statevector_eulerisotherm::new_sv)
+    SELECT TYPE(svec => new_sv)
+    CLASS IS(statevector_eulerisotherm)
+      svec = marray_compound()
+      ! be sure rank is 2, even if the compound consists only of scalar data
+      svec%RANK = 2
+      IF (PRESENT(flavour)) THEN
+        SELECT CASE(flavour)
+        CASE(PRIMITIVE,CONSERVATIVE)
+          svec%flavour = flavour
+        END SELECT
+      END IF
+      ! otherwise svec%flavour = UNDEFINED (see type declaration)
+      SELECT CASE(svec%flavour)
+      CASE(PRIMITIVE)
+        ! allocate memory for density and velocity mesh arrays
+        ALLOCATE(svec%density,svec%velocity)
+        svec%density  = marray_base()             ! scalar, rank 0
+        svec%velocity = marray_base(this%DIM) ! vector, rank 1
+        ! append to compound
+        CALL svec%AppendMArray(svec%density)
+        CALL svec%AppendMArray(svec%velocity)
+      CASE(CONSERVATIVE)
+        ! allocate memory for density and momentum mesh arrays
+        ALLOCATE(svec%density,svec%momentum)
+        svec%density  = marray_base()             ! scalar, rank 0
+        svec%momentum = marray_base(this%DIM) ! vector, rank 1
+        ! append to compound
+        CALL svec%AppendMArray(svec%density)
+        CALL svec%AppendMArray(svec%momentum)
+      CASE DEFAULT
+        CALL this%Warning("CreateStatevector", "Empty state vector created.")
+      END SELECT
+    END SELECT
+  END FUNCTION CreateStateVector
+  
   !> Sets soundspeeds at cell-centers
   PURE SUBROUTINE SetSoundSpeeds_center(this,Mesh,bccsound)
     IMPLICIT NONE
