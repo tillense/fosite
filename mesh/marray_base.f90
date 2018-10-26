@@ -182,6 +182,7 @@ MODULE marray_base_mod
                         this%data4d,[inum,jnum,knum,this%DIMS(1)*this%DIMS(2)])
         CALL C_F_POINTER(C_LOC(this%data1d(LBOUND(this%data1d,1))), &
                         this%data5d,[inum,jnum,knum,this%DIMS(1),this%DIMS(2)])
+        this%data4d => this%RemapBounds(this%data4d)
         this%data5d => this%RemapBounds(this%data5d)
       END SELECT
     END IF
