@@ -53,6 +53,17 @@ par_test_sedov3d:
     script:
         - mpirun -n 2 ./par_build/tests/sedov3d
 
+ser_test_sedov2d:
+    stage: test
+    script:
+        - ./ser_build/tests/sedov2d
+
+par_test_sedov2d:
+    stage: test
+    script:
+        - mpirun -n 2 ./par_build/tests/sedov2d
+
+
 ser_test_poiseuille:
     stage: test
     script:
