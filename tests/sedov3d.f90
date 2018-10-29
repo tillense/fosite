@@ -34,12 +34,14 @@
 !----------------------------------------------------------------------------!
 PROGRAM sedov3d
   USE fosite_mod
+  USE solutions
 #include "tap.h"
   IMPLICIT NONE
   !--------------------------------------------------------------------------!
   ! simulation parameters
   REAL, PARAMETER    :: TSIM    = 0.05        ! simulation stop time
   REAL, PARAMETER    :: GAMMA   = 1.4         ! ratio of specific heats
+  REAL, PARAMETER    :: R       = 1.033       ! scaling parameter: 1.0 for 2D, 1.033 for 3D
   ! initial condition (dimensionless units)
   REAL, PARAMETER    :: RHO0    = 1.0         ! ambient density
   REAL, PARAMETER    :: P0      = 1.0E-05     ! ambient pressure
@@ -47,13 +49,14 @@ PROGRAM sedov3d
   ! Spatial with of the initial pulse should be at least 5 cells;
   ! if you wish to compare the results on different grids
   ! R0 should be of the same order
-  REAL, PARAMETER    :: R0      = 0.1!3.0E-2
+  REAL, PARAMETER    :: R0      = 5.0E-2
   ! mesh settings
-  INTEGER, PARAMETER :: MGEO    = CARTESIAN   ! geometry
-  INTEGER, PARAMETER :: XRES    = 30          ! x-resolution
-  INTEGER, PARAMETER :: YRES    = 30          ! y-resolution
-  INTEGER, PARAMETER :: ZRES    = 30          ! z-resolution
-  REAL, PARAMETER    :: RMAX    = 0.4         ! outer radius of comput. domain
+  INTEGER, PARAMETER :: MGEO    = SPHERICAL   ! geometry
+  !INTEGER, PARAMETER :: MGEO    = CARTESIAN   ! geometry
+  INTEGER, PARAMETER :: XRES    = 50          ! x-resolution
+  INTEGER, PARAMETER :: YRES    = 10          ! y-resolution
+  INTEGER, PARAMETER :: ZRES    = 10          ! z-resolution
+  REAL, PARAMETER    :: RMAX    = 0.5         ! outer radius of comput. domain
   REAL, PARAMETER    :: GPAR    = 0.2         ! geometry scaling parameter
   ! output parameters
   INTEGER, PARAMETER :: ONUM    = 10          ! number of output data sets
@@ -64,23 +67,39 @@ PROGRAM sedov3d
   !-------------------------------------------------------------------------!
   CLASS(fosite), ALLOCATABLE  :: Sim
   !-------------------------------------------------------------------------!
-
+  REAL, DIMENSION(:),ALLOCATABLE  :: pvar_diff
+  INTEGER :: i
+  REAL    :: Rt,rshock
   TAP_PLAN(1)
 
-  ALLOCATE(Sim)
+  ALLOCATE(Sim,pvar_diff(1:XRES))
   CALL Sim%InitFosite()
   CALL MakeConfig(Sim, Sim%config)
   CALL Sim%Setup()
   CALL InitData(Sim%Mesh, Sim%Physics, Sim%Timedisc)
 
   CALL Sim%Run()
+  
 
+  ! Compare results with analytical solution. Check only for correct shock velocity
+  ! even if the full analytical solution is implemented
+
+!  CALL sedov(GAMMA,E1,RHO0,P0,TSIM,3, SIM%Mesh%radius%bcenter(1:XRES,1,1),pvar)
+  
+  !The shock location is where the density gradient is greatest
+  DO i=1,XRES
+    pvar_diff(i) = Sim%Timedisc%pvar(i,1,1,1)-Sim%Timedisc%pvar(i+1,1,1,1)
+  END DO
+  rshock = Sim%Mesh%radius%center(MAXLOC(pvar_diff,DIM=1),1,1)
+  
+  !analytical shock position
+  Rt = R*(E1*TSIM**2/RHO0)**0.2
+
+  !Check whether analytical solution is within +/- one cell of simulated shock
+  TAP_CHECK((Rt.LT.rshock+Sim%Mesh%dx).AND.(Rt.GT.rshock-Sim%Mesh%dx),"Shock velocity correct")
   CALL Sim%Finalize()
-  DEALLOCATE(Sim)
-
-  TAP_CHECK(.TRUE.,"Finished simulation")
   TAP_DONE
-
+  DEALLOCATE(Sim,pvar_diff)
 
 CONTAINS
 
@@ -115,16 +134,16 @@ CONTAINS
        bc(BOTTOM)= NO_GRADIENTS
        bc(TOP)   = NO_GRADIENTS
     CASE(SPHERICAL)
-       x1 = 0.01
+       x1 = 0.0
        x2 = RMAX
        y1 = 0.0
        y2 = PI
        z1 = 0.0
        z2 = 2*PI
-       bc(WEST)  = REFLECTING       !default: REFLECTING
-       bc(EAST)  = REFLECTING       !default: ABSORBING
-       bc(SOUTH) = REFLECTING       !default: AXIS
-       bc(NORTH) = REFLECTING       !default: AXIS
+       bc(WEST)  = REFLECTING
+       bc(EAST)  = ABSORBING
+       bc(SOUTH) = AXIS
+       bc(NORTH) = AXIS
        bc(BOTTOM)= PERIODIC
        bc(TOP)   = PERIODIC
     CASE(CYLINDRICAL)
@@ -168,7 +187,7 @@ CONTAINS
        bc(SOUTH) = AXIS
        bc(NORTH) = AXIS
     CASE DEFAULT
-       CALL Error(Sim%Physics,"InitProgram","geometry not supported for 3D Sedov explosion")
+       CALL Sim%Physics%Error("InitProgram","geometry not supported for 3D Sedov explosion")
     END SELECT
 
     ! mesh settings
@@ -205,12 +224,12 @@ CONTAINS
               "order"       / LINEAR,    &
               "fluxtype"    / KT,        &
               "variables"   / PRIMITIVE, &
-              "limiter"     / VANLEER)
+              "limiter"     / SUPERBEE)
 
     ! time discretization settings
     timedisc => Dict( &
-              "method"      / MODIFIED_EULER,               &
-              "order"       / 3,                            &
+      "method"      / DORMAND_PRINCE,               &
+              "order"       / 5,                            &
               "cfl"         / 0.4,                          &
               "stoptime"    / TSIM,                         &
               "dtlimit"     / 1.0E-13,                      &

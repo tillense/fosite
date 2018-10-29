@@ -1,7 +1,7 @@
 !#############################################################################
 !#                                                                           #
 !# fosite - 3D hydrodynamical simulation program                             #
-!# module: riemannsolver.f90                                                 #
+!# module: solutions.f90                                                     #
 !#                                                                           #
 !# Copyright (C) 2013 Manuel Jung <mjung@astrophysik.uni-kiel.de>            #
 !#                                                                           #
@@ -37,9 +37,14 @@ MODULE solutions
   PRIVATE
     REAL :: rho_L,u_L,p_L,A_L,B_L,c_L,&
             rho_R,u_R,p_R,A_R,B_R,c_R,gamma
+    REAL :: gam_p1, gam_m1, R0, Rt, Vmin, Vmax, &
+            Vshock, n1, n2, n3, n4, n5
+    REAL :: r, xi, vxi, gxi, zxi, zgxi, xacc
+    REAL :: E0, rho0, P1
   !--------------------------------------------------------------------------!
   PUBLIC :: &
-    riemann
+    riemann, &
+    sedov
   !--------------------------------------------------------------------------!
 CONTAINS
   SUBROUTINE riemann(x0,gamma_,rho_l_,u_l_,p_l_,rho_r_,u_r_,p_r_,t,x,pvar)
@@ -207,6 +212,151 @@ CONTAINS
       END SUBROUTINE sample
   END SUBROUTINE riemann
 
+  SUBROUTINE sedov(gamma_, E0_, rho0_, P1_, time, dim, x, pvar)
+    IMPLICIT NONE
+    !----------------------------------------------------------------------!
+    REAL, INTENT(IN)                    :: gamma_, E0_, rho0_, P1_, time
+    INTEGER, INTENT(IN)                 :: dim
+    REAL, DIMENSION(:), INTENT(IN)      :: x
+    REAL, DIMENSION(:,:), INTENT(INOUT) :: pvar
+    !----------------------------------------------------------------------!
+    REAL, PARAMETER                     :: EPS = 1.0D-09
+    INTEGER, PARAMETER                  :: MAXIT = 1.0D+08
+    INTEGER                             :: i
+    !----------------------------------------------------------------------!
+    gamma = gamma_
+    E0    = E0_
+    rho0  = rho0_
+    P1    = P1_
+    gam_p1 = gamma + 1.0
+    gam_m1 = gamma - 1.0
+
+    SELECT CASE(dim)
+    CASE(2)
+      R0 = 1.0
+      Rt = R0*(E0*time**2/rho0)**0.25
+      Vmin = 1.0 / gamma
+      Vmax = 2.0 / gamma
+      Vshock = 0.5 *Rt/time
+      n1 = -2.0
+      n2 = 2.0*gam_m1/gamma
+      n3 = 1.0/gamma
+      n4 = -n1 / (2.0-gamma)
+      n5 = -2.0 / (2.0-gamma)
+    CASE(3)
+      R0 = 1.033 ! for gamma=7/5, see Padmanabhan: Theo. Astro., Vol 1,  p.409
+      Rt = R0*(E0*time**2/rho0)**0.2
+      Vmin = 1./gamma
+      Vmax = 5./(3.*gamma-1.)
+      Vshock = 2.*Rt/(5.*time)
+      n1 = -(13.*gamma**2.-7.*gamma+12.) / ((3.*gamma-1.)*(2.*gamma+1.))
+      n2 = 5.*gam_m1 / (2.*gamma+1.)
+      n3 = 3. / (2.*gamma+1.)
+      n4 = -n1 / (2.-gamma)
+      n5 = -2. / (2.-gamma)
+    END SELECT
+  ! accuracy
+  xacc = EPS
+  
+  ! main loop
+  DO i=1, SIZE(x)
+     r = x(i)
+     xi = r/Rt
+     IF (xi.LE.1.0) THEN
+        ! Newton-Raphson to solve the implicit equation
+        IF (dim.EQ.2) THEN
+           vxi = GetRoot_test(funcd2D,Vmin,Vmax*0.99,xacc)
+           gxi = gam_p1/gam_m1*(gam_p1/gam_m1*(gamma*vxi-1.0))**n3 &
+                *(gam_p1/2.0*(2.0-gamma*vxi))**n4 &
+                *(gam_p1/gam_m1*(1.0-vxi))**n5
+        ELSE
+           vxi = GetRoot_test(funcd3D,Vmin,Vmax*0.99,xacc)
+           gxi = gam_p1/gam_m1*(gam_p1/gam_m1*(gamma*vxi-1.))**n3 &
+                *(gam_p1/(7.-gamma)*(5.-(3.*gamma-1.)*vxi))**n4 &
+                *(gam_p1/gam_m1*(1.-vxi))**n5
+        END IF
+        zxi = gamma*gam_m1*(1.-vxi)*vxi*vxi/(2.*(gamma*vxi-1.))
+!        IF (xi.GT.0.01) THEN
+!           zgxi = 0.5*gam*gam_p1*(gam_p1/gam_m1)**(n3+n5) * vxi**2 &
+!                *(gam*vxi-1.)**(n3-1.) * (1.-vxi)**(n5+1.) &
+!                *(gam_p1/(7.-gam)*(5.-(3.*gam-1.)*vxi))**n4
+!        ELSE
+!           zgxi = 0.5*gam*gam_m1*(1.-vxi)*vxi**2 * xi**(5/n2*(n3-1.))
+!        END IF
+!        CALL funcd2D(vxi,fv,dfv)
+!        WRITE (*,"(5(ES15.7))") xi,vxi,gxi,zxi,fv
+!        STOP
+     ELSE
+        vxi = 0.
+        gxi = 1.
+        zxi = ((2.+dim)*time/(2.*r))**2 * gamma*P1/rho0
+        zgxi= zxi
+     END IF
+     ! set primitive variables
+     pvar(i,1) = rho0*gxi
+     pvar(i,2) = Vshock*xi*vxi
+     pvar(i,3) = pvar(i,1)/gamma*zxi*(2.*r/((2.+dim)*time))**2
+!     pvar(i,3) = Control%rho0/gam*(2.*r/(5.*Control%time))**2 * zgxi
+  END DO
+
+  CONTAINS
+
+  FUNCTION GetRoot_test(funcd,x1,x2,xacc) RESULT(root)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    REAL, INTENT(IN) :: x1,x2,xacc
+    REAL :: root
+    !------------------------------------------------------------------------!
+    INTERFACE
+       SUBROUTINE funcd(x,fx,dfx)
+         IMPLICIT NONE
+         REAL, INTENT(IN)  :: x
+         REAL, INTENT(OUT) :: fx,dfx
+       END SUBROUTINE funcd
+    END INTERFACE
+    !------------------------------------------------------------------------!
+    REAL    :: fm,dfm,fl,dfl,fr,dfr
+    REAL    :: xm,xl,xr,dx
+    INTEGER :: i
+    !------------------------------------------------------------------------!
+    ! compute left and right function values
+    xl = MIN(x1,x2)
+    xr = MAX(x1,x2)    
+    CALL funcd(xl,fl,dfl)
+    CALL funcd(xr,fr,dfr)
+    ! check if root is within the interval [x1,x2]
+    IF (fl*fr.GT.0.0) THEN
+       WRITE (*,*) xl, xr,fl, fr,gamma, "Error: f(x1)*f(x2) should be < 0, aborting!"
+       STOP
+    END IF
+    ! main loop
+    DO i=1,MAXIT
+  !     WRITE (*,"(4(ES20.12))") xl,fl,xr,fr
+       ! regular falsi
+       dx = fl*(xl-xr)/(fl-fr)
+       xm = xl - dx
+       root = xm
+       CALL funcd(xm,fm,dfm)
+       ! check abort criteron
+       IF (ABS(fm).LT.xacc) THEN
+          EXIT
+       END IF
+       IF (fm*fl.GT.0.0) THEN
+          xl=xm
+          fl=fm
+       ELSE
+          xr=xm
+          fr=fm
+       END IF
+    END DO
+    IF (i.GT.MAXIT) THEN
+       WRITE (*,*) "WARNING: limit of iterations exceeded!"
+    END IF
+  END FUNCTION GetRoot_test
+
+  END SUBROUTINE sedov
+
+
   ! the root of this function gives p_star
   !REAL FUNCTION f(p)
   PURE SUBROUTINE f(p,fx,plist)
@@ -233,5 +383,58 @@ CONTAINS
       f_x = (2.0*c_x/(gamma-1.0)) * ((p/p_x)**((gamma-1.0)/(2.0*gamma)) - 1.0)
     END IF
   END FUNCTION f_x
+
+SUBROUTINE funcd2D(y,fy,dfy)
+  IMPLICIT NONE
+  !------------------------------------------------------------------------!
+  REAL, INTENT(IN)  :: y
+  REAL, INTENT(OUT) :: fy,dfy
+  !------------------------------------------------------------------------!
+  REAL :: Ay,dAy,By,dBy,Cy,dCy
+  !------------------------------------------------------------------------!
+  
+  Ay = 2./(gam_p1*y)
+  dAy= -Ay/y
+  By = gam_p1/2. * (2.-gamma*y)
+  dBy= -gam_p1/2. * gamma
+  Cy = gam_p1/gam_m1*(gamma*y-1.0)
+  dCy= gamma*gam_p1/gam_m1
+  fy = Ay**2 * By**n1 * Cy**n2 - xi**4
+  dfy= dAy*By*Cy + Ay*dBy*Cy + Ay*By*dCy
+!  PRINT "(A,4(ES14.6))", "xi,n1,n2       = ", xi,n1,n2
+!  PRINT "(A,3(ES14.6))", "A(y),B(y),C(y) = ", Ay,By,Cy
+!  PRINT "(A,3(ES14.6))", "y,f(y),df(y)   = ", y,fy,dfy
+!  PRINT "(A,3(ES14.6))", "gamma,gam_p1,gam_m1   = ", gamma,gam_p1,gam_m1
+END SUBROUTINE funcd2D
+
+
+SUBROUTINE funcd3D(y,fy,dfy)
+  IMPLICIT NONE
+  !------------------------------------------------------------------------!
+  REAL, INTENT(IN)  :: y
+  REAL, INTENT(OUT) :: fy,dfy
+  !------------------------------------------------------------------------!
+  REAL :: Ay,dAy,By,dBy,Cy,dCy
+  !------------------------------------------------------------------------!
+
+    Ay = 2./(gam_p1*y)
+    dAy= -Ay/y
+    By = ABS(gam_p1/(7.-gamma)*(5.-(3*gamma-1.)*y))
+    dBy= -gam_p1/(7.-gamma)*(3*gamma-1.)
+    Cy = gam_p1/gam_m1*(gamma*y-1.)
+    dCy= gamma*gam_p1/gam_m1
+    IF (ABS(gamma*y-1.).LT.1.0D-20) THEN
+       fy = -xi**5
+    ELSE
+       fy = Ay**2 * By**n1 * Cy**n2 - xi**5
+    END IF
+    fy = Ay**2 * By**n1 * Cy**n2 - xi**5
+    dfy= dAy*By*Cy + Ay*dBy*Cy + Ay*By*dCy
+!    PRINT "(A,ES14.6)","xi = ", xi
+!    PRINT "(A,3(ES14.6))", "A(y),B(y),C(y) = ", Ay,By,Cy
+!    PRINT "(A,3(ES14.6))", "y,f(y),df(y)   = ", y,fy,dfy
+END SUBROUTINE funcd3D
+
+
 END MODULE
 
