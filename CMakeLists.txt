@@ -95,7 +95,7 @@ endif (Fortran_COMPILER_NAME MATCHES "(.*)gfortran")
 # set preprocessor macro to the vector length of the target system
 # DEFAULT: 1
 # TODO: add other target systems
-if (CMAKE_SYSTEM_NAME MATCHES "(.*)SX-AURORA")
+if (CMAKE_SYSTEM_NAME MATCHES "(.*)SX-Aurora")
   add_compile_options(-DVECTOR_LENGTH="256")
 else ()#(CMAKE_SYSTEM_NAME MATCHES "(.*)SX-AURORA")
   add_compile_options(-DVECTOR_LENGTH="1")
