@@ -1,6 +1,20 @@
 # CMake project file for FOSITE
+cmake_minimum_required (VERSION 2.8.10)
+project (FOSITE NONE)
 
-IF( NOT DEFINED ENV{FC})
+# get the latest git version tag and commit hash
+# adds "-dirty" if working tree is not clean
+execute_process(
+  COMMAND git describe --tag --dirty
+  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+  OUTPUT_VARIABLE GIT_VERSION
+  OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+add_compile_options("-DVERSION=\"${GIT_VERSION}\"")
+
+
+# list of known fortran compilers
+if( NOT DEFINED ENV{FC})
   set(CMAKE_Fortran_COMPILER_INIT
           nfort sxf03 gfortran ifort
           ifc af95 af90 efc f95 pathf2003 pathf95 pgf95 pgfortran lf95 xlf95
@@ -10,10 +24,6 @@ IF( NOT DEFINED ENV{FC})
 elseif(DEFINED ENV{FC})
   set(CMAKE_Fortran_COMPILER $ENV{FC})
 endif()
-
-
-cmake_minimum_required (VERSION 2.8.10)
-project (FOSITE NONE)
 enable_language (Fortran)
 enable_testing()
 
@@ -41,7 +51,7 @@ MESSAGE( STATUS "Compiler: " ${CMAKE_Fortran_COMPILER})
 
 if (Fortran_COMPILER_NAME MATCHES "(.*)gfortran")
   # gfortran
-  set (CMAKE_Fortran_FLAGS "${FCFLAGS} -fdefault-real-8 -cpp -ffree-line-length-none -DVERSION='\"v2\"'")
+  set (CMAKE_Fortran_FLAGS "${FCFLAGS} -fdefault-real-8 -cpp -ffree-line-length-none")
   set (CMAKE_Fortran_FLAGS_RELEASE "-funroll-all-loops -fno-f2c -O3")
   set (CMAKE_Fortran_FLAGS_PROFILING "-funroll-all-loops -fno-f2c -O3 -pg -no-pie")
   set (CMAKE_Fortran_FLAGS_DEBUG   "-fno-f2c -O2 -g -fcheck=all")
@@ -51,7 +61,7 @@ if (Fortran_COMPILER_NAME MATCHES "(.*)gfortran")
 elseif (Fortran_COMPILER_NAME MATCHES "(.*)mpifort")
   # mpifort
   message("Building Fosite in parallel mode")
-  set (CMAKE_Fortran_FLAGS "${FCFLAGS} -fdefault-real-8 -cpp -ffree-line-length-none -DVERSION='\"v2\"' -DPARALLEL -DHAVE_MPI_MOD")
+  set (CMAKE_Fortran_FLAGS "${FCFLAGS} -fdefault-real-8 -cpp -ffree-line-length-none -DPARALLEL -DHAVE_MPI_MOD")
   set (CMAKE_Fortran_FLAGS_RELEASE "-funroll-all-loops -fno-f2c -O3")
   set (CMAKE_Fortran_FLAGS_DEBUG   "-fno-f2c -O2 -g -fcheck=all -Wunused")
   if(CMAKE_Fortran_COMPILER_VERSION VERSION_LESS 4.9)
@@ -59,12 +69,12 @@ elseif (Fortran_COMPILER_NAME MATCHES "(.*)mpifort")
   endif()
 elseif (Fortran_COMPILER_NAME MATCHES "(.*)ifort")
   # ifort
-  set (CMAKE_Fortran_FLAGS "${FCFLAGS} -cpp -r8 -stand f03 -DVERSION='\"v2\"'")
+  set (CMAKE_Fortran_FLAGS "${FCFLAGS} -cpp -r8 -stand f03")
   set (CMAKE_Fortran_FLAGS_RELEASE "-O3")
   set (CMAKE_Fortran_FLAGS_DEBUG   "-O0 -g")
   set (CMAKE_Fortran_FLAGS_PROFILING "-O3 -pg")
 elseif (Fortran_COMPILER_NAME MATCHES "(.*)nfort")
-  set (CMAKE_Fortran_FLAGS "${FCFLAGS} -report-all -proginf -fdefault-real=8 -x f95-cpp-input -DVERSION='\"v2\"'")
+  set (CMAKE_Fortran_FLAGS "${FCFLAGS} -report-all -proginf -fdefault-real=8 -x f95-cpp-input")
   set (CMAKE_Fortran_FLAGS_RELEASE "-finline-max-depth=5 -finline-functions -floop-collapse")
   set (CMAKE_Fortran_FLAGS_DEBUG   "-O0 -g")
   set (CMAKE_Fortran_FLAGS_PROFILING "-finline-max-depth=5 -finline-functions -floop-collapse -ftrace")
