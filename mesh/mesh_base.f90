@@ -89,12 +89,6 @@ MODULE mesh_base_mod
   !> \todo
   INTEGER, PARAMETER :: NDIMS  = 3       ! dimensions of cartesian topology
   INTEGER, PARAMETER :: NFACES = 6       ! amount of faces
-  INTEGER, PARAMETER :: VECLEN = &       ! vector length ...
-#if defined(NECSXAURORA)
-  256                                    ! ... of NEC SX8/SX9/SX-ACE CPUs
-#else
-  1                                      ! ... of everthing else
-#endif
   !> \todo Check why this is not in boundary base?!
   INTEGER, PARAMETER :: &
      WEST   = 1, & !< named constant for western  boundary
@@ -1129,7 +1123,7 @@ CONTAINS
 !  !> return the best partitioning of processes
 !  !!
 !  !! pi x pj x pk for a given mesh with resolution ni x nj x nk with
-!  !! ghost number of ghost cells GINUM, GJNUM, GKNUM
+!  !! number of ghost cells GINUM, GJNUM, GKNUM
 !  !! pi : total number of processes (<MAXNUM  see module "factors")
 !  !! pj, pk = 1 initially
 !  !! pk return 0, for erroneous input
@@ -1141,20 +1135,28 @@ CONTAINS
 !    INTEGER, INTENT(IN)    :: ni,nj,nk,ginum,gjnum,gknum
 !    INTEGER, INTENT(INOUT) :: pi,pj,pk
 !    !------------------------------------------------------------------------!
+!    CHARACTER(LEN=8) :: svl_char
+!    INTEGER :: svl,err
+!    !------------------------------------------------------------------------!
+!    ! get the system vector length from preprocessor macro
+!    svl_char = VECTOR_LENGTH 
+!    READ (svl_char,'(I8)') svl
 !    ! return immediatly for malformed input
-!    IF (((pi.LT.2).AND.(pj.AND.pk.NE.1)).OR.(pj.GT.MAXNUM) .OR.(nj*nk.LT.pj)) THEN
+!    IF (((pi.LT.2).AND.(pj.AND.pk.NE.1)).OR.(pj.GT.MAXNUM) .OR.(nj*nk.LT.pj) &
+!        .OR.(err.NE.0)) THEN
 !       pk = 0
 !       RETURN
 !    END IF
-!    Decompose(ni,nj,nk,ginum,gjnum,gknum,pi,pj,pk)
+!    Decompose(svl,ni,nj,nk,ginum,gjnum,gknum,pi,pj,pk)
 !
 !  CONTAINS
 !
 !    !> searches for the best domain decomposition
 !    !!
 !    !! Accounts for the costs due to MPI communication (internal boundaries)
-!    !! and optimizes for a given vector length (VECLEN) on vector computers;
+!    !! and optimizes for a given vector length (VECTOR_LENGTH) on vector computers;
 !    !! parameters:
+!    !!   svl: system vector length
 !    !!   ni : number of grid cells in first dimension
 !    !!   nj : number of grid cells in second dimension
 !    !!   nk : number of grid cells in third dimension
@@ -1162,14 +1164,14 @@ CONTAINS
 !    !!   pj : number of processes  in second dimension (=1 at first call)
 !    !!   pk : number of processes  in third dimension (=1 at first call)
 !    !! \todo NOT VERIFIED: Not running for 3D
-!    RECURSIVE SUBROUTINE Decompose(ni,nj,nk,pi,pj,pk,pires,pjres,pkres)
+!    RECURSIVE SUBROUTINE Decompose(svl,ni,nj,nk,pi,pj,pk,pires,pjres,pkres)
 !      IMPLICIT NONE
 !      !-------------------------------------------------------------------!
-!      INTEGER, INTENT(IN)  :: ni,nj,nk,pi,pj,pk
+!      INTEGER, INTENT(IN)  :: svl,ni,nj,nk,pi,pj,pk
 !      INTEGER, INTENT(OUT) :: pires,pjres,pkres
 !      !-------------------------------------------------------------------!
 !      INTEGER :: pp,ptot
-!      INTEGER :: p1,p2,p3,pinew,pjnew,pknew,piold,pjold,pkold
+!      INTEGER :: p1,p2,p3,svl,pinew,pjnew,pknew,piold,pjold,pkold
 !      INTEGER :: pfmin,pfnew,pfold
 !      INTEGER :: bl,vl,blnew,vlnew
 !      REAL    :: bl_gain,vl_gain
@@ -1205,10 +1207,10 @@ CONTAINS
 !            pfold = pfnew
 !            ! get the best configuration possible with p1 x p2 x p3 processes
 !            ! by reducing p1 => recursion
-!            pjnew = Decompose(ni,nj,nk,p1,p2,p3,pires,pjres,pkres)
+!            pjnew = Decompose(svl,ni,nj,nk,p1,p2,p3,pires,pjres,pkres)
 !            pknew = ptot/pjnew  ! compute the second factor using the
 !                                ! total number of processes
-!            CALL GetCosts(ni,nj,nk,pjnew,pknew,blnew,vlnew)
+!            CALL GetCosts(ni,nj,nk,pjnew,pknew,svl,blnew,vlnew)
 !            bl_gain = bl*(1.0/blnew)             ! smaller is better
 !            vl_gain = vlnew*(1.0/vl)             ! larger is better
 !!!$PRINT '(4I7)',pjold,pkold,bl,vl
@@ -1233,10 +1235,10 @@ CONTAINS
 !
 !    ! computes the sum of the length of all internal boundaries (bl)
 !    ! and the maximal vector length (vl)
-!    PURE SUBROUTINE GetCosts(n1,n2,n3,p1,p2,p3,bl,vl)
+!    PURE SUBROUTINE GetCosts(n1,n2,n3,p1,p2,p3,svl,bl,vl)
 !      IMPLICIT NONE
 !      !------------------------------------------------------------------------!
-!      INTEGER, INTENT(IN)  :: n1,n2,n3,p1,p2,p3
+!      INTEGER, INTENT(IN)  :: n1,n2,n3,p1,p2,p3,svl
 !      INTEGER, INTENT(OUT) :: bl,vl
 !      !------------------------------------------------------------------------!
 !      INTEGER :: num,rem
@@ -1245,11 +1247,11 @@ CONTAINS
 !      !bl = n1*(p2-1) + n2*(p1-1)
 !      bl = n3*n2*(p1-1) + n1*n3*(p2-1)  + n1*n2*(p3-1)
 !      ! maximal possible vector length (first array dimension)
-!      ! if n1 > VECLEN return the length of the remainder
+!      ! if n1 > svl return the length of the remainder
 !      rem = MOD(n1,p1)
 !      num = (n1-rem) / p1 + MIN(rem,1) + 2*ginum  ! account for ghost cells
-!      IF (num.GT.VECLEN) num=MOD(num,VECLEN)
-!      vl  = VECLEN-MOD(ABS(num-VECLEN),VECLEN)
+!      IF (num.GT.svl) num=MOD(num,svl)
+!      vl  = svl - MOD(ABS(num-svl),svl)
 !    END SUBROUTINE GetCosts
 !
 !  END SUBROUTINE CalculateDecomposition

@@ -82,6 +82,15 @@ else (Fortran_COMPILER_NAME MATCHES "gfortran.*")
   set (CMAKE_Fortran_FLAGS_DEBUG   "-O0 -g")
 endif (Fortran_COMPILER_NAME MATCHES "(.*)gfortran")
 
+# set preprocessor macro to the vector length of the target system
+# DEFAULT: 1
+# TODO: add other target systems
+if (CMAKE_SYSTEM_NAME MATCHES "(.*)SX-AURORA")
+  add_compile_options(-DVECTOR_LENGTH="256")
+else ()#(CMAKE_SYSTEM_NAME MATCHES "(.*)SX-AURORA")
+  add_compile_options(-DVECTOR_LENGTH="1")
+endif ()#(CMAKE_SYSTEM_NAME MATCHES "(.*)SX-AURORA")
+
 MARK_AS_ADVANCED(CMAKE_Fortran_FLAGS_PROFILING
     CMAKE_EXE_LINKER_FLAGS_PROFILING)
 
