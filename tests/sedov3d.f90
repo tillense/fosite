@@ -68,35 +68,65 @@ PROGRAM sedov3d
   CLASS(fosite), ALLOCATABLE  :: Sim
   !-------------------------------------------------------------------------!
   REAL, DIMENSION(:),ALLOCATABLE  :: pvar_diff
-  INTEGER :: i
+#ifdef PARALLEL
+  REAL, DIMENSION(:), POINTER     :: pvar,pvar_all,radius, radius_all
+#endif
+  INTEGER :: i,err
   REAL    :: Rt,rshock
-  TAP_PLAN(1)
-
+  !-------------------------------------------------------------------------!
   ALLOCATE(Sim,pvar_diff(1:XRES))
   CALL Sim%InitFosite()
+#ifdef PARALLEL
+  IF(Sim%GetRank().EQ.0) &
+#endif
+  TAP_PLAN(1)
+
   CALL MakeConfig(Sim, Sim%config)
   CALL Sim%Setup()
   CALL InitData(Sim%Mesh, Sim%Physics, Sim%Timedisc)
 
   CALL Sim%Run()
   
-
+#ifdef PARALLEL
+  ALLOCATE(pvar(Sim%Mesh%IMIN:Sim%Mesh%IMAX),pvar_all(Sim%GetNumProcs()*(Sim%Mesh%IMAX-Sim%Mesh%IMIN+1)))
+  ALLOCATE(radius(Sim%Mesh%IMIN:Sim%Mesh%IMAX),radius_all(Sim%GetNumProcs()*(Sim%Mesh%IMAX-Sim%Mesh%IMIN+1)))
+  pvar(:) = Sim%Timedisc%pvar(Sim%Mesh%IMIN:SIM%Mesh%IMAX,1,1,1)
+  radius(:)= Sim%Mesh%radius%center(Sim%Mesh%IMIN:Sim%Mesh%IMAX,1,1)
+ 
   ! Compare results with analytical solution. Check only for correct shock velocity
   ! even if the full analytical solution is implemented
 
 !  CALL sedov(GAMMA,E1,RHO0,P0,TSIM,3, SIM%Mesh%radius%bcenter(1:XRES,1,1),pvar)
   
   !The shock location is where the density gradient is greatest
-  DO i=1,XRES
-    pvar_diff(i) = Sim%Timedisc%pvar(i,1,1,1)-Sim%Timedisc%pvar(i+1,1,1,1)
+  CALL MPI_Gather(pvar,int(Sim%Mesh%IMAX-Sim%Mesh%IMIN+1),MPI_DOUBLE, &
+    pvar_all, int(Sim%Mesh%IMAX-Sim%Mesh%IMIN+1),MPI_DOUBLE,0,MPI_COMM_WORLD,err)
+  CALL MPI_Gather(radius,int(Sim%Mesh%IMAX-Sim%Mesh%IMIN+1),MPI_DOUBLE, &
+    radius_all, int(Sim%Mesh%IMAX-Sim%Mesh%IMIN+1),MPI_DOUBLE,0,MPI_COMM_WORLD,err)
+
+ IF(Sim%GetRank().EQ.0) THEN 
+  DO i=1,XRES-1
+    pvar_diff(i) = pvar_all(i)-pvar_all(i+1)
   END DO
-  rshock = Sim%Mesh%radius%center(MAXLOC(pvar_diff,DIM=1),1,1)
+  rshock = radius_all(MAXLOC(pvar_diff,DIM=1))
   
   !analytical shock position
   Rt = R*(E1*TSIM**2/RHO0)**0.2
 
   !Check whether analytical solution is within +/- one cell of simulated shock
   TAP_CHECK((Rt.LT.rshock+Sim%Mesh%dx).AND.(Rt.GT.rshock-Sim%Mesh%dx),"Shock velocity correct")
+END IF
+#else
+  DO i=1,XRES
+      pvar_diff(i) = Sim%Timedisc%pvar(i,1,1,1)-Sim%Timedisc%pvar(i+1,1,1,1)
+  END DO
+  Rshock = Sim%Mesh%radius%center(MAXLOC(pvar_diff,DIM=1),1,1)
+  
+  !analytical shock position
+  Rt = R*(E1*TSIM**2/RHO0)**0.2
+
+  TAP_CHECK((Rt.LT.rshock+Sim%Mesh%dx).AND.(Rt.GT.rshock-Sim%Mesh%dx),"Shock velocity correct")
+#endif
   CALL Sim%Finalize()
   TAP_DONE
   DEALLOCATE(Sim,pvar_diff)
