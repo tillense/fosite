@@ -758,8 +758,6 @@ CONTAINS
           END DO
         END IF
       ELSE IF (Mesh%INUM.EQ.1.AND.Mesh%JNUM.NE.1.AND.Mesh%KNUM.NE.1) THEN
-        !TODO: Hier hatte Jannes JNUM durch GNUM ersetzt...warum? evtl GJNUM
-        !gemeint?
          ! bottom south
         IF(this%Boundary(1)%p%PhysicalCorner) THEN
           DO j=1,Mesh%GJNUM
@@ -811,8 +809,6 @@ CONTAINS
           END DO
         END IF
       ELSE IF (Mesh%JNUM.EQ.1.AND.Mesh%INUM.NE.1.AND.Mesh%KNUM.NE.1) THEN
-        !TODO: Hier hatte Jannes JNUM durch GNUM ersetzt...warum? evtl GJNUM
-        !gemeint?
          ! bottom west
         IF(this%Boundary(1)%p%PhysicalCorner) THEN
           DO i=1,Mesh%GINUM
@@ -842,7 +838,7 @@ CONTAINS
 
         ! top east
         IF(this%Boundary(2)%p%PhysicalCorner) THEN
-          DO i=1,Mesh%GJNUM
+          DO i=1,Mesh%GINUM
             DO k=i+1,Mesh%GKNUM
               pvar(Mesh%IMAX+i,:,Mesh%KMAX+k,:) = pvar(Mesh%IMAX+i-1,:,Mesh%KMAX+k,:)
               pvar(Mesh%IMAX+k,:,Mesh%KMAX+i,:) = pvar(Mesh%IMAX+k,:,Mesh%KMAX+i-1,:)
@@ -854,7 +850,7 @@ CONTAINS
 
         ! top west
         IF(this%Boundary(3)%p%PhysicalCorner) THEN
-          DO i=1,Mesh%GJNUM
+          DO i=1,Mesh%GINUM
             DO k=i+1,Mesh%GKNUM
               pvar(Mesh%IMIN-i,:,Mesh%KMAX+k,:) = pvar(Mesh%IMIN-i+1,:,Mesh%KMAX+k,:)
               pvar(Mesh%IMIN-k,:,Mesh%KMAX+i,:) = pvar(Mesh%IMIN-k,:,Mesh%KMAX+i-1,:)
