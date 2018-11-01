@@ -204,7 +204,7 @@ CONTAINS
        z1 = 0.0
        z2 = 0.0
        bc(WEST)  = REFLECTING       !ABSORBING
-       bc(EAST)  = ABSORBING  !ABSORBING
+       bc(EAST)  = NO_GRADIENTS  !ABSORBING
        bc(SOUTH) = PERIODIC   !AXIS
        bc(NORTH) = PERIODIC   !ABSORBING
        bc(BOTTOM)= NO_GRADIENTS
