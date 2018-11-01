@@ -247,6 +247,7 @@ CONTAINS
 
 
   SUBROUTINE InitData(Mesh,Physics,Timedisc,Fluxes,Sources,pvar,cvar)
+    USE physics_eulerisotherm_mod, ONLY : physics_eulerisotherm
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(mesh_base),     INTENT(IN)     :: Mesh
@@ -297,7 +298,7 @@ CONTAINS
 
     ! set isothermal sound speeds
     SELECT TYPE (phys => Physics)
-    CLASS IS(physics_euler2dit)
+    CLASS IS(physics_eulerisotherm)
       CALL phys%SetSoundSpeeds(Mesh,bccsound)
       CALL phys%SetSoundSpeeds(Mesh,fcsound)
     CLASS DEFAULT

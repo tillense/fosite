@@ -243,7 +243,7 @@ CONTAINS
 
 
   SUBROUTINE FirstStep(this)
-    USE physics_euler2dit_mod, ONLY : physics_euler2dit
+    USE physics_eulerisotherm_mod, ONLY : physics_eulerisotherm
     IMPLICIT NONE
     !--------------------------------------------------------------------------!
     CLASS(fosite), INTENT(INOUT) :: this
@@ -297,7 +297,7 @@ CONTAINS
                             this%Fluxes,this%Timedisc%time,this%Timedisc%dtcause)
 
     SELECT TYPE(phys => this%Physics)
-    CLASS IS(physics_euler2dit)
+    CLASS IS(physics_eulerisotherm)
       IF(phys%csiso.GT.0.) THEN
         IF(ANY(phys%bccsound.NE.phys%csiso)) THEN
             CALL this%Error("FirstStep","isothermal sound speed set, but "&

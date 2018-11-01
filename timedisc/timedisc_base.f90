@@ -55,7 +55,6 @@ MODULE timedisc_base_mod
   USE boundary_generic_mod
   USE mesh_base_mod
   USE physics_base_mod
-  USE physics_euler2Dit_mod
   USE sources_base_mod
   USE sources_gravity_mod
   USE fluxes_base_mod
@@ -965,6 +964,7 @@ CONTAINS
   !! 4. update external source terms (this implies an update of all
   !!    auxiliary data arrays used for sources terms)
   SUBROUTINE ComputeRHS(this,Mesh,Physics,Sources,Fluxes,time,dt,pvar,cvar,checkdatabm,rhs)
+    USE physics_eulerisotherm_mod, ONLY : physics_eulerisotherm
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(timedisc_base), INTENT(INOUT) :: this
@@ -1173,7 +1173,7 @@ CONTAINS
 
       ! set isothermal sound speeds
       SELECT TYPE (phys => Physics)
-      CLASS IS (physics_euler2dit)
+      CLASS IS (physics_eulerisotherm)
         DO k=Mesh%KMIN,Mesh%KMAX
           DO j=Mesh%JMIN,Mesh%JMAX
             DO i=Mesh%IMIN,Mesh%IMAX
@@ -1279,8 +1279,8 @@ CONTAINS
   !> \public compute the RHS of the spatially discretized PDE
   !!
   SUBROUTINE CheckData(this,Mesh,Physics,Fluxes,pvar,cvar,checkdatabm)
-    USE physics_euler2dit_mod, ONLY : physics_euler2dit
-    USE physics_euler2d_mod, ONLY : physics_euler2d
+    USE physics_eulerisotherm_mod, ONLY : physics_eulerisotherm
+    USE physics_euler_mod, ONLY : physics_euler
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(timedisc_base), INTENT(INOUT) :: this
@@ -1300,7 +1300,7 @@ CONTAINS
     IF(IAND(checkdatabm,CHECK_CSOUND).NE.CHECK_NOTHING) THEN
       ! check for speed of sound
       SELECT TYPE(phys => Physics)
-      CLASS IS(physics_euler2dit)
+      CLASS IS(physics_eulerisotherm)
         val = MINVAL(phys%bccsound)
         IF(val.LE.0.) THEN
           ! warn now and stop after file output
@@ -1314,7 +1314,7 @@ CONTAINS
     IF((IAND(checkdatabm,CHECK_PMIN).NE.CHECK_NOTHING)) THEN
       ! check for non-isothermal physics with pressure defined
       SELECT TYPE(phys => Physics)
-      CLASS IS(physics_euler2d)
+      CLASS IS(physics_euler)
         val = MINVAL(pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX, &
                           Mesh%KMIN:Mesh%KMAX,phys%PRESSURE))
         IF(val.LT.this%pmin) THEN
@@ -1330,7 +1330,7 @@ CONTAINS
     IF(IAND(checkdatabm,CHECK_RHOMIN).NE.CHECK_NOTHING) THEN
       ! check for physics with density defined
       SELECT TYPE(phys => Physics)
-      CLASS IS(physics_euler2dit)
+      CLASS IS(physics_eulerisotherm)
         val = MINVAL(pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX, &
                           Mesh%KMIN:Mesh%KMAX,phys%DENSITY))
         IF(val.LT.this%rhomin) THEN
@@ -1339,7 +1339,7 @@ CONTAINS
             this%break = .TRUE.
         END IF
       CLASS DEFAULT
-        CALL this%Warning("CheckData","check density selected, but density not defined physics")
+        CALL this%Warning("CheckData","check density selected, but density not defined in physics")
       END SELECT
     END IF
 

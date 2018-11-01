@@ -260,7 +260,7 @@ CONTAINS
 
     ! physics settings
     physics => DICT( &
-              "problem"     / EULER3D, &
+              "problem"     / EULER, &
               "gamma"       / GAMMA)
 
    ! flux calculation and reconstruction method
@@ -297,7 +297,7 @@ CONTAINS
   END SUBROUTINE MakeConfig
 
   SUBROUTINE InitData(Mesh,Physics,Timedisc)
-    USE physics_euler3d_mod
+    USE physics_euler_mod, ONLY : physics_euler
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(physics_base),  INTENT(IN)    :: Physics
@@ -310,7 +310,7 @@ CONTAINS
     !------------------------------------------------------------------------!
     ! isothermal modules are excluded
     SELECT TYPE (phys => Physics)
-    CLASS IS(physics_euler3d)
+    CLASS IS(physics_euler)
       ! peak pressure
       n  = 3 ! 3 for 3D
       P1 = 3.*(phys%gamma - 1.0)*E1 / ((n + 1)*PI*R0**n)

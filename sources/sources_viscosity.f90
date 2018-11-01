@@ -291,8 +291,8 @@ CONTAINS
 
 
   SUBROUTINE UpdateViscosity(this,Mesh,Physics,Fluxes,time,pvar,cvar)
-    USE physics_euler2dit_mod, ONLY : physics_euler2dit
-    USE physics_euler2d_mod, ONLY : physics_euler2d
+    USE physics_eulerisotherm_mod, ONLY : physics_eulerisotherm
+    USE physics_euler_mod, ONLY : physics_euler
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(Sources_viscosity),INTENT(INOUT) :: this
@@ -335,11 +335,11 @@ CONTAINS
 
           ! check for non-isothermal physics
           SELECT TYPE(phys => Physics)
-          CLASS IS(physics_euler2d)
+          CLASS IS(physics_euler)
             ! compute alpha viscosity
             this%dynvis(:,:,:) = etafkt_alpha(this%dynconst,pvar(:,:,:,phys%PRESSURE), &
                                     pvar(:,:,:,kv)*this%invr(:,:,:) + Mesh%Omega)
-          CLASS IS(physics_euler2dit)
+          CLASS IS(physics_eulerisotherm)
             ! compute alpha viscosity
             this%dynvis(:,:,:) = etafkt_alpha(this%dynconst, &
                                     phys%bccsound(:,:,:)**2*pvar(:,:,:,phys%DENSITY), &

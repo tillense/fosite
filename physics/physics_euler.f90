@@ -46,7 +46,7 @@ MODULE physics_euler_mod
   !--------------------------------------------------------------------------!
   PRIVATE
   INTEGER, PARAMETER :: num_var = 4              ! number of variables
-  CHARACTER(LEN=32), PARAMETER :: problem_name = "Euler 2D"
+  CHARACTER(LEN=32), PARAMETER :: problem_name = "Euler"
   !--------------------------------------------------------------------------!
   TYPE,  EXTENDS(physics_eulerisotherm) :: physics_euler
     REAL                :: gamma                 !< ratio of spec. heats
@@ -126,7 +126,7 @@ CONTAINS
 CLASS(statevector_eulerisotherm), ALLOCATABLE :: pvar
     !------------------------------------------------------------------------!
     ! call InitPhysics from base class
-    CALL this%InitPhysics(Mesh,config,IO,EULER2D,problem_name,num_var)
+    CALL this%InitPhysics(Mesh,config,IO,EULER,problem_name,num_var)
 
     ! ratio of specific heats
     CALL GetAttr(config, "gamma", this%gamma, 1.4)

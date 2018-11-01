@@ -146,7 +146,7 @@ CONTAINS
 
     ! physics settings
     physics => Dict( &
-            "problem"   / EULER2D_ISOTHERM, &
+            "problem"   / EULER_ISOTHERM, &
             "cs"        / CSISO)
 
     ! flux calculation and reconstruction method

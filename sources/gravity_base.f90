@@ -256,12 +256,12 @@ CONTAINS
 
 
   SUBROUTINE CalcDiskHeight(this,Mesh,Physics,pvar)
-    USE physics_euler2dit_mod, ONLY : physics_euler2dit
+    USE physics_eulerisotherm_mod, ONLY : physics_eulerisotherm
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(gravity_base), TARGET, INTENT(INOUT) :: this
     CLASS(mesh_base),    INTENT(IN)            :: Mesh
-    CLASS(physics_euler2dit), INTENT(IN)       :: Physics
+    CLASS(physics_eulerisotherm), INTENT(IN)   :: Physics
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
                          INTENT(IN)    :: pvar
     !------------------------------------------------------------------------!
