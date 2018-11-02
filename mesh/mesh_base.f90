@@ -61,7 +61,6 @@
 !----------------------------------------------------------------------------!
 MODULE mesh_base_mod
   USE logging_base_mod
-  USE array
   USE marray_base_mod
   USE marray_cellscalar_mod
   USE marray_cellvector_mod
@@ -185,18 +184,10 @@ MODULE mesh_base_mod
     INTEGER, DIMENSION(3)         :: mycoords        !< par. proc coordinates
 #endif
   CONTAINS
-    PROCEDURE :: AllocateMesharrayS
-    PROCEDURE :: AllocateMesharrayV
-    PROCEDURE :: AllocateMesharrayT
-    PROCEDURE :: DeallocateMesharrayS
-    PROCEDURE :: DeallocateMesharrayV
-    PROCEDURE :: DeallocateMesharrayT
     PROCEDURE :: RemapBounds_1
     PROCEDURE :: RemapBounds_2
     PROCEDURE :: RemapBounds_3
     PROCEDURE :: RemapBounds_4
-    GENERIC   :: AllocateMesharray => AllocateMesharrayS, AllocateMesharrayV, AllocateMesharrayT
-    GENERIC   :: DeallocateMesharray => DeallocateMesharrayS, DeallocateMesharrayV, DeallocateMesharrayT
     GENERIC   :: RemapBounds => RemapBounds_1, RemapBounds_2, RemapBounds_3, RemapBounds_4
     PROCEDURE :: InitMesh
     PROCEDURE :: Finalize_base
@@ -627,17 +618,6 @@ CONTAINS
     ! bary center values are overwritten below
     this%sqrtg = this%hx*(this%hy*this%hz)
 
-    !> This hack shouldn't be necesary anymore for true 3D coordinates
-!    IF (this%Geometry%GetType().EQ.BIANGLESPHERICAL) THEN
-!      !> \todo: insert passage in mesh_common.f90 (ll. 264), problem: mixed dimensions in
-!      !! bianglespherical for curvilinear and cartesian coordinates -> no generality
-!      !! see also geometry_generic
-!      CALL this%AllocateMesharray(this%cart,3)
-!      CALL this%AllocateMesharray(this%posvec,3)
-!    ELSE
-!      CALL this%AllocateMesharray(this%cart)
-!      CALL this%AllocateMesharray(this%posvec)
-!    END IF
     ! create mesh array for cartesian coordinates
     this%cart = marray_cellvector()
     this%bccart => this%cart%RemapBounds(this%cart%bcenter)
@@ -1383,139 +1363,6 @@ CONTAINS
  END SUBROUTINE CalculateDecomposition
 #endif
 !---------------------END PARALLEL-------------------------------------------!
-
-  !> \public allocates memory for scalar mesh array
-  SUBROUTINE AllocateMesharrayS(this,ma)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(mesh_base),INTENT(IN) :: this !< \param [in,out] this all mesh data
-    TYPE(MArrayS_TYP)           :: ma   !< \param [out] ma scalar mesh array
-    !------------------------------------------------------------------------!
-    INTEGER                     :: err
-    !------------------------------------------------------------------------!
-    INTENT(OUT)                 :: ma
-    !------------------------------------------------------------------------!
-    ALLOCATE(ma%data(this%IGMIN:this%IGMAX,this%JGMIN:this%JGMAX,this%KGMIN:this%KGMAX,(1+1+6+8)),STAT=err)
-    IF (err.NE.0) THEN
-       CALL this%Error("AllocateMesharrayS","Unable to allocate memory!")
-    END IF
-    ma%center  => this%RemapBounds(ma%data(:,:,:,1))
-    ma%bcenter => this%RemapBounds(ma%data(:,:,:,2))
-    ma%faces   => this%RemapBounds(ma%data(:,:,:,3:8))
-    ma%corners => this%RemapBounds(ma%data(:,:,:,9:16))
-  END SUBROUTINE AllocateMesharrayS
-
-  !> \public allocates memory for vector mesh array
-  SUBROUTINE AllocateMesharrayV(this,ma,n)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(mesh_base),INTENT(IN) :: this !< \param [in,out] this all mesh data
-    TYPE(MArrayV_TYP)           :: ma   !< \param [out] ma vector mesh array
-    INTEGER,OPTIONAL            :: n    !< \param [in] n vector dimension
-    !------------------------------------------------------------------------!
-    INTEGER                     :: err,n_def
-    !------------------------------------------------------------------------!
-    INTENT(OUT)                 :: ma
-    !------------------------------------------------------------------------!
-    IF (PRESENT(n)) THEN
-       n_def = n
-    ELSE
-       ! dimension defaults to 3
-       n_def = 3
-    END IF
-    ALLOCATE(ma%data(this%IGMIN:this%IGMAX,this%JGMIN:this%JGMAX,this%KGMIN:this%KGMAX,(1+1+6+8),n_def),STAT=err)
-    IF (err.NE.0) THEN
-       CALL this%Error("AllocateMesharrayV","Unable to allocate memory!")
-    END IF
-    ma%center  => this%RemapBounds(ma%data(:,:,:,1,:))
-    ma%bcenter => this%RemapBounds(ma%data(:,:,:,2,:))
-    ma%faces   => this%RemapBounds(ma%data(:,:,:,3:8,:))
-    ma%corners => this%RemapBounds(ma%data(:,:,:,9:16,:))
-  END SUBROUTINE AllocateMesharrayV
-
-
-  !> \public allocates memory for tensor mesh array
-  SUBROUTINE AllocateMesharrayT(this,ma,n)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(mesh_base),INTENT(IN) :: this !< \param [in,out] this all mesh data
-    TYPE(MArrayT_TYP)           :: ma   !< \param [out] ma tensor mesh array
-    INTEGER,OPTIONAL            :: n    !< \param [in] n tensor dimension
-    !------------------------------------------------------------------------!
-    INTEGER                     :: err,n_def
-    !------------------------------------------------------------------------!
-    INTENT(OUT)                 :: ma
-    !------------------------------------------------------------------------!
-    IF (PRESENT(n)) THEN
-       n_def = n
-    ELSE
-       ! dimension defaults to 3
-       n_def = 3
-    END IF
-    ALLOCATE(ma%data(this%IGMIN:this%IGMAX,this%JGMIN:this%JGMAX,this%KGMIN:this%KGMAX,(1+1+6+8),n_def,n_def),STAT=err)
-    IF (err.NE.0) THEN
-       CALL this%Error("AllocateMesharrayT","Unable to allocate memory!")
-    END IF
-    ma%center  => this%RemapBounds(ma%data(:,:,:,1,:,:))
-    ma%bcenter => this%RemapBounds(ma%data(:,:,:,2,:,:))
-    ma%faces   => this%RemapBounds(ma%data(:,:,:,3:8,:,:))
-    ma%corners => this%RemapBounds(ma%data(:,:,:,9:16,:,:))
-  END SUBROUTINE AllocateMesharrayT
-
-
-  !> \public deallocates memory of scalar mesh array
-  SUBROUTINE DeallocateMesharrayS(this,ma)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(mesh_base),INTENT(IN) :: this !< \param [in,out] this all mesh data
-    TYPE(MArrayS_TYP)           :: ma
-    !------------------------------------------------------------------------!
-    INTEGER                     :: err
-    !------------------------------------------------------------------------!
-    INTENT(OUT)                 :: ma
-    !------------------------------------------------------------------------!
-    DEALLOCATE(ma%data,STAT=err)
-    IF (err.NE.0) THEN
-       CALL this%Error("DeallocateMesharrayS","Unable to deallocate memory!")
-    END IF
-    NULLIFY(ma%center,ma%bcenter,ma%faces,ma%corners)
-  END SUBROUTINE DeallocateMesharrayS
-
-  !> \public deallocates memory of vector mesh array
-  SUBROUTINE DeallocateMesharrayV(this,ma)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(mesh_base),INTENT(IN) :: this !< \param [in,out] this all mesh data
-    TYPE(MArrayV_TYP)           :: ma
-    !------------------------------------------------------------------------!
-    INTEGER                     :: err
-    !------------------------------------------------------------------------!
-    INTENT(OUT)                 :: ma
-    !------------------------------------------------------------------------!
-    DEALLOCATE(ma%data,STAT=err)
-    IF (err.NE.0) THEN
-       CALL this%Error("DeallocateMesharrayV","Unable to deallocate memory!")
-    END IF
-    NULLIFY(ma%center,ma%bcenter,ma%faces,ma%corners)
-  END SUBROUTINE DeallocateMesharrayV
-
-  !> \public deallocates memory of tensor mesh array
-  SUBROUTINE DeallocateMesharrayT(this,ma)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(mesh_base),INTENT(IN) :: this !< \param [in,out] this all mesh data
-    TYPE(MArrayT_TYP)           :: ma
-    !------------------------------------------------------------------------!
-    INTEGER                     :: err
-    !------------------------------------------------------------------------!
-    INTENT(OUT)                 :: ma
-    !------------------------------------------------------------------------!
-    DEALLOCATE(ma%data,STAT=err)
-    IF (err.NE.0) THEN
-       CALL this%Error("DeallocateMesharrayT","Unable to deallocate memory!")
-    END IF
-    NULLIFY(ma%center,ma%bcenter,ma%faces,ma%corners)
-  END SUBROUTINE DeallocateMesharrayT
 
 
   !> \public remap lower bounds in the first 2 dimensions of rank 2 subarrays
