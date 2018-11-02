@@ -39,7 +39,7 @@
 !! \key{gparam3,REAL,3rd geometry parameter}
 !! \key{omega,REAL,angular speed of rotating frame of reference,0.0}
 !! \key{rotcent,REAL,cartesian (x\,y)-coordiantes for center of rotation,(0\,0)
-!! \key{dz,REAL,extent of 3rd dimension}
+!! \key{rotsym,INTEGER,assume rotational symmetry and suppress azimuthal direction,0}
 !! - enable/disable output of certain mesh arrays
 !! \key{output/bary,INTEGER,cell bary center in cartesian coordinates,1}
 !! \key{output/bary_curv,INTEGER,cell bary center in curvilinear coordinates,1}
@@ -132,6 +132,7 @@ MODULE mesh_base_mod
     REAL              :: omega             !< speed of the rotating frame of ref.
     REAL              :: Q                 !< shearing parameter
     INTEGER           :: FARGO             !< Fargo parameter (> 0 enabled)
+    INTEGER           :: ROTSYM            !< assume rotational symmetry (> 0 enabled, contains index of azimuthal angle)
     LOGICAL           :: WE_shear          !< shear in y-direction
     LOGICAL           :: SN_shear          !< shear in x-direction
     REAL              :: rotcent(3)        !< center of the rotating frame of ref.
@@ -341,6 +342,30 @@ CONTAINS
     IF (ALL((/ this%INUM.EQ.1, this%JNUM.EQ.1, this%KNUM.EQ.1 /))) &
       CALL this%Error("InitMesh","at least one of inum,jnum,knum must be > 1.")
 
+    ! check if rotational symmetry is assumed
+    CALL GetAttr(config, "rotsym", i, 0)
+    SELECT CASE(i)
+    CASE(0)
+      ! disable rotational symmetry
+      this%ROTSYM = 0
+    CASE(1)
+      this%ROTSYM = this%geometry%GetAzimuthIndex()
+      SELECT CASE(this%ROTSYM)
+      CASE(0)
+        CALL this%Error("InitMesh","rotational symmetry not supported for this coordinates")
+      CASE(1)
+        IF (this%INUM.GT.1) CALL this%Error("InitMesh","assuming rotational symmetry, but INUM > 1")
+      CASE(2)
+        IF (this%JNUM.GT.1) CALL this%Error("InitMesh","assuming rotational symmetry, but JNUM > 1")
+      CASE(3)
+        IF (this%KNUM.GT.1) CALL this%Error("InitMesh","assuming rotational symmetry, but KNUM > 1")
+      CASE DEFAULT
+        CALL this%Error("InitMesh","index of azimuthal angle must be in {1,2,3}")
+      END SELECT
+    CASE DEFAULT
+      CALL this%Error("InitMesh","/mesh/rotsym must be either 0 (disabled) or 1 (enabled)")
+    END SELECT
+      
     ! These constants are used to access date from adjacent cells, i.e., with
     ! indices i,j,k +/- 1 and +/- 2. This should always be used instead of direct
     ! indexing, e.g. i-1 should become i+this%IM1. Some of the constants are
@@ -452,17 +477,19 @@ CONTAINS
     mesh_dy = this%dy
     this%dz = (this%zmax - this%zmin) / this%KNUM
     mesh_dz = this%dz
-    ! reset dx,dy,dz if dimension does not exists,
-    ! additionally set a mesh_dx,mesh_dy,mesh_dz to set corners, etc.
-    ! for output correctly
-    IF (this%INUM.EQ.1 .AND. this%dx.EQ.0.0) THEN
-      this%dx = 1.0
+    ! reset dx,dy,dz if direction is suppressed
+    ! additionally set a mesh_dx,mesh_dy,mesh_dz to set corners, etc. 
+    ! for output correctly (see below)
+    IF (this%INUM.EQ.1) THEN
+      IF (this%dx.LT.2*EPSILON(this%dx)) this%dx = 1.0
       mesh_dx = 0.0
-    ELSE IF(this%JNUM.EQ.1 .AND. this%dy.EQ.0.0) THEN
-      this%dy = 1.0
+    END IF
+    IF (this%JNUM.EQ.1) THEN
+      IF (this%dy.LT.2*EPSILON(this%dy)) this%dy = 1.0
       mesh_dy = 0.0
-    ELSE IF(this%KNUM.EQ.1 .AND. this%dz.EQ.0.0) THEN
-      this%dz = 1.0
+    END IF
+    IF (this%KNUM.EQ.1) THEN
+      IF (this%dz.LT.2*EPSILON(this%dz)) this%dz = 1.0
       mesh_dz = 0.0
     END IF
 
@@ -699,6 +726,17 @@ CONTAINS
       WRITE (somega, '(ES9.2)') this%omega
       CALL this%Info("            ang. velocity:    " // TRIM(somega))
     END IF
+    SELECT CASE(this%ROTSYM)
+    CASE(0)
+      somega = "disabled"
+    CASE(1)
+      somega = "x-coordinate"
+    CASE(2)
+      somega = "y-coordinate"
+    CASE(3)
+      somega = "z-coordinate"
+    END SELECT
+    CALL this%Info("            rot. symmetry:     " // TRIM(somega))
 #ifdef PARALLEL
     WRITE (xres, '(I0)') this%dims(1)
     WRITE (yres, '(I0)') this%dims(2)

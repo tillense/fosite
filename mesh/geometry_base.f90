@@ -50,6 +50,7 @@ MODULE geometry_base_mod
 
   TYPE, ABSTRACT, EXTENDS (logging_base) ::  geometry_base
     REAL,DIMENSION(3) :: geoparam                  !< geometry parameter
+    INTEGER, PRIVATE  :: azimuthIndex = 0          !< index of azimuthal angle
   CONTAINS
 
 !    PRIVATE
@@ -86,6 +87,8 @@ MODULE geometry_base_mod
     PROCEDURE :: SetScale3
     PROCEDURE :: GetScale1
     PROCEDURE :: GetScale2
+    PROCEDURE :: SetAzimuthIndex
+    PROCEDURE :: GetAzimuthIndex
 
 !    PUBLIC
     PROCEDURE, PUBLIC   :: InitGeometry
@@ -648,6 +651,30 @@ CONTAINS
                                   v_cart(1),v_cart(2),v_cart(3), &
                                   v_curv(1),v_curv(2),v_curv(3))
   END SUBROUTINE Convert2Curvilinear_vectors_3
+
+  !> \public sets the coordinate index of the azimuthal angle
+  !!
+  !! the default is 0, if there is no azimuthal angle, e.g. for cartesian coordinates
+  PURE SUBROUTINE SetAzimuthIndex(this,idx)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(geometry_base), INTENT(INOUT) :: this
+    INTEGER, INTENT(IN)                 :: idx
+    !------------------------------------------------------------------------!
+    this%azimuthIndex = idx
+  END SUBROUTINE SetAzimuthIndex
+
+  !> \public returns the coordinate index of the azimuthal angle
+  !!
+  !! the default is 0, if there is no azimuthal angle, e.g. for cartesian coordinates
+  PURE FUNCTION GetAzimuthIndex(this) RESULT(idx)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(geometry_base), INTENT(IN) :: this
+    INTEGER                          :: idx
+    !------------------------------------------------------------------------!
+    idx = this%azimuthIndex
+  END FUNCTION GetAzimuthIndex
 
   !> \public Destructor of generic geometry module
   SUBROUTINE Finalize_base(this)

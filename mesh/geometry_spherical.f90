@@ -67,10 +67,8 @@ CONTAINS
     CLASS(geometry_spherical), INTENT(INOUT) :: this
     TYPE(DICT_TYP),POINTER                   :: config
     !------------------------------------------------------------------------!
-    REAL                                     :: dz
-    !------------------------------------------------------------------------!
     CALL this%InitGeometry(SPHERICAL,geometry_name,config)
-    CALL GetAttr(config, "dz", dz, 1.0)
+    CALL this%SetAzimuthIndex(3)
   END SUBROUTINE InitGeometry_spherical
 
   ELEMENTAL SUBROUTINE ScaleFactors_0(this,xi,eta,phi,hx,hy,hz)

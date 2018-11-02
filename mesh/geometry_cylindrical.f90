@@ -64,10 +64,8 @@ CONTAINS
     CLASS(geometry_cylindrical), INTENT(INOUT) :: this
     TYPE(DICT_TYP), POINTER                    :: config
     !------------------------------------------------------------------------!
-    REAL                                     :: dz
-    !------------------------------------------------------------------------!
     CALL this%InitGeometry(CYLINDRICAL,geometry_name,config)
-    CALL GetAttr(config, "dz", dz, 1.0)
+    CALL this%SetAzimuthIndex(2)
   END SUBROUTINE InitGeometry_cylindrical
 
 
