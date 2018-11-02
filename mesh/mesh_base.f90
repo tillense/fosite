@@ -86,9 +86,9 @@ MODULE mesh_base_mod
   INTEGER, PARAMETER :: MIDPOINT     = 1 !< use midpoint rule to approximate flux integrals
   INTEGER, PARAMETER :: TRAPEZOIDAL  = 2 !< use trapezoidal rule to approximate flux integrals
   !> \}
-  !> \todo
-  INTEGER, PARAMETER :: NDIMS  = 3       ! dimensions of cartesian topology
-  INTEGER, PARAMETER :: NFACES = 6       ! amount of faces
+  !! #### parameters depending on dimensionality
+  INTEGER, PARAMETER :: NFACES(3)    = (/ 2, 4, 6 /)  !< number of faces
+  INTEGER, PARAMETER :: NCORNERS(3)  = (/ 2, 4, 8 /)  !< number of corners
   !> \todo Check why this is not in boundary base?!
   INTEGER, PARAMETER :: &
      WEST   = 1, & !< named constant for western  boundary
@@ -119,7 +119,7 @@ MODULE mesh_base_mod
     INTEGER           :: IGMIN,IGMAX       !< minimal & maximal index in x-direction with ghost cells
     INTEGER           :: JGMIN,JGMAX       !< minimal & maximal index in y-direction with ghost cells
     INTEGER           :: KGMIN,KGMAX       !< minimal & maximal index in z-direction with ghost cells
-    INTEGER           :: NDIMS              !< amount of dimension, 1 (1D), 2 (2D), 3 (3D)
+    INTEGER           :: NDIMS             !< dimensionality of the mesh: 1 (1D), 2 (2D), 3 (3D)
     INTEGER           :: NFACES            !< amount of faces, 2 (1D), 4 (2D), 6 (3D)
     INTEGER           :: NCORNERS          !< amount of corners, 2 (1D), 4 (2D), 8 (3D)
     INTEGER           :: Ip1,Ip2,Im1,Im2   !< access indices, which might become zero without x-dim
@@ -177,12 +177,12 @@ MODULE mesh_base_mod
     INTEGER                    :: MININUM,MINJNUM,MINKNUM !< min. of local INUM,JNUM
     INTEGER                    :: comm_cart               !< cartesian communicator
     INTEGER                    :: Icomm,Jcomm,Kcomm       !< communicators for cartesian rows and cols
-    !todo: allocable, in initialisierung mit this%nfaces allokieren
-    INTEGER, DIMENSION(NFACES) :: comm_boundaries !< communicators for boundary processes
-    INTEGER, DIMENSION(NFACES) :: rank0_boundaries!< map rank0 -> world rank
-    INTEGER, DIMENSION(NFACES) :: neighbor        !< ranks of neighbor proc.
-    INTEGER, DIMENSION(NDIMS)  :: dims            !< dimensions of cart comm
-    INTEGER, DIMENSION(NDIMS)  :: mycoords        !< par. proc coordinates
+    ! always setup a 3D cartesian process topology, even for 1D/2D simulations
+    INTEGER, DIMENSION(NFACES(3)) :: comm_boundaries !< communicators for boundary processes
+    INTEGER, DIMENSION(NFACES(3)) :: rank0_boundaries!< map rank0 -> world rank
+    INTEGER, DIMENSION(NFACES(3)) :: neighbor        !< ranks of neighbor proc.
+    INTEGER, DIMENSION(3)         :: dims            !< dimensions of cart comm
+    INTEGER, DIMENSION(3)         :: mycoords        !< par. proc coordinates
 #endif
   CONTAINS
     PROCEDURE :: AllocateMesharrayS
@@ -322,7 +322,16 @@ CONTAINS
     CALL GetAttr(config, "jnum", this%JNUM)
     CALL GetAttr(config, "knum", this%KNUM)
 
-    ! set access scalars depending of used dimension
+    ! do some sanity checks
+    IF (ANY((/ this%INUM.LE.0, this%JNUM.LE.0, this%KNUM.LE.0 /))) &
+      CALL this%Error("InitMesh","zero or negative resolution not allowed.")
+    IF (ALL((/ this%INUM.EQ.1, this%JNUM.EQ.1, this%KNUM.EQ.1 /))) &
+      CALL this%Error("InitMesh","at least one of inum,jnum,knum must be > 1.")
+
+    ! These constants are used to access date from adjacent cells, i.e., with
+    ! indices i,j,k +/- 1 and +/- 2. This should always be used instead of direct
+    ! indexing, e.g. i-1 should become i+this%IM1. Some of the constants are
+    ! set to 0 below, if there is only one cell in the particular direction.
     this%ip1 = 1
     this%ip2 = 2
     this%im1 = -1
@@ -336,101 +345,62 @@ CONTAINS
     this%km1 = -1
     this%km2 = -2
 
-    ! number of ghost rows/columns
+    ! number of ghost cells; default is 2 at all boundaries
+    ! it may be set to 0, if there is only one cell in
+    ! a particular dimension (see below)
     this%GNUM  = 2
     this%GINUM = this%GNUM
     this%GJNUM = this%GNUM
     this%GKNUM = this%GNUM
 
-    ! reset values if dimensions do not exist
+    ! check dimensionality and suppress boundaries
+    ! if there is only one cell in that direction
+    this%NDIMS = 3 ! assume 3D simulation
     IF (this%INUM.EQ.1) THEN
+      this%NDIMS = this%NDIMS-1
       this%GINUM = 0
       this%ip1 = 0
       this%ip2 = 0
       this%im1 = 0
       this%im2 = 0
-    ELSE IF (this%JNUM.EQ.1) THEN
+    END IF
+    IF (this%JNUM.EQ.1) THEN
+      this%NDIMS = this%NDIMS-1
       this%GJNUM = 0
       this%jp1 = 0
       this%jp2 = 0
       this%jm1 = 0
       this%jm2 = 0
-    ELSE IF (this%KNUM.EQ.1) THEN
+    END IF
+    IF (this%KNUM.EQ.1) THEN
+      this%NDIMS = this%NDIMS-1
       this%GKNUM = 0
       this%kp1 = 0
       this%kp2 = 0
       this%km1 = 0
       this%km2 = 0
     END IF
-
-    ! set amount of faces
-    IF  & ! case 1D
-      ((((this%INUM.EQ.1).AND.(this%JNUM.EQ.1)).AND.(this%KNUM.GT.1)) .OR. &
-       (((this%JNUM.EQ.1).AND.(this%KNUM.EQ.1)).AND.(this%INUM.GT.1)) .OR. &
-       (((this%KNUM.EQ.1).AND.(this%INUM.EQ.1)).AND.(this%JNUM.GT.1))) THEN
-      this%NFACES = 2
-      this%NCORNERS = 2
-      this%NDIMS = 1
-    ELSE IF  & ! case 2D
-      ((((this%INUM.EQ.1).AND.(this%JNUM.GT.1)).AND.(this%KNUM.GT.1)) .OR. &
-       (((this%JNUM.EQ.1).AND.(this%KNUM.GT.1)).AND.(this%INUM.GT.1)) .OR. &
-       (((this%KNUM.EQ.1).AND.(this%INUM.GT.1)).AND.(this%JNUM.GT.1))) THEN
-      this%NFACES = 4
-      this%NCORNERS = 4
-      this%NDIMS = 2
-    ELSE IF  & ! case 3D
-      (((this%INUM.GT.1).AND.(this%JNUM.GT.1)).AND.(this%KNUM.GT.1)) THEN
-      this%NFACES = 6
-      this%NCORNERS = 8
-      this%NDIMS = 3
-    ELSE
-      CALL this%Error("InitMesh","Cell numbering is not allowed.")
-    END IF
-
-    ! coordinate domain
-    CALL GetAttr(config, "xmin", this%xmin)
-    CALL GetAttr(config, "xmax", this%xmax)
-    CALL GetAttr(config, "ymin", this%ymin)
-    CALL GetAttr(config, "ymax", this%ymax)
-    CALL GetAttr(config, "zmin", this%zmin)
-    CALL GetAttr(config, "zmax", this%zmax)
-
-    ! coordinate differences in each direction
-    this%dx = (this%xmax - this%xmin) / this%inum
-    mesh_dx = this%dx
-    this%dy = (this%ymax - this%ymin) / this%jnum
-    mesh_dy = this%dy
-    this%dz = (this%zmax - this%zmin) / this%knum
-    mesh_dz = this%dz
-    ! reset dx,dy,dz if dimension does not exists,
-    ! additionally set a mesh_dx,mesh_dy,mesh_dz to set corners, etc.
-    ! for output correctly
-    IF (this%inum.EQ.1 .AND. this%dx.EQ.0.0) THEN
-      this%dx = 1.0
-      mesh_dx = 0.0
-    ELSE IF(this%jnum.EQ.1 .AND. this%dy.EQ.0.0) THEN
-      this%dy = 1.0
-      mesh_dy = 0.0
-    ELSE IF(this%knum.EQ.1 .AND. this%dz.EQ.0.0) THEN
-      this%dz = 1.0
-      mesh_dz = 0.0
-    END IF
-
-    ! inverse coordinate differences
-    this%invdx = 1./this%dx
-    this%invdy = 1./this%dy
-    this%invdz = 1./this%dz
+    ! set number of faces and corners depending on dimensionality
+    this%NFACES   = NFACES(this%NDIMS)
+    this%NCORNERS = NCORNERS(this%NDIMS)
 
     ! set index ranges
+    ! ATTENTION: all variables are local on MPI processes, hence this%IMIN on
+    !            one process may differ from this%IMIN on another process
 #ifdef PARALLEL
+    ! compute the MPI partitioning, i.e. the decomposition of the computational domain,
+    ! and setup various data structures MPI uses for communication
     CALL InitMesh_parallel(this, config)
     CALL MPI_Barrier(MPI_COMM_WORLD,err)
+    ! determine the maximal amount of cells in 1st dimension
     INUM = this%IMAX - this%IMIN + 1
     CALL MPI_Allreduce(inum,this%MININUM,1,MPI_INTEGER,MPI_MIN,MPI_COMM_WORLD,err)
     CALL MPI_Allreduce(inum,this%MAXINUM,1,MPI_INTEGER,MPI_MAX,MPI_COMM_WORLD,err)
+    ! determine the maximal amount of cells in 2nd dimension
     JNUM = this%JMAX - this%JMIN + 1
     CALL MPI_Allreduce(jnum,this%MINJNUM,1,MPI_INTEGER,MPI_MIN,MPI_COMM_WORLD,err)
     CALL MPI_Allreduce(jnum,this%MAXJNUM,1,MPI_INTEGER,MPI_MAX,MPI_COMM_WORLD,err)
+    ! determine the maximal amount of cells in 3rd dimension
     KNUM = this%KMAX - this%KMIN + 1
     CALL MPI_Allreduce(knum,this%MINKNUM,1,MPI_INTEGER,MPI_MIN,MPI_COMM_WORLD,err)
     CALL MPI_Allreduce(knum,this%MAXKNUM,1,MPI_INTEGER,MPI_MAX,MPI_COMM_WORLD,err)
@@ -451,9 +421,43 @@ CONTAINS
     this%KGMIN = this%KMIN - this%GKNUM
     this%KGMAX = this%KMAX + this%GKNUM
 
-    ! initialize mesh arrays
+    ! initialize mesh arrays using indices with ghost cells
     CALL InitMeshProperties(this%IGMIN,this%IGMAX,this%JGMIN,this%JGMAX,this%KGMIN,this%KGMAX)
     
+    ! coordinate domain
+    CALL GetAttr(config, "xmin", this%xmin)
+    CALL GetAttr(config, "xmax", this%xmax)
+    CALL GetAttr(config, "ymin", this%ymin)
+    CALL GetAttr(config, "ymax", this%ymax)
+    CALL GetAttr(config, "zmin", this%zmin)
+    CALL GetAttr(config, "zmax", this%zmax)
+
+    ! coordinate differences in each direction
+    this%dx = (this%xmax - this%xmin) / this%INUM
+    mesh_dx = this%dx
+    this%dy = (this%ymax - this%ymin) / this%JNUM
+    mesh_dy = this%dy
+    this%dz = (this%zmax - this%zmin) / this%KNUM
+    mesh_dz = this%dz
+    ! reset dx,dy,dz if dimension does not exists,
+    ! additionally set a mesh_dx,mesh_dy,mesh_dz to set corners, etc.
+    ! for output correctly
+    IF (this%INUM.EQ.1 .AND. this%dx.EQ.0.0) THEN
+      this%dx = 1.0
+      mesh_dx = 0.0
+    ELSE IF(this%JNUM.EQ.1 .AND. this%dy.EQ.0.0) THEN
+      this%dy = 1.0
+      mesh_dy = 0.0
+    ELSE IF(this%KNUM.EQ.1 .AND. this%dz.EQ.0.0) THEN
+      this%dz = 1.0
+      mesh_dz = 0.0
+    END IF
+
+    ! inverse coordinate differences
+    this%invdx = 1./this%dx
+    this%invdy = 1./this%dy
+    this%invdz = 1./this%dz
+
     ! allocate memory for curvilinear positions
     this%curv = marray_cellvector()
     this%center  => this%curv%RemapBounds(this%curv%center)
@@ -918,32 +922,37 @@ CONTAINS
 
 #ifdef PARALLEL
   !> \public Initialize MPI (parallel mode only)
+  !!
+  !! Create a 3D cartesian topology of processes and subdivide
+  !! the computational domain.
+  !! ATTENTION: The dimensionality of the process topology is always 3D
+  !!            even for 1D/2D simulations!
   SUBROUTINE InitMesh_parallel(this, config)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(mesh_base), INTENT(INOUT)    :: this   !< \param [in,out] this all mesh data
     TYPE(Dict_TYP),POINTER             :: config
     !------------------------------------------------------------------------!
-    LOGICAL, DIMENSION(NDIMS) :: remain_dims, periods = .FALSE.
+    LOGICAL, DIMENSION(3)              :: remain_dims, periods
     INTEGER                            :: num,rem
     INTEGER                            :: ierror
     INTEGER                            :: i,j,k
     INTEGER                            :: worldgroup,newgroup
     INTEGER, DIMENSION(1)              :: rank0in, rank0out
-    INTEGER, DIMENSION(NDIMS)          :: coords
+    INTEGER, DIMENSION(3)              :: coords
     INTEGER, ALLOCATABLE, DIMENSION(:) :: ranks
     !------------------------------------------------------------------------!
-
-    ! create a cartesian topology of processes
+    
     ! 1. balance number of processes per direction
     this%dims(1)=this%GetNumProcs()
     this%dims(2)=1
     this%dims(3)=1
-    ! account for vector length of vector CPUs
     ! \todo Comment this in again when parallelization is working!
-!    CALL CalculateDecomposition(this%INUM,this%JNUM,this%KNUM,this%GNUM, &
-!         this%dims(1),this%dims(2),this%dims(3))
-    IF (this%dims(2).LE.0) THEN
+    CALL CalculateDecomposition(this%INUM,this%JNUM,this%KNUM,this%GINUM, &
+                                this%dims(1),this%dims(2),this%dims(3))
+! PRINT *,this%dims(:)
+! CALL this%Error("InitMesh_parallel","debug breakpoint")
+    IF (this%dims(3).LE.0) THEN
        CALL this%Error("InitMesh_parallel","Domain decomposition algorithm failed.")
     END IF
 
@@ -956,7 +965,7 @@ CONTAINS
     ! coordinates like as "decomposition" / (/ -1, 1, 1 /)
     WHERE(this%dims.EQ.-1) this%dims=this%GetNumProcs()
 
-    IF((this%dims(1).LE.0).OR.(this%dims(2)).LE.0.OR.(this%dims(3).LE.0).OR.&
+    IF (ANY((/this%dims(1).LT.1,this%dims(2).LT.1,this%dims(3).LT.1/)).OR.&
        (this%dims(1)*this%dims(2)*this%dims(3).NE.this%GetNumProcs())) THEN
         CALL this%Error("InitMesh_parallel","Invalid user-defined MPI domain "&
             //"decomposition with key='/mesh/decomposition'")
@@ -964,6 +973,7 @@ CONTAINS
 
     ! 2. create the cartesian communicator
     ! IMPORTANT: disable reordering of nodes
+    periods = .FALSE.
     CALL MPI_Cart_create(MPI_COMM_WORLD,this%NDIMS,this%dims,periods,.TRUE., &
          this%comm_cart,ierror)
 
@@ -1120,141 +1130,164 @@ CONTAINS
   END SUBROUTINE InitMesh_parallel
 
 
-!  !> return the best partitioning of processes
-!  !!
-!  !! pi x pj x pk for a given mesh with resolution ni x nj x nk with
-!  !! number of ghost cells GINUM, GJNUM, GKNUM
-!  !! pi : total number of processes (<MAXNUM  see module "factors")
-!  !! pj, pk = 1 initially
-!  !! pk return 0, for erroneous input
-!  !! \todo NOT VERIFIED: Not running in 3D
-!  SUBROUTINE CalculateDecomposition(ni,nj,nk,ginum,gjnum,gknum,pi,pj,pk)
-!    USE factors
-!    IMPLICIT NONE
-!    !------------------------------------------------------------------------!
-!    INTEGER, INTENT(IN)    :: ni,nj,nk,ginum,gjnum,gknum
-!    INTEGER, INTENT(INOUT) :: pi,pj,pk
-!    !------------------------------------------------------------------------!
-!    CHARACTER(LEN=8) :: svl_char
-!    INTEGER :: svl,err
-!    !------------------------------------------------------------------------!
-!    ! get the system vector length from preprocessor macro
-!    svl_char = VECTOR_LENGTH 
-!    READ (svl_char,'(I8)') svl
-!    ! return immediatly for malformed input
-!    IF (((pi.LT.2).AND.(pj.AND.pk.NE.1)).OR.(pj.GT.MAXNUM) .OR.(nj*nk.LT.pj) &
-!        .OR.(err.NE.0)) THEN
-!       pk = 0
-!       RETURN
-!    END IF
-!    Decompose(svl,ni,nj,nk,ginum,gjnum,gknum,pi,pj,pk)
-!
-!  CONTAINS
-!
-!    !> searches for the best domain decomposition
-!    !!
-!    !! Accounts for the costs due to MPI communication (internal boundaries)
-!    !! and optimizes for a given vector length (VECTOR_LENGTH) on vector computers;
-!    !! parameters:
-!    !!   svl: system vector length
-!    !!   ni : number of grid cells in first dimension
-!    !!   nj : number of grid cells in second dimension
-!    !!   nk : number of grid cells in third dimension
-!    !!   pi : number of processes  in first dimension (=NumProcs first call)
-!    !!   pj : number of processes  in second dimension (=1 at first call)
-!    !!   pk : number of processes  in third dimension (=1 at first call)
-!    !! \todo NOT VERIFIED: Not running for 3D
-!    RECURSIVE SUBROUTINE Decompose(svl,ni,nj,nk,pi,pj,pk,pires,pjres,pkres)
-!      IMPLICIT NONE
-!      !-------------------------------------------------------------------!
-!      INTEGER, INTENT(IN)  :: svl,ni,nj,nk,pi,pj,pk
-!      INTEGER, INTENT(OUT) :: pires,pjres,pkres
-!      !-------------------------------------------------------------------!
-!      INTEGER :: pp,ptot
-!      INTEGER :: p1,p2,p3,svl,pinew,pjnew,pknew,piold,pjold,pkold
-!      INTEGER :: pfmin,pfnew,pfold
-!      INTEGER :: bl,vl,blnew,vlnew
-!      REAL    :: bl_gain,vl_gain
-!      !-------------------------------------------------------------------!
-!      ! measure the costs of the given configuration
-!      CALL GetCosts(ni,nj,nk,pi,pj,pk,bl,vl)
-!!!$PRINT '(A,2(I7),I12,I4)'," costs: ",pj,pk,bl,vl
-!      ! save the configuration
-!      piold=pi
-!      pjold=pj
-!      pkold=pk
-!      p1 = pi
-!      p2 = pj
-!      p3 = pk
-!      !> todo from here nothing changed yet
-!      ! compute the total number of processes
-!      ptot = pi*pj*pk
-!      pfmin = GetFactor(pk)      ! get smallest prime factor of pk
-!      pfold = 1
-!      pp = pi
-!      DO ! loop over all prime factors of pj which are larger than
-!         ! the smallest prime factor of pk
-!         IF (pp.LE.1) EXIT       ! if pj has been reduced to 1
-!         ! get smallest prime factor of pp, i.e. pj
-!         pfnew = GetFactor(pp)
-!         IF ((pfnew.GT.pfmin).AND.(pfmin.NE.1)) EXIT
-!         pp = pp/pfnew
-!         ! skip multiple prime factors
-!         IF (pfnew.NE.pfold) THEN
-!            ! create new configuration
-!            p1 = p1*pfold/pfnew
-!            p2 = p2/pfold*pfnew
-!            pfold = pfnew
-!            ! get the best configuration possible with p1 x p2 x p3 processes
-!            ! by reducing p1 => recursion
-!            pjnew = Decompose(svl,ni,nj,nk,p1,p2,p3,pires,pjres,pkres)
-!            pknew = ptot/pjnew  ! compute the second factor using the
-!                                ! total number of processes
-!            CALL GetCosts(ni,nj,nk,pjnew,pknew,svl,blnew,vlnew)
-!            bl_gain = bl*(1.0/blnew)             ! smaller is better
-!            vl_gain = vlnew*(1.0/vl)             ! larger is better
-!!!$PRINT '(4I7)',pjold,pkold,bl,vl
-!!!$PRINT '(4I7)',pjnew,pknew,blnew,vlnew
-!!!$PRINT *,"--------------------------------------------"
-!!!$PRINT '(A,3F7.1)',"              ",bl_gain,vl_gain,bl_gain*vl_gain
-!            ! compare new with old configuration
-!            IF (vl_gain*bl_gain.GT.1.0) THEN
-!               ! new configuration is better
-!               piold = pinew
-!               pjold = pjnew
-!               pkold = pknew
-!               bl = blnew
-!               vl = vlnew
-!            END IF
-!         END IF
-!      END DO
-!      ! return optimized number of processes in the first dimension
-!      ! (for the initial configuration pj x pk)
-!      pjres=pjold
-!    END FUNCTION Decompose
-!
-!    ! computes the sum of the length of all internal boundaries (bl)
-!    ! and the maximal vector length (vl)
-!    PURE SUBROUTINE GetCosts(n1,n2,n3,p1,p2,p3,svl,bl,vl)
-!      IMPLICIT NONE
-!      !------------------------------------------------------------------------!
-!      INTEGER, INTENT(IN)  :: n1,n2,n3,p1,p2,p3,svl
-!      INTEGER, INTENT(OUT) :: bl,vl
-!      !------------------------------------------------------------------------!
-!      INTEGER :: num,rem
-!      !------------------------------------------------------------------------!
-!      ! length of internal boundaries
-!      !bl = n1*(p2-1) + n2*(p1-1)
-!      bl = n3*n2*(p1-1) + n1*n3*(p2-1)  + n1*n2*(p3-1)
-!      ! maximal possible vector length (first array dimension)
-!      ! if n1 > svl return the length of the remainder
-!      rem = MOD(n1,p1)
-!      num = (n1-rem) / p1 + MIN(rem,1) + 2*ginum  ! account for ghost cells
-!      IF (num.GT.svl) num=MOD(num,svl)
-!      vl  = svl - MOD(ABS(num-svl),svl)
-!    END SUBROUTINE GetCosts
-!
-!  END SUBROUTINE CalculateDecomposition
+ !> return the best partitioning of processes
+ !!
+ !! compute pi x pj x pk for a given mesh with resolution ni x nj x nk and
+ !! number of ghost cells ginum in the 1st dimension (used for optimizing vector length)
+ !! pi = pnum initially with total number of processes pnum<MAXNUM  (see module "factors")
+ !! pj, pk = 1 initially
+ !! pk returns 0, for erroneous input
+ !! \todo NOT VERIFIED: Not running in 3D
+ SUBROUTINE CalculateDecomposition(ni,nj,nk,ginum,pi,pj,pk)
+   USE factors
+   IMPLICIT NONE
+   !------------------------------------------------------------------------!
+   INTEGER, INTENT(IN)    :: ni,nj,nk,ginum
+   INTEGER, INTENT(INOUT) :: pi,pj,pk
+   !------------------------------------------------------------------------!
+   CHARACTER(LEN=8) :: svl_char
+   INTEGER :: svl,err
+   !------------------------------------------------------------------------!
+   ! get the system vector length from preprocessor macro (string)
+   svl_char = VECTOR_LENGTH 
+   READ (svl_char,'(I8)',IOSTAT=err) svl
+   ! return immediatly for malformed input
+   IF (ANY((/pi.LT.2,pi.GT.MAXNUM,pj.NE.1,pk.NE.1,err.NE.0, &
+            MIN(ni,nj,nk).LT.1/))) THEN
+      pk = 0
+      RETURN
+   END IF
+   CALL Decompose(pi,pj,pk)
+
+ CONTAINS
+
+   !> searches for the best domain decomposition
+   !!
+   !! Accounts for the costs due to MPI communication (internal boundaries)
+   !! and optimizes for a given vector length (VECTOR_LENGTH) on vector computers;
+   !! parameters:
+   !!   svl: system vector length
+   !!   ni : number of grid cells in first dimension
+   !!   nj : number of grid cells in second dimension
+   !!   nk : number of grid cells in third dimension
+   !!   pi : number of processes  in first dimension (=NumProcs first call)
+   !!   pj : number of processes  in second dimension (=1 at first call)
+   !!   pk : number of processes  in third dimension (=1 at first call)
+   !! \todo NOT VERIFIED: Not running for 3D
+   RECURSIVE SUBROUTINE Decompose(pi,pj,pk)!,pires,pjres,pkres)
+     IMPLICIT NONE
+     !-------------------------------------------------------------------!
+     INTEGER, INTENT(INOUT)  :: pi,pj,pk
+     !-------------------------------------------------------------------!
+     INTEGER :: pp,ptot
+     INTEGER :: p1,p2,p3,svl,pinew,pjnew,pknew,piold,pjold,pkold,pinew_,pjnew_,pknew_
+     INTEGER :: pfmin,pfnew,pfold
+     INTEGER :: bl,vl,blnew,vlnew,blnew_,vlnew_
+     REAL    :: bl_gain,vl_gain
+     !-------------------------------------------------------------------!
+     ! measure the costs of the given configuration
+     CALL GetCosts(ni,nj,nk,pi,pj,pk,bl,vl)
+! PRINT '(3(A,I4),A,I7,A,I4)'," pi=",pi," pj=",pj," pk=",pk," boundary length=",bl," vector length=",vl
+     ! save the configuration
+     piold=pi
+     pjold=pj
+     pkold=pk
+     p1 = pi
+     p2 = pj
+     p3 = pk
+     ! compute the total number of processes
+     ptot = pi*pj*pk
+     pfmin = GetFactor(pj)      ! get smallest prime factor of pj
+     pfold = 1
+     pp = pi
+     DO ! loop over all prime factors of pi which are larger than
+        ! the smallest prime factor of pj
+        IF (pp.LE.1) EXIT       ! if pj has been reduced to 1
+        ! get smallest prime factor of pp, i.e. pj
+        pfnew = GetFactor(pp)
+        IF ((pfnew.GT.pfmin).AND.(pfmin.NE.1)) EXIT
+        pp = pp/pfnew
+        ! skip multiple prime factors
+        IF (pfnew.NE.pfold) THEN
+           ! create new configuration
+           p1 = p1*pfold/pfnew
+           p2 = p2/pfold*pfnew
+           pfold = pfnew
+           ! get the best configuration possible with p1 x p2 x p3 processes
+           ! by reducing p1 => recursion
+           pinew = p1
+           pjnew = p2
+           pknew = p3
+           CALL Decompose(pinew,pjnew,pknew)
+           CALL GetCosts(ni,nj,nk,pinew,pjnew,pknew,blnew,vlnew)
+           ! do the same with p2 <-> p3 interchanged
+           pinew_= p1
+           pjnew_= p3
+           pknew_= p2
+           CALL Decompose(pinew,pjnew_,pknew_)
+           CALL GetCosts(ni,nj,nk,pinew_,pjnew_,pknew_,blnew_,vlnew_)
+           ! check which of the 2 configurations is better
+           bl_gain = blnew*(1.0/blnew_)             ! smaller is better
+           vl_gain = vlnew_*(1.0/vlnew)             ! larger is better
+!!$PRINT '(4I7)',pjold,pkold,bl,vl
+!!$PRINT '(4I7)',pjnew,pknew,blnew,vlnew
+!!$PRINT *,"--------------------------------------------"
+!!$PRINT '(A,3F7.1)',"              ",bl_gain,vl_gain,bl_gain*vl_gain
+           IF (vl_gain*bl_gain.GT.1.0) THEN
+             ! 2nd configuration is better
+             pinew = pinew_
+             pjnew = pjnew_
+             pknew = pknew_
+             blnew = blnew_
+             vlnew = vlnew_
+           END IF
+           ! check if the old configuration is better
+           bl_gain = bl*(1.0/blnew)             ! smaller is better
+           vl_gain = vlnew*(1.0/vl)             ! larger is better
+           IF (vl_gain*bl_gain.GT.1.0) THEN
+             ! new configuration is better
+             piold = pinew
+             pjold = pjnew
+             pkold = pknew
+             bl    = blnew
+             vl    = vlnew
+           END IF
+        END IF
+     END DO
+     ! return optimized number of processes in the first dimension
+     ! (for the initial configuration pj x pk)
+     pj=pjold
+     pk=pkold
+     pi=ptot/pj/pk
+   END SUBROUTINE Decompose
+
+   ! computes the sum of the length of all internal boundaries (bl)
+   ! and the mean vector length (vl)
+   PURE SUBROUTINE GetCosts(n1,n2,n3,p1,p2,p3,bl,vl)
+     IMPLICIT NONE
+     !------------------------------------------------------------------------!
+     INTEGER, INTENT(IN)  :: n1,n2,n3,p1,p2,p3
+     INTEGER, INTENT(OUT) :: bl,vl
+     !------------------------------------------------------------------------!
+     INTEGER :: num,rem
+     !------------------------------------------------------------------------!
+     ! length of internal boundaries
+     bl = n3*n2*(p1-1) + n1*n3*(p2-1)  + n1*n2*(p3-1)
+     ! get the maximal number of cells along the first dimension
+     ! including ghost cells on both ends
+     num = n1 / p1  + 2*ginum
+     IF (MOD(n1,p1).NE.0) num = num + 1 ! if the remainder is not zero add 1
+     IF (num.LE.svl) THEN
+       ! num fits into one vector
+       vl = num
+     ELSE
+       ! we need more the one vector which may be filled completely or only partly
+       ! return the closest integer to the average filling
+       vl = num / ((num / svl) + 1)
+     END IF
+   END SUBROUTINE GetCosts
+
+ END SUBROUTINE CalculateDecomposition
 #endif
 !---------------------END PARALLEL-------------------------------------------!
 
