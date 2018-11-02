@@ -12,25 +12,10 @@ execute_process(
 )
 add_compile_options("-DVERSION=\"${GIT_VERSION}\"")
 
-
-# list of known fortran compilers
-if( NOT DEFINED ENV{FC})
-  set(CMAKE_Fortran_COMPILER_INIT
-          nfort sxf03 gfortran ifort
-          ifc af95 af90 efc f95 pathf2003 pathf95 pgf95 pgfortran lf95 xlf95
-          fort gfortran-4 g95 f90 pathf90 pgf90 xlf90 epcf90 fort77
-          frt pgf77 xlf fl32 af77 g77 f77
-          )
-elseif(DEFINED ENV{FC})
-  set(CMAKE_Fortran_COMPILER $ENV{FC})
-endif()
-enable_language (Fortran)
-enable_testing()
-
 # make sure that the default is a RELEASE
 if (NOT CMAKE_BUILD_TYPE)
   set (CMAKE_BUILD_TYPE RELEASE CACHE STRING
-      "Choose the type of build, options are: None Debug Release."
+      "Choose the type of build, options are: None Debug Release Profiling."
       FORCE)
 endif (NOT CMAKE_BUILD_TYPE)
 
@@ -40,65 +25,80 @@ set (CMAKE_INSTALL_PREFIX ${default_prefix} CACHE STRING
       "Choose the installation directory; by default it installs in the build directory."
       FORCE)
 
-#------------------------ comand line options -------------------------#
+#------------------------ command line options -------------------------#
 option(PARALLEL "PARALLEL" OFF)
-MESSAGE(STATUS "Running in parallel: " ${PARALLEL})
+if (PARALLEL MATCHES "ON")
+  add_compile_options(-DPARALLEL -DHAVE_MPI_MOD)
+  set(CMAKE_Fortran_COMPILER_NAMES mpifort)
+  message(STATUS "Configuring parallel build using MPI")
+endif()
+
+set (X86_VECTOR_EXTENSION NONE CACHE STRING "Enable x86 vector extensions, possible values are: NONE AVX AVX2 AVX-512")
+
+enable_language (Fortran)
+enable_testing()
+
+# message("${CMAKE_Fortran_COMPILER_ID}")
 
 #-------------------- choose compiler & set flags ---------------------#
-# FFLAGS depend on the compiler
-get_filename_component (Fortran_COMPILER_NAME ${CMAKE_Fortran_COMPILER} NAME)
-MESSAGE( STATUS "Compiler: " ${CMAKE_Fortran_COMPILER})
+#get_filename_component (Fortran_COMPILER_NAME ${CMAKE_Fortran_COMPILER} NAME)
+set (CMAKE_Fortran_FLAGS "${FCFLAGS}")
 
-if (Fortran_COMPILER_NAME MATCHES "(.*)gfortran")
-  # gfortran
-  set (CMAKE_Fortran_FLAGS "${FCFLAGS} -fdefault-real-8 -cpp -ffree-line-length-none")
+if (CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
+  # GNU compiler, i.e. gfortran
+  add_compile_options(-fdefault-real-8 -cpp -ffree-line-length-none)
+  if (NOT X86_VECTOR_EXTENSION MATCHES "NONE")
+    message(STATUS "using x86 advanced vector instructions: " ${X86_VECTOR_EXTENSION})
+    if (X86_VECTOR_EXTENSION MATCHES "AVX")
+      add_compile_options(-mavx)
+    elseif (X86_VECTOR_EXTENSION MATCHES "AVX2")
+      add_compile_options(-mavx2)
+    elseif (X86_VECTOR_EXTENSION MATCHES "AVX-512")
+      add_compile_options(-mavx512f)
+    endif()
+  endif()
   set (CMAKE_Fortran_FLAGS_RELEASE "-funroll-all-loops -fno-f2c -O3")
   set (CMAKE_Fortran_FLAGS_PROFILING "-funroll-all-loops -fno-f2c -O3 -pg -no-pie")
-  set (CMAKE_Fortran_FLAGS_DEBUG   "-fno-f2c -O2 -g -fcheck=all")
-  if(CMAKE_Fortran_COMPILER_VERSION VERSION_LESS 4.9)
-    message(FATAL_ERROR "Insufficient gfortran version")
-  endif()
-elseif (Fortran_COMPILER_NAME MATCHES "(.*)mpifort")
-  # mpifort
-  message("Building Fosite in parallel mode")
-  set (CMAKE_Fortran_FLAGS "${FCFLAGS} -fdefault-real-8 -cpp -ffree-line-length-none -DPARALLEL -DHAVE_MPI_MOD")
-  set (CMAKE_Fortran_FLAGS_RELEASE "-funroll-all-loops -fno-f2c -O3")
   set (CMAKE_Fortran_FLAGS_DEBUG   "-fno-f2c -O2 -g -fcheck=all -Wunused")
   if(CMAKE_Fortran_COMPILER_VERSION VERSION_LESS 4.9)
-    message(FATAL_ERROR "Insufficient gfortran version")
+    message(FATAL_ERROR "gfortran must be at least version 4.9")
   endif()
-elseif (Fortran_COMPILER_NAME MATCHES "(.*)ifort")
-  # ifort
-  set (CMAKE_Fortran_FLAGS "${FCFLAGS} -cpp -r8 -stand f03")
+elseif (CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
+  # intel Fortran compiler, i.e. ifort
+  add_compile_options(-cpp -r8 -stand f03)
   set (CMAKE_Fortran_FLAGS_RELEASE "-O3")
   set (CMAKE_Fortran_FLAGS_DEBUG   "-O0 -g")
   set (CMAKE_Fortran_FLAGS_PROFILING "-O3 -pg")
-elseif (Fortran_COMPILER_NAME MATCHES "(.*)nfort")
-  set (CMAKE_Fortran_FLAGS "${FCFLAGS} -report-all -proginf -fdefault-real=8 -x f95-cpp-input")
+elseif (CMAKE_Fortran_COMPILER_ID MATCHES "NEC")
+  add_compile_options(-report-all -proginf -fdefault-real=8 -x f95-cpp-input)
   set (CMAKE_Fortran_FLAGS_RELEASE "-finline-max-depth=5 -finline-functions -floop-collapse")
   set (CMAKE_Fortran_FLAGS_DEBUG   "-O0 -g")
   set (CMAKE_Fortran_FLAGS_PROFILING "-finline-max-depth=5 -finline-functions -floop-collapse -ftrace")
   set (CMAKE_EXE_LINKER_FLAGS "-proginf")
   set (CMAKE_EXE_LINKER_FLAGS_PROFILING "-ftrace")
-elseif (Fortran_COMPILER_NAME MATCHES "g77")
-  # g77
-  message(FATAL_ERROR "Fortran 77 is oldschool but still not supported.")
 #  set (LINK_FLAGS "")
-else (Fortran_COMPILER_NAME MATCHES "gfortran.*")
-  message ("CMAKE_Fortran_COMPILER full path: " ${CMAKE_Fortran_COMPILER})
-  message ("Fortran compiler: " ${Fortran_COMPILER_NAME})
-  message ("No optimized Fortran compiler flags are known, we just try -O2...")
-  set (CMAKE_Fortran_FLAGS_RELEASE "-O2")
-  set (CMAKE_Fortran_FLAGS_DEBUG   "-O0 -g")
-endif (Fortran_COMPILER_NAME MATCHES "(.*)gfortran")
+else (Fortran_COMPILER_NAME_ID MATCHES "GNU")
+  # unknown compiler
+  message (STATUS "Found unsupported Fortran compiler: " ${CMAKE_Fortran_COMPILER})
+  set (CMAKE_Fortran_FLAGS_RELEASE "")
+  set (CMAKE_Fortran_FLAGS_DEBUG   "")
+  set (CMAKE_Fortran_FLAGS_PROFILING "")
+endif (CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
 
 # set preprocessor macro to the vector length of the target system
 # DEFAULT: 1
-# TODO: add other target systems
 if (CMAKE_SYSTEM_NAME MATCHES "(.*)SX-Aurora")
   add_compile_options(-DVECTOR_LENGTH="256")
 else ()#(CMAKE_SYSTEM_NAME MATCHES "(.*)SX-AURORA")
-  add_compile_options(-DVECTOR_LENGTH="1")
+  if (X86_VECTOR_EXTENSION MATCHES "AVX")
+    add_compile_options(-DVECTOR_LENGTH="16")
+  elseif (X86_VECTOR_EXTENSION MATCHES "AVX2")
+    add_compile_options(-DVECTOR_LENGTH="16")
+  elseif (X86_VECTOR_EXTENSION MATCHES "AVX-512")
+    add_compile_options(-DVECTOR_LENGTH="32")
+  else()
+    add_compile_options(-DVECTOR_LENGTH="1")
+  endif()
 endif ()#(CMAKE_SYSTEM_NAME MATCHES "(.*)SX-AURORA")
 
 MARK_AS_ADVANCED(CMAKE_Fortran_FLAGS_PROFILING
