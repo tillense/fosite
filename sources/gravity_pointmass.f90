@@ -270,9 +270,9 @@ CONTAINS
     ! enable mass accretion by setting "outbound" to one of the four boundaries
     ! of the computational domain (depends on mesh geometry)
     SELECT CASE(Mesh%geometry%GetType())
-    CASE(POLAR,LOGPOLAR,TANPOLAR,SINHPOLAR,SPHERICAL,OBLATE_SPHEROIDAL,SINHSPHERICAL)
+    CASE(CYLINDRICAL,LOGCYLINDRICAL,TANPOLAR,SINHPOLAR,SPHERICAL,OBLATE_SPHEROIDAL,SINHSPHERICAL)
        CALL GetAttr(config, "outbound", this%outbound, WEST)
-    CASE(CYLINDRICAL,TANCYLINDRICAL,BIPOLAR)
+    CASE(TANCYLINDRICAL,BIPOLAR)
        CALL GetAttr(config, "outbound", this%outbound, SOUTH)
     CASE DEFAULT
        CALL GetAttr(config, "outbound", this%outbound, 0)

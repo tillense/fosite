@@ -2,17 +2,19 @@ add_library(mesh
   marray_base.f90
   marray_cellscalar.f90
   marray_cellvector.f90
-  #mesh_trapezoidal.f90
-  #geometry_channel.f90
-  geometry_cylindrical.f90
-  geometry_spherical.f90
   mesh_base.f90
-  #geometry_oblatespheroidal.f90
-  geometry_cartesian.f90
-  #geometry_sinhpolar.f90
+  mesh_generic.f90
   mesh_midpoint.f90
-  #geometry_tanpolar.f90
+  #mesh_trapezoidal.f90
   geometry_base.f90
+  geometry_cartesian.f90
+  geometry_cylindrical.f90
+  geometry_generic.f90
+  geometry_logcylindrical.f90
+  geometry_spherical.f90
+  #geometry_oblatespheroidal.f90
+  #geometry_sinhpolar.f90
+  #geometry_tanpolar.f90
   #geometry_logpolar.f90
   #geometry_bipolar.f90
   #geometry_polypolar.f90
@@ -20,10 +22,9 @@ add_library(mesh
   #geometry_lncoshcylindrical.f90
   #geometry_sinhspherical.f90
   #geometry_tancylindrical.f90
+  #geometry_channel.f90
   #geometry_elliptic.f90
   #geometry_sinhcartesian.f90
   #geometry_bianglespherical.f90
-  mesh_generic.f90
-  geometry_generic.f90
 )
 target_link_libraries(mesh common)

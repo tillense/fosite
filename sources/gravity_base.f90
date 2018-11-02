@@ -100,8 +100,9 @@ MODULE gravity_base_mod
      REAL, DIMENSION(:,:,:), POINTER    :: rho_ext       !< disk density in equatorial plane
                                                       !< of the external potentials
      REAL, DIMENSION(:,:,:,:,:), POINTER :: mrho_ext    !< multiple rho_ext
-     REAL, DIMENSION(:,:,:), POINTER  :: invheight2   !< 1/h**2
-     REAL, DIMENSION(:,:,:), POINTER  :: height,h_ext !< disk scale height
+     REAL, DIMENSION(:,:,:), POINTER  :: invheight2=>null()   !< 1/h**2
+     REAL, DIMENSION(:,:,:), POINTER  :: height=>null()  !< disk scale height
+     REAL, DIMENSION(:,:,:), POINTER  :: h_ext=>null()  !< disk scale height
      INTEGER                          :: n             !< number of potentials
      REAL,DIMENSION(:,:),POINTER      :: s0, sdelta    !< ramp fn: s0 + sdelta*t
      REAL,DIMENSION(:),POINTER        :: lastfac       !< last switchon factors

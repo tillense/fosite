@@ -73,7 +73,6 @@ PROGRAM Init
   REAL, PARAMETER    :: MU      = 2.35e-3        ! mean molecular mass [kg/mol] !
   REAL, PARAMETER    :: RG      = 8.31447        ! molar gas constant        !
   ! mesh settings
-  INTEGER, PARAMETER :: MGEO = LOGPOLAR          ! geometry of the mesh      !
   REAL, PARAMETER    :: GPAR = AU                ! geometry scaling paramete !
   REAL, PARAMETER    :: RMIN = 1.5*SEMMA         ! inner radius of the disk  !
   REAL, PARAMETER    :: RMAX = 5.0*AU            ! outer radius of the grid  !
@@ -109,7 +108,8 @@ CONTAINS
     CLASS(fosite), INTENT(INOUT) :: Sim
     TYPE(Dict_TYP),POINTER       :: config
     TYPE(Dict_TYP),POINTER       :: mesh, physics, fluxes, boundary,grav, &
-                                    sources, binary, vis, timedisc, datafile
+                                    sources, binary, vis, timedisc, datafile, &
+                                    pmass
     !------------------------------------------------------------------------!
     ! Local variable declaration
     CHARACTER(LEN=9)  :: geo_str,r1_str,r2_str,d_str
@@ -119,13 +119,14 @@ CONTAINS
     OMEGA  = SQRT(GN*(MBH1+MBH2)/SEMMA)/SEMMA
     PERIOD = 2.*PI / OMEGA
     CSISO = HRATIO*SQRT((MBH1+MBH2)*GN/1.0)        ! r(:,:,:)
+    OMEGA  = 0.0
 
     ! mesh settings
     ! stellar orbits must be inside the central hole of the mesh
     mesh => Dict( &
               "meshtype"        / MIDPOINT, &
-!              "geometry"        / LOGPOLAR, &
-              "geometry"        / CYLINDRICAL, &
+              "geometry"        / LOGCYLINDRICAL, &
+!              "geometry"        / CYLINDRICAL, &
               "inum"            / XRES, &
               "jnum"            / YRES, &
               "knum"            / ZRES, &
@@ -189,11 +190,16 @@ CONTAINS
               "output/omega"    / 1, &
               "semimayoraxis"   / SEMMA)
 
+    pmass => Dict( &
+              "gtype"           / POINTMASS, &
+              "mass"            / MBH1)
+
 
     ! source term due to all gravity terms
     grav => Dict( &
               "stype"           / GRAVITY, &
-              "binary"          / BINARY,&
+!              "binary"         / binary,&
+              "pointmass"       / pmass,&
 !              "self/gtype"      / SPECTRAL, &
 !              "self/green"      / 1, &
 !              "energy"          / 0, &
@@ -213,7 +219,7 @@ CONTAINS
               "cfl"             / 0.3, &
               "stoptime"        / (PERIOD*TSIM), &
               "dtlimit"         / 1.0E-40,&
-              "tol_rel"         / 1.0E-1, &
+              "tol_rel"         / 1.0E-3, &
               "tol_abs"         / (/ 1.0E-16, 1., 1.0E-16 /), &
               "rhstype"         / 1, &
 !              "output/bflux"    / 1,&

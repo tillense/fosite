@@ -166,10 +166,10 @@ CONTAINS
                "Unable to allocate memory.")
        ! check geometry
        SELECT CASE(Mesh%geometry%GetType())
-       CASE(POLAR,LOGPOLAR,TANPOLAR,SINHPOLAR)
+       CASE(CYLINDRICAL,LOGCYLINDRICAL,LOGPOLAR,TANPOLAR,SINHPOLAR)
           ! compute inverse of distance to origin
           this%invr(:,:,:) = 1./(TINY(1.0)+Mesh%radius%bcenter(:,:,:))
-       CASE(CYLINDRICAL,TANCYLINDRICAL,SPHERICAL,OBLATE_SPHEROIDAL)
+       CASE(TANCYLINDRICAL,SPHERICAL,OBLATE_SPHEROIDAL)
           ! compute inverse of distance to axis
           this%invr(:,:,:) = 1./(TINY(1.0)+Mesh%hz%bcenter(:,:,:))
        CASE DEFAULT

@@ -34,9 +34,10 @@
 !----------------------------------------------------------------------------!
 MODULE geometry_generic_mod
   USE geometry_base_mod
-  USE geometry_spherical_mod
   USE geometry_cartesian_mod
   USE geometry_cylindrical_mod
+  USE geometry_logcylindrical_mod
+  USE geometry_spherical_mod
   USE common_dict
 
 !  INTERFACE geometry_base
@@ -60,6 +61,8 @@ CONTAINS
       ALLOCATE(geometry_cartesian::Geometry)
     CASE(CYLINDRICAL)
       ALLOCATE(geometry_cylindrical::Geometry)
+    CASE(LOGCYLINDRICAL)
+      ALLOCATE(geometry_logcylindrical::Geometry)
     CASE(SPHERICAL)
       ALLOCATE(geometry_spherical::Geometry)
     CASE DEFAULT
@@ -72,6 +75,8 @@ CONTAINS
       CALL geometry_child%InitGeometry_cartesian(config)
     TYPE IS (geometry_cylindrical)
       CALL geometry_child%InitGeometry_cylindrical(config)
+    TYPE IS (geometry_logcylindrical)
+      CALL geometry_child%InitGeometry_logcylindrical(config)
     TYPE IS (geometry_spherical)
       CALL geometry_child%InitGeometry_spherical(config)
     END SELECT
