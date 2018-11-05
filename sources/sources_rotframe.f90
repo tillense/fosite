@@ -79,8 +79,6 @@ CONTAINS
     INTEGER           :: err
     INTEGER           :: i,j
     !------------------------------------------------------------------------!
-    INTENT(IN)        :: Mesh,Physics
-    !------------------------------------------------------------------------!
     CALL GetAttr(config, "stype", stype)
     CALL this%InitLogging(stype,source_name)
     CALL this%InitSources(Mesh,Fluxes,Physics,config,IO)
