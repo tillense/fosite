@@ -941,37 +941,100 @@ CONTAINS
     INTEGER                            :: i,j,k
     INTEGER                            :: worldgroup,newgroup
     INTEGER, DIMENSION(1)              :: rank0in, rank0out
-    INTEGER, DIMENSION(3)              :: coords
+    INTEGER, DIMENSION(3)              :: coords,ncells,dims
     INTEGER, ALLOCATABLE, DIMENSION(:) :: ranks
     !------------------------------------------------------------------------!
+    ! 1. Check if the user has requests a particular decomposition.
+    ! There are two ways a user may control automatic decomposition:
+    ! (a) explicitly set the number of processes along a certain direction,
+    !     e.g., decomposition = (/ 5,4,1 /) generates a cartesian communicator
+    !     with 5 processes along the x-direction and 4 processes along the y-direction
+    ! (b) if a number specified for certain dimension is negative let the algorithm
+    !     find an optimal number of processes along that direction, e.g.,
+    !     decomposition = (/ -1, 4, 1 /) generates a cartesian communicator
+    !     with NumProcs / 4 processes along the x-direction and 4 processes
+    !     along the y-direction with NumProcs beeing the total number of MPI
+    !     processes given at the command line. If 4 is not a prime factor of
+    !     NumProcs the program aborts with an error message.
+    ! The default is automatic domain decomposition, i.e. finding the optimal
+    ! distribution of processes along all directions considering the number of
+    ! cells and the hardware vector length.
+    ! This is done in CalculateDecomposition() (see below).
+    dims(:)= -1
+    CALL GetAttr(config, "decomposition", dims, dims(:))
     
-    ! 1. balance number of processes per direction
-    this%dims(1)=this%GetNumProcs()
-    this%dims(2)=1
-    this%dims(3)=1
-    ! \todo Comment this in again when parallelization is working!
-    CALL CalculateDecomposition(this%INUM,this%JNUM,this%KNUM,this%GINUM, &
-                                this%dims(1),this%dims(2),this%dims(3))
+    ! set number of cells along each direction
+    ncells(1) = this%INUM
+    ncells(2) = this%JNUM
+    ncells(3) = this%KNUM
+
+    ! perform some sanity checks
+    IF (ALL(dims(:).GE.1).AND.PRODUCT(dims(:)).NE.this%GetNumProcs()) &
+      CALL this%Error("InitMesh_parallel","total number of processes in domain decomposition" &
+         // ACHAR(10) // "does not match the number passed to mpirun")
+    
+    IF (ANY(dims(:).EQ.0)) &
+      CALL this%Error("InitMesh_parallel","numbers in decomposition should not be 0")
+    
+    IF (MOD(this%GetNumProcs(),PRODUCT(dims(:),dims(:).GT.1)).NE.0) &
+      CALL this%Error("InitMesh_parallel","numbers in decomposition are not devisors" &
+        // ACHAR(10) // "of the total number of processes passed to mpirun")
+
+    IF (ANY(dims(:).GT.ncells(:))) &
+      CALL this%Error("InitMesh_parallel","number of processes exceeds number of cells " &
+        // ACHAR(10) // "in at least one dimension, check decomposition")
+
+    
+    ! balance number of processes if requested
+    IF (ALL(dims(:).GT.0)) THEN
+      ! (a) all dims user supplied -> do nothing
+    ELSE IF (PRODUCT(dims(:)).GT.0) THEN
+      ! (b) two dims < 0 one dim > 0 -> find optimal decomposition fixing one of the dims
+      !     using the user supplied number
+      k = MAXLOC(dims(:),1) ! get the one index k with dims(k) > 0
+      ! suppress decomposition along the k-direction
+      ncells(k) = 1
+      i = dims(k) ! remember dims(k)
+      IF (k.EQ.1) THEN
+        ! switch entries 1 and 3 to make sure the first entry is not the one we are not decomposing
+        dims(3) = this%GetNumProcs() / dims(k) ! reduced total number of processes
+        dims(2) = 1
+        dims(1) = 1
+        CALL CalculateDecomposition(ncells(3),ncells(2),ncells(1),this%GKNUM, &
+                                    dims(3),dims(2),dims(1))
+      ELSE
+        dims(1) = this%GetNumProcs() / dims(k) ! reduced total number of processes
+        dims(2) = 1
+        dims(3) = 1
+        CALL CalculateDecomposition(ncells(1),ncells(2),ncells(3),this%GKNUM, &
+                                    dims(1),dims(2),dims(3))
+      END IF
+      dims(k) = i
+    ELSE IF (ALL(dims(:).LT.0)) THEN
+      ! (c) all dims < 0 -> find optimal decomposition using all dimensions
+      dims(1) = this%GetNumProcs()
+      dims(2) = 1
+      dims(3) = 1
+      CALL CalculateDecomposition(ncells(1),ncells(2),ncells(3),this%GINUM, &
+                                  dims(1),dims(2),dims(3))
+    ELSE
+      ! (d) one dim < 0 two dims > 0 -> fix the two dimensions and set the 3rd
+      !     using the given number of processes
+      k = MINLOC(dims(:),1) ! get the one index k with dims(k) < 0
+      dims(k) = this%GetNumProcs() / PRODUCT(dims(:),dims(:).GT.1)
+      IF (dims(k).GT.ncells(k)) &
+        CALL this%Error("InitMesh_parallel","number of processes exceeds number of cells " &
+          // ACHAR(10) // "in dimension " // ACHAR(48+k) // ", check decomposition")
+      this%dims(:) = dims(:)
+    END IF
+
+    IF (dims(3).LE.0) THEN
+      CALL this%Error("InitMesh_parallel","Domain decomposition algorithm failed.")
+    END IF
+    
+    this%dims(:) = dims(:)
 ! PRINT *,this%dims(:)
 ! CALL this%Error("InitMesh_parallel","debug breakpoint")
-    IF (this%dims(3).LE.0) THEN
-       CALL this%Error("InitMesh_parallel","Domain decomposition algorithm failed.")
-    END IF
-
-    ! Check if the user set the decomposition dims himself and override the
-    ! automatic settings
-    CALL GetAttr(config, "decomposition", this%dims, this%dims(:))
-
-    ! If a dimension equals -1, replace it with the total number of processors
-    ! This makes it easy to define pure annular ring decompositions in polar
-    ! coordinates like as "decomposition" / (/ -1, 1, 1 /)
-    WHERE(this%dims.EQ.-1) this%dims=this%GetNumProcs()
-
-    IF (ANY((/this%dims(1).LT.1,this%dims(2).LT.1,this%dims(3).LT.1/)).OR.&
-       (this%dims(1)*this%dims(2)*this%dims(3).NE.this%GetNumProcs())) THEN
-        CALL this%Error("InitMesh_parallel","Invalid user-defined MPI domain "&
-            //"decomposition with key='/mesh/decomposition'")
-    END IF
 
     ! 2. create the cartesian communicator
     ! IMPORTANT: disable reordering of nodes
@@ -1139,7 +1202,6 @@ CONTAINS
  !! pi = pnum initially with total number of processes pnum<MAXNUM  (see module "factors")
  !! pj, pk = 1 initially
  !! pk returns 0, for erroneous input
- !! \todo NOT VERIFIED: Not running in 3D
  SUBROUTINE CalculateDecomposition(ni,nj,nk,ginum,pi,pj,pk)
    USE factors
    IMPLICIT NONE
@@ -1154,7 +1216,7 @@ CONTAINS
    svl_char = VECTOR_LENGTH 
    READ (svl_char,'(I8)',IOSTAT=err) svl
    ! return immediatly for malformed input
-   IF (ANY((/pi.LT.2,pi.GT.MAXNUM,pj.NE.1,pk.NE.1,err.NE.0, &
+   IF (ANY((/pi.LT.1,pi.GT.MAXNUM,pj.NE.1,pk.NE.1,err.NE.0, &
             MIN(ni,nj,nk).LT.1/))) THEN
       pk = 0
       RETURN
@@ -1175,18 +1237,20 @@ CONTAINS
    !!   pi : number of processes  in first dimension (=NumProcs first call)
    !!   pj : number of processes  in second dimension (=1 at first call)
    !!   pk : number of processes  in third dimension (=1 at first call)
-   !! \todo NOT VERIFIED: Not running for 3D
-   RECURSIVE SUBROUTINE Decompose(pi,pj,pk)!,pires,pjres,pkres)
+   RECURSIVE SUBROUTINE Decompose(pi,pj,pk)
      IMPLICIT NONE
      !-------------------------------------------------------------------!
      INTEGER, INTENT(INOUT)  :: pi,pj,pk
      !-------------------------------------------------------------------!
      INTEGER :: pp,ptot
-     INTEGER :: p1,p2,p3,svl,pinew,pjnew,pknew,piold,pjold,pkold,pinew_,pjnew_,pknew_
+     INTEGER :: p1,p2,p3,pinew,pjnew,pknew,piold,pjold,pkold,pinew_,pjnew_,pknew_
      INTEGER :: pfmin,pfnew,pfold
      INTEGER :: bl,vl,blnew,vlnew,blnew_,vlnew_
      REAL    :: bl_gain,vl_gain
      !-------------------------------------------------------------------!
+     ! return immediatly if the number of processes exceeds the number of
+     ! grid cells, i.e. no subdivision possible
+     IF (pj.GT.nj.OR.pk.GT.nk) RETURN
      ! measure the costs of the given configuration
      CALL GetCosts(ni,nj,nk,pi,pj,pk,bl,vl)
 ! PRINT '(3(A,I4),A,I7,A,I4)'," pi=",pi," pj=",pj," pk=",pk," boundary length=",bl," vector length=",vl
@@ -1226,7 +1290,7 @@ CONTAINS
            pinew_= p1
            pjnew_= p3
            pknew_= p2
-           CALL Decompose(pinew,pjnew_,pknew_)
+           CALL Decompose(pinew_,pjnew_,pknew_)
            CALL GetCosts(ni,nj,nk,pinew_,pjnew_,pknew_,blnew_,vlnew_)
            ! check which of the 2 configurations is better
            bl_gain = blnew*(1.0/blnew_)             ! smaller is better
@@ -1271,21 +1335,26 @@ CONTAINS
      INTEGER, INTENT(IN)  :: n1,n2,n3,p1,p2,p3
      INTEGER, INTENT(OUT) :: bl,vl
      !------------------------------------------------------------------------!
-     INTEGER :: num,rem
+     INTEGER :: num
      !------------------------------------------------------------------------!
      ! length of internal boundaries
      bl = n3*n2*(p1-1) + n1*n3*(p2-1)  + n1*n2*(p3-1)
-     ! get the maximal number of cells along the first dimension
-     ! including ghost cells on both ends
-     num = n1 / p1  + 2*ginum
-     IF (MOD(n1,p1).NE.0) num = num + 1 ! if the remainder is not zero add 1
-     IF (num.LE.svl) THEN
-       ! num fits into one vector
-       vl = num
+     ! estimate the average vector length if the system vector length is large than 1
+     IF (svl.GT.1) THEN
+        ! get the maximal number of cells along the first dimension
+        ! including ghost cells on both ends
+        num = n1 / p1  + 2*ginum
+        IF (MOD(n1,p1).NE.0) num = num + 1 ! if the remainder is not zero add 1
+        IF (num.LE.svl) THEN
+          ! num fits into one vector
+          vl = num
+        ELSE
+          ! we need more the one vector which may be filled completely or only partly
+          ! return the closest integer to the average filling
+          vl = num / ((num / svl) + 1)
+        END IF
      ELSE
-       ! we need more the one vector which may be filled completely or only partly
-       ! return the closest integer to the average filling
-       vl = num / ((num / svl) + 1)
+       vl = 1
      END IF
    END SUBROUTINE GetCosts
 
