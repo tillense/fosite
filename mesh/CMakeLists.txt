@@ -11,6 +11,7 @@ add_library(mesh
   geometry_cylindrical.f90
   geometry_generic.f90
   geometry_logcylindrical.f90
+  geometry_logspherical.f90
   geometry_spherical.f90
   #geometry_oblatespheroidal.f90
   #geometry_sinhpolar.f90

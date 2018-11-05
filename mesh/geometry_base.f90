@@ -188,8 +188,9 @@ MODULE geometry_base_mod
   INTEGER, PARAMETER :: TANCYLINDRICAL    = 32
   INTEGER, PARAMETER :: LNCOSHCYLINDRICAL = 33
   INTEGER, PARAMETER :: SPHERICAL         = 40
-  INTEGER, PARAMETER :: SINHSPHERICAL     = 41
-  INTEGER, PARAMETER :: BIANGLESPHERICAL  = 42
+  INTEGER, PARAMETER :: LOGSPHERICAL      = 41
+  INTEGER, PARAMETER :: SINHSPHERICAL     = 42
+  INTEGER, PARAMETER :: BIANGLESPHERICAL  = 43
   INTEGER, PARAMETER :: OBLATE_SPHEROIDAL = 50
   INTEGER, PARAMETER :: CHANNEL           = 60
   !> \}
@@ -200,7 +201,7 @@ MODULE geometry_base_mod
        PI, &
        CARTESIAN, POLAR, LOGPOLAR, TANPOLAR, SINHPOLAR, SINHTANHPOLAR, BIPOLAR, &
        CYLINDRICAL, LOGCYLINDRICAL, TANCYLINDRICAL, LNCOSHCYLINDRICAL, &
-       SPHERICAL, SINHSPHERICAL, BIANGLESPHERICAL, OBLATE_SPHEROIDAL, &
+       SPHERICAL, LOGSPHERICAL, SINHSPHERICAL, BIANGLESPHERICAL, OBLATE_SPHEROIDAL, &
        CHANNEL, POLYPOLAR, ELLIPTIC, SINHCARTESIAN
   !--------------------------------------------------------------------------!
 
@@ -220,14 +221,9 @@ CONTAINS
     !------------------------------------------------------------------------!
     INTENT(IN)                          :: gnum,gname
     !------------------------------------------------------------------------!
-
-    !\todo{Here initcommon is commentet!}
     CALL this%logging_base%InitLogging(gnum,gname)
-    ! set geometry parameter to default value
-    CALL this%SetScale(1.0,1.0,1.0) !\todo{what is this for?}
 
     CALL GetAttr(config, "geometry", gt)
-
 
     ! check if geometry parameters were given
     ! and set to defaults if not
@@ -260,9 +256,9 @@ CONTAINS
     SELECT CASE(gt)
     CASE(LOGPOLAR,TANPOLAR,SINHPOLAR,TANCYLINDRICAL,SINHSPHERICAL,&
          BIANGLESPHERICAL,OBLATE_SPHEROIDAL,CHANNEL,POLYPOLAR,ELLIPTIC,&
-         SINHCARTESIAN,LOGCYLINDRICAL)
+         SINHCARTESIAN,LOGCYLINDRICAL,LOGSPHERICAL)
        WRITE (gs_str,'(ES8.1)') this%GetScale()
-       CALL this%Info( "            geometry scale:    " // TRIM(gs_str))
+       CALL this%Info( "            geometry scale:   " // TRIM(gs_str))
     CASE(LNCOSHCYLINDRICAL,SINHTANHPOLAR)
        WRITE (gs_str,'(ES8.1)') this%GetScale()
        CALL this%Info( "            geometry scale:    " // TRIM(gs_str))

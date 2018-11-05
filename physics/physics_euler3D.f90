@@ -160,6 +160,7 @@ CONTAINS
     this%DIM = 3
     
     ! allocate memory for arrays common to all physics modules
+    this%CSISO = 0.0
     ALLOCATE(this%bccsound(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX),            &
              this%fcsound(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%nfaces), &
              STAT = err)

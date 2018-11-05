@@ -130,8 +130,8 @@ CONTAINS
               "inum"            / XRES, &
               "jnum"            / YRES, &
               "knum"            / ZRES, &
-              "xmin"            / (RMIN/GPAR), &
-              "xmax"            / (RMAX/GPAR), &
+              "xmin"            / LOG(RMIN/GPAR), &
+              "xmax"            / LOG(RMAX/GPAR), &
               "ymin"            / 0.0, &
               "ymax"            / (2.0*PI), &
               "zmin"            / 0.0, &

@@ -277,7 +277,7 @@ MODULE mesh_base_mod
        MIDPOINT, TRAPEZOIDAL, &
        CARTESIAN, POLAR, LOGPOLAR, TANPOLAR, SINHPOLAR, SINHTANHPOLAR, BIPOLAR, &
        CYLINDRICAL, LOGCYLINDRICAL, TANCYLINDRICAL, LNCOSHCYLINDRICAL, &
-       SPHERICAL, SINHSPHERICAL, &
+       SPHERICAL, LOGSPHERICAL, SINHSPHERICAL, &
        BIANGLESPHERICAL, OBLATE_SPHEROIDAL, CHANNEL, ELLIPTIC, SINHCARTESIAN, &
        WEST, EAST, SOUTH, NORTH, BOTTOM, TOP
   !--------------------------------------------------------------------------!
@@ -480,6 +480,7 @@ CONTAINS
     this%czxz = marray_cellscalar()
     this%czyz = marray_cellscalar()
 
+
     ! allocate memory for all pointers that are independent of fluxtype
     ALLOCATE( &
          this%volume(this%IGMIN:this%IGMAX,this%JGMIN:this%JGMAX,this%KGMIN:this%KGMAX), &
@@ -618,7 +619,7 @@ CONTAINS
 
     ! get geometrical scale factors for all cell positions
     ! bary center values are overwritten below
-    CALL this%geometry%ScaleFactors(this%curv,this%hx,this%hy,this%hz)
+    CALL this%Geometry%ScaleFactors(this%curv,this%hx,this%hy,this%hz)
 
     ! get square root of determinant of the metric
     ! bary center values are overwritten below

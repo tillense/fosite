@@ -49,16 +49,18 @@ PROGRAM sedov2d
   ! Spatial with of the initial pulse should be at least 5 cells;
   ! if you wish to compare the results on different grids
   ! R0 should be of the same order
-  REAL, PARAMETER    :: R0      = 2.5E-2
+  REAL, PARAMETER    :: R0      = 3.0E-2
   ! mesh settings
 !  INTEGER, PARAMETER :: MGEO    = CARTESIAN   ! geometry
-  INTEGER, PARAMETER :: MGEO    = CYLINDRICAL   ! geometry
+!  INTEGER, PARAMETER :: MGEO    = CYLINDRICAL   ! geometry
+  INTEGER, PARAMETER :: MGEO    = LOGCYLINDRICAL   ! geometry
 !  INTEGER, PARAMETER :: MGEO    = SPHERICAL   ! geometry
   INTEGER, PARAMETER :: XRES    = 100          ! x-resolution
   INTEGER, PARAMETER :: YRES    = 100          ! y-resolution
   INTEGER, PARAMETER :: ZRES    = 1           ! z-resolution
   REAL, PARAMETER    :: GPAR    = 0.2         ! geometry scaling parameter
-  REAL, PARAMETER    :: RMAX    = 0.5         ! geometry scaling parameter
+  REAL, PARAMETER    :: RMAX    = 0.3         ! geometry scaling parameter
+  REAL, PARAMETER    :: RMIN    = 0.001         ! geometry scaling parameter
   ! output parameters
   INTEGER, PARAMETER :: ONUM    = 10         ! number of output data sets
   CHARACTER(LEN=256), PARAMETER &             ! output data dir
@@ -80,7 +82,7 @@ PROGRAM sedov2d
   CALL Sim%InitFosite()
 #ifdef PARALLEL
   IF(Sim%GetRank().EQ.0) &
-#endif 
+#endif
    TAP_PLAN(1)
   CALL MakeConfig(Sim, Sim%config)
   CALL Sim%Setup()
@@ -102,7 +104,7 @@ PROGRAM sedov2d
     pvar_all, int(Sim%Mesh%IMAX-Sim%Mesh%IMIN+1),MPI_DOUBLE,0,MPI_COMM_WORLD,err)
   CALL MPI_Gather(radius,int(Sim%Mesh%IMAX-Sim%Mesh%IMIN+1),MPI_DOUBLE, &
     radius_all, int(Sim%Mesh%IMAX-Sim%Mesh%IMIN+1),MPI_DOUBLE,0,MPI_COMM_WORLD,err)
- IF(Sim%GetRank().EQ.0) THEN 
+ IF(Sim%GetRank().EQ.0) THEN
     DO i=1,XRES-1
       pvar_diff(i) = pvar_all(i)-pvar_all(i+1)
     END DO
@@ -113,15 +115,15 @@ PROGRAM sedov2d
   TAP_CHECK((Rt.LT.Rshock+Sim%Mesh%dx).AND.(Rt.GT.Rshock-Sim%Mesh%dx),"Shock velocity correct")
 END IF
 !DEALLOCATE(pvar,radius)
-#else 
+#else
    DO i=1,XRES
       pvar_diff(i) = Sim%Timedisc%pvar(i,1,1,1)-Sim%Timedisc%pvar(i+1,1,1,1)
     END DO
   Rshock = Sim%Mesh%radius%center(MAXLOC(pvar_diff,DIM=1),1,1)
-  
+
   !analytical shock position
   Rt = R*(E1*TSIM**2/RHO0)**0.25
-  
+
   !Check whether analytical solution is within +/- one cell of simulated shock
   TAP_CHECK((Rt.LT.Rshock+Sim%Mesh%dx).AND.(Rt.GT.Rshock-Sim%Mesh%dx),"Shock velocity correct")
 #endif
@@ -139,10 +141,10 @@ END IF
 !  Rt = R*(E1*TSIM**2/RHO0)**0.25
 !
 !  !Check whether analytical solution is within +/- one cell of simulated shock
-!  IF(SIM%GetRank().EQ.1) THEN 
+!  IF(SIM%GetRank().EQ.1) THEN
 !  TAP_CHECK((Rt.LT.Rshock+Sim%Mesh%dx).AND.(Rt.GT.Rshock-Sim%Mesh%dx),"Shock velocity correct")
 !END IF
-!  print *,Rt, Rshock+Sim%Mesh%dx, Rshock-Sim%Mesh%dx 
+!  print *,Rt, Rshock+Sim%Mesh%dx, Rshock-Sim%Mesh%dx
 !  CALL Sim%Finalize()
 !  DEALLOCATE(Sim,pvar_diff)
 !
@@ -205,6 +207,19 @@ CONTAINS
        bc(EAST)  = ABSORBING  !ABSORBING
        bc(SOUTH) = PERIODIC   !AXIS
        bc(NORTH) = PERIODIC   !ABSORBING
+       bc(BOTTOM)= NO_GRADIENTS
+       bc(TOP)   = NO_GRADIENTS
+    CASE(LOGCYLINDRICAL)
+       x1 = LOG(RMIN/GPAR)
+       x2 = LOG(RMAX/GPAR)
+       y1 = 0.0
+       y2 = 2*PI
+       z1 = 0.0
+       z2 = 0.0
+       bc(WEST)  = NO_GRADIENTS
+       bc(EAST)  = NO_GRADIENTS
+       bc(SOUTH) = PERIODIC
+       bc(NORTH) = PERIODIC
        bc(BOTTOM)= NO_GRADIENTS
        bc(TOP)   = NO_GRADIENTS
     CASE(OBLATE_SPHEROIDAL)
@@ -282,8 +297,8 @@ CONTAINS
               "cfl"         / 0.4,                          &
               "stoptime"    / TSIM,                         &
               "dtlimit"     / 1.0E-13,                      &
-              "tol_rel"     / 0.01,                         &
-              "tol_abs"     / (/1e-5,1e-5,1e-5,1e-5/), &
+              "tol_rel"     / 0.05,                         &
+              "tol_abs"     / (/0.0,1e-3,1e-3,0.0/), &
               "maxiter"     / 1000000, &
               "output/rhs"  / 1, &
               "output/geometrical_sources" / 1              )
