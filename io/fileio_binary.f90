@@ -213,154 +213,151 @@ CONTAINS
     CLASS(fileio_binary), INTENT(INOUT) :: this    !< \param [in,out] this fileio type
     INTEGER                             :: action  !< \param [in] action mode of file access
     !------------------------------------------------------------------------!
-!#ifdef PARALLEL
-!    INTEGER(KIND=MPI_OFFSET_KIND) :: offset  !< \param [in] offset offset for MPI
-!#endif
-!    CHARACTER(LEN=3)              :: fformat !< \param [in] fformat file format
-    INTEGER                       :: err
+#ifdef PARALLEL
+    INTEGER(KIND=MPI_OFFSET_KIND) :: offset  !< \param [in] offset offset for MPI
+#endif
+    CHARACTER(LEN=3)              :: fformat !< \param [in] fformat file format
     !------------------------------------------------------------------------!
     INTENT(IN)                    :: action
     !------------------------------------------------------------------------!
-!#ifdef PARALLEL
-!    fformat = 'BIN'
-!    SELECT CASE(action)
-!    CASE(READONLY)
-!#ifdef PARALLEL
-!       CALL MPI_File_open(MPI_COMM_WORLD,this%GetFilename(),MPI_MODE_RDONLY, &
-!            MPI_INFO_NULL,this%handle,this%error_io)
-!        this%offset = 0
-!        CALL MPI_File_seek(this%handle,this%offset,MPI_SEEK_SET,this%error_io)
-!#else
-!       OPEN(this%unit,FILE=this%GetFilename(),FORM=fformat,STATUS="OLD", &
-!            ACTION="READ",POSITION="REWIND",IOSTAT=this%error_io)
-!       !REWIND (UNIT=this%unit,IOSTAT=this%error_io)
-!#endif
-!    CASE(READEND)
-!#ifdef PARALLEL
-!       CALL MPI_File_open(MPI_COMM_WORLD,this%GetFilename(),IOR(MPI_MODE_RDONLY,&
-!            MPI_MODE_APPEND),MPI_INFO_NULL,this%handle,this%error_io)
-!       ! opening in append mode doesn't seem to work for pvfs2, hence ...
-!       offset = 0
-!       CALL MPI_File_seek(this%handle,offset,MPI_SEEK_END,this%error_io)
-!       CALL MPI_File_sync(this%handle,this%error_io)
-!#else
-!       OPEN(this%unit,FILE=this%GetFilename(),FORM=fformat,STATUS="OLD", &
-!            ACTION="READ",POSITION="APPEND",IOSTAT=this%error_io)
-!#endif
-!    CASE(REPLACE)
-!#ifdef PARALLEL
-!       CALL MPI_File_delete(this%GetFilename(),MPI_INFO_NULL,this%error_io)
-!       CALL MPI_File_open(MPI_COMM_WORLD,this%GetFilename(),IOR(MPI_MODE_WRONLY,&
-!            MPI_MODE_CREATE),MPI_INFO_NULL,this%handle,this%error_io)
-!#else
-!       OPEN(this%unit,FILE=this%GetFilename(),FORM=fformat,STATUS="REPLACE",&
-!            ACTION="WRITE",POSITION="REWIND",IOSTAT=this%error_io)
-!#endif
-!    CASE(APPEND)
-!#ifdef PARALLEL
-!       CALL MPI_File_open(MPI_COMM_WORLD,this%GetFilename(),IOR(MPI_MODE_RDWR,&
-!            MPI_MODE_APPEND),MPI_INFO_NULL,this%handle,this%error_io)
-!       ! opening in append mode doesn't seem to work for pvfs2, hence ...
-!       offset = 0
-!       CALL MPI_File_seek(this%handle,offset,MPI_SEEK_END,this%error_io)
-!       CALL MPI_File_sync(this%handle,this%error_io)
-!#else
-!       OPEN(this%unit,FILE=this%GetFilename(),FORM=fformat,STATUS="OLD",&
-!            ACTION="READWRITE",POSITION="APPEND",IOSTAT=this%error_io)
-!#endif
-!    CASE DEFAULT
-!       CALL this%Error("OpenFile","Unknown access mode.")
-!    END SELECT
-!#else
-!#ifdef HAVE_VTK
-!    SELECT CASE(action)
-!    CASE(READONLY)
-!       OPEN(this%unit, FILE=this%GetFilename(), &
-!         STATUS     = 'OLD',          &
-!#ifndef NOSTREAM
-!         ACCESS     = 'STREAM' ,   &
-!#else
-!         FORM='UNFORMATTED',&
-!#endif
-!         action     = 'READ',         &
-!         POSITION   = 'REWIND',       &
-!         iostat     = this%error_io_code)
-!    CASE(READEND)
-!       open(this%unit, FILE=this%GetFilename(), &
-!         STATUS     = 'OLD',          &
-!#ifndef NOSTREAM
-!         ACCESS     = 'STREAM' ,   &
-!#else
-!         FORM='UNFORMATTED',&
-!#endif
-!         action     = 'READ',         &
-!         POSITION   = 'APPEND',       &
-!         iostat     = this%error_code)
-!    CASE(REPLACE)
-!       open(this%unit, FILE=this%GetFilename(), &
-!         STATUS     = 'REPLACE',      &
-!#ifndef NOSTREAM
-!         ACCESS     = 'STREAM' ,   &
-!#else
-!         FORM='UNFORMATTED',&
-!#endif
-!         action     = 'WRITE',        &
-!         POSITION   = 'REWIND',       &
-!         iostat     = this%error_code)
-!#ifdef PARALLEL
-!    ! open pvts-file
-!      IF (this%GetRank().EQ.0) THEN
-!        this%extension='pvts'
-!        OPEN(this%unit+100, FILE=this%GetFilename(-1), &
-!           STATUS     = 'REPLACE',      &
-!#ifndef NOSTREAM
-!           ACCESS     = 'STREAM' ,   &
-!#else
-!           FORM='UNFORMATTED',&
-!#endif
-!           ACTION     = 'WRITE',        &
-!           POSITION   = 'REWIND',       &
-!           IOSTAT     = this%error_code)
-!        this%extension='vts'
-!      END IF
-!#endif
-!    CASE(APPEND)
-!       open(this%unit, FILE=this%GetFilename(), &
-!         STATUS     = 'OLD',          &
-!#ifndef NOSTREAM
-!         ACCESS     = 'STREAM' ,   &
-!#else
-!         FORM='UNFORMATTED',&
-!#endif
-!         action     = 'READWRITE',    &
-!         POSITION   = 'APPEND',       &
-!         iostat     = this%error_code)
-!#ifdef PARALLEL
-!    ! open pvts-file
-!      IF (GetRank(this).EQ.0) THEN
-!        this%extension='pvts'
-!        OPEN(this%unit+100, FILE=this%GetFilename(-1), &
-!           STATUS     = 'OLD',      &
-!#ifndef NOSTREAM
-!           ACCESS     = 'STREAM' ,   &
-!#else
-!           FORM='UNFORMATTED',&
-!#endif
-!           ACTION     = 'READWRITE',        &
-!           POSITION   = 'APPEND',       &
-!           IOSTAT     = this%error_io)
-!        this%extension='vts'
-!      END IF
-!#endif
-!
-!    CASE DEFAULT
-!       CALL this%Error("OpenFile","Unknown access mode.")
-!    END SELECT
-!    IF (this%error_code.NE. 0) CALL this%Error("OpenFile_vtk","Can't open file")
-!#endif
-!#endif
-    OPEN(this%unit,FILE=this%GetFilename(),ACCESS='STREAM',IOSTAT=err)
-    IF (err.NE. 0) CALL this%Error("OpenFile_vtk","Can't open file")
+#ifdef PARALLEL
+    fformat = 'BIN'
+    SELECT CASE(action)
+    CASE(READONLY)
+#ifdef PARALLEL
+       CALL MPI_File_open(MPI_COMM_WORLD,this%GetFilename(),MPI_MODE_RDONLY, &
+            MPI_INFO_NULL,this%handle,this%error_io)
+        this%offset = 0
+        CALL MPI_File_seek(this%handle,this%offset,MPI_SEEK_SET,this%error_io)
+#else
+       OPEN(this%unit,FILE=this%GetFilename(),FORM=fformat,STATUS="OLD", &
+            ACTION="READ",POSITION="REWIND",IOSTAT=this%error_io)
+       !REWIND (UNIT=this%unit,IOSTAT=this%error_io)
+#endif
+    CASE(READEND)
+#ifdef PARALLEL
+       CALL MPI_File_open(MPI_COMM_WORLD,this%GetFilename(),IOR(MPI_MODE_RDONLY,&
+            MPI_MODE_APPEND),MPI_INFO_NULL,this%handle,this%error_io)
+       ! opening in append mode doesn't seem to work for pvfs2, hence ...
+       offset = 0
+       CALL MPI_File_seek(this%handle,offset,MPI_SEEK_END,this%error_io)
+       CALL MPI_File_sync(this%handle,this%error_io)
+#else
+       OPEN(this%unit,FILE=this%GetFilename(),FORM=fformat,STATUS="OLD", &
+            ACTION="READ",POSITION="APPEND",IOSTAT=this%error_io)
+#endif
+    CASE(REPLACE)
+#ifdef PARALLEL
+       CALL MPI_File_delete(this%GetFilename(),MPI_INFO_NULL,this%error_io)
+       CALL MPI_File_open(MPI_COMM_WORLD,this%GetFilename(),IOR(MPI_MODE_WRONLY,&
+            MPI_MODE_CREATE),MPI_INFO_NULL,this%handle,this%error_io)
+#else
+       OPEN(this%unit,FILE=this%GetFilename(),FORM=fformat,STATUS="REPLACE",&
+            ACTION="WRITE",POSITION="REWIND",IOSTAT=this%error_io)
+#endif
+    CASE(APPEND)
+#ifdef PARALLEL
+       CALL MPI_File_open(MPI_COMM_WORLD,this%GetFilename(),IOR(MPI_MODE_RDWR,&
+            MPI_MODE_CREATE),MPI_INFO_NULL,this%handle,this%error_io)
+       ! opening in append mode doesn't seem to work for pvfs2, hence ...
+       offset = 0
+       CALL MPI_File_seek(this%handle,offset,MPI_SEEK_END,this%error_io)
+       CALL MPI_File_sync(this%handle,this%error_io)
+#else
+       OPEN(this%unit,FILE=this%GetFilename(),FORM=fformat,STATUS="OLD",&
+            ACTION="READWRITE",POSITION="APPEND",IOSTAT=this%error_io)
+#endif
+    CASE DEFAULT
+       CALL this%Error("OpenFile","Unknown access mode.")
+    END SELECT
+#else
+#ifdef HAVE_VTK
+    SELECT CASE(action)
+    CASE(READONLY)
+       OPEN(this%unit, FILE=this%GetFilename(), &
+         STATUS     = 'OLD',          &
+#ifndef NOSTREAM
+         ACCESS     = 'STREAM' ,   &
+#else
+         FORM='UNFORMATTED',&
+#endif
+         action     = 'READ',         &
+         POSITION   = 'REWIND',       &
+         iostat     = this%error_io_code)
+    CASE(READEND)
+       open(this%unit, FILE=this%GetFilename(), &
+         STATUS     = 'OLD',          &
+#ifndef NOSTREAM
+         ACCESS     = 'STREAM' ,   &
+#else
+         FORM='UNFORMATTED',&
+#endif
+         action     = 'READ',         &
+         POSITION   = 'APPEND',       &
+         iostat     = this%error_code)
+    CASE(REPLACE)
+       open(this%unit, FILE=this%GetFilename(), &
+         STATUS     = 'REPLACE',      &
+#ifndef NOSTREAM
+         ACCESS     = 'STREAM' ,   &
+#else
+         FORM='UNFORMATTED',&
+#endif
+         action     = 'WRITE',        &
+         POSITION   = 'REWIND',       &
+         iostat     = this%error_code)
+#ifdef PARALLEL
+    ! open pvts-file
+      IF (this%GetRank().EQ.0) THEN
+        this%extension='pvts'
+        OPEN(this%unit+100, FILE=this%GetFilename(-1), &
+           STATUS     = 'REPLACE',      &
+#ifndef NOSTREAM
+           ACCESS     = 'STREAM' ,   &
+#else
+           FORM='UNFORMATTED',&
+#endif
+           ACTION     = 'WRITE',        &
+           POSITION   = 'REWIND',       &
+           IOSTAT     = this%error_code)
+        this%extension='vts'
+      END IF
+#endif
+    CASE(APPEND)
+       open(this%unit, FILE=this%GetFilename(), &
+         STATUS     = 'OLD',          &
+#ifndef NOSTREAM
+         ACCESS     = 'STREAM' ,   &
+#else
+         FORM='UNFORMATTED',&
+#endif
+         action     = 'READWRITE',    &
+         POSITION   = 'APPEND',       &
+         iostat     = this%error_code)
+#ifdef PARALLEL
+    ! open pvts-file
+      IF (GetRank(this).EQ.0) THEN
+        this%extension='pvts'
+        OPEN(this%unit+100, FILE=this%GetFilename(-1), &
+           STATUS     = 'OLD',      &
+#ifndef NOSTREAM
+           ACCESS     = 'STREAM' ,   &
+#else
+           FORM='UNFORMATTED',&
+#endif
+           ACTION     = 'READWRITE',        &
+           POSITION   = 'APPEND',       &
+           IOSTAT     = this%error_io)
+        this%extension='vts'
+      END IF
+#endif
+
+    CASE DEFAULT
+       CALL this%Error("OpenFile","Unknown access mode.")
+    END SELECT
+    IF (this%error_code.NE. 0) CALL this%Error("OpenFile_vtk","Can't open file")
+#endif
+#endif
   END SUBROUTINE OpenFile
 
   !> \public Write the file header
