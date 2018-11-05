@@ -216,12 +216,9 @@ CONTAINS
 #ifdef PARALLEL
     INTEGER(KIND=MPI_OFFSET_KIND) :: offset  !< \param [in] offset offset for MPI
 #endif
-    CHARACTER(LEN=3)              :: fformat !< \param [in] fformat file format
     !------------------------------------------------------------------------!
     INTENT(IN)                    :: action
     !------------------------------------------------------------------------!
-#ifdef PARALLEL
-    fformat = 'BIN'
     SELECT CASE(action)
     CASE(READONLY)
 #ifdef PARALLEL
@@ -230,9 +227,13 @@ CONTAINS
         this%offset = 0
         CALL MPI_File_seek(this%handle,this%offset,MPI_SEEK_SET,this%error_io)
 #else
-       OPEN(this%unit,FILE=this%GetFilename(),FORM=fformat,STATUS="OLD", &
+       OPEN(this%unit,FILE=this%GetFilename(),STATUS="OLD", &
+#ifndef NOSTREAM
+            ACCESS = 'STREAM' ,   &
+#else
+            FORM   = 'UNFORMATTED',&
+#endif
             ACTION="READ",POSITION="REWIND",IOSTAT=this%error_io)
-       !REWIND (UNIT=this%unit,IOSTAT=this%error_io)
 #endif
     CASE(READEND)
 #ifdef PARALLEL
@@ -243,7 +244,12 @@ CONTAINS
        CALL MPI_File_seek(this%handle,offset,MPI_SEEK_END,this%error_io)
        CALL MPI_File_sync(this%handle,this%error_io)
 #else
-       OPEN(this%unit,FILE=this%GetFilename(),FORM=fformat,STATUS="OLD", &
+       OPEN(this%unit,FILE=this%GetFilename(),STATUS="OLD", &
+#ifndef NOSTREAM
+            ACCESS = 'STREAM' ,   &
+#else
+            FORM   = 'UNFORMATTED',&
+#endif
             ACTION="READ",POSITION="APPEND",IOSTAT=this%error_io)
 #endif
     CASE(REPLACE)
@@ -252,112 +258,34 @@ CONTAINS
        CALL MPI_File_open(MPI_COMM_WORLD,this%GetFilename(),IOR(MPI_MODE_WRONLY,&
             MPI_MODE_CREATE),MPI_INFO_NULL,this%handle,this%error_io)
 #else
-       OPEN(this%unit,FILE=this%GetFilename(),FORM=fformat,STATUS="REPLACE",&
+       OPEN(this%unit,FILE=this%GetFilename(),STATUS="REPLACE",&
+#ifndef NOSTREAM
+            ACCESS = 'STREAM' ,   &
+#else
+            FORM   = 'UNFORMATTED',&
+#endif
             ACTION="WRITE",POSITION="REWIND",IOSTAT=this%error_io)
 #endif
     CASE(APPEND)
 #ifdef PARALLEL
        CALL MPI_File_open(MPI_COMM_WORLD,this%GetFilename(),IOR(MPI_MODE_RDWR,&
-            MPI_MODE_CREATE),MPI_INFO_NULL,this%handle,this%error_io)
+            MPI_MODE_APPEND),MPI_INFO_NULL,this%handle,this%error_io)
        ! opening in append mode doesn't seem to work for pvfs2, hence ...
        offset = 0
        CALL MPI_File_seek(this%handle,offset,MPI_SEEK_END,this%error_io)
        CALL MPI_File_sync(this%handle,this%error_io)
 #else
-       OPEN(this%unit,FILE=this%GetFilename(),FORM=fformat,STATUS="OLD",&
+       OPEN(this%unit,FILE=this%GetFilename(),STATUS="OLD",&
+#ifndef NOSTREAM
+            ACCESS = 'STREAM' ,   &
+#else
+            FORM   = 'UNFORMATTED',&
+#endif
             ACTION="READWRITE",POSITION="APPEND",IOSTAT=this%error_io)
 #endif
     CASE DEFAULT
        CALL this%Error("OpenFile","Unknown access mode.")
     END SELECT
-#else
-#ifdef HAVE_VTK
-    SELECT CASE(action)
-    CASE(READONLY)
-       OPEN(this%unit, FILE=this%GetFilename(), &
-         STATUS     = 'OLD',          &
-#ifndef NOSTREAM
-         ACCESS     = 'STREAM' ,   &
-#else
-         FORM='UNFORMATTED',&
-#endif
-         action     = 'READ',         &
-         POSITION   = 'REWIND',       &
-         iostat     = this%error_io)
-    CASE(READEND)
-       open(this%unit, FILE=this%GetFilename(), &
-         STATUS     = 'OLD',          &
-#ifndef NOSTREAM
-         ACCESS     = 'STREAM' ,   &
-#else
-         FORM='UNFORMATTED',&
-#endif
-         action     = 'READ',         &
-         POSITION   = 'APPEND',       &
-         iostat     = this%error_io)
-    CASE(REPLACE)
-       open(this%unit, FILE=this%GetFilename(), &
-         STATUS     = 'REPLACE',      &
-#ifndef NOSTREAM
-         ACCESS     = 'STREAM' ,   &
-#else
-         FORM='UNFORMATTED',&
-#endif
-         action     = 'WRITE',        &
-         POSITION   = 'REWIND',       &
-         iostat     = this%error_io)
-#ifdef PARALLEL
-    ! open pvts-file
-      IF (this%GetRank().EQ.0) THEN
-        this%extension='pvts'
-        OPEN(this%unit+100, FILE=this%GetFilename(-1), &
-           STATUS     = 'REPLACE',      &
-#ifndef NOSTREAM
-           ACCESS     = 'STREAM' ,   &
-#else
-           FORM='UNFORMATTED',&
-#endif
-           ACTION     = 'WRITE',        &
-           POSITION   = 'REWIND',       &
-           IOSTAT     = this%error_io)
-        this%extension='vts'
-      END IF
-#endif
-    CASE(APPEND)
-       open(this%unit, FILE=this%GetFilename(), &
-         STATUS     = 'OLD',          &
-#ifndef NOSTREAM
-         ACCESS     = 'STREAM' ,   &
-#else
-         FORM='UNFORMATTED',&
-#endif
-         action     = 'READWRITE',    &
-         POSITION   = 'APPEND',       &
-         iostat     = this%error_io)
-#ifdef PARALLEL
-    ! open pvts-file
-      IF (GetRank(this).EQ.0) THEN
-        this%extension='pvts'
-        OPEN(this%unit+100, FILE=this%GetFilename(-1), &
-           STATUS     = 'OLD',      &
-#ifndef NOSTREAM
-           ACCESS     = 'STREAM' ,   &
-#else
-           FORM='UNFORMATTED',&
-#endif
-           ACTION     = 'READWRITE',        &
-           POSITION   = 'APPEND',       &
-           IOSTAT     = this%error_io)
-        this%extension='vts'
-      END IF
-#endif
-
-    CASE DEFAULT
-       CALL this%Error("OpenFile","Unknown access mode.")
-    END SELECT
-    IF (this%error_io.NE. 0) CALL this%Error("OpenFile_binary","Can't open file")
-#endif
-#endif
   END SUBROUTINE OpenFile
 
   !> \public Write the file header
@@ -770,7 +698,7 @@ CONTAINS
     END IF
 
     ! write data
-    CALL this%OpenFile(APPEND)
+    CALL this%OpenFile(REPLACE)
     CALL this%WriteHeader(Mesh,Physics,Header,IO)
     CALL this%WriteDataAttributes(Mesh,IO)
     CALL this%CloseFile()
