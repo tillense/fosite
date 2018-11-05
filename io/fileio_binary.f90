@@ -283,7 +283,7 @@ CONTAINS
 #endif
          action     = 'READ',         &
          POSITION   = 'REWIND',       &
-         iostat     = this%error_io_code)
+         iostat     = this%error_io)
     CASE(READEND)
        open(this%unit, FILE=this%GetFilename(), &
          STATUS     = 'OLD',          &
@@ -294,7 +294,7 @@ CONTAINS
 #endif
          action     = 'READ',         &
          POSITION   = 'APPEND',       &
-         iostat     = this%error_code)
+         iostat     = this%error_io)
     CASE(REPLACE)
        open(this%unit, FILE=this%GetFilename(), &
          STATUS     = 'REPLACE',      &
@@ -305,7 +305,7 @@ CONTAINS
 #endif
          action     = 'WRITE',        &
          POSITION   = 'REWIND',       &
-         iostat     = this%error_code)
+         iostat     = this%error_io)
 #ifdef PARALLEL
     ! open pvts-file
       IF (this%GetRank().EQ.0) THEN
@@ -319,7 +319,7 @@ CONTAINS
 #endif
            ACTION     = 'WRITE',        &
            POSITION   = 'REWIND',       &
-           IOSTAT     = this%error_code)
+           IOSTAT     = this%error_io)
         this%extension='vts'
       END IF
 #endif
@@ -333,7 +333,7 @@ CONTAINS
 #endif
          action     = 'READWRITE',    &
          POSITION   = 'APPEND',       &
-         iostat     = this%error_code)
+         iostat     = this%error_io)
 #ifdef PARALLEL
     ! open pvts-file
       IF (GetRank(this).EQ.0) THEN
@@ -355,7 +355,7 @@ CONTAINS
     CASE DEFAULT
        CALL this%Error("OpenFile","Unknown access mode.")
     END SELECT
-    IF (this%error_code.NE. 0) CALL this%Error("OpenFile_vtk","Can't open file")
+    IF (this%error_io.NE. 0) CALL this%Error("OpenFile_binary","Can't open file")
 #endif
 #endif
   END SUBROUTINE OpenFile
