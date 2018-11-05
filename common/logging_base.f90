@@ -285,19 +285,18 @@ CONTAINS
     ! use "myrank" here instead of "this%myrank"
     ! because "this" might be uninitialized
     IF (myrank.EQ.print_rank) THEN
-       WRITE (output_unit,'(A)',ADVANCE='NO') prefix
+      WRITE (output_unit,'(A)',ADVANCE='NO') prefix
 #ifdef PARALLEL
-       IF (print_node_info) &
-            WRITE (output_unit,'(A,I4.4,A)',ADVANCE='NO') "NODE [", myrank, "] "
+      IF (print_node_info) &
+        WRITE (output_unit,'(A,I4.4,A)',ADVANCE='NO') "NODE [", myrank, "] "
 #endif
-            WRITE (output_unit,'(A)') TRIM(msg)
-#if defined(NECSXAURORA)
-            ! Do an extra flush on NEC SX, because otherwise the output file is
-            ! empty, if the simulation ran into the batch system time limit.
-            ! This also makes it possible to peek into the stdout with the qcat
-            ! command
-            CALL FLUSH(output_unit)
-#endif
+      WRITE (output_unit,'(A)') TRIM(msg)
+      ! Flush the output buffer, to make sure it is written even if the
+      ! program is invoked from a batch system.
+      ! This is Fortran 2003 standard! In Fortran 90/95 flush is implemented
+      ! as a subroutine, hence one needs a CALL statement, i.e.,
+      ! CALL FLUSH(output_unit)
+      FLUSH(output_unit)
     END IF
   END SUBROUTINE Info
 
