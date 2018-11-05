@@ -49,14 +49,14 @@ PROGRAM sedov3d
   ! Spatial with of the initial pulse should be at least 5 cells;
   ! if you wish to compare the results on different grids
   ! R0 should be of the same order
-  REAL, PARAMETER    :: R0      = 3.0E-2
+  REAL, PARAMETER    :: R0      = 5.0E-2
   ! mesh settings
 !  INTEGER, PARAMETER :: MGEO    = LOGSPHERICAL   ! geometry
   INTEGER, PARAMETER :: MGEO    = SPHERICAL   ! geometry
 !  INTEGER, PARAMETER :: MGEO    = CARTESIAN   ! geometry
   INTEGER, PARAMETER :: XRES    = 50          ! x-resolution
-  INTEGER, PARAMETER :: YRES    = 10          ! y-resolution
-  INTEGER, PARAMETER :: ZRES    = 10          ! z-resolution
+  INTEGER, PARAMETER :: YRES    = 2           ! y-resolution
+  INTEGER, PARAMETER :: ZRES    = 2           ! z-resolution
   REAL, PARAMETER    :: RMAX    = 0.4         ! outer radius of comput. domain
   REAL, PARAMETER    :: GPAR    = 0.2         ! geometry scaling parameter
   ! output parameters
