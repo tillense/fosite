@@ -36,6 +36,10 @@ endif()
 set (X86_VECTOR_EXTENSION NONE CACHE STRING "Enable x86 vector extensions, possible values are: NONE AVX AVX2 AVX-512")
 
 enable_language (Fortran)
+# workaround for unknown compiler ID NEC
+if (CMAKE_Fortran_COMPILER MATCHES ".*nfort")
+  set(CMAKE_Fortran_COMPILER_ID "NEC")
+endif()
 enable_testing()
 
 # message("${CMAKE_Fortran_COMPILER_ID}")
@@ -43,7 +47,6 @@ enable_testing()
 #-------------------- choose compiler & set flags ---------------------#
 #get_filename_component (Fortran_COMPILER_NAME ${CMAKE_Fortran_COMPILER} NAME)
 set (CMAKE_Fortran_FLAGS "${FCFLAGS}")
-
 if (CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
   # GNU compiler, i.e. gfortran
   add_compile_options(-fdefault-real-8 -cpp -ffree-line-length-none)

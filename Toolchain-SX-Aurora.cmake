@@ -12,7 +12,6 @@ set(ve /opt/nec/ve)
 SET(CMAKE_C_COMPILER ${ve}/bin/ncc)
 SET(CMAKE_CXX_COMPILER ${ve}/bin/nc++)
 SET(CMAKE_Fortran_COMPILER ${ve}/bin/nfort)
-SET(CMAKE_Fortran_COMPILER_ID "NEC")
 
 # Sollten eigentlich automatisch gefunden/gesetzt werden wenn man die Compiler definiert hat.
 SET(CMAKE_AR ${ve}/bin/nar)
