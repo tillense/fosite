@@ -35,8 +35,11 @@ PROGRAM gauss2d
   IMPLICIT NONE
   !--------------------------------------------------------------------------!
   ! simulation parameter
-  REAL, PARAMETER     :: TSIM     = 6.0      ! simulation time
-  REAL, PARAMETER     :: CSISO    = 0.1      ! if .ne. 0.0 -> isothermal simulation
+  REAL, PARAMETER     :: TSIM     = 0.3      ! simulation time
+  REAL, PARAMETER     :: GAMMA    = 1.4      ! ratio of specific heats
+  REAL, PARAMETER     :: CSISO    = &
+                                    0.0      ! non-isothermal simulation
+!                                     1.127    ! isothermal simulation
                                              !   with CSISO as sound speed
   ! initial condition (dimensionless units)
   REAL, PARAMETER     :: RHO0     = 1.0      ! ambient density
@@ -52,8 +55,8 @@ PROGRAM gauss2d
   REAL, PARAMETER     :: Z0       = 0.0      ! vertical position
   ! mesh settings
   INTEGER, PARAMETER  :: MGEO     = CARTESIAN! geometry
-  INTEGER, PARAMETER  :: XRES     = 30       ! x-resolution
-  INTEGER, PARAMETER  :: YRES     = 30       ! y-resolution
+  INTEGER, PARAMETER  :: XRES     = 100      ! x-resolution
+  INTEGER, PARAMETER  :: YRES     = 100      ! y-resolution
   INTEGER, PARAMETER  :: ZRES     = 1        ! z-resolution
   REAL, PARAMETER     :: RMAX     = 1.0      ! width of square that fits into
                                              !   computational domain
@@ -145,9 +148,13 @@ CONTAINS
             "topper"    / bc(TOP))
 
     ! physics settings
-    physics => Dict( &
-            "problem"   / EULER_ISOTHERM, &
-            "cs"        / CSISO)
+    IF (CSISO.GT.TINY(CSISO)) THEN
+      physics => Dict("problem" / EULER_ISOTHERM, &
+                      "cs"      / CSISO)             ! isothermal speed of sound
+    ELSE
+      physics => Dict("problem"   / EULER, &
+                      "gamma"     / GAMMA)           ! ratio of specific heats
+    END IF
 
     ! flux calculation and reconstruction method
     fluxes => Dict( &
@@ -188,6 +195,8 @@ CONTAINS
 
 
   SUBROUTINE InitData(Mesh,Physics,Timedisc)
+    USE physics_euler_mod, ONLY : physics_euler
+    USE physics_eulerisotherm_mod, ONLY : physics_eulerisotherm
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(physics_base)         :: Physics
@@ -222,17 +231,20 @@ CONTAINS
        radius(:,:,:)   = SQRT(posvec(:,:,:,1)**2+posvec(:,:,:,2)**2)
     END IF
 
-    ! initial density and pressure
-    DO k=Mesh%KGMIN,Mesh%KGMAX
-      DO j=Mesh%JGMIN,Mesh%JGMAX
-        DO i=Mesh%IGMIN,Mesh%IGMAX
-          Timedisc%pvar%data4d(i,j,k,Physics%DENSITY)  = RHO0 + RHO1*EXP(-LOG(2.0) &
-               * (radius(i,j,k)/RWIDTH)**2)
-        END DO
-      END DO
-    END DO
-
-    ! velocities
+    ! initial condition
+    SELECT TYPE(phys => Physics)
+    TYPE IS(physics_eulerisotherm)
+      ! Gaussian density pulse
+      Timedisc%pvar%data4d(:,:,:,Physics%DENSITY)  = RHO0 + RHO1*EXP(-LOG(2.0) &
+               * (radius(:,:,:)/RWIDTH)**2)
+    TYPE IS(physics_euler)
+      ! Gaussian pressure pulse and constant density
+      Timedisc%pvar%data4d(:,:,:,Physics%DENSITY)  = RHO0
+      Timedisc%pvar%data4d(:,:,:,Physics%PRESSURE)  = P0 + P1*EXP(-LOG(2.0) &
+               * (radius(:,:,:)/RWIDTH)**2)
+    END SELECT
+    
+    ! vanishing velocities
     Timedisc%pvar%data4d(:,:,:,Physics%XVELOCITY) = 0.
     Timedisc%pvar%data4d(:,:,:,Physics%YVELOCITY) = 0.
 
