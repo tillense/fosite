@@ -372,6 +372,7 @@ CONTAINS
 
   !> Calcualtes face data with reconstruction methods (e. g. limiters)
   PURE SUBROUTINE CalculateFaceData(this,Mesh,Physics,pvar,cvar)
+    USE physics_euler_mod, ONLY : physics_euler
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(fluxes_base),  INTENT(INOUT) :: this
@@ -393,8 +394,12 @@ CONTAINS
        CALL Physics%Convert2Primitive(Mesh,this%rstates,this%prim)
     END IF
 
+    ! update the speed of sound on cell faces (non-isotherml physics only)
+    SELECT TYPE(phys => Physics)
+    CLASS IS(physics_euler)
+      CALL phys%UpdateSoundSpeed(Mesh,this%prim)
+    END SELECT
     ! get minimal & maximal wave speeds on cell interfaces
-    CALL Physics%UpdateSoundSpeed(Mesh,this%prim)
     CALL Physics%CalculateWaveSpeeds(Mesh,this%prim,this%cons,this%minwav,this%maxwav)
   END SUBROUTINE CalculateFaceData
 

@@ -74,8 +74,6 @@ MODULE physics_eulerisotherm_mod
     PROCEDURE :: Convert2Conservative_faces
     PROCEDURE :: Convert2Conservative_facesub
     !------Soundspeed Routines-----!
-    PROCEDURE :: UpdateSoundSpeed_center
-    PROCEDURE :: UpdateSoundSpeed_faces
     PROCEDURE :: SetSoundSpeeds_center
     PROCEDURE :: SetSoundSpeeds_faces
     GENERIC   :: SetSoundSpeeds => SetSoundSpeeds_center, SetSoundSpeeds_faces
@@ -235,9 +233,10 @@ CONTAINS
         SELECT CASE(flavour)
         CASE(PRIMITIVE,CONSERVATIVE)
           svec%flavour = flavour
+        CASE DEFAULT
+          svec%flavour = UNDEFINED
         END SELECT
       END IF
-      ! otherwise svec%flavour = UNDEFINED (see type declaration)
       SELECT CASE(svec%flavour)
       CASE(PRIMITIVE)
         ! allocate memory for density and velocity mesh arrays
@@ -437,36 +436,6 @@ CONTAINS
                    cons(i1:i2,j1:j2,k1:k2,:,this%YMOMENTUM) &
                    )
   END SUBROUTINE Convert2Conservative_facesub
-
-  !> Empty routine for isothermal simulation
-  !!
-  !! Will be overwritten in physics with energy equation
-  !! \todo Have a look for a nicer solution of this issue
-  PURE SUBROUTINE UpdateSoundSpeed_center(this,Mesh,pvar)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(physics_eulerisotherm), INTENT(INOUT) :: this
-    CLASS(mesh_base),         INTENT(IN)    :: Mesh
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM), &
-                              INTENT(IN)    :: pvar
-    !------------------------------------------------------------------------!
-    ! Sound speed is constant - nothing to do.
-  END SUBROUTINE UpdateSoundSpeed_center
-
-  !> Empty routine for isothermal simulation
-  !!
-  !! Will be overwritten in physics with energy equation
-  !! \todo Have a look for a nicer solution of this issue
-  PURE SUBROUTINE UpdateSoundSpeed_faces(this,Mesh,prim)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(physics_eulerisotherm), INTENT(INOUT) :: this
-    CLASS(mesh_base),         INTENT(IN)    :: Mesh
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%NFACES,this%VNUM), &
-                              INTENT(IN)    :: prim
-    !------------------------------------------------------------------------!
-    ! Sound speed is constant - nothing to do.
-  END SUBROUTINE UpdateSoundSpeed_faces
 
   !> Calculates wave speeds at cell-centers
   PURE SUBROUTINE CalcWaveSpeeds_center(this,Mesh,pvar,minwav,maxwav)

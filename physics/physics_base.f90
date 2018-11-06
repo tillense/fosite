@@ -124,11 +124,8 @@ MODULE physics_base_mod
                    Convert2Conservative_centsub, &
                    Convert2Conservative_faces, &
                    Convert2Conservative_facesub
-    PROCEDURE (UpdateSoundSpeed_center),     DEFERRED :: UpdateSoundSpeed_center
-    PROCEDURE (UpdateSoundSpeed_faces),      DEFERRED :: UpdateSoundSpeed_faces
-    GENERIC   :: UpdateSoundSpeed => &
-                   UpdateSoundSpeed_center, &
-                   UpdateSoundSpeed_faces
+!     PROCEDURE (UpdateSoundSpeed_center),     DEFERRED :: UpdateSoundSpeed_center
+!     PROCEDURE (UpdateSoundSpeed_faces),      DEFERRED :: UpdateSoundSpeed_faces
     !------Wavespeed Routines-----!
     PROCEDURE (CalcWaveSpeeds_center),        DEFERRED :: CalcWaveSpeeds_center
     PROCEDURE (CalcWaveSpeeds_faces),         DEFERRED :: CalcWaveSpeeds_faces
@@ -292,22 +289,21 @@ MODULE physics_base_mod
       CLASS(physics_base), INTENT(IN)            :: this
       LOGICAL, DIMENSION(this%VNUM), INTENT(OUT) :: reflX,reflY,reflZ
     END SUBROUTINE
-    PURE SUBROUTINE UpdateSoundSpeed_center(this,Mesh,pvar)
-      IMPORT physics_base,mesh_base
-      IMPLICIT NONE
-      CLASS(physics_base),INTENT(INOUT) :: this
-      CLASS(mesh_base),   INTENT(IN)    :: Mesh
-      REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM), &
-        INTENT(IN)                      :: pvar
-    END SUBROUTINE
-    PURE SUBROUTINE UpdateSoundSpeed_faces(this,Mesh,prim)
-      IMPORT physics_base,mesh_base
-      IMPLICIT NONE
-      CLASS(physics_base),INTENT(INOUT) :: this
-      CLASS(mesh_base),   INTENT(IN)    :: Mesh
-      REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%NFACES,this%VNUM), &
-                          INTENT(IN)    :: prim
-    END SUBROUTINE
+!     PURE SUBROUTINE UpdateSoundSpeed_center(this,Mesh,pvar)
+!       IMPORT physics_base,mesh_base,marray_compound
+!       IMPLICIT NONE
+!       CLASS(physics_base),INTENT(INOUT) :: this
+!       CLASS(mesh_base),   INTENT(IN)    :: Mesh
+!       CLASS(marray_compound), INTENT(IN) :: pvar
+!     END SUBROUTINE
+!     PURE SUBROUTINE UpdateSoundSpeed_faces(this,Mesh,prim)
+!       IMPORT physics_base,mesh_base
+!       IMPLICIT NONE
+!       CLASS(physics_base),INTENT(INOUT) :: this
+!       CLASS(mesh_base),   INTENT(IN)    :: Mesh
+!       REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%NFACES,this%VNUM), &
+!                           INTENT(IN)    :: prim
+!     END SUBROUTINE
     PURE SUBROUTINE CalcWaveSpeeds_center(this,Mesh,pvar,minwav,maxwav)
       IMPORT physics_base,mesh_base
       CLASS(physics_base), INTENT(INOUT) :: this

@@ -755,6 +755,7 @@ CONTAINS
 
   !> \public Determines the CFL time step and time step limits due to source terms
   REAL FUNCTION CalcTimestep(this,Mesh,Physics,Sources,Fluxes,time,dtcause) RESULT(dt)
+    USE physics_euler_mod, ONLY : physics_euler
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(timedisc_base), INTENT(INOUT) :: this
@@ -771,8 +772,12 @@ CONTAINS
     !------------------------------------------------------------------------!
     ! CFL condition:
     ! maximal wave speeds in each direction
-    IF (.NOT.this%always_update_bccsound) &
-       CALL Physics%UpdateSoundSpeed(Mesh,this%pvar%data4d)
+    IF (.NOT.this%always_update_bccsound) THEN
+      SELECT TYPE(phys => Physics)
+      CLASS IS(physics_euler)
+         CALL phys%UpdateSoundSpeed(Mesh,this%pvar%data4d)
+      END SELECT
+    END IF
     CALL Physics%CalculateWaveSpeeds(Mesh,this%pvar%data4d,Fluxes%minwav,Fluxes%maxwav)
 
 
@@ -969,6 +974,7 @@ CONTAINS
   !! 4. update external source terms (this implies an update of all
   !!    auxiliary data arrays used for sources terms)
   SUBROUTINE ComputeRHS(this,Mesh,Physics,Sources,Fluxes,time,dt,pvar,cvar,checkdatabm,rhs)
+    USE physics_euler_mod, ONLY : physics_euler
     USE physics_eulerisotherm_mod, ONLY : physics_eulerisotherm
     IMPLICIT NONE
     !------------------------------------------------------------------------!
@@ -1036,8 +1042,13 @@ CONTAINS
       CALL Physics%Convert2Conservative(Mesh,pvar,cvar)
     END IF
 
-    ! update the speed of sound
-    IF (this%always_update_bccsound) CALL Physics%UpdateSoundSpeed(Mesh,pvar)
+    ! update the speed of sound (non-isotherml physics only)
+    IF (this%always_update_bccsound) THEN
+      SELECT TYPE(phys => Physics)
+      CLASS IS(physics_euler)
+         CALL phys%UpdateSoundSpeed(Mesh,pvar)
+      END SELECT
+    END IF
 
     ! check for illegal data
     IF(checkdatabm.NE.CHECK_NOTHING) &

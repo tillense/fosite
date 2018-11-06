@@ -62,6 +62,9 @@ MODULE physics_euler_mod
     !------soundspeed routines-----!
     PROCEDURE :: UpdateSoundSpeed_center
     PROCEDURE :: UpdateSoundSpeed_faces
+    GENERIC   :: UpdateSoundSpeed => &
+                   UpdateSoundSpeed_center, &
+                   UpdateSoundSpeed_faces
     !------flux routines-----------!
     PROCEDURE :: CalcFluxesX
     PROCEDURE :: CalcFluxesY
@@ -124,7 +127,6 @@ CONTAINS
     TYPE(Dict_TYP), POINTER, INTENT(IN)   :: config, IO
     !------------------------------------------------------------------------!
     INTEGER :: err
-CLASS(statevector_eulerisotherm), ALLOCATABLE :: pvar
     !------------------------------------------------------------------------!
     ! call InitPhysics from base class
     CALL this%InitPhysics(Mesh,config,IO,EULER,problem_name,num_var)
@@ -161,10 +163,6 @@ CLASS(statevector_eulerisotherm), ALLOCATABLE :: pvar
     IF (err.NE.0) &
          CALL this%Error("InitPhysics_euler2d", "Unable to allocate memory.")
 
-ALLOCATE(pvar)
-pvar = CreateStateVector(this,PRIMITIVE)
-CALL pvar%Destroy()
-DEALLOCATE(pvar)
   END SUBROUTINE InitPhysics_euler
 
   FUNCTION CreateStateVector(this,flavour) RESULT(new_sv)
@@ -181,7 +179,7 @@ DEALLOCATE(pvar)
     ! add entries specific for euler physics
     SELECT TYPE(svec => new_sv)
     CLASS IS(statevector_euler)
-      SELECT CASE(svec%flavour)
+      SELECT CASE(flavour)
       CASE(PRIMITIVE)
         ! allocate memory for pressure mesh array
         ALLOCATE(svec%pressure)
@@ -460,7 +458,7 @@ DEALLOCATE(pvar)
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,this%VNUM), &
                             INTENT(OUT)   :: xvar
     !------------------------------------------------------------------------!
-    INTEGER           :: k1,k2
+!     INTEGER           :: k1,k2
     !------------------------------------------------------------------------!
     !TODO Should not exist in 2D !
     !    ! compute eigenvalues at k
@@ -586,7 +584,7 @@ DEALLOCATE(pvar)
       DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM) &
                                        :: pvar
     !------------------------------------------------------------------------!
-    INTEGER                            :: k2
+!     INTEGER                            :: k2
     !------------------------------------------------------------------------!
     !TODO Should not exist in 2D !
     !    k2 = k1 + SIGN(1,dir)  ! j +/- 1 depending on the sign of dir
@@ -1528,9 +1526,9 @@ DEALLOCATE(pvar)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(physics_euler), INTENT(INOUT) :: this
-    CLASS(mesh_base),       INTENT(IN)    :: Mesh
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM), &
-                            INTENT(IN)    :: pvar
+    CLASS(mesh_base),        INTENT(IN) :: Mesh
+    REAL,DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM), &
+                             INTENT(IN) :: pvar
     !------------------------------------------------------------------------!
     INTEGER                               :: i,j,k
     !------------------------------------------------------------------------!
