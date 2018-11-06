@@ -1,11 +1,13 @@
 !#############################################################################
 !#                                                                           #
 !# fosite - 3D hydrodynamical simulation program                             #
-!# module: geometry_polar.f90                                                #
+!# module: geometry_spherical.f90                                            #
 !#                                                                           #
-!# Copyright (C) 2007 Tobias Illenseer <tillense@astrophysik.uni-kiel.de>    #
-!#                    Manuel Jung                                            #
-!#                    Lars Bösch                                             #
+!# Copyright (C) 2007-2018                                                   #
+!# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
+!# Manuel Jung                                                               #
+!# Lars Bösch                                                                #
+!# Jannes Klee <jklee@astrophysik.uni-kiel.de>                               #
 !#                                                                           #
 !# This program is free software; you can redistribute it and/or modify      #
 !# it under the terms of the GNU General Public License as published by      #
@@ -28,12 +30,13 @@
 !> \author Tobias Illenseer
 !! \author Manuel Jung
 !! \author Lars Bösch
+!! \author Jannes Klee
 !!
 !! \brief defines properties of a 3D spherical mesh
 !!
 !!
 !!
-!! \extends geometry_cartesian
+!! \extends geometry_base
 !! \ingroup geometry
 !----------------------------------------------------------------------------!
 MODULE geometry_spherical_mod

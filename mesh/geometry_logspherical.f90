@@ -68,6 +68,7 @@ CONTAINS
 
     CALL this%SetScale(gparam)
     CALL this%InitGeometry(LOGSPHERICAL,geometry_name,config)
+    CALL this%SetAzimuthIndex(3)
   END SUBROUTINE InitGeometry_logspherical
 
   ELEMENTAL SUBROUTINE ScaleFactors_0(this,xi,eta,phi,hx,hy,hz)

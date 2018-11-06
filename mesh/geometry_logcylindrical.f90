@@ -68,6 +68,7 @@ CONTAINS
 
     CALL this%SetScale(gparam)
     CALL this%InitGeometry(LOGCYLINDRICAL,geometry_name,config)
+    CALL this%SetAzimuthIndex(2)
   END SUBROUTINE InitGeometry_logcylindrical
 
 
