@@ -89,20 +89,20 @@ PROGRAM KHI
   CALL InitData(Sim%Mesh, Sim%Physics, Sim%Timedisc,.FALSE.,.FALSE.)
   DO i = Sim%Mesh%KGMIN, Sim%Mesh%KGMAX
    ! transpose result and store for comparison with 2nd run
-    pvar_1(:,:,i,Sim%Physics%DENSITY)   = TRANSPOSE(Sim%Timedisc%pvar(:,:,i,Sim%Physics%DENSITY))
-    pvar_1(:,:,i,Sim%Physics%XVELOCITY) = TRANSPOSE(Sim%Timedisc%pvar(:,:,i,Sim%Physics%YVELOCITY))
-    pvar_1(:,:,i,Sim%Physics%YVELOCITY) = TRANSPOSE(Sim%Timedisc%pvar(:,:,i,Sim%Physics%XVELOCITY))
-   ! pvar(:,:,i,Sim%Physics%ZVELOCITY) = TRANSPOSE(Sim%Timedisc%pvar(:,:,i,Sim%Physics%ZVELOCITY))
-    pvar_1(:,:,i,Sim%Physics%PRESSURE)  = TRANSPOSE(Sim%Timedisc%pvar(:,:,i,Sim%Physics%PRESSURE))
+    pvar_1(:,:,i,Sim%Physics%DENSITY)   = TRANSPOSE(Sim%Timedisc%pvar%data4d(:,:,i,Sim%Physics%DENSITY))
+    pvar_1(:,:,i,Sim%Physics%XVELOCITY) = TRANSPOSE(Sim%Timedisc%pvar%data4d(:,:,i,Sim%Physics%YVELOCITY))
+    pvar_1(:,:,i,Sim%Physics%YVELOCITY) = TRANSPOSE(Sim%Timedisc%pvar%data4d(:,:,i,Sim%Physics%XVELOCITY))
+   ! pvar(:,:,i,Sim%Physics%ZVELOCITY) = TRANSPOSE(Sim%Timedisc%pvar%data4d(:,:,i,Sim%Physics%ZVELOCITY))
+    pvar_1(:,:,i,Sim%Physics%PRESSURE)  = TRANSPOSE(Sim%Timedisc%pvar%data4d(:,:,i,Sim%Physics%PRESSURE))
   END DO
   CALL Sim%Run()
   DO i = Sim%Mesh%KGMIN, Sim%Mesh%KGMAX
    ! transpose result and store for comparison with 2nd run
-    pvar(:,:,i,Sim%Physics%DENSITY)   = TRANSPOSE(Sim%Timedisc%pvar(:,:,i,Sim%Physics%DENSITY))
-    pvar(:,:,i,Sim%Physics%XVELOCITY) = TRANSPOSE(Sim%Timedisc%pvar(:,:,i,Sim%Physics%YVELOCITY))
-    pvar(:,:,i,Sim%Physics%YVELOCITY) = TRANSPOSE(Sim%Timedisc%pvar(:,:,i,Sim%Physics%XVELOCITY))
-   ! pvar(:,:,i,Sim%Physics%ZVELOCITY) = TRANSPOSE(Sim%Timedisc%pvar(:,:,i,Sim%Physics%ZVELOCITY))
-    pvar(:,:,i,Sim%Physics%PRESSURE)  = TRANSPOSE(Sim%Timedisc%pvar(:,:,i,Sim%Physics%PRESSURE))
+    pvar(:,:,i,Sim%Physics%DENSITY)   = TRANSPOSE(Sim%Timedisc%pvar%data4d(:,:,i,Sim%Physics%DENSITY))
+    pvar(:,:,i,Sim%Physics%XVELOCITY) = TRANSPOSE(Sim%Timedisc%pvar%data4d(:,:,i,Sim%Physics%YVELOCITY))
+    pvar(:,:,i,Sim%Physics%YVELOCITY) = TRANSPOSE(Sim%Timedisc%pvar%data4d(:,:,i,Sim%Physics%XVELOCITY))
+   ! pvar(:,:,i,Sim%Physics%ZVELOCITY) = TRANSPOSE(Sim%Timedisc%pvar%data4d(:,:,i,Sim%Physics%ZVELOCITY))
+    pvar(:,:,i,Sim%Physics%PRESSURE)  = TRANSPOSE(Sim%Timedisc%pvar%data4d(:,:,i,Sim%Physics%PRESSURE))
   END DO
   CALL Sim%Finalize()
   DEALLOCATE(SIM)
@@ -115,15 +115,15 @@ PROGRAM KHI
   CALL InitData(Sim%Mesh, Sim%Physics, Sim%Timedisc,.TRUE.,.TRUE.)
   DO i = Sim%Mesh%KGMIN, Sim%Mesh%KGMAX
    ! transpose result and store for comparison with 2nd run
-    pvar_2(:,:,i,Sim%Physics%DENSITY)   = (Sim%Timedisc%pvar(:,:,i,Sim%Physics%DENSITY))
-    pvar_2(:,:,i,Sim%Physics%XVELOCITY) = (Sim%Timedisc%pvar(:,:,i,Sim%Physics%XVELOCITY))
-    pvar_2(:,:,i,Sim%Physics%YVELOCITY) = (Sim%Timedisc%pvar(:,:,i,Sim%Physics%YVELOCITY))
-   ! pvar(:,:,i,Sim%Physics%ZVELOCITY) = TRANSPOSE(Sim%Timedisc%pvar(:,:,i,Sim%Physics%ZVELOCITY))
-    pvar_2(:,:,i,Sim%Physics%PRESSURE)  = (Sim%Timedisc%pvar(:,:,i,Sim%Physics%PRESSURE))
+    pvar_2(:,:,i,Sim%Physics%DENSITY)   = (Sim%Timedisc%pvar%data4d(:,:,i,Sim%Physics%DENSITY))
+    pvar_2(:,:,i,Sim%Physics%XVELOCITY) = (Sim%Timedisc%pvar%data4d(:,:,i,Sim%Physics%XVELOCITY))
+    pvar_2(:,:,i,Sim%Physics%YVELOCITY) = (Sim%Timedisc%pvar%data4d(:,:,i,Sim%Physics%YVELOCITY))
+   ! pvar(:,:,i,Sim%Physics%ZVELOCITY) = TRANSPOSE(Sim%Timedisc%pvar%data4d(:,:,i,Sim%Physics%ZVELOCITY))
+    pvar_2(:,:,i,Sim%Physics%PRESSURE)  = (Sim%Timedisc%pvar%data4d(:,:,i,Sim%Physics%PRESSURE))
   END DO
   CALL Sim%Run()
   ! compare results
-  sigma = SQRT(SUM((Sim%Timedisc%pvar(:,:,:,:)-pvar(:,:,:,:))**2)/SIZE(pvar))
+  sigma = SQRT(SUM((Sim%Timedisc%pvar%data4d(:,:,:,:)-pvar(:,:,:,:))**2)/SIZE(pvar))
   sigma_dens = SQRT(SUM((pvar_1(:,:,:,1)-pvar_2(:,:,:,1))**2))
   sigma_xvel = SQRT(SUM((pvar_1(:,:,:,2)-pvar_2(:,:,:,2))**2))
   sigma_yvel = SQRT(SUM((pvar_1(:,:,:,3)-pvar_2(:,:,:,3))**2))
@@ -277,50 +277,50 @@ CONTAINS
     IF (PRESENT(rotate90deg).AND.rotate90deg) THEN
        ! flow along y-direction:
        ! x and z-velocity vanish everywhere
-       Timedisc%pvar(:,:,:,Physics%XVELOCITY) = 0.
+       Timedisc%pvar%data4d(:,:,:,Physics%XVELOCITY) = 0.
 !       Timedisc%pvar(:,:,:,Physics%ZVELOCITY) = 0.
        WHERE ((Mesh%bcenter(:,:,:,1).LT.(Mesh%xmin+0.25*XYZLEN)).OR. &
             (Mesh%bcenter(:,:,:,1).GT.(SIM%Mesh%xmin+0.75*XYZLEN)))
-          Timedisc%pvar(:,:,:,Physics%DENSITY) = RHO0
-          Timedisc%pvar(:,:,:,Physics%YVELOCITY) = V0
-          Timedisc%pvar(:,:,:,Physics%PRESSURE) = P0
+          Timedisc%pvar%data4d(:,:,:,Physics%DENSITY) = RHO0
+          Timedisc%pvar%data4d(:,:,:,Physics%YVELOCITY) = V0
+          Timedisc%pvar%data4d(:,:,:,Physics%PRESSURE) = P0
        ELSEWHERE
-          Timedisc%pvar(:,:,:,Physics%DENSITY) = RHO1
-          Timedisc%pvar(:,:,:,Physics%YVELOCITY) = V1
-          Timedisc%pvar(:,:,:,Physics%PRESSURE) = P1
+          Timedisc%pvar%data4d(:,:,:,Physics%DENSITY) = RHO1
+          Timedisc%pvar%data4d(:,:,:,Physics%YVELOCITY) = V1
+          Timedisc%pvar%data4d(:,:,:,Physics%PRESSURE) = P1
        END WHERE
        DO i = Sim%Mesh%KGMIN, Sim%Mesh%KGMAX
          ! add perturbation to the velocity field
-         Timedisc%pvar(:,:,i,Physics%XVELOCITY) = Timedisc%pvar(:,:,i,Physics%XVELOCITY) &
+         Timedisc%pvar%data4d(:,:,i,Physics%XVELOCITY) = Timedisc%pvar%data4d(:,:,i,Physics%XVELOCITY) &
               + (TRANSPOSE(dv(:,:,i,2))-0.5)*0.02
-         Timedisc%pvar(:,:,i,Physics%YVELOCITY) = Timedisc%pvar(:,:,i,Physics%YVELOCITY) &
+         Timedisc%pvar%data4d(:,:,i,Physics%YVELOCITY) = Timedisc%pvar%data4d(:,:,i,Physics%YVELOCITY) &
               + (TRANSPOSE(dv(:,:,i,1))-0.5)*0.02
-!         Timedisc%pvar(:,:,i,Physics%ZVELOCITY) = Timedisc%pvar(:,:,i,Physics%ZVELOCITY) &
+!         Timedisc%pvar(:,:,i,Physics%ZVELOCITY) = Timedisc%pvar%data4d(:,:,i,Physics%ZVELOCITY) &
 !              + (TRANSPOSE(dv(:,:,i,3))-0.5)*0.02
        END DO
     ELSE
        ! flow along x-direction:
        ! y and z-velocity vanish everywhere
-       Timedisc%pvar(:,:,:,Physics%YVELOCITY) = 0.
+       Timedisc%pvar%data4d(:,:,:,Physics%YVELOCITY) = 0.
        WHERE ((Mesh%bcenter(:,:,:,2).LT.(Mesh%ymin+0.25*XYZLEN)).OR. &
             (Mesh%bcenter(:,:,:,2).GT.(Mesh%ymin+0.75*XYZLEN)))
-          Timedisc%pvar(:,:,:,Physics%DENSITY) = RHO0
-          Timedisc%pvar(:,:,:,Physics%XVELOCITY) = V0
-          Timedisc%pvar(:,:,:,Physics%PRESSURE) = P0
+          Timedisc%pvar%data4d(:,:,:,Physics%DENSITY) = RHO0
+          Timedisc%pvar%data4d(:,:,:,Physics%XVELOCITY) = V0
+          Timedisc%pvar%data4d(:,:,:,Physics%PRESSURE) = P0
        ELSEWHERE
-          Timedisc%pvar(:,:,:,Physics%DENSITY) = RHO1
-          Timedisc%pvar(:,:,:,Physics%XVELOCITY) = V1
-          Timedisc%pvar(:,:,:,Physics%PRESSURE) = P1
+          Timedisc%pvar%data4d(:,:,:,Physics%DENSITY) = RHO1
+          Timedisc%pvar%data4d(:,:,:,Physics%XVELOCITY) = V1
+          Timedisc%pvar%data4d(:,:,:,Physics%PRESSURE) = P1
        END WHERE
        ! add perturbation to the velocity field
-       Timedisc%pvar(:,:,:,Physics%XVELOCITY) = Timedisc%pvar(:,:,:,Physics%XVELOCITY) &
+       Timedisc%pvar%data4d(:,:,:,Physics%XVELOCITY) = Timedisc%pvar%data4d(:,:,:,Physics%XVELOCITY) &
             + (dv(:,:,:,1)-0.5)*0.02
-       Timedisc%pvar(:,:,:,Physics%YVELOCITY) = Timedisc%pvar(:,:,:,Physics%YVELOCITY) &
+       Timedisc%pvar%data4d(:,:,:,Physics%YVELOCITY) = Timedisc%pvar%data4d(:,:,:,Physics%YVELOCITY) &
             + (dv(:,:,:,2)-0.5)*0.02
-!       Timedisc%pvar(:,:,:,Physics%ZVELOCITY) = Timedisc%pvar(:,:,:,Physics%ZVELOCITY) &
+!       Timedisc%pvar(:,:,:,Physics%ZVELOCITY) = Timedisc%pvar%data4d(:,:,:,Physics%ZVELOCITY) &
 !            + (dv(:,:,:,3)-0.5)*0.02
     END IF
-    CALL Physics%Convert2Conservative(Mesh,Timedisc%pvar,Timedisc%cvar)
+    CALL Physics%Convert2Conservative(Mesh,Timedisc%pvar%data4d,Timedisc%cvar%data4d)
     CALL Mesh%Info(" DATA-----> initial condition: " // &
          "Kelvin-Helmholtz instability")
   END SUBROUTINE InitData

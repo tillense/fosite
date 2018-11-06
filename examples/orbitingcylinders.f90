@@ -374,7 +374,7 @@ CONTAINS
       r1 = rsq(Mesh,Mesh%radius%bcenter,x1)
       r2 = rsq(Mesh,Mesh%radius%bcenter,x3)
       r3 = rsq(Mesh,Mesh%radius%bcenter,x4)
-      Timedisc%pvar(:,:,:,Physics%DENSITY) &
+      Timedisc%pvar%data4d(:,:,:,Physics%DENSITY) &
         = 2.0 / (2.*PI*sigma**2) * EXP(-SQRT(r1)/sigma) &
         + 0.5 / (2.*PI*sigma**2) * EXP(-SQRT(r2)/sigma) &
         + 1.0 / (2.*PI*sigma**2) * EXP(-SQRT(r3)/sigma)
@@ -405,14 +405,14 @@ CONTAINS
         END DO
       END DO
 
-      Timedisc%pvar(:,:,:,Physics%PRESSURE) = 1.0
-      Timedisc%pvar(:,:,:,Physics%XVELOCITY) = 0.0
-      Timedisc%pvar(:,:,:,Physics%YVELOCITY) = 0.0
+      Timedisc%pvar%data4d(:,:,:,Physics%PRESSURE) = 1.0
+      Timedisc%pvar%data4d(:,:,:,Physics%XVELOCITY) = 0.0
+      Timedisc%pvar%data4d(:,:,:,Physics%YVELOCITY) = 0.0
     CASE(2)
       r1 = rsq(Mesh,Mesh%radius%bcenter,x1)
       r2 = rsq(Mesh,Mesh%radius%bcenter,x3)
       r3 = rsq(Mesh,Mesh%radius%bcenter,x4)
-      Timedisc%pvar(:,:,:,Physics%DENSITY) &
+      Timedisc%pvar%data4d(:,:,:,Physics%DENSITY) &
         = 2.0 / (2.*PI*sigma**2) * EXP(-r1/(2.*sigma**2)) &
         + 0.5 / (2.*PI*sigma**2) * EXP(-r2/(2.*sigma**2)) &
         + 1.0 / (2.*PI*sigma**2) * EXP(-r3/(2.*sigma**2))
@@ -425,23 +425,23 @@ CONTAINS
         = - 2.0 / SQRT(r1) * ERF(SQRT(r1 / 2.) / sigma) &
           - 0.5 / SQRT(r2) * ERF(SQRT(r2 / 2.) / sigma) &
           - 1.0 / SQRT(r3) * ERF(SQRT(r3 / 2.) / sigma)
-      Timedisc%pvar(:,:,:,Physics%PRESSURE) = 1.0
-      Timedisc%pvar(:,:,:,Physics%XVELOCITY) = 0.0
-      Timedisc%pvar(:,:,:,Physics%YVELOCITY) = 0.0
+      Timedisc%pvar%data4d(:,:,:,Physics%PRESSURE) = 1.0
+      Timedisc%pvar%data4d(:,:,:,Physics%XVELOCITY) = 0.0
+      Timedisc%pvar%data4d(:,:,:,Physics%YVELOCITY) = 0.0
     CASE(3)
       r1 = rsq(Mesh,Mesh%curv%bcenter,x1)
       r2 = rsq(Mesh,Mesh%curv%bcenter,x2)
-      Timedisc%pvar(:,:,:,Physics%DENSITY)  = 0.02/(3.2*PI) &
+      Timedisc%pvar%data4d(:,:,:,Physics%DENSITY)  = 0.02/(3.2*PI) &
         + 0.99 * (  EXP(-0.5*(r1/sigma**2))/(2.*PI*sigma**2) &
                   + EXP(-0.5*(r2/sigma**2))/(2.*PI*sigma**2))
 
-      Timedisc%pvar(:,:,:,Physics%PRESSURE) = 0.02/(3.2*PI) &
+      Timedisc%pvar%data4d(:,:,:,Physics%PRESSURE) = 0.02/(3.2*PI) &
         + GN / (2.*PI*sigma**2) &
            * (  Ei(-(r1/sigma**2)) - Ei(-0.5*(r1/sigma**2)) &
               + Ei(-(r2/sigma**2)) - Ei(-0.5*(r2/sigma**2)))
 
-      Timedisc%pvar(:,:,:,Physics%XVELOCITY) = 0.0
-      Timedisc%pvar(:,:,:,Physics%YVELOCITY) = r - r*omega
+      Timedisc%pvar%data4d(:,:,:,Physics%XVELOCITY) = 0.0
+      Timedisc%pvar%data4d(:,:,:,Physics%YVELOCITY) = r - r*omega
     END SELECT
 
     DO dir=WEST,EAST
@@ -456,14 +456,14 @@ CONTAINS
                   i = Mesh%IMAX+ig
               END SELECT
               Timedisc%Boundary%Boundary(dir)%p%data(ig,j,k,Physics%YVELOCITY) &
-                = Timedisc%pvar(i,j,k,Physics%YVELOCITY)
+                = Timedisc%pvar%data4d(i,j,k,Physics%YVELOCITY)
             END DO
           END DO
         END DO
       END IF
     END DO
 
-    CALL Physics%Convert2Conservative(Mesh,Timedisc%pvar,Timedisc%cvar)
+    CALL Physics%Convert2Conservative(Mesh,Timedisc%pvar%data4d,Timedisc%cvar%data4d)
   END SUBROUTINE InitData
 
   FUNCTION rsq(Mesh,r,x) RESULT(res)

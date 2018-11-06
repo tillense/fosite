@@ -102,7 +102,7 @@ PROGRAM KHI
   ALLOCATE(pvar_temp(Sim%Mesh%IGMIN:Sim%Mesh%IGMAX,Sim%Mesh%JGMIN:Sim%Mesh%JGMAX,Sim%Mesh%KGMIN:Sim%Mesh%KGMAX,Sim%Physics%VNUM))
   CALL InitData(Sim%Mesh, Sim%Physics, Sim%Timedisc,'xy',.FALSE.)
   CALL Sim%Run()
-  pvar_xy(:,:,:,:) = SIM%Timedisc%pvar(:,:,:,:)
+  pvar_xy(:,:,:,:) = SIM%Timedisc%pvar%data4d(:,:,:,:)
   CALL Sim%Finalize(.FALSE.)
   DEALLOCATE(SIM)
 
@@ -114,7 +114,7 @@ PROGRAM KHI
   CALL Sim%Setup()
   CALL InitData(Sim%Mesh, Sim%Physics, Sim%Timedisc,'yx',.TRUE.)
   CALL Sim%Run()
-  pvar_yx(:,:,:,:) = Sim%Timedisc%pvar(:,:,:,:)
+  pvar_yx(:,:,:,:) = Sim%Timedisc%pvar%data4d(:,:,:,:)
   CALL Sim%Finalize(.FALSE.)
   DEALLOCATE(Sim)
 
@@ -126,7 +126,7 @@ PROGRAM KHI
   CALL Sim%Setup()
   CALL InitData(Sim%Mesh, Sim%Physics, Sim%Timedisc,'xz',.TRUE.)
   CALL Sim%Run()
-  pvar_xz(:,:,:,:) = Sim%Timedisc%pvar(:,:,:,:)
+  pvar_xz(:,:,:,:) = Sim%Timedisc%pvar%data4d(:,:,:,:)
   CALL Sim%Finalize(.FALSE.)
   DEALLOCATE(Sim)
 
@@ -139,7 +139,7 @@ PROGRAM KHI
   CALL Sim%Setup()
   CALL InitData(Sim%Mesh, Sim%Physics, Sim%Timedisc,'zx',.TRUE.)
   CALL Sim%Run()
-  pvar_zx(:,:,:,:) = Sim%Timedisc%pvar(:,:,:,:)
+  pvar_zx(:,:,:,:) = Sim%Timedisc%pvar%data4d(:,:,:,:)
   CALL Sim%Finalize(.FALSE.)
   DEALLOCATE(Sim)
 
@@ -151,7 +151,7 @@ PROGRAM KHI
   CALL Sim%Setup()
   CALL InitData(Sim%Mesh, Sim%Physics, Sim%Timedisc,'zy',.TRUE.)
   CALL Sim%Run()
-  pvar_zy(:,:,:,:) = Sim%Timedisc%pvar(:,:,:,:)
+  pvar_zy(:,:,:,:) = Sim%Timedisc%pvar%data4d(:,:,:,:)
   CALL Sim%Finalize(.FALSE.)
   DEALLOCATE(Sim)
 
@@ -163,7 +163,7 @@ PROGRAM KHI
   CALL Sim%Setup()
   CALL InitData(Sim%Mesh, Sim%Physics, Sim%Timedisc,'yz',.TRUE.)
   CALL Sim%Run()
-  pvar_yz(:,:,:,:) = Sim%Timedisc%pvar(:,:,:,:)
+  pvar_yz(:,:,:,:) = Sim%Timedisc%pvar%data4d(:,:,:,:)
 
    DO k=Sim%Mesh%KGMIN, Sim%Mesh%KGMAX
     pvar_temp(:,:,k,Sim%Physics%DENSITY)   = TRANSPOSE(pvar_xy(:,:,k,Sim%Physics%DENSITY))
@@ -379,27 +379,27 @@ CONTAINS
        ! flow along yx-direction:
        print *,"yx-Direction"
        ! x and z-velocity vanish everywhere
-       Timedisc%pvar(:,:,:,Physics%XVELOCITY) = 0.
-       Timedisc%pvar(:,:,:,Physics%ZVELOCITY) = 0.
+       Timedisc%pvar%data4d(:,:,:,Physics%XVELOCITY) = 0.
+       Timedisc%pvar%data4d(:,:,:,Physics%ZVELOCITY) = 0.
 
        WHERE ((Mesh%bcenter(:,:,:,1).LT.(Mesh%xmin+0.25*XYZLEN)).OR. &
             (Mesh%bcenter(:,:,:,1).GT.(Mesh%xmin+0.75*XYZLEN)))
-          Timedisc%pvar(:,:,:,Physics%DENSITY) = RHO0
-          Timedisc%pvar(:,:,:,Physics%YVELOCITY) = V0
-          Timedisc%pvar(:,:,:,Physics%PRESSURE) = P0
+          Timedisc%pvar%data4d(:,:,:,Physics%DENSITY) = RHO0
+          Timedisc%pvar%data4d(:,:,:,Physics%YVELOCITY) = V0
+          Timedisc%pvar%data4d(:,:,:,Physics%PRESSURE) = P0
        ELSEWHERE
-          Timedisc%pvar(:,:,:,Physics%DENSITY) = RHO1
-          Timedisc%pvar(:,:,:,Physics%YVELOCITY) = V1
-          Timedisc%pvar(:,:,:,Physics%PRESSURE) = P1
+          Timedisc%pvar%data4d(:,:,:,Physics%DENSITY) = RHO1
+          Timedisc%pvar%data4d(:,:,:,Physics%YVELOCITY) = V1
+          Timedisc%pvar%data4d(:,:,:,Physics%PRESSURE) = P1
        END WHERE
         DO k = Mesh%KGMIN, Mesh%KGMAX
          ! add perturbation to the velocity field
-         Timedisc%pvar(:,:,k,Physics%XVELOCITY) = Timedisc%pvar(:,:,k,Physics%XVELOCITY) &
+         Timedisc%pvar%data4d(:,:,k,Physics%XVELOCITY) = Timedisc%pvar%data4d(:,:,k,Physics%XVELOCITY) &
               + TRANSPOSE(dv(:,:,k,2)-0.5)*0.2
-         Timedisc%pvar(:,:,k,Physics%YVELOCITY) = Timedisc%pvar(:,:,k,Physics%YVELOCITY) &
+         Timedisc%pvar%data4d(:,:,k,Physics%YVELOCITY) = Timedisc%pvar%data4d(:,:,k,Physics%YVELOCITY) &
               + TRANSPOSE(dv(:,:,k,1)-0.5)*0.2
          IF (Physics%GetType().EQ.Euler3D) &
-              Timedisc%pvar(:,:,k,Physics%ZVELOCITY) = Timedisc%pvar(:,:,k,Physics%ZVELOCITY) &
+              Timedisc%pvar%data4d(:,:,k,Physics%ZVELOCITY) = Timedisc%pvar%data4d(:,:,k,Physics%ZVELOCITY) &
               + TRANSPOSE(dv(:,:,k,3)-0.5)*0.2
        END DO
     ! initial condition
@@ -407,18 +407,18 @@ CONTAINS
        ! flow along zx-direction:
        print *,"zx-Direction"
        ! x and y-velocity vanish everywhere
-       Timedisc%pvar(:,:,:,Physics%XVELOCITY) = 0.
-       Timedisc%pvar(:,:,:,Physics%YVELOCITY) = 0.
+       Timedisc%pvar%data4d(:,:,:,Physics%XVELOCITY) = 0.
+       Timedisc%pvar%data4d(:,:,:,Physics%YVELOCITY) = 0.
 
       WHERE ((Mesh%bcenter(:,:,:,1).LT.(Mesh%xmin+0.25*XYZLEN)).OR. &
             (Mesh%bcenter(:,:,:,1).GT.(Mesh%xmin+0.75*XYZLEN)))
-          Timedisc%pvar(:,:,:,Physics%DENSITY) = RHO0
-          Timedisc%pvar(:,:,:,Physics%ZVELOCITY) = V0
-          Timedisc%pvar(:,:,:,Physics%PRESSURE) = P0
+          Timedisc%pvar%data4d(:,:,:,Physics%DENSITY) = RHO0
+          Timedisc%pvar%data4d(:,:,:,Physics%ZVELOCITY) = V0
+          Timedisc%pvar%data4d(:,:,:,Physics%PRESSURE) = P0
        ELSEWHERE
-          Timedisc%pvar(:,:,:,Physics%DENSITY) = RHO1
-          Timedisc%pvar(:,:,:,Physics%ZVELOCITY) = V1
-          Timedisc%pvar(:,:,:,Physics%PRESSURE) = P1
+          Timedisc%pvar%data4d(:,:,:,Physics%DENSITY) = RHO1
+          Timedisc%pvar%data4d(:,:,:,Physics%ZVELOCITY) = V1
+          Timedisc%pvar%data4d(:,:,:,Physics%PRESSURE) = P1
        END WHERE
        DO k = Mesh%KGMIN,Mesh%KGMAX
         dv_temp(:,:,k,1) = TRANSPOSE(dv(:,:,k,2))
@@ -427,106 +427,106 @@ CONTAINS
        END DO
        DO i= Mesh%IGMIN, Mesh%IGMAX
         ! add perturbation to the velocity field
-        Timedisc%pvar(i,:,:,Physics%XVELOCITY) = Timedisc%pvar(i,:,:,Physics%XVELOCITY) &
+        Timedisc%pvar%data4d(i,:,:,Physics%XVELOCITY) = Timedisc%pvar%data4d(i,:,:,Physics%XVELOCITY) &
              + TRANSPOSE(dv_temp(i,:,:,1)-0.5)*0.2
-        Timedisc%pvar(i,:,:,Physics%YVELOCITY) = Timedisc%pvar(i,:,:,Physics%YVELOCITY) &
+        Timedisc%pvar%data4d(i,:,:,Physics%YVELOCITY) = Timedisc%pvar%data4d(i,:,:,Physics%YVELOCITY) &
              + TRANSPOSE(dv_temp(i,:,:,3)-0.5)*0.2
         IF (Physics%GetType().EQ.Euler3D) &
-             Timedisc%pvar(i,:,:,Physics%ZVELOCITY) = Timedisc%pvar(i,:,:,Physics%ZVELOCITY) &
+             Timedisc%pvar%data4d(i,:,:,Physics%ZVELOCITY) = Timedisc%pvar%data4d(i,:,:,Physics%ZVELOCITY) &
              + TRANSPOSE(dv_temp(i,:,:,2)-0.5)*0.2
       END DO
     ELSEIF (PRESENT(flow_dir).AND.flow_dir.EQ.'xy') THEN
        ! flow along xy-direction:
        print *,"xy-Direction"
        ! y and z-velocity vanish everywhere
-       Timedisc%pvar(:,:,:,Physics%YVELOCITY) = 0.
-       Timedisc%pvar(:,:,:,Physics%ZVELOCITY) = 0.
+       Timedisc%pvar%data4d(:,:,:,Physics%YVELOCITY) = 0.
+       Timedisc%pvar%data4d(:,:,:,Physics%ZVELOCITY) = 0.
         WHERE ((Mesh%bcenter(:,:,:,2).LT.(Mesh%ymin+0.25*XYZLEN)).OR. &
               (Mesh%bcenter(:,:,:,2).GT.(Mesh%ymin+0.75*XYZLEN)))
-            Timedisc%pvar(:,:,:,Physics%DENSITY) = RHO0
-            Timedisc%pvar(:,:,:,Physics%XVELOCITY) = V0
-            Timedisc%pvar(:,:,:,Physics%PRESSURE) = P0
+            Timedisc%pvar%data4d(:,:,:,Physics%DENSITY) = RHO0
+            Timedisc%pvar%data4d(:,:,:,Physics%XVELOCITY) = V0
+            Timedisc%pvar%data4d(:,:,:,Physics%PRESSURE) = P0
           ELSEWHERE
-            Timedisc%pvar(:,:,:,Physics%DENSITY) = RHO1
-            Timedisc%pvar(:,:,:,Physics%XVELOCITY) = V1
-            Timedisc%pvar(:,:,:,Physics%PRESSURE) = P1
+            Timedisc%pvar%data4d(:,:,:,Physics%DENSITY) = RHO1
+            Timedisc%pvar%data4d(:,:,:,Physics%XVELOCITY) = V1
+            Timedisc%pvar%data4d(:,:,:,Physics%PRESSURE) = P1
           END WHERE
         ! add perturbation to the velocity field
-        Timedisc%pvar(:,:,:,Physics%XVELOCITY) = Timedisc%pvar(:,:,:,Physics%XVELOCITY) &
+        Timedisc%pvar%data4d(:,:,:,Physics%XVELOCITY) = Timedisc%pvar%data4d(:,:,:,Physics%XVELOCITY) &
              + (dv(:,:,:,1)-0.5)*0.2
-        Timedisc%pvar(:,:,:,Physics%YVELOCITY) = Timedisc%pvar(:,:,:,Physics%YVELOCITY) &
+        Timedisc%pvar%data4d(:,:,:,Physics%YVELOCITY) = Timedisc%pvar%data4d(:,:,:,Physics%YVELOCITY) &
              + (dv(:,:,:,2)-0.5)*0.2
         IF (Physics%GetType().EQ.Euler3D) &
-             Timedisc%pvar(:,:,:,Physics%ZVELOCITY) = Timedisc%pvar(:,:,:,Physics%ZVELOCITY) &
+             Timedisc%pvar%data4d(:,:,:,Physics%ZVELOCITY) = Timedisc%pvar%data4d(:,:,:,Physics%ZVELOCITY) &
              + (dv(:,:,:,3)-0.5)*0.2
 
      ELSEIF (PRESENT(flow_dir).AND.flow_dir.EQ.'xz') THEN
        ! flow along xz-direction:
        print *,"xz-Direction"
        ! y and z-velocity vanish everywhere
-       Timedisc%pvar(:,:,:,Physics%YVELOCITY) = 0.
-       Timedisc%pvar(:,:,:,Physics%ZVELOCITY) = 0.
+       Timedisc%pvar%data4d(:,:,:,Physics%YVELOCITY) = 0.
+       Timedisc%pvar%data4d(:,:,:,Physics%ZVELOCITY) = 0.
        WHERE ((Mesh%bcenter(:,:,:,3).LT.(Mesh%zmin+0.25*XYZLEN)).OR. &
             (Mesh%bcenter(:,:,:,3).GT.(Mesh%zmin+0.75*XYZLEN)))     
-          Timedisc%pvar(:,:,:,Physics%DENSITY) = RHO0
-          Timedisc%pvar(:,:,:,Physics%XVELOCITY) = V0
-          Timedisc%pvar(:,:,:,Physics%PRESSURE) = P0
+          Timedisc%pvar%data4d(:,:,:,Physics%DENSITY) = RHO0
+          Timedisc%pvar%data4d(:,:,:,Physics%XVELOCITY) = V0
+          Timedisc%pvar%data4d(:,:,:,Physics%PRESSURE) = P0
        ELSEWHERE
-          Timedisc%pvar(:,:,:,Physics%DENSITY) = RHO1
-          Timedisc%pvar(:,:,:,Physics%XVELOCITY) = V1
-          Timedisc%pvar(:,:,:,Physics%PRESSURE) = P1
+          Timedisc%pvar%data4d(:,:,:,Physics%DENSITY) = RHO1
+          Timedisc%pvar%data4d(:,:,:,Physics%XVELOCITY) = V1
+          Timedisc%pvar%data4d(:,:,:,Physics%PRESSURE) = P1
        END WHERE
        DO i = Mesh%IGMIN, Mesh%IGMAX
         ! add perturbation to the velocity field
-        Timedisc%pvar(i,:,:,Physics%XVELOCITY) = Timedisc%pvar(i,:,:,Physics%XVELOCITY) &
+        Timedisc%pvar%data4d(i,:,:,Physics%XVELOCITY) = Timedisc%pvar%data4d(i,:,:,Physics%XVELOCITY) &
              + TRANSPOSE(dv(i,:,:,1)-0.5)*0.2
-        Timedisc%pvar(i,:,:,Physics%YVELOCITY) = Timedisc%pvar(i,:,:,Physics%YVELOCITY) &
+        Timedisc%pvar%data4d(i,:,:,Physics%YVELOCITY) = Timedisc%pvar%data4d(i,:,:,Physics%YVELOCITY) &
              + TRANSPOSE(dv(i,:,:,3)-0.5)*0.2
         IF (Physics%GetType().EQ.Euler3D) &
-             Timedisc%pvar(i,:,:,Physics%ZVELOCITY) = Timedisc%pvar(i,:,:,Physics%ZVELOCITY) &
+             Timedisc%pvar%data4d(i,:,:,Physics%ZVELOCITY) = Timedisc%pvar%data4d(i,:,:,Physics%ZVELOCITY) &
              + TRANSPOSE(dv(i,:,:,2)-0.5)*0.2
       END DO
    ELSEIF (PRESENT(flow_dir).AND.flow_dir.EQ.'zy') THEN
        ! flow along zy-direction:
        print *,"zy-Direction"
        ! x and y-velocity vanish everywhere
-       Timedisc%pvar(:,:,:,Physics%XVELOCITY) = 0.
-       Timedisc%pvar(:,:,:,Physics%YVELOCITY) = 0.
+       Timedisc%pvar%data4d(:,:,:,Physics%XVELOCITY) = 0.
+       Timedisc%pvar%data4d(:,:,:,Physics%YVELOCITY) = 0.
        WHERE ((Mesh%bcenter(:,:,:,2).LT.(Mesh%ymin+0.25*XYZLEN)).OR. &
               (Mesh%bcenter(:,:,:,2).GT.(Mesh%ymin+0.75*XYZLEN)))     
-          Timedisc%pvar(:,:,:,Physics%DENSITY) = RHO0
-          Timedisc%pvar(:,:,:,Physics%ZVELOCITY) = V0
-          Timedisc%pvar(:,:,:,Physics%PRESSURE) = P0
+          Timedisc%pvar%data4d(:,:,:,Physics%DENSITY) = RHO0
+          Timedisc%pvar%data4d(:,:,:,Physics%ZVELOCITY) = V0
+          Timedisc%pvar%data4d(:,:,:,Physics%PRESSURE) = P0
         ELSEWHERE
-          Timedisc%pvar(:,:,:,Physics%DENSITY) = RHO1
-          Timedisc%pvar(:,:,:,Physics%ZVELOCITY) = V1
-          Timedisc%pvar(:,:,:,Physics%PRESSURE) = P1
+          Timedisc%pvar%data4d(:,:,:,Physics%DENSITY) = RHO1
+          Timedisc%pvar%data4d(:,:,:,Physics%ZVELOCITY) = V1
+          Timedisc%pvar%data4d(:,:,:,Physics%PRESSURE) = P1
         END WHERE 
         DO j = Mesh%JGMIN, Mesh%JGMAX
         ! add perturbation to the velocity field
-        Timedisc%pvar(:,j,:,Physics%XVELOCITY) = Timedisc%pvar(:,j,:,Physics%XVELOCITY) &
+        Timedisc%pvar%data4d(:,j,:,Physics%XVELOCITY) = Timedisc%pvar%data4d(:,j,:,Physics%XVELOCITY) &
              + TRANSPOSE(dv(:,j,:,3)-0.5)*0.2
-        Timedisc%pvar(:,j,:,Physics%YVELOCITY) = Timedisc%pvar(:,j,:,Physics%YVELOCITY) &
+        Timedisc%pvar%data4d(:,j,:,Physics%YVELOCITY) = Timedisc%pvar%data4d(:,j,:,Physics%YVELOCITY) &
              + TRANSPOSE(dv(:,j,:,2)-0.5)*0.2
         IF (Physics%GetType().EQ.Euler3D) &
-             Timedisc%pvar(:,j,:,Physics%ZVELOCITY) = Timedisc%pvar(:,j,:,Physics%ZVELOCITY) &
+             Timedisc%pvar%data4d(:,j,:,Physics%ZVELOCITY) = Timedisc%pvar%data4d(:,j,:,Physics%ZVELOCITY) &
              + TRANSPOSE(dv(:,j,:,1)-0.5)*0.2
        END DO
    ELSEIF (PRESENT(flow_dir).AND.flow_dir.EQ.'yz') THEN
        ! flow along yz-direction:
        print *,"yz-Direction"
        ! x and z-velocity vanish everywhere
-       Timedisc%pvar(:,:,:,Physics%XVELOCITY) = 0.
-       Timedisc%pvar(:,:,:,Physics%ZVELOCITY) = 0.
+       Timedisc%pvar%data4d(:,:,:,Physics%XVELOCITY) = 0.
+       Timedisc%pvar%data4d(:,:,:,Physics%ZVELOCITY) = 0.
        WHERE ((Mesh%bcenter(:,:,:,3).LT.(Mesh%zmin+0.25*XYZLEN)).OR. &
               (Mesh%bcenter(:,:,:,3).GT.(Mesh%zmin+0.75*XYZLEN)))     
-          Timedisc%pvar(:,:,:,Physics%DENSITY) = RHO0
-          Timedisc%pvar(:,:,:,Physics%YVELOCITY) = V0
-          Timedisc%pvar(:,:,:,Physics%PRESSURE) = P0
+          Timedisc%pvar%data4d(:,:,:,Physics%DENSITY) = RHO0
+          Timedisc%pvar%data4d(:,:,:,Physics%YVELOCITY) = V0
+          Timedisc%pvar%data4d(:,:,:,Physics%PRESSURE) = P0
         ELSEWHERE
-          Timedisc%pvar(:,:,:,Physics%DENSITY) = RHO1
-          Timedisc%pvar(:,:,:,Physics%YVELOCITY) = V1
-          Timedisc%pvar(:,:,:,Physics%PRESSURE) = P1
+          Timedisc%pvar%data4d(:,:,:,Physics%DENSITY) = RHO1
+          Timedisc%pvar%data4d(:,:,:,Physics%YVELOCITY) = V1
+          Timedisc%pvar%data4d(:,:,:,Physics%PRESSURE) = P1
         END WHERE
         DO i = Mesh%IGMIN, Mesh%IGMAX
           dv_temp(i,:,:,1) = TRANSPOSE(dv(i,:,:,1))
@@ -535,19 +535,19 @@ CONTAINS
         END DO
         DO k = Mesh%KGMIN, Mesh%KGMAX
         ! add perturbation to the velocity field
-        Timedisc%pvar(:,:,k,Physics%XVELOCITY) = Timedisc%pvar(:,:,k,Physics%XVELOCITY) &
+        Timedisc%pvar%data4d(:,:,k,Physics%XVELOCITY) = Timedisc%pvar%data4d(:,:,k,Physics%XVELOCITY) &
              + TRANSPOSE(dv_temp(:,:,k,2)-0.5)*0.2
-        Timedisc%pvar(:,:,k,Physics%YVELOCITY) = Timedisc%pvar(:,:,k,Physics%YVELOCITY) &
+        Timedisc%pvar%data4d(:,:,k,Physics%YVELOCITY) = Timedisc%pvar%data4d(:,:,k,Physics%YVELOCITY) &
              + TRANSPOSE(dv_temp(:,:,k,1)-0.5)*0.2
         IF (Physics%GetType().EQ.Euler3D) &
-             Timedisc%pvar(:,:,k,Physics%ZVELOCITY) = Timedisc%pvar(:,:,k,Physics%ZVELOCITY) &
+             Timedisc%pvar%data4d(:,:,k,Physics%ZVELOCITY) = Timedisc%pvar%data4d(:,:,k,Physics%ZVELOCITY) &
              + TRANSPOSE(dv_temp(:,:,k,3)-0.5)*0.2
       END DO
     ELSE 
       CALL Mesh%Error("KHI INIT","Unknown flow direction")
     END IF
 
-    CALL Physics%Convert2Conservative(Mesh,Timedisc%pvar,Timedisc%cvar)
+    CALL Physics%Convert2Conservative(Mesh,Timedisc%pvar%data4d,Timedisc%cvar%data4d)
     CALL Mesh%Info(" DATA-----> initial condition: " // &
          "Kelvin-Helmholtz instability")
 

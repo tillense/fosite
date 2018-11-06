@@ -349,20 +349,20 @@ CONTAINS
             SELECT CASE(Physics%GetType())
             CASE(EULER2D_ISOTHERM,EULER3D_ISOTHERM,EULER2D_ISOIAMT)
                ! density
-               Timedisc%pvar(i,j,k,Physics%DENSITY) = RHOINF * EXP(-0.5*(R0*domega/CSISO)**2)
+               Timedisc%pvar%data4d(i,j,k,Physics%DENSITY) = RHOINF * EXP(-0.5*(R0*domega/CSISO)**2)
             CASE(EULER2D,EULER2D_IAMROT,EULER2D_IAMT)
                ! density
                ! ATTENTION: there's a factor of 1/PI missing in the density
                ! formula  eq. (3.3) in [1]
-               Timedisc%pvar(i,j,k,Physics%DENSITY) = RHOINF * (1.0 - &
+               Timedisc%pvar%data4d(i,j,k,Physics%DENSITY) = RHOINF * (1.0 - &
                     0.5*(GAMMA-1.0)*(R0*domega/csinf)**2  )**(1./(GAMMA-1.))
                ! pressure
-               Timedisc%pvar(i,j,k,Physics%PRESSURE) = PINF &
-                    * (Timedisc%pvar(i,j,k,Physics%DENSITY)/RHOINF)**GAMMA
+               Timedisc%pvar%data4d(i,j,k,Physics%PRESSURE) = PINF &
+                    * (Timedisc%pvar%data4d(i,j,k,Physics%DENSITY)/RHOINF)**GAMMA
             CASE DEFAULT
                CALL Physics%Error("InitData","Physics must be either EULER2D or EULER2D_ISOTHERM")
             END SELECT
-            Timedisc%pvar(i,j,k,Physics%XVELOCITY:Physics%ZVELOCITY) = &
+            Timedisc%pvar%data4d(i,j,k,Physics%XVELOCITY:Physics%ZVELOCITY) = &
                     domega*dist_rot(i,j,k)*ephi(i,j,k,1:3)
          END DO
       END DO
@@ -375,8 +375,8 @@ CONTAINS
        v0(:,:,:,2) = VINF
        v0(:,:,:,3) = WINF
        CALL Mesh%geometry%Convert2Curvilinear(Mesh%bcenter,v0,v0)
-       Timedisc%pvar(:,:,:,Physics%XVELOCITY:Physics%ZVELOCITY) = &
-           Timedisc%pvar(:,:,:,Physics%XVELOCITY:Physics%ZVELOCITY) + v0(:,:,:,1:3)
+       Timedisc%pvar%data4d(:,:,:,Physics%XVELOCITY:Physics%ZVELOCITY) = &
+           Timedisc%pvar%data4d(:,:,:,Physics%XVELOCITY:Physics%ZVELOCITY) + v0(:,:,:,1:3)
     END IF
 
 !    IF (ASSOCIATED(Sources)) &
@@ -450,11 +450,11 @@ CONTAINS
     !        + Timedisc%pvar(:,:,Physics%XVELOCITY:Physics%YVELOCITY)
     !END IF
 
-    CALL Physics%Convert2Conservative(Mesh,Timedisc%pvar,Timedisc%cvar)
+    CALL Physics%Convert2Conservative(Mesh,Timedisc%pvar%data4d,Timedisc%cvar%data4d)
     CALL Mesh%Info(" DATA-----> initial condition: 3D vortex")
 
-    pvar0 = Timedisc%pvar
+    pvar0(:,:,:,:) = Timedisc%pvar%data4d(:,:,:,:)
     CALL Sim%Run()
-    sigma = SQRT(SUM((Timedisc%pvar(:,:,:,:)-pvar0(:,:,:,:))**2)/SIZE(pvar0))
+    sigma = SQRT(SUM((Timedisc%pvar%data4d(:,:,:,:)-pvar0(:,:,:,:))**2)/SIZE(pvar0))
   END Function Run
 END PROGRAM vortex3d

@@ -211,11 +211,11 @@ CONTAINS
     INTENT(INOUT)     :: Timedisc
     !------------------------------------------------------------------------!
     ! initial condition
-    Timedisc%pvar(:,:,:,Physics%DENSITY)   = RHO0
-    Timedisc%pvar(:,:,:,Physics%XVELOCITY) = 0.
-    Timedisc%pvar(:,:,:,Physics%YVELOCITY) = 0.
-    Timedisc%pvar(:,:,:,Physics%ZVELOCITY) = 0.
-    Timedisc%pvar(:,:,:,Physics%PRESSURE) = PIN + (POUT-PIN)/LTUBE &
+    Timedisc%pvar%data4d(:,:,:,Physics%DENSITY)   = RHO0
+    Timedisc%pvar%data4d(:,:,:,Physics%XVELOCITY) = 0.
+    Timedisc%pvar%data4d(:,:,:,Physics%YVELOCITY) = 0.
+    Timedisc%pvar%data4d(:,:,:,Physics%ZVELOCITY) = 0.
+    Timedisc%pvar%data4d(:,:,:,Physics%PRESSURE) = PIN + (POUT-PIN)/LTUBE &
          * Mesh%bccart(:,:,:,3)
 
     ! fixed boundary conditions
@@ -250,7 +250,7 @@ CONTAINS
        Timedisc%Boundary%Boundary(TOP)%p%fixed(:,:,Physics%PRESSURE)  = .TRUE.
     END IF
 
-    CALL Physics%Convert2Conservative(Mesh,Timedisc%pvar,Timedisc%cvar)
+    CALL Physics%Convert2Conservative(Mesh,Timedisc%pvar%data4d,Timedisc%cvar%data4d)
     CALL Mesh%Info(" DATA-----> initial condition: " // &
          "tube with pressure gradient")
 

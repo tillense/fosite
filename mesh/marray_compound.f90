@@ -60,10 +60,10 @@ CONTAINS
     TYPE(marray_compound) :: new_cp
     !-------------------------------------------------------------------!
     ! create new empty mesh array of rank 2 with dims=0
-    new_cp = marray_base(0,0)
+    new_cp = marray_base(0)
     ALLOCATE(new_cp%item(0))
-    ! be sure rank is 2, even if the compound consists only of scalar data
-    new_cp%RANK = 2
+    ! be sure rank is 1, even if the compound consists only of scalar data
+    new_cp%RANK = 1
   END FUNCTION CreateMArray_compound
   
   !> assigns one compound of mesh arrays to another compound of mesh arrays
@@ -100,14 +100,10 @@ CONTAINS
       !> \todo this should not happen; think of how to implement error
       !! handling in mesh arrays
     ELSE
-      this%DIMS(1) = ma%DIMS(1)*ma%DIMS(2) ! 1st dimension (excluding mesh
+      this%DIMS(1) = this%DIMS(1) + ma%DIMS(1)*ma%DIMS(2) ! 1st dimension (excluding mesh
           ! dimensions) is collapsed into one index; if ma is a scalar, then this is 1;
           ! if ma is rank 1, then this is the vector component index;
           ! if ma is rank 2, the two indices are collapsed into one index
-      this%DIMS(2) = this%DIMS(2)+1 ! 2nd dimension (excluding mesh dimensions)
-          ! counts the items, i.e., the index of the mesh array in the compound;
-          ! thus this%data5d(:,:,:,:,n) selects the nth mesh array in the compound
-
       IF (ASSOCIATED(this%data1d).AND.SIZE(this%data1d).GT.0) THEN
         ! allocate new contiguous data block for old+new data and for meta data
         ALLOCATE(data1d(SIZE(this%data1d)+SIZE(ma%data1d)),item(SIZE(this%item)+1))
@@ -133,13 +129,14 @@ CONTAINS
         this%item(1)%RANK = ma%RANK
         this%item(1)%DIMS(:) = ma%DIMS(:)
       END IF
-      ! print debug info
-!       PRINT '(A,I2,A)',"item no. ",SIZE(this%item)," appended to compound"
-!       PRINT '(2(A,I6),A,2(I3))', "  size", SIZE(this%data1d), &
-!                         "  rank", this%item(SIZE(this%item))%RANK, &
-!                         "  dims", this%item(SIZE(this%item))%DIMS(:)
       ! assign new multi-dim pointers in the compound
       CALL this%AssignPointers()
+      ! print debug info
+!       PRINT '(2(A,I2))',"item no. ",SIZE(this%item), " appended to compound, dims ",this%DIMS(1)
+!       PRINT '(A,I6,A,4(I6),A,I2,A,2(I3))', "  size", SIZE(this%data1d), &
+!                         "  shape4d", SHAPE(this%data4d), &
+!                         "  item%rank", this%item(SIZE(this%item))%RANK, &
+!                         "  item%dims", this%item(SIZE(this%item))%DIMS(:)
     END IF
   END SUBROUTINE AppendMArray
   

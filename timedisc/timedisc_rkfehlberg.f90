@@ -200,7 +200,7 @@ CONTAINS
     ! or RejectTimestep. Don't forget: this%rhs => this%coeff(:,:,:,1).
     DO m=2,this%m
        ! time step update of cell mean values
-       CALL this%ComputeCVar_rkfehlberg(Mesh,Physics,Fluxes,dt,m,this%coeff,this%cvar,this%ctmp)
+       CALL this%ComputeCVar_rkfehlberg(Mesh,Physics,Fluxes,dt,m,this%coeff,this%cvar%data4d,this%ctmp)
        ! compute right-hand-side
        ! coeff_m is k_m/dt from Butcher tableau
        CALL this%ComputeRHS(Mesh,Physics,Sources,Fluxes,t+this%c(m)*dt,dt,&
@@ -208,7 +208,7 @@ CONTAINS
     END DO
 
     !reset ctmp
-    this%ctmp(:,:,:,:) = this%cvar(:,:,:,:)
+    this%ctmp(:,:,:,:) = this%cvar%data4d(:,:,:,:)
 !NEC$ NOVECTOR
     DO m=1,this%m
 !NEC$ NOVECTOR
@@ -223,7 +223,7 @@ CONTAINS
              ! y_n+1 = y_n + SUM(b_i*k_i) = y_n + SUM(b_i*dt*coeff_i)
              this%ctmp(i,j,k,l) = this%ctmp(i,j,k,l) &
                                 - this%b_low(m)*dt*this%coeff(i,j,k,l,m)
-             this%cvar(i,j,k,l) = this%cvar(i,j,k,l) &
+             this%cvar%data4d(i,j,k,l) = this%cvar%data4d(i,j,k,l) &
                                 - this%b_high(m)*dt*this%coeff(i,j,k,l,m)
           END DO
         END DO
@@ -266,7 +266,7 @@ CONTAINS
 
     ! compute an error estimate based on the two independent numerical
     ! solutions err and dt
-    err = this%ComputeError(Mesh,Physics,this%cvar,this%ctmp)
+    err = this%ComputeError(Mesh,Physics,this%cvar%data4d,this%ctmp)
     dt = this%AdjustTimestep(err,dt)
 
   END SUBROUTINE SolveODE
@@ -342,7 +342,7 @@ CONTAINS
     !------------------------------------------------------------------------!
     CLASS(Timedisc_rkfehlberg) :: this
     !------------------------------------------------------------------------!
-    INTEGER            :: i,j
+    INTEGER            :: i
     CHARACTER(LEN=64)  :: sformat
     CHARACTER(LEN=128)  :: buffer
     !------------------------------------------------------------------------!

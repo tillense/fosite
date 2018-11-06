@@ -152,7 +152,6 @@ CONTAINS
     TYPE(Dict_TYP), POINTER,  INTENT(IN)    :: config, IO
     !------------------------------------------------------------------------!
     INTEGER :: err
-CLASS(statevector_eulerisotherm), ALLOCATABLE :: pvar
     !------------------------------------------------------------------------!
     CALL this%InitPhysics(Mesh,config,IO,EULER_ISOTHERM,problem_name,num_var)
     ! set array indices
@@ -191,10 +190,6 @@ CLASS(statevector_eulerisotherm), ALLOCATABLE :: pvar
       this%bccsound(:,:,:)  = 0.
       this%fcsound(:,:,:,:) = 0.
     END IF
-ALLOCATE(pvar)
-pvar = CreateStateVector(this,PRIMITIVE)
-CALL pvar%Destroy()
-DEALLOCATE(pvar)
   END SUBROUTINE InitPhysics_eulerisotherm
 
   !> Enables output of certain arrays defined in this class
@@ -1273,7 +1268,7 @@ DEALLOCATE(pvar)
     REAL, INTENT(OUT), & 
      DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,this%VNUM) :: xvar
     !------------------------------------------------------------------------!
-    INTEGER           :: k1,k2
+!     INTEGER           :: k1,k2
     !------------------------------------------------------------------------!
     !TODO: Should not exist in 2D !
     ! compute eigenvalues at k
@@ -1378,7 +1373,7 @@ DEALLOCATE(pvar)
     REAL, INTENT(INOUT), &
       DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM) :: pvar
     !------------------------------------------------------------------------!
-    INTEGER           :: k2,fidx
+!     INTEGER           :: k2,fidx
     !------------------------------------------------------------------------!
     !TODO: Should not exist in 2D !
     !    k2 = k1 + SIGN(1,dir)  ! j +/- 1 depending on the sign of dir

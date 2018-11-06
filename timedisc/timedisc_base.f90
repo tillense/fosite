@@ -54,6 +54,7 @@ MODULE timedisc_base_mod
   USE logging_base_mod
   USE boundary_generic_mod
   USE mesh_base_mod
+  USE marray_compound_mod
   USE physics_base_mod
   USE sources_base_mod
   USE sources_gravity_mod
@@ -76,6 +77,7 @@ PRIVATE
   TYPE, ABSTRACT, EXTENDS (logging_base) ::  timedisc_base
      !> \name Variables
      CLASS(boundary_generic), ALLOCATABLE :: Boundary  !< one for each boundary
+     CLASS(marray_compound), ALLOCATABLE  :: pvar,cvar
      INTEGER          :: order                         !< time order
      REAL             :: cfl                           !< Courant number
      REAL             :: dt                            !< actual time step
@@ -105,7 +107,6 @@ PRIVATE
      REAL                              :: ERR_N, H_N
      REAL, DIMENSION(:), POINTER       :: tol_abs          !< abs. error tolerance
      REAL                              :: beta             !< time step friction
-     REAL, DIMENSION(:,:,:,:), POINTER :: pvar, cvar       !< prim/cons vars
      REAL, DIMENSION(:,:,:,:), POINTER :: solution=>Null() !< analytical solution
      REAL, DIMENSION(:,:,:,:), POINTER :: cold             !< old prim/cons vars
      REAL, DIMENSION(:,:,:,:), POINTER :: ptmp,ctmp        !< temporary cvars
@@ -227,6 +228,8 @@ CONTAINS
 
 
   SUBROUTINE InitTimedisc(this,Mesh,Physics,config,IO,ttype,tname)
+    USE physics_eulerisotherm_mod, ONLY : statevector_eulerisotherm, physics_eulerisotherm
+    USE physics_euler_mod, ONLY : statevector_euler, physics_euler
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(timedisc_base), INTENT(INOUT) :: this
@@ -256,8 +259,6 @@ CONTAINS
 
       ! allocate memory for data structures needed in all timedisc modules
     ALLOCATE( &
-      this%pvar(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM),      &
-      this%cvar(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM),      &
       this%cold(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM),      &
       this%ptmp(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM),      &
       this%ctmp(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM),      &
@@ -275,9 +276,13 @@ CONTAINS
        CALL this%Error("InitTimedisc", "Unable to allocate memory.")
     END IF
 
+    ALLOCATE(this%pvar,this%cvar)
+    this%pvar = Physics%CreateStateVector(PRIMITIVE)
+    this%cvar = Physics%CreateStateVector(CONSERVATIVE)
+
     ! initialize all variables
-    this%pvar      = 0.
-    this%cvar      = 0.
+    this%pvar%data1d(:)   = 0.
+    this%cvar%data1d(:)   = 0.
     this%cold      = 0.
     this%ptmp      = 0.
     this%ctmp      = 0.
@@ -546,7 +551,7 @@ CONTAINS
       ! second argument is important if pvarname is used twice
       IF (valwrite.EQ.1) THEN
         CALL SetAttr(IO, TRIM(key), &
-                     this%pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,i))
+                     this%pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,i))
       END IF
 
       IF(writeSolution) THEN
@@ -562,7 +567,7 @@ CONTAINS
       ! second argument is important if pvarname is used twice
       IF (valwrite.EQ.1) THEN
            CALL SetAttr(IO, TRIM(key), &
-                      this%cvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,i))
+                      this%cvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,i))
       END IF
 
       key = TRIM(Physics%cvarname(i))
@@ -633,9 +638,9 @@ CONTAINS
     ! transform to selenoidal velocities if fargo is enabled
     IF (Mesh%FARGO.GT.0) THEN
        IF (Mesh%SN_shear.AND.Mesh%FARGO.EQ.3) THEN
-          CALL Physics%SubtractBackgroundVelocityX(Mesh,this%w,this%pvar,this%cvar)
+          CALL Physics%SubtractBackgroundVelocityX(Mesh,this%w,this%pvar%data4d,this%cvar%data4d)
        ELSE
-          CALL Physics%SubtractBackgroundVelocityY(Mesh,this%w,this%pvar,this%cvar)
+          CALL Physics%SubtractBackgroundVelocityY(Mesh,this%w,this%pvar%data4d,this%cvar%data4d)
        END IF
     END IF
 
@@ -767,8 +772,8 @@ CONTAINS
     ! CFL condition:
     ! maximal wave speeds in each direction
     IF (.NOT.this%always_update_bccsound) &
-       CALL Physics%UpdateSoundSpeed(Mesh,this%pvar)
-    CALL Physics%CalculateWaveSpeeds(Mesh,this%pvar,Fluxes%minwav,Fluxes%maxwav)
+       CALL Physics%UpdateSoundSpeed(Mesh,this%pvar%data4d)
+    CALL Physics%CalculateWaveSpeeds(Mesh,this%pvar%data4d,Fluxes%minwav,Fluxes%maxwav)
 
 
     ! compute maximum of inverse time for CFL condition
@@ -814,7 +819,7 @@ CONTAINS
 
     ! initialize this to be sure dt_src > 0
     dt_src = dt_cfl
-    CALL Sources%CalcTimestep(Mesh,Physics,Fluxes,time,this%pvar,this%cvar,dt_src,dtcause)
+    CALL Sources%CalcTimestep(Mesh,Physics,Fluxes,time,this%pvar%data4d,this%cvar%data4d,dt_src,dtcause)
 
     dt = MIN(dt_cfl,dt_src)
   END FUNCTION CalcTimestep
@@ -839,9 +844,9 @@ CONTAINS
     dtmeanold = this%dtmean
     this%dtmean = this%dtmean + (dt - this%dtmean)/this%dtaccept
     this%dtstddev = this%dtstddev + (dt - dtmeanold)*(dt-this%dtmean)
-    CALL this%ComputeRHS(Mesh,Physics,Sources,Fluxes,time,dt,this%pvar,&
-      this%cvar,this%checkdatabm,this%rhs)
-    this%cold(:,:,:,:) = this%cvar(:,:,:,:)
+    CALL this%ComputeRHS(Mesh,Physics,Sources,Fluxes,time,dt,this%pvar%data4d,&
+      this%cvar%data4d,this%checkdatabm,this%rhs)
+    this%cold(:,:,:,:) = this%cvar%data4d(:,:,:,:)
     Fluxes%bxfold(:,:,:,:) = Fluxes%bxflux(:,:,:,:)
     Fluxes%byfold(:,:,:,:) = Fluxes%byflux(:,:,:,:)
     Fluxes%bzfold(:,:,:,:) = Fluxes%bzflux(:,:,:,:)
@@ -861,10 +866,10 @@ CONTAINS
     INTENT(IN)                          :: time
     INTENT(INOUT)                       :: dt
     !------------------------------------------------------------------------!
-    this%cvar(:,:,:,:) = this%cold(:,:,:,:)
+    this%cvar%data4d(:,:,:,:) = this%cold(:,:,:,:)
     ! This data has already been checked at AcceptSolution
-    CALL this%ComputeRHS(Mesh,Physics,Sources,Fluxes,time,dt,this%pvar, &
-      this%cvar,CHECK_NOTHING,this%rhs)
+    CALL this%ComputeRHS(Mesh,Physics,Sources,Fluxes,time,dt,this%pvar%data4d, &
+      this%cvar%data4d,CHECK_NOTHING,this%rhs)
     Fluxes%bxflux(:,:,:,:) = Fluxes%bxfold(:,:,:,:)
     Fluxes%byflux(:,:,:,:) = Fluxes%byfold(:,:,:,:)
     Fluxes%bzflux(:,:,:,:) = Fluxes%bzfold(:,:,:,:)
@@ -981,9 +986,9 @@ CONTAINS
     !------------------------------------------------------------------------!
     INTEGER                             :: i,j,k,l
     REAL                                :: t
-    REAL                                :: phi,dyflux,wp
-    REAL,DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX) &
-                                        :: w
+    REAL                                :: phi,wp
+!     REAL,DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX) &
+!                                         :: w
     REAL, DIMENSION(:,:,:,:), POINTER   :: pot
     CLASS(sources_base),      POINTER   :: sp
     CLASS(sources_gravity),   POINTER   :: grav
@@ -1408,22 +1413,19 @@ CONTAINS
     CLASS(physics_base),  INTENT(INOUT) :: Physics
     CLASS(sources_base),  POINTER       :: Sources
     !------------------------------------------------------------------------!
-    REAL                 :: delxy
-    INTEGER              :: i,j,k,l,sm,order
-    REAL, DIMENSION(Mesh%JMIN:Mesh%JMAX) :: buf
-    CHARACTER(LEN=80)    :: str
-    REAL                 :: wi,wold
+    INTEGER              :: i,k,l,order
     INTEGER              :: GMIN1,GMIN2,GMAX1,GMAX2,MIN1,MIN2,MAX1,MAX2
 #ifdef PARALLEL
     INTEGER              :: status(MPI_STATUS_SIZE)
     INTEGER              :: ierror
     INTEGER              :: PAR_DIMS,LINECOMM1,DIRECTION1,DIRECTION2,MINNUM1
     REAL                 :: mpi_buf(2*Mesh%GNUM)
+    REAL, DIMENSION(Mesh%JMIN:Mesh%JMAX) :: buf
 #endif
     !------------------------------------------------------------------------!
     order = this%fargo_order
     IF(order.EQ.0) &
-      CALL Fluxes%CalculateFaceData(Mesh,Physics,this%pvar,this%cvar)
+      CALL Fluxes%CalculateFaceData(Mesh,Physics,this%pvar%data4d,this%cvar%data4d)
 
     ! depending on the shear direction set universal values which are then
     ! used in the following
@@ -1501,12 +1503,12 @@ CONTAINS
         IF(Mesh%SN_shear) THEN
           DO l=1,Physics%VNUM+Physics%PNUM
             CALL ResidualLineShift(Mesh,Fluxes,order,GMIN2,GMAX2,MIN2,MAX2, &
-                                   this%delxy(i,k),this%cvar(:,i,k,l))
+                                   this%delxy(i,k),this%cvar%data4d(:,i,k,l))
           END DO
         ELSE
           DO l=1,Physics%VNUM+Physics%PNUM
             CALL ResidualLineShift(Mesh,Fluxes,order,GMIN2,GMAX2,MIN2,MAX2, &
-                                   this%delxy(i,k),this%cvar(i,:,k,l))
+                                   this%delxy(i,k),this%cvar%data4d(i,:,k,l))
           END DO
         END IF
       END DO
@@ -1521,9 +1523,9 @@ CONTAINS
 !          IF(this%shift(i,k).GT.0) THEN
 !            DO l=1,Physics%VNUM+Physics%PNUM
 !              IF(Mesh%SN_shear) THEN
-!                this%buf(k,1:this%shift(i)) = this%cvar(MAX2-this%shift(i)+1:MAX2,i,k)
+!                this%buf(k,1:this%shift(i)) = this%cvar%data4d(MAX2-this%shift(i)+1:MAX2,i,k)
 !              ELSE
-!                this%buf(k,1:this%shift(i)) = this%cvar(i,MAX2-this%shift(i)+1:MAX2,k)
+!                this%buf(k,1:this%shift(i)) = this%cvar%data4d(i,MAX2-this%shift(i)+1:MAX2,k)
 !              END IF
 !            END DO
 !            CALL MPI_Sendrecv_replace(&
@@ -1535,17 +1537,17 @@ CONTAINS
 !              Mesh%comm_cart, status, ierror)
 !            DO k=1,Physics%VNUM
 !              IF(Mesh%SN_shear) THEN
-!                this%cvar(MAX2-this%shift(i)+1:MAX2,i,k) = this%buf(k,1:this%shift(i))
+!                this%cvar%data4d(MAX2-this%shift(i)+1:MAX2,i,k) = this%buf(k,1:this%shift(i))
 !              ELSE
-!                this%cvar(i,MAX2-this%shift(i)+1:MAX2,k) = this%buf(k,1:this%shift(i))
+!                this%cvar%data4d(i,MAX2-this%shift(i)+1:MAX2,k) = this%buf(k,1:this%shift(i))
 !              END IF
 !            END DO
 !          ELSE IF(this%shift(i).LT.0) THEN
 !            DO k=1,Physics%VNUM
 !              IF(Mesh%SN_shear) THEN
-!                this%buf(k,1:-this%shift(i)) = this%cvar(MIN2:MIN2-this%shift(i)-1,i,k)
+!                this%buf(k,1:-this%shift(i)) = this%cvar%data4d(MIN2:MIN2-this%shift(i)-1,i,k)
 !              ELSE
-!                this%buf(k,1:-this%shift(i)) = this%cvar(i,MIN2:MIN2-this%shift(i)-1,k)
+!                this%buf(k,1:-this%shift(i)) = this%cvar%data4d(i,MIN2:MIN2-this%shift(i)-1,k)
 !              END IF
 !            END DO
 !            CALL MPI_Sendrecv_replace(&
@@ -1557,9 +1559,9 @@ CONTAINS
 !              Mesh%comm_cart, status, ierror)
 !            DO k=1,Physics%VNUM
 !              IF (Mesh%SN_shear) THEN
-!                this%cvar(MIN2:MIN2-this%shift(i)-1,i,k) = this%buf(k,1:-this%shift(i))
+!                this%cvar%data4d(MIN2:MIN2-this%shift(i)-1,i,k) = this%buf(k,1:-this%shift(i))
 !              ELSE
-!                this%cvar(i,MIN2:MIN2-this%shift(i)-1,k) = this%buf(k,1:-this%shift(i))
+!                this%cvar%data4d(i,MIN2:MIN2-this%shift(i)-1,k) = this%buf(k,1:-this%shift(i))
 !              END IF
 !            END DO
 !          END IF
@@ -1571,24 +1573,24 @@ CONTAINS
     ! Integer shift along x- or y-direction
     IF (Mesh%SN_shear) THEN
       DO l=1,Physics%VNUM+Physics%PNUM
-        this%cvar(Mesh%IMIN:Mesh%IMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,l) &
-          = CSHIFT(this%cvar(Mesh%IMIN:Mesh%IMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,l), &
+        this%cvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,l) &
+          = CSHIFT(this%cvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,l), &
           -this%shift(Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX),1)
       END DO
     ELSE
       DO l=1,Physics%VNUM+Physics%PNUM
-        this%cvar(Mesh%IGMIN:Mesh%IGMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,l) &
-          = CSHIFT(this%cvar(Mesh%IGMIN:Mesh%IGMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KGMIN:Mesh%KGMAX,l), &
+        this%cvar%data4d(Mesh%IGMIN:Mesh%IGMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,l) &
+          = CSHIFT(this%cvar%data4d(Mesh%IGMIN:Mesh%IGMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KGMIN:Mesh%KGMAX,l), &
           -this%shift(Mesh%IGMIN:Mesh%IGMAX,Mesh%KGMIN:Mesh%KGMAX),2)
       END DO
     END IF
 
     ! Calculate RHS after the Advection Step
-    CALL Physics%Convert2Primitive(Mesh,this%cvar,this%pvar)
-    CALL this%ComputeRHS(Mesh,Physics,Sources,Fluxes,this%time,0.,this%pvar,this%cvar,&
+    CALL Physics%Convert2Primitive(Mesh,this%cvar%data4d,this%pvar%data4d)
+    CALL this%ComputeRHS(Mesh,Physics,Sources,Fluxes,this%time,0.,this%pvar%data4d,this%cvar%data4d,&
                     this%checkdatabm,this%rhs)
 
-    this%cold(:,:,:,:) = this%cvar(:,:,:,:)
+    this%cold(:,:,:,:) = this%cvar%data4d(:,:,:,:)
 
   END SUBROUTINE FargoAdvection
 
@@ -1603,12 +1605,12 @@ CONTAINS
     INTEGER,            INTENT(IN) :: GMIN2,GMAX2,MIN2,MAX2
     REAL, DIMENSION(GMIN2:GMAX2), INTENT(INOUT) :: shifted_array
     !------------------------------------------------------------------------!
-    REAL,DIMENSION(GMIN2:GMAX2) :: flux,dq,dql,qp,qm,q,dflux,qc
-    REAL                 :: dqc, d2q, dqp, dqm, a, arg1, arg2
-    INTEGER              :: i,j, ierror
+    REAL,DIMENSION(GMIN2:GMAX2) :: flux,dq,dql,qp,qm,q
+    REAL                 :: dqc, d2q, dqp, dqm, arg1, arg2
+    INTEGER              :: j
 #ifdef PARALLEL
     REAL                 :: mpi_buf(2*Mesh%GNUM)
-    INTEGER              :: DIRECTION1, DIRECTION2, PAR_DIMS
+    INTEGER              :: DIRECTION1, DIRECTION2, PAR_DIMS, ierror
     INTEGER              :: status(MPI_STATUS_SIZE)
 #endif
     !------------------------------------------------------------------------!
@@ -1748,7 +1750,7 @@ CONTAINS
     DO k=Mesh%KGMIN,Mesh%KGMAX
       DO i=Mesh%IGMIN,Mesh%IGMAX
         ! some up all yvelocities along the y-direction
-        wi = SUM(this%pvar(i,Mesh%JMIN:Mesh%JMAX,k,Physics%YVELOCITY))
+        wi = SUM(this%pvar%data4d(i,Mesh%JMIN:Mesh%JMAX,k,Physics%YVELOCITY))
 #ifdef PARALLEL
         ! extend the sum over all partitions
         IF(Mesh%dims(2).GT.1) THEN
@@ -1781,11 +1783,11 @@ CONTAINS
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%DIM) &
                                         :: velo
     !------------------------------------------------------------------------!
-    REAL               :: time
+!     REAL               :: time
     REAL, DIMENSION(3) :: dir_omega
     REAL               :: omega2
-    INTEGER            :: k,i,j
-    REAL               :: rotoemga
+    INTEGER            :: k
+!     REAL               :: rotoemga
     REAL,DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,3) &
                        :: bccart, bcposvec,  accel
     REAL,DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX) &
@@ -1813,12 +1815,11 @@ CONTAINS
         CALL this%Error("GetCentrifugalVelocity","It is unknown, if the "&
           //"selected physics module works with this routine.")
       END SELECT
-      CALL this%ComputeRHS(Mesh,Physics,Sources,Fluxes,this%time,0.0, &
-        this%pvar,this%cvar,this%checkdatabm,this%rhs)
+      CALL this%ComputeRHS(Mesh,Physics,Sources,Fluxes,this%time,0.0,this%pvar%data4d,this%cvar%data4d,this%checkdatabm,this%rhs)
       ! HERE DEPENDEND ON Physics
       DO k=Physics%XMOMENTUM,Physics%XMOMENTUM+Physics%DIM-1
         accel(:,:,:,k-Physics%XMOMENTUM+1) = -1. * this%rhs(:,:,:,k) &
-                                           / this%pvar(:,:,:,Physics%DENSITY)
+                                           / this%pvar%data4d(:,:,:,Physics%DENSITY)
       END DO
     END IF
 
@@ -1905,6 +1906,9 @@ CONTAINS
         CALL this%Error("CloseTimedisc","not initialized")
     ! call boundary destructor
     CALL this%Boundary%Finalize()
+
+    CALL this%pvar%Destroy()
+    CALL this%cvar%Destroy()
 
     DEALLOCATE( &
       this%pvar,this%cvar,this%cold,this%ptmp,this%ctmp, &

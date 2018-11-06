@@ -226,17 +226,17 @@ CONTAINS
     DO k=Mesh%KGMIN,Mesh%KGMAX
       DO j=Mesh%JGMIN,Mesh%JGMAX
         DO i=Mesh%IGMIN,Mesh%IGMAX
-          Timedisc%pvar(i,j,k,Physics%DENSITY)  = RHO0 + RHO1*EXP(-LOG(2.0) &
+          Timedisc%pvar%data4d(i,j,k,Physics%DENSITY)  = RHO0 + RHO1*EXP(-LOG(2.0) &
                * (radius(i,j,k)/RWIDTH)**2)
         END DO
       END DO
     END DO
 
     ! velocities
-    Timedisc%pvar(:,:,:,Physics%XVELOCITY) = 0.
-    Timedisc%pvar(:,:,:,Physics%YVELOCITY) = 0.
+    Timedisc%pvar%data4d(:,:,:,Physics%XVELOCITY) = 0.
+    Timedisc%pvar%data4d(:,:,:,Physics%YVELOCITY) = 0.
 
-    CALL Physics%Convert2Conservative(Mesh,Timedisc%pvar,Timedisc%cvar)
+    CALL Physics%Convert2Conservative(Mesh,Timedisc%pvar%data4d,Timedisc%cvar%data4d)
 
     CALL Mesh%Info(" DATA-----> initial condition: 3D Gaussian pulse")
 

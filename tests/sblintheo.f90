@@ -112,7 +112,7 @@ ALLOCATE(Sim)
 CALL Sim%InitFosite()
 CALL MakeConfig(Sim, Sim%config)
 CALL Sim%Setup()
-CALL InitData(Sim%Mesh, Sim%Physics, Sim%Timedisc%pvar, Sim%Timedisc%cvar)
+CALL InitData(Sim%Mesh, Sim%Physics, Sim%Timedisc%pvar%data4d, Sim%Timedisc%cvar%data4d)
 CALL Sim%Run()
 
 ! search for the amplitude

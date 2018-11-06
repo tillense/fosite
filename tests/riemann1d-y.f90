@@ -103,11 +103,11 @@ PROGRAM riemann1d
      ! set initial condition
 !     res = Run(Sim%Mesh, Sim%Physics, Sim%Timedisc, ic)
     sigma = SQRT(SUM( &
-        (Sim(ic)%Timedisc%pvar(Sim(ic)%Mesh%IMIN,Sim(ic)%Mesh%JMIN:Sim(ic)%Mesh%JMAX,Sim(ic)%Mesh%KMIN, &
+        (Sim(ic)%Timedisc%pvar%data4d(Sim(ic)%Mesh%IMIN,Sim(ic)%Mesh%JMIN:Sim(ic)%Mesh%JMAX,Sim(ic)%Mesh%KMIN, &
         Sim(ic)%Physics%DENSITY)-pvar0(:,1))**2 &
-      + (Sim(ic)%Timedisc%pvar(Sim(ic)%Mesh%IMIN,Sim(ic)%Mesh%JMIN:Sim(ic)%Mesh%JMAX,Sim(ic)%Mesh%KMIN, &
+      + (Sim(ic)%Timedisc%pvar%data4d(Sim(ic)%Mesh%IMIN,Sim(ic)%Mesh%JMIN:Sim(ic)%Mesh%JMAX,Sim(ic)%Mesh%KMIN, &
         Sim(ic)%Physics%YVELOCITY)-pvar0(:,2))**2 &
-      + (Sim(ic)%Timedisc%pvar(Sim(ic)%Mesh%IMIN,Sim(ic)%Mesh%JMIN:Sim(ic)%Mesh%JMAX,Sim(ic)%Mesh%KMIN, &
+      + (Sim(ic)%Timedisc%pvar%data4d(Sim(ic)%Mesh%IMIN,Sim(ic)%Mesh%JMIN:Sim(ic)%Mesh%JMAX,Sim(ic)%Mesh%KMIN, &
         Sim(ic)%Physics%PRESSURE)-pvar0(:,3))**2 &
       )/SIZE(pvar0))
 ! This line is long if expanded. So we can't indent it or it will be cropped.
@@ -342,26 +342,26 @@ CONTAINS
     
     IF (Mesh%INUM.GT.Mesh%JNUM) THEN
        WHERE (Mesh%bcenter(:,:,:,1).LT.x0)
-          Timedisc%pvar(:,:,:,Physics%DENSITY)   = rho_l
-          Timedisc%pvar(:,:,:,Physics%XVELOCITY) = u_l
-          Timedisc%pvar(:,:,:,Physics%YVELOCITY) = 0.
+          Timedisc%pvar%data4d(:,:,:,Physics%DENSITY)   = rho_l
+          Timedisc%pvar%data4d(:,:,:,Physics%XVELOCITY) = u_l
+          Timedisc%pvar%data4d(:,:,:,Physics%YVELOCITY) = 0.
        ELSEWHERE
-          Timedisc%pvar(:,:,:,Physics%DENSITY)   = rho_r
-          Timedisc%pvar(:,:,:,Physics%XVELOCITY) = u_r
-          Timedisc%pvar(:,:,:,Physics%YVELOCITY) = 0.
+          Timedisc%pvar%data4d(:,:,:,Physics%DENSITY)   = rho_r
+          Timedisc%pvar%data4d(:,:,:,Physics%XVELOCITY) = u_r
+          Timedisc%pvar%data4d(:,:,:,Physics%YVELOCITY) = 0.
        END WHERE
        CALL Timedisc%ERROR("InitData", "Es wurden die falschen Daten initialisiert")
     ELSE
        WHERE (Mesh%bcenter(:,:,:,2).LT.x0)
-          Timedisc%pvar(:,:,:,Physics%DENSITY)   = rho_l
-          Timedisc%pvar(:,:,:,Physics%XVELOCITY) = 0.
-          Timedisc%pvar(:,:,:,Physics%YVELOCITY) = u_l
-          Timedisc%pvar(:,:,:,Physics%ZVELOCITY) = 0.
+          Timedisc%pvar%data4d(:,:,:,Physics%DENSITY)   = rho_l
+          Timedisc%pvar%data4d(:,:,:,Physics%XVELOCITY) = 0.
+          Timedisc%pvar%data4d(:,:,:,Physics%YVELOCITY) = u_l
+          Timedisc%pvar%data4d(:,:,:,Physics%ZVELOCITY) = 0.
        ELSEWHERE
-          Timedisc%pvar(:,:,:,Physics%DENSITY)   = rho_r
-          Timedisc%pvar(:,:,:,Physics%XVELOCITY) = 0.
-          Timedisc%pvar(:,:,:,Physics%YVELOCITY) = u_r
-          Timedisc%pvar(:,:,:,Physics%ZVELOCITY) = 0.
+          Timedisc%pvar%data4d(:,:,:,Physics%DENSITY)   = rho_r
+          Timedisc%pvar%data4d(:,:,:,Physics%XVELOCITY) = 0.
+          Timedisc%pvar%data4d(:,:,:,Physics%YVELOCITY) = u_r
+          Timedisc%pvar%data4d(:,:,:,Physics%ZVELOCITY) = 0.
        END WHERE
     END IF
    
@@ -369,20 +369,20 @@ CONTAINS
     IF (Physics%GetType().EQ.EULER3D) THEN
        IF (Mesh%INUM.GT.Mesh%JNUM) THEN
           WHERE (Mesh%bcenter(:,:,:,1).LT.x0)
-             Timedisc%pvar(:,:,:,Physics%PRESSURE)  = p_l
+             Timedisc%pvar%data4d(:,:,:,Physics%PRESSURE)  = p_l
           ELSEWHERE
-             Timedisc%pvar(:,:,:,Physics%PRESSURE)  = p_r
+             Timedisc%pvar%data4d(:,:,:,Physics%PRESSURE)  = p_r
           END WHERE
        ELSE
           WHERE (Mesh%bcenter(:,:,:,2).LT.x0)
-             Timedisc%pvar(:,:,:,Physics%PRESSURE)  = p_l
+             Timedisc%pvar%data4d(:,:,:,Physics%PRESSURE)  = p_l
           ELSEWHERE
-             Timedisc%pvar(:,:,:,Physics%PRESSURE)  = p_r
+             Timedisc%pvar%data4d(:,:,:,Physics%PRESSURE)  = p_r
           END WHERE
        END IF
     END IF
 
-    CALL Physics%Convert2Conservative(Mesh,Timedisc%pvar,Timedisc%cvar)
+    CALL Physics%Convert2Conservative(Mesh,Timedisc%pvar%data4d,Timedisc%cvar%data4d)
     CALL Mesh%Info(" DATA-----> initial condition: " // TRIM(TESTSTR))
 
     CALL riemann(x0,GAMMA,rho_l,u_l,p_l,rho_r,u_r,p_r,TSIM,&

@@ -95,7 +95,7 @@ CALL Sim%InitFosite()
 CALL MakeConfig(Sim, Sim%config)
 CALL Sim%Setup()
 CALL InitData(Sim%Mesh, Sim%Physics, Sim%Timedisc, Sim%Fluxes, Sim%Sources, &
-              Sim%Timedisc%pvar, Sim%Timedisc%cvar)
+              Sim%Timedisc%pvar%data4d, Sim%Timedisc%cvar%data4d)
 CALL Sim%Run()
 CALL Sim%Finalize()
 DEALLOCATE(Sim)
@@ -334,11 +334,11 @@ CONTAINS
 
 
     ! transform velocities to rotating frame
-    Timedisc%pvar(:,:,:,Physics%YVELOCITY) = Timedisc%pvar(:,:,:,Physics%YVELOCITY) &
+    Timedisc%pvar%data4d(:,:,:,Physics%YVELOCITY) = Timedisc%pvar%data4d(:,:,:,Physics%YVELOCITY) &
         - Mesh%OMEGA*r(:,:,:)
 
     ! get conservative variables
-    CALL Physics%Convert2Conservative(Mesh,Timedisc%pvar,Timedisc%cvar)
+    CALL Physics%Convert2Conservative(Mesh,Timedisc%pvar%data4d,Timedisc%cvar%data4d)
 
     IF (Mesh%FARGO.EQ.2) &
        Timedisc%w(:,:) = SQRT(Physics%constants%GN*(MBH1+MBH2)/r(:,Mesh%JMIN,:))

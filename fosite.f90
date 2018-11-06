@@ -282,14 +282,14 @@ CONTAINS
     IF (this%Mesh%FARGO.EQ.1) THEN
        ! make sure there is valid data at least in the i-ghost cells
        CALL this%Timedisc%Boundary%CenterBoundary(this%Mesh,this%Physics,&
-                             0.0,this%Timedisc%pvar,this%Timedisc%cvar)
+                             0.0,this%Timedisc%pvar%data4d,this%Timedisc%cvar%data4d)
        CALL this%Timedisc%CalcBackgroundVelocity(this%Mesh,this%Physics, &
-                             this%Timedisc%pvar,this%Timedisc%cvar,this%Timedisc%w)
+                             this%Timedisc%pvar%data4d,this%Timedisc%cvar%data4d,this%Timedisc%w)
     END IF
 
     ! do a complete update of all data
     CALL this%Timedisc%ComputeRHS(this%Mesh,this%Physics,this%Sources,this%Fluxes, &
-         this%Timedisc%time,0.0,this%Timedisc%pvar,this%Timedisc%cvar, &
+         this%Timedisc%time,0.0,this%Timedisc%pvar%data4d,this%Timedisc%cvar%data4d, &
          CHECK_ALL,this%Timedisc%rhs)
 
     ! calculate timestep
@@ -310,7 +310,7 @@ CONTAINS
 
 
     ! store old values
-    this%Timedisc%cold(:,:,:,:) = this%Timedisc%cvar(:,:,:,:)
+    this%Timedisc%cold(:,:,:,:) = this%Timedisc%cvar%data4d(:,:,:,:)
 
     ! store initial data
     IF (this%Timedisc%time.EQ.0.0) THEN

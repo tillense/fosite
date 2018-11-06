@@ -117,7 +117,7 @@ END IF
 !DEALLOCATE(pvar,radius)
 #else
    DO i=1,XRES
-      pvar_diff(i) = Sim%Timedisc%pvar(i,1,1,1)-Sim%Timedisc%pvar(i+1,1,1,1)
+      pvar_diff(i) = Sim%Timedisc%pvar%data4d(i,1,1,1)-Sim%Timedisc%pvar%data4d(i+1,1,1,1)
     END DO
   Rshock = Sim%Mesh%radius%center(MAXLOC(pvar_diff,DIM=1),1,1)
 
@@ -342,20 +342,20 @@ CONTAINS
     END SELECT
 
     ! uniform density
-    Timedisc%pvar(:,:,:,Physics%DENSITY)   = RHO0
+    Timedisc%pvar%data4d(:,:,:,Physics%DENSITY)   = RHO0
     ! vanishing initial velocities
-    Timedisc%pvar(:,:,:,Physics%XVELOCITY) = 0.
-    Timedisc%pvar(:,:,:,Physics%YVELOCITY) = 0.
+    Timedisc%pvar%data4d(:,:,:,Physics%XVELOCITY) = 0.
+    Timedisc%pvar%data4d(:,:,:,Physics%YVELOCITY) = 0.
     ! pressure
     WHERE (Mesh%radius%bcenter(:,:,:).LE.R0)
        ! behind the shock front
-       Timedisc%pvar(:,:,:,Physics%PRESSURE)  = P1
+       Timedisc%pvar%data4d(:,:,:,Physics%PRESSURE)  = P1
     ELSEWHERE
        ! in front of the shock front (ambient medium)
-       Timedisc%pvar(:,:,:,Physics%PRESSURE)  = P0
+       Timedisc%pvar%data4d(:,:,:,Physics%PRESSURE)  = P0
     END WHERE
 
-    CALL Physics%Convert2Conservative(Mesh,Timedisc%pvar,Timedisc%cvar)
+    CALL Physics%Convert2Conservative(Mesh,Timedisc%pvar%data4d,Timedisc%cvar%data4d)
     CALL Mesh%Info(" DATA-----> initial condition: 2D Sedov explosion")
 
   END SUBROUTINE InitData

@@ -109,7 +109,8 @@ MODULE physics_euler_mod
   !--------------------------------------------------------------------------!
   PUBLIC :: &
        ! types
-       physics_euler
+       physics_euler, &
+       statevector_euler
   !--------------------------------------------------------------------------!
 
 CONTAINS

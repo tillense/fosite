@@ -92,7 +92,7 @@ CONTAINS
     CLASS(physics_base),      INTENT(IN)    :: Physics
     TYPE(Dict_TYP),           POINTER       :: config, IO
     !------------------------------------------------------------------------!
-    INTEGER                                 :: method
+!     INTEGER                                 :: method
     !------------------------------------------------------------------------!
     ! set default order
     CALL GetAttr(config, "order", this%order, 3)
@@ -155,22 +155,22 @@ CONTAINS
           t = time+zeta(n,order)*dt
           ! time step update of cvar and bfluxes
           CALL this%ComputeCVar_modeuler(Mesh,Physics,Fluxes,eta(n,order), &
-               t,dt,this%cold,this%pvar,this%cvar,this%rhs,this%cvar)
+               t,dt,this%cold,this%pvar%data4d,this%cvar%data4d,this%rhs,this%cvar%data4d)
           ! compute right hand side for next time step update
           CALL this%ComputeRHS(Mesh,Physics,Sources,Fluxes,t,dt,&
-               this%pvar,this%cvar,CHECK_NOTHING,this%rhs)
+               this%pvar%data4d,this%cvar%data4d,CHECK_NOTHING,this%rhs)
        END DO
        err = 0.0
        dt = HUGE(dt)
     ELSE
-       p(1)%var => Mesh%RemapBounds(this%pvar)
+       p(1)%var => Mesh%RemapBounds(this%pvar%data4d)
        p(2)%var => Mesh%RemapBounds(this%ptmp)  ! store intermediate result for error control
-       p(3)%var => Mesh%RemapBounds(this%pvar)
-       p(4)%var => Mesh%RemapBounds(this%pvar)
-       c(1)%var => Mesh%RemapBounds(this%cvar)
+       p(3)%var => Mesh%RemapBounds(this%pvar%data4d)
+       p(4)%var => Mesh%RemapBounds(this%pvar%data4d)
+       c(1)%var => Mesh%RemapBounds(this%cvar%data4d)
        c(2)%var => Mesh%RemapBounds(this%ctmp)  ! store intermediate result for error control
-       c(3)%var => Mesh%RemapBounds(this%cvar)
-       c(4)%var => Mesh%RemapBounds(this%cvar)
+       c(3)%var => Mesh%RemapBounds(this%cvar%data4d)
+       c(4)%var => Mesh%RemapBounds(this%cvar%data4d)
 !NEC$ UNROLL(3)
        DO n=1,order
           ! update time variable
@@ -189,7 +189,7 @@ CONTAINS
                CHECK_NOTHING,this%rhs)
        END DO
 
-       err = this%ComputeError(Mesh,Physics,this%cvar,this%ctmp)
+       err = this%ComputeError(Mesh,Physics,this%cvar%data4d,this%ctmp)
        dt = this%AdjustTimestep(err,dt)
 
     END IF

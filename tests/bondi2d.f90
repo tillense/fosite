@@ -237,11 +237,11 @@ CONTAINS
     cs2 = CSINF**2
 
     ! initial condition
-    Timedisc%pvar(:,:,:,Physics%DENSITY)   = rho
-    Timedisc%pvar(:,:,:,Physics%XVELOCITY) = 0.
-    Timedisc%pvar(:,:,:,Physics%YVELOCITY) = 0.
-    Timedisc%pvar(:,:,:,Physics%PRESSURE)  = rho * cs2 / GAMMA
-    CALL Physics%Convert2Conservative(Mesh,Timedisc%pvar,Timedisc%cvar)
+    Timedisc%pvar%data4d(:,:,:,Physics%DENSITY)   = rho
+    Timedisc%pvar%data4d(:,:,:,Physics%XVELOCITY) = 0.
+    Timedisc%pvar%data4d(:,:,:,Physics%YVELOCITY) = 0.
+    Timedisc%pvar%data4d(:,:,:,Physics%PRESSURE)  = rho * cs2 / GAMMA
+    CALL Physics%Convert2Conservative(Mesh,Timedisc%pvar%data4d,Timedisc%cvar%data4d)
 
     ! boundary condition: subsonic inflow according to Bondi's solution
     ! calculate Bondi solution for y=ymin..ymax at xmax

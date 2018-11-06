@@ -222,13 +222,13 @@ CONTAINS
     CHARACTER(LEN=64) :: info_str
     !------------------------------------------------------------------------!
     ! initial condition: use data at infinity
-    Timedisc%pvar(:,:,:,Physics%DENSITY)   = RHOINF
-    Timedisc%pvar(:,:,:,Physics%XVELOCITY) = 0.
-    Timedisc%pvar(:,:,:,Physics%YVELOCITY) = 0.
-    Timedisc%pvar(:,:,:,Physics%ZVELOCITY) = 0.
-    Timedisc%pvar(:,:,:,Physics%PRESSURE)  = RHOINF * CSINF**2 / GAMMA
+    Timedisc%pvar%data4d(:,:,:,Physics%DENSITY)   = RHOINF
+    Timedisc%pvar%data4d(:,:,:,Physics%XVELOCITY) = 0.
+    Timedisc%pvar%data4d(:,:,:,Physics%YVELOCITY) = 0.
+    Timedisc%pvar%data4d(:,:,:,Physics%ZVELOCITY) = 0.
+    Timedisc%pvar%data4d(:,:,:,Physics%PRESSURE)  = RHOINF * CSINF**2 / GAMMA
 
-    CALL Physics%Convert2Conservative(Mesh,Timedisc%pvar,Timedisc%cvar)
+    CALL Physics%Convert2Conservative(Mesh,Timedisc%pvar%data4d,Timedisc%cvar%data4d)
 
 !    IF ((Timedisc%Boundary%Boundary(EAST)%p%GetType()).EQ.FIXED) THEN
 !      DO k=Mesh%KMIN,Mesh%KMAX
