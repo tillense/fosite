@@ -158,17 +158,20 @@ CONTAINS
                t,dt,this%cold,this%pvar%data4d,this%cvar%data4d,this%rhs,this%cvar%data4d)
           ! compute right hand side for next time step update
           CALL this%ComputeRHS(Mesh,Physics,Sources,Fluxes,t,dt,&
-               this%pvar%data4d,this%cvar%data4d,CHECK_NOTHING,this%rhs)
+               this%pvar,this%cvar,CHECK_NOTHING,this%rhs)
        END DO
        err = 0.0
        dt = HUGE(dt)
     ELSE
+! this is broken (see below) -> abort
+CALL this%Error("timedisc_modeuler::SolveODE", &
+         "error control and advanced time stepping is currently not available")
        p(1)%var => Mesh%RemapBounds(this%pvar%data4d)
-       p(2)%var => Mesh%RemapBounds(this%ptmp)  ! store intermediate result for error control
+       p(2)%var => Mesh%RemapBounds(this%ptmp%data4d)  ! store intermediate result for error control
        p(3)%var => Mesh%RemapBounds(this%pvar%data4d)
        p(4)%var => Mesh%RemapBounds(this%pvar%data4d)
        c(1)%var => Mesh%RemapBounds(this%cvar%data4d)
-       c(2)%var => Mesh%RemapBounds(this%ctmp)  ! store intermediate result for error control
+       c(2)%var => Mesh%RemapBounds(this%ctmp%data4d)  ! store intermediate result for error control
        c(3)%var => Mesh%RemapBounds(this%cvar%data4d)
        c(4)%var => Mesh%RemapBounds(this%cvar%data4d)
 !NEC$ UNROLL(3)
@@ -181,15 +184,16 @@ CONTAINS
           ! for 3rd order scheme compute the 2nd order result with the same RHS
           ! and store it in this%ctmp, bfluxes are not required
           IF (n.EQ.2.AND.order.EQ.3) &
-             this%ctmp(:,:,:,:) = UpdateTimestep_modeuler(eta(2,2),dt,this%cold(:,:,:,:), &
-                                this%ctmp(:,:,:,:),this%rhs(:,:,:,:))
+             this%ctmp%data4d(:,:,:,:) = UpdateTimestep_modeuler(eta(2,2),dt,this%cold(:,:,:,:), &
+                                this%ctmp%data4d(:,:,:,:),this%rhs(:,:,:,:))
           ! compute right hand side for next time step update
-          IF (n.LT.order) &
-             CALL this%ComputeRHS(Mesh,Physics,Sources,Fluxes,t,dt,p(n+1)%var,c(n+1)%var,&
-               CHECK_NOTHING,this%rhs)
+!> \todo fix this: dummy types for pvar,cvar are no longer arrays but statevectors
+!           IF (n.LT.order) &
+!              CALL this%ComputeRHS(Mesh,Physics,Sources,Fluxes,t,dt,p(n+1)%var,c(n+1)%var,&
+!                CHECK_NOTHING,this%rhs)
        END DO
 
-       err = this%ComputeError(Mesh,Physics,this%cvar%data4d,this%ctmp)
+       err = this%ComputeError(Mesh,Physics,this%cvar%data4d,this%ctmp%data4d)
        dt = this%AdjustTimestep(err,dt)
 
     END IF

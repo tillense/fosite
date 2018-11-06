@@ -77,7 +77,7 @@ PRIVATE
   TYPE, ABSTRACT, EXTENDS (logging_base) ::  timedisc_base
      !> \name Variables
      CLASS(boundary_generic), ALLOCATABLE :: Boundary  !< one for each boundary
-     CLASS(marray_compound), ALLOCATABLE  :: pvar,cvar
+     CLASS(marray_compound), ALLOCATABLE  :: pvar,cvar,ptmp,ctmp
      INTEGER          :: order                         !< time order
      REAL             :: cfl                           !< Courant number
      REAL             :: dt                            !< actual time step
@@ -109,7 +109,6 @@ PRIVATE
      REAL                              :: beta             !< time step friction
      REAL, DIMENSION(:,:,:,:), POINTER :: solution=>Null() !< analytical solution
      REAL, DIMENSION(:,:,:,:), POINTER :: cold             !< old prim/cons vars
-     REAL, DIMENSION(:,:,:,:), POINTER :: ptmp,ctmp        !< temporary cvars
 
      !> multistep vars
      REAL, DIMENSION(:,:,:,:), POINTER :: phi,oldphi_s,&
@@ -259,9 +258,8 @@ CONTAINS
 
       ! allocate memory for data structures needed in all timedisc modules
     ALLOCATE( &
+      this%pvar,this%cvar,this%ptmp,this%ctmp, &
       this%cold(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM),      &
-      this%ptmp(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM),      &
-      this%ctmp(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM),      &
       this%geo_src(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM),   &
       this%src(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM),       &
       this%xfluxdydz(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
@@ -276,16 +274,18 @@ CONTAINS
        CALL this%Error("InitTimedisc", "Unable to allocate memory.")
     END IF
 
-    ALLOCATE(this%pvar,this%cvar)
+    ! initialize state vectors
     this%pvar = Physics%CreateStateVector(PRIMITIVE)
+    this%ptmp = Physics%CreateStateVector(PRIMITIVE)
     this%cvar = Physics%CreateStateVector(CONSERVATIVE)
+    this%ctmp = Physics%CreateStateVector(CONSERVATIVE)
 
     ! initialize all variables
     this%pvar%data1d(:)   = 0.
+    this%ptmp%data1d(:)   = 0.
     this%cvar%data1d(:)   = 0.
+    this%ctmp%data1d(:)   = 0.
     this%cold      = 0.
-    this%ptmp      = 0.
-    this%ctmp      = 0.
     this%geo_src   = 0.
     this%src       = 0.
     this%xfluxdydz = 0.
@@ -849,8 +849,8 @@ CONTAINS
     dtmeanold = this%dtmean
     this%dtmean = this%dtmean + (dt - this%dtmean)/this%dtaccept
     this%dtstddev = this%dtstddev + (dt - dtmeanold)*(dt-this%dtmean)
-    CALL this%ComputeRHS(Mesh,Physics,Sources,Fluxes,time,dt,this%pvar%data4d,&
-      this%cvar%data4d,this%checkdatabm,this%rhs)
+    CALL this%ComputeRHS(Mesh,Physics,Sources,Fluxes,time,dt,this%pvar,&
+      this%cvar,this%checkdatabm,this%rhs)
     this%cold(:,:,:,:) = this%cvar%data4d(:,:,:,:)
     Fluxes%bxfold(:,:,:,:) = Fluxes%bxflux(:,:,:,:)
     Fluxes%byfold(:,:,:,:) = Fluxes%byflux(:,:,:,:)
@@ -873,8 +873,8 @@ CONTAINS
     !------------------------------------------------------------------------!
     this%cvar%data4d(:,:,:,:) = this%cold(:,:,:,:)
     ! This data has already been checked at AcceptSolution
-    CALL this%ComputeRHS(Mesh,Physics,Sources,Fluxes,time,dt,this%pvar%data4d, &
-      this%cvar%data4d,CHECK_NOTHING,this%rhs)
+    CALL this%ComputeRHS(Mesh,Physics,Sources,Fluxes,time,dt,this%pvar, &
+      this%cvar,CHECK_NOTHING,this%rhs)
     Fluxes%bxflux(:,:,:,:) = Fluxes%bxfold(:,:,:,:)
     Fluxes%byflux(:,:,:,:) = Fluxes%byfold(:,:,:,:)
     Fluxes%bzflux(:,:,:,:) = Fluxes%bzfold(:,:,:,:)
@@ -984,10 +984,9 @@ CONTAINS
     CLASS(sources_base),  POINTER       :: Sources
     CLASS(fluxes_base),   INTENT(INOUT) :: Fluxes
     REAL,                 INTENT(IN)    :: time, dt
+    CLASS(marray_compound),INTENT(INOUT):: pvar,cvar
     REAL,DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM+Physics%PNUM), &
-                          INTENT(INOUT) :: cvar
-    REAL,DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM+Physics%PNUM), &
-                          INTENT(OUT)   :: pvar,rhs
+                          INTENT(OUT)   :: rhs
     INTEGER,              INTENT(IN)    :: checkdatabm
     !------------------------------------------------------------------------!
     INTEGER                             :: i,j,k,l
@@ -1004,16 +1003,16 @@ CONTAINS
     CASE(1,2)
         ! transform to real velocity, i.e. v_residual + w_background,
         ! before setting the boundary conditions
-        CALL Physics%AddBackgroundVelocityY(Mesh,this%w,pvar,cvar)
+        CALL Physics%AddBackgroundVelocityY(Mesh,this%w,pvar%data4d,cvar%data4d)
     CASE(3)
         ! boundary conditions are set for residual velocity in shearing box simulations
         ! usually it's not necessary to subtract the background velocity here, but
         ! in case someone adds it before, we subtract it here; the  subroutine checks,
         ! if the velocities have already been transformed
         IF (Mesh%SN_shear) THEN
-          CALL Physics%SubtractBackgroundVelocityX(Mesh,this%w,pvar,cvar)
+          CALL Physics%SubtractBackgroundVelocityX(Mesh,this%w,pvar%data4d,cvar%data4d)
         ELSE IF (Mesh%WE_shear) THEN
-          CALL Physics%SubtractBackgroundVelocityY(Mesh,this%w,pvar,cvar)
+          CALL Physics%SubtractBackgroundVelocityY(Mesh,this%w,pvar%data4d,cvar%data4d)
         END IF
         ! ATTENTION: the time must be the initial time of the whole time step
         !            not the time of a substep
@@ -1023,7 +1022,7 @@ CONTAINS
     END SELECT
 
     ! set boundary values and convert conservative to primitive variables
-    CALL this%boundary%CenterBoundary(Mesh,Physics,t,pvar,cvar)
+    CALL this%boundary%CenterBoundary(Mesh,Physics,t,pvar%data4d,cvar%data4d)
 
     IF(IAND(checkdatabm,CHECK_TMIN).NE.CHECK_NOTHING.AND.&
       this%tmin.GT.1.E-10.AND.&
@@ -1033,34 +1032,34 @@ CONTAINS
       DO k=Mesh%KGMIN,Mesh%KGMAX
         DO j=Mesh%JGMIN,Mesh%JGMAX
           DO i=Mesh%IGMIN,Mesh%IGMAX
-            pvar(i,j,k,Physics%PRESSURE) &
-              = MAX(pvar(i,j,k,Physics%PRESSURE), &
-                    pvar(i,j,k,Physics%DENSITY)*Physics%Constants%RG/Physics%MU*this%TMIN)
+            pvar%data4d(i,j,k,Physics%PRESSURE) &
+              = MAX(pvar%data4d(i,j,k,Physics%PRESSURE), &
+                    pvar%data4d(i,j,k,Physics%DENSITY)*Physics%Constants%RG/Physics%MU*this%TMIN)
           END DO
         END DO
       END DO
-      CALL Physics%Convert2Conservative(Mesh,pvar,cvar)
+      CALL Physics%Convert2Conservative(Mesh,pvar%data4d,cvar%data4d)
     END IF
 
     ! update the speed of sound (non-isotherml physics only)
     IF (this%always_update_bccsound) THEN
       SELECT TYPE(phys => Physics)
       CLASS IS(physics_euler)
-         CALL phys%UpdateSoundSpeed(Mesh,pvar)
+         CALL phys%UpdateSoundSpeed(Mesh,pvar%data4d)
       END SELECT
     END IF
 
     ! check for illegal data
     IF(checkdatabm.NE.CHECK_NOTHING) &
-      CALL this%CheckData(Mesh,Physics,Fluxes,pvar,cvar,checkdatabm)
+      CALL this%CheckData(Mesh,Physics,Fluxes,pvar%data4d,cvar%data4d,checkdatabm)
 
     ! get geometrical sources
-    CALL Physics%GeometricalSources(Mesh,pvar,cvar,this%geo_src)
+    CALL Physics%GeometricalSources(Mesh,pvar%data4d,cvar%data4d,this%geo_src)
 
     ! get source terms due to external forces if present
     IF (ASSOCIATED(Sources)) &
        CALL Sources%ExternalSources(Mesh,Fluxes,Physics, &
-            time,dt,pvar,cvar,this%src)
+            time,dt,pvar%data4d,cvar%data4d,this%src)
 
     ! if fargo advection is enabled additional source terms occur;
     ! furthermore computation of numerical fluxes should always be
@@ -1068,11 +1067,11 @@ CONTAINS
     SELECT CASE(Mesh%FARGO)
     CASE(1,2)
         ! compute fargo source terms
-        CALL Physics%FargoSources(Mesh,this%w,pvar,cvar,this%fargo_src)
+        CALL Physics%FargoSources(Mesh,this%w,pvar%data4d,cvar%data4d,this%fargo_src)
         ! add them to the geometrical source terms
         this%geo_src(:,:,:,:) = this%geo_src(:,:,:,:) + this%fargo_src(:,:,:,:)
         ! subtract background velocity
-        CALL Physics%SubtractBackgroundVelocityY(Mesh,this%w,pvar,cvar)
+        CALL Physics%SubtractBackgroundVelocityY(Mesh,this%w,pvar%data4d,cvar%data4d)
     CASE(3)
         ! background velocity field has already been subtracted (do nothing);
         ! fargo specific source terms are handled in the shearing box source
@@ -1082,7 +1081,8 @@ CONTAINS
     END SELECT
 
     ! get the numerical fluxes
-    CALL Fluxes%CalculateFluxes(Mesh,Physics,pvar,cvar,this%xfluxdydz,this%yfluxdzdx,this%zfluxdxdy)
+    CALL Fluxes%CalculateFluxes(Mesh,Physics,pvar%data4d,cvar%data4d,this%xfluxdydz, &
+                                this%yfluxdzdx,this%zfluxdxdy)
 
     ! compute the right hand side for boundary flux computation;
     ! this is probably wrong for the special rhs (rhstype=1, see above)
@@ -1193,40 +1193,40 @@ CONTAINS
         DO k=Mesh%KMIN,Mesh%KMAX
           DO j=Mesh%JMIN,Mesh%JMAX
             DO i=Mesh%IMIN,Mesh%IMAX
-              wp = pvar(i,j,k,Physics%YVELOCITY) + this%w(i,k) + Mesh%radius%bcenter(i,j,k)*Mesh%OMEGA
+              wp = pvar%data4d(i,j,k,Physics%YVELOCITY) + this%w(i,k) + Mesh%radius%bcenter(i,j,k)*Mesh%OMEGA
               this%geo_src(i,j,k,Physics%XMOMENTUM) &
-                = pvar(i,j,k,Physics%DENSITY) * wp**2 * Mesh%cyxy%bcenter(i,j,k) &
-                  + pvar(i,j,k,Physics%DENSITY) * pvar(i,j,k,Physics%XVELOCITY) * wp * Mesh%cxyx%bcenter(i,j,k)
+                = pvar%data4d(i,j,k,Physics%DENSITY) * wp**2 * Mesh%cyxy%bcenter(i,j,k) &
+                  + pvar%data4d(i,j,k,Physics%DENSITY) * pvar%data4d(i,j,k,Physics%XVELOCITY) * wp * Mesh%cxyx%bcenter(i,j,k)
 
               this%geo_src(i,j,k,Physics%YMOMENTUM) &
-                = cvar(i,j,k,Physics%XMOMENTUM) &
-                  * ( pvar(i,j,k,Physics%XVELOCITY) * Mesh%cxyx%center(i,j,k) )
+                = cvar%data4d(i,j,k,Physics%XMOMENTUM) &
+                  * ( pvar%data4d(i,j,k,Physics%XVELOCITY) * Mesh%cxyx%center(i,j,k) )
 
               IF(Physics%PRESSURE.GT.0) THEN
                 this%geo_src(i,j,k,Physics%XMOMENTUM) &
                   = this%geo_src(i,j,k,Physics%XMOMENTUM) &
-                   +pvar(i,j,k,Physics%PRESSURE) &
+                   +pvar%data4d(i,j,k,Physics%PRESSURE) &
                       *( Mesh%cyxy%center(i,j,k) + Mesh%czxz%center(i,j,k) )
                 this%geo_src(i,j,k,Physics%YMOMENTUM) &
                   = this%geo_src(i,j,k,Physics%YMOMENTUM) &
-                    + pvar(i,j,k,Physics%PRESSURE) &
+                    + pvar%data4d(i,j,k,Physics%PRESSURE) &
                       *( Mesh%cxyx%center(i,j,k) + Mesh%czyz%center(i,j,k) )
 !                this%geo_src(i,j,Physics%XMOMENTUM) &
 !                  = this%geo_src(i,j,Physics%XMOMENTUM) &
-!                    - 0.5*(pvar(i+1,j,Physics%PRESSURE) - pvar(i-1,j,Physics%PRESSURE))/Mesh%dlx(i,j)
+!                    - 0.5*(pvar%data4d(i+1,j,Physics%PRESSURE) - pvar%data4d(i-1,j,Physics%PRESSURE))/Mesh%dlx(i,j)
 !                this%geo_src(i,j,Physics%YMOMENTUM) &
 !                  = this%geo_src(i,j,Physics%YMOMENTUM) &
-!                    - 0.5*(pvar(i,j+1,Physics%PRESSURE) - pvar(i,j-1,Physics%PRESSURE))/Mesh%dly(i,j)
+!                    - 0.5*(pvar%data4d(i,j+1,Physics%PRESSURE) - pvar%data4d(i,j-1,Physics%PRESSURE))/Mesh%dly(i,j)
                 this%geo_src(i,j,k,Physics%ENERGY) = 0.
               ELSE
 
                 this%geo_src(i,j,k,Physics%XMOMENTUM) &
                  = this%geo_src(i,j,k,Physics%XMOMENTUM) &
-                   +pvar(i,j,k,Physics%DENSITY)*phys%bccsound(i,j,k)**2 &
+                   +pvar%data4d(i,j,k,Physics%DENSITY)*phys%bccsound(i,j,k)**2 &
                       * ( Mesh%cyxy%center(i,j,k) + Mesh%czxz%center(i,j,k) )
                 this%geo_src(i,j,k,Physics%YMOMENTUM) &
                   = this%geo_src(i,j,k,Physics%YMOMENTUM) &
-                    + pvar(i,j,k,Physics%DENSITY)*phys%bccsound(i,j,k)**2 &
+                    + pvar%data4d(i,j,k,Physics%DENSITY)*phys%bccsound(i,j,k)**2 &
                       *( Mesh%cxyx%center(i,j,k) + Mesh%czyz%center(i,j,k) )
               END IF
             END DO
@@ -1598,7 +1598,7 @@ CONTAINS
 
     ! Calculate RHS after the Advection Step
     CALL Physics%Convert2Primitive(Mesh,this%cvar%data4d,this%pvar%data4d)
-    CALL this%ComputeRHS(Mesh,Physics,Sources,Fluxes,this%time,0.,this%pvar%data4d,this%cvar%data4d,&
+    CALL this%ComputeRHS(Mesh,Physics,Sources,Fluxes,this%time,0.,this%pvar,this%cvar,&
                     this%checkdatabm,this%rhs)
 
     this%cold(:,:,:,:) = this%cvar%data4d(:,:,:,:)
@@ -1826,7 +1826,7 @@ CONTAINS
         CALL this%Error("GetCentrifugalVelocity","It is unknown, if the "&
           //"selected physics module works with this routine.")
       END SELECT
-      CALL this%ComputeRHS(Mesh,Physics,Sources,Fluxes,this%time,0.0,this%pvar%data4d,this%cvar%data4d,this%checkdatabm,this%rhs)
+      CALL this%ComputeRHS(Mesh,Physics,Sources,Fluxes,this%time,0.0,this%pvar,this%cvar,this%checkdatabm,this%rhs)
       ! HERE DEPENDEND ON Physics
       DO k=Physics%XMOMENTUM,Physics%XMOMENTUM+Physics%DIM-1
         accel(:,:,:,k-Physics%XMOMENTUM+1) = -1. * this%rhs(:,:,:,k) &
@@ -1919,7 +1919,9 @@ CONTAINS
     CALL this%Boundary%Finalize()
 
     CALL this%pvar%Destroy()
+    CALL this%ptmp%Destroy()
     CALL this%cvar%Destroy()
+    CALL this%ctmp%Destroy()
 
     DEALLOCATE( &
       this%pvar,this%cvar,this%cold,this%ptmp,this%ctmp, &

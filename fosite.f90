@@ -289,7 +289,7 @@ CONTAINS
 
     ! do a complete update of all data
     CALL this%Timedisc%ComputeRHS(this%Mesh,this%Physics,this%Sources,this%Fluxes, &
-         this%Timedisc%time,0.0,this%Timedisc%pvar%data4d,this%Timedisc%cvar%data4d, &
+         this%Timedisc%time,0.0,this%Timedisc%pvar,this%Timedisc%cvar, &
          CHECK_ALL,this%Timedisc%rhs)
 
     ! calculate timestep
