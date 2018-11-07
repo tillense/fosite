@@ -380,7 +380,7 @@ CONTAINS
        CASE(EULER2D_ISOIAMT,EULER2D_IAMT,EULER2D_ISOIAMROT,EULER2D_ISOTHERM,EULER2D)
           ! check geometry
           SELECT CASE(Mesh%Geometry%GetType())
-          CASE(POLAR,TANPOLAR,LOGPOLAR,SINHPOLAR)
+          CASE(POLAR,TANPOLAR,LOGPOLAR,CYLINDRICAL,LOGCYLINDRICAL,SINHPOLAR)
              ! allocate data arrays used for fargo
              ALLOCATE( &
                       this%w(Mesh%IGMIN:Mesh%IGMAX,Mesh%KGMIN:Mesh%KGMAX), &
@@ -1815,7 +1815,8 @@ CONTAINS
         CALL this%Error("GetCentrifugalVelocity","It is unknown, if the "&
           //"selected physics module works with this routine.")
       END SELECT
-      CALL this%ComputeRHS(Mesh,Physics,Sources,Fluxes,this%time,0.0,this%pvar,this%cvar,this%checkdatabm,this%rhs)
+      CALL this%ComputeRHS(Mesh,Physics,Sources,Fluxes,this%time,0.0, &
+        this%pvar,this%cvar,this%checkdatabm,this%rhs)
       ! HERE DEPENDEND ON Physics
       DO k=Physics%XMOMENTUM,Physics%XMOMENTUM+Physics%DIM-1
         accel(:,:,:,k-Physics%XMOMENTUM+1) = -1. * this%rhs(:,:,:,k) &
