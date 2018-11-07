@@ -103,7 +103,6 @@ MODULE physics_base_mod
     PROCEDURE :: InitPhysics
     PROCEDURE (ExternalSources),              DEFERRED :: ExternalSources
     PROCEDURE (EnableOutput),                 DEFERRED :: EnableOutput
-    PROCEDURE (CreateStateVector),            DEFERRED :: CreateStateVector
     !------Convert2Primitve--------!
     PROCEDURE (Convert2Primitive_center),     DEFERRED :: Convert2Primitive_center
     PROCEDURE (Convert2Primitive_centsub),    DEFERRED :: Convert2Primitive_centsub
@@ -189,14 +188,6 @@ MODULE physics_base_mod
       CLASS(mesh_base),        INTENT(IN)   :: Mesh
       TYPE(Dict_TYP), POINTER, INTENT(IN)   :: config, IO
     END SUBROUTINE
-    FUNCTION CreateStatevector(this,flavour) RESULT(new_sv)
-      IMPORT physics_base, marray_compound
-      IMPLICIT NONE
-      !-------------------------------------------------------------------!
-      CLASS(physics_base), INTENT(IN) :: this
-      INTEGER, OPTIONAL :: flavour
-      CLASS(marray_compound), ALLOCATABLE :: new_sv
-    END FUNCTION
     PURE SUBROUTINE Convert2Primitive_center(this,Mesh,cvar,pvar)
       IMPORT physics_base, mesh_base
       CLASS(physics_base), INTENT(IN)  :: this

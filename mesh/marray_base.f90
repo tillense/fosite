@@ -150,7 +150,7 @@ MODULE marray_base_mod
     END IF
   END SUBROUTINE CloseMeshProperties
   
-  !> assign pointers of different shapes to the 1D data
+  !> \public assign pointers of different shapes to the 1D data
   SUBROUTINE AssignPointers(this)
     USE, INTRINSIC :: ISO_C_BINDING
     IMPLICIT NONE
@@ -244,23 +244,33 @@ MODULE marray_base_mod
     CLASS(marray_base),INTENT(INOUT) :: this
     CLASS(marray_base),INTENT(IN)    :: ma
     !------------------------------------------------------------------------!
-    IF (.NOT.ASSOCIATED(ma%data1d)) THEN
-      ! error
-    ELSE
+    IF (ASSOCIATED(ma%data1d)) THEN
+      ! copy meta data
       this%RANK    = ma%RANK
       this%DIMS(:) = ma%DIMS(:)
       IF (ASSOCIATED(this%data1d)) THEN
-        IF (SIZE(this%data1d).EQ.SIZE(ma%data1d)) THEN
+        IF (SIZE(this%data1d).EQ.0) THEN
+          ! this%data1d allocated with size zero
+          DEALLOCATE(this%data1d)
+          ! allocate and assign data
+          ALLOCATE(this%data1d(SIZE(ma%data1d,1)),SOURCE=ma%data1d)
+        ELSE IF (SIZE(this%data1d).EQ.SIZE(ma%data1d)) THEN
           ! just copy the data
           this%data1d(:) = ma%data1d(:)
-        ELSE ! is associated, but with size 0
-          DEALLOCATE(this%data1d)
-          ALLOCATE(this%data1d(SIZE(ma%data1d,1)),SOURCE=ma%data1d)
+        ELSE
+          !> \todo improve error handling for mesh arrays
+          PRINT *,"ERROR in marray_base::AssignMArray_0: size of input and output do not match"
+          STOP 1
         END IF
       ELSE
-        ALLOCATE(this%data1d(SIZE(ma%data1d,1)),SOURCE=ma%data1d)        
+        ! allocate and assign data
+        ALLOCATE(this%data1d(SIZE(ma%data1d,1)),SOURCE=ma%data1d)
       END IF
       CALL this%AssignPointers()
+    ELSE IF (ASSOCIATED(this%data1d)) THEN
+      !> \todo improve error handling for mesh arrays
+      PRINT *,"ERROR in marray_base::AssignMArray_0: ma%data1d not associated but this%data1d is"
+      STOP 1
     END IF
   END SUBROUTINE AssignMArray_0
   

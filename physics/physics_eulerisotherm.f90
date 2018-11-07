@@ -62,7 +62,6 @@ MODULE physics_eulerisotherm_mod
   CONTAINS
     PROCEDURE :: InitPhysics_eulerisotherm
     PROCEDURE :: EnableOutput
-    PROCEDURE :: CreateStateVector
     !------Convert2Primitive-------!
     PROCEDURE :: Convert2Primitive_center
     PROCEDURE :: Convert2Primitive_centsub
@@ -125,9 +124,11 @@ MODULE physics_eulerisotherm_mod
                             :: density => null(), &
                                velocity => null(), &
                                momentum => null()
+    CONTAINS
+    PROCEDURE :: AssignMArray_0
   END TYPE
   INTERFACE statevector_eulerisotherm
-    MODULE PROCEDURE CreateStatevector
+    MODULE PROCEDURE CreateStateVector
   END INTERFACE
   !--------------------------------------------------------------------------!
    PUBLIC :: &
@@ -212,53 +213,101 @@ CONTAINS
                     this%fcsound(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,:))
   END SUBROUTINE EnableOutput
 
-  FUNCTION CreateStateVector(this,flavour) RESULT(new_sv)
+  FUNCTION CreateStateVector(Physics,flavour) RESULT(new_sv)
     IMPLICIT NONE
     !-------------------------------------------------------------------!
-    CLASS(physics_eulerisotherm), INTENT(IN) :: this
-    INTEGER, OPTIONAL :: flavour
-    CLASS(marray_compound), ALLOCATABLE :: new_sv
+    CLASS(physics_eulerisotherm), INTENT(IN) :: Physics
+    INTEGER, OPTIONAL, INTENT(IN) :: flavour
+    TYPE(statevector_eulerisotherm) :: new_sv
     !-------------------------------------------------------------------!
-    IF (.NOT.this%Initialized()) &
-      CALL this%Error("physics_eulerisotherm::CreateStatevector", "Physics not initialized.")
+    IF (.NOT.Physics%Initialized()) &
+      CALL Physics%Error("physics_eulerisotherm::CreateStatevector", "Physics not initialized.")
 
-    ! create new empty mesh array of rank 2 with dims=0
-    ALLOCATE(statevector_eulerisotherm::new_sv)
-    SELECT TYPE(svec => new_sv)
-    CLASS IS(statevector_eulerisotherm)
-      svec = marray_compound()
-      ! be sure rank is 2, even if the compound consists only of scalar data
-      svec%RANK = 2
-      IF (PRESENT(flavour)) THEN
-        SELECT CASE(flavour)
-        CASE(PRIMITIVE,CONSERVATIVE)
-          svec%flavour = flavour
-        CASE DEFAULT
-          svec%flavour = UNDEFINED
-        END SELECT
-      END IF
-      SELECT CASE(svec%flavour)
-      CASE(PRIMITIVE)
-        ! allocate memory for density and velocity mesh arrays
-        ALLOCATE(svec%density,svec%velocity)
-        svec%density  = marray_base()             ! scalar, rank 0
-        svec%velocity = marray_base(this%DIM) ! vector, rank 1
-        ! append to compound
-        CALL svec%AppendMArray(svec%density)
-        CALL svec%AppendMArray(svec%velocity)
-      CASE(CONSERVATIVE)
-        ! allocate memory for density and momentum mesh arrays
-        ALLOCATE(svec%density,svec%momentum)
-        svec%density  = marray_base()             ! scalar, rank 0
-        svec%momentum = marray_base(this%DIM) ! vector, rank 1
-        ! append to compound
-        CALL svec%AppendMArray(svec%density)
-        CALL svec%AppendMArray(svec%momentum)
+    ! create a new empty compound of marrays
+    new_sv = marray_compound()
+    ! be sure rank is 1, even if the compound consists only of scalar data
+    new_sv%RANK = 1
+    IF (PRESENT(flavour)) THEN
+      SELECT CASE(flavour)
+      CASE(PRIMITIVE,CONSERVATIVE)
+        new_sv%flavour = flavour
       CASE DEFAULT
-        CALL this%Warning("physics_eulerisotherm::CreateStateVector", "Empty state vector created.")
+        new_sv%flavour = UNDEFINED
       END SELECT
+    END IF
+    SELECT CASE(new_sv%flavour)
+    CASE(PRIMITIVE)
+      ! allocate memory for density and velocity mesh arrays
+      ALLOCATE(new_sv%density,new_sv%velocity)
+      new_sv%density  = marray_base()             ! scalar, rank 0
+      new_sv%velocity = marray_base(Physics%DIM) ! vector, rank 1
+      ! append to compound
+      CALL new_sv%AppendMArray(new_sv%density)
+      CALL new_sv%AppendMArray(new_sv%velocity)
+    CASE(CONSERVATIVE)
+      ! allocate memory for density and momentum mesh arrays
+      ALLOCATE(new_sv%density,new_sv%momentum)
+      new_sv%density  = marray_base()             ! scalar, rank 0
+      new_sv%momentum = marray_base(Physics%DIM) ! vector, rank 1
+      ! append to compound
+      CALL new_sv%AppendMArray(new_sv%density)
+      CALL new_sv%AppendMArray(new_sv%momentum)
+    CASE DEFAULT
+      CALL Physics%Warning("physics_eulerisotherm::CreateStateVector", "Empty state vector created.")
     END SELECT
   END FUNCTION CreateStateVector
+  
+  !> assigns one state vector to another state vector
+  SUBROUTINE AssignMArray_0(this,ma)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(statevector_eulerisotherm),INTENT(INOUT) :: this
+    CLASS(marray_base),INTENT(IN)    :: ma
+    !------------------------------------------------------------------------!
+    CALL this%marray_compound%AssignMArray_0(ma)
+    IF (SIZE(this%data1d).GT.0) THEN
+      SELECT TYPE(src => ma)
+      CLASS IS(statevector_eulerisotherm)
+        this%flavour = src%flavour
+        ! assign density marray pointer into the data of the compound
+
+        IF (.NOT.ASSOCIATED(this%density)) ALLOCATE(this%density)
+        this%density%data1d => this%data1d(LBOUND(src%density%data1d,1) &
+                                          :UBOUND(src%density%data1d,1))
+        ! copy meta data
+        this%density%RANK    = src%density%RANK
+        this%density%DIMS(:) = src%density%DIMS(:)
+        ! assign the multi-dim. pointers
+        CALL this%density%AssignPointers()
+        SELECT CASE(this%flavour)
+        CASE(PRIMITIVE)
+          ! assign velocity marray pointer into the data of the compound
+          IF (.NOT.ASSOCIATED(this%velocity)) ALLOCATE(this%velocity)
+          this%velocity%data1d => this%data1d(LBOUND(src%velocity%data1d,1) &
+                                            :UBOUND(src%velocity%data1d,1))
+          ! copy meta data
+          this%velocity%RANK    = src%velocity%RANK
+          this%velocity%DIMS(:) = src%velocity%DIMS(:)
+          ! assign the multi-dim. pointers
+          CALL this%velocity%AssignPointers()
+        CASE(CONSERVATIVE)
+          ! assign momentum marray pointer into the data of the compound
+          IF (.NOT.ASSOCIATED(this%momentum)) ALLOCATE(this%momentum)
+          this%momentum%data1d => this%data1d(LBOUND(src%momentum%data1d,1) &
+                                            :UBOUND(src%momentum%data1d,1))
+          ! copy meta data
+          this%momentum%RANK    = src%momentum%RANK
+          this%momentum%DIMS(:) = src%momentum%DIMS(:)
+          ! assign the multi-dim. pointers
+          CALL this%momentum%AssignPointers()
+        CASE DEFAULT
+          ! error, this should not happen
+        END SELECT
+      CLASS DEFAULT
+        ! error, this should not happen
+      END SELECT
+    END IF
+  END SUBROUTINE AssignMArray_0
   
   !> Sets soundspeeds at cell-centers
   PURE SUBROUTINE SetSoundSpeeds_center(this,Mesh,bccsound)

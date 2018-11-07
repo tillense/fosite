@@ -74,16 +74,18 @@ CONTAINS
     CLASS(marray_base),INTENT(IN)    :: ma
     !------------------------------------------------------------------------!
     CALL this%marray_base%AssignMArray_0(ma)
-    SELECT TYPE(src => ma)
-    CLASS IS(marray_compound)
-      IF (.NOT.ALLOCATED(src%item)) THEN
+    IF (ASSOCIATED(ma%data1d)) THEN
+      SELECT TYPE(src => ma)
+      CLASS IS(marray_compound)
+        IF (.NOT.ALLOCATED(src%item)) THEN
+          ! error
+        ELSE
+          ALLOCATE(this%item(SIZE(src%item)),SOURCE=src%item)
+        END IF
+      CLASS DEFAULT
         ! error
-      ELSE
-        ALLOCATE(this%item(SIZE(src%item)),SOURCE=src%item)
-      END IF
-    CLASS DEFAULT
-      ! error
-    END SELECT
+      END SELECT
+    END IF
   END SUBROUTINE AssignMArray_0
   
   

@@ -31,6 +31,7 @@
 !! physics to use from the config.
 !----------------------------------------------------------------------------!
 MODULE physics_generic_mod
+  USE marray_compound_mod
   USE physics_base_mod
   USE physics_eulerisotherm_mod
   USE physics_euler_mod
@@ -47,6 +48,7 @@ MODULE physics_generic_mod
 
 CONTAINS
 
+  !> \public allocate and initialize new physics class
   SUBROUTINE new_physics(Physics,Mesh,config,IO)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
@@ -73,7 +75,7 @@ CONTAINS
 !     CASE(EULER2D)
 !       ALLOCATE(physics_euler2D::Physics)
     CASE DEFAULT
-      CALL Physics%Error("physics_generic::new_physics","Unknown physics type.")
+      CALL Physics%Error("physics_generic::new_physics","uninitialized or unknown physics")
     END SELECT
 
     ! call initialization
@@ -92,4 +94,26 @@ CONTAINS
 !       CALL obj%InitPhysics_euler2D(Mesh,config,IO)
     END SELECT
   END SUBROUTINE
+  
+  !> \public allocate an initialize a new state vector
+  SUBROUTINE new_statevector(Physics,new_sv,flavour)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(physics_base), INTENT(IN) :: Physics
+    INTEGER, OPTIONAL, INTENT(IN) :: flavour
+    CLASS(marray_compound), ALLOCATABLE :: new_sv
+    !------------------------------------------------------------------------!
+    ! allocate and initialize state vector depending on physics
+    SELECT TYPE(phys => Physics)
+    TYPE IS (physics_eulerisotherm)
+      ALLOCATE(statevector_eulerisotherm::new_sv)
+      new_sv = statevector_eulerisotherm(phys,flavour)
+    TYPE IS (physics_euler)
+      ALLOCATE(statevector_euler::new_sv)
+      new_sv = statevector_euler(phys,flavour)
+    CLASS DEFAULT
+      CALL Physics%Error("physics_generic::new_statevector","uninitialized or unknown physics")
+    END SELECT
+  END SUBROUTINE new_statevector
+  
 END MODULE physics_generic_mod

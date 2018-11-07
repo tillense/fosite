@@ -56,6 +56,7 @@ MODULE timedisc_base_mod
   USE mesh_base_mod
   USE marray_compound_mod
   USE physics_base_mod
+  USE physics_generic_mod
   USE sources_base_mod
   USE sources_gravity_mod
   USE fluxes_base_mod
@@ -258,7 +259,6 @@ CONTAINS
 
       ! allocate memory for data structures needed in all timedisc modules
     ALLOCATE( &
-      this%pvar,this%cvar,this%ptmp,this%ctmp, &
       this%cold(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM),      &
       this%geo_src(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM),   &
       this%src(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM),       &
@@ -275,10 +275,10 @@ CONTAINS
     END IF
 
     ! initialize state vectors
-    this%pvar = Physics%CreateStateVector(PRIMITIVE)
-    this%ptmp = Physics%CreateStateVector(PRIMITIVE)
-    this%cvar = Physics%CreateStateVector(CONSERVATIVE)
-    this%ctmp = Physics%CreateStateVector(CONSERVATIVE)
+    CALL new_statevector(Physics,this%pvar,PRIMITIVE)
+    CALL new_statevector(Physics,this%ptmp,PRIMITIVE)
+    CALL new_statevector(Physics,this%cvar,CONSERVATIVE)
+    CALL new_statevector(Physics,this%ctmp,CONSERVATIVE)
 
     ! initialize all variables
     this%pvar%data1d(:)   = 0.
@@ -755,7 +755,7 @@ CONTAINS
 
   !> \public Determines the CFL time step and time step limits due to source terms
   REAL FUNCTION CalcTimestep(this,Mesh,Physics,Sources,Fluxes,time,dtcause) RESULT(dt)
-    USE physics_euler_mod, ONLY : physics_euler
+    USE physics_euler_mod, ONLY : physics_euler, statevector_euler
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(timedisc_base), INTENT(INOUT) :: this
@@ -775,7 +775,10 @@ CONTAINS
     IF (.NOT.this%always_update_bccsound) THEN
       SELECT TYPE(phys => Physics)
       CLASS IS(physics_euler)
-         CALL phys%UpdateSoundSpeed(Mesh,this%pvar%data4d)
+        SELECT TYPE(pvar => this%pvar)
+        CLASS IS(statevector_euler)
+          CALL phys%UpdateSoundSpeed(Mesh,pvar)
+        END SELECT
       END SELECT
     END IF
     CALL Physics%CalculateWaveSpeeds(Mesh,this%pvar%data4d,Fluxes%minwav,Fluxes%maxwav)
@@ -974,7 +977,7 @@ CONTAINS
   !! 4. update external source terms (this implies an update of all
   !!    auxiliary data arrays used for sources terms)
   SUBROUTINE ComputeRHS(this,Mesh,Physics,Sources,Fluxes,time,dt,pvar,cvar,checkdatabm,rhs)
-    USE physics_euler_mod, ONLY : physics_euler
+    USE physics_euler_mod, ONLY : physics_euler,statevector_euler
     USE physics_eulerisotherm_mod, ONLY : physics_eulerisotherm
     IMPLICIT NONE
     !------------------------------------------------------------------------!
@@ -1045,7 +1048,10 @@ CONTAINS
     IF (this%always_update_bccsound) THEN
       SELECT TYPE(phys => Physics)
       CLASS IS(physics_euler)
-         CALL phys%UpdateSoundSpeed(Mesh,pvar%data4d)
+        SELECT TYPE(pvar => this%pvar)
+        CLASS IS(statevector_euler)
+          CALL phys%UpdateSoundSpeed(Mesh,pvar)
+        END SELECT
       END SELECT
     END IF
 

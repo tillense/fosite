@@ -52,7 +52,6 @@ MODULE physics_euler_mod
     REAL                :: gamma                 !< ratio of spec. heats
   CONTAINS
     PROCEDURE :: InitPhysics_euler             !< constructor
-    PROCEDURE :: CreateStateVector
     !------Convert2Primitve--------!
     PROCEDURE :: Convert2Primitive_centsub
     PROCEDURE :: Convert2Primitive_facesub
@@ -108,7 +107,12 @@ MODULE physics_euler_mod
     TYPE(marray_base), POINTER :: &
                                pressure => null(), &
                                energy => null()
+    CONTAINS
+    PROCEDURE :: AssignMArray_0
   END TYPE
+  INTERFACE statevector_euler
+    MODULE PROCEDURE CreateStateVector
+  END INTERFACE
   !--------------------------------------------------------------------------!
   PUBLIC :: &
        ! types
@@ -165,38 +169,74 @@ CONTAINS
 
   END SUBROUTINE InitPhysics_euler
 
-  FUNCTION CreateStateVector(this,flavour) RESULT(new_sv)
+  FUNCTION CreateStateVector(Physics,flavour) RESULT(new_sv)
     IMPLICIT NONE
     !-------------------------------------------------------------------!
-    CLASS(physics_euler), INTENT(IN) :: this
-    INTEGER, OPTIONAL :: flavour
-    CLASS(marray_compound), ALLOCATABLE :: new_sv
+    CLASS(physics_euler), INTENT(IN) :: Physics
+    INTEGER, OPTIONAL, INTENT(IN) :: flavour
+    TYPE(statevector_euler) :: new_sv
     !-------------------------------------------------------------------!
-    ALLOCATE(statevector_euler::new_sv)
     ! call inherited function
-    new_sv = this%physics_eulerisotherm%CreateStateVector(flavour)
-    
+    new_sv = statevector_eulerisotherm(Physics,flavour)
     ! add entries specific for euler physics
-    SELECT TYPE(svec => new_sv)
-    CLASS IS(statevector_euler)
-      SELECT CASE(flavour)
-      CASE(PRIMITIVE)
-        ! allocate memory for pressure mesh array
-        ALLOCATE(svec%pressure)
-        svec%pressure  = marray_base()           ! scalar, rank 0
-        ! append to compound
-        CALL svec%AppendMArray(svec%pressure)
-      CASE(CONSERVATIVE)
-        ! allocate memory for energy mesh array
-        ALLOCATE(svec%energy)
-        svec%energy  = marray_base()             ! scalar, rank 0
-        ! append to compound
-        CALL svec%AppendMArray(svec%energy)
-      CASE DEFAULT
-        CALL this%Warning("physics_euler::CreateStateVector", "incomplete state vector")
-      END SELECT
+    SELECT CASE(flavour)
+    CASE(PRIMITIVE)
+      ! allocate memory for pressure mesh array
+      ALLOCATE(new_sv%pressure)
+      new_sv%pressure  = marray_base()           ! scalar, rank 0
+      ! append to compound
+      CALL new_sv%AppendMArray(new_sv%pressure)
+    CASE(CONSERVATIVE)
+      ! allocate memory for energy mesh array
+      ALLOCATE(new_sv%energy)
+      new_sv%energy  = marray_base()             ! scalar, rank 0
+      ! append to compound
+      CALL new_sv%AppendMArray(new_sv%energy)
+    CASE DEFAULT
+      CALL Physics%Warning("physics_euler::CreateStateVector", "incomplete state vector")
     END SELECT
   END FUNCTION CreateStateVector
+
+  !> assigns one state vector to another state vector
+  SUBROUTINE AssignMArray_0(this,ma)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(statevector_euler),INTENT(INOUT) :: this
+    CLASS(marray_base),INTENT(IN)    :: ma
+    !------------------------------------------------------------------------!
+    CALL this%statevector_eulerisotherm%AssignMArray_0(ma)
+    IF (SIZE(this%data1d).GT.0) THEN
+      SELECT TYPE(src => ma)
+      CLASS IS(statevector_euler)
+        SELECT CASE(this%flavour)
+        CASE(PRIMITIVE)
+          ! assign pressure marray pointer into the data of the compound
+          IF (.NOT.ASSOCIATED(this%pressure)) ALLOCATE(this%pressure)
+          this%pressure%data1d => this%data1d(LBOUND(src%pressure%data1d,1) &
+                                            :UBOUND(src%pressure%data1d,1))
+          ! copy meta data
+          this%pressure%RANK    = src%pressure%RANK
+          this%pressure%DIMS(:) = src%pressure%DIMS(:)
+          ! assign the multi-dim. pointers
+          CALL this%pressure%AssignPointers()
+        CASE(CONSERVATIVE)
+          ! assign energy marray pointer into the data of the compound
+          IF (.NOT.ASSOCIATED(this%energy)) ALLOCATE(this%energy)
+          this%energy%data1d => this%data1d(LBOUND(src%energy%data1d,1) &
+                                            :UBOUND(src%energy%data1d,1))
+          ! copy meta data
+          this%energy%RANK    = src%energy%RANK
+          this%energy%DIMS(:) = src%energy%DIMS(:)
+          ! assign the multi-dim. pointers
+          CALL this%energy%AssignPointers()
+        CASE DEFAULT
+          ! error, this should not happen
+        END SELECT
+      CLASS DEFAULT
+        ! error, this should not happen
+      END SELECT
+    END IF
+  END SUBROUTINE AssignMArray_0
   
   !> Calculate Fluxes in x-direction
   !\todo NOT VERIFIED
@@ -1527,21 +1567,12 @@ CONTAINS
     !------------------------------------------------------------------------!
     CLASS(physics_euler), INTENT(INOUT) :: this
     CLASS(mesh_base),        INTENT(IN) :: Mesh
-    REAL,DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM), &
-                             INTENT(IN) :: pvar
+    CLASS(statevector_euler),INTENT(INOUT) :: pvar
     !------------------------------------------------------------------------!
-    INTEGER                               :: i,j,k
+    INTEGER                               :: i,j,k,l
     !------------------------------------------------------------------------!
-    DO k=Mesh%KGMIN,Mesh%KGMAX
-      DO j=Mesh%JGMIN,Mesh%JGMAX
-        DO i=Mesh%IGMIN,Mesh%IGMAX
-          this%bccsound(i,j,k) = GetSoundSpeed( &
-            this%gamma, &
-            pvar(i,j,k,this%DENSITY), &
-            pvar(i,j,k,this%PRESSURE))
-        END DO
-      END DO
-    END DO
+    this%bccsound(:,:,:) = GetSoundSpeed(this%gamma, &
+            pvar%density%data3d(:,:,:),pvar%pressure%data3d(:,:,:))
   END SUBROUTINE UpdateSoundSpeed_center
 
   PURE SUBROUTINE UpdateSoundSpeed_faces(this,Mesh,prim)
