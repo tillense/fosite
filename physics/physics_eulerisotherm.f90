@@ -55,8 +55,7 @@ MODULE physics_eulerisotherm_mod
   !--------------------------------------------------------------------------!
   TYPE,  EXTENDS(physics_base) :: physics_eulerisotherm
     REAL                 :: csiso              !< isothermal sound speed
-    REAL, DIMENSION(:,:,:), POINTER &
-                         :: bccsound           !< bary centered speed of sound
+    CLASS(marray_base), ALLOCATABLE :: bccsound  !< bary centered speed of sound
     REAL, DIMENSION(:,:,:,:), POINTER &
                          :: fcsound            !< speed of sound faces                         
   CONTAINS
@@ -176,17 +175,20 @@ CONTAINS
     CALL GetAttr(config, "cs", this%csiso, 0.0)
    
     ! allocate memory for arrays common to all physics modules
-    ALLOCATE(this%bccsound(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX),            &
+    ALLOCATE(this%bccsound,            &
              this%fcsound(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%nfaces), &
              STAT = err)
     IF (err.NE.0) &
          CALL this%Error("InitPhysics_eulerisotherm", "Unable to allocate memory.")
 
+    ! create new mesh array bccsound
+    this%bccsound = marray_base()
+
     IF(this%csiso.GT.0.) THEN
-      this%bccsound(:,:,:)  = this%csiso
+      this%bccsound%data1d(:)  = this%csiso
       this%fcsound(:,:,:,:) = this%csiso
     ELSE
-      this%bccsound(:,:,:)  = 0.
+      this%bccsound%data1d(:)  = 0.
       this%fcsound(:,:,:,:) = 0.
     END IF
   END SUBROUTINE InitPhysics_eulerisotherm
@@ -205,7 +207,7 @@ CONTAINS
     CALL GetAttr(config, "output/bccsound", valwrite, 0)
     IF (valwrite .EQ. 1) &
        CALL SetAttr(IO, "bccsound",&
-                    this%bccsound(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX))
+                    this%bccsound%data3d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX))
 
     CALL GetAttr(config, "output/fcsound", valwrite, 0)
     IF (valwrite .EQ. 1) &
@@ -318,7 +320,7 @@ CONTAINS
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
                          INTENT(IN)    :: bccsound
     !------------------------------------------------------------------------!
-    this%bccsound(:,:,:) = bccsound(:,:,:)
+    this%bccsound%data3d(:,:,:) = bccsound(:,:,:)
   END SUBROUTINE SetSoundSpeeds_center
 
   !> Sets soundspeeds at cell-faces
@@ -504,10 +506,10 @@ CONTAINS
       DO j=Mesh%JGMIN,Mesh%JGMAX
          DO i=Mesh%IGMIN,Mesh%IGMAX
           ! x-direction
-          CALL SetWaveSpeeds(this%bccsound(i,j,k),pvar(i,j,k,this%XVELOCITY),&
+          CALL SetWaveSpeeds(this%bccsound%data3d(i,j,k),pvar(i,j,k,this%XVELOCITY),&
                minwav(i,j,k,1),maxwav(i,j,k,1))
           ! y-direction
-          CALL SetWaveSpeeds(this%bccsound(i,j,k),pvar(i,j,k,this%YVELOCITY),&
+          CALL SetWaveSpeeds(this%bccsound%data3d(i,j,k),pvar(i,j,k,this%YVELOCITY),&
                minwav(i,j,k,2),maxwav(i,j,k,2))
          END DO
       END DO
@@ -650,7 +652,7 @@ CONTAINS
                                         cvar(i,j,k,this%YMOMENTUM),                       &
                                         pvar(i,j,k,this%XVELOCITY),                       &
                                         pvar(i,j,k,this%YVELOCITY),                       &
-                                        pvar(i,j,k,this%DENSITY)*this%bccsound(i,j,k)**2, &
+                                        pvar(i,j,k,this%DENSITY)*this%bccsound%data3d(i,j,k)**2, &
                                         Mesh%cxyx%bcenter(i,j,k),                         &
                                         Mesh%cyxy%bcenter(i,j,k),                         &
                                         Mesh%czxz%bcenter(i,j,k),                         &
@@ -1208,7 +1210,7 @@ CONTAINS
     !------------------------------------------------------------------------!
     ! compute eigenvalues at i
     CALL SetEigenValues( &
-          this%bccsound(i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX), &
+          this%bccsound%data3d(i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX), &
           pvar(i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,this%XVELOCITY), &
           lambda(Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,1), &
           lambda(Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,2), &
@@ -1249,7 +1251,7 @@ CONTAINS
     INTEGER           :: j1,j2
     !------------------------------------------------------------------------!
     ! compute eigenvalues at j
-    CALL SetEigenValues(this%bccsound(Mesh%IMIN:Mesh%IMAX,j,Mesh%KMIN:Mesh%KMAX), &
+    CALL SetEigenValues(this%bccsound%data3d(Mesh%IMIN:Mesh%IMAX,j,Mesh%KMIN:Mesh%KMAX), &
           pvar(Mesh%IMIN:Mesh%IMAX,j,Mesh%KMIN:Mesh%KMAX,this%YVELOCITY), &
           lambda(Mesh%IMIN:Mesh%IMAX,Mesh%KMIN:Mesh%KMAX,1), &
           lambda(Mesh%IMIN:Mesh%IMAX,Mesh%KMIN:Mesh%KMAX,2), &
@@ -1290,7 +1292,7 @@ CONTAINS
     !------------------------------------------------------------------------!
     !TODO: Should not exist in 2D !
     ! compute eigenvalues at k
-!    CALL SetEigenValues(this%bccsound(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k), &
+!    CALL SetEigenValues(this%bccsound%data3d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k), &
 !          pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k,this%ZVELOCITY), &
 !          lambda(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,1), &
 !          lambda(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,2), &
@@ -1504,6 +1506,7 @@ CONTAINS
     !------------------------------------------------------------------------!
     CLASS(physics_eulerisotherm), INTENT(INOUT) :: this
     !------------------------------------------------------------------------!
+    CALL this%bccsound%Destroy()
     DEALLOCATE(this%bccsound,this%fcsound)
     CALL this%Finalize_base()
   END SUBROUTINE Finalize

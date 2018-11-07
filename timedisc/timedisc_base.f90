@@ -1228,11 +1228,11 @@ CONTAINS
 
                 this%geo_src(i,j,k,Physics%XMOMENTUM) &
                  = this%geo_src(i,j,k,Physics%XMOMENTUM) &
-                   +pvar%data4d(i,j,k,Physics%DENSITY)*phys%bccsound(i,j,k)**2 &
+                   +pvar%data4d(i,j,k,Physics%DENSITY)*phys%bccsound%data3d(i,j,k)**2 &
                       * ( Mesh%cyxy%center(i,j,k) + Mesh%czxz%center(i,j,k) )
                 this%geo_src(i,j,k,Physics%YMOMENTUM) &
                   = this%geo_src(i,j,k,Physics%YMOMENTUM) &
-                    + pvar%data4d(i,j,k,Physics%DENSITY)*phys%bccsound(i,j,k)**2 &
+                    + pvar%data4d(i,j,k,Physics%DENSITY)*phys%bccsound%data3d(i,j,k)**2 &
                       *( Mesh%cxyx%center(i,j,k) + Mesh%czyz%center(i,j,k) )
               END IF
             END DO
@@ -1323,7 +1323,7 @@ CONTAINS
       ! check for speed of sound
       SELECT TYPE(phys => Physics)
       CLASS IS(physics_eulerisotherm)
-        val = MINVAL(phys%bccsound)
+        val = MINVAL(phys%bccsound%data1d(:))
         IF(val.LE.0.) THEN
           ! warn now and stop after file output
           CALL this%Warning("CheckData","Illegal speed of sound value less than 0.")

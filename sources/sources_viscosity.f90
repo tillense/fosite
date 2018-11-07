@@ -342,7 +342,7 @@ CONTAINS
           CLASS IS(physics_eulerisotherm)
             ! compute alpha viscosity
             this%dynvis(:,:,:) = etafkt_alpha(this%dynconst, &
-                                    phys%bccsound(:,:,:)**2*pvar(:,:,:,phys%DENSITY), &
+                                    phys%bccsound%data3d(:,:,:)**2*pvar(:,:,:,phys%DENSITY), &
                                     pvar(:,:,:,kv)*this%invr(:,:,:) + Mesh%Omega)            
           END SELECT
 
@@ -373,7 +373,7 @@ CONTAINS
 !        CASE(ALPHA_ALT)
 !          ! eta = nu*rho = alpha*cs*h * rho
 !          ! compute dynamic viscosity
-!          this%dynvis(:,:,:) = this%dynconst * Physics%bccsound(:,:,:) &
+!          this%dynvis(:,:,:) = this%dynconst * Physics%bccsound%data3d(:,:,:) &
 !                * Physics%sources%height(:,:,:) * pvar(:,:,:,Physics%DENSITY)
        END SELECT
 

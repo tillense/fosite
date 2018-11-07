@@ -299,7 +299,7 @@ CONTAINS
     SELECT TYPE(phys => this%Physics)
     CLASS IS(physics_eulerisotherm)
       IF(phys%csiso.GT.0.) THEN
-        IF(ANY(phys%bccsound.NE.phys%csiso)) THEN
+        IF(ANY(phys%bccsound%data1d(:).NE.phys%csiso)) THEN
             CALL this%Error("FirstStep","isothermal sound speed set, but "&
             // "arrays bccsound and/or fcsound have been overwritten.")
         END IF

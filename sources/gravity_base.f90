@@ -276,7 +276,7 @@ CONTAINS
     DO WHILE(ASSOCIATED(grav_ptr))
       ! call specific subroutine
 !CDIR IEXPAND
-      CALL grav_ptr%CalcDiskHeight_single(Mesh,Physics,pvar,Physics%bccsound,this%h_ext,this%height)
+      CALL grav_ptr%CalcDiskHeight_single(Mesh,Physics,pvar,Physics%bccsound%data3d,this%h_ext,this%height)
       this%invheight2(:,:,:) = this%invheight2(:,:,:) + 1./this%h_ext(:,:,:)**2
       has_external_potential = .TRUE.
 !     \todo add this routines to underlying sub-classes
@@ -294,7 +294,7 @@ CONTAINS
         ! compute the resultant height due to all external gravitational forces
         this%h_ext(:,:,:) = 1./SQRT(this%invheight2(:,:,:))
       END IF
-      CALL selfgrav_ptr%CalcDiskHeight_single(Mesh,Physics,pvar,Physics%bccsound, &
+      CALL selfgrav_ptr%CalcDiskHeight_single(Mesh,Physics,pvar,Physics%bccsound%data3d, &
                                   this%h_ext,this%height)
     ELSE
       ! non-selfgravitating disk

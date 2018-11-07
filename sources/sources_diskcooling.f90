@@ -368,7 +368,7 @@ CONTAINS
           Qfactor  = 8./3.*Physics%Constants%SB
           ! compute gray cooling term
           this%Qcool(:,:,:) = Lambda_gray(pvar(:,:,:,Physics%DENSITY),this%height(:,:,:), &
-               muRgamma*Physics%bccsound(:,:,:)*Physics%bccsound(:,:,:), &
+               muRgamma*Physics%bccsound%data3d(:,:,:)*Physics%bccsound%data3d(:,:,:), &
                this%rho_0,this%T_0,Qfactor)
        CASE(GAMMIE)
           ! compute Gammie cooling term with

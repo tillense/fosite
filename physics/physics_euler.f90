@@ -161,12 +161,13 @@ CONTAINS
     
     ! allocate memory for arrays common to all physics modules
     this%CSISO = 0.0
-    ALLOCATE(this%bccsound(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX),            &
+    ALLOCATE(this%bccsound, &
              this%fcsound(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%nfaces), &
              STAT = err)
     IF (err.NE.0) &
-         CALL this%Error("InitPhysics_euler2d", "Unable to allocate memory.")
-
+         CALL this%Error("InitPhysics_euler", "Unable to allocate memory.")
+    ! create new mesh array bccsound
+    this%bccsound = marray_base()
   END SUBROUTINE InitPhysics_euler
 
   FUNCTION CreateStateVector(Physics,flavour) RESULT(new_sv)
@@ -1569,10 +1570,8 @@ CONTAINS
     CLASS(mesh_base),        INTENT(IN) :: Mesh
     CLASS(statevector_euler),INTENT(INOUT) :: pvar
     !------------------------------------------------------------------------!
-    INTEGER                               :: i,j,k,l
-    !------------------------------------------------------------------------!
-    this%bccsound(:,:,:) = GetSoundSpeed(this%gamma, &
-            pvar%density%data3d(:,:,:),pvar%pressure%data3d(:,:,:))
+    this%bccsound%data1d(:) = GetSoundSpeed(this%gamma, &
+            pvar%density%data1d(:),pvar%pressure%data1d(:))
   END SUBROUTINE UpdateSoundSpeed_center
 
   PURE SUBROUTINE UpdateSoundSpeed_faces(this,Mesh,prim)
@@ -1853,7 +1852,7 @@ CONTAINS
     !------------------------------------------------------------------------!
     CLASS(physics_euler), INTENT(INOUT) :: this
     !------------------------------------------------------------------------!
-    CALL this%Finalize_base()
+    CALL this%physics_eulerisotherm%Finalize()
   END SUBROUTINE Finalize
 
 END MODULE physics_euler_mod
