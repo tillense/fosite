@@ -206,7 +206,7 @@ MODULE mesh_base_mod
     PROCEDURE (VectorDivergence3D),   DEFERRED :: VectorDivergence3D
     PROCEDURE (TensorDivergence2D_1),  DEFERRED :: TensorDivergence2D_1
     PROCEDURE (VectorDivergence2D_1),  DEFERRED :: VectorDivergence2D_1
-    GENERIC  :: DIVERGENCE => TensorDivergence3D, VectorDivergence3D, & 
+    GENERIC  :: Divergence => TensorDivergence3D, VectorDivergence3D, &
                                      VectorDivergence2D_1, &! VectorDivergence2D_2, &
                                      TensorDivergence2D_1 !, TensorDivergence2D_2, &
 
@@ -315,6 +315,27 @@ CONTAINS
     CALL this%logging_base%InitLogging(mtype,mname)
 
     CALL new_geometry(this%geometry, config)
+
+    ! Here the angular velocity and the center of rotation are defined, if
+    ! the mesh is in a rotating frame of reference. The fictious forces must
+    ! be added through one of the following methods:
+    ! 1. rotframe external source module
+    ! 2. special physics module with angular momentum transport *IAMT, *IAMROT
+    ! 3. special rhstype with angular momentum conservation
+    ! Only the IAMROT physics module and rotframe source module allow
+    ! for a different center of rotation than (/0, 0/)
+
+    ! angular velocity of the rotating reference frame
+    CALL GetAttr(config, "omega", this%omega, 0.0)
+
+    ! shearing force in shearingsheet
+    CALL GetAttr(config, "Q", this%Q, 1.5)
+
+    ! center of rotation
+    this%rotcent = (/ 0., 0., 0./)
+    CALL GetAttr(config, "rotation_center", this%rotcent, this%rotcent)
+
+
 
     ! total resolution
     ! IMPORTANT: The resolution is the key value in order to determine the
@@ -581,21 +602,6 @@ CONTAINS
     ! will be overwritten later
     CALL GetAttr(config, "meshtype", meshtype)
 
-    ! Here the angular velocity and the center of rotation are defined, if
-    ! the mesh is in a rotating frame of reference. The fictious forces must
-    ! be added through one of the following methods:
-    ! 1. rotframe external source module
-    ! 2. special physics module with angular momentum transport *IAMT, *IAMROT
-    ! 3. special rhstype with angular momentum conservation
-    ! Only the IAMROT physics module and rotframe source module allow
-    ! for a different center of rotation than (/0, 0/)
-
-    ! angular velocity of the rotating reference frame
-    CALL GetAttr(config, "omega", this%omega, 0.0)
-
-    ! shearing force in shearingsheet
-    CALL GetAttr(config, "Q", this%Q, 1.5)
-
     ! enable fargo timestepping for polar geometries
     ! 1 = calculated mean background velocity w
     ! 2 = fixed user set background velocity w
@@ -610,10 +616,6 @@ CONTAINS
       this%WE_shear = .FALSE.
       this%SN_shear = .TRUE.
     END IF
-
-    ! center of rotation
-    this%rotcent = (/ 0., 0., 0./)
-    CALL GetAttr(config, "rotation_center", this%rotcent, this%rotcent)
 
     ! basic mesh initialization
 
