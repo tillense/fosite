@@ -62,11 +62,19 @@ MODULE physics_eulerisotherm_mod
     PROCEDURE :: InitPhysics_eulerisotherm
     PROCEDURE :: EnableOutput
     !------Convert2Primitive-------!
+    PROCEDURE :: Convert2Primitive_eulerisotherm
+    GENERIC   :: Convert2Primitive_new => &
+                   Convert2Primitive_base, &
+                   Convert2Primitive_eulerisotherm
     PROCEDURE :: Convert2Primitive_center
     PROCEDURE :: Convert2Primitive_centsub
     PROCEDURE :: Convert2Primitive_faces
     PROCEDURE :: Convert2Primitive_facesub
     !------Convert2Conservative----!
+    PROCEDURE :: Convert2Conservative_eulerisotherm
+    GENERIC   :: Convert2Conservative_new => &
+                   Convert2Conservative_base, &
+                   Convert2Conservative_eulerisotherm
     PROCEDURE :: Convert2Conservative_center
     PROCEDURE :: Convert2Conservative_centsub
     PROCEDURE :: Convert2Conservative_faces
@@ -129,6 +137,15 @@ MODULE physics_eulerisotherm_mod
   INTERFACE statevector_eulerisotherm
     MODULE PROCEDURE CreateStateVector
   END INTERFACE
+  INTERFACE SetFlux
+    MODULE PROCEDURE SetFlux1d, SetFlux2d, SetFlux3d
+  END INTERFACE
+  INTERFACE Cons2Prim
+    MODULE PROCEDURE Cons2Prim1d, Cons2Prim2d, Cons2Prim3d
+  END INTERFACE
+  INTERFACE Prim2Cons
+    MODULE PROCEDURE Prim2Cons1d, Prim2Cons2d, Prim2Cons3d
+  END INTERFACE
   !--------------------------------------------------------------------------!
    PUBLIC :: &
        ! types
@@ -137,6 +154,9 @@ MODULE physics_eulerisotherm_mod
   !--------------------------------------------------------------------------!
 
 CONTAINS
+
+!----------------------------------------------------------------------------!
+!> \par methods of class physics_eulerisotherm
 
   !> Intialization of isothermal physics
   !!
@@ -215,102 +235,6 @@ CONTAINS
                     this%fcsound(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,:))
   END SUBROUTINE EnableOutput
 
-  FUNCTION CreateStateVector(Physics,flavour) RESULT(new_sv)
-    IMPLICIT NONE
-    !-------------------------------------------------------------------!
-    CLASS(physics_eulerisotherm), INTENT(IN) :: Physics
-    INTEGER, OPTIONAL, INTENT(IN) :: flavour
-    TYPE(statevector_eulerisotherm) :: new_sv
-    !-------------------------------------------------------------------!
-    IF (.NOT.Physics%Initialized()) &
-      CALL Physics%Error("physics_eulerisotherm::CreateStatevector", "Physics not initialized.")
-
-    ! create a new empty compound of marrays
-    new_sv = marray_compound()
-    ! be sure rank is 1, even if the compound consists only of scalar data
-    new_sv%RANK = 1
-    IF (PRESENT(flavour)) THEN
-      SELECT CASE(flavour)
-      CASE(PRIMITIVE,CONSERVATIVE)
-        new_sv%flavour = flavour
-      CASE DEFAULT
-        new_sv%flavour = UNDEFINED
-      END SELECT
-    END IF
-    SELECT CASE(new_sv%flavour)
-    CASE(PRIMITIVE)
-      ! allocate memory for density and velocity mesh arrays
-      ALLOCATE(new_sv%density,new_sv%velocity)
-      new_sv%density  = marray_base()             ! scalar, rank 0
-      new_sv%velocity = marray_base(Physics%DIM) ! vector, rank 1
-      ! append to compound
-      CALL new_sv%AppendMArray(new_sv%density)
-      CALL new_sv%AppendMArray(new_sv%velocity)
-    CASE(CONSERVATIVE)
-      ! allocate memory for density and momentum mesh arrays
-      ALLOCATE(new_sv%density,new_sv%momentum)
-      new_sv%density  = marray_base()             ! scalar, rank 0
-      new_sv%momentum = marray_base(Physics%DIM) ! vector, rank 1
-      ! append to compound
-      CALL new_sv%AppendMArray(new_sv%density)
-      CALL new_sv%AppendMArray(new_sv%momentum)
-    CASE DEFAULT
-      CALL Physics%Warning("physics_eulerisotherm::CreateStateVector", "Empty state vector created.")
-    END SELECT
-  END FUNCTION CreateStateVector
-  
-  !> assigns one state vector to another state vector
-  SUBROUTINE AssignMArray_0(this,ma)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(statevector_eulerisotherm),INTENT(INOUT) :: this
-    CLASS(marray_base),INTENT(IN)    :: ma
-    !------------------------------------------------------------------------!
-    CALL this%marray_compound%AssignMArray_0(ma)
-    IF (SIZE(this%data1d).GT.0) THEN
-      SELECT TYPE(src => ma)
-      CLASS IS(statevector_eulerisotherm)
-        this%flavour = src%flavour
-        ! assign density marray pointer into the data of the compound
-
-        IF (.NOT.ASSOCIATED(this%density)) ALLOCATE(this%density)
-        this%density%data1d => this%data1d(LBOUND(src%density%data1d,1) &
-                                          :UBOUND(src%density%data1d,1))
-        ! copy meta data
-        this%density%RANK    = src%density%RANK
-        this%density%DIMS(:) = src%density%DIMS(:)
-        ! assign the multi-dim. pointers
-        CALL this%density%AssignPointers()
-        SELECT CASE(this%flavour)
-        CASE(PRIMITIVE)
-          ! assign velocity marray pointer into the data of the compound
-          IF (.NOT.ASSOCIATED(this%velocity)) ALLOCATE(this%velocity)
-          this%velocity%data1d => this%data1d(LBOUND(src%velocity%data1d,1) &
-                                            :UBOUND(src%velocity%data1d,1))
-          ! copy meta data
-          this%velocity%RANK    = src%velocity%RANK
-          this%velocity%DIMS(:) = src%velocity%DIMS(:)
-          ! assign the multi-dim. pointers
-          CALL this%velocity%AssignPointers()
-        CASE(CONSERVATIVE)
-          ! assign momentum marray pointer into the data of the compound
-          IF (.NOT.ASSOCIATED(this%momentum)) ALLOCATE(this%momentum)
-          this%momentum%data1d => this%data1d(LBOUND(src%momentum%data1d,1) &
-                                            :UBOUND(src%momentum%data1d,1))
-          ! copy meta data
-          this%momentum%RANK    = src%momentum%RANK
-          this%momentum%DIMS(:) = src%momentum%DIMS(:)
-          ! assign the multi-dim. pointers
-          CALL this%momentum%AssignPointers()
-        CASE DEFAULT
-          ! error, this should not happen
-        END SELECT
-      CLASS DEFAULT
-        ! error, this should not happen
-      END SELECT
-    END IF
-  END SUBROUTINE AssignMArray_0
-  
   !> Sets soundspeeds at cell-centers
   PURE SUBROUTINE SetSoundSpeeds_center(this,Mesh,bccsound)
     IMPLICIT NONE
@@ -335,6 +259,35 @@ CONTAINS
     this%fcsound(:,:,:,:) = fcsound(:,:,:,:)
   END SUBROUTINE SetSoundSpeeds_faces
   
+  !> Converts to primitives at cell centers using state vectors
+  PURE SUBROUTINE Convert2Primitive_eulerisotherm(this,cvar,pvar)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(physics_eulerisotherm), INTENT(IN)     :: this
+    TYPE(statevector_eulerisotherm), INTENT(IN)  :: cvar
+    TYPE(statevector_eulerisotherm), INTENT(OUT) :: pvar
+    !------------------------------------------------------------------------!
+    IF (cvar%flavour.EQ.CONSERVATIVE.AND.pvar%flavour.EQ.PRIMITIVE) THEN
+      ! perform the transformation depending on dimensionality
+      SELECT CASE(this%DIM)
+      CASE(1) ! 1D velocity / momentum
+        CALL Cons2Prim(cvar%density%data1d(:),cvar%momentum%data1d(:), &
+                      pvar%density%data1d(:),pvar%velocity%data1d(:))
+      CASE(2) ! 2D velocity / momentum
+        CALL Cons2Prim(cvar%density%data1d(:),cvar%momentum%data2d(:,1), &
+                      cvar%momentum%data2d(:,2),pvar%density%data1d(:), &
+                      pvar%velocity%data2d(:,1),pvar%velocity%data2d(:,2))
+      CASE(3) ! 3D velocity / momentum
+        CALL Cons2Prim(cvar%density%data1d(:),cvar%momentum%data2d(:,1), &
+                      cvar%momentum%data2d(:,2),cvar%momentum%data2d(:,3), &
+                      pvar%density%data1d(:),pvar%velocity%data2d(:,1), &
+                      pvar%velocity%data2d(:,2),pvar%velocity%data2d(:,3))
+      END SELECT
+    ELSE
+      ! do nothing
+    END IF
+  END SUBROUTINE Convert2Primitive_eulerisotherm
+
   !> Converts to primitives at cell centers
   PURE SUBROUTINE Convert2Primitive_center(this,Mesh,cvar,pvar)
     IMPLICIT NONE
@@ -408,6 +361,35 @@ CONTAINS
                    prim(i1:i2,j1:j2,k1:k2,:,this%YVELOCITY) &
                    )
   END SUBROUTINE Convert2Primitive_facesub
+
+  !> Converts to conservative at cell centers using state vectors
+  PURE SUBROUTINE Convert2Conservative_eulerisotherm(this,pvar,cvar)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(physics_eulerisotherm), INTENT(IN)     :: this
+    TYPE(statevector_eulerisotherm), INTENT(IN)  :: pvar
+    TYPE(statevector_eulerisotherm), INTENT(OUT) :: cvar
+    !------------------------------------------------------------------------!
+    IF (pvar%flavour.EQ.PRIMITIVE.AND.cvar%flavour.EQ.CONSERVATIVE) THEN
+      ! perform the transformation depending on dimensionality
+      SELECT CASE(this%DIM)
+      CASE(1) ! 1D velocity / momentum
+        CALL Prim2Cons(pvar%density%data1d(:),pvar%velocity%data1d(:), &
+                       cvar%density%data1d(:),cvar%momentum%data1d(:))
+      CASE(2) ! 2D velocity / momentum
+        CALL Prim2Cons(pvar%density%data1d(:),pvar%velocity%data2d(:,1), &
+                       pvar%velocity%data2d(:,2),cvar%density%data1d(:), &
+                       cvar%momentum%data2d(:,1),cvar%momentum%data2d(:,2))
+      CASE(3) ! 3D velocity / momentum
+        CALL Prim2Cons(pvar%density%data1d(:),pvar%velocity%data2d(:,1), &
+                       pvar%velocity%data2d(:,2),pvar%velocity%data2d(:,3), &
+                       cvar%density%data1d(:),cvar%momentum%data2d(:,1), &
+                       cvar%momentum%data2d(:,2),cvar%momentum%data2d(:,3))
+      END SELECT
+    ELSE
+      ! do nothing
+    END IF
+  END SUBROUTINE Convert2Conservative_eulerisotherm
 
   !> Convert from primtive to conservative variables at cell-centers
   PURE SUBROUTINE Convert2Conservative_center(this,Mesh,pvar,cvar)
@@ -1148,51 +1130,6 @@ CONTAINS
     reflY(this%YVELOCITY) = .TRUE.
   END SUBROUTINE AxisMasks
 
-  !> Set fluxes
-  !!
-  !! non-global elemtal subroutine
-  ELEMENTAL SUBROUTINE SetFlux(cs,rho,v,m1,m2,f1,f2,f3)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    REAL, INTENT(IN)  :: cs,rho,v,m1,m2
-    REAL, INTENT(OUT) :: f1, f2, f3
-    !------------------------------------------------------------------------!
-    f1 = rho*v
-    f2 = m1*v + rho*cs*cs
-    f3 = m2*v
-  END SUBROUTINE SetFlux
-
-  !> Convert to from conservative to primitive variables
-  !!
-  !! non-global elemental routine
-  ELEMENTAL SUBROUTINE Cons2Prim(rho_in,mu,mv,rho_out,u,v)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    REAL, INTENT(IN)  :: rho_in,mu,mv
-    REAL, INTENT(OUT) :: rho_out,u,v
-    !------------------------------------------------------------------------!
-    REAL :: inv_rho
-    !------------------------------------------------------------------------!
-    inv_rho = 1./rho_in
-    rho_out = rho_in
-    u       = mu * inv_rho
-    v       = mv * inv_rho
-  END SUBROUTINE Cons2Prim
-
-  !> Convert to from primitive to conservative variables at cell-faces
-  !!
-  !! non-global elemental routine
-  ELEMENTAL SUBROUTINE Prim2Cons(rho_in,u,v,rho_out,mu,mv)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    REAL, INTENT(IN)  :: rho_in,u,v
-    REAL, INTENT(OUT) :: rho_out,mu,mv
-    !------------------------------------------------------------------------!
-    rho_out = rho_in
-    mu = rho_in * u
-    mv = rho_in * v
-  END SUBROUTINE Prim2Cons
-
   PURE SUBROUTINE CalculateCharSystemX(this,Mesh,i,dir,pvar,lambda,xvar)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
@@ -1416,30 +1353,257 @@ CONTAINS
 !          pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k2,this%XVELOCITY))
   END SUBROUTINE CalculateBoundaryDataZ
 
-  !> set minimal and maximal wave speeds
+  !> \public Destructor of the physics_eulerisotherm class
+  SUBROUTINE Finalize(this)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(physics_eulerisotherm), INTENT(INOUT) :: this
+    !------------------------------------------------------------------------!
+    CALL this%bccsound%Destroy() ! call destructor of the mesh array
+    DEALLOCATE(this%bccsound,this%fcsound)
+    CALL this%Finalize_base()
+  END SUBROUTINE Finalize
+
+!----------------------------------------------------------------------------!
+!> \par methods of class statevector_eulerisotherm
+
+  !> \public Constructor of statevector_eulerisotherm
+  !!
+  !! \attention This is not a class member itself, instead its an ordinary
+  !!            module procedure. The function name is overloaded with
+  !!            the class name.
+  FUNCTION CreateStateVector(Physics,flavour) RESULT(new_sv)
+    IMPLICIT NONE
+    !-------------------------------------------------------------------!
+    CLASS(physics_eulerisotherm), INTENT(IN) :: Physics
+    INTEGER, OPTIONAL, INTENT(IN) :: flavour
+    TYPE(statevector_eulerisotherm) :: new_sv
+    !-------------------------------------------------------------------!
+    IF (.NOT.Physics%Initialized()) &
+      CALL Physics%Error("physics_eulerisotherm::CreateStatevector", "Physics not initialized.")
+
+    ! create a new empty compound of marrays
+    new_sv = marray_compound()
+    ! be sure rank is 1, even if the compound consists only of scalar data
+    new_sv%RANK = 1
+    IF (PRESENT(flavour)) THEN
+      SELECT CASE(flavour)
+      CASE(PRIMITIVE,CONSERVATIVE)
+        new_sv%flavour = flavour
+      CASE DEFAULT
+        new_sv%flavour = UNDEFINED
+      END SELECT
+    END IF
+    SELECT CASE(new_sv%flavour)
+    CASE(PRIMITIVE)
+      ! allocate memory for density and velocity mesh arrays
+      ALLOCATE(new_sv%density,new_sv%velocity)
+      new_sv%density  = marray_base()             ! scalar, rank 0
+      new_sv%velocity = marray_base(Physics%DIM) ! vector, rank 1
+      ! append to compound
+      CALL new_sv%AppendMArray(new_sv%density)
+      CALL new_sv%AppendMArray(new_sv%velocity)
+    CASE(CONSERVATIVE)
+      ! allocate memory for density and momentum mesh arrays
+      ALLOCATE(new_sv%density,new_sv%momentum)
+      new_sv%density  = marray_base()             ! scalar, rank 0
+      new_sv%momentum = marray_base(Physics%DIM) ! vector, rank 1
+      ! append to compound
+      CALL new_sv%AppendMArray(new_sv%density)
+      CALL new_sv%AppendMArray(new_sv%momentum)
+    CASE DEFAULT
+      CALL Physics%Warning("physics_eulerisotherm::CreateStateVector", "Empty state vector created.")
+    END SELECT
+  END FUNCTION CreateStateVector
+
+  !> assigns one state vector to another state vector
+  SUBROUTINE AssignMArray_0(this,ma)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(statevector_eulerisotherm),INTENT(INOUT) :: this
+    CLASS(marray_base),INTENT(IN)    :: ma
+    !------------------------------------------------------------------------!
+    CALL this%marray_compound%AssignMArray_0(ma)
+    IF (SIZE(this%data1d).GT.0) THEN
+      SELECT TYPE(src => ma)
+      CLASS IS(statevector_eulerisotherm)
+        this%flavour = src%flavour
+        ! assign density marray pointer into the data of the compound
+
+        IF (.NOT.ASSOCIATED(this%density)) ALLOCATE(this%density)
+        this%density%data1d => this%data1d(LBOUND(src%density%data1d,1) &
+                                          :UBOUND(src%density%data1d,1))
+        ! copy meta data
+        this%density%RANK    = src%density%RANK
+        this%density%DIMS(:) = src%density%DIMS(:)
+        ! assign the multi-dim. pointers
+        CALL this%density%AssignPointers()
+        SELECT CASE(this%flavour)
+        CASE(PRIMITIVE)
+          ! assign velocity marray pointer into the data of the compound
+          IF (.NOT.ASSOCIATED(this%velocity)) ALLOCATE(this%velocity)
+          this%velocity%data1d => this%data1d(LBOUND(src%velocity%data1d,1) &
+                                            :UBOUND(src%velocity%data1d,1))
+          ! copy meta data
+          this%velocity%RANK    = src%velocity%RANK
+          this%velocity%DIMS(:) = src%velocity%DIMS(:)
+          ! assign the multi-dim. pointers
+          CALL this%velocity%AssignPointers()
+        CASE(CONSERVATIVE)
+          ! assign momentum marray pointer into the data of the compound
+          IF (.NOT.ASSOCIATED(this%momentum)) ALLOCATE(this%momentum)
+          this%momentum%data1d => this%data1d(LBOUND(src%momentum%data1d,1) &
+                                            :UBOUND(src%momentum%data1d,1))
+          ! copy meta data
+          this%momentum%RANK    = src%momentum%RANK
+          this%momentum%DIMS(:) = src%momentum%DIMS(:)
+          ! assign the multi-dim. pointers
+          CALL this%momentum%AssignPointers()
+        CASE DEFAULT
+          ! error, this should not happen
+        END SELECT
+      CLASS DEFAULT
+        ! error, this should not happen
+      END SELECT
+    END IF
+  END SUBROUTINE AssignMArray_0
+
+
+!----------------------------------------------------------------------------!
+!> \par elemental non-class subroutines / functions
+
+  !> \private set minimal and maximal wave speeds
   ELEMENTAL SUBROUTINE SetWaveSpeeds(cs,v,minwav,maxwav)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     REAL, INTENT(IN)  :: cs,v
     REAL, INTENT(OUT) :: minwav,maxwav
     !------------------------------------------------------------------------!
-    ! minimal and maximal wave speeds
-    minwav = MIN(0.,v-cs)
-    maxwav = MAX(0.,v+cs)
+    minwav = MIN(0.,v-cs)  ! minimal wave speed
+    maxwav = MAX(0.,v+cs)  ! maximal wave speed
   END SUBROUTINE SetWaveSpeeds
 
+  !> \private compute all eigenvalues
   ELEMENTAL SUBROUTINE SetEigenValues(cs,v,l1,l2,l3)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     REAL, INTENT(IN)  :: cs,v
     REAL, INTENT(OUT) :: l1,l2,l3
     !------------------------------------------------------------------------!
-    ! all eigenvalues of the isothermal euler problem
     l1 = v - cs
     l2 = v
     l3 = v + cs
   END SUBROUTINE SetEigenValues
 
+  !> \private set mass and 1D momentum flux for transport along the 1st dimension
+  ELEMENTAL SUBROUTINE SetFlux1d(cs,rho,u,mu,f1,f2)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    REAL, INTENT(IN)  :: cs,rho,u,mu
+    REAL, INTENT(OUT) :: f1,f2
+    !------------------------------------------------------------------------!
+    f1 = rho*u
+    f2 = mu*u + rho*cs*cs
+  END SUBROUTINE SetFlux1d
+
+  !> \private set mass and 2D momentum flux for transport along the 1st dimension
+  ELEMENTAL SUBROUTINE SetFlux2d(cs,rho,u,mu,mv,f1,f2,f3)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    REAL, INTENT(IN)  :: cs,rho,u,mu,mv
+    REAL, INTENT(OUT) :: f1,f2,f3
+    !------------------------------------------------------------------------!
+    CALL SetFlux1d(cs,rho,u,mu,f1,f2)
+    f3 = mv*u
+  END SUBROUTINE SetFlux2d
+
+  !> \private set mass and 3D momentum flux for transport along the 1st dimension
+  ELEMENTAL SUBROUTINE SetFlux3d(cs,rho,u,mu,mv,mw,f1,f2,f3,f4)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    REAL, INTENT(IN)  :: cs,rho,u,mu,mv,mw
+    REAL, INTENT(OUT) :: f1,f2,f3,f4
+    !------------------------------------------------------------------------!
+    CALL SetFlux2d(cs,rho,u,mu,mv,f1,f2,f3)
+    f4 = mw*u
+  END SUBROUTINE SetFlux3d
+
+  !> \private Convert from 1D conservative to primitive variables
+  ELEMENTAL SUBROUTINE Cons2Prim1d(rho_in,mu,rho_out,u)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    REAL, INTENT(IN)  :: rho_in,mu
+    REAL, INTENT(OUT) :: rho_out,u
+    !------------------------------------------------------------------------!
+    rho_out = rho_in
+    u       = mu / rho_in
+  END SUBROUTINE Cons2Prim1d
+
+  !> \private Convert from 2D conservative to primitive variables
+  ELEMENTAL SUBROUTINE Cons2Prim2d(rho_in,mu,mv,rho_out,u,v)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    REAL, INTENT(IN)  :: rho_in,mu,mv
+    REAL, INTENT(OUT) :: rho_out,u,v
+    !------------------------------------------------------------------------!
+    REAL :: inv_rho
+    !------------------------------------------------------------------------!
+    inv_rho = 1./rho_in
+    rho_out = rho_in
+    u       = mu * inv_rho
+    v       = mv * inv_rho
+  END SUBROUTINE Cons2Prim2d
+
+  !> \private Convert from 3D conservative to primitive variables
+  ELEMENTAL SUBROUTINE Cons2Prim3d(rho_in,mu,mv,mw,rho_out,u,v,w)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    REAL, INTENT(IN)  :: rho_in,mu,mv,mw
+    REAL, INTENT(OUT) :: rho_out,u,v,w
+    !------------------------------------------------------------------------!
+    REAL :: inv_rho
+    !------------------------------------------------------------------------!
+    inv_rho = 1./rho_in
+    rho_out = rho_in
+    u       = mu * inv_rho
+    v       = mv * inv_rho
+    w       = mw * inv_rho
+  END SUBROUTINE Cons2Prim3d
+
+  !> \private Convert from 1D primitive to conservative variables
+  ELEMENTAL SUBROUTINE Prim2Cons1d(rho_in,u,rho_out,mu)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    REAL, INTENT(IN)  :: rho_in,u
+    REAL, INTENT(OUT) :: rho_out,mu
+    !------------------------------------------------------------------------!
+    rho_out = rho_in
+    mu = rho_in * u
+  END SUBROUTINE Prim2Cons1d
+
+  !> \private Convert from 2D primitive to conservative variables
+  ELEMENTAL SUBROUTINE Prim2Cons2d(rho_in,u,v,rho_out,mu,mv)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    REAL, INTENT(IN)  :: rho_in,u,v
+    REAL, INTENT(OUT) :: rho_out,mu,mv
+    !------------------------------------------------------------------------!
+    CALL Prim2Cons1d(rho_in,u,rho_out,mu)
+    mv = rho_in * v
+  END SUBROUTINE Prim2Cons2d
+
+  !> \private Convert from 3D primitive to conservative variables
+  ELEMENTAL SUBROUTINE Prim2Cons3d(rho_in,u,v,w,rho_out,mu,mv,mw)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    REAL, INTENT(IN)  :: rho_in,u,v,w
+    REAL, INTENT(OUT) :: rho_out,mu,mv,mw
+    !------------------------------------------------------------------------!
+    CALL Prim2Cons2d(rho_in,u,v,rho_out,mu,mv)
+    mw = rho_in * w
+  END SUBROUTINE Prim2Cons3d
+
+  !> \private compute characteristic variables using adjacent primitve states
   ELEMENTAL SUBROUTINE SetCharVars(cs,rho1,rho2,u1,u2,v1,v2,&
        xvar1,xvar2,xvar3)
     IMPLICIT NONE
@@ -1457,7 +1621,7 @@ CONTAINS
     xvar3 = cs*dlnrho + du
   END SUBROUTINE SetCharVars
 
-
+  !> \private extrapolate boundary values using primitve and characteristic variables
   ELEMENTAL SUBROUTINE SetBoundaryData(cs,dir,rho1,u1,v1,xvar1,xvar2, &
        xvar3,rho2,u2,v2)
     IMPLICIT NONE
@@ -1465,12 +1629,10 @@ CONTAINS
     REAL, INTENT(IN)  :: cs,dir,rho1,u1,v1,xvar1,xvar2,xvar3
     REAL, INTENT(OUT) :: rho2,u2,v2
     !------------------------------------------------------------------------!
-    ! extrapolate boundary values using characteristic variables
     rho2 = rho1 * EXP(dir*0.5*(xvar3+xvar1)/cs)
     u2   = u1 + dir*0.5*(xvar3-xvar1)
     v2   = v1 + dir*xvar2
   END SUBROUTINE SetBoundaryData
-
 
   !> momentum source terms due to inertial forces
   ELEMENTAL SUBROUTINE CalcGeometricalSources(mx,my,vx,vy,P,cxyx,cyxy,czxz,czyz,srho,smx,smy)
@@ -1499,16 +1661,5 @@ CONTAINS
 !    sqrtrhoR = SQRT(rhoR)
 !    v = 0.5*(sqrtrhoL*vL + sqrtrhoR*vR) / (sqrtrhoL + sqrtrhoR)
 !  END SUBROUTINE SetRoeAverages
-
-  !> Destructor
-  SUBROUTINE Finalize(this)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(physics_eulerisotherm), INTENT(INOUT) :: this
-    !------------------------------------------------------------------------!
-    CALL this%bccsound%Destroy()
-    DEALLOCATE(this%bccsound,this%fcsound)
-    CALL this%Finalize_base()
-  END SUBROUTINE Finalize
 
 END MODULE physics_eulerisotherm_mod

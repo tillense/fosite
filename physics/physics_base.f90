@@ -104,6 +104,8 @@ MODULE physics_base_mod
     PROCEDURE (ExternalSources),              DEFERRED :: ExternalSources
     PROCEDURE (EnableOutput),                 DEFERRED :: EnableOutput
     !------Convert2Primitve--------!
+    PROCEDURE :: Convert2Primitive_base
+    GENERIC   :: Convert2Primitive_new => Convert2Primitive_base
     PROCEDURE (Convert2Primitive_center),     DEFERRED :: Convert2Primitive_center
     PROCEDURE (Convert2Primitive_centsub),    DEFERRED :: Convert2Primitive_centsub
     PROCEDURE (Convert2Primitive_faces),      DEFERRED :: Convert2Primitive_faces
@@ -114,6 +116,8 @@ MODULE physics_base_mod
                    Convert2Primitive_faces, &
                    Convert2Primitive_facesub
     !------Convert2Conservative----!
+    PROCEDURE :: Convert2Conservative_base
+    GENERIC   :: Convert2Conservative_new => Convert2Conservative_base
     PROCEDURE (Convert2Conservative_center),  DEFERRED :: Convert2Conservative_center
     PROCEDURE (Convert2Conservative_centsub), DEFERRED :: Convert2Conservative_centsub
     PROCEDURE (Convert2Conservative_faces),   DEFERRED :: Convert2Conservative_faces
@@ -123,8 +127,6 @@ MODULE physics_base_mod
                    Convert2Conservative_centsub, &
                    Convert2Conservative_faces, &
                    Convert2Conservative_facesub
-!     PROCEDURE (UpdateSoundSpeed_center),     DEFERRED :: UpdateSoundSpeed_center
-!     PROCEDURE (UpdateSoundSpeed_faces),      DEFERRED :: UpdateSoundSpeed_faces
     !------Wavespeed Routines-----!
     PROCEDURE (CalcWaveSpeeds_center),        DEFERRED :: CalcWaveSpeeds_center
     PROCEDURE (CalcWaveSpeeds_faces),         DEFERRED :: CalcWaveSpeeds_faces
@@ -655,6 +657,26 @@ CONTAINS
     CALL this%Info(" PHYSICS--> advection problem: " // TRIM(this%GetName()))
 
   END SUBROUTINE InitPhysics
+
+  PURE SUBROUTINE Convert2Primitive_base(this,cvar,pvar)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(physics_base), INTENT(IN)    :: this
+    TYPE(marray_compound), INTENT(IN)  :: cvar
+    TYPE(marray_compound), INTENT(OUT) :: pvar
+    !------------------------------------------------------------------------!
+    ! do nothing, just a dummy
+  END SUBROUTINE Convert2Primitive_base
+
+  PURE SUBROUTINE Convert2Conservative_base(this,pvar,cvar)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(physics_base), INTENT(IN)    :: this
+    TYPE(marray_compound), INTENT(IN)  :: pvar
+    TYPE(marray_compound), INTENT(OUT) :: cvar
+    !------------------------------------------------------------------------!
+    ! do nothing, just a dummy
+  END SUBROUTINE Convert2Conservative_base
 
   !> \todo NOT VERIFIED
   !!

@@ -1602,8 +1602,9 @@ CONTAINS
       END DO
     END IF
 
+    ! convert conservative to primitive variables
+    CALL Physics%Convert2Primitive_new(this%cvar,this%pvar)
     ! Calculate RHS after the Advection Step
-    CALL Physics%Convert2Primitive(Mesh,this%cvar%data4d,this%pvar%data4d)
     CALL this%ComputeRHS(Mesh,Physics,Sources,Fluxes,this%time,0.,this%pvar,this%cvar,&
                     this%checkdatabm,this%rhs)
 

@@ -53,6 +53,11 @@ MODULE physics_euler_mod
   CONTAINS
     PROCEDURE :: InitPhysics_euler             !< constructor
     !------Convert2Primitve--------!
+    PROCEDURE :: Convert2Primitive_euler
+    GENERIC   :: Convert2Primitive_new => &
+                   Convert2Primitive_base, &
+                   Convert2Primitive_eulerisotherm, &
+                   Convert2Primitive_euler
     PROCEDURE :: Convert2Primitive_centsub
     PROCEDURE :: Convert2Primitive_facesub
     !------Convert2Conservative----!
@@ -113,6 +118,15 @@ MODULE physics_euler_mod
   INTERFACE statevector_euler
     MODULE PROCEDURE CreateStateVector
   END INTERFACE
+  INTERFACE SetFlux
+    MODULE PROCEDURE SetFlux1d, SetFlux2d, SetFlux3d
+  END INTERFACE
+  INTERFACE Cons2Prim
+    MODULE PROCEDURE Cons2Prim1d, Cons2Prim2d, Cons2Prim3d
+  END INTERFACE
+  INTERFACE Prim2Cons
+    MODULE PROCEDURE Prim2Cons1d, Prim2Cons2d, Prim2Cons3d
+  END INTERFACE
   !--------------------------------------------------------------------------!
   PUBLIC :: &
        ! types
@@ -170,75 +184,37 @@ CONTAINS
     this%bccsound = marray_base()
   END SUBROUTINE InitPhysics_euler
 
-  FUNCTION CreateStateVector(Physics,flavour) RESULT(new_sv)
-    IMPLICIT NONE
-    !-------------------------------------------------------------------!
-    CLASS(physics_euler), INTENT(IN) :: Physics
-    INTEGER, OPTIONAL, INTENT(IN) :: flavour
-    TYPE(statevector_euler) :: new_sv
-    !-------------------------------------------------------------------!
-    ! call inherited function
-    new_sv = statevector_eulerisotherm(Physics,flavour)
-    ! add entries specific for euler physics
-    SELECT CASE(flavour)
-    CASE(PRIMITIVE)
-      ! allocate memory for pressure mesh array
-      ALLOCATE(new_sv%pressure)
-      new_sv%pressure  = marray_base()           ! scalar, rank 0
-      ! append to compound
-      CALL new_sv%AppendMArray(new_sv%pressure)
-    CASE(CONSERVATIVE)
-      ! allocate memory for energy mesh array
-      ALLOCATE(new_sv%energy)
-      new_sv%energy  = marray_base()             ! scalar, rank 0
-      ! append to compound
-      CALL new_sv%AppendMArray(new_sv%energy)
-    CASE DEFAULT
-      CALL Physics%Warning("physics_euler::CreateStateVector", "incomplete state vector")
-    END SELECT
-  END FUNCTION CreateStateVector
-
-  !> assigns one state vector to another state vector
-  SUBROUTINE AssignMArray_0(this,ma)
+  PURE SUBROUTINE Convert2Primitive_euler(this,cvar,pvar)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(statevector_euler),INTENT(INOUT) :: this
-    CLASS(marray_base),INTENT(IN)    :: ma
+    CLASS(physics_euler), INTENT(IN)     :: this
+    TYPE(statevector_euler), INTENT(IN)  :: cvar
+    TYPE(statevector_euler), INTENT(OUT) :: pvar
     !------------------------------------------------------------------------!
-    CALL this%statevector_eulerisotherm%AssignMArray_0(ma)
-    IF (SIZE(this%data1d).GT.0) THEN
-      SELECT TYPE(src => ma)
-      CLASS IS(statevector_euler)
-        SELECT CASE(this%flavour)
-        CASE(PRIMITIVE)
-          ! assign pressure marray pointer into the data of the compound
-          IF (.NOT.ASSOCIATED(this%pressure)) ALLOCATE(this%pressure)
-          this%pressure%data1d => this%data1d(LBOUND(src%pressure%data1d,1) &
-                                            :UBOUND(src%pressure%data1d,1))
-          ! copy meta data
-          this%pressure%RANK    = src%pressure%RANK
-          this%pressure%DIMS(:) = src%pressure%DIMS(:)
-          ! assign the multi-dim. pointers
-          CALL this%pressure%AssignPointers()
-        CASE(CONSERVATIVE)
-          ! assign energy marray pointer into the data of the compound
-          IF (.NOT.ASSOCIATED(this%energy)) ALLOCATE(this%energy)
-          this%energy%data1d => this%data1d(LBOUND(src%energy%data1d,1) &
-                                            :UBOUND(src%energy%data1d,1))
-          ! copy meta data
-          this%energy%RANK    = src%energy%RANK
-          this%energy%DIMS(:) = src%energy%DIMS(:)
-          ! assign the multi-dim. pointers
-          CALL this%energy%AssignPointers()
-        CASE DEFAULT
-          ! error, this should not happen
-        END SELECT
-      CLASS DEFAULT
-        ! error, this should not happen
+    IF (cvar%flavour.EQ.CONSERVATIVE.AND.pvar%flavour.EQ.PRIMITIVE) THEN
+      ! conservative -> primitive
+      SELECT CASE(this%DIM)
+      CASE(1)
+        CALL Cons2Prim(this%gamma,cvar%density%data1d(:),cvar%momentum%data1d(:), &
+                      cvar%energy%data1d(:),pvar%density%data1d(:), &
+                      pvar%velocity%data1d(:),pvar%pressure%data1d(:))
+      CASE(2)
+        CALL Cons2Prim(this%gamma,cvar%density%data1d(:),cvar%momentum%data2d(:,1), &
+                      cvar%momentum%data2d(:,2),cvar%energy%data1d(:), &
+                      pvar%density%data1d(:),pvar%velocity%data2d(:,1), &
+                      pvar%velocity%data2d(:,2),pvar%pressure%data1d(:))
+      CASE(3)
+        CALL Cons2Prim(this%gamma,cvar%density%data1d(:),cvar%momentum%data2d(:,1), &
+                      cvar%momentum%data2d(:,2),cvar%momentum%data2d(:,3), &
+                      cvar%energy%data1d(:),pvar%density%data1d(:), &
+                      pvar%velocity%data2d(:,1),pvar%velocity%data2d(:,2),&
+                      pvar%velocity%data2d(:,3),pvar%pressure%data1d(:))
       END SELECT
+    ELSE
+      ! do nothing
     END IF
-  END SUBROUTINE AssignMArray_0
-  
+  END SUBROUTINE Convert2Primitive_euler
+
   !> Calculate Fluxes in x-direction
   !\todo NOT VERIFIED
   PURE SUBROUTINE CalcFluxesX(this,Mesh,nmin,nmax,prim,cons,xfluxes)
@@ -1598,6 +1574,95 @@ CONTAINS
     END DO
   END SUBROUTINE UpdateSoundSpeed_faces
 
+  !> \public Destructor of the physics_euler class
+  SUBROUTINE Finalize(this)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(physics_euler), INTENT(INOUT) :: this
+    !------------------------------------------------------------------------!
+    CALL this%physics_eulerisotherm%Finalize()
+  END SUBROUTINE Finalize
+
+!----------------------------------------------------------------------------!
+!> \par methods of class statevector_euler
+
+  !> \public Constructor of statevector_euler
+  !!
+  !! \attention This is not a class member itself, instead its an ordinary
+  !!            module procedure. The function name is overloaded with
+  !!            the class name.
+  FUNCTION CreateStateVector(Physics,flavour) RESULT(new_sv)
+    IMPLICIT NONE
+    !-------------------------------------------------------------------!
+    CLASS(physics_euler), INTENT(IN) :: Physics
+    INTEGER, OPTIONAL, INTENT(IN) :: flavour
+    TYPE(statevector_euler) :: new_sv
+    !-------------------------------------------------------------------!
+    ! call inherited function
+    new_sv = statevector_eulerisotherm(Physics,flavour)
+    ! add entries specific for euler physics
+    SELECT CASE(flavour)
+    CASE(PRIMITIVE)
+      ! allocate memory for pressure mesh array
+      ALLOCATE(new_sv%pressure)
+      new_sv%pressure  = marray_base()           ! scalar, rank 0
+      ! append to compound
+      CALL new_sv%AppendMArray(new_sv%pressure)
+    CASE(CONSERVATIVE)
+      ! allocate memory for energy mesh array
+      ALLOCATE(new_sv%energy)
+      new_sv%energy  = marray_base()             ! scalar, rank 0
+      ! append to compound
+      CALL new_sv%AppendMArray(new_sv%energy)
+    CASE DEFAULT
+      CALL Physics%Warning("physics_euler::CreateStateVector", "incomplete state vector")
+    END SELECT
+  END FUNCTION CreateStateVector
+
+  !> assigns one state vector to another state vector
+  SUBROUTINE AssignMArray_0(this,ma)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(statevector_euler),INTENT(INOUT) :: this
+    CLASS(marray_base),INTENT(IN)    :: ma
+    !------------------------------------------------------------------------!
+    CALL this%statevector_eulerisotherm%AssignMArray_0(ma)
+    IF (SIZE(this%data1d).GT.0) THEN
+      SELECT TYPE(src => ma)
+      CLASS IS(statevector_euler)
+        SELECT CASE(this%flavour)
+        CASE(PRIMITIVE)
+          ! assign pressure marray pointer into the data of the compound
+          IF (.NOT.ASSOCIATED(this%pressure)) ALLOCATE(this%pressure)
+          this%pressure%data1d => this%data1d(LBOUND(src%pressure%data1d,1) &
+                                            :UBOUND(src%pressure%data1d,1))
+          ! copy meta data
+          this%pressure%RANK    = src%pressure%RANK
+          this%pressure%DIMS(:) = src%pressure%DIMS(:)
+          ! assign the multi-dim. pointers
+          CALL this%pressure%AssignPointers()
+        CASE(CONSERVATIVE)
+          ! assign energy marray pointer into the data of the compound
+          IF (.NOT.ASSOCIATED(this%energy)) ALLOCATE(this%energy)
+          this%energy%data1d => this%data1d(LBOUND(src%energy%data1d,1) &
+                                            :UBOUND(src%energy%data1d,1))
+          ! copy meta data
+          this%energy%RANK    = src%energy%RANK
+          this%energy%DIMS(:) = src%energy%DIMS(:)
+          ! assign the multi-dim. pointers
+          CALL this%energy%AssignPointers()
+        CASE DEFAULT
+          ! error, this should not happen
+        END SELECT
+      CLASS DEFAULT
+        ! error, this should not happen
+      END SELECT
+    END IF
+  END SUBROUTINE AssignMArray_0
+
+
+!----------------------------------------------------------------------------!
+!> \par elemental non-class subroutines / functions
 
 
   ELEMENTAL FUNCTION GetSoundSpeed(gamma,density,pressure) RESULT(cs)
@@ -1797,35 +1862,121 @@ CONTAINS
     f4 = (E+P)*v
   END SUBROUTINE SetFlux
 
-  !> \todo NOT VERIFIED
-  ELEMENTAL SUBROUTINE Cons2Prim(gamma,rho_in,mu,mv,E,rho_out,u,v,P)
+  !> \private set mass, 1D momentum and energy flux for transport along the 1st dimension
+  ELEMENTAL SUBROUTINE SetFlux1d(rho,u,P,mu,E,f1,f2,f3)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    REAL, INTENT(IN)  :: rho,u,P,mu,E
+    REAL, INTENT(OUT) :: f1,f2,f3
+    !------------------------------------------------------------------------!
+    f1 = rho*u
+    f2 = mu*u + P
+    f3 = (E+P)*u
+  END SUBROUTINE SetFlux1d
+
+  !> \private set mass, 2D momentum and energy flux for transport along the 1st dimension
+  ELEMENTAL SUBROUTINE SetFlux2d(rho,u,P,mu,mv,E,f1,f2,f3,f4)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    REAL, INTENT(IN)  :: rho,u,P,mu,mv,E
+    REAL, INTENT(OUT) :: f1,f2,f3,f4
+    !------------------------------------------------------------------------!
+    CALL SetFlux1d(rho,u,P,mu,E,f1,f2,f4)
+    f3 = mv*u
+  END SUBROUTINE SetFlux2d
+
+  !> \private set mass, 3D momentum and energy flux for transport along the 1st dimension
+  ELEMENTAL SUBROUTINE SetFlux3d(rho,u,P,mu,mv,mw,E,f1,f2,f3,f4,f5)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    REAL, INTENT(IN)  :: rho,u,P,mu,mv,mw,E
+    REAL, INTENT(OUT) :: f1,f2,f3,f4,f5
+    !------------------------------------------------------------------------!
+    CALL SetFlux2d(rho,u,P,mu,mv,E,f1,f2,f3,f5)
+    f4 = mw*u
+  END SUBROUTINE SetFlux3d
+
+  !> \private Convert from 1D conservative to primitive variables
+  ELEMENTAL SUBROUTINE Cons2Prim1d(gamma,rho_in,mu,E,rho_out,u,P)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    REAL, INTENT(IN)  :: gamma,rho_in,mu,E
+    REAL, INTENT(OUT) :: rho_out,u,P
+    !------------------------------------------------------------------------!
+    REAL :: inv_rho
+    !------------------------------------------------------------------------!
+    inv_rho = 1./rho_in
+    rho_out = rho_in
+    u = mu * inv_rho
+    P = (gamma-1.)*(E - 0.5 * inv_rho * mu*mu)
+  END SUBROUTINE Cons2Prim1d
+
+  !> \private Convert from 2D conservative to primitive variables
+  ELEMENTAL SUBROUTINE Cons2Prim2d(gamma,rho_in,mu,mv,E,rho_out,u,v,P)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     REAL, INTENT(IN)  :: gamma,rho_in,mu,mv,E
     REAL, INTENT(OUT) :: rho_out,u,v,P
     !------------------------------------------------------------------------!
-    REAL              :: inv_rho
+    REAL :: inv_rho
     !------------------------------------------------------------------------!
     inv_rho = 1./rho_in
     rho_out = rho_in
     u = mu * inv_rho
     v = mv * inv_rho
-    P = (gamma-1.)*(E - 0.5 * inv_rho * (mu*mu+mv*mv))
-  END SUBROUTINE Cons2Prim
+    P = (gamma-1.)*(E - 0.5 * inv_rho * mu*mu)
+  END SUBROUTINE Cons2Prim2d
 
-  !> \todo NOT VERIFIED
-  ELEMENTAL SUBROUTINE Prim2Cons(gamma,rho_in,u,v,P,rho_out,mu,mv,E)
+  !> \private Convert from 3D conservative to primitive variables
+  ELEMENTAL SUBROUTINE Cons2Prim3d(gamma,rho_in,mu,mv,mw,E,rho_out,u,v,w,P)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    REAL, INTENT(IN)  :: gamma,rho_in,mu,mv,mw,E
+    REAL, INTENT(OUT) :: rho_out,u,v,w,P
+    !------------------------------------------------------------------------!
+    REAL :: inv_rho
+    !------------------------------------------------------------------------!
+    inv_rho = 1./rho_in
+    rho_out = rho_in
+    u = mu * inv_rho
+    v = mv * inv_rho
+    w = mw * inv_rho
+    P = (gamma-1.)*(E - 0.5 * inv_rho * mu*mu)
+  END SUBROUTINE Cons2Prim3d
+
+  !> \private Convert from 1D primitive to conservative variables
+  ELEMENTAL SUBROUTINE Prim2Cons1d(gamma,rho_in,u,P,rho_out,mu,E)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    REAL, INTENT(IN)  :: gamma,rho_in,u,P
+    REAL, INTENT(OUT) :: rho_out,mu,E
+    !------------------------------------------------------------------------!
+    rho_out = rho_in
+    mu = rho_in * u
+    E = P/(gamma-1.) + 0.5 * rho_in * u*u
+  END SUBROUTINE Prim2Cons1d
+
+  !> \private Convert from 2D primitive to conservative variables
+  ELEMENTAL SUBROUTINE Prim2Cons2d(gamma,rho_in,u,v,P,rho_out,mu,mv,E)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     REAL, INTENT(IN)  :: gamma,rho_in,u,v,P
     REAL, INTENT(OUT) :: rho_out,mu,mv,E
     !------------------------------------------------------------------------!
-    rho_out = rho_in
-    mu = rho_in * u
+    CALL Prim2Cons1d(gamma,rho_in,u,P,rho_out,mu,E)
     mv = rho_in * v
-    E = P/(gamma-1.) + 0.5 * rho_in * (u*u+v*v)
-  END SUBROUTINE Prim2Cons
+  END SUBROUTINE Prim2Cons2d
 
+  !> \private Convert from 3D primitive to conservative variables
+  ELEMENTAL SUBROUTINE Prim2Cons3d(gamma,rho_in,u,v,w,P,rho_out,mu,mv,mw,E)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    REAL, INTENT(IN)  :: gamma,rho_in,u,v,w,P
+    REAL, INTENT(OUT) :: rho_out,mu,mv,mw,E
+    !------------------------------------------------------------------------!
+    CALL Prim2Cons2d(gamma,rho_in,u,v,P,rho_out,mu,mv,E)
+    mw = rho_in * w
+  END SUBROUTINE Prim2Cons3d
 
   !> momentum source terms due to inertial forces
   !! P is the isothermal pressure rho*cs*cs or the real pressure.
@@ -1845,14 +1996,5 @@ CONTAINS
     smx = -my * (cxyx * vx - cyxy * vy) + (cyxy + czxz) * P
     smy = mx * (cxyx * vx - cyxy * vy) + (cxyx + czyz) * P
   END SUBROUTINE CalcGeometricalSources
-
-
-  SUBROUTINE Finalize(this)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(physics_euler), INTENT(INOUT) :: this
-    !------------------------------------------------------------------------!
-    CALL this%physics_eulerisotherm%Finalize()
-  END SUBROUTINE Finalize
 
 END MODULE physics_euler_mod
