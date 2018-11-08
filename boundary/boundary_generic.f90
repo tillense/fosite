@@ -412,7 +412,7 @@ CONTAINS
       this%Boundary(WEST)%p%sendbuf(:,:,:,:) = pvar(Mesh%IMIN:Mesh%IMIN+Mesh%GINUM-1, &
         Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,1:Physics%VNUM)
     END IF
-    CALL MPI_Sendrecv(this%Boundary(WEST)%sendbuf, &
+    CALL MPI_Sendrecv(this%Boundary(WEST)%p%sendbuf, &
          Mesh%GINUM*(Mesh%JGMAX-Mesh%JGMIN+1)*(Mesh%KGMAX-Mesh%KGMIN+1)*Physics%VNUM, &
          DEFAULT_MPI_REAL,Mesh%neighbor(WEST),10+WEST,this%Boundary(EAST)%p%recvbuf,  &
          Mesh%GINUM*(Mesh%JGMAX-Mesh%JGMIN+1)*(Mesh%KGMAX-Mesh%KGMIN+1)*Physics%VNUM, &
@@ -495,7 +495,7 @@ CONTAINS
     END IF
     CALL MPI_Sendrecv(this%Boundary(SOUTH)%p%sendbuf, &
         Mesh%GJNUM*(Mesh%IGMAX-Mesh%IGMIN+1)*(Mesh%KGMAX-Mesh%KGMIN+1)*Physics%VNUM, &
-        DEFAULT_MPI_REAL,Mesh%neighbor(SOUTH),10+SOUTH,this%Boundary(NORTH)%recvbuf,          &
+        DEFAULT_MPI_REAL,Mesh%neighbor(SOUTH),10+SOUTH,this%Boundary(NORTH)%p%recvbuf,          &
         Mesh%GJNUM*(Mesh%IGMAX-Mesh%IGMIN+1)*(Mesh%KGMAX-Mesh%KGMIN+1)*Physics%VNUM, &
         DEFAULT_MPI_REAL,Mesh%neighbor(NORTH),MPI_ANY_TAG,Mesh%comm_cart,status,ierr)
     IF (Mesh%neighbor(NORTH).NE.MPI_PROC_NULL) THEN

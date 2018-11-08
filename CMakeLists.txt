@@ -27,8 +27,12 @@ set (CMAKE_INSTALL_PREFIX ${default_prefix} CACHE STRING
 
 #------------------------ command line options -------------------------#
 option(PARALLEL "PARALLEL" OFF)
+option(MPI_USE_SENDRECV "MPI_USE_SENDRECV" ON)
 if (PARALLEL MATCHES "ON")
   add_compile_options(-DPARALLEL -DHAVE_MPI_MOD)
+  if(MPI_USE_SENDRECV MATCHES "ON")
+    add_compile_options(-DMPI_USE_SENDRECV)
+  endif()
   set(CMAKE_Fortran_COMPILER_NAMES mpifort)
   message(STATUS "Configuring parallel build using MPI")
 endif()
