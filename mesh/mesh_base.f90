@@ -445,7 +445,7 @@ CONTAINS
 
     ! initialize mesh arrays using indices with ghost cells
     CALL InitMeshProperties(this%IGMIN,this%IGMAX,this%JGMIN,this%JGMAX,this%KGMIN,this%KGMAX)
-    
+
     ! coordinate domain
     CALL GetAttr(config, "xmin", this%xmin)
     CALL GetAttr(config, "xmax", this%xmax)
@@ -650,7 +650,7 @@ CONTAINS
     ! create mesh array for distance to the origin of the mesh
     this%radius = marray_cellscalar()
     CALL this%geometry%Radius(this%curv,this%radius)
-    
+
     ! create mesh array for position vector
     this%posvec = marray_cellvector()
     CALL this%geometry%PositionVector(this%curv,this%posvec)
@@ -964,7 +964,7 @@ CONTAINS
     ! This is done in CalculateDecomposition() (see below).
     dims(:)= -1
     CALL GetAttr(config, "decomposition", dims, dims(:))
-    
+
     ! set number of cells along each direction
     ncells(1) = this%INUM
     ncells(2) = this%JNUM
@@ -974,10 +974,10 @@ CONTAINS
     IF (ALL(dims(:).GE.1).AND.PRODUCT(dims(:)).NE.this%GetNumProcs()) &
       CALL this%Error("InitMesh_parallel","total number of processes in domain decomposition" &
          // ACHAR(10) // "does not match the number passed to mpirun")
-    
+
     IF (ANY(dims(:).EQ.0)) &
       CALL this%Error("InitMesh_parallel","numbers in decomposition should not be 0")
-    
+
     IF (MOD(this%GetNumProcs(),PRODUCT(dims(:),dims(:).GT.1)).NE.0) &
       CALL this%Error("InitMesh_parallel","numbers in decomposition are not devisors" &
         // ACHAR(10) // "of the total number of processes passed to mpirun")
@@ -986,7 +986,7 @@ CONTAINS
       CALL this%Error("InitMesh_parallel","number of processes exceeds number of cells " &
         // ACHAR(10) // "in at least one dimension, check decomposition")
 
-    
+
     ! balance number of processes if requested
     IF (ALL(dims(:).GT.0)) THEN
       ! (a) all dims user supplied -> do nothing
@@ -1033,7 +1033,7 @@ CONTAINS
     IF (dims(3).LE.0) THEN
       CALL this%Error("InitMesh_parallel","Domain decomposition algorithm failed.")
     END IF
-    
+
     this%dims(:) = dims(:)
 ! PRINT *,this%dims(:)
 ! CALL this%Error("InitMesh_parallel","debug breakpoint")
@@ -1041,12 +1041,12 @@ CONTAINS
     ! 2. create the cartesian communicator
     ! IMPORTANT: disable reordering of nodes
     periods = .FALSE.
-    CALL MPI_Cart_create(MPI_COMM_WORLD,this%NDIMS,this%dims,periods,.TRUE., &
+    CALL MPI_Cart_create(MPI_COMM_WORLD,3,this%dims,periods,.TRUE., &
          this%comm_cart,ierror)
 
     ! 3. inquire and save the own position
     this%mycoords(:) = 0
-    CALL MPI_Cart_get(this%comm_cart,this%NDIMS,this%dims,periods,this%mycoords,ierror)
+    CALL MPI_Cart_get(this%comm_cart,3,this%dims,periods,this%mycoords,ierror)
 
     ! 4. create communicators for every column and row of the cartesian topology
     remain_dims = (/ .TRUE., .FALSE., .FALSE. /)
@@ -1215,7 +1215,7 @@ CONTAINS
    INTEGER :: svl,err
    !------------------------------------------------------------------------!
    ! get the system vector length from preprocessor macro (string)
-   svl_char = VECTOR_LENGTH 
+   svl_char = VECTOR_LENGTH
    READ (svl_char,'(I8)',IOSTAT=err) svl
    ! return immediatly for malformed input
    IF (ANY((/pi.LT.1,pi.GT.MAXNUM,pj.NE.1,pk.NE.1,err.NE.0, &
@@ -1599,14 +1599,14 @@ CONTAINS
 
 
     CALL this%cart%Destroy()
-    
+
     CALL this%radius%Destroy()
     CALL this%posvec%Destroy()
 
     IF (ASSOCIATED(this%rotation)) DEALLOCATE(this%rotation)
 
     CALL CloseMeshProperties
-    
+
     CALL this%Geometry%Finalize()
     DEALLOCATE(this%Geometry)
   END SUBROUTINE Finalize_base

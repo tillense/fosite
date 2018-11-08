@@ -188,9 +188,6 @@ CONTAINS
     CASE DEFAULT
        CALL this%Error("InitBoundary_common", "Unknown direction")
     END SELECT
-    !! set direction
-    !todo: Was passiert hiermit???
-    !CALL InitCommon(this%direction,direction,direction_name(direction))
 
     IF(((Physics%GetType().EQ.EULER2D_ISOIAMT).OR.&
         (Physics%GetType().EQ.EULER2D_IAMT)).AND. &

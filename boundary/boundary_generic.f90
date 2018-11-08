@@ -155,12 +155,12 @@ CONTAINS
 
 #ifdef PARALLEL
     ! define inner connections, where boundaries are no true ones
-    IF (Mesh%mycoords(1).NE.0)               new(WEST) = NONE
-    IF (Mesh%mycoords(1).NE.Mesh%dims(1)-1)  new(EAST) = NONE
-    IF (Mesh%mycoords(2).NE.0)              new(SOUTH) = NONE
-    IF (Mesh%mycoords(2).NE.Mesh%dims(2)-1) new(NORTH) = NONE
-    IF (Mesh%mycoords(3).NE.0)             new(BOTTOM) = NONE
-    IF (Mesh%mycoords(3).NE.Mesh%dims(3)-1)   new(TOP) = NONE
+    IF (Mesh%mycoords(1).NE.0)              new(WEST)   = NONE
+    IF (Mesh%mycoords(1).NE.Mesh%dims(1)-1) new(EAST)   = NONE
+    IF (Mesh%mycoords(2).NE.0)              new(SOUTH)  = NONE
+    IF (Mesh%mycoords(2).NE.Mesh%dims(2)-1) new(NORTH)  = NONE
+    IF (Mesh%mycoords(3).NE.0)              new(BOTTOM) = NONE
+    IF (Mesh%mycoords(3).NE.Mesh%dims(3)-1) new(TOP)    = NONE
 #endif
 
     ! Check for correct shifting and boundaries
@@ -253,6 +253,17 @@ CONTAINS
        CALL this%boundary(SOUTH)%p%Error("InitBoundary", &
             "Opposite boundary should be shearing.")
     END IF
+    IF ((bottomer.EQ.PERIODIC.AND.topper.EQ.PERIODIC) .OR. &
+        (bottomer.EQ.SHEARING.AND.topper.EQ.SHEARING)) THEN
+       periods(3) = .TRUE.
+    ELSE IF (bottomer.EQ.PERIODIC.NEQV.topper.EQ.PERIODIC) THEN
+       CALL this%boundary(BOTTOM)%p%Error("InitBoundary", &
+            "Opposite boundary should be periodic.")
+    ELSE IF (bottomer.EQ.SHEARING.NEQV.topper.EQ.SHEARING) THEN
+       CALL this%boundary(BOTTOM)%p%Error("InitBoundary", &
+            "Opposite boundary should be shearing.")
+    END IF
+
 
     ! This sets this%Boundary(dir)%PhysicalCorner to .True., if
     ! there are no periodic boundary conditions and if
@@ -304,7 +315,7 @@ CONTAINS
     ! save ranks of neighbor processes
     CALL MPI_Cart_shift(Mesh%comm_cart,0,1,Mesh%neighbor(WEST),Mesh%neighbor(EAST),ierr)
     CALL MPI_Cart_shift(Mesh%comm_cart,1,1,Mesh%neighbor(SOUTH),Mesh%neighbor(NORTH),ierr)
-    CALL MPI_Cart_shift(Mesh%comm_cart,2,1,Mesh%neighbor(TOP),Mesh%neighbor(BOTTOM),ierr)
+    CALL MPI_Cart_shift(Mesh%comm_cart,2,1,Mesh%neighbor(BOTTOM),Mesh%neighbor(TOP),ierr)
 
     ! create communicators for every column and row of the cartesian
     !	topology (used eg. for fargo shifts)
@@ -376,41 +387,11 @@ CONTAINS
       CALL this%Boundary(EAST)%p%SetBoundaryData(Mesh,Physics,time,pvar)
     END IF
 
-!    IF (Mesh%SN_shear) THEN
-!      IF(Mesh%dims(2).GT.1) THEN
-!        mpi_buf2(Mesh%IGMIN:Mesh%IGMAX,1:Mesh%GJNUM,Mesh%KGMIN:Mesh%KGMAX,1:Physics%VNUM) = &
-!          pvar(Mesh%IGMIN:Mesh%IGMAX,Mesh%JMAX-Mesh%GJNUM+1:Mesh%JMAX,Mesh%KGMIN:Mesh%KGMAX,1:Physics%VNUM)
-!        CALL MPI_Sendrecv_replace(&
-!          mpi_buf2,&
-!          2*(Mesh%IGMAX-Mesh%IGMIN+1)*Physics%VNUM, &
-!          DEFAULT_MPI_REAL, &
-!          Mesh%neighbor(NORTH), 53+NORTH, &
-!          Mesh%neighbor(SOUTH), MPI_ANY_TAG, &
-!          Mesh%comm_cart, status2, ierr)
-!        pvar(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JMIN-1,Mesh%KGMIN:Mesh%KGMAX,1:Physics%VNUM) = &
-!          mpi_buf2(Mesh%IGMIN:Mesh%IGMAX,1:Mesh%GJNUM,Mesh%KGMIN:Mesh%KGMAX,1:Physics%VNUM)
-!        mpi_buf2(Mesh%IGMIN:Mesh%IGMAX,1:Mesh%GJNUM,Mesh%KGMIN:Mesh%KGMAX,1:Physics%VNUM) = &
-!          pvar(Mesh%IGMIN:Mesh%IGMAX,Mesh%JMIN:Mesh%JMIN+Mesh%GJNUM-1,Mesh%KGMIN:Mesh%KGMAX,1:Physics%VNUM)
-!        CALL MPI_Sendrecv_replace(&
-!          mpi_buf2,&
-!          2*(Mesh%IGMAX-Mesh%IGMIN+1)*Physics%VNUM, &
-!          DEFAULT_MPI_REAL, &
-!          Mesh%neighbor(SOUTH), 53+SOUTH, &
-!          Mesh%neighbor(NORTH), MPI_ANY_TAG, &
-!          Mesh%comm_cart, status2, ierr)
-!        pvar(Mesh%IGMIN:Mesh%IGMAX,Mesh%JMAX+1:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,1:Physics%VNUM) = &
-!          mpi_buf2(Mesh%IGMIN:Mesh%IGMAX,1:Mesh%GJNUM,Mesh%KGMIN:Mesh%KGMAX,1:Physics%VNUM)
-!      ELSE
-!        DO j = 1,Mesh%GJNUM
-!          ! southern northern (periodic in first step - further shift-treatment below)
-!          pvar(Mesh%IGMIN:Mesh%IGMAX,Mesh%JMIN-j,Mesh%KGMIN:Mesh%KGMAX,1:Physics%VNUM) = &
-!            pvar(Mesh%IGMIN:Mesh%IGMAX,Mesh%JMAX-j+1,Mesh%KGMIN:Mesh%KGMAX,1:Physics%VNUM)
-!          pvar(Mesh%IGMIN:Mesh%IGMAX,Mesh%JMAX+j,Mesh%KGMIN:Mesh%KGMAX,1:Physics%VNUM) = &
-!            pvar(Mesh%IGMIN:Mesh%IGMAX,Mesh%JMIN+j-1,Mesh%KGMIN:Mesh%KGMAX,1:Physics%VNUM)
-!        END DO
-!      END IF
-!    END IF
-
+    ! set physical boundary conditions at southern and northern boundaries
+    IF (Mesh%JNUM.GT.1) THEN
+      CALL this%Boundary(SOUTH)%p%SetBoundaryData(Mesh,Physics,time,pvar)
+      CALL this%Boundary(NORTH)%p%SetBoundaryData(Mesh,Physics,time,pvar)
+    END IF
 
     ! set physical boundary conditions at top and bottom boundaries
     IF (Mesh%KNUM.GT.1) THEN
@@ -419,7 +400,6 @@ CONTAINS
     END IF
 
 
-!> \todo not verified
 #ifdef PARALLEL
     ! NOTE: if you want to use MPI_Sendrecv instead of nonblocking
     ! MPI_Irecv and  MPI_Issend for exchange of ghost cell data,
@@ -523,7 +503,7 @@ CONTAINS
           this%Boundary(NORTH)%p%recvbuf(:,:,:,:)
     END IF
 #else
-   ! receive boundary data from northern neighbor
+    ! receive boundary data from northern neighbor
     CALL MPI_Irecv(this%Boundary(NORTH)%p%recvbuf, &
          Mesh%GJNUM*(Mesh%IGMAX-Mesh%IGMIN+1)*(Mesh%KGMAX-Mesh%KGMIN+1)*Physics%VNUM, &
          DEFAULT_MPI_REAL,Mesh%neighbor(NORTH),10+SOUTH,Mesh%comm_cart,req(1),ierr)
@@ -584,12 +564,6 @@ CONTAINS
     END IF
 #endif
 #endif
-
-    ! set physical boundary conditions at southern and northern boundaries
-    IF (Mesh%JNUM.GT.1) THEN
-      CALL this%Boundary(SOUTH)%p%SetBoundaryData(Mesh,Physics,time,pvar)
-      CALL this%Boundary(NORTH)%p%SetBoundaryData(Mesh,Physics,time,pvar)
-    END IF
 
 #ifdef PARALLEL
    ! initiate bottomer/topper MPI communication
@@ -652,7 +626,7 @@ CONTAINS
     END IF
     ! send boundary data to northern neighbor
     CALL MPI_Issend(this%Boundary(TOP)%p%sendbuf, &
-         Mesh%GKNUM*(Mesh%IGMAX-Mesh%IGMIN+1)*(Mesh%KGMAX-Mesh%KGMIN+1)*Physics%VNUM, &
+         Mesh%GKNUM*(Mesh%IGMAX-Mesh%IGMIN+1)*(Mesh%JGMAX-Mesh%JGMIN+1)*Physics%VNUM, &
          DEFAULT_MPI_REAL,Mesh%neighbor(TOP),10+TOP,Mesh%comm_cart,req(4),ierr)
 #endif
 #endif

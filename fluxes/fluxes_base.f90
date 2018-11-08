@@ -293,7 +293,7 @@ CONTAINS
 #endif
     CASE (BOTTOM) ! bottom boundary flux
 #ifdef PARALLEL
-       IF (Mesh%mycoords(3).EQ.Mesh%dims(3)-1) THEN
+       IF (Mesh%mycoords(3).EQ.0) THEN
           bflux_local(:) = SUM(SUM(this%bzflux(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,1,:),1),1)
        ELSE
           bflux_local(:) = 0.0
