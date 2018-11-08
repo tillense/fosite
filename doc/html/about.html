@@ -73,7 +73,7 @@
 
 			  			<!--header-->
 			  			<div class="headertitle">
-                <h1>Fosite - 2D hydrodynamical simulation program </h1>
+                <h1>Fosite - hydrodynamical simulation program </h1>
               </div>
 
 							<!--body-->
@@ -92,16 +92,15 @@
       				    <p></p>
       				    <p><strong>general features:</strong></p>
       				    <ul>
-      				      <li>classical hydrodynamics (HD) in 1D and 2D</li>
+      				      <li>classical hydrodynamics (HD) in 1D, 2D and 3D</li>
       				      <li>solution of the transport problem for compressible, viscous fluxes</li>
       				      <li>conservation of momentum, angular momentum, energy and rothalpy</li>
-      				      <li>arbitrary curvilinear-orthogonal grids: cartesian, polar, bipolar, logpolar, spherical, etc. </li>
+      				      <li>arbitrary curvilinear-orthogonal grids: cartesian, logcylindrical, spherical, etc. </li>
       				      <li>fast orbital advection algorithm (FARGO) for 2D polar geometries</li>
                     <li>shearingsheet simulations</li>
-      				      <li>IO: binary (XMDF, VTK, HDF5), ASCII (Gnuplot readable)</li>
+      				      <li>IO: binary (XMDF, VTK), ASCII (Gnuplot readable)</li>
                     <li>testing framework "Test Anything Protocol" (<a class="el" target="_blank" href="https://testanything.org/">TAP</a>)</li>
       				    </ul>
-
 
       				    <p> </p>
       				    <p><strong>additional physics:</strong></p>
@@ -111,18 +110,17 @@
       				      <li>heating of disk by star (Feiler <a class="el" href="citelist.html#CITEREF_feiler2016">2016</a>)</li>
                     <li>cooling of disk: \( \beta \)-cooling (Gammie <a class="el" href="citelist.html#CITEREF_gammie2001">2001</a>), realistic cooling (Bell &amp; Lin <a class="el" href="citelist.html#CITEREF_bell1994">1994</a>) </li>
       				      <li>Thomson-scattering</li>
-      				      <li>viscosity models: molecular viscosity, \( \alpha \)-viscosity (Shakura &amp; Sunyaev <a class="el" href="citelist.html#CITEREF_shakura1973">1973</a>), \( \beta \)-viscosity (Duschl et al. <a class="el" href="citelist.html#CITEREF_duschl1998">1998</a>, <a class="el" href="citelist.html#CITEREF_duschl2000">2000</a>), constant kinematic viscosity, large eddy viscosity models (experimentel, Sperling <a class="el" href="citelist.html#CITEREF_sperlin2013">2013</a>)</li>
+      				      <li>viscosity models: molecular viscosity, \( \alpha \)-viscosity (Shakura &amp; Sunyaev <a class="el" href="citelist.html#CITEREF_shakura1973">1973</a>), \( \beta \)-viscosity (Duschl et al. <a class="el" href="citelist.html#CITEREF_duschl1998">1998</a>, <a class="el" href="citelist.html#CITEREF_duschl2000">2000</a>), constant kinematic viscosity</li>
       				    </ul>
-
 
       				    <p> </p>
       				    <p><strong>numerics:</strong></p>
       				    <ul>
       				      <li>high-order time integration with adaptive step size control </li>
-                    <li>time integration methods: <a class="el" href="citelist.html#CITEREF_fehlberg1969">RKF</a> (4,5), <a class="el" href="citelist.html#CITEREF_dormand1980">RKDP</a> (4,5), <a class="el" href="citelist.html#CITEREF_gottlieb2011">SSPRK</a> (4,5), <a class="el" href="citelist.html#CITEREF_cash1990">RKCK</a> (4,5), modified Euler (2,3), <a class="el" href="citelist.html#CITEREF_hairer2008">Adam's</a> multistep method </li>
+                    <li>time integration methods: <a class="el" href="citelist.html#CITEREF_fehlberg1969">RKF</a> (4,5), <a class="el" href="citelist.html#CITEREF_dormand1980">RKDP</a> (4,5), <a class="el" href="citelist.html#CITEREF_gottlieb2011">SSPRK</a> (4,5), <a class="el" href="citelist.html#CITEREF_cash1990">RKCK</a> (4,5), modified Euler (2,3)</li>
       				      <li>fluxes (finite volume methods): <a class="el" href="citelist.html#CITEREF_kurganov2002">KT</a> (Illenseer &amp; Duschl <a class="el" href="citelist.html#CITEREF_cash1990">2009</a>), <a class="el" href="citelist.html#CITEREF_toro1994">HLLC</a> (Jung <a class="el" href="citelist.html#CITEREF_jung2016">2016</a>), <a class="el" href="citelist.html#CITEREF_harten1983">HLL</a>, <a class="el" href="citelist.html#CITEREF_godunov1959">exact</a></li>
       				      <li>linear reconstruction (slope-limiter): <a class="el" href="citelist.html#CITEREF_roe1986">Minmod</a>, <a class="el" href="citelist.html#CITEREF_van1977">MC</a>, <a class="el" href="citelist.html#CITEREF_sweby1984">Sweby</a>, <a class="el" href="citelist.html#CITEREF_roe1986">Superbee</a>, <a class="el" href="citelist.html#CITEREF_waterson1995">Ospre</a>, PP, <a class="el" href="citelist.html#CITEREF_roe1986">Vanleer</a></li>
-      				      <li>poisson solver: spectral methods, multigrid methods, monopol approximation</li>
+      				      <li>poisson solver: spectral methods, monopol approximation</li>
       				      <li>boundary conditions: periodic, reflecting, Dirichlet, von-Neumann, fixed, keplerian, etc.</li>
       				      <li>parallelized (MPI) and vectorized (for NEC architectures)</li>
       				    </ul>

@@ -61,7 +61,6 @@ MODULE timedisc_base_mod
   USE sources_gravity_mod
   USE fluxes_base_mod
   USE reconstruction_base_mod
-  USE field_base_mod
   USE common_dict
 #ifdef PARALLEL
 #ifdef HAVE_MPI_MOD

@@ -25,6 +25,7 @@
 !#                                                                           #
 !#############################################################################
 !> \addtogroup boundary
+!! \brief Base boundary module
 !! \key{western,INTEGER,boundary condition at western boundary}
 !! \key{eastern,INTEGER,boundary condition at eastern boundary}
 !! \key{southern,INTEGER,boundary condition at southern boundary}
@@ -33,9 +34,6 @@
 !> \author Tobias Illenseer
 !! \author Manuel Jung
 !! \author Jannes Klee
-!!
-!! \brief Base boundary module
-!!
 !----------------------------------------------------------------------------!
 MODULE boundary_base_mod
   USE logging_base_mod
