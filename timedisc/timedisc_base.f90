@@ -26,6 +26,7 @@
 !#                                                                           #
 !#############################################################################
 !> \addtogroup timedisc
+!! \brief Base module for time discretization
 !! - general parameters of timedisc group as key-values
 !! \key{method,INTEGER,time integration method}
 !! \key{stoptime,REAL,physical stop time of simulation}
@@ -46,8 +47,6 @@
 !! \author Björn Sperling
 !! \author Manuel Jung
 !! \author Jannes Klee
-!!
-!! \brief generic subroutines for time discretization
 !!
 !! \ingroup timedisc
 !----------------------------------------------------------------------------!

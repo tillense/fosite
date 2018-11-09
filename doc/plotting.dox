@@ -1,5 +1,9 @@
 /*! \page plotting Plotting & Data Output
 
+<div class="alert alert-danger">
+  This part needs to be revised!
+</div>
+
 There are the following file formats in Fosite:
 - ASCII (recommended for light data, [gnuplot](http://www.gnuplot.info) readable)
 - Binary
@@ -85,10 +89,6 @@ free to use Python wrappers for [XDMF](http://www.xdmf.org/index.php/Xdmf3_Pytho
 
 
 ### Binary Output Format
-
-<div class="alert alert-danger">
-  This part needs to be revised!
-</div>
 
 #### Specification
 

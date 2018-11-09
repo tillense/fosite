@@ -1,5 +1,10 @@
 /*! \page test_framework Run the testing framework
 
+<div class="alert alert-danger">
+  This part needs to be revised (and the capability needs to be
+  introduced again)!
+</div>
+
 The testing framework is based on the [Test Anyting Protocol]
 (http://testanything.org/). The tests are stored in the eponymous
 folder. In order to run them type in:

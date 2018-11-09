@@ -24,7 +24,7 @@
 !# Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.                 #
 !#                                                                           #
 !#############################################################################
-!> \addtogroup gravity
+!> \addtogroup sources
 !! - general parameters of gravity group as key-values
 !! \key{gtype,INTEGER,Type of gravity source}
 !! \key{energy,INTEGER,Add source terms to energy equation?}

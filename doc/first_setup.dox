@@ -1,0 +1,373 @@
+/*! \page first_setup A First Setup
+
+## The Structure
+
+Below you can see the structure of an initialization file. The program
+loads the fosite module, declares some parameters and starts fosite. In order to do
+the latter the configuration needs to be build and the initial data needs to
+be set. This generally happens in the subroutines *MakeConfig* and *InitData*.
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~{.f}
+PROGRAM FOO
+  ! 1. load fosite
+  USE fosite_mod
+  ...
+  ! 2. make some declarations
+  ...
+  ! 3. configure (MakeConfig), initialize (InitData) and run fosite
+  ...
+
+  ! 4. configure your setup
+  SUBROUTINE MakeConfig
+    ...
+  END SUBROUTINE
+
+  ! 5. set the initial data
+  SUBROUTINE InitData
+    ...
+  END SUBROUTINE InitData
+END PROGRAM FOO
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+In order to get in touch with Fosite we use the
+[Rayleigh-Taylor-instabilities](RTI_8f90.html) in the following as an
+easy example case.
+
+
+## A Detailed Example
+### The Header
+
+1. In the very beginning all necessary modules need to be loaded. The module
+fosite_mod from *fosite.f03* includes the subroutines to start fosite. It
+also includes *common_dict*, which provides a dictionary structure for
+generic data types.
+
+2. The second part of the header is the typical declaration section. Here the
+parameters for the setup can be declared, which are needed below in the
+configuration or initial data field. Some typical things that are always
+necessary are, e.g., the resolution and the field size or the output setup.
+This part can strongly vary according to your needs.
+Additionally a *fosite* object  needs to be declared as allocatable.
+This is mandatory, since it is the main class which hosts all other classes,
+like *sources*, *timedisc*, ... . The whole configuration is also saved here.
+
+3. To finally run Fosite there is a fixed order of subroutines, which need to
+be called. They are mainly part of the *fosite* module. However, two
+very important subroutines need to be written on your own
+  1. The *MakeConfig*: This is a dictionary which saves all the settings in
+     one directory like the geometry and the resolution, the output and of
+     course the source modules that are needed.
+  2. The *InitData*: Here the initial data will be declared, which can
+     be something very easy like a constant background density and velocity
+     field or very complicated things, which might bring you in need to add
+     additional routines in order to set up the initial data.
+In the next two parts we will discuss these two subroutines in detail.
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~{.f}
+PROGRAM RTI
+  !------------------------------------------------------------------------!
+  ! 1. load generic modules                                                !
+  !------------------------------------------------------------------------!
+  USE fosite_mod                ! main module, subrout. to run fosite, etc.!
+
+  !------------------------------------------------------------------------!
+  ! 2. make some declarations                                              !
+  !------------------------------------------------------------------------!
+  ! simulation parameters
+  REAL,    PARAMETER  :: TSIM    = 10.0   ! simulation time                !
+  REAL,    PARAMETER  :: DYNVIS  = 0.0    ! dynamic viscosity constant     !
+  REAL,    PARAMETER  :: BULKVIS = 0.0    ! bulk viscosity constant        !
+  ! initial condition (SI units)
+  REAL,    PARAMETER  :: RHO0    = 2.0    ! density: upper region          !
+  REAL,    PARAMETER  :: RHO1    = 1.0    ! density: lower region          !
+  REAL,    PARAMETER  :: YACC    = 0.2    ! grav. acceleration             !
+  REAL,    PARAMETER  :: P0      = 1.2    ! pressure at the top            !
+  REAL,    PARAMETER  :: A0      = 0.02   ! amplitude of init. disturbance !
+  ! mesh settings
+  INTEGER, PARAMETER  :: XRES    = 50     ! resolution in x                !
+  INTEGER, PARAMETER  :: YRES    = 100    ! resolution in y                !
+  INTEGER, PARAMETER  :: ZRES    = 1      ! resolution in z                !
+  REAL, PARAMETER     :: WIDTH   = 1.0    ! width of comp. domain          !
+  REAL, PARAMETER     :: HEIGHT  = 2.0    ! height of comp. domaina        !
+  ! output parameters
+  INTEGER, PARAMETER  :: ONUM    = 10     ! number of output data sets     !
+  CHARACTER(LEN=256), PARAMETER &
+                      :: ODIR    = './'   ! output data dir                !
+  CHARACTER(LEN=256), PARAMETER &
+                      :: OFNAME  = 'RTI'  ! output data file name          !
+  !------------------------------------------------------------------------!
+  CLASS(fosite), ALLOCATABLE :: Sim
+  !------------------------------------------------------------------------!
+
+  !------------------------------------------------------------------------!
+  ! 3. configure (run MakeConfig), initialize (run InitData) and run fosite!
+  !------------------------------------------------------------------------!
+
+  ALLOCATE(Sim)                           ! allocate fosite object         !
+  CALL Sim%InitFosite()                   ! initialize Fosite              !
+  CALL MakeConfig(Sim, Sim%config)        ! build the dictionary           !
+  !CALL PrintDict(config)                 ! print the dictionary setup     !
+  CALL Sim%Setup()                        ! uses the config for setup      !
+  ! initialize the passive (pvar) & conservative variables (cvar)
+  CALL InitData(Sim%Mesh, Sim%Physics, Sim%Timedisc, Sim%Fluxes, Sim%Sources, &
+                Sim%Timedisc%pvar, Sim%Timedisc%cvar)
+  CALL Sim%Run()                          ! MAIN part: runs Fosite         !
+  CALL Sim%Finalize()                     ! comp. runtime, deallocation    !
+  DEALLOCATE(Sim)
+
+  ! This module is delivering the configuration dictionary "config"
+  ! and is explained detail further below
+  SUBROUTINE MakeConfig(Sim,config)
+  ...
+  END SUBROUTINE
+
+  ! This module is setting the initial primitive variables "pvar" and
+  ! the conservative variables "cvar" and is explained further below
+  SUBROUTINE InitData(Mesh,Physics,pvar,cvar)
+  ...
+  END SUBROUTINE
+
+END PROGRAM
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+## Configuration Dictionary
+At the end of the section you can see the whole MakeConfig subroutine. It gives
+back a dictionary, which is called *config* (see *common_dict* for details).
+There, all important settings for the simulation are stored and
+they are also written out to the data (depending on your output format). *config*
+itself is just a collection of dictionaries, where each ones handles a
+different field of numerics or physics.
+The syntax is mostly self-explaining. The dictionaries are of the form
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~{.f}
+dictionary_name => Dict("key1" / value1, "key2" / value2, ...)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+You can store anything you want in the dictionaries. However, the keys
+that make sense are different for every module you might use.
+
+As an example we take the first created dictionary *mesh*:
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~{.f}
+mesh => Dict( &
+          "meshtype"      / MIDPOINT,   &    ! use midpoint rule         !
+          "geometry"      / CARTESIAN,  &    ! cartesian grid            !
+          "inum"          / XRES,       &    ! resolution in x-direction !
+          "jnum"          / YRES,       &    ! resolution in y-direction !
+          "jnum"          / ZRES,       &    ! resolution in z-direction !
+          "xmin"          / 0.,         &    ! minimum value in x-dir.   !
+          "xmax"          / WIDTH,      &    ! maximum value in x-dir.   !
+          "ymin"          / 0.,         &    ! minimum value in y-dir.   !
+          "ymax"          / HEIGHT,     &    ! maximum value in y-dir.   !
+          "zmin"          / 0.,         &    ! minimum value in z-dir.   !
+          "zmax"          / 0.)              ! maximum value in z-dir.   !
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The class *mesh* says to approximate the flux integrals with the midpoint
+rule. For the key *geometry* you can chose between a
+wide variety of models, but here we use the easiest case of an
+cartesian geometry. Thus the geometry class is included in the mesh class.
+
+Additionally you need to add some optional or necessary parameters, like in this case
+the resolution and the fieldsize. The available keys can be looked up at the
+[module overview](group__mesh.html) in the html pages. Alternatively you
+need to look into the code of the derived type directly and search for the
+*GetAttr()* calls. At these positions the dictionaries are read out, which
+is always done in the initialization routines of every class or subclass.
+
+The order of the dictionaries is not always arbitrary. For example, for
+defining the sources dictionary, you have first to define dictionaries for
+the single sources. In our case below, we have a constant acceleration and a
+viscosity. These have its own parameters. Eventually these dictionaries are
+included in the overall sources dictionary. If you want to try out a test
+simulation without a certain source, you can just comment out the part, like
+shown for the viscosity source term in our case. Finally, all dictionaries are
+collected and stored *config*. This dictionary is passed through the routines
+in order to have the full configuration at hand.
+
+The output is also controlled by a dictionary. In fileformat you can
+chose the way the output should look like. *GNUPLOT* gives you back standard
+ASCII output which is [gnuplot](http://www.gnuplot.info/) readable. However,
+this is not recommended for large data outputs. The recommended
+package output is *XDMF* or *VTK* which is readable by common viewers like
+[Paraview](http://www.paraview.org/) or [VisIt](https://wci.llnl.gov/codes/visit/).
+An alternative dictionary compared to the one below could look like
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~{.f}
+    datafile => Dict( &
+              "fileformat"  / VTK, &
+              "filepath"    / TRIM('./'), &
+              "filename"    / TRIM('RTI_modified'), &
+              "count"       / 100)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+If you want to write out additonal parameters, there are keys in the relating
+dictionaries normally of the form "output/variable" which can either be
+set to 1 (yes) or 0 (no). For example the key/value pair *"output/volume" / 1*
+could be written in the mesh-dictionary in order to write out the volume of
+the cells to.
+
+Finally, the whole configuration subroutine could look like this:
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~{.f}
+  !> Set all configurations and safe it in a dictionary
+  SUBROUTINE MakeConfig(Sim, config)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(fosite), INTENT(INOUT) ::  Sim
+    TYPE(Dict_TYP), POINTER      :: config
+    !------------------------------------------------------------------------!
+    TYPE(Dict_TYP), POINTER      :: mesh, physics, boundary, datafile, logfile, &
+                                    sources, timedisc, fluxes, caccel, vis
+    !------------------------------------------------------------------------!
+    ! mesh settings
+    mesh => Dict( &
+              "meshtype"      / MIDPOINT,   &    ! use midpoint rule         !
+              "geometry"      / CARTESIAN,  &    ! cartesian grid            !
+              "inum"          / XRES,       &    ! resolution in x-direction !
+              "jnum"          / YRES,       &    ! resolution in y-direction !
+              "xmin"          / 0.,         &    ! minimum value in x-dir.   !
+              "xmax"          / WIDTH,      &    ! maximum value in x-dir.   !
+              "ymin"          / 0.,         &    ! minimum value in y-dir.   !
+              "ymax"          / HEIGHT,     &    ! maximum value in y-dir.   !
+              "zmin"          / 0.,         &    ! minimum value in z-dir.   !
+              "zmax"          / 0.)              ! maximum value in z-dir.   !
+
+    ! physics settings
+    physics => Dict( &
+              "problem"       / EULER2D, &       ! standard 2D hydrodynamics !
+              "gamma"         / 1.4)             ! ratio of specific heats   !
+
+    ! flux calculation and reconstruction method
+    fluxes => Dict( &
+              "fluxtype"      / KT, &            ! use Kurganov-Tadmor flux  !
+              "order"         / LINEAR, &        ! linear reconstruction     !
+              "variables"     / CONSERVATIVE, &  ! vars. for reconstruction  !
+              "limiter"       / MONOCENT, &      ! type of the limiter       !
+              "theta"         / 1.2)             ! optional param. for MC    !
+
+    ! boundary conditions
+    boundary => Dict( &
+              "western"       / REFLECTING, &    ! reflecting boundary cond. !
+              "eastern"       / REFLECTING, &    ! reflecting boundary cond. !
+              "southern"      / REFLECTING, &    ! reflecting boundary cond. !
+              "northern"      / REFLECTING, &    ! reflecting boundary cond. !
+              "southern"      / REFLECTING, &    ! reflecting boundary cond. !
+              "northern"      / REFLECTING)      ! reflecting boundary cond. !
+
+    ! c-acceleration term
+    caccel => Dict( &
+              "stype"         / C_ACCEL, &       ! source 1: acceleration    !
+              "yaccel"        / (-YACC))         ! constant acc.in y-dir.    !
+
+    ! viscosity source term
+    vis => Dict( &
+              "stype"         / VISCOSITY, &     ! viscosity  source         !
+              "vismodel"      / MOLECULAR, &     ! visc. model: molecular    !
+              "dynconst"      / DYNVIS, &        ! const. dynamic viscosity  !
+              "bulkconst"     / BULKVIS)         ! const. bulk viscosity     !
+
+    ! collect sources in dictionary
+    sources => Dict( &
+!              "vis"           / vis, &           ! incl. visc. from above    !
+              "caccel"        / caccel)          ! incl. accel. from above   !
+
+    IF ((DYNVIS.GT.TINY(DYNVIS)).OR.(BULKVIS.GT.TINY(BULKVIS))) &
+        CALL SetAttr(sources, "vis", vis)
+
+    ! time discretization settings
+    timedisc => Dict( &
+              "method"        / MODIFIED_EULER, &! use modified euler        !
+              "order"         / 3, &             ! third order accuracy      !
+              "cfl"           / 0.4, &           ! courant-number            !
+              "stoptime"      / TSIM, &          ! simulation stop-time      !
+              "dtlimit"       / 1.0E-4, &        ! smallest allowed timestep !
+              "maxiter"       / 100000)          ! max. iters before abort   !
+
+    ! initialize data input/output
+    datafile => Dict( &
+              "fileformat"    / GNUPLOT,         ! ASCII output              !
+              "filecycles"    / 0, &             ! write all data in one file!
+              "filename"      / (TRIM(ODIR) // TRIM(OFNAME)), & ! filepath   !
+              "count"         / ONUM)            ! number of outputs         !
+
+    ! collect all above dicts in the configuration dict
+    config => Dict( &
+              "mesh"          / mesh, &          ! all mesh-settings         !
+              "physics"       / physics, &       ! all physics settings      !
+              "boundary"      / boundary, &      ! all bounary settings      !
+              "fluxes"        / fluxes, &        ! all fluxes settings       !
+              "sources"       / sources, &       ! all sources               !
+              "timedisc"      / timedisc, &      ! all timedisc settings     !
+              "logfile"       / logfile, &       ! all logfile settings      !
+              "datafile"      / datafile)        ! all input/output settings !
+  END SUBROUTINE MakeConfig
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+## Set Initial Data
+
+The last thing to do is to set up the initial data. The easiest way is to
+define the known primitive variables *pvar* on the whole domain.
+At the end of the initialization you should run at least these two routines:
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~{.f}
+    CALL Physics%Convert2Conservative(Mesh,pvar,cvar)
+    CALL Info(Mesh, " DATA-----> initial condition: " // &
+         "Rayleigh–Taylor instability")
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The first line is converting the primitive variable to conservative ones in
+order to store a full set of parameters in the beginning. The second is just
+a info-call for your later logfiles. Here you can write down a
+reasonable description for your initial conditions.
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~{.f}
+  !> Set initial conditions
+  SUBROUTINE InitData(Mesh,Physics,pvar,cvar)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    TYPE(Physics_TYP) :: Physics
+    TYPE(Mesh_TYP)    :: Mesh
+    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Physics%vnum)&
+                      :: pvar,cvar
+    !------------------------------------------------------------------------!
+    ! Local variable declaration
+    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX):: y0
+    !------------------------------------------------------------------------!
+    INTENT(IN)        :: Mesh, Physics
+    INTENT(OUT)       :: pvar, cvar
+    !------------------------------------------------------------------------!
+    ! this marks the line between the two fluids
+    y0(:,:) = 0.5*Mesh%ymax + A0*COS(2*PI*Mesh%bcenter(:,:,1)/Mesh%xmax)
+
+    ! initial hydrostatic stratification
+    WHERE (Mesh%bcenter(:,:,2).GT.y0(:,:))
+       ! upper fluid
+       pvar(:,:,Physics%DENSITY)  = RHO0
+       pvar(:,:,Physics%PRESSURE) = P0 + YACC * RHO0 * (Mesh%ymax-Mesh%bcenter(:,:,2))
+    ELSEWHERE
+       ! lower fluid
+       pvar(:,:,Physics%DENSITY)  = RHO1
+       pvar(:,:,Physics%PRESSURE) = P0 + YACC * (RHO1 * (y0(:,:)-Mesh%bcenter(:,:,2)) &
+            + RHO0 * (Mesh%ymax-y0(:,:)))
+    END WHERE
+
+    ! velocity vanishes everywhere
+    pvar(:,:,Physics%XVELOCITY:Physics%YVELOCITY) = 0.
+
+    CALL Convert2Conservative(Physics,Mesh,pvar,cvar)
+    CALL Info(Mesh, " DATA-----> initial condition: " // &
+         "Rayleigh–Taylor instability")
+
+  END SUBROUTINE InitData
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+## Additional Resources
+
+There are lots of other [examples](examples.html), where you can find inspiration
+for different initializations. Especially, if you want to know how to include
+gravitational source terms have a look at a
+[self-graviting disk](markward_8f90-example.html).
+
+*/

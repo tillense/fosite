@@ -25,6 +25,7 @@
 !#                                                                           #
 !#############################################################################
 !> \addtogroup fileio
+!! \brief Handles all Input/Output
 !! - general parameters of fileio group as key-values
 !! \key{count,INTEGER,number of output steps,1}
 !! \key{filecycles,INTEGER,number of data files (=0 => one file and append data),count+1}

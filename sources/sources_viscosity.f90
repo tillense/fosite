@@ -38,9 +38,6 @@
 !! \author Tobias Illenseer
 !!
 !! \brief viscosity of Newtonian fluid
-!!
-!! \extends sources_c_accel
-!! \ingroup sources
 !----------------------------------------------------------------------------!
 MODULE sources_viscosity_mod
   USE sources_base_mod

@@ -188,7 +188,7 @@ add_subdirectory(tests)
 #--------------------- doxygen documentation ----------------------------------#
 option(BUILD_DOC "Build documentation" ON)
 
-find_package(Doxygen)
+find_package(Doxygen 1.8.12)
 if(DOXYGEN_FOUND)
   set(DOXYGEN_IN ${CMAKE_CURRENT_SOURCE_DIR}/doc/Doxyfile.in)
   set(DOXYGEN_OUT ${CMAKE_CURRENT_BINARY_DIR}/doc/Doxyfile)

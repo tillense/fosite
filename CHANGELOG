@@ -1,0 +1,15 @@
+# Changelog
+This is the changelog for the fosite project.
+
+## [Unreleased]
+### Added
+- ...
+### Changed
+### Deprecated
+### Removed
+### Fixes
+
+## 1.0.0 - 2018-11-31
+### Initial version
+- Changes code structure compared to the 2D version of fosite to
+  fortran 2003 standard.

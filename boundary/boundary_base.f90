@@ -30,6 +30,8 @@
 !! \key{eastern,INTEGER,boundary condition at eastern boundary}
 !! \key{southern,INTEGER,boundary condition at southern boundary}
 !! \key{northern,INTEGER,boundary condition at northern boundary}
+!! \key{bottomer,INTEGER,boundary condition at bottomer boundary}
+!! \key{topper,INTEGER,boundary condition at topper boundary}
 !----------------------------------------------------------------------------!
 !> \author Tobias Illenseer
 !! \author Manuel Jung

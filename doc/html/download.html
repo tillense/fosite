@@ -13,6 +13,11 @@
   <link href="bootstrap.css" rel="stylesheet">
   <!-- load jquery -->
   <script src="jquery.js" type="text/javascript"></script>
+  <script>
+  $(function(){
+    $("#includedContent").load("CHANGELOG.html");
+  });
+  </script>
   <!-- additional javascript -->
   <script src="dynsections.js" type="text/javascript"></script>
   <script async defer src="https://buttons.github.io/buttons.js"></script>
@@ -65,6 +70,7 @@
     </div>
   </nav>
 
+
   <div id="top">
     <div class="content" id="content">
       <div class="container">
@@ -81,7 +87,7 @@
 							<!--body-->
               <p>Our project is hosted on:</p>
 
-              <a href="https://sourceforge.net/projects/fosite/">
+              <a target="_blank" rel="noopener noreferrer" href="https://sourceforge.net/projects/fosite/">
               <button class="btn btn-lg btn-space btn-default col-md-12" background-color="black" color="white">
                 <img src="sourceforge_icon.png" class="pull-left" width="50"/></span> Sourceforge
               </button>
@@ -89,35 +95,30 @@
               <p>In order to checkout the repository via SVN, type:</p>
               <pre class="fragment">svn checkout https://svn.code.sf.net/p/fosite/code/trunk fosite</pre>
               <p></p>
-              <a href="https://github.com/gzahl/fosite">
+              <a target="_blank" rel="noopener noreferrer" href="https://github.com/gzahl/fosite">
               <button class="btn btn-lg btn-space btn-default col-md-12" margin-bottom="5px">
                 <img src="github_icon.png" class="pull-left" width="50"/></span> GitHub
               </button>
               </a>
 
-              <p>In order to checkout the repository via Git, type:</p>
+              <p>In order to checkout the repository via git, type:</p>
               <pre class="fragment"> git clone https://github.com/gzahl/fosite </pre>
               <p></p>
 
+              <!--
               <h2>Contribute</h2>
               <p>If you have fixed or added something which you want to be included in Fosite you are encouraged to send a pull request. If you are
               interested in a larger participation just <a class="nav-link" href="contact.html"> contact </a> us in order to get access to the privat
               repositories.</p>
+              -->
+
+							<!--
               <div>
                 <h1 id="changelog">Changelog</h1>
-                  <div class="alert alert-danger">
-                    The Changelog is not yet finished.
-                  </div>
-								<h5>Release 0.7.0</h5>
-								<h6>Date: January 17, 2017</h6>
-                <p>
-                <ul>
-                 <li>Enhancement: Fargo capability</li>
-                 <li>Enhancement: HLLC and HLL-solver</li>
-                 <li>Enhancement: Shearingsheet modules</li>
+				      		<div id="includedContent"></div>
                 </ul>
-                </p>
               </div>
+							-->
             </div>
           </div>
         </div>

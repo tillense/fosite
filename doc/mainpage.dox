@@ -1,4 +1,4 @@
-/*! \mainpage Fosite - 2D hydrodynamical simulation program
+/*! \mainpage Fosite - hydrodynamical simulation program
 
 
 These are the documentation pages to the hydrodynamic suite Fosite. In
@@ -33,7 +33,7 @@ The code is distributed under the GNU General Public License - see the
 accompanying LICENSE file for more details. So feel free to experiment
 with this.
 
-<span class="glyphicon glyphicon-copyright-mark"></span> 2006-2017 \n
+<span class="glyphicon glyphicon-copyright-mark"></span> 2006-2018 \n
 Tobias Illenseer <tillense@astrophysik.uni-kiel.de> \n
 Manuel Jung <manuel.jung@hs.uni-hamburg.de> \n
 Jannes Klee <jklee@astrophysik.uni-kiel.de> \n

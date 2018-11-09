@@ -23,7 +23,6 @@
 !# Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.                 #
 !#                                                                           #
 !#############################################################################
-!> \addtogroup gravity
 !! - parameters of \link gravity_spectral \endlink as key-values
 !! \key{green,INTEGER, type of Green-function,1}
 !! \key{sigma,REAL,standard deviation,0.05}

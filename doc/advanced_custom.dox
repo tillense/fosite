@@ -1,5 +1,9 @@
 /*! \page advanced_custom Advanced Customization
 
+<div class="alert alert-danger">
+  This part needs to be revised!
+</div>
+
 Because of the modular structure of the code it is possible to introduce
 completely new physics with comparatively little effort. Take a look at
 these subdirectories to add new features:

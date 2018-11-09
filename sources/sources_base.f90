@@ -23,7 +23,11 @@
 !# Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.                 #
 !#                                                                           #
 !#############################################################################
+!----------------------------------------------------------------------------!
 !> \addtogroup sources
+!!
+!! \brief Includes all source terms
+!!
 !! - general parameters of sources group as key-values
 !! \key{stype,INTEGER,Type of source}
 !----------------------------------------------------------------------------!
