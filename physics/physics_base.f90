@@ -49,6 +49,7 @@ MODULE physics_base_mod
   USE constants_generic_mod
   USE logging_base_mod
   USE mesh_base_mod
+  USE marray_base_mod
   USE marray_compound_mod
   USE common_dict
   IMPLICIT NONE
@@ -298,23 +299,19 @@ MODULE physics_base_mod
 !       REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%NFACES,this%VNUM), &
 !                           INTENT(IN)    :: prim
 !     END SUBROUTINE
-    PURE SUBROUTINE CalcWaveSpeeds_center(this,Mesh,pvar,minwav,maxwav)
-      IMPORT physics_base,mesh_base
+    PURE SUBROUTINE CalcWaveSpeeds_center(this,pvar,minwav,maxwav)
+      IMPORT physics_base,mesh_base,marray_base,marray_compound
       CLASS(physics_base), INTENT(INOUT) :: this
-      CLASS(mesh_base),    INTENT(IN)    :: Mesh
-      REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM), &
-                           INTENT(IN)    :: pvar
-      REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%NDIMS), &
-                           INTENT(OUT)   :: minwav,maxwav
+      CLASS(marray_compound), INTENT(INOUT) :: pvar
+      TYPE(marray_base), INTENT(INOUT)     :: minwav,maxwav
     END SUBROUTINE
     PURE SUBROUTINE CalcWaveSpeeds_faces(this,Mesh,prim,cons,minwav,maxwav)
-      IMPORT physics_base,mesh_base
+      IMPORT physics_base,mesh_base,marray_base,marray_compound
       CLASS(physics_base), INTENT(INOUT) :: this
       CLASS(mesh_base),    INTENT(IN)    :: Mesh
       REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%NFACES,this%VNUM), &
                            INTENT(IN)    :: prim,cons
-      REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%NDIMS), &
-                           INTENT(OUT)   :: minwav,maxwav
+      TYPE(marray_base), INTENT(INOUT)   :: minwav,maxwav
     END SUBROUTINE
     PURE SUBROUTINE CalcFluxesX(this,Mesh,nmin,nmax,prim,cons,xfluxes)
       IMPORT physics_base,mesh_base
@@ -540,9 +537,7 @@ MODULE physics_base_mod
        SI, CGS, GEOMETRICAL, EULER2D_ISOIAMT, &
        EULER2D_IAMT, EULER2D_IAMROT, EULER2D_ISOIAMROT, &
        EULER3D_ISOTHERM, EULER3D, &
-       UNDEFINED, PRIMITIVE, CONSERVATIVE, &
-       ! methods - only elemental functions
-       CalcWaveSpeeds
+       UNDEFINED, PRIMITIVE, CONSERVATIVE
   !--------------------------------------------------------------------------!
 
 CONTAINS
@@ -688,20 +683,6 @@ CONTAINS
     !------------------------------------------------------------------------!
     ! do nothing, just a dummy
   END SUBROUTINE Convert2Conservative_base
-
-  !> \todo NOT VERIFIED
-  !!
-  !! global elemental routine
-  ELEMENTAL SUBROUTINE CalcWaveSpeeds(cs,v,minwav,maxwav)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    REAL, INTENT(IN)  :: cs,v
-    REAL, INTENT(OUT) :: minwav,maxwav
-    !------------------------------------------------------------------------!
-    ! minimal and maximal wave speeds
-    minwav = MIN(0.,v-cs)
-    maxwav = MAX(0.,v+cs)
-  END SUBROUTINE CalcWaveSpeeds
 
   !> Destructor
   SUBROUTINE Finalize_base(this)

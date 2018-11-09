@@ -565,31 +565,23 @@ CONTAINS
   END SUBROUTINE Convert2Conservative_facesub
 
   !> Calculates wave speeds at cell-centers
-  PURE SUBROUTINE CalcWaveSpeeds_center(this,Mesh,pvar,minwav,maxwav)
+  PURE SUBROUTINE CalcWaveSpeeds_center(this,pvar,minwav,maxwav)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(physics_eulerisotherm), INTENT(INOUT) :: this
-    CLASS(mesh_base),         INTENT(IN)    :: Mesh
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM), &
-                              INTENT(IN)    :: pvar
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%NDIMS), &
-                              INTENT(OUT)   :: minwav,maxwav
+    CLASS(marray_compound), INTENT(INOUT)   :: pvar
+    TYPE(marray_base), INTENT(INOUT)          :: minwav,maxwav
     !------------------------------------------------------------------------!
-    INTEGER                                 :: i,j,k
+    INTEGER :: n
     !------------------------------------------------------------------------!
     ! compute minimal and maximal wave speeds at cell centers
-    DO k=Mesh%KGMIN,Mesh%KGMAX
-      DO j=Mesh%JGMIN,Mesh%JGMAX
-         DO i=Mesh%IGMIN,Mesh%IGMAX
-          ! x-direction
-          CALL SetWaveSpeeds(this%bccsound%data3d(i,j,k),pvar(i,j,k,this%XVELOCITY),&
-               minwav(i,j,k,1),maxwav(i,j,k,1))
-          ! y-direction
-          CALL SetWaveSpeeds(this%bccsound%data3d(i,j,k),pvar(i,j,k,this%YVELOCITY),&
-               minwav(i,j,k,2),maxwav(i,j,k,2))
-         END DO
+    SELECT TYPE(p => pvar)
+    TYPE IS(statevector_eulerisotherm)
+      DO n=1,this%VDIM
+        CALL SetWaveSpeeds(this%bccsound%data1d(:),p%velocity%data2d(:,n),&
+              minwav%data2d(:,n),maxwav%data2d(:,n))
       END DO
-    END DO
+    END SELECT
   END SUBROUTINE CalcWaveSpeeds_center
 
   !> Calculates wave speeds at cell-faces
@@ -600,35 +592,78 @@ CONTAINS
     CLASS(mesh_base),         INTENT(IN)    :: Mesh
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%NFACES,this%VNUM), &
                               INTENT(IN)    :: prim,cons
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%NDIMS), &
-                              INTENT(OUT)   :: minwav,maxwav
+    TYPE(marray_base), INTENT(INOUT)          :: minwav,maxwav
     !------------------------------------------------------------------------!
-    INTEGER                                 :: i,j,k
+    INTEGER                                 :: i,j,k,m,n
     !------------------------------------------------------------------------!
-    ! compute minimal and maximal wave speeds at cell interfaces
-    DO k=Mesh%KGMIN,Mesh%KGMAX
-      DO j=Mesh%JGMIN,Mesh%JGMAX
-        DO i=Mesh%IGMIN,Mesh%IGMAX
-          ! western
-          CALL SetWaveSpeeds(this%fcsound(i,j,k,1), &
-                             prim(i,j,k,1,this%XVELOCITY), &
-                             this%tmp(i,j,k),this%tmp1(i,j,k))
-          ! eastern
-          CALL SetWaveSpeeds(this%fcsound(i,j,k,2), &
-                             prim(i,j,k,2,this%XVELOCITY), &
-                             minwav(i,j,k,1),maxwav(i,j,k,1))
-          ! southern
-          CALL SetWaveSpeeds(this%fcsound(i,j,k,3), &
-                             prim(i,j,k,3,this%YVELOCITY), &
-                             this%tmp2(i,j,k),this%tmp3(i,j,k))
-          ! northern
-          CALL SetWaveSpeeds(this%fcsound(i,j,k,4), &
-                             prim(i,j,k,4,this%YVELOCITY), &
-                             minwav(i,j,k,2),maxwav(i,j,k,2))
+    m = this%XVELOCITY
+    n = 1
+    IF (Mesh%INUM.GT.1) THEN
+      ! compute minimal and maximal western/eastern wave speeds 
+      CALL SetWaveSpeeds(this%fcsound(:,:,:,2*n-1),prim(:,:,:,2*n-1,m), &
+                         this%tmp(:,:,:),this%tmp1(:,:,:))
+      CALL SetWaveSpeeds(this%fcsound(:,:,:,2*n),prim(:,:,:,2*n,m), &
+                         minwav%data4d(:,:,:,n),maxwav%data4d(:,:,:,n))
+      ! determine the minimum and maximum at cell interfaces
+      DO k=Mesh%KGMIN,Mesh%KGMAX
+        DO j=Mesh%JGMIN,Mesh%JGMAX
+!NEC$ IVDEP
+          DO i=Mesh%IMIN+Mesh%IM1,Mesh%IMAX
+            ! western & eastern interfaces
+            minwav%data4d(i,j,k,n) = MIN(0.0,this%tmp(i+Mesh%IP1,j,k) ,minwav%data4d(i,j,k,n))
+            maxwav%data4d(i,j,k,n) = MAX(0.0,this%tmp1(i+Mesh%IP1,j,k),maxwav%data4d(i,j,k,n))
+          END DO
         END DO
       END DO
-    END DO
+      n = n + 1
+      m = m + 1
+    ELSE
+      IF (Mesh%ROTSYM.EQ.1) m = m + 1  ! increases the velocity index
+    END IF
 
+    IF (Mesh%JNUM.GT.1) THEN
+      ! compute minimal and maximal southern/northern wave speeds 
+      CALL SetWaveSpeeds(this%fcsound(:,:,:,2*n-1),prim(:,:,:,2*n-1,m), &
+                         this%tmp(:,:,:),this%tmp1(:,:,:))
+      CALL SetWaveSpeeds(this%fcsound(:,:,:,2*n),prim(:,:,:,2*n,m), &
+                         minwav%data4d(:,:,:,n),maxwav%data4d(:,:,:,n))
+      ! determine the minimum and maximum at cell interfaces
+      DO k=Mesh%KGMIN,Mesh%KGMAX
+        DO j=Mesh%JMIN+Mesh%JM1,Mesh%JMAX
+!NEC$ IVDEP
+          DO i=Mesh%IGMIN,Mesh%IGMAX
+            ! southern & northern interfaces
+            minwav%data4d(i,j,k,n) = MIN(0.0,this%tmp(i,j+Mesh%JP1,k),minwav%data4d(i,j,k,n))
+            maxwav%data4d(i,j,k,n) = MAX(0.0,this%tmp1(i,j+Mesh%JP1,k),maxwav%data4d(i,j,k,n))
+          END DO
+        END DO
+      END DO
+      n = n + 1
+      m = m + 1
+    ELSE
+      IF (Mesh%ROTSYM.EQ.2) m = m + 1  ! increases the velocity index
+    END IF
+
+    IF (Mesh%KNUM.GT.1) THEN
+      ! compute minimal and maximal lower/upper wave speeds
+      CALL SetWaveSpeeds(this%fcsound(:,:,:,2*n-1),prim(:,:,:,2*n-1,m), &
+                         this%tmp(:,:,:),this%tmp1(:,:,:))
+      CALL SetWaveSpeeds(this%fcsound(:,:,:,2*n),prim(:,:,:,2*n,m), &
+                         minwav%data4d(:,:,:,n),maxwav%data4d(:,:,:,n))
+      ! determine the minimum and maximum at cell interfaces
+      DO k=Mesh%KMIN+Mesh%KM1,Mesh%KMAX
+        DO j=Mesh%JGMIN,Mesh%JGMAX
+!NEC$ IVDEP
+          DO i=Mesh%IGMIN,Mesh%IGMAX
+            ! bottom & top interfaces
+            minwav%data4d(i,j,k,n) = MIN(0.0,this%tmp(i,j,k+Mesh%KP1),minwav%data4d(i,j,k,n))
+            maxwav%data4d(i,j,k,n) = MAX(0.0,this%tmp1(i,j,k+Mesh%KP1),maxwav%data4d(i,j,k,n))
+          END DO
+        END DO
+      END DO
+    END IF
+
+    !!! THIS IS MOST PROBABLY BROKEN !!!
     ! set minimal and maximal wave speeds at cell interfaces of neighboring cells
 !    IF (this%advanced_wave_speeds) THEN
 !    DO k=Mesh%KGMIN,Mesh%KGMAX
@@ -680,26 +715,6 @@ CONTAINS
 !      END DO
 !    END DO
 !    ELSE
-    DO k=Mesh%KGMIN,Mesh%KGMAX
-      DO j=Mesh%JGMIN,Mesh%JGMAX
-!NEC$ IVDEP
-        DO i=Mesh%IMIN+Mesh%IM1,Mesh%IMAX
-          ! western & eastern interfaces
-          minwav(i,j,k,1) = MIN(0.0,this%tmp(i+Mesh%ip1,j,k) ,minwav(i,j,k,1))
-          maxwav(i,j,k,1) = MAX(0.0,this%tmp1(i+Mesh%ip1,j,k),maxwav(i,j,k,1))
-        END DO
-      END DO
-    END DO
-    DO k=Mesh%KGMIN,Mesh%KGMAX
-      DO j=Mesh%JMIN+Mesh%JM1,Mesh%JMAX
-!NEC$ IVDEP
-        DO i=Mesh%IGMIN,Mesh%IGMAX
-          ! southern & northern interfaces
-          minwav(i,j,k,2) = MIN(0.0,this%tmp2(i,j+Mesh%jp1,k),minwav(i,j,k,2))
-          maxwav(i,j,k,2) = MAX(0.0,this%tmp3(i,j+Mesh%jp1,k),maxwav(i,j,k,2))
-        END DO
-      END DO
-    END DO
 !    END IF
   END SUBROUTINE CalcWaveSpeeds_faces
 

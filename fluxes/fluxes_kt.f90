@@ -148,10 +148,10 @@ CONTAINS
 !NEC$ IVDEP
               DO i=Mesh%IMIN+Mesh%IM1,Mesh%IMAX
                   xfluxdydz(i,j,k,l) = Mesh%dAxdydz(i+1,j,k,1) / &
-                         (this%maxwav(i,j,k,m) - this%minwav(i,j,k,m)) * &
-                         (this%maxwav(i,j,k,m) * this%pfluxes(i,j,k,m+1,l) - &
-                          this%minwav(i,j,k,m) * this%pfluxes(i+1,j,k,m,l) + &
-                          this%minwav(i,j,k,m) * this%maxwav(i,j,k,m) * &
+                         (this%maxwav%data4d(i,j,k,m) - this%minwav%data4d(i,j,k,m)) * &
+                         (this%maxwav%data4d(i,j,k,m) * this%pfluxes(i,j,k,m+1,l) - &
+                          this%minwav%data4d(i,j,k,m) * this%pfluxes(i+1,j,k,m,l) + &
+                          this%minwav%data4d(i,j,k,m) * this%maxwav%data4d(i,j,k,m) * &
                       (this%cons(i+1,j,k,m,l) - this%cons(i,j,k,m+1,l)))
               END DO
             END DO
@@ -174,10 +174,10 @@ CONTAINS
             DO j=Mesh%JMIN+Mesh%JM1,Mesh%JMAX
               DO i=Mesh%IGMIN,Mesh%IGMAX
                   yfluxdzdx(i,j,k,l) = Mesh%dAydzdx(i,j+1,k,1) / &
-                         (this%maxwav(i,j,k,m) - this%minwav(i,j,k,m)) * &
-                         (this%maxwav(i,j,k,m) * this%pfluxes(i,j,k,2*m,l) - &
-                          this%minwav(i,j,k,m) * this%pfluxes(i,j+1,k,2*m-1,l) + &
-                          this%minwav(i,j,k,m) * this%maxwav(i,j,k,m) * &
+                         (this%maxwav%data4d(i,j,k,m) - this%minwav%data4d(i,j,k,m)) * &
+                         (this%maxwav%data4d(i,j,k,m) * this%pfluxes(i,j,k,2*m,l) - &
+                          this%minwav%data4d(i,j,k,m) * this%pfluxes(i,j+1,k,2*m-1,l) + &
+                          this%minwav%data4d(i,j,k,m) * this%maxwav%data4d(i,j,k,m) * &
                       (this%cons(i,j+1,k,2*m-1,l) - this%cons(i,j,k,2*m,l)))
               END DO
             END DO
@@ -200,10 +200,10 @@ CONTAINS
 !NEC$ IVDEP
               DO i=Mesh%IGMIN,Mesh%IGMAX
                   zfluxdxdy(i,j,k,l) = Mesh%dAzdxdy(i,j,k+1,1) / &
-                         (this%maxwav(i,j,k,m) - this%minwav(i,j,k,m)) * &
-                         (this%maxwav(i,j,k,m) * this%pfluxes(i,j,k,2*m,l) - &
-                          this%minwav(i,j,k,m) * this%pfluxes(i,j,k+1,2*m-1,l) + &
-                          this%minwav(i,j,k,m) * this%maxwav(i,j,k,m) * &
+                         (this%maxwav%data4d(i,j,k,m) - this%minwav%data4d(i,j,k,m)) * &
+                         (this%maxwav%data4d(i,j,k,m) * this%pfluxes(i,j,k,2*m,l) - &
+                          this%minwav%data4d(i,j,k,m) * this%pfluxes(i,j,k+1,2*m-1,l) + &
+                          this%minwav%data4d(i,j,k,m) * this%maxwav%data4d(i,j,k,m) * &
                       (this%cons(i,j,k+1,2*m-1,l) - this%cons(i,j,k,2*m,l)))
              END DO
             END DO

@@ -37,6 +37,7 @@
 MODULE fluxes_base_mod
   USE logging_base_mod
   USE mesh_base_mod
+  USE marray_base_mod
   USE reconstruction_generic_mod
   USE physics_base_mod
   USE common_dict
@@ -54,13 +55,12 @@ MODULE fluxes_base_mod
   !--------------------------------------------------------------------------!
   PRIVATE
   TYPE, ABSTRACT, EXTENDS (logging_base) ::  fluxes_base
-     !> \name Variables
+     !> \name Classes
      CLASS(reconstruction_base), ALLOCATABLE &
                                   :: Reconstruction  !< reconstruction method
+     CLASS(marray_base), ALLOCATABLE :: minwav,maxwav!< wave speeds
      !> \name
      !! #### various data fields
-     REAL, DIMENSION(:,:,:,:), POINTER &
-                                  :: minwav,maxwav   !< wave speeds
      REAL, DIMENSION(:,:,:,:), POINTER &
                                   :: dx,dy,dz, &     !< coordinate differences
                                      bxflux,byflux, &
@@ -140,12 +140,10 @@ CONTAINS
     ! allocate memory for all arrays used in fluxes
     !ALLOCATE(this%Reconstruction)
     ! TODO CONSTRUCTOR!!!!!
-    ALLOCATE( &
+    ALLOCATE(this%minwav,this%maxwav, &
       this%cons(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%NFACES,Physics%VNUM),    &
       this%prim(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%NFACES,Physics%VNUM),    &
       this%pfluxes(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%NFACES,Physics%VNUM), &
-      this%minwav(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%NDIMS), &
-      this%maxwav(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%NDIMS), &
       this%bxflux(Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,2,Physics%VNUM),      &
       this%byflux(Mesh%KGMIN:Mesh%KGMAX,Mesh%IGMIN:Mesh%IGMAX,2,Physics%VNUM),      &
       this%bzflux(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,2,Physics%VNUM),      &
@@ -159,6 +157,10 @@ CONTAINS
     IF (err.NE.0) THEN
        CALL this%Error("InitFluxes", "Unable to allocate memory.")
     END IF
+
+    ! create RANK 1 mesh arrays
+    this%minwav = marray_base(Mesh%NDIMS)
+    this%maxwav = marray_base(Mesh%NDIMS)
 
     ! print some information
     CALL this%Info(" FLUXES---> fluxes type        " // TRIM(this%GetName()))
@@ -199,9 +201,9 @@ CONTAINS
     CALL GetAttr(config, "output/wave_speeds", valwrite, 0)
     IF(valwrite.EQ.1) THEN
       CALL SetAttr(IO, "minwav", &
-                   this%minwav(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,1:Mesh%NDIMS))
+                   this%minwav%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,1:Mesh%NDIMS))
       CALL SetAttr(IO, "maxwav", &
-                   this%maxwav(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,1:Mesh%NDIMS))
+                   this%maxwav%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,1:Mesh%NDIMS))
       END IF
 
     ! set reconstruction pointer
@@ -411,6 +413,8 @@ CONTAINS
     !------------------------------------------------------------------------!
     IF (.NOT.this%Initialized()) &
         CALL this%Error("CloseFluxes","not initialized")
+    CALL this%minwav%Destroy()
+    CALL this%maxwav%Destroy()
     DEALLOCATE(this%cons,this%prim,this%pfluxes,this%minwav,this%maxwav, &
          this%bxflux,this%byflux,this%bzflux,this%bxfold,this%byfold,this%bzfold, &
          this%dx,this%dy,this%dz)

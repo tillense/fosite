@@ -781,39 +781,50 @@ CONTAINS
         END SELECT
       END SELECT
     END IF
-    CALL Physics%CalculateWaveSpeeds(Mesh,this%pvar%data4d,Fluxes%minwav,Fluxes%maxwav)
 
+    SELECT TYPE(phys => Physics)
+      CLASS IS(physics_eulerisotherm)
+        SELECT TYPE(pvar => this%pvar)
+        CLASS IS(statevector_eulerisotherm)
+          CALL phys%CalculateWaveSpeeds(pvar,Fluxes%minwav,Fluxes%maxwav)
+        END SELECT
+!       CLASS IS(physics_euler)
+!         SELECT TYPE(pvar => this%pvar)
+!         CLASS IS(statevector_euler)
+!           CALL phys%CalculateWaveSpeeds(Mesh,pvar,Fluxes%minwav,Fluxes%maxwav)
+!         END SELECT
+    END SELECT
 
     ! compute maximum of inverse time for CFL condition
     IF ((Mesh%JNUM.EQ.1).AND.(Mesh%KNUM.EQ.1)) THEN
        ! 1D, only x-direction
-       invdt = MAXVAL(MAX(Fluxes%maxwav(:,:,:,1),-Fluxes%minwav(:,:,:,1)) / Mesh%dlx(:,:,:))
+       invdt = MAXVAL(MAX(Fluxes%maxwav%data4d(:,:,:,1),-Fluxes%minwav%data4d(:,:,:,1)) / Mesh%dlx(:,:,:))
     ELSE IF ((Mesh%INUM.EQ.1).AND.(Mesh%KNUM.EQ.1)) THEN
        ! 1D, only y-direction
-       invdt = MAXVAL(MAX(Fluxes%maxwav(:,:,:,2),-Fluxes%minwav(:,:,:,2)) / Mesh%dly(:,:,:))
+       invdt = MAXVAL(MAX(Fluxes%maxwav%data4d(:,:,:,2),-Fluxes%minwav%data4d(:,:,:,2)) / Mesh%dly(:,:,:))
     ELSE IF ((Mesh%INUM.EQ.1).AND.(Mesh%JNUM.EQ.1)) THEN
        ! 1D, only z-direction
-       invdt = MAXVAL(MAX(Fluxes%maxwav(:,:,:,3),-Fluxes%minwav(:,:,:,3)) / Mesh%dlz(:,:,:))
+       invdt = MAXVAL(MAX(Fluxes%maxwav%data4d(:,:,:,3),-Fluxes%minwav%data4d(:,:,:,3)) / Mesh%dlz(:,:,:))
     ELSE IF ((Mesh%INUM.GT.1).AND.(Mesh%JNUM.GT.1).AND.(Mesh%KNUM.EQ.1)) THEN
        ! 2D, x-y-plane
-       invdt = MAXVAL(MAX(Fluxes%maxwav(:,:,:,1),-Fluxes%minwav(:,:,:,1)) / Mesh%dlx(:,:,:) &
-                    + MAX(Fluxes%maxwav(:,:,:,2),-Fluxes%minwav(:,:,:,2)) / Mesh%dly(:,:,:))
+       invdt = MAXVAL(MAX(Fluxes%maxwav%data4d(:,:,:,1),-Fluxes%minwav%data4d(:,:,:,1)) / Mesh%dlx(:,:,:) &
+                    + MAX(Fluxes%maxwav%data4d(:,:,:,2),-Fluxes%minwav%data4d(:,:,:,2)) / Mesh%dly(:,:,:))
     ELSE IF ((Mesh%INUM.GT.1).AND.(Mesh%KNUM.GT.1).AND.(Mesh%JNUM.EQ.1)) THEN
        ! 2D, x-z-plane
-       invdt = MAXVAL(MAX(Fluxes%maxwav(:,:,:,1),-Fluxes%minwav(:,:,:,1)) / Mesh%dlx(:,:,:) &
-                    + MAX(Fluxes%maxwav(:,:,:,2),-Fluxes%minwav(:,:,:,2)) / Mesh%dlz(:,:,:))
+       invdt = MAXVAL(MAX(Fluxes%maxwav%data4d(:,:,:,1),-Fluxes%minwav%data4d(:,:,:,1)) / Mesh%dlx(:,:,:) &
+                    + MAX(Fluxes%maxwav%data4d(:,:,:,2),-Fluxes%minwav%data4d(:,:,:,2)) / Mesh%dlz(:,:,:))
     ELSE IF ((Mesh%JNUM.GT.1).AND.(Mesh%KNUM.GT.1).AND.(Mesh%INUM.EQ.1)) THEN
        ! 2D, y-z-plane
-       invdt = MAXVAL(MAX(Fluxes%maxwav(:,:,:,1),-Fluxes%minwav(:,:,:,1)) / Mesh%dly(:,:,:) &
-                    + MAX(Fluxes%maxwav(:,:,:,2),-Fluxes%minwav(:,:,:,2)) / Mesh%dlz(:,:,:))
+       invdt = MAXVAL(MAX(Fluxes%maxwav%data4d(:,:,:,1),-Fluxes%minwav%data4d(:,:,:,1)) / Mesh%dly(:,:,:) &
+                    + MAX(Fluxes%maxwav%data4d(:,:,:,2),-Fluxes%minwav%data4d(:,:,:,2)) / Mesh%dlz(:,:,:))
     ELSE
        ! full 3D
        !TODO: Achtung: Hier wurde fuer eine bessere Symmetrie fuer jede Richtung ein eigenes invdt
        ! berechnet. Dies koennte jedoch einen Verlust an Stabilitaet bewirken. Hier muesste mal eine
        ! Stabilitaetsanalyse gemacht werden
-       invdt_x = MAXVAL(MAX(Fluxes%maxwav(:,:,:,1),-Fluxes%minwav(:,:,:,1)) / Mesh%dlx(:,:,:))
-       invdt_y = MAXVAL(MAX(Fluxes%maxwav(:,:,:,2),-Fluxes%minwav(:,:,:,2)) / Mesh%dly(:,:,:))
-       invdt_z = MAXVAL(MAX(Fluxes%maxwav(:,:,:,3),-Fluxes%minwav(:,:,:,3)) / Mesh%dlz(:,:,:))
+       invdt_x = MAXVAL(MAX(Fluxes%maxwav%data4d(:,:,:,1),-Fluxes%minwav%data4d(:,:,:,1)) / Mesh%dlx(:,:,:))
+       invdt_y = MAXVAL(MAX(Fluxes%maxwav%data4d(:,:,:,2),-Fluxes%minwav%data4d(:,:,:,2)) / Mesh%dly(:,:,:))
+       invdt_z = MAXVAL(MAX(Fluxes%maxwav%data4d(:,:,:,3),-Fluxes%minwav%data4d(:,:,:,3)) / Mesh%dlz(:,:,:))
        invdt = MAX(invdt_y,invdt_z,invdt_x)
      !  invdt = MAXVAL(MAX(Fluxes%maxwav(:,:,:,3),-Fluxes%minwav(:,:,:,3)) / Mesh%dlz(:,:,:) &
      !               + MAX(Fluxes%maxwav(:,:,:,2),-Fluxes%minwav(:,:,:,2)) / Mesh%dly(:,:,:) &
