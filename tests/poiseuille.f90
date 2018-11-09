@@ -182,7 +182,7 @@ CONTAINS
 
     ! initialize data input/output
     datafile => Dict( &
-               "fileformat" / VTK, &
+               "fileformat" / XDMF, &
                "filename"   / (TRIM(ODIR) // TRIM(OFNAME)), &
                "count"      / ONUM)
 
