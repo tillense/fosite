@@ -93,7 +93,7 @@ PROGRAM sedov2d
 #ifdef PARALLEL
   ALLOCATE(pvar(Sim%Mesh%IMIN:Sim%Mesh%IMAX),pvar_all(Sim%GetNumProcs()*(Sim%Mesh%IMAX-Sim%Mesh%IMIN+1)))
   ALLOCATE(radius(Sim%Mesh%IMIN:Sim%Mesh%IMAX),radius_all(Sim%GetNumProcs()*(Sim%Mesh%IMAX-Sim%Mesh%IMIN+1)))
-  pvar(:) = Sim%Timedisc%pvar(Sim%Mesh%IMIN:SIM%Mesh%IMAX,1,1,1)
+  pvar(:) = Sim%Timedisc%pvar%data4d(Sim%Mesh%IMIN:SIM%Mesh%IMAX,1,1,1)
   radius(:)= Sim%Mesh%radius%center(Sim%Mesh%IMIN:Sim%Mesh%IMAX,1,1)
   !Compare results with analytical solution. Check only for correct shock velocity
   !even if the full analytical solution is implemented

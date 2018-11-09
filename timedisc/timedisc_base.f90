@@ -1433,6 +1433,7 @@ CONTAINS
     INTEGER              :: i,k,l,order
     INTEGER              :: GMIN1,GMIN2,GMAX1,GMAX2,MIN1,MIN2,MAX1,MAX2
 #ifdef PARALLEL
+    CHARACTER(LEN=80)    :: str
     INTEGER              :: status(MPI_STATUS_SIZE)
     INTEGER              :: ierror
     INTEGER              :: PAR_DIMS,LINECOMM1,DIRECTION1,DIRECTION2,MINNUM1
