@@ -937,6 +937,7 @@ CONTAINS
     CLASS(mesh_base), INTENT(INOUT)    :: this   !< \param [in,out] this all mesh data
     TYPE(Dict_TYP),POINTER             :: config
     !------------------------------------------------------------------------!
+    CHARACTER(LEN=64)                  :: decomp_str
     LOGICAL, DIMENSION(3)              :: remain_dims, periods
     INTEGER                            :: num,rem
     INTEGER                            :: ierror
@@ -962,79 +963,94 @@ CONTAINS
     ! distribution of processes along all directions considering the number of
     ! cells and the hardware vector length.
     ! This is done in CalculateDecomposition() (see below).
-    dims(:)= -1
-    CALL GetAttr(config, "decomposition", dims, dims(:))
 
-    ! set number of cells along each direction
-    ncells(1) = this%INUM
-    ncells(2) = this%JNUM
-    ncells(3) = this%KNUM
+    ! perform the decomposition on rank 0 and broadcast to other processes (see below)
+    IF (this%GetRank().EQ.0) THEN
+      dims(:)= -1
+      CALL GetAttr(config, "decomposition", dims, dims(1:3))
+      WRITE (decomp_str,'(3(A,I0),A)') "[ ", dims(1), ", ", dims(2), ", ",dims(3), " ]"
 
-    ! perform some sanity checks
-    IF (ALL(dims(:).GE.1).AND.PRODUCT(dims(:)).NE.this%GetNumProcs()) &
-      CALL this%Error("InitMesh_parallel","total number of processes in domain decomposition" &
-         // ACHAR(10) // "does not match the number passed to mpirun")
+      ! set number of cells along each direction again
+      ncells(1) = this%INUM
+      ncells(2) = this%JNUM
+      ncells(3) = this%KNUM
 
-    IF (ANY(dims(:).EQ.0)) &
-      CALL this%Error("InitMesh_parallel","numbers in decomposition should not be 0")
+      ! perform some sanity checks
+      IF (ALL(dims(:).GE.1).AND.PRODUCT(dims(:)).NE.this%GetNumProcs()) &
+        CALL this%Error("InitMesh_parallel","total number of processes in domain decomposition " &
+          // TRIM(decomp_str) // ACHAR(10) // REPEAT(' ',7) // &
+          "does not match the number passed to mpirun")
 
-    IF (MOD(this%GetNumProcs(),PRODUCT(dims(:),dims(:).GT.1)).NE.0) &
-      CALL this%Error("InitMesh_parallel","numbers in decomposition are not devisors" &
-        // ACHAR(10) // "of the total number of processes passed to mpirun")
+      IF (ANY(dims(:).EQ.0)) &
+        CALL this%Error("InitMesh_parallel","numbers in decomposition should not be 0")
 
-    IF (ANY(dims(:).GT.ncells(:))) &
-      CALL this%Error("InitMesh_parallel","number of processes exceeds number of cells " &
-        // ACHAR(10) // "in at least one dimension, check decomposition")
+      IF (MOD(this%GetNumProcs(),PRODUCT(dims(:),dims(:).GT.1)).NE.0) &
+        CALL this%Error("InitMesh_parallel","numbers in decomposition " &
+          // TRIM(decomp_str) // ACHAR(10) // REPEAT(' ',7) // &
+          "are not devisors of the total number of processes passed to mpirun")
 
-
-    ! balance number of processes if requested
-    IF (ALL(dims(:).GT.0)) THEN
-      ! (a) all dims user supplied -> do nothing
-    ELSE IF (PRODUCT(dims(:)).GT.0) THEN
-      ! (b) two dims < 0 one dim > 0 -> find optimal decomposition fixing one of the dims
-      !     using the user supplied number
-      k = MAXLOC(dims(:),1) ! get the one index k with dims(k) > 0
-      ! suppress decomposition along the k-direction
-      ncells(k) = 1
-      i = dims(k) ! remember dims(k)
-      IF (k.EQ.1) THEN
-        ! switch entries 1 and 3 to make sure the first entry is not the one we are not decomposing
-        dims(3) = this%GetNumProcs() / dims(k) ! reduced total number of processes
-        dims(2) = 1
-        dims(1) = 1
-        CALL CalculateDecomposition(ncells(3),ncells(2),ncells(1),this%GKNUM, &
-                                    dims(3),dims(2),dims(1))
-      ELSE
-        dims(1) = this%GetNumProcs() / dims(k) ! reduced total number of processes
+      ! balance number of processes if requested
+      IF (ALL(dims(:).GT.0)) THEN
+        ! (a) all dims user supplied -> do nothing
+      ELSE IF (PRODUCT(dims(:)).GT.0) THEN
+        ! (b) two dims < 0 one dim > 0 -> find optimal decomposition fixing one of the dims
+        !     using the user supplied number
+        k = MAXLOC(dims(:),1) ! get the one index k with dims(k) > 0
+        ! suppress decomposition along the k-direction
+        ncells(k) = 1
+        i = dims(k) ! remember dims(k)
+        IF (k.EQ.1) THEN
+          ! switch entries 1 and 3 to make sure the first entry is not the one we are not decomposing
+          dims(3) = this%GetNumProcs() / dims(k) ! reduced total number of processes
+          dims(2) = 1
+          dims(1) = 1
+          CALL CalculateDecomposition(ncells(3),ncells(2),ncells(1),this%GKNUM, &
+                                      dims(3),dims(2),dims(1))
+        ELSE
+          dims(1) = this%GetNumProcs() / dims(k) ! reduced total number of processes
+          dims(2) = 1
+          dims(3) = 1
+          CALL CalculateDecomposition(ncells(1),ncells(2),ncells(3),this%GKNUM, &
+                                      dims(1),dims(2),dims(3))
+        END IF
+        dims(k) = i
+      ELSE IF (ALL(dims(:).LT.0)) THEN
+        ! (c) all dims < 0 -> find optimal decomposition using all dimensions
+        dims(1) = this%GetNumProcs()
         dims(2) = 1
         dims(3) = 1
-        CALL CalculateDecomposition(ncells(1),ncells(2),ncells(3),this%GKNUM, &
+        CALL CalculateDecomposition(ncells(1),ncells(2),ncells(3),this%GINUM, &
                                     dims(1),dims(2),dims(3))
+      ELSE
+        ! (d) one dim < 0 two dims > 0 -> fix the two dimensions and set the 3rd
+        !     using the given number of processes
+        k = MINLOC(dims(:),1) ! get the one index k with dims(k) < 0
+        dims(k) = this%GetNumProcs() / PRODUCT(dims(:),dims(:).GT.1)
       END IF
-      dims(k) = i
-    ELSE IF (ALL(dims(:).LT.0)) THEN
-      ! (c) all dims < 0 -> find optimal decomposition using all dimensions
-      dims(1) = this%GetNumProcs()
-      dims(2) = 1
-      dims(3) = 1
-      CALL CalculateDecomposition(ncells(1),ncells(2),ncells(3),this%GINUM, &
-                                  dims(1),dims(2),dims(3))
-    ELSE
-      ! (d) one dim < 0 two dims > 0 -> fix the two dimensions and set the 3rd
-      !     using the given number of processes
-      k = MINLOC(dims(:),1) ! get the one index k with dims(k) < 0
-      dims(k) = this%GetNumProcs() / PRODUCT(dims(:),dims(:).GT.1)
-      IF (dims(k).GT.ncells(k)) &
-        CALL this%Error("InitMesh_parallel","number of processes exceeds number of cells " &
-          // ACHAR(10) // "in dimension " // ACHAR(48+k) // ", check decomposition")
+
+      WRITE (decomp_str,'(3(A,I0),A)') "[ ", dims(1), ", ", dims(2), ", ",dims(3), " ]"
+
+      ! set number of cells along each direction again
+      ncells(1) = this%INUM
+      ncells(2) = this%JNUM
+      ncells(3) = this%KNUM
+      DO i=1,3
+        IF (dims(i).GT.ncells(i)) &
+          CALL this%Error("InitMesh_parallel","number of processes exceeds number of cells " &
+            // ACHAR(10) // REPEAT(' ',7) // "in dimension " // ACHAR(48+i) // ", check decomposition " &
+            // TRIM(decomp_str))
+      END DO
+
+      IF (dims(3).LE.0) THEN
+        CALL this%Error("InitMesh_parallel","automatic domain decomposition failed.")
+      END IF
+
       this%dims(:) = dims(:)
-    END IF
 
-    IF (dims(3).LE.0) THEN
-      CALL this%Error("InitMesh_parallel","Domain decomposition algorithm failed.")
     END IF
-
-    this%dims(:) = dims(:)
+    
+    CALL MPI_Bcast(this%dims,3,MPI_INTEGER,0,MPI_COMM_WORLD,ierror)
+    
 ! PRINT *,this%dims(:)
 ! CALL this%Error("InitMesh_parallel","debug breakpoint")
 
