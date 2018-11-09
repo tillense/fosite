@@ -180,15 +180,9 @@ CONTAINS
                "dtlimit"  / 1.0E-8, &
                "maxiter"  / 1000000)
 
-    ! initialize log input/output
-!!$    CALL InitFileIO(Logfile,Mesh,Physics,Timedisc,&
-!!$         fileformat = BINARY,, &
-!!$         filename   = TRIM(ODIR) // TRIM(OFNAME) // 'log',, &
-!!$         filecycles = 1)
-
     ! initialize data input/output
     datafile => Dict( &
-               "fileformat" / BINARY, &
+               "fileformat" / VTK, &
                "filename"   / (TRIM(ODIR) // TRIM(OFNAME)), &
                "count"      / ONUM)
 

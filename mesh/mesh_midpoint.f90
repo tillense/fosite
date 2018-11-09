@@ -345,7 +345,7 @@ CONTAINS
           divv(i,j,k) = Divergence3D(this%dAxdydz(i,j,k,1),this%dAxdydz(i,j,k,2), &
                                      this%dAydzdx(i,j,k,1),this%dAydzdx(i,j,k,2), &
                                      this%dAzdxdy(i,j,k,1),this%dAzdxdy(i,j,k,2), &
-                                     this%dxdydV(i,j,k),this%dzdxdV(i,j,k),this%dydzdV(i,k,k), &
+                                     this%dxdydV(i,j,k),this%dzdxdV(i,j,k),this%dydzdV(i,j,k), &
                                      0.0,0.0,0.0,0.0, & ! no commutator coefficients
                                      0.5*(vx(i-1,j,k)+vx(i,j,k)),0.5*(vx(i+1,j,k)+vx(i,j,k)), &
                                      0.5*(vy(i,j-1,k)+vy(i,j,k)),0.5*(vy(i,j+1,k)+vy(i,j,k)), &
