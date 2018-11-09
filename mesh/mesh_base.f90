@@ -964,10 +964,14 @@ CONTAINS
     ! cells and the hardware vector length.
     ! This is done in CalculateDecomposition() (see below).
 
-    ! perform the decomposition on rank 0 and broadcast to other processes (see below)
+    ! defaults to -1, i.e., fully automatic decomposition
+    dims(:)= -1
+    CALL GetAttr(config, "decomposition", dims, dims(1:3))
+
+    ! perform the decomposition on rank 0 and broadcast the result 
+    ! to other processes (see below)
     IF (this%GetRank().EQ.0) THEN
-      dims(:)= -1
-      CALL GetAttr(config, "decomposition", dims, dims(1:3))
+      ! for more elaborate error output
       WRITE (decomp_str,'(3(A,I0),A)') "[ ", dims(1), ", ", dims(2), ", ",dims(3), " ]"
 
       ! set number of cells along each direction again
