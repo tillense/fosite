@@ -329,7 +329,7 @@ CONTAINS
     ! This would yield undefined data, because GetCentrifugalVelocity calls ComputeRHS
     ! which calls CenterBoundary. Since the FARFIELD boundary conditions are not
     ! initialized at this stage (see below), the result is undefined.
-    pvar(:,:,:,Physics%XVELOCITY:Physics%XVELOCITY+Physics%DIM-1) = &
+    pvar(:,:,:,Physics%XVELOCITY:Physics%XVELOCITY+Physics%VDIM-1) = &
         Timedisc%GetCentrifugalVelocity(Mesh,Physics,Fluxes,Sources,(/0.,0.,1./),gp%accel)
 
 

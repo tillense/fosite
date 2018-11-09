@@ -78,12 +78,14 @@ CONTAINS
       CALL Physics%Error("physics_generic::new_physics","uninitialized or unknown physics")
     END SELECT
 
-    ! call initialization
+    ! call initialization and print some information on the screen
     SELECT TYPE(obj => Physics)
     TYPE IS (physics_eulerisotherm)
       CALL obj%InitPhysics_eulerisotherm(Mesh,config,IO)
+      CALL obj%PrintConfiguration_eulerisotherm()
     TYPE IS (physics_euler)
       CALL obj%InitPhysics_euler(Mesh,config,IO)
+      CALL obj%PrintConfiguration_euler()
 !     TYPE IS (physics_euler3Dit)
 !       CALL obj%InitPhysics_euler3Dit(Mesh,config,IO)
 !     TYPE IS (physics_euler3D)

@@ -223,7 +223,9 @@ CONTAINS
     ! enable update of disk scale height if requested
     CALL GetAttr(config, "update_disk_height", i, 0)
     IF (i.EQ.1) THEN
-      IF (Physics%DIM.EQ.2) THEN
+      !> \todo check if this is really sufficient, what we really need is
+      !! to check whether the geometry is flat or not
+      IF (Physics%VDIM.EQ.2) THEN
         this%update_disk_height = .TRUE.
         IF (.NOT.ASSOCIATED(this%height)) &
           ALLOCATE(this%height(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &

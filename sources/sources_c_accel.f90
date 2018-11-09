@@ -70,8 +70,8 @@ CONTAINS
     CLASS(physics_base),    INTENT(IN)    :: Physics
     TYPE(Dict_TYP),           POINTER     :: config, IO
     !------------------------------------------------------------------------!
-    INTEGER :: err, stype
-    REAL    :: xaccel, yaccel, zaccel
+    INTEGER :: k,err,stype
+    REAL    :: accel(3)
     !------------------------------------------------------------------------!
     CALL GetAttr(config,"stype",stype)
     CALL this%InitLogging(stype,source_name)
@@ -79,22 +79,18 @@ CONTAINS
 
     ALLOCATE(&
       this%accel(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,&
-                 Mesh%KGMIN:Mesh%KGMAX,Physics%DIM), &
+                 Mesh%KGMIN:Mesh%KGMAX,Physics%VDIM), &
          STAT = err)
     IF (err.NE.0) &
          CALL this%Error("InitSources_c_accel","memory allocation failed")
 
     ! initialize constant acceleration
-    CALL GetAttr(config, "xaccel", xaccel, 0.0)
-    this%accel(:,:,:,1) = xaccel
-
-    CALL GetAttr(config, "yaccel", yaccel, 0.0)
-    this%accel(:,:,:,2) = yaccel
-
-    IF (Physics%DIM .GE. 3) THEN
-      CALL GetAttr(config, "zaccel", zaccel, 0.0)
-      this%accel(:,:,:,3) = zaccel
-    END IF
+    CALL GetAttr(config, "xaccel", accel(1), 0.0)
+    CALL GetAttr(config, "yaccel", accel(2), 0.0)
+    CALL GetAttr(config, "zaccel", accel(3), 0.0)
+    DO k=1,Physics%VDIM
+      this%accel(:,:,:,k) = accel(k)
+    END DO
 
   END SUBROUTINE InitSources_c_accel
 

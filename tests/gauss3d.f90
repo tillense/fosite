@@ -53,6 +53,7 @@ PROGRAM gauss3d
   REAL, PARAMETER     :: Z0       = 0.0      ! vertical position
   ! mesh settings
   INTEGER, PARAMETER  :: MGEO     = CARTESIAN! geometry
+!   INTEGER, PARAMETER  :: MGEO     = CYLINDRICAL
   INTEGER, PARAMETER  :: XRES     = 30       ! x-resolution
   INTEGER, PARAMETER  :: YRES     = 30       ! y-resolution
   INTEGER, PARAMETER  :: ZRES     = 30       ! z-resolution
@@ -173,7 +174,7 @@ CONTAINS
 
     ! physics settings
     physics => Dict( &
-            "problem"   / EULER3D_ISOTHERM, &
+            "problem"   / EULER_ISOTHERM, &
             "cs"        / CSISO)
 
     ! flux calculation and reconstruction method

@@ -60,6 +60,7 @@ MODULE physics_eulerisotherm_mod
                          :: fcsound            !< speed of sound faces                         
   CONTAINS
     PROCEDURE :: InitPhysics_eulerisotherm
+    PROCEDURE :: PrintConfiguration_eulerisotherm
     PROCEDURE :: EnableOutput
     !------Convert2Primitive-------!
     PROCEDURE :: Convert2Primitive_eulerisotherm
@@ -171,35 +172,44 @@ CONTAINS
     !------------------------------------------------------------------------!
     INTEGER :: err
     !------------------------------------------------------------------------!
-    CALL this%InitPhysics(Mesh,config,IO,EULER_ISOTHERM,problem_name,num_var)
-    ! set array indices
-    this%DENSITY   = 1                                 ! mass density        !
-    this%XVELOCITY = 2                                 ! x-velocity          !
-    this%XMOMENTUM = 2                                 ! x-momentum          !
-    this%YVELOCITY = 3                                 ! y-velocity          !
-    this%YMOMENTUM = 3                                 ! y-momentum          !
-    this%ZVELOCITY = 0                                 ! z-velocity          !
-    this%ZMOMENTUM = 0                                 ! z-momentum          !
-    this%PRESSURE  = 0                                 ! no pressure         !
-    this%ENERGY    = 0                                 ! no total energy     !
-    ! set names for primitive and conservative variables
-    this%pvarname(this%DENSITY)   = "density"
-    this%pvarname(this%XVELOCITY) = "xvelocity"
-    this%pvarname(this%YVELOCITY) = "yvelocity"
-    this%cvarname(this%DENSITY)   = "density"
-    this%cvarname(this%XMOMENTUM) = "xmomentum"
-    this%cvarname(this%YMOMENTUM) = "ymomentum"
-    this%DIM = 2
-    
-     ! isothermal sound speed
+    CALL this%InitPhysics(Mesh,config,IO,EULER_ISOTHERM,problem_name)
+
+    ! set the total number of variables in a state vector
+    this%VNUM = this%VDIM + 1
+
+    ! get isothermal sound speed from configuration
     CALL GetAttr(config, "cs", this%csiso, 0.0)
-   
-    ! allocate memory for arrays common to all physics modules
-    ALLOCATE(this%bccsound,            &
+
+    ! allocate memory for arrays used in eulerisotherm
+    ALLOCATE(this%pvarname(this%VNUM),this%cvarname(this%VNUM),this%bccsound, &
              this%fcsound(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%nfaces), &
              STAT = err)
     IF (err.NE.0) &
          CALL this%Error("InitPhysics_eulerisotherm", "Unable to allocate memory.")
+
+    !> \todo remove in future version
+    ! set array indices
+    this%DENSITY   = 1                                 ! mass density        !
+    this%XVELOCITY = 2                                 ! x-velocity          !
+    this%XMOMENTUM = 2                                 ! x-momentum          !
+    this%pvarname(this%DENSITY)   = "density"
+    this%cvarname(this%DENSITY)   = "density"
+    this%pvarname(this%XVELOCITY) = "xvelocity"
+    this%cvarname(this%XMOMENTUM) = "xmomentum"
+    IF (this%VDIM.GE.2) THEN
+      this%YVELOCITY = 3                               ! y-velocity          !
+      this%YMOMENTUM = 3                               ! y-momentum          !
+      this%pvarname(this%YVELOCITY) = "yvelocity"
+      this%cvarname(this%YMOMENTUM) = "ymomentum"
+    END IF
+    IF (this%VDIM.EQ.3) THEN
+      this%ZVELOCITY = 4                               ! z-velocity          !
+      this%ZMOMENTUM = 4                               ! z-momentum          !
+      this%pvarname(this%ZVELOCITY) = "zvelocity"
+      this%cvarname(this%ZMOMENTUM) = "zmomentum"
+    END IF
+    this%PRESSURE  = 0                                 ! no pressure         !
+    this%ENERGY    = 0                                 ! no total energy     !
 
     ! create new mesh array bccsound
     this%bccsound = marray_base()
@@ -212,6 +222,14 @@ CONTAINS
       this%fcsound(:,:,:,:) = 0.
     END IF
   END SUBROUTINE InitPhysics_eulerisotherm
+
+  SUBROUTINE PrintConfiguration_eulerisotherm(this)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(physics_eulerisotherm), INTENT(INOUT) :: this
+    !------------------------------------------------------------------------!
+    CALL this%PrintConfiguration()
+  END SUBROUTINE PrintConfiguration_eulerisotherm
 
   !> Enables output of certain arrays defined in this class
   SUBROUTINE EnableOutput(this,Mesh,config,IO)
@@ -269,7 +287,7 @@ CONTAINS
     !------------------------------------------------------------------------!
     IF (cvar%flavour.EQ.CONSERVATIVE.AND.pvar%flavour.EQ.PRIMITIVE) THEN
       ! perform the transformation depending on dimensionality
-      SELECT CASE(this%DIM)
+      SELECT CASE(this%VDIM)
       CASE(1) ! 1D velocity / momentum
         CALL Cons2Prim(cvar%density%data1d(:),cvar%momentum%data1d(:), &
                       pvar%density%data1d(:),pvar%velocity%data1d(:))
@@ -315,13 +333,32 @@ CONTAINS
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM), &
                               INTENT(OUT) :: pvar
     !------------------------------------------------------------------------!
-    CALL Cons2Prim(cvar(i1:i2,j1:j2,k1:k2,this%DENSITY),   &
-                                cvar(i1:i2,j1:j2,k1:k2,this%XMOMENTUM), &
-                                cvar(i1:i2,j1:j2,k1:k2,this%YMOMENTUM), &
-                                pvar(i1:i2,j1:j2,k1:k2,this%DENSITY),   &
-                                pvar(i1:i2,j1:j2,k1:k2,this%XVELOCITY), &
-                                pvar(i1:i2,j1:j2,k1:k2,this%YVELOCITY) &
-                               )
+    SELECT CASE(this%VDIM)
+    CASE(1) ! 1D velocity / momentum
+      CALL Cons2Prim(cvar(i1:i2,j1:j2,k1:k2,this%DENSITY),   &
+                      cvar(i1:i2,j1:j2,k1:k2,this%XMOMENTUM), &
+                      pvar(i1:i2,j1:j2,k1:k2,this%DENSITY),   &
+                      pvar(i1:i2,j1:j2,k1:k2,this%XVELOCITY) &
+                    )
+    CASE(2) ! 2D velocity / momentum
+      CALL Cons2Prim(cvar(i1:i2,j1:j2,k1:k2,this%DENSITY),   &
+                      cvar(i1:i2,j1:j2,k1:k2,this%XMOMENTUM), &
+                      cvar(i1:i2,j1:j2,k1:k2,this%YMOMENTUM), &
+                      pvar(i1:i2,j1:j2,k1:k2,this%DENSITY),   &
+                      pvar(i1:i2,j1:j2,k1:k2,this%XVELOCITY), &
+                      pvar(i1:i2,j1:j2,k1:k2,this%YVELOCITY) &
+                    )
+    CASE(3) ! 3D velocity / momentum
+      CALL Cons2Prim(cvar(i1:i2,j1:j2,k1:k2,this%DENSITY),   &
+                      cvar(i1:i2,j1:j2,k1:k2,this%XMOMENTUM), &
+                      cvar(i1:i2,j1:j2,k1:k2,this%YMOMENTUM), &
+                      cvar(i1:i2,j1:j2,k1:k2,this%ZMOMENTUM), &
+                      pvar(i1:i2,j1:j2,k1:k2,this%DENSITY),   &
+                      pvar(i1:i2,j1:j2,k1:k2,this%XVELOCITY), &
+                      pvar(i1:i2,j1:j2,k1:k2,this%YVELOCITY), &
+                      pvar(i1:i2,j1:j2,k1:k2,this%ZVELOCITY) &
+                    )
+    END SELECT
   END SUBROUTINE Convert2Primitive_centsub
 
   !> Converts to conservative variables at faces
@@ -353,13 +390,32 @@ CONTAINS
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%NFACES,this%VNUM), &
                               INTENT(OUT) :: prim
     !------------------------------------------------------------------------!
-    CALL Cons2Prim(cons(i1:i2,j1:j2,k1:k2,:,this%DENSITY)  , &
-                   cons(i1:i2,j1:j2,k1:k2,:,this%XMOMENTUM), &
-                   cons(i1:i2,j1:j2,k1:k2,:,this%YMOMENTUM), &
-                   prim(i1:i2,j1:j2,k1:k2,:,this%DENSITY)  , &
-                   prim(i1:i2,j1:j2,k1:k2,:,this%XVELOCITY), &
-                   prim(i1:i2,j1:j2,k1:k2,:,this%YVELOCITY) &
-                   )
+    SELECT CASE(this%VDIM)
+    CASE(1) ! 1D velocity / momentum
+      CALL Cons2Prim(cons(i1:i2,j1:j2,k1:k2,:,this%DENSITY)  , &
+                     cons(i1:i2,j1:j2,k1:k2,:,this%XMOMENTUM), &
+                     prim(i1:i2,j1:j2,k1:k2,:,this%DENSITY)  , &
+                     prim(i1:i2,j1:j2,k1:k2,:,this%XVELOCITY) &
+                    )
+    CASE(2) ! 2D velocity / momentum
+      CALL Cons2Prim(cons(i1:i2,j1:j2,k1:k2,:,this%DENSITY)  , &
+                     cons(i1:i2,j1:j2,k1:k2,:,this%XMOMENTUM), &
+                     cons(i1:i2,j1:j2,k1:k2,:,this%YMOMENTUM), &
+                     prim(i1:i2,j1:j2,k1:k2,:,this%DENSITY)  , &
+                     prim(i1:i2,j1:j2,k1:k2,:,this%XVELOCITY), &
+                     prim(i1:i2,j1:j2,k1:k2,:,this%YVELOCITY) &
+                    )
+    CASE(3) ! 3D velocity / momentum
+      CALL Cons2Prim(cons(i1:i2,j1:j2,k1:k2,:,this%DENSITY)  , &
+                     cons(i1:i2,j1:j2,k1:k2,:,this%XMOMENTUM), &
+                     cons(i1:i2,j1:j2,k1:k2,:,this%YMOMENTUM), &
+                     cons(i1:i2,j1:j2,k1:k2,:,this%ZMOMENTUM), &
+                     prim(i1:i2,j1:j2,k1:k2,:,this%DENSITY)  , &
+                     prim(i1:i2,j1:j2,k1:k2,:,this%XVELOCITY), &
+                     prim(i1:i2,j1:j2,k1:k2,:,this%YVELOCITY), &
+                     prim(i1:i2,j1:j2,k1:k2,:,this%ZVELOCITY) &
+                    )
+    END SELECT
   END SUBROUTINE Convert2Primitive_facesub
 
   !> Converts to conservative at cell centers using state vectors
@@ -372,7 +428,7 @@ CONTAINS
     !------------------------------------------------------------------------!
     IF (pvar%flavour.EQ.PRIMITIVE.AND.cvar%flavour.EQ.CONSERVATIVE) THEN
       ! perform the transformation depending on dimensionality
-      SELECT CASE(this%DIM)
+      SELECT CASE(this%VDIM)
       CASE(1) ! 1D velocity / momentum
         CALL Prim2Cons(pvar%density%data1d(:),pvar%velocity%data1d(:), &
                        cvar%density%data1d(:),cvar%momentum%data1d(:))
@@ -421,13 +477,32 @@ CONTAINS
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM), &
                               INTENT(OUT) :: cvar
     !------------------------------------------------------------------------!
-    CALL Prim2Cons(pvar(i1:i2,j1:j2,k1:k2,this%DENSITY)  , &
-                   pvar(i1:i2,j1:j2,k1:k2,this%XVELOCITY), &
-                   pvar(i1:i2,j1:j2,k1:k2,this%YVELOCITY), &
-                   cvar(i1:i2,j1:j2,k1:k2,this%DENSITY)  , &
-                   cvar(i1:i2,j1:j2,k1:k2,this%XMOMENTUM), &
-                   cvar(i1:i2,j1:j2,k1:k2,this%YMOMENTUM) &
-                   )
+    SELECT CASE(this%VDIM)
+    CASE(1) ! 1D velocity / momentum
+      CALL Prim2Cons(pvar(i1:i2,j1:j2,k1:k2,this%DENSITY)  , &
+                     pvar(i1:i2,j1:j2,k1:k2,this%XVELOCITY), &
+                     cvar(i1:i2,j1:j2,k1:k2,this%DENSITY)  , &
+                     cvar(i1:i2,j1:j2,k1:k2,this%XMOMENTUM) &
+                    )
+    CASE(2) ! 2D velocity / momentum
+      CALL Prim2Cons(pvar(i1:i2,j1:j2,k1:k2,this%DENSITY)  , &
+                     pvar(i1:i2,j1:j2,k1:k2,this%XVELOCITY), &
+                     pvar(i1:i2,j1:j2,k1:k2,this%YVELOCITY), &
+                     cvar(i1:i2,j1:j2,k1:k2,this%DENSITY)  , &
+                     cvar(i1:i2,j1:j2,k1:k2,this%XMOMENTUM), &
+                     cvar(i1:i2,j1:j2,k1:k2,this%YMOMENTUM) &
+                    )
+    CASE(3) ! 3D velocity / momentum
+      CALL Prim2Cons(pvar(i1:i2,j1:j2,k1:k2,this%DENSITY)  , &
+                     pvar(i1:i2,j1:j2,k1:k2,this%XVELOCITY), &
+                     pvar(i1:i2,j1:j2,k1:k2,this%YVELOCITY), &
+                     pvar(i1:i2,j1:j2,k1:k2,this%ZVELOCITY), &
+                     cvar(i1:i2,j1:j2,k1:k2,this%DENSITY)  , &
+                     cvar(i1:i2,j1:j2,k1:k2,this%XMOMENTUM), &
+                     cvar(i1:i2,j1:j2,k1:k2,this%YMOMENTUM), &
+                     cvar(i1:i2,j1:j2,k1:k2,this%ZMOMENTUM) &
+                    )
+    END SELECT
   END SUBROUTINE Convert2Conservative_centsub
 
 
@@ -461,13 +536,32 @@ CONTAINS
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%NFACES,this%VNUM), &
                               INTENT(OUT) :: cons
     !------------------------------------------------------------------------!
-    CALL Prim2Cons(prim(i1:i2,j1:j2,k1:k2,:,this%DENSITY)  , &
-                   prim(i1:i2,j1:j2,k1:k2,:,this%XVELOCITY), &
-                   prim(i1:i2,j1:j2,k1:k2,:,this%YVELOCITY), &
-                   cons(i1:i2,j1:j2,k1:k2,:,this%DENSITY)  , &
-                   cons(i1:i2,j1:j2,k1:k2,:,this%XMOMENTUM), &
-                   cons(i1:i2,j1:j2,k1:k2,:,this%YMOMENTUM) &
-                   )
+    SELECT CASE(this%VDIM)
+    CASE(1) ! 1D velocity / momentum
+      CALL Prim2Cons(prim(i1:i2,j1:j2,k1:k2,:,this%DENSITY)  , &
+                     prim(i1:i2,j1:j2,k1:k2,:,this%XVELOCITY), &
+                     cons(i1:i2,j1:j2,k1:k2,:,this%DENSITY)  , &
+                     cons(i1:i2,j1:j2,k1:k2,:,this%XMOMENTUM) &
+                    )
+    CASE(2) ! 2D velocity / momentum
+      CALL Prim2Cons(prim(i1:i2,j1:j2,k1:k2,:,this%DENSITY)  , &
+                     prim(i1:i2,j1:j2,k1:k2,:,this%XVELOCITY), &
+                     prim(i1:i2,j1:j2,k1:k2,:,this%YVELOCITY), &
+                     cons(i1:i2,j1:j2,k1:k2,:,this%DENSITY)  , &
+                     cons(i1:i2,j1:j2,k1:k2,:,this%XMOMENTUM), &
+                     cons(i1:i2,j1:j2,k1:k2,:,this%YMOMENTUM) &
+                    )
+    CASE(3) ! 3D velocity / momentum
+      CALL Prim2Cons(prim(i1:i2,j1:j2,k1:k2,:,this%DENSITY)  , &
+                     prim(i1:i2,j1:j2,k1:k2,:,this%XVELOCITY), &
+                     prim(i1:i2,j1:j2,k1:k2,:,this%YVELOCITY), &
+                     prim(i1:i2,j1:j2,k1:k2,:,this%ZVELOCITY), &
+                     cons(i1:i2,j1:j2,k1:k2,:,this%DENSITY)  , &
+                     cons(i1:i2,j1:j2,k1:k2,:,this%XMOMENTUM), &
+                     cons(i1:i2,j1:j2,k1:k2,:,this%YMOMENTUM), &
+                     cons(i1:i2,j1:j2,k1:k2,:,this%ZMOMENTUM) &
+                    )
+    END SELECT
   END SUBROUTINE Convert2Conservative_facesub
 
   !> Calculates wave speeds at cell-centers
@@ -589,7 +683,7 @@ CONTAINS
     DO k=Mesh%KGMIN,Mesh%KGMAX
       DO j=Mesh%JGMIN,Mesh%JGMAX
 !NEC$ IVDEP
-        DO i=Mesh%IMIN-1,Mesh%IMAX
+        DO i=Mesh%IMIN+Mesh%IM1,Mesh%IMAX
           ! western & eastern interfaces
           minwav(i,j,k,1) = MIN(0.0,this%tmp(i+Mesh%ip1,j,k) ,minwav(i,j,k,1))
           maxwav(i,j,k,1) = MAX(0.0,this%tmp1(i+Mesh%ip1,j,k),maxwav(i,j,k,1))
@@ -597,7 +691,7 @@ CONTAINS
       END DO
     END DO
     DO k=Mesh%KGMIN,Mesh%KGMAX
-      DO j=Mesh%JMIN-1,Mesh%JMAX
+      DO j=Mesh%JMIN+Mesh%JM1,Mesh%JMAX
 !NEC$ IVDEP
         DO i=Mesh%IGMIN,Mesh%IGMAX
           ! southern & northern interfaces
@@ -1399,7 +1493,7 @@ CONTAINS
       ! allocate memory for density and velocity mesh arrays
       ALLOCATE(new_sv%density,new_sv%velocity)
       new_sv%density  = marray_base()             ! scalar, rank 0
-      new_sv%velocity = marray_base(Physics%DIM) ! vector, rank 1
+      new_sv%velocity = marray_base(Physics%VDIM) ! vector, rank 1
       ! append to compound
       CALL new_sv%AppendMArray(new_sv%density)
       CALL new_sv%AppendMArray(new_sv%velocity)
@@ -1407,7 +1501,7 @@ CONTAINS
       ! allocate memory for density and momentum mesh arrays
       ALLOCATE(new_sv%density,new_sv%momentum)
       new_sv%density  = marray_base()             ! scalar, rank 0
-      new_sv%momentum = marray_base(Physics%DIM) ! vector, rank 1
+      new_sv%momentum = marray_base(Physics%VDIM) ! vector, rank 1
       ! append to compound
       CALL new_sv%AppendMArray(new_sv%density)
       CALL new_sv%AppendMArray(new_sv%momentum)

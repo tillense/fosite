@@ -52,6 +52,7 @@ MODULE physics_euler_mod
     REAL                :: gamma                 !< ratio of spec. heats
   CONTAINS
     PROCEDURE :: InitPhysics_euler             !< constructor
+    PROCEDURE :: PrintConfiguration_euler
     !------Convert2Primitve--------!
     PROCEDURE :: Convert2Primitive_euler
     GENERIC   :: Convert2Primitive_new => &
@@ -147,42 +148,61 @@ CONTAINS
     INTEGER :: err
     !------------------------------------------------------------------------!
     ! call InitPhysics from base class
-    CALL this%InitPhysics(Mesh,config,IO,EULER,problem_name,num_var)
+    CALL this%InitPhysics(Mesh,config,IO,EULER,problem_name)
+
+    ! set the total number of variables in a state vector
+    this%VNUM = this%VDIM + 2
 
     ! ratio of specific heats
     CALL GetAttr(config, "gamma", this%gamma, 1.4)
     
-    ! set array indices
-    this%DENSITY   = 1                                 ! mass density        !
-    this%PRESSURE  = num_var                           ! pressure            !
-    this%ENERGY    = num_var                           ! total energy        !
-    this%XVELOCITY = 2                                 ! x-velocity          !
-    this%XMOMENTUM = 2                                 ! x-momentum          !
-    this%YVELOCITY = 3                                 ! y-velocity          !
-    this%YMOMENTUM = 3                                 ! y-momentum          !
-    this%ZVELOCITY = 0                                 ! z-velocity          !
-    this%ZMOMENTUM = 0                                 ! z-momentum          !
-    ! set names for primitive and conservative variables
-    this%pvarname(this%DENSITY)   = "density"
-    this%pvarname(this%XVELOCITY) = "xvelocity"
-    this%pvarname(this%YVELOCITY) = "yvelocity"
-    this%pvarname(this%PRESSURE)  = "pressure"
-    this%cvarname(this%DENSITY)   = "density"
-    this%cvarname(this%XMOMENTUM) = "xmomentum"
-    this%cvarname(this%YMOMENTUM) = "ymomentum"
-    this%cvarname(this%ENERGY)    = "energy"
-    this%DIM = 2
-    
-    ! allocate memory for arrays common to all physics modules
-    this%CSISO = 0.0
-    ALLOCATE(this%bccsound, &
+    ! allocate memory for arrays used in euler
+    ALLOCATE(this%pvarname(this%VNUM),this%cvarname(this%VNUM),this%bccsound, &
              this%fcsound(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%nfaces), &
              STAT = err)
     IF (err.NE.0) &
-         CALL this%Error("InitPhysics_euler", "Unable to allocate memory.")
+         CALL this%Error("InitPhysics_eulerisotherm", "Unable to allocate memory.")
+
+    !> \todo remove in future version
+    ! set array indices
+    this%DENSITY   = 1                                 ! mass density        !
+    this%XVELOCITY = 2                                 ! x-velocity          !
+    this%XMOMENTUM = 2                                 ! x-momentum          !
+    this%pvarname(this%DENSITY)   = "density"
+    this%cvarname(this%DENSITY)   = "density"
+    this%pvarname(this%XVELOCITY) = "xvelocity"
+    this%cvarname(this%XMOMENTUM) = "xmomentum"
+    IF (this%VDIM.GE.2) THEN
+      this%YVELOCITY = 3                               ! y-velocity          !
+      this%YMOMENTUM = 3                               ! y-momentum          !
+      this%pvarname(this%YVELOCITY) = "yvelocity"
+      this%cvarname(this%YMOMENTUM) = "ymomentum"
+    END IF
+    IF (this%VDIM.EQ.3) THEN
+      this%ZVELOCITY = 4                               ! z-velocity          !
+      this%ZMOMENTUM = 4                               ! z-momentum          !
+      this%pvarname(this%ZVELOCITY) = "zvelocity"
+      this%cvarname(this%ZMOMENTUM) = "zmomentum"
+    END IF
+    this%PRESSURE  = this%VNUM                         ! no pressure         !
+    this%ENERGY    = this%VNUM                         ! no total energy     !
+    this%pvarname(this%PRESSURE)  = "pressure"
+    this%cvarname(this%ENERGY)    = "energy"
+
+    ! not used in non-isotherml physics
+    this%csiso = 0.0
+
     ! create new mesh array bccsound
     this%bccsound = marray_base()
   END SUBROUTINE InitPhysics_euler
+
+  SUBROUTINE PrintConfiguration_euler(this)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(physics_euler), INTENT(INOUT) :: this
+    !------------------------------------------------------------------------!
+    CALL this%PrintConfiguration()
+  END SUBROUTINE PrintConfiguration_euler
 
   PURE SUBROUTINE Convert2Primitive_euler(this,cvar,pvar)
     IMPLICIT NONE
@@ -193,7 +213,7 @@ CONTAINS
     !------------------------------------------------------------------------!
     IF (cvar%flavour.EQ.CONSERVATIVE.AND.pvar%flavour.EQ.PRIMITIVE) THEN
       ! conservative -> primitive
-      SELECT CASE(this%DIM)
+      SELECT CASE(this%VDIM)
       CASE(1)
         CALL Cons2Prim(this%gamma,cvar%density%data1d(:),cvar%momentum%data1d(:), &
                       cvar%energy%data1d(:),pvar%density%data1d(:), &

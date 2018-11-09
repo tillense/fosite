@@ -184,7 +184,8 @@ CONTAINS
                "Physics not supported for beta-viscosity")
        END SELECT
     CASE(ALPHA_ALT)
-       IF (Physics%DIM.NE.2) &
+       !> \todo check if this is really sufficient
+       IF (Physics%VDIM.NE.2) &
           CALL this%Error("InitSources_viscosity",&
                "alternative alpha-viscosity works only for flat disks")
    !    IF (.NOT.Timedisc%always_update_bccsound) &
@@ -326,7 +327,8 @@ CONTAINS
           ! of the angular velocity (d ln(omega)/d ln(r)) is of the order of -1
           !
           ! check for 2D / 3D
-          SELECT CASE(Physics%DIM)
+          !> \todo check if this is really sufficient
+          SELECT CASE(Physics%VDIM)
           CASE(2)
              kv  = Physics%YVELOCITY
           CASE(3)

@@ -329,7 +329,7 @@ CONTAINS
 
     ! rhs type. 0 = default, 1 = conserve angular momentum
     CALL GetAttr(config, "rhstype", this%rhstype, 0)
-    IF (this%rhstype.NE.0.AND.Physics%DIM.NE.2) THEN
+    IF (this%rhstype.NE.0.AND.Physics%VDIM.NE.2) THEN
       CALL this%Error("InitTimedisc", "Alternative rhstype only works in 2D.")
     END IF
 
@@ -801,11 +801,11 @@ CONTAINS
     ELSE IF ((Mesh%INUM.GT.1).AND.(Mesh%KNUM.GT.1).AND.(Mesh%JNUM.EQ.1)) THEN
        ! 2D, x-z-plane
        invdt = MAXVAL(MAX(Fluxes%maxwav(:,:,:,1),-Fluxes%minwav(:,:,:,1)) / Mesh%dlx(:,:,:) &
-                    + MAX(Fluxes%maxwav(:,:,:,3),-Fluxes%minwav(:,:,:,3)) / Mesh%dlz(:,:,:))
+                    + MAX(Fluxes%maxwav(:,:,:,2),-Fluxes%minwav(:,:,:,2)) / Mesh%dlz(:,:,:))
     ELSE IF ((Mesh%JNUM.GT.1).AND.(Mesh%KNUM.GT.1).AND.(Mesh%INUM.EQ.1)) THEN
        ! 2D, y-z-plane
-       invdt = MAXVAL(MAX(Fluxes%maxwav(:,:,:,2),-Fluxes%minwav(:,:,:,2)) / Mesh%dly(:,:,:) &
-                    + MAX(Fluxes%maxwav(:,:,:,3),-Fluxes%minwav(:,:,:,3)) / Mesh%dlz(:,:,:))
+       invdt = MAXVAL(MAX(Fluxes%maxwav(:,:,:,1),-Fluxes%minwav(:,:,:,1)) / Mesh%dly(:,:,:) &
+                    + MAX(Fluxes%maxwav(:,:,:,2),-Fluxes%minwav(:,:,:,2)) / Mesh%dlz(:,:,:))
     ELSE
        ! full 3D
        !TODO: Achtung: Hier wurde fuer eine bessere Symmetrie fuer jede Richtung ein eigenes invdt
@@ -1799,7 +1799,7 @@ CONTAINS
                           INTENT(IN)    :: accel_
     REAL, DIMENSION(3), OPTIONAL, &
                           INTENT(IN)    :: centrot
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%DIM) &
+    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VDIM) &
                                         :: velo
     !------------------------------------------------------------------------!
 !     REAL               :: time
@@ -1836,7 +1836,7 @@ CONTAINS
       END SELECT
       CALL this%ComputeRHS(Mesh,Physics,Sources,Fluxes,this%time,0.0,this%pvar,this%cvar,this%checkdatabm,this%rhs)
       ! HERE DEPENDEND ON Physics
-      DO k=Physics%XMOMENTUM,Physics%XMOMENTUM+Physics%DIM-1
+      DO k=Physics%XMOMENTUM,Physics%XMOMENTUM+Physics%VDIM-1
         accel(:,:,:,k-Physics%XMOMENTUM+1) = -1. * this%rhs(:,:,:,k) &
                                            / this%pvar%data4d(:,:,:,Physics%DENSITY)
       END DO
@@ -1853,7 +1853,7 @@ CONTAINS
     ! norm must be one
     IF (omega2 .NE. 1.0) dir_omega(:) = dir_omega(:) / SQRT(omega2)
 
-    IF ((Physics%DIM .EQ. 2) .AND. &
+    IF ((Physics%VDIM .EQ. 2) .AND. &
         ((dir_omega(1) .NE. 0.0) .OR. (dir_omega(2) .NE. 0.0))) &
         CALL this%Error("GetCentrifugalVelocity", &
            "the direction of omega should be (0,0,+-1) in case of two dimensions")
@@ -1872,7 +1872,7 @@ CONTAINS
 
 
     ! compute distance to axis of rotation (It is automatically fulfilled in 2D.)
-    IF (Physics%DIM .GT. 2) THEN
+    IF (Physics%VDIM .GT. 2) THEN
       tmp(:,:,:) =  bcposvec(:,:,:,1)*dir_omega(1) &
                   + bcposvec(:,:,:,2)*dir_omega(2) &
                   + bcposvec(:,:,:,3)*dir_omega(3)
@@ -1888,7 +1888,7 @@ CONTAINS
     ! v / |omega| = dir_omega x r
     velo(:,:,:,:) = CROSS_PRODUCT(Mesh,Physics,dir_omega,bcposvec)
     ! v = |omega| * dir_omega x r
-    DO k=1,Physics%DIM
+    DO k=1,Physics%VDIM
       velo(:,:,:,k) = tmp(:,:,:)*velo(:,:,:,k)
     END DO
 
@@ -1901,18 +1901,21 @@ CONTAINS
       REAL, DIMENSION(3),  INTENT(IN) :: a
       REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,3), &
                            INTENT(IN) :: b
-      REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%DIM) &
+      REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VDIM) &
                                       :: cp
       !------------------------------------------------------------------------!
-      IF (Physics%DIM .EQ. 3) THEN
-        cp(:,:,:,1) = a(2)*b(:,:,:,3) - a(3)*b(:,:,:,2)
-        cp(:,:,:,2) = a(3)*b(:,:,:,1) - a(1)*b(:,:,:,3)
-        cp(:,:,:,3) = a(1)*b(:,:,:,2) - a(2)*b(:,:,:,1)
-      ELSE
+      SELECT CASE(Physics%VDIM)
+      CASE (2) ! 2D
         ! => a(1) = a(2) = 0 and a(3) = 1 or -1
         cp(:,:,:,1) = - a(3)*b(:,:,:,2)
         cp(:,:,:,2) = a(3)*b(:,:,:,1)
-      END IF
+      CASE (3) ! 3D
+        cp(:,:,:,1) = a(2)*b(:,:,:,3) - a(3)*b(:,:,:,2)
+        cp(:,:,:,2) = a(3)*b(:,:,:,1) - a(1)*b(:,:,:,3)
+        cp(:,:,:,3) = a(1)*b(:,:,:,2) - a(2)*b(:,:,:,1)
+      CASE DEFAULT
+        CALL Mesh%Error("timedisc_base::GetCentrifugalVelocity","only 2D/3D cross product possible")
+      END SELECT
      END FUNCTION CROSS_PRODUCT
   END FUNCTION GetCentrifugalVelocity
 

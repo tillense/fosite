@@ -66,7 +66,7 @@ MODULE physics_base_mod
                             eps                   !< softening length
      INTEGER             :: VNUM, &               !< number of variables
                             PNUM, &               !< number of passive variables
-                            DIM, &                !< Dimension (1, 2 or 3)
+                            VDIM, &               !< vector dimensions (1, 2 or 3)
                             DENSITY,PRESSURE, &
                             ENERGY,SGSPRESSURE, &
                             SGSENERGY, &
@@ -101,6 +101,7 @@ MODULE physics_base_mod
 !------------------------------------------------------------!
   CONTAINS
     PROCEDURE :: InitPhysics
+    PROCEDURE :: PrintConfiguration
     PROCEDURE (ExternalSources),              DEFERRED :: ExternalSources
     PROCEDURE (EnableOutput),                 DEFERRED :: EnableOutput
     !------Convert2Primitve--------!
@@ -553,20 +554,20 @@ CONTAINS
   !! - allocation of arrays
   !! - specific tweaks (update soundspeed, etc.)
   !! - print infostring to terminal
-  SUBROUTINE InitPhysics(this,Mesh,config,IO,problem,pname,vnum)
+  SUBROUTINE InitPhysics(this,Mesh,config,IO,problem,pname)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(physics_base), INTENT(INOUT) :: this
     CLASS(mesh_base),INTENT(IN)        :: Mesh
     TYPE(Dict_TYP),POINTER &
                                        :: config, IO
-    INTEGER                            :: problem,vnum
+    INTEGER                            :: problem
     CHARACTER(LEN=32)                  :: pname
     !------------------------------------------------------------------------!
     INTEGER                            :: units
     INTEGER                            :: err, valwrite
     !------------------------------------------------------------------------!
-    INTENT(IN)                         :: problem,vnum
+    INTENT(IN)                         :: problem
     !------------------------------------------------------------------------!
     CALL this%InitLogging(problem,pname)
 
@@ -604,12 +605,17 @@ CONTAINS
     ! the center of rotation lies outside of the computational domain
     CALL GetAttr(config, "softening", this%eps, 1.0)
 
-    this%VNUM = VNUM
-    this%PNUM = 0
+    ! determine physical vector dimensions based on dimimensionality of the grid
+    ! whether rotationa symmetry is assumed
+    this%VDIM = Mesh%NDIMS
+    IF (Mesh%ROTSYM.GT.0) this%VDIM = this%VDIM + 1
+
+    ! set this to appropriate values in derived classes
+    this%VNUM = 0  ! number of hydrodynamical variables in state vector
+    this%PNUM = 0  ! number of passive scalars in state vector
 
     ! allocate memory for arrays common to all physics modules
-    ALLOCATE(this%pvarname(this%vnum),this%cvarname(this%vnum),                                           &
-             this%tmp(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX),                 &
+    ALLOCATE(this%tmp(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX),                 &
              this%tmp1(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX),                &
              this%tmp2(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX),                &
              this%tmp3(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX),                &
@@ -653,10 +659,15 @@ CONTAINS
     !NULLIFY(this%sources)
 
     this%time = -1.
-    ! print some information
-    CALL this%Info(" PHYSICS--> advection problem: " // TRIM(this%GetName()))
-
   END SUBROUTINE InitPhysics
+
+  SUBROUTINE PrintConfiguration(this)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(physics_base), INTENT(INOUT) :: this
+    !------------------------------------------------------------------------!
+    CALL this%Info(" PHYSICS--> advection problem: " // TRIM(this%GetName()))
+  END SUBROUTINE PrintConfiguration
 
   PURE SUBROUTINE Convert2Primitive_base(this,cvar,pvar)
     IMPLICIT NONE

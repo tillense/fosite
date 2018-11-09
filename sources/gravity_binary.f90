@@ -137,7 +137,7 @@ CONTAINS
 
     ALLOCATE(&
          this%mass,this%mass2,this%pos(3,2),this%r0(3), &
-         this%accel(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%DIM), &
+         this%accel(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VDIM), &
          this%omega2(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,2), &
          this%omega(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
          this%r_prim(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX),&
@@ -365,8 +365,8 @@ CONTAINS
       DO j=Mesh%JGMIN,Mesh%JGMAX
 !CDIR NODEP
         DO i=Mesh%IGMIN,Mesh%IGMAX
-          this%accel(i,j,k,1:Physics%DIM) = -this%omega2(i,j,k,1) * this%posvec_prim(i,j,k,1:Physics%DIM)&
-                           -this%omega2(i,j,k,2) * this%posvec_sec(i,j,k,1:Physics%DIM)
+          this%accel(i,j,k,1:Physics%VDIM) = -this%omega2(i,j,k,1) * this%posvec_prim(i,j,k,1:Physics%VDIM)&
+                           -this%omega2(i,j,k,2) * this%posvec_sec(i,j,k,1:Physics%VDIM)
         END DO
       END DO
     END DO

@@ -114,7 +114,7 @@ CONTAINS
 
     ALLOCATE(&
        this%accel(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX, &
-                  Mesh%KGMIN:Mesh%KGMAX,Physics%DIM), &
+                  Mesh%KGMIN:Mesh%KGMAX,Physics%VDIM), &
        STAT = err)
 
     IF(Mesh%WE_shear) THEN

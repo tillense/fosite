@@ -128,7 +128,7 @@ CONTAINS
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%vnum), &
                          INTENT(OUT)   :: xfluxdydz,yfluxdzdx,zfluxdxdy
     !------------------------------------------------------------------------!
-    INTEGER :: i,j,k,l
+    INTEGER :: i,j,k,l,m
     !------------------------------------------------------------------------!
     ! execute generic tasks common to all flux types
     CALL this%CalculateFaceData(Mesh,Physics,pvar,cvar)
@@ -137,44 +137,48 @@ CONTAINS
     CASE(MIDPOINT)
       ! compute numerical fluxes along x-direction (west and east) devided by dy
       IF (Mesh%INUM.GT.1) THEN
-         ! physical fluxes
-        CALL Physics%CalculateFluxesX(Mesh,1,2,this%prim,this%cons,this%pfluxes)
+        m = 1 ! index counting the number of spatial directions for which transport is enabled
+        ! physical fluxes
+        CALL Physics%CalculateFluxesX(Mesh,2*m-1,2*m,this%prim,this%cons,this%pfluxes)
 !NEC$ UNROLL(8)
         DO l=1,Physics%VNUM
 !NEC$ UNROLL(8)
           DO k=Mesh%KGMIN,Mesh%KGMAX
             DO j=Mesh%JGMIN,Mesh%JGMAX
 !NEC$ IVDEP
-              DO i=Mesh%IMIN-1,Mesh%IMAX
+              DO i=Mesh%IMIN+Mesh%IM1,Mesh%IMAX
                   xfluxdydz(i,j,k,l) = Mesh%dAxdydz(i+1,j,k,1) / &
-                         (this%maxwav(i,j,k,1) - this%minwav(i,j,k,1)) * &
-                         (this%maxwav(i,j,k,1) * this%pfluxes(i,j,k,2,l) - &
-                          this%minwav(i,j,k,1) * this%pfluxes(i+1,j,k,1,l) + &
-                          this%minwav(i,j,k,1) * this%maxwav(i,j,k,1) * &
-                      (this%cons(i+1,j,k,1,l) - this%cons(i,j,k,2,l)))
+                         (this%maxwav(i,j,k,m) - this%minwav(i,j,k,m)) * &
+                         (this%maxwav(i,j,k,m) * this%pfluxes(i,j,k,m+1,l) - &
+                          this%minwav(i,j,k,m) * this%pfluxes(i+1,j,k,m,l) + &
+                          this%minwav(i,j,k,m) * this%maxwav(i,j,k,m) * &
+                      (this%cons(i+1,j,k,m,l) - this%cons(i,j,k,m+1,l)))
               END DO
             END DO
           END DO
         END DO
       ELSE
+         m = 0
          xfluxdydz(:,:,:,:) = 0.0
       END IF
 
       ! compute numerical fluxes along y-direction (south and north) devided by dx
       IF (Mesh%JNUM.GT.1) THEN
+        m = m + 1 ! increase wave speed index, may be 1 or 2 now depending
+                  ! on whether there was transport in x-direction or not
         ! physical fluxes
-        CALL Physics%CalculateFluxesY(Mesh,3,4,this%prim,this%cons,this%pfluxes)
+        CALL Physics%CalculateFluxesY(Mesh,2*m-1,2*m,this%prim,this%cons,this%pfluxes)
 !NEC$ UNROLL(8)
         DO l=1,Physics%VNUM
           DO k=Mesh%KGMIN,Mesh%KGMAX
-            DO j=Mesh%JMIN-1,Mesh%JMAX
+            DO j=Mesh%JMIN+Mesh%JM1,Mesh%JMAX
               DO i=Mesh%IGMIN,Mesh%IGMAX
                   yfluxdzdx(i,j,k,l) = Mesh%dAydzdx(i,j+1,k,1) / &
-                         (this%maxwav(i,j,k,2) - this%minwav(i,j,k,2)) * &
-                         (this%maxwav(i,j,k,2) * this%pfluxes(i,j,k,4,l) - &
-                          this%minwav(i,j,k,2) * this%pfluxes(i,j+1,k,3,l) + &
-                          this%minwav(i,j,k,2) * this%maxwav(i,j,k,2) * &
-                      (this%cons(i,j+1,k,3,l) - this%cons(i,j,k,4,l)))
+                         (this%maxwav(i,j,k,m) - this%minwav(i,j,k,m)) * &
+                         (this%maxwav(i,j,k,m) * this%pfluxes(i,j,k,2*m,l) - &
+                          this%minwav(i,j,k,m) * this%pfluxes(i,j+1,k,2*m-1,l) + &
+                          this%minwav(i,j,k,m) * this%maxwav(i,j,k,m) * &
+                      (this%cons(i,j+1,k,2*m-1,l) - this%cons(i,j,k,2*m,l)))
               END DO
             END DO
           END DO
@@ -184,21 +188,23 @@ CONTAINS
       END IF
 
       IF (Mesh%KNUM.GT.1) THEN
+        m = m + 1 ! increase wave speed index, may be 1, 2 or 3 now depending
+                  ! on whether there was transport in x- and/or y-direction or not
          ! physical fluxes
-        CALL Physics%CalculateFluxesZ(Mesh,5,6,this%prim,this%cons,this%pfluxes)
+        CALL Physics%CalculateFluxesZ(Mesh,2*m-1,2*m,this%prim,this%cons,this%pfluxes)
 !NEC$ UNROLL(8)
         DO l=1,Physics%VNUM
 !NEC$ UNROLL(8)
-          DO k=Mesh%KMIN-1,Mesh%KMAX
+          DO k=Mesh%KMIN+Mesh%KM1,Mesh%KMAX
             DO j=Mesh%JGMIN,Mesh%JGMAX
 !NEC$ IVDEP
               DO i=Mesh%IGMIN,Mesh%IGMAX
                   zfluxdxdy(i,j,k,l) = Mesh%dAzdxdy(i,j,k+1,1) / &
-                         (this%maxwav(i,j,k,3) - this%minwav(i,j,k,3)) * &
-                         (this%maxwav(i,j,k,3) * this%pfluxes(i,j,k,6,l) - &
-                          this%minwav(i,j,k,3) * this%pfluxes(i,j,k+1,5,l) + &
-                          this%minwav(i,j,k,3) * this%maxwav(i,j,k,3) * &
-                      (this%cons(i,j,k+1,5,l) - this%cons(i,j,k,6,l)))
+                         (this%maxwav(i,j,k,m) - this%minwav(i,j,k,m)) * &
+                         (this%maxwav(i,j,k,m) * this%pfluxes(i,j,k,2*m,l) - &
+                          this%minwav(i,j,k,m) * this%pfluxes(i,j,k+1,2*m-1,l) + &
+                          this%minwav(i,j,k,m) * this%maxwav(i,j,k,m) * &
+                      (this%cons(i,j,k+1,2*m-1,l) - this%cons(i,j,k,2*m,l)))
              END DO
             END DO
           END DO

@@ -39,7 +39,6 @@
 !! \key{gparam3,REAL,3rd geometry parameter}
 !! \key{omega,REAL,angular speed of rotating frame of reference,0.0}
 !! \key{rotcent,REAL,cartesian (x\,y)-coordiantes for center of rotation,(0\,0)
-!! \key{rotsym,INTEGER,assume rotational symmetry and suppress azimuthal direction,0}
 !! - enable/disable output of certain mesh arrays
 !! \key{output/bary,INTEGER,cell bary center in cartesian coordinates,1}
 !! \key{output/bary_curv,INTEGER,cell bary center in curvilinear coordinates,1}
@@ -342,30 +341,36 @@ CONTAINS
     IF (ALL((/ this%INUM.EQ.1, this%JNUM.EQ.1, this%KNUM.EQ.1 /))) &
       CALL this%Error("InitMesh","at least one of inum,jnum,knum must be > 1.")
 
-    ! check if rotational symmetry is assumed
-    CALL GetAttr(config, "rotsym", i, 0)
-    SELECT CASE(i)
-    CASE(0)
+    ! coordinate domain
+    CALL GetAttr(config, "xmin", this%xmin)
+    CALL GetAttr(config, "xmax", this%xmax)
+    CALL GetAttr(config, "ymin", this%ymin)
+    CALL GetAttr(config, "ymax", this%ymax)
+    CALL GetAttr(config, "zmin", this%zmin)
+    CALL GetAttr(config, "zmax", this%zmax)
+
+    !> \todo check if min/max coordinates are compatible with
+    !!       the restrictions imposed by the geometry
+
+    ! check if rotational symmetry is assumed, i.e., if the azimuthal
+    ! direction consists of only one cell and a full 2*PI range
+    ! this%ROTSYM is either set to the direction of the azimuthal angle {1,2,3}
+    ! or 0 if rotational symmetry is disabled
+    SELECT CASE(this%geometry%GetAzimuthIndex())
+    CASE(1)
+      IF (this%INUM.EQ.1.AND.(ABS(this%xmax-this%xmin-2*PI).LE.EPSILON(this%xmin))) &
+        this%ROTSYM = 1
+    CASE(2)
+      IF (this%JNUM.EQ.1.AND.(ABS(this%ymax-this%ymin-2*PI).LE.EPSILON(this%ymin))) &
+        this%ROTSYM = 2
+    CASE(3)
+      IF (this%KNUM.EQ.1.AND.(ABS(this%zmax-this%zmin-2*PI).LE.EPSILON(this%zmin))) &
+        this%ROTSYM = 3
+    CASE DEFAULT
       ! disable rotational symmetry
       this%ROTSYM = 0
-    CASE(1)
-      this%ROTSYM = this%geometry%GetAzimuthIndex()
-      SELECT CASE(this%ROTSYM)
-      CASE(0)
-        CALL this%Error("InitMesh","rotational symmetry not supported for this coordinates")
-      CASE(1)
-        IF (this%INUM.GT.1) CALL this%Error("InitMesh","assuming rotational symmetry, but INUM > 1")
-      CASE(2)
-        IF (this%JNUM.GT.1) CALL this%Error("InitMesh","assuming rotational symmetry, but JNUM > 1")
-      CASE(3)
-        IF (this%KNUM.GT.1) CALL this%Error("InitMesh","assuming rotational symmetry, but KNUM > 1")
-      CASE DEFAULT
-        CALL this%Error("InitMesh","index of azimuthal angle must be in {1,2,3}")
-      END SELECT
-    CASE DEFAULT
-      CALL this%Error("InitMesh","/mesh/rotsym must be either 0 (disabled) or 1 (enabled)")
     END SELECT
-      
+
     ! These constants are used to access date from adjacent cells, i.e., with
     ! indices i,j,k +/- 1 and +/- 2. This should always be used instead of direct
     ! indexing, e.g. i-1 should become i+this%IM1. Some of the constants are
@@ -461,14 +466,6 @@ CONTAINS
 
     ! initialize mesh arrays using indices with ghost cells
     CALL InitMeshProperties(this%IGMIN,this%IGMAX,this%JGMIN,this%JGMAX,this%KGMIN,this%KGMAX)
-
-    ! coordinate domain
-    CALL GetAttr(config, "xmin", this%xmin)
-    CALL GetAttr(config, "xmax", this%xmax)
-    CALL GetAttr(config, "ymin", this%ymin)
-    CALL GetAttr(config, "ymax", this%ymax)
-    CALL GetAttr(config, "zmin", this%zmin)
-    CALL GetAttr(config, "zmax", this%zmax)
 
     ! coordinate differences in each direction
     this%dx = (this%xmax - this%xmin) / this%INUM
