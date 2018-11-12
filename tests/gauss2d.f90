@@ -38,8 +38,8 @@ PROGRAM gauss2d
   REAL, PARAMETER     :: TSIM     = 0.3      ! simulation time
   REAL, PARAMETER     :: GAMMA    = 1.4      ! ratio of specific heats
   REAL, PARAMETER     :: CSISO    = &
-                                    0.0      ! non-isothermal simulation
-!                                     1.127    ! isothermal simulation
+!                                     0.0      ! non-isothermal simulation
+                                    1.127    ! isothermal simulation
                                              !   with CSISO as sound speed
   ! initial condition (dimensionless units)
   REAL, PARAMETER     :: RHO0     = 1.0      ! ambient density
@@ -250,7 +250,7 @@ CONTAINS
 
     CALL Physics%Convert2Conservative(Mesh,Timedisc%pvar%data4d,Timedisc%cvar%data4d)
 
-    CALL Mesh%Info(" DATA-----> initial condition: 3D Gaussian pulse")
+    CALL Mesh%Info(" DATA-----> initial condition: 2D Gaussian pulse")
 
   END SUBROUTINE InitData
 
