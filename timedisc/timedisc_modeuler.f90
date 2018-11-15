@@ -221,6 +221,7 @@ CONTAINS
     DO l=1,Physics%VNUM
 !NEC$ OUTERLOOP_UNROLL(8)
       DO k=Mesh%KMIN,Mesh%KMAX
+!NEC$ IVDEP
         DO j=Mesh%JMIN,Mesh%JMAX
 !NEC$ IVDEP
           DO i=Mesh%IMIN,Mesh%IMAX
@@ -231,7 +232,9 @@ CONTAINS
       END DO
 
       ! western and eastern boundary fluxes
+!NEC$ IVDEP
       DO k=Mesh%KMIN,Mesh%KMAX
+!NEC$ IVDEP
         DO j=Mesh%JMIN,Mesh%JMAX
           ! time step update of boundary fluxes
           Fluxes%bxflux(j,k,1,l) = UpdateTimestep_modeuler(eta,dt,Fluxes%bxfold(j,k,1,l), &
@@ -242,6 +245,7 @@ CONTAINS
       END DO
 
       ! southern and northern boundary fluxes
+!NEC$ IVDEP
       DO i=Mesh%IMIN,Mesh%IMAX
 !NEC$ IVDEP
         DO k=Mesh%KMIN,Mesh%KMAX
@@ -254,8 +258,10 @@ CONTAINS
       END DO
 
       ! bottom and top boundary fluxes
+!NEC$ IVDEP
       DO j=Mesh%JMIN,Mesh%JMAX
         ! time step update of boundary fluxes
+!NEC$ IVDEP
         DO i=Mesh%IMIN,Mesh%IMAX
           Fluxes%bzflux(i,j,1,l) = UpdateTimestep_modeuler(eta,dt,Fluxes%bzfold(i,j,1,l), &
                Fluxes%bzflux(i,j,1,l),rhs(i,j,Mesh%KMIN-Mesh%Kp1,l))

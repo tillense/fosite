@@ -452,7 +452,9 @@ CONTAINS
     !------------------------------------------------------------------------!
     ! compute minimal and maximal wave speeds at cell interfaces
     DO k=Mesh%KGMIN,Mesh%KGMAX
+!NEC$ collapse
       DO j=Mesh%JGMIN,Mesh%JGMAX
+!NEC$ ivdep
         DO i=Mesh%IGMIN,Mesh%IGMAX
           ! western
           CALL SetWaveSpeeds(this%fcsound(i,j,k,1), &
