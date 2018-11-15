@@ -1098,7 +1098,7 @@ CONTAINS
     END SELECT
 
     ! get the numerical fluxes
-    CALL Fluxes%CalculateFluxes(Mesh,Physics,pvar%data4d,cvar%data4d,this%xfluxdydz, &
+    CALL Fluxes%CalculateFluxes(Mesh,Physics,pvar,cvar,this%xfluxdydz, &
                                 this%yfluxdzdx,this%zfluxdxdy)
 
     ! compute the right hand side for boundary flux computation;
@@ -1454,7 +1454,7 @@ CONTAINS
     !------------------------------------------------------------------------!
     order = this%fargo_order
     IF(order.EQ.0) &
-      CALL Fluxes%CalculateFaceData(Mesh,Physics,this%pvar%data4d,this%cvar%data4d)
+      CALL Fluxes%CalculateFaceData(Mesh,Physics,this%pvar,this%cvar)
 
     ! depending on the shear direction set universal values which are then
     ! used in the following
@@ -1615,7 +1615,7 @@ CONTAINS
     END IF
 
     ! convert conservative to primitive variables
-    CALL Physics%Convert2Primitive_new(this%cvar,this%pvar)
+    CALL Physics%Convert2Primitive(this%cvar,this%pvar)
     ! Calculate RHS after the Advection Step
     CALL this%ComputeRHS(Mesh,Physics,Sources,Fluxes,this%time,0.,this%pvar,this%cvar,&
                     this%checkdatabm,this%rhs)

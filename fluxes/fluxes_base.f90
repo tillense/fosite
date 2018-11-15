@@ -32,14 +32,18 @@
 !!
 !! \brief base module for numerical flux functions
 !!
+!! \todo implement constructor and other fluxes, e.g. HLLC
+!!
 !! \ingroup fluxes
 !----------------------------------------------------------------------------!
 MODULE fluxes_base_mod
   USE logging_base_mod
   USE mesh_base_mod
   USE marray_base_mod
+  USE marray_compound_mod
   USE reconstruction_generic_mod
   USE physics_base_mod
+  USE physics_generic_mod
   USE common_dict
 #ifdef PARALLEL
 #ifdef HAVE_MPI_MOD
@@ -58,7 +62,9 @@ MODULE fluxes_base_mod
      !> \name Classes
      CLASS(reconstruction_base), ALLOCATABLE &
                                   :: Reconstruction  !< reconstruction method
-     CLASS(marray_base), ALLOCATABLE :: minwav,maxwav!< wave speeds
+     CLASS(marray_base), ALLOCATABLE :: minwav,maxwav!< min/max wave speeds
+     CLASS(marray_compound), ALLOCATABLE :: prim, &  !< primitive/conservative
+                                            cons     !< state vectors on cell faces
      !> \name
      !! #### various data fields
      REAL, DIMENSION(:,:,:,:), POINTER &
@@ -67,9 +73,7 @@ MODULE fluxes_base_mod
                                      bzflux,bxfold, &
                                      byfold,bzfold   !< boundary fluxes
      REAL, DIMENSION(:,:,:,:,:), POINTER &
-                                  :: prim,cons, &    !< pvar/cvar on cell faces
-                                     rstates, &      !< reconstructed data
-                                     pfluxes         !< physical fluxes
+                                  :: pfluxes         !< physical fluxes
   CONTAINS
     PROCEDURE                               :: InitFluxes
     PROCEDURE (CalculateFluxes), DEFERRED   :: CalculateFluxes
@@ -82,13 +86,12 @@ MODULE fluxes_base_mod
   ABSTRACT INTERFACE
     SUBROUTINE CalculateFluxes(this,Mesh,Physics,pvar,cvar, &
                 xfluxdydz,yfluxdzdx,zfluxdxdy)
-      IMPORT fluxes_base,mesh_base,physics_base
+      IMPORT fluxes_base,mesh_base,physics_base,marray_compound
       IMPLICIT NONE
       CLASS(fluxes_base),   INTENT(INOUT) :: this
       CLASS(mesh_base),     INTENT(IN)    :: Mesh
       CLASS(physics_base),  INTENT(INOUT) :: Physics
-      REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
-                            INTENT(IN)    :: pvar,cvar
+      CLASS(marray_compound),INTENT(INOUT):: pvar,cvar
       REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
                             INTENT(OUT)   :: xfluxdydz,yfluxdzdx,zfluxdxdy
     END SUBROUTINE
@@ -134,15 +137,8 @@ CONTAINS
     IF (.NOT.Mesh%Initialized().OR..NOT.Physics%Initialized()) &
          CALL this%Error("InitFluxes","mesh and/or physics module uninitialized")
 
-    ! call specific flux initialization routines
-    ! flux module type depends on mesh module type, see mesh_base
-
     ! allocate memory for all arrays used in fluxes
-    !ALLOCATE(this%Reconstruction)
-    ! TODO CONSTRUCTOR!!!!!
     ALLOCATE(this%minwav,this%maxwav, &
-      this%cons(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%NFACES,Physics%VNUM),    &
-      this%prim(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%NFACES,Physics%VNUM),    &
       this%pfluxes(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%NFACES,Physics%VNUM), &
       this%bxflux(Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,2,Physics%VNUM),      &
       this%byflux(Mesh%KGMIN:Mesh%KGMAX,Mesh%IGMIN:Mesh%IGMAX,2,Physics%VNUM),      &
@@ -162,6 +158,10 @@ CONTAINS
     this%minwav = marray_base(Mesh%NDIMS)
     this%maxwav = marray_base(Mesh%NDIMS)
 
+    ! initialize state vectors on cell interfaces
+    CALL new_statevector(Physics,this%prim,PRIMITIVE,Mesh%NFACES)
+    CALL new_statevector(Physics,this%cons,CONSERVATIVE,Mesh%NFACES)
+
     ! print some information
     CALL this%Info(" FLUXES---> fluxes type        " // TRIM(this%GetName()))
 
@@ -171,7 +171,7 @@ CONTAINS
       DO i=1, Physics%VNUM
         key = TRIM(Physics%pvarname(i)) // "_pstates"
         CALL SetAttr(IO, TRIM(key), &
-                     this%prim(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,:,i))
+                     this%prim%data5d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,:,i))
       END DO
     END IF
     CALL GetAttr(config, "output/cstates", valwrite, 0)
@@ -179,7 +179,7 @@ CONTAINS
       DO i=1, Physics%VNUM
         key = TRIM(Physics%pvarname(i)) // "_cstates"
         CALL SetAttr(IO, TRIM(key), &
-                     this%cons(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,:,i))
+                     this%cons%data5d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,:,i))
       END DO
     END IF
     CALL GetAttr(config, "output/pfluxes", valwrite, 0)
@@ -205,13 +205,6 @@ CONTAINS
       CALL SetAttr(IO, "maxwav", &
                    this%maxwav%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,1:Mesh%NDIMS))
       END IF
-
-    ! set reconstruction pointer
-    IF (this%Reconstruction%PrimRecon()) THEN
-       this%rstates => Mesh%RemapBounds(this%prim)
-    ELSE
-       this%rstates => Mesh%RemapBounds(this%cons)
-    END IF
 
     ! initialize boundary fluxes
     this%bxflux(:,:,:,:) = 0.
@@ -380,29 +373,27 @@ CONTAINS
     CLASS(fluxes_base),  INTENT(INOUT) :: this
     CLASS(mesh_base),    INTENT(IN)    :: Mesh
     CLASS(physics_base), INTENT(INOUT) :: Physics
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
-                         INTENT(IN)    :: pvar,cvar
+    CLASS(marray_compound),INTENT(INOUT):: pvar,cvar
     !------------------------------------------------------------------------!
-
     ! reconstruct data on cell faces
-    !\todo{Attention here when reconstruction is done}
     IF (this%Reconstruction%PrimRecon()) THEN
        CALL this%Reconstruction%CalculateStates(Mesh,Physics,Mesh%NFACES,this%dx,&
-            this%dy,this%dz,pvar,this%rstates)
-       CALL Physics%Convert2Conservative(Mesh,this%rstates,this%cons)
+            this%dy,this%dz,pvar%data3d,this%prim%data5d)
+       CALL Physics%Convert2Conservative(this%prim,this%cons)
     ELSE
        CALL this%Reconstruction%CalculateStates(Mesh,Physics,Mesh%NFACES,this%dx,&
-            this%dy,this%dz,cvar,this%rstates)
-       CALL Physics%Convert2Primitive(Mesh,this%rstates,this%prim)
+            this%dy,this%dz,cvar%data3d,this%cons%data5d)
+       CALL Physics%Convert2Primitive(this%cons,this%prim)
     END IF
 
     ! update the speed of sound on cell faces (non-isotherml physics only)
     SELECT TYPE(phys => Physics)
     CLASS IS(physics_euler)
-      CALL phys%UpdateSoundSpeed(Mesh,this%prim)
+      CALL phys%UpdateSoundSpeed(Mesh,this%prim%data5d)
     END SELECT
+
     ! get minimal & maximal wave speeds on cell interfaces
-    CALL Physics%CalculateWaveSpeeds(Mesh,this%prim,this%cons,this%minwav,this%maxwav)
+    CALL Physics%CalculateWaveSpeeds(Mesh,this%prim%data5d,this%cons%data5d,this%minwav,this%maxwav)
   END SUBROUTINE CalculateFaceData
 
   !> Destructor
@@ -415,6 +406,8 @@ CONTAINS
         CALL this%Error("CloseFluxes","not initialized")
     CALL this%minwav%Destroy()
     CALL this%maxwav%Destroy()
+    CALL this%prim%Destroy()
+    CALL this%cons%Destroy()
     DEALLOCATE(this%cons,this%prim,this%pfluxes,this%minwav,this%maxwav, &
          this%bxflux,this%byflux,this%bzflux,this%bxfold,this%byfold,this%bzfold, &
          this%dx,this%dy,this%dz)

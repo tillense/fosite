@@ -40,6 +40,7 @@
 MODULE fluxes_kt_mod
   USE fluxes_base_mod
   USE mesh_base_mod
+  USE marray_compound_mod
 !#ifdef PARALLEL
 !       DEFAULT_MPI_REAL
 !#endif
@@ -123,8 +124,7 @@ CONTAINS
     CLASS(fluxes_kt),    INTENT(INOUT) :: this
     CLASS(mesh_base),    INTENT(IN)    :: Mesh
     CLASS(physics_base), INTENT(INOUT) :: Physics
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%vnum), &
-                         INTENT(IN)    :: pvar,cvar
+    CLASS(marray_compound), INTENT(INOUT) :: pvar,cvar
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%vnum), &
                          INTENT(OUT)   :: xfluxdydz,yfluxdzdx,zfluxdxdy
     !------------------------------------------------------------------------!
@@ -139,7 +139,7 @@ CONTAINS
       IF (Mesh%INUM.GT.1) THEN
         m = 1 ! index counting the number of spatial directions for which transport is enabled
         ! physical fluxes
-        CALL Physics%CalculateFluxesX(Mesh,2*m-1,2*m,this%prim,this%cons,this%pfluxes)
+        CALL Physics%CalculateFluxesX(Mesh,2*m-1,2*m,this%prim%data5d,this%cons%data5d,this%pfluxes)
 !NEC$ UNROLL(8)
         DO l=1,Physics%VNUM
 !NEC$ UNROLL(8)
@@ -152,7 +152,7 @@ CONTAINS
                          (this%maxwav%data4d(i,j,k,m) * this%pfluxes(i,j,k,m+1,l) - &
                           this%minwav%data4d(i,j,k,m) * this%pfluxes(i+1,j,k,m,l) + &
                           this%minwav%data4d(i,j,k,m) * this%maxwav%data4d(i,j,k,m) * &
-                      (this%cons(i+1,j,k,m,l) - this%cons(i,j,k,m+1,l)))
+                      (this%cons%data5d(i+1,j,k,m,l) - this%cons%data5d(i,j,k,m+1,l)))
               END DO
             END DO
           END DO
@@ -167,7 +167,7 @@ CONTAINS
         m = m + 1 ! increase wave speed index, may be 1 or 2 now depending
                   ! on whether there was transport in x-direction or not
         ! physical fluxes
-        CALL Physics%CalculateFluxesY(Mesh,2*m-1,2*m,this%prim,this%cons,this%pfluxes)
+        CALL Physics%CalculateFluxesY(Mesh,2*m-1,2*m,this%prim%data5d,this%cons%data5d,this%pfluxes)
 !NEC$ UNROLL(8)
         DO l=1,Physics%VNUM
           DO k=Mesh%KGMIN,Mesh%KGMAX
@@ -178,7 +178,7 @@ CONTAINS
                          (this%maxwav%data4d(i,j,k,m) * this%pfluxes(i,j,k,2*m,l) - &
                           this%minwav%data4d(i,j,k,m) * this%pfluxes(i,j+1,k,2*m-1,l) + &
                           this%minwav%data4d(i,j,k,m) * this%maxwav%data4d(i,j,k,m) * &
-                      (this%cons(i,j+1,k,2*m-1,l) - this%cons(i,j,k,2*m,l)))
+                      (this%cons%data5d(i,j+1,k,2*m-1,l) - this%cons%data5d(i,j,k,2*m,l)))
               END DO
             END DO
           END DO
@@ -191,7 +191,7 @@ CONTAINS
         m = m + 1 ! increase wave speed index, may be 1, 2 or 3 now depending
                   ! on whether there was transport in x- and/or y-direction or not
          ! physical fluxes
-        CALL Physics%CalculateFluxesZ(Mesh,2*m-1,2*m,this%prim,this%cons,this%pfluxes)
+        CALL Physics%CalculateFluxesZ(Mesh,2*m-1,2*m,this%prim%data5d,this%cons%data5d,this%pfluxes)
 !NEC$ UNROLL(8)
         DO l=1,Physics%VNUM
 !NEC$ UNROLL(8)
@@ -204,7 +204,7 @@ CONTAINS
                          (this%maxwav%data4d(i,j,k,m) * this%pfluxes(i,j,k,2*m,l) - &
                           this%minwav%data4d(i,j,k,m) * this%pfluxes(i,j,k+1,2*m-1,l) + &
                           this%minwav%data4d(i,j,k,m) * this%maxwav%data4d(i,j,k,m) * &
-                      (this%cons(i,j,k+1,2*m-1,l) - this%cons(i,j,k,2*m,l)))
+                      (this%cons%data5d(i,j,k+1,2*m-1,l) - this%cons%data5d(i,j,k,2*m,l)))
              END DO
             END DO
           END DO

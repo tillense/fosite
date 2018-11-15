@@ -260,22 +260,22 @@ CONTAINS
     END IF
 
     ! initial condition
-    SELECT TYPE(phys => Physics)
-    TYPE IS(physics_eulerisotherm)
+    SELECT TYPE(pvar => Timedisc%pvar)
+    TYPE IS(statevector_eulerisotherm) ! isothermal HD
       ! Gaussian density pulse
-      Timedisc%pvar%data4d(:,:,:,Physics%DENSITY)  = RHO0 + RHO1*EXP(-LOG(2.0) &
+      pvar%density%data3d(:,:,:)  = RHO0 + RHO1*EXP(-LOG(2.0) &
                * (radius(:,:,:)/RWIDTH)**2)
-    TYPE IS(physics_euler)
-      ! Gaussian pressure pulse and constant density
-      Timedisc%pvar%data4d(:,:,:,Physics%DENSITY)  = RHO0
-      Timedisc%pvar%data4d(:,:,:,Physics%PRESSURE)  = P0 + P1*EXP(-LOG(2.0) &
+      ! vanishing velocities
+      pvar%velocity%data1d(:) = 0.0
+    TYPE IS(statevector_euler) ! non-isothermal HD
+      ! constant density
+      pvar%density%data1d(:)  = RHO0
+      ! Gaussian pressure pulse
+      pvar%pressure%data3d(:,:,:) = P0 + P1*EXP(-LOG(2.0) &
                * (radius(:,:,:)/RWIDTH)**2)
+      ! vanishing velocities
+      pvar%velocity%data1d(:) = 0.0
     END SELECT
-
-    ! vanishing velocities
-    Timedisc%pvar%data4d(:,:,:,Physics%XVELOCITY) = 0.
-    Timedisc%pvar%data4d(:,:,:,Physics%YVELOCITY) = 0.
-    Timedisc%pvar%data4d(:,:,:,Physics%ZVELOCITY) = 0.
 
     CALL Physics%Convert2Conservative(Timedisc%pvar,Timedisc%cvar)
 

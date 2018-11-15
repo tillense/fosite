@@ -106,25 +106,25 @@ MODULE physics_base_mod
     PROCEDURE (ExternalSources),              DEFERRED :: ExternalSources
     PROCEDURE (EnableOutput),                 DEFERRED :: EnableOutput
     !------Convert2Primitve--------!
-    PROCEDURE :: Convert2Primitive_base
-    GENERIC   :: Convert2Primitive_new => Convert2Primitive_base
+    PROCEDURE (Convert2Primitive_new),        DEFERRED :: Convert2Primitive_new
     PROCEDURE (Convert2Primitive_center),     DEFERRED :: Convert2Primitive_center
     PROCEDURE (Convert2Primitive_centsub),    DEFERRED :: Convert2Primitive_centsub
     PROCEDURE (Convert2Primitive_faces),      DEFERRED :: Convert2Primitive_faces
     PROCEDURE (Convert2Primitive_facesub),    DEFERRED :: Convert2Primitive_facesub
     GENERIC   :: Convert2Primitive => &
+                   Convert2Primitive_new, &
                    Convert2Primitive_center, &
                    Convert2Primitive_centsub, &
                    Convert2Primitive_faces, &
                    Convert2Primitive_facesub
     !------Convert2Conservative----!
-    PROCEDURE :: Convert2Conservative_base
-    GENERIC   :: Convert2Conservative_new => Convert2Conservative_base
+    PROCEDURE (Convert2Conservative_new),     DEFERRED :: Convert2Conservative_new
     PROCEDURE (Convert2Conservative_center),  DEFERRED :: Convert2Conservative_center
     PROCEDURE (Convert2Conservative_centsub), DEFERRED :: Convert2Conservative_centsub
     PROCEDURE (Convert2Conservative_faces),   DEFERRED :: Convert2Conservative_faces
     PROCEDURE (Convert2Conservative_facesub), DEFERRED :: Convert2Conservative_facesub
     GENERIC   :: Convert2Conservative => &
+                   Convert2Conservative_new, &
                    Convert2Conservative_center, &
                    Convert2Conservative_centsub, &
                    Convert2Conservative_faces, &
@@ -192,6 +192,11 @@ MODULE physics_base_mod
       CLASS(mesh_base),        INTENT(IN)   :: Mesh
       TYPE(Dict_TYP), POINTER, INTENT(IN)   :: config, IO
     END SUBROUTINE
+    PURE SUBROUTINE Convert2Primitive_new(this,cvar,pvar)
+      IMPORT physics_base, marray_compound
+      CLASS(physics_base), INTENT(IN)  :: this
+      CLASS(marray_compound), INTENT(INOUT) :: cvar,pvar
+    END SUBROUTINE
     PURE SUBROUTINE Convert2Primitive_center(this,Mesh,cvar,pvar)
       IMPORT physics_base, mesh_base
       CLASS(physics_base), INTENT(IN)  :: this
@@ -229,6 +234,11 @@ MODULE physics_base_mod
                            INTENT(IN)  :: cons
       REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%nfaces,this%vnum), &
                            INTENT(OUT) :: prim
+    END SUBROUTINE
+    PURE SUBROUTINE Convert2Conservative_new(this,pvar,cvar)
+      IMPORT physics_base, marray_compound
+      CLASS(physics_base), INTENT(IN)  :: this
+      CLASS(marray_compound), INTENT(INOUT) :: pvar,cvar
     END SUBROUTINE
     PURE SUBROUTINE Convert2Conservative_center(this,Mesh,pvar,cvar)
       IMPORT physics_base, mesh_base
@@ -663,26 +673,6 @@ CONTAINS
     !------------------------------------------------------------------------!
     CALL this%Info(" PHYSICS--> advection problem: " // TRIM(this%GetName()))
   END SUBROUTINE PrintConfiguration
-
-  PURE SUBROUTINE Convert2Primitive_base(this,cvar,pvar)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(physics_base), INTENT(IN)    :: this
-    TYPE(marray_compound), INTENT(IN)  :: cvar
-    TYPE(marray_compound), INTENT(OUT) :: pvar
-    !------------------------------------------------------------------------!
-    ! do nothing, just a dummy
-  END SUBROUTINE Convert2Primitive_base
-
-  PURE SUBROUTINE Convert2Conservative_base(this,pvar,cvar)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(physics_base), INTENT(IN)    :: this
-    TYPE(marray_compound), INTENT(IN)  :: pvar
-    TYPE(marray_compound), INTENT(OUT) :: cvar
-    !------------------------------------------------------------------------!
-    ! do nothing, just a dummy
-  END SUBROUTINE Convert2Conservative_base
 
   !> Destructor
   SUBROUTINE Finalize_base(this)

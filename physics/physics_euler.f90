@@ -54,14 +54,11 @@ MODULE physics_euler_mod
     PROCEDURE :: InitPhysics_euler             !< constructor
     PROCEDURE :: PrintConfiguration_euler
     !------Convert2Primitve--------!
-    PROCEDURE :: Convert2Primitive_euler
-    GENERIC   :: Convert2Primitive_new => &
-                   Convert2Primitive_base, &
-                   Convert2Primitive_eulerisotherm, &
-                   Convert2Primitive_euler
+    PROCEDURE :: Convert2Primitive_new
     PROCEDURE :: Convert2Primitive_centsub
     PROCEDURE :: Convert2Primitive_facesub
     !------Convert2Conservative----!
+    PROCEDURE :: Convert2Conservative_new
     PROCEDURE :: Convert2Conservative_centsub
     PROCEDURE :: Convert2Conservative_facesub
     !------soundspeed routines-----!
@@ -163,29 +160,30 @@ CONTAINS
     IF (err.NE.0) &
          CALL this%Error("InitPhysics_eulerisotherm", "Unable to allocate memory.")
 
-    !> \todo remove in future version
-    ! set array indices
+    !> \todo remove / improve in future version
+    !! set array indices for 1st,2nd,3rd non-vanishing velocities
+    !! this may actually not coincide with the x,y and z-velocities
     this%DENSITY   = 1                                 ! mass density        !
-    this%XVELOCITY = 2                                 ! x-velocity          !
-    this%XMOMENTUM = 2                                 ! x-momentum          !
     this%pvarname(this%DENSITY)   = "density"
     this%cvarname(this%DENSITY)   = "density"
-    this%pvarname(this%XVELOCITY) = "xvelocity"
-    this%cvarname(this%XMOMENTUM) = "xmomentum"
+    this%XVELOCITY = 2                                 ! x-velocity          !
+    this%XMOMENTUM = 2                                 ! x-momentum          !
     IF (this%VDIM.GE.2) THEN
       this%YVELOCITY = 3                               ! y-velocity          !
       this%YMOMENTUM = 3                               ! y-momentum          !
-      this%pvarname(this%YVELOCITY) = "yvelocity"
-      this%cvarname(this%YMOMENTUM) = "ymomentum"
+    ELSE
+      this%YVELOCITY = 0                               ! no y-velocity       !
+      this%YMOMENTUM = 0                               ! no y-momentum       !
     END IF
     IF (this%VDIM.EQ.3) THEN
       this%ZVELOCITY = 4                               ! z-velocity          !
       this%ZMOMENTUM = 4                               ! z-momentum          !
-      this%pvarname(this%ZVELOCITY) = "zvelocity"
-      this%cvarname(this%ZMOMENTUM) = "zmomentum"
+    ELSE
+      this%ZVELOCITY = 0                               ! no z-velocity       !
+      this%ZMOMENTUM = 0                               ! no z-momentum       !
     END IF
-    this%PRESSURE  = this%VNUM                         ! no pressure         !
-    this%ENERGY    = this%VNUM                         ! no total energy     !
+    this%PRESSURE  = this%VNUM                         ! pressure            !
+    this%ENERGY    = this%VNUM                         ! total energy        !
     this%pvarname(this%PRESSURE)  = "pressure"
     this%cvarname(this%ENERGY)    = "energy"
 
@@ -204,36 +202,78 @@ CONTAINS
     CALL this%PrintConfiguration()
   END SUBROUTINE PrintConfiguration_euler
 
-  PURE SUBROUTINE Convert2Primitive_euler(this,cvar,pvar)
+  PURE SUBROUTINE Convert2Primitive_new(this,cvar,pvar)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(physics_euler), INTENT(IN)     :: this
-    TYPE(statevector_euler), INTENT(IN)  :: cvar
-    TYPE(statevector_euler), INTENT(OUT) :: pvar
+    CLASS(physics_euler), INTENT(IN)      :: this
+    CLASS(marray_compound), INTENT(INOUT) :: cvar,pvar
     !------------------------------------------------------------------------!
-    IF (cvar%flavour.EQ.CONSERVATIVE.AND.pvar%flavour.EQ.PRIMITIVE) THEN
-      ! conservative -> primitive
-      SELECT CASE(this%VDIM)
-      CASE(1)
-        CALL Cons2Prim(this%gamma,cvar%density%data1d(:),cvar%momentum%data1d(:), &
-                      cvar%energy%data1d(:),pvar%density%data1d(:), &
-                      pvar%velocity%data1d(:),pvar%pressure%data1d(:))
-      CASE(2)
-        CALL Cons2Prim(this%gamma,cvar%density%data1d(:),cvar%momentum%data2d(:,1), &
-                      cvar%momentum%data2d(:,2),cvar%energy%data1d(:), &
-                      pvar%density%data1d(:),pvar%velocity%data2d(:,1), &
-                      pvar%velocity%data2d(:,2),pvar%pressure%data1d(:))
-      CASE(3)
-        CALL Cons2Prim(this%gamma,cvar%density%data1d(:),cvar%momentum%data2d(:,1), &
-                      cvar%momentum%data2d(:,2),cvar%momentum%data2d(:,3), &
-                      cvar%energy%data1d(:),pvar%density%data1d(:), &
-                      pvar%velocity%data2d(:,1),pvar%velocity%data2d(:,2),&
-                      pvar%velocity%data2d(:,3),pvar%pressure%data1d(:))
+    SELECT TYPE(c => cvar)
+    TYPE IS (statevector_euler)
+      SELECT TYPE(p => pvar)
+      TYPE IS (statevector_euler)
+        IF (c%flavour.EQ.CONSERVATIVE.AND.p%flavour.EQ.PRIMITIVE) THEN
+          ! conservative -> primitive
+          SELECT CASE(this%VDIM)
+          CASE(1)
+            CALL Cons2Prim(this%gamma,c%density%data1d(:),c%momentum%data1d(:), &
+                          c%energy%data1d(:),p%density%data1d(:), &
+                          p%velocity%data1d(:),p%pressure%data1d(:))
+          CASE(2)
+            CALL Cons2Prim(this%gamma,c%density%data1d(:),c%momentum%data2d(:,1), &
+                          c%momentum%data2d(:,2),c%energy%data1d(:), &
+                          p%density%data1d(:),p%velocity%data2d(:,1), &
+                          p%velocity%data2d(:,2),p%pressure%data1d(:))
+          CASE(3)
+            CALL Cons2Prim(this%gamma,c%density%data1d(:),c%momentum%data2d(:,1), &
+                          c%momentum%data2d(:,2),c%momentum%data2d(:,3), &
+                          c%energy%data1d(:),p%density%data1d(:), &
+                          p%velocity%data2d(:,1),p%velocity%data2d(:,2),&
+                          p%velocity%data2d(:,3),p%pressure%data1d(:))
+          END SELECT
+        ELSE
+          ! do nothing
+        END IF
       END SELECT
-    ELSE
-      ! do nothing
-    END IF
-  END SUBROUTINE Convert2Primitive_euler
+    END SELECT
+  END SUBROUTINE Convert2Primitive_new
+
+    !> Converts to conservative at cell centers using state vectors
+  PURE SUBROUTINE Convert2Conservative_new(this,pvar,cvar)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(physics_euler), INTENT(IN)      :: this
+    CLASS(marray_compound), INTENT(INOUT) :: pvar,cvar
+    !------------------------------------------------------------------------!
+    SELECT TYPE(p => pvar)
+    TYPE IS (statevector_euler)
+      SELECT TYPE(c => cvar)
+      TYPE IS (statevector_euler)
+        IF (p%flavour.EQ.PRIMITIVE.AND.c%flavour.EQ.CONSERVATIVE) THEN
+          ! perform the transformation depending on dimensionality
+          SELECT CASE(this%VDIM)
+          CASE(1) ! 1D velocity / momentum
+            CALL Prim2Cons(this%gamma,p%density%data1d(:),p%velocity%data1d(:), &
+                          p%pressure%data1d(:),c%density%data1d(:), &
+                          c%momentum%data1d(:),c%energy%data1d(:))
+          CASE(2) ! 2D velocity / momentum
+            CALL Prim2Cons(this%gamma,p%density%data1d(:),p%velocity%data2d(:,1), &
+                          p%velocity%data2d(:,2),p%pressure%data1d(:), &
+                          c%density%data1d(:),c%momentum%data2d(:,1), &
+                          c%momentum%data2d(:,2),c%energy%data1d(:))
+          CASE(3) ! 3D velocity / momentum
+            CALL Prim2Cons(this%gamma,p%density%data1d(:),p%velocity%data2d(:,1), &
+                          p%velocity%data2d(:,2),p%velocity%data2d(:,3), &
+                          p%pressure%data1d(:),c%density%data1d(:), &
+                          c%momentum%data2d(:,1),c%momentum%data2d(:,2), &
+                          c%momentum%data2d(:,3),c%energy%data1d(:))
+          END SELECT
+        ELSE
+          ! do nothing
+        END IF
+      END SELECT
+    END SELECT
+  END SUBROUTINE Convert2Conservative_new
 
   !> Calculate Fluxes in x-direction
   !\todo NOT VERIFIED
@@ -290,7 +330,14 @@ CONTAINS
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%NFACES,this%VNUM), &
                             INTENT(OUT) :: zfluxes
     !------------------------------------------------------------------------!
-    ! routine does not exist in 2D
+    CALL SetFlux( &
+         prim(:,:,:,nmin:nmax,this%DENSITY),prim(:,:,:,nmin:nmax,this%ZVELOCITY),    &
+         prim(:,:,:,nmin:nmax,this%PRESSURE),cons(:,:,:,nmin:nmax,this%ZMOMENTUM),    &
+         cons(:,:,:,nmin:nmax,this%XMOMENTUM),cons(:,:,:,nmin:nmax,this%YMOMENTUM),    &
+         cons(:,:,:,nmin:nmax,this%ENERGY),   &
+         zfluxes(:,:,:,nmin:nmax,this%DENSITY),zfluxes(:,:,:,nmin:nmax,this%ZMOMENTUM), &
+         zfluxes(:,:,:,nmin:nmax,this%XMOMENTUM),zfluxes(:,:,:,nmin:nmax,this%YMOMENTUM), &
+         zfluxes(:,:,:,nmin:nmax,this%ENERGY))
   END SUBROUTINE CalcFluxesZ
 
 !  !> Reconstruction of the intermediate state for HLLC
@@ -1611,27 +1658,27 @@ CONTAINS
   !! \attention This is not a class member itself, instead its an ordinary
   !!            module procedure. The function name is overloaded with
   !!            the class name.
-  FUNCTION CreateStateVector(Physics,flavour) RESULT(new_sv)
+  FUNCTION CreateStateVector(Physics,flavour,num) RESULT(new_sv)
     IMPLICIT NONE
     !-------------------------------------------------------------------!
     CLASS(physics_euler), INTENT(IN) :: Physics
-    INTEGER, OPTIONAL, INTENT(IN) :: flavour
+    INTEGER, OPTIONAL, INTENT(IN) :: flavour,num
     TYPE(statevector_euler) :: new_sv
     !-------------------------------------------------------------------!
     ! call inherited function
-    new_sv = statevector_eulerisotherm(Physics,flavour)
+    new_sv = statevector_eulerisotherm(Physics,flavour,num)
     ! add entries specific for euler physics
     SELECT CASE(flavour)
     CASE(PRIMITIVE)
       ! allocate memory for pressure mesh array
       ALLOCATE(new_sv%pressure)
-      new_sv%pressure  = marray_base()           ! scalar, rank 0
+      new_sv%pressure  = marray_base(num)           ! one/num scalars
       ! append to compound
       CALL new_sv%AppendMArray(new_sv%pressure)
     CASE(CONSERVATIVE)
       ! allocate memory for energy mesh array
       ALLOCATE(new_sv%energy)
-      new_sv%energy  = marray_base()             ! scalar, rank 0
+      new_sv%energy  = marray_base(num)             ! one/num scalars
       ! append to compound
       CALL new_sv%AppendMArray(new_sv%energy)
     CASE DEFAULT
@@ -1652,25 +1699,11 @@ CONTAINS
       CLASS IS(statevector_euler)
         SELECT CASE(this%flavour)
         CASE(PRIMITIVE)
-          ! assign pressure marray pointer into the data of the compound
-          IF (.NOT.ASSOCIATED(this%pressure)) ALLOCATE(this%pressure)
-          this%pressure%data1d => this%data1d(LBOUND(src%pressure%data1d,1) &
-                                            :UBOUND(src%pressure%data1d,1))
-          ! copy meta data
-          this%pressure%RANK    = src%pressure%RANK
-          this%pressure%DIMS(:) = src%pressure%DIMS(:)
-          ! assign the multi-dim. pointers
-          CALL this%pressure%AssignPointers()
+          ! pressure is the third item
+          this%pressure => this%GetItem(this%NextItem(this%NextItem(this%FirstItem())))
         CASE(CONSERVATIVE)
-          ! assign energy marray pointer into the data of the compound
-          IF (.NOT.ASSOCIATED(this%energy)) ALLOCATE(this%energy)
-          this%energy%data1d => this%data1d(LBOUND(src%energy%data1d,1) &
-                                            :UBOUND(src%energy%data1d,1))
-          ! copy meta data
-          this%energy%RANK    = src%energy%RANK
-          this%energy%DIMS(:) = src%energy%DIMS(:)
-          ! assign the multi-dim. pointers
-          CALL this%energy%AssignPointers()
+          ! energy is the third item
+          this%energy => this%GetItem(this%NextItem(this%NextItem(this%FirstItem())))
         CASE DEFAULT
           ! error, this should not happen
         END SELECT
@@ -1868,19 +1901,6 @@ CONTAINS
 !    ! pressure
 !    p = cs2gam * rho
 !  END SUBROUTINE Riemann2Prim
-
-  !> \todo NOT VERIFIED
-  ELEMENTAL SUBROUTINE SetFlux(rho,v,P,m1,m2,E,f1,f2,f3,f4)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    REAL, INTENT(IN)  :: rho,v,P,m1,m2,E
-    REAL, INTENT(OUT) :: f1, f2, f3, f4
-    !------------------------------------------------------------------------!
-    f1 = rho*v
-    f2 = m1*v + P
-    f3 = m2*v
-    f4 = (E+P)*v
-  END SUBROUTINE SetFlux
 
   !> \private set mass, 1D momentum and energy flux for transport along the 1st dimension
   ELEMENTAL SUBROUTINE SetFlux1d(rho,u,P,mu,E,f1,f2,f3)

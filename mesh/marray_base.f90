@@ -268,8 +268,12 @@ MODULE marray_base_mod
       END IF
       CALL this%AssignPointers()
     ELSE IF (ASSOCIATED(this%data1d)) THEN
-      !> \todo improve error handling for mesh arrays
+      ! both of same type ma%data1d not associated, but this%data1d associated
       PRINT *,"ERROR in marray_base::AssignMArray_0: ma%data1d not associated but this%data1d is"
+      STOP 1
+    ELSE
+      ! both of same type, but none of the data1d arrays allocated
+      PRINT *,"ERROR in marray_base::AssignMArray_0: ma%data1d and this%data1d not associated"
       STOP 1
     END IF
   END SUBROUTINE AssignMArray_0

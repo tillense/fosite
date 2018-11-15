@@ -192,7 +192,6 @@ CONTAINS
              "fluxes"   / fluxes, &
              "sources"  / sources, &
              "timedisc" / timedisc, &
-!             "logfile"  / logfile, &
              "datafile" / datafile)
   END SUBROUTINE MakeConfig
 

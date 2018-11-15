@@ -84,9 +84,6 @@ MODULE reconstruction_base_mod
 
   !> \todo{here something is still not right! (constant, linear all at this place?)}
   !> \name Public Attributes
-!   INTEGER, PARAMETER :: PRIMITIVE    = 1           ! True  ! not type LOGICAL!
-!   INTEGER, PARAMETER :: CONSERVATIVE = 0           ! False ! because it cant !
-
   INTEGER, PARAMETER :: CONSTANT     = 1
   INTEGER, PARAMETER :: LINEAR       = 2
   !--------------------------------------------------------------------------!
@@ -129,12 +126,12 @@ CONTAINS
     CALL GetAttr(config, "order", order, LINEAR)
 
     CALL GetAttr(config, "variables", variables, CONSERVATIVE)
-
-    IF(variables.EQ.0) THEN
-        this%primcons = .FALSE.
-    ELSE
-        this%primcons = .TRUE.
-    END IF
+    SELECT CASE(variables)
+    CASE(PRIMITIVE)
+      this%primcons = .TRUE.
+    CASE DEFAULT
+      this%primcons = .FALSE.
+    END SELECT
 
     ! print some information
     CALL this%Info(" RECONSTR-> order:             " // TRIM(this%GetName()))

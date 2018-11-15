@@ -143,7 +143,7 @@ CONTAINS
     TYPE(Dict_TYP),POINTER  :: config
     !------------------------------------------------------------------------!
     ! Local variable declaration
-    TYPE(Dict_TYP), POINTER :: mesh, physics, boundary, datafile, logfile, &
+    TYPE(Dict_TYP), POINTER :: mesh, physics, boundary, datafile, &
                                sources, timedisc, fluxes, vis
     REAL                    :: dynvis
     !------------------------------------------------------------------------!

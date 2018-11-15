@@ -38,8 +38,8 @@ PROGRAM gauss2d
   REAL, PARAMETER     :: TSIM     = 0.3      ! simulation time
   REAL, PARAMETER     :: GAMMA    = 1.4      ! ratio of specific heats
   REAL, PARAMETER     :: CSISO    = &
-!                                     0.0      ! non-isothermal simulation
-                                    1.127    ! isothermal simulation
+                                    0.0      ! non-isothermal simulation
+!                                     1.127    ! isothermal simulation
                                              !   with CSISO as sound speed
   ! initial condition (dimensionless units)
   REAL, PARAMETER     :: RHO0     = 1.0      ! ambient density
@@ -98,7 +98,7 @@ CONTAINS
     ! Local variable declaration
     INTEGER                 :: bc(6)
     TYPE(Dict_TYP), POINTER :: mesh, physics, boundary, datafile, sources, &
-                               timedisc, fluxes!, logfile, vis
+                               timedisc, fluxes
     REAL                    :: x1,x2,y1,y2,z1,z2
     !------------------------------------------------------------------------!
     INTENT(INOUT)           :: Sim
@@ -160,7 +160,8 @@ CONTAINS
     fluxes => Dict( &
             "order"     / LINEAR, &
             "fluxtype"  / KT, &
-            "variables" / PRIMITIVE, &
+!             "variables" / PRIMITIVE, &
+            "variables" / CONSERVATIVE, &
             "limiter"   / VANLEER, &
             "output/slopes" / 0)
 
@@ -195,8 +196,8 @@ CONTAINS
 
 
   SUBROUTINE InitData(Mesh,Physics,Timedisc)
-    USE physics_euler_mod, ONLY : physics_euler
-    USE physics_eulerisotherm_mod, ONLY : physics_eulerisotherm
+    USE physics_euler_mod, ONLY : statevector_euler
+    USE physics_eulerisotherm_mod, ONLY : statevector_eulerisotherm
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(physics_base)         :: Physics
@@ -232,23 +233,24 @@ CONTAINS
     END IF
 
     ! initial condition
-    SELECT TYPE(phys => Physics)
-    TYPE IS(physics_eulerisotherm)
+    SELECT TYPE(pvar => Timedisc%pvar)
+    TYPE IS(statevector_eulerisotherm) ! isothermal HD
       ! Gaussian density pulse
-      Timedisc%pvar%data4d(:,:,:,Physics%DENSITY)  = RHO0 + RHO1*EXP(-LOG(2.0) &
+      pvar%density%data3d(:,:,:)  = RHO0 + RHO1*EXP(-LOG(2.0) &
                * (radius(:,:,:)/RWIDTH)**2)
-    TYPE IS(physics_euler)
-      ! Gaussian pressure pulse and constant density
-      Timedisc%pvar%data4d(:,:,:,Physics%DENSITY)  = RHO0
-      Timedisc%pvar%data4d(:,:,:,Physics%PRESSURE)  = P0 + P1*EXP(-LOG(2.0) &
+      ! vanishing velocities
+      pvar%velocity%data1d(:) = 0.0
+    TYPE IS(statevector_euler) ! non-isothermal HD
+      ! constant density
+      pvar%density%data1d(:)  = RHO0
+      ! Gaussian pressure pulse
+      pvar%pressure%data3d(:,:,:) = P0 + P1*EXP(-LOG(2.0) &
                * (radius(:,:,:)/RWIDTH)**2)
+      ! vanishing velocities
+      pvar%velocity%data1d(:) = 0.0
     END SELECT
-    
-    ! vanishing velocities
-    Timedisc%pvar%data4d(:,:,:,Physics%XVELOCITY) = 0.
-    Timedisc%pvar%data4d(:,:,:,Physics%YVELOCITY) = 0.
 
-    CALL Physics%Convert2Conservative(Mesh,Timedisc%pvar%data4d,Timedisc%cvar%data4d)
+    CALL Physics%Convert2Conservative(Timedisc%pvar,Timedisc%cvar)
 
     CALL Mesh%Info(" DATA-----> initial condition: 2D Gaussian pulse")
 

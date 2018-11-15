@@ -63,19 +63,13 @@ MODULE physics_eulerisotherm_mod
     PROCEDURE :: PrintConfiguration_eulerisotherm
     PROCEDURE :: EnableOutput
     !------Convert2Primitive-------!
-    PROCEDURE :: Convert2Primitive_eulerisotherm
-    GENERIC   :: Convert2Primitive_new => &
-                   Convert2Primitive_base, &
-                   Convert2Primitive_eulerisotherm
+    PROCEDURE :: Convert2Primitive_new
     PROCEDURE :: Convert2Primitive_center
     PROCEDURE :: Convert2Primitive_centsub
     PROCEDURE :: Convert2Primitive_faces
     PROCEDURE :: Convert2Primitive_facesub
     !------Convert2Conservative----!
-    PROCEDURE :: Convert2Conservative_eulerisotherm
-    GENERIC   :: Convert2Conservative_new => &
-                   Convert2Conservative_base, &
-                   Convert2Conservative_eulerisotherm
+    PROCEDURE :: Convert2Conservative_new
     PROCEDURE :: Convert2Conservative_center
     PROCEDURE :: Convert2Conservative_centsub
     PROCEDURE :: Convert2Conservative_faces
@@ -170,7 +164,7 @@ CONTAINS
     CLASS(mesh_base),         INTENT(IN)    :: Mesh
     TYPE(Dict_TYP), POINTER,  INTENT(IN)    :: config, IO
     !------------------------------------------------------------------------!
-    INTEGER :: err
+    INTEGER :: next_idx,err
     !------------------------------------------------------------------------!
     CALL this%InitPhysics(Mesh,config,IO,EULER_ISOTHERM,problem_name)
 
@@ -187,29 +181,47 @@ CONTAINS
     IF (err.NE.0) &
          CALL this%Error("InitPhysics_eulerisotherm", "Unable to allocate memory.")
 
-    !> \todo remove in future version
-    ! set array indices
+    !> \todo remove / improve in future version
+    !! set array indices for 1st,2nd,3rd non-vanishing velocities
+    !! this may actually not coincide with the x,y and z-velocities
     this%DENSITY   = 1                                 ! mass density        !
-    this%XVELOCITY = 2                                 ! x-velocity          !
-    this%XMOMENTUM = 2                                 ! x-momentum          !
     this%pvarname(this%DENSITY)   = "density"
     this%cvarname(this%DENSITY)   = "density"
-    this%pvarname(this%XVELOCITY) = "xvelocity"
-    this%cvarname(this%XMOMENTUM) = "xmomentum"
+    this%XVELOCITY = 2                                 ! x-velocity          !
+    this%XMOMENTUM = 2                                 ! x-momentum          !
     IF (this%VDIM.GE.2) THEN
       this%YVELOCITY = 3                               ! y-velocity          !
       this%YMOMENTUM = 3                               ! y-momentum          !
-      this%pvarname(this%YVELOCITY) = "yvelocity"
-      this%cvarname(this%YMOMENTUM) = "ymomentum"
+    ELSE
+      this%YVELOCITY = 0                               ! no y-velocity       !
+      this%YMOMENTUM = 0                               ! no y-momentum       !
     END IF
     IF (this%VDIM.EQ.3) THEN
       this%ZVELOCITY = 4                               ! z-velocity          !
       this%ZMOMENTUM = 4                               ! z-momentum          !
-      this%pvarname(this%ZVELOCITY) = "zvelocity"
-      this%cvarname(this%ZMOMENTUM) = "zmomentum"
+    ELSE
+      this%ZVELOCITY = 0                               ! no z-velocity       !
+      this%ZMOMENTUM = 0                               ! no z-momentum       !
     END IF
     this%PRESSURE  = 0                                 ! no pressure         !
     this%ENERGY    = 0                                 ! no total energy     !
+
+    ! set names shown in the data file
+    next_idx = 2
+    IF (Mesh%INUM.GT.1.OR.Mesh%ROTSYM.EQ.1) THEN
+      this%pvarname(next_idx) = "xvelocity"
+      this%cvarname(next_idx) = "xmomentum"
+      next_idx = next_idx + 1
+    END IF
+    IF (Mesh%JNUM.GT.1.OR.Mesh%ROTSYM.EQ.2) THEN
+      this%pvarname(next_idx) = "yvelocity"
+      this%cvarname(next_idx) = "ymomentum"
+      next_idx = next_idx + 1
+    END IF
+    IF (Mesh%KNUM.GT.1.OR.Mesh%ROTSYM.EQ.2) THEN
+      this%pvarname(next_idx) = "zvelocity"
+      this%cvarname(next_idx) = "zmomentum"
+    END IF
 
     ! create new mesh array bccsound
     this%bccsound = marray_base()
@@ -278,33 +290,38 @@ CONTAINS
   END SUBROUTINE SetSoundSpeeds_faces
   
   !> Converts to primitives at cell centers using state vectors
-  PURE SUBROUTINE Convert2Primitive_eulerisotherm(this,cvar,pvar)
+  PURE SUBROUTINE Convert2Primitive_new(this,cvar,pvar)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(physics_eulerisotherm), INTENT(IN)     :: this
-    TYPE(statevector_eulerisotherm), INTENT(IN)  :: cvar
-    TYPE(statevector_eulerisotherm), INTENT(OUT) :: pvar
+    CLASS(physics_eulerisotherm), INTENT(IN) :: this
+    CLASS(marray_compound), INTENT(INOUT) :: cvar,pvar
     !------------------------------------------------------------------------!
-    IF (cvar%flavour.EQ.CONSERVATIVE.AND.pvar%flavour.EQ.PRIMITIVE) THEN
-      ! perform the transformation depending on dimensionality
-      SELECT CASE(this%VDIM)
-      CASE(1) ! 1D velocity / momentum
-        CALL Cons2Prim(cvar%density%data1d(:),cvar%momentum%data1d(:), &
-                      pvar%density%data1d(:),pvar%velocity%data1d(:))
-      CASE(2) ! 2D velocity / momentum
-        CALL Cons2Prim(cvar%density%data1d(:),cvar%momentum%data2d(:,1), &
-                      cvar%momentum%data2d(:,2),pvar%density%data1d(:), &
-                      pvar%velocity%data2d(:,1),pvar%velocity%data2d(:,2))
-      CASE(3) ! 3D velocity / momentum
-        CALL Cons2Prim(cvar%density%data1d(:),cvar%momentum%data2d(:,1), &
-                      cvar%momentum%data2d(:,2),cvar%momentum%data2d(:,3), &
-                      pvar%density%data1d(:),pvar%velocity%data2d(:,1), &
-                      pvar%velocity%data2d(:,2),pvar%velocity%data2d(:,3))
+    SELECT TYPE(c => cvar)
+    TYPE IS (statevector_eulerisotherm)
+      SELECT TYPE(p => pvar)
+      TYPE IS (statevector_eulerisotherm)
+        IF (c%flavour.EQ.CONSERVATIVE.AND.p%flavour.EQ.PRIMITIVE) THEN
+          ! perform the transformation depending on dimensionality
+          SELECT CASE(this%VDIM)
+          CASE(1) ! 1D velocity / momentum
+            CALL Cons2Prim(c%density%data1d(:),c%momentum%data1d(:), &
+                          p%density%data1d(:),p%velocity%data1d(:))
+          CASE(2) ! 2D velocity / momentum
+            CALL Cons2Prim(c%density%data1d(:),c%momentum%data2d(:,1), &
+                          c%momentum%data2d(:,2),p%density%data1d(:), &
+                          p%velocity%data2d(:,1),p%velocity%data2d(:,2))
+          CASE(3) ! 3D velocity / momentum
+            CALL Cons2Prim(c%density%data1d(:),c%momentum%data2d(:,1), &
+                          c%momentum%data2d(:,2),c%momentum%data2d(:,3), &
+                          p%density%data1d(:),p%velocity%data2d(:,1), &
+                          p%velocity%data2d(:,2),p%velocity%data2d(:,3))
+          END SELECT
+        ELSE
+          ! do nothing
+        END IF
       END SELECT
-    ELSE
-      ! do nothing
-    END IF
-  END SUBROUTINE Convert2Primitive_eulerisotherm
+    END SELECT
+  END SUBROUTINE Convert2Primitive_new
 
   !> Converts to primitives at cell centers
   PURE SUBROUTINE Convert2Primitive_center(this,Mesh,cvar,pvar)
@@ -419,33 +436,38 @@ CONTAINS
   END SUBROUTINE Convert2Primitive_facesub
 
   !> Converts to conservative at cell centers using state vectors
-  PURE SUBROUTINE Convert2Conservative_eulerisotherm(this,pvar,cvar)
+  PURE SUBROUTINE Convert2Conservative_new(this,pvar,cvar)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(physics_eulerisotherm), INTENT(IN)     :: this
-    TYPE(statevector_eulerisotherm), INTENT(IN)  :: pvar
-    TYPE(statevector_eulerisotherm), INTENT(OUT) :: cvar
+    CLASS(physics_eulerisotherm), INTENT(IN) :: this
+    CLASS(marray_compound), INTENT(INOUT) :: pvar,cvar
     !------------------------------------------------------------------------!
-    IF (pvar%flavour.EQ.PRIMITIVE.AND.cvar%flavour.EQ.CONSERVATIVE) THEN
-      ! perform the transformation depending on dimensionality
-      SELECT CASE(this%VDIM)
-      CASE(1) ! 1D velocity / momentum
-        CALL Prim2Cons(pvar%density%data1d(:),pvar%velocity%data1d(:), &
-                       cvar%density%data1d(:),cvar%momentum%data1d(:))
-      CASE(2) ! 2D velocity / momentum
-        CALL Prim2Cons(pvar%density%data1d(:),pvar%velocity%data2d(:,1), &
-                       pvar%velocity%data2d(:,2),cvar%density%data1d(:), &
-                       cvar%momentum%data2d(:,1),cvar%momentum%data2d(:,2))
-      CASE(3) ! 3D velocity / momentum
-        CALL Prim2Cons(pvar%density%data1d(:),pvar%velocity%data2d(:,1), &
-                       pvar%velocity%data2d(:,2),pvar%velocity%data2d(:,3), &
-                       cvar%density%data1d(:),cvar%momentum%data2d(:,1), &
-                       cvar%momentum%data2d(:,2),cvar%momentum%data2d(:,3))
+    SELECT TYPE(p => pvar)
+    TYPE IS (statevector_eulerisotherm)
+      SELECT TYPE(c => cvar)
+      TYPE IS (statevector_eulerisotherm)
+        IF (p%flavour.EQ.PRIMITIVE.AND.c%flavour.EQ.CONSERVATIVE) THEN
+          ! perform the transformation depending on dimensionality
+          SELECT CASE(this%VDIM)
+          CASE(1) ! 1D velocity / momentum
+            CALL Prim2Cons(p%density%data1d(:),p%velocity%data1d(:), &
+                          c%density%data1d(:),c%momentum%data1d(:))
+          CASE(2) ! 2D velocity / momentum
+            CALL Prim2Cons(p%density%data1d(:),p%velocity%data2d(:,1), &
+                          p%velocity%data2d(:,2),c%density%data1d(:), &
+                          c%momentum%data2d(:,1),c%momentum%data2d(:,2))
+          CASE(3) ! 3D velocity / momentum
+            CALL Prim2Cons(p%density%data1d(:),p%velocity%data2d(:,1), &
+                          p%velocity%data2d(:,2),p%velocity%data2d(:,3), &
+                          c%density%data1d(:),c%momentum%data2d(:,1), &
+                          c%momentum%data2d(:,2),c%momentum%data2d(:,3))
+          END SELECT
+        ELSE
+          ! do nothing
+        END IF
       END SELECT
-    ELSE
-      ! do nothing
-    END IF
-  END SUBROUTINE Convert2Conservative_eulerisotherm
+    END SELECT
+  END SUBROUTINE Convert2Conservative_new
 
   !> Convert from primtive to conservative variables at cell-centers
   PURE SUBROUTINE Convert2Conservative_center(this,Mesh,pvar,cvar)
@@ -845,7 +867,18 @@ CONTAINS
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%NFACES,this%VNUM), &
                               INTENT(OUT) :: xfluxes
     !------------------------------------------------------------------------!
-    CALL SetFlux(this%fcsound(:,:,:,nmin:nmax),           &
+    SELECT CASE(this%VDIM)
+    CASE(1) ! 1D flux
+      CALL SetFlux(this%fcsound(:,:,:,nmin:nmax),         &
+                 prim(:,:,:,nmin:nmax,this%DENSITY),      &
+                 prim(:,:,:,nmin:nmax,this%XVELOCITY),    &
+                 cons(:,:,:,nmin:nmax,this%XMOMENTUM),    &
+                 xfluxes(:,:,:,nmin:nmax,this%DENSITY),   &
+                 xfluxes(:,:,:,nmin:nmax,this%XMOMENTUM))
+    CASE(2) ! 2D flux
+      IF (this%YMOMENTUM.GT.0) THEN
+        ! y-momentum transport
+        CALL SetFlux(this%fcsound(:,:,:,nmin:nmax),       &
                  prim(:,:,:,nmin:nmax,this%DENSITY),      &
                  prim(:,:,:,nmin:nmax,this%XVELOCITY),    &
                  cons(:,:,:,nmin:nmax,this%XMOMENTUM),    &
@@ -853,6 +886,29 @@ CONTAINS
                  xfluxes(:,:,:,nmin:nmax,this%DENSITY),   &
                  xfluxes(:,:,:,nmin:nmax,this%XMOMENTUM), &
                  xfluxes(:,:,:,nmin:nmax,this%YMOMENTUM))
+      ELSE
+        ! z-momentum transport
+        CALL SetFlux(this%fcsound(:,:,:,nmin:nmax),       &
+                 prim(:,:,:,nmin:nmax,this%DENSITY),      &
+                 prim(:,:,:,nmin:nmax,this%XVELOCITY),    &
+                 cons(:,:,:,nmin:nmax,this%XMOMENTUM),    &
+                 cons(:,:,:,nmin:nmax,this%ZMOMENTUM),    &
+                 xfluxes(:,:,:,nmin:nmax,this%DENSITY),   &
+                 xfluxes(:,:,:,nmin:nmax,this%XMOMENTUM), &
+                 xfluxes(:,:,:,nmin:nmax,this%ZMOMENTUM))
+      END IF
+    CASE(3) ! 3D flux
+      CALL SetFlux(this%fcsound(:,:,:,nmin:nmax),         &
+                 prim(:,:,:,nmin:nmax,this%DENSITY),      &
+                 prim(:,:,:,nmin:nmax,this%XVELOCITY),    &
+                 cons(:,:,:,nmin:nmax,this%XMOMENTUM),    &
+                 cons(:,:,:,nmin:nmax,this%YMOMENTUM),    &
+                 cons(:,:,:,nmin:nmax,this%ZMOMENTUM),    &
+                 xfluxes(:,:,:,nmin:nmax,this%DENSITY),   &
+                 xfluxes(:,:,:,nmin:nmax,this%XMOMENTUM), &
+                 xfluxes(:,:,:,nmin:nmax,this%YMOMENTUM), &
+                 xfluxes(:,:,:,nmin:nmax,this%ZMOMENTUM))
+    END SELECT
   END SUBROUTINE CalcFluxesX
 
   !> Calculate Fluxes in y-direction
@@ -867,7 +923,18 @@ CONTAINS
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%NFACES,this%VNUM), &
                               INTENT(OUT) :: yfluxes
     !------------------------------------------------------------------------!
-    CALL SetFlux(this%fcsound(:,:,:,nmin:nmax),           &
+    SELECT CASE(this%VDIM)
+    CASE(1) ! 1D flux
+      CALL SetFlux(this%fcsound(:,:,:,nmin:nmax),         &
+                 prim(:,:,:,nmin:nmax,this%DENSITY),      &
+                 prim(:,:,:,nmin:nmax,this%YVELOCITY),    &
+                 cons(:,:,:,nmin:nmax,this%YMOMENTUM),    &
+                 yfluxes(:,:,:,nmin:nmax,this%DENSITY),   &
+                 yfluxes(:,:,:,nmin:nmax,this%YMOMENTUM))
+    CASE(2) ! 2D flux
+      IF (this%XMOMENTUM.GT.0) THEN
+        ! x-momentum transport
+        CALL SetFlux(this%fcsound(:,:,:,nmin:nmax),       &
                  prim(:,:,:,nmin:nmax,this%DENSITY),      &
                  prim(:,:,:,nmin:nmax,this%YVELOCITY),    &
                  cons(:,:,:,nmin:nmax,this%YMOMENTUM),    &
@@ -875,6 +942,29 @@ CONTAINS
                  yfluxes(:,:,:,nmin:nmax,this%DENSITY),   &
                  yfluxes(:,:,:,nmin:nmax,this%YMOMENTUM), &
                  yfluxes(:,:,:,nmin:nmax,this%XMOMENTUM))
+      ELSE
+        ! z-momentum transport
+        CALL SetFlux(this%fcsound(:,:,:,nmin:nmax),       &
+                 prim(:,:,:,nmin:nmax,this%DENSITY),      &
+                 prim(:,:,:,nmin:nmax,this%YVELOCITY),    &
+                 cons(:,:,:,nmin:nmax,this%YMOMENTUM),    &
+                 cons(:,:,:,nmin:nmax,this%ZMOMENTUM),    &
+                 yfluxes(:,:,:,nmin:nmax,this%DENSITY),   &
+                 yfluxes(:,:,:,nmin:nmax,this%YMOMENTUM), &
+                 yfluxes(:,:,:,nmin:nmax,this%ZMOMENTUM))
+      END IF
+    CASE(3) ! 3D flux
+      CALL SetFlux(this%fcsound(:,:,:,nmin:nmax),         &
+                 prim(:,:,:,nmin:nmax,this%DENSITY),      &
+                 prim(:,:,:,nmin:nmax,this%YVELOCITY),    &
+                 cons(:,:,:,nmin:nmax,this%YMOMENTUM),    &
+                 cons(:,:,:,nmin:nmax,this%XMOMENTUM),    &
+                 cons(:,:,:,nmin:nmax,this%ZMOMENTUM),    &
+                 yfluxes(:,:,:,nmin:nmax,this%DENSITY),   &
+                 yfluxes(:,:,:,nmin:nmax,this%YMOMENTUM), &
+                 yfluxes(:,:,:,nmin:nmax,this%XMOMENTUM), &
+                 yfluxes(:,:,:,nmin:nmax,this%ZMOMENTUM))
+    END SELECT
   END SUBROUTINE CalcFluxesY
 
   !> Calculate Fluxes in z-direction
@@ -889,7 +979,48 @@ CONTAINS
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%NFACES,this%VNUM), &
                               INTENT(OUT) :: zfluxes
     !------------------------------------------------------------------------!
-    ! routine does not exist in 2D
+    SELECT CASE(this%VDIM)
+    CASE(1) ! 1D flux
+      CALL SetFlux(this%fcsound(:,:,:,nmin:nmax),         &
+                 prim(:,:,:,nmin:nmax,this%DENSITY),      &
+                 prim(:,:,:,nmin:nmax,this%ZVELOCITY),    &
+                 cons(:,:,:,nmin:nmax,this%ZMOMENTUM),    &
+                 zfluxes(:,:,:,nmin:nmax,this%DENSITY),   &
+                 zfluxes(:,:,:,nmin:nmax,this%ZMOMENTUM))
+    CASE(2) ! 2D flux
+      IF (this%XMOMENTUM.GT.0) THEN
+        ! x-momentum transport
+        CALL SetFlux(this%fcsound(:,:,:,nmin:nmax),       &
+                 prim(:,:,:,nmin:nmax,this%DENSITY),      &
+                 prim(:,:,:,nmin:nmax,this%ZVELOCITY),    &
+                 cons(:,:,:,nmin:nmax,this%ZMOMENTUM),    &
+                 cons(:,:,:,nmin:nmax,this%XMOMENTUM),    &
+                 zfluxes(:,:,:,nmin:nmax,this%DENSITY),   &
+                 zfluxes(:,:,:,nmin:nmax,this%ZMOMENTUM), &
+                 zfluxes(:,:,:,nmin:nmax,this%XMOMENTUM))
+      ELSE
+        ! y-momentum transport
+        CALL SetFlux(this%fcsound(:,:,:,nmin:nmax),       &
+                 prim(:,:,:,nmin:nmax,this%DENSITY),      &
+                 prim(:,:,:,nmin:nmax,this%ZVELOCITY),    &
+                 cons(:,:,:,nmin:nmax,this%ZMOMENTUM),    &
+                 cons(:,:,:,nmin:nmax,this%YMOMENTUM),    &
+                 zfluxes(:,:,:,nmin:nmax,this%DENSITY),   &
+                 zfluxes(:,:,:,nmin:nmax,this%ZMOMENTUM), &
+                 zfluxes(:,:,:,nmin:nmax,this%YMOMENTUM))
+      END IF
+    CASE(3) ! 3D flux
+      CALL SetFlux(this%fcsound(:,:,:,nmin:nmax),         &
+                 prim(:,:,:,nmin:nmax,this%DENSITY),      &
+                 prim(:,:,:,nmin:nmax,this%ZVELOCITY),    &
+                 cons(:,:,:,nmin:nmax,this%ZMOMENTUM),    &
+                 cons(:,:,:,nmin:nmax,this%XMOMENTUM),    &
+                 cons(:,:,:,nmin:nmax,this%YMOMENTUM),    &
+                 zfluxes(:,:,:,nmin:nmax,this%DENSITY),   &
+                 zfluxes(:,:,:,nmin:nmax,this%ZMOMENTUM), &
+                 zfluxes(:,:,:,nmin:nmax,this%XMOMENTUM), &
+                 zfluxes(:,:,:,nmin:nmax,this%YMOMENTUM))
+    END SELECT
   END SUBROUTINE CalcFluxesZ
 
 
@@ -1481,20 +1612,18 @@ CONTAINS
   !! \attention This is not a class member itself, instead its an ordinary
   !!            module procedure. The function name is overloaded with
   !!            the class name.
-  FUNCTION CreateStateVector(Physics,flavour) RESULT(new_sv)
+  FUNCTION CreateStateVector(Physics,flavour,num) RESULT(new_sv)
     IMPLICIT NONE
     !-------------------------------------------------------------------!
     CLASS(physics_eulerisotherm), INTENT(IN) :: Physics
-    INTEGER, OPTIONAL, INTENT(IN) :: flavour
+    INTEGER, OPTIONAL, INTENT(IN) :: flavour,num
     TYPE(statevector_eulerisotherm) :: new_sv
     !-------------------------------------------------------------------!
     IF (.NOT.Physics%Initialized()) &
       CALL Physics%Error("physics_eulerisotherm::CreateStatevector", "Physics not initialized.")
 
     ! create a new empty compound of marrays
-    new_sv = marray_compound()
-    ! be sure rank is 1, even if the compound consists only of scalar data
-    new_sv%RANK = 1
+    new_sv = marray_compound(num)
     IF (PRESENT(flavour)) THEN
       SELECT CASE(flavour)
       CASE(PRIMITIVE,CONSERVATIVE)
@@ -1507,16 +1636,28 @@ CONTAINS
     CASE(PRIMITIVE)
       ! allocate memory for density and velocity mesh arrays
       ALLOCATE(new_sv%density,new_sv%velocity)
-      new_sv%density  = marray_base()             ! scalar, rank 0
-      new_sv%velocity = marray_base(Physics%VDIM) ! vector, rank 1
+      IF (PRESENT(num).AND.num.GT.0) THEN
+        ! create a bunch of scalars and vectors
+        new_sv%density  = marray_base(num)              ! num scalars
+        new_sv%velocity = marray_base(num,Physics%VDIM) ! num vectors
+      ELSE
+        new_sv%density  = marray_base()                 ! one scalar
+        new_sv%velocity = marray_base(Physics%VDIM)     ! one vector
+      END IF
       ! append to compound
       CALL new_sv%AppendMArray(new_sv%density)
       CALL new_sv%AppendMArray(new_sv%velocity)
     CASE(CONSERVATIVE)
       ! allocate memory for density and momentum mesh arrays
       ALLOCATE(new_sv%density,new_sv%momentum)
-      new_sv%density  = marray_base()             ! scalar, rank 0
-      new_sv%momentum = marray_base(Physics%VDIM) ! vector, rank 1
+      IF (PRESENT(num).AND.num.GT.0) THEN
+        ! create a bunch of scalars and vectors
+        new_sv%density  = marray_base(num)              ! num scalars
+        new_sv%momentum = marray_base(num,Physics%VDIM) ! num vectors
+      ELSE
+        new_sv%density  = marray_base()                 ! one scalar
+        new_sv%momentum = marray_base(Physics%VDIM)     ! one vector
+      END IF
       ! append to compound
       CALL new_sv%AppendMArray(new_sv%density)
       CALL new_sv%AppendMArray(new_sv%momentum)
@@ -1536,38 +1677,19 @@ CONTAINS
     IF (SIZE(this%data1d).GT.0) THEN
       SELECT TYPE(src => ma)
       CLASS IS(statevector_eulerisotherm)
+        ! copy flavour
         this%flavour = src%flavour
-        ! assign density marray pointer into the data of the compound
-
-        IF (.NOT.ASSOCIATED(this%density)) ALLOCATE(this%density)
-        this%density%data1d => this%data1d(LBOUND(src%density%data1d,1) &
-                                          :UBOUND(src%density%data1d,1))
-        ! copy meta data
-        this%density%RANK    = src%density%RANK
-        this%density%DIMS(:) = src%density%DIMS(:)
-        ! assign the multi-dim. pointers
-        CALL this%density%AssignPointers()
+        ! set pointer to the data structures in the compound
+        !> \todo make this more generic, i.e. this should not depend
+        !! on the position in the list of compound items
+        this%density => this%GetItem(this%FirstItem()) ! density is the first item
         SELECT CASE(this%flavour)
         CASE(PRIMITIVE)
-          ! assign velocity marray pointer into the data of the compound
-          IF (.NOT.ASSOCIATED(this%velocity)) ALLOCATE(this%velocity)
-          this%velocity%data1d => this%data1d(LBOUND(src%velocity%data1d,1) &
-                                            :UBOUND(src%velocity%data1d,1))
-          ! copy meta data
-          this%velocity%RANK    = src%velocity%RANK
-          this%velocity%DIMS(:) = src%velocity%DIMS(:)
-          ! assign the multi-dim. pointers
-          CALL this%velocity%AssignPointers()
+          ! velocity is the second item
+          this%velocity => this%GetItem(this%NextItem(this%FirstItem()))
         CASE(CONSERVATIVE)
-          ! assign momentum marray pointer into the data of the compound
-          IF (.NOT.ASSOCIATED(this%momentum)) ALLOCATE(this%momentum)
-          this%momentum%data1d => this%data1d(LBOUND(src%momentum%data1d,1) &
-                                            :UBOUND(src%momentum%data1d,1))
-          ! copy meta data
-          this%momentum%RANK    = src%momentum%RANK
-          this%momentum%DIMS(:) = src%momentum%DIMS(:)
-          ! assign the multi-dim. pointers
-          CALL this%momentum%AssignPointers()
+          ! momentum is the second item
+          this%momentum => this%GetItem(this%NextItem(this%FirstItem()))
         CASE DEFAULT
           ! error, this should not happen
         END SELECT
