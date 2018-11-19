@@ -60,8 +60,10 @@ MODULE physics_base_mod
     ENUMERATOR :: UNDEFINED=0, PRIMITIVE=1, CONSERVATIVE=2
   END ENUM
   TYPE, ABSTRACT, EXTENDS(logging_base) :: physics_base
-     !> \name Variables
+     !> \name Classes
      CLASS(constants_base), ALLOCATABLE :: constants  !< physical constants
+     !> \name
+     !! #### Variables
      REAL                :: time,&                !< simulation time
                             mu, &                 !< mean molecular weight
                             eps                   !< softening length
@@ -84,6 +86,8 @@ MODULE physics_base_mod
      LOGICAL             :: advanced_wave_speeds  !< use Roe averages for min/max wave speed estimates
      CHARACTER(LEN=16), DIMENSION(:), POINTER &
                          :: pvarname,cvarname     !< names of variables
+     !> \name
+     !! #### Arrays
      REAL, DIMENSION(:,:,:), POINTER :: &
                             bcradius, &           !< distance to the origin bary center values
                             divposvec, &          !< divergence of the position vector
@@ -294,21 +298,6 @@ MODULE physics_base_mod
       CLASS(physics_base), INTENT(IN)            :: this
       LOGICAL, DIMENSION(this%VNUM), INTENT(OUT) :: reflX,reflY,reflZ
     END SUBROUTINE
-!     PURE SUBROUTINE UpdateSoundSpeed_center(this,Mesh,pvar)
-!       IMPORT physics_base,mesh_base,marray_compound
-!       IMPLICIT NONE
-!       CLASS(physics_base),INTENT(INOUT) :: this
-!       CLASS(mesh_base),   INTENT(IN)    :: Mesh
-!       CLASS(marray_compound), INTENT(IN) :: pvar
-!     END SUBROUTINE
-!     PURE SUBROUTINE UpdateSoundSpeed_faces(this,Mesh,prim)
-!       IMPORT physics_base,mesh_base
-!       IMPLICIT NONE
-!       CLASS(physics_base),INTENT(INOUT) :: this
-!       CLASS(mesh_base),   INTENT(IN)    :: Mesh
-!       REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%NFACES,this%VNUM), &
-!                           INTENT(IN)    :: prim
-!     END SUBROUTINE
     PURE SUBROUTINE CalcWaveSpeeds_center(this,pvar,minwav,maxwav)
       IMPORT physics_base,mesh_base,marray_base,marray_compound
       CLASS(physics_base), INTENT(INOUT) :: this

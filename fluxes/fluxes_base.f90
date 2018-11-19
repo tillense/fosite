@@ -62,14 +62,14 @@ MODULE fluxes_base_mod
      !> \name Classes
      CLASS(reconstruction_base), ALLOCATABLE &
                                   :: Reconstruction  !< reconstruction method
-     CLASS(marray_base), ALLOCATABLE :: minwav,maxwav!< min/max wave speeds
+     CLASS(marray_base), ALLOCATABLE &
+                                  :: minwav,maxwav   !< min/max wave speeds
      CLASS(marray_compound), ALLOCATABLE :: prim, &  !< primitive/conservative
                                             cons     !< state vectors on cell faces
      !> \name
      !! #### various data fields
      REAL, DIMENSION(:,:,:,:), POINTER &
-                                  :: dx,dy,dz, &     !< coordinate differences
-                                     bxflux,byflux, &
+                                  :: bxflux,byflux, &
                                      bzflux,bxfold, &
                                      byfold,bzfold   !< boundary fluxes
      REAL, DIMENSION(:,:,:,:,:), POINTER &
@@ -146,9 +146,6 @@ CONTAINS
       this%bxfold(Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,2,Physics%VNUM),      &
       this%byfold(Mesh%KGMIN:Mesh%KGMAX,Mesh%IGMIN:Mesh%IGMAX,2,Physics%VNUM),      &
       this%bzfold(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,2,Physics%VNUM),      &
-      this%dx(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,6), &
-      this%dy(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,6), &
-      this%dz(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,6), &
       STAT = err)
     IF (err.NE.0) THEN
        CALL this%Error("InitFluxes", "Unable to allocate memory.")
@@ -367,7 +364,7 @@ CONTAINS
 
   !> Calcualtes face data with reconstruction methods (e. g. limiters)
   PURE SUBROUTINE CalculateFaceData(this,Mesh,Physics,pvar,cvar)
-    USE physics_euler_mod, ONLY : physics_euler
+    USE physics_euler_mod, ONLY : physics_euler, statevector_euler
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(fluxes_base),  INTENT(INOUT) :: this
@@ -377,19 +374,21 @@ CONTAINS
     !------------------------------------------------------------------------!
     ! reconstruct data on cell faces
     IF (this%Reconstruction%PrimRecon()) THEN
-       CALL this%Reconstruction%CalculateStates(Mesh,Physics,Mesh%NFACES,this%dx,&
-            this%dy,this%dz,pvar%data3d,this%prim%data5d)
+       CALL this%Reconstruction%CalculateStates(Mesh,Physics,pvar,this%prim%data5d)
        CALL Physics%Convert2Conservative(this%prim,this%cons)
+!        CALL Physics%Convert2Conservative(Mesh,this%prim%data5d,this%cons%data5d)
     ELSE
-       CALL this%Reconstruction%CalculateStates(Mesh,Physics,Mesh%NFACES,this%dx,&
-            this%dy,this%dz,cvar%data3d,this%cons%data5d)
+       CALL this%Reconstruction%CalculateStates(Mesh,Physics,cvar,this%cons%data5d)
        CALL Physics%Convert2Primitive(this%cons,this%prim)
     END IF
 
     ! update the speed of sound on cell faces (non-isotherml physics only)
     SELECT TYPE(phys => Physics)
     CLASS IS(physics_euler)
-      CALL phys%UpdateSoundSpeed(Mesh,this%prim%data5d)
+      SELECT TYPE(prim => this%prim)
+      CLASS IS(statevector_euler)
+        CALL phys%UpdateSoundSpeed(prim)
+      END SELECT
     END SELECT
 
     ! get minimal & maximal wave speeds on cell interfaces
@@ -409,8 +408,7 @@ CONTAINS
     CALL this%prim%Destroy()
     CALL this%cons%Destroy()
     DEALLOCATE(this%cons,this%prim,this%pfluxes,this%minwav,this%maxwav, &
-         this%bxflux,this%byflux,this%bzflux,this%bxfold,this%byfold,this%bzfold, &
-         this%dx,this%dy,this%dz)
+         this%bxflux,this%byflux,this%bzflux,this%bxfold,this%byfold,this%bzfold)
     CALL this%Reconstruction%Finalize()
     DEALLOCATE(this%Reconstruction)
   END SUBROUTINE Finalize_base

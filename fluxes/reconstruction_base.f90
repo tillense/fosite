@@ -35,6 +35,7 @@
 MODULE reconstruction_base_mod
   USE logging_base_mod
   USE mesh_base_mod
+  USE marray_compound_mod
   USE physics_base_mod
   USE common_dict
   IMPLICIT NONE
@@ -45,7 +46,6 @@ MODULE reconstruction_base_mod
      CLASS(logging_base), ALLOCATABLE      :: limiter                 !< limiter (linear, const)
      LOGICAL                               :: primcons                !< true if primitive
      REAL                                  :: limiter_param           !< limiter parameter
-     REAL, DIMENSION(:,:,:,:), ALLOCATABLE :: xslopes,yslopes,zslopes !< limited slopes
   CONTAINS
     PROCEDURE                              :: InitReconstruction
     PROCEDURE (CalculateStates), DEFERRED  :: CalculateStates
@@ -55,23 +55,15 @@ MODULE reconstruction_base_mod
   END TYPE reconstruction_base
 
   ABSTRACT INTERFACE
-    PURE SUBROUTINE CalculateStates(this,Mesh,Physics,npos,dx,dy,dz,rvar,rstates)
-      IMPORT reconstruction_base, mesh_base, physics_base
+    PURE SUBROUTINE CalculateStates(this,Mesh,Physics,rvar,rstates)
+      IMPORT reconstruction_base, mesh_base, physics_base, marray_compound
       IMPLICIT NONE
       CLASS(reconstruction_base), INTENT(INOUT)   :: this
       CLASS(mesh_base),           INTENT(IN)      :: Mesh
       CLASS(physics_base),        INTENT(IN)      :: Physics
-      INTEGER                                     :: npos
-      REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX, &
-                      Mesh%KGMIN:Mesh%KGMAX,npos) :: dx,dy,dz
-      REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX, &
-                      Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM) &
-                                                  :: rvar
-      REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX, &
-                      Mesh%KGMIN:Mesh%KGMAX,npos,Physics%VNUM) &
-                                                  :: rstates
-      INTENT(IN)                                  :: npos,dx,dy,dz,rvar
-      INTENT(OUT)                                 :: rstates
+      CLASS(marray_compound),     INTENT(INOUT)   :: rvar
+      REAL, INTENT(OUT) :: rstates(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX, &
+                    Mesh%KGMIN:Mesh%KGMAX,Mesh%NFACES,Physics%VNUM)
     END SUBROUTINE
     SUBROUTINE Finalize(this)
       IMPORT reconstruction_base
@@ -110,8 +102,6 @@ CONTAINS
     !------------------------------------------------------------------------!
     INTEGER                                   :: variables
     CHARACTER(LEN=32)                         :: infostr
-    CHARACTER(LEN=60)                         :: key
-    INTEGER                                   :: valwrite,i
     INTEGER                                   :: order
     !------------------------------------------------------------------------!
     INTENT(IN)                                :: config,rtype,rname
@@ -142,20 +132,6 @@ CONTAINS
     END IF
     CALL this%Info("            variables:         " // TRIM(infostr))
 
-    CALL GetAttr(config, "output/slopes", valwrite, 0)
-    IF(valwrite.EQ.1) THEN
-      DO i=1, Physics%VNUM
-        key = TRIM(Physics%pvarname(i)) // "_xslope"
-        CALL SetAttr(IO, TRIM(key), &
-          this%xslopes(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,i))
-        key = TRIM(Physics%pvarname(i)) // "_yslope"
-        CALL SetAttr(IO, TRIM(key), &
-          this%yslopes(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,i))
-        key = TRIM(Physics%pvarname(i)) // "_zslope"
-        CALL SetAttr(IO, TRIM(key), &
-          this%zslopes(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,i))
-      END DO
-    END IF
   END SUBROUTINE InitReconstruction
 
 

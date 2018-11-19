@@ -54,10 +54,14 @@ MODULE physics_eulerisotherm_mod
   CHARACTER(LEN=32), PARAMETER :: problem_name = "Euler isotherm"
   !--------------------------------------------------------------------------!
   TYPE,  EXTENDS(physics_base) :: physics_eulerisotherm
-    REAL                 :: csiso              !< isothermal sound speed
-    CLASS(marray_base), ALLOCATABLE :: bccsound  !< bary centered speed of sound
-    REAL, DIMENSION(:,:,:,:), POINTER &
-                         :: fcsound            !< speed of sound faces                         
+    !> \name Classes
+    !! speed of sound
+    CLASS(marray_base), ALLOCATABLE &
+                         :: bccsound, &      !< at cell bary centers
+                            fcsound          !< at cell faces
+    !> \name
+    !! #### Variables
+    REAL                 :: csiso            !< isothermal sound speed
   CONTAINS
     PROCEDURE :: InitPhysics_eulerisotherm
     PROCEDURE :: PrintConfiguration_eulerisotherm
@@ -115,8 +119,6 @@ MODULE physics_eulerisotherm_mod
     PROCEDURE :: ViscositySources
     PROCEDURE :: ViscositySources_eulerisotherm
     PROCEDURE :: CalcStresses_euler
-
-!    PROCEDURE :: CalcFlux_eulerisotherm, &
 
     PROCEDURE     :: Finalize
   END TYPE
@@ -176,7 +178,7 @@ CONTAINS
 
     ! allocate memory for arrays used in eulerisotherm
     ALLOCATE(this%pvarname(this%VNUM),this%cvarname(this%VNUM),this%bccsound, &
-             this%fcsound(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%nfaces), &
+             this%fcsound, &
              STAT = err)
     IF (err.NE.0) &
          CALL this%Error("InitPhysics_eulerisotherm", "Unable to allocate memory.")
@@ -225,14 +227,17 @@ CONTAINS
 
     ! create new mesh array bccsound
     this%bccsound = marray_base()
+    this%fcsound = marray_base(Mesh%NFACES)
 
     IF(this%csiso.GT.0.) THEN
-      this%bccsound%data1d(:)  = this%csiso
-      this%fcsound(:,:,:,:) = this%csiso
+      this%bccsound%data1d(:) = this%csiso
+      this%fcsound%data1d(:)  = this%csiso
     ELSE
-      this%bccsound%data1d(:)  = 0.
-      this%fcsound(:,:,:,:) = 0.
+      this%bccsound%data1d(:) = 0.
+      this%fcsound%data1d(:)  = 0.
     END IF
+
+    CALL this%EnableOutput(Mesh,config,IO)
   END SUBROUTINE InitPhysics_eulerisotherm
 
   SUBROUTINE PrintConfiguration_eulerisotherm(this)
@@ -262,7 +267,7 @@ CONTAINS
     CALL GetAttr(config, "output/fcsound", valwrite, 0)
     IF (valwrite .EQ. 1) &
        CALL Setattr(IO, "fcsound",&
-                    this%fcsound(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,:))
+                    this%fcsound%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,:))
   END SUBROUTINE EnableOutput
 
   !> Sets soundspeeds at cell-centers
@@ -274,7 +279,7 @@ CONTAINS
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
                          INTENT(IN)    :: bccsound
     !------------------------------------------------------------------------!
-    this%bccsound%data3d(:,:,:) = bccsound(:,:,:)
+    this%bccsound = bccsound
   END SUBROUTINE SetSoundSpeeds_center
 
   !> Sets soundspeeds at cell-faces
@@ -286,7 +291,7 @@ CONTAINS
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%NFACES), &
                          INTENT(IN)    :: fcsound
     !------------------------------------------------------------------------!
-    this%fcsound(:,:,:,:) = fcsound(:,:,:,:)
+    this%fcsound = fcsound
   END SUBROUTINE SetSoundSpeeds_faces
   
   !> Converts to primitives at cell centers using state vectors
@@ -622,9 +627,9 @@ CONTAINS
     n = 1
     IF (Mesh%INUM.GT.1) THEN
       ! compute minimal and maximal western/eastern wave speeds 
-      CALL SetWaveSpeeds(this%fcsound(:,:,:,2*n-1),prim(:,:,:,2*n-1,m), &
+      CALL SetWaveSpeeds(this%fcsound%data4d(:,:,:,2*n-1),prim(:,:,:,2*n-1,m), &
                          this%tmp(:,:,:),this%tmp1(:,:,:))
-      CALL SetWaveSpeeds(this%fcsound(:,:,:,2*n),prim(:,:,:,2*n,m), &
+      CALL SetWaveSpeeds(this%fcsound%data4d(:,:,:,2*n),prim(:,:,:,2*n,m), &
                          minwav%data4d(:,:,:,n),maxwav%data4d(:,:,:,n))
       ! determine the minimum and maximum at cell interfaces
       DO k=Mesh%KGMIN,Mesh%KGMAX
@@ -645,9 +650,9 @@ CONTAINS
 
     IF (Mesh%JNUM.GT.1) THEN
       ! compute minimal and maximal southern/northern wave speeds 
-      CALL SetWaveSpeeds(this%fcsound(:,:,:,2*n-1),prim(:,:,:,2*n-1,m), &
+      CALL SetWaveSpeeds(this%fcsound%data4d(:,:,:,2*n-1),prim(:,:,:,2*n-1,m), &
                          this%tmp(:,:,:),this%tmp1(:,:,:))
-      CALL SetWaveSpeeds(this%fcsound(:,:,:,2*n),prim(:,:,:,2*n,m), &
+      CALL SetWaveSpeeds(this%fcsound%data4d(:,:,:,2*n),prim(:,:,:,2*n,m), &
                          minwav%data4d(:,:,:,n),maxwav%data4d(:,:,:,n))
       ! determine the minimum and maximum at cell interfaces
       DO k=Mesh%KGMIN,Mesh%KGMAX
@@ -668,9 +673,9 @@ CONTAINS
 
     IF (Mesh%KNUM.GT.1) THEN
       ! compute minimal and maximal lower/upper wave speeds
-      CALL SetWaveSpeeds(this%fcsound(:,:,:,2*n-1),prim(:,:,:,2*n-1,m), &
+      CALL SetWaveSpeeds(this%fcsound%data4d(:,:,:,2*n-1),prim(:,:,:,2*n-1,m), &
                          this%tmp(:,:,:),this%tmp1(:,:,:))
-      CALL SetWaveSpeeds(this%fcsound(:,:,:,2*n),prim(:,:,:,2*n,m), &
+      CALL SetWaveSpeeds(this%fcsound%data4d(:,:,:,2*n),prim(:,:,:,2*n,m), &
                          minwav%data4d(:,:,:,n),maxwav%data4d(:,:,:,n))
       ! determine the minimum and maximum at cell interfaces
       DO k=Mesh%KMIN+Mesh%KM1,Mesh%KMAX
@@ -869,16 +874,14 @@ CONTAINS
     !------------------------------------------------------------------------!
     SELECT CASE(this%VDIM)
     CASE(1) ! 1D flux
-      CALL SetFlux(this%fcsound(:,:,:,nmin:nmax),         &
+      CALL SetFlux(this%fcsound%data4d(:,:,:,nmin:nmax),         &
                  prim(:,:,:,nmin:nmax,this%DENSITY),      &
                  prim(:,:,:,nmin:nmax,this%XVELOCITY),    &
                  cons(:,:,:,nmin:nmax,this%XMOMENTUM),    &
                  xfluxes(:,:,:,nmin:nmax,this%DENSITY),   &
                  xfluxes(:,:,:,nmin:nmax,this%XMOMENTUM))
     CASE(2) ! 2D flux
-      IF (this%YMOMENTUM.GT.0) THEN
-        ! y-momentum transport
-        CALL SetFlux(this%fcsound(:,:,:,nmin:nmax),       &
+      CALL SetFlux(this%fcsound%data4d(:,:,:,nmin:nmax),       &
                  prim(:,:,:,nmin:nmax,this%DENSITY),      &
                  prim(:,:,:,nmin:nmax,this%XVELOCITY),    &
                  cons(:,:,:,nmin:nmax,this%XMOMENTUM),    &
@@ -886,19 +889,8 @@ CONTAINS
                  xfluxes(:,:,:,nmin:nmax,this%DENSITY),   &
                  xfluxes(:,:,:,nmin:nmax,this%XMOMENTUM), &
                  xfluxes(:,:,:,nmin:nmax,this%YMOMENTUM))
-      ELSE
-        ! z-momentum transport
-        CALL SetFlux(this%fcsound(:,:,:,nmin:nmax),       &
-                 prim(:,:,:,nmin:nmax,this%DENSITY),      &
-                 prim(:,:,:,nmin:nmax,this%XVELOCITY),    &
-                 cons(:,:,:,nmin:nmax,this%XMOMENTUM),    &
-                 cons(:,:,:,nmin:nmax,this%ZMOMENTUM),    &
-                 xfluxes(:,:,:,nmin:nmax,this%DENSITY),   &
-                 xfluxes(:,:,:,nmin:nmax,this%XMOMENTUM), &
-                 xfluxes(:,:,:,nmin:nmax,this%ZMOMENTUM))
-      END IF
     CASE(3) ! 3D flux
-      CALL SetFlux(this%fcsound(:,:,:,nmin:nmax),         &
+      CALL SetFlux(this%fcsound%data4d(:,:,:,nmin:nmax),         &
                  prim(:,:,:,nmin:nmax,this%DENSITY),      &
                  prim(:,:,:,nmin:nmax,this%XVELOCITY),    &
                  cons(:,:,:,nmin:nmax,this%XMOMENTUM),    &
@@ -925,36 +917,23 @@ CONTAINS
     !------------------------------------------------------------------------!
     SELECT CASE(this%VDIM)
     CASE(1) ! 1D flux
-      CALL SetFlux(this%fcsound(:,:,:,nmin:nmax),         &
+      CALL SetFlux(this%fcsound%data4d(:,:,:,nmin:nmax),         &
                  prim(:,:,:,nmin:nmax,this%DENSITY),      &
-                 prim(:,:,:,nmin:nmax,this%YVELOCITY),    &
-                 cons(:,:,:,nmin:nmax,this%YMOMENTUM),    &
-                 yfluxes(:,:,:,nmin:nmax,this%DENSITY),   &
-                 yfluxes(:,:,:,nmin:nmax,this%YMOMENTUM))
-    CASE(2) ! 2D flux
-      IF (this%XMOMENTUM.GT.0) THEN
-        ! x-momentum transport
-        CALL SetFlux(this%fcsound(:,:,:,nmin:nmax),       &
-                 prim(:,:,:,nmin:nmax,this%DENSITY),      &
-                 prim(:,:,:,nmin:nmax,this%YVELOCITY),    &
-                 cons(:,:,:,nmin:nmax,this%YMOMENTUM),    &
+                 prim(:,:,:,nmin:nmax,this%XVELOCITY),    &
                  cons(:,:,:,nmin:nmax,this%XMOMENTUM),    &
                  yfluxes(:,:,:,nmin:nmax,this%DENSITY),   &
-                 yfluxes(:,:,:,nmin:nmax,this%YMOMENTUM), &
                  yfluxes(:,:,:,nmin:nmax,this%XMOMENTUM))
-      ELSE
-        ! z-momentum transport
-        CALL SetFlux(this%fcsound(:,:,:,nmin:nmax),       &
-                 prim(:,:,:,nmin:nmax,this%DENSITY),      &
-                 prim(:,:,:,nmin:nmax,this%YVELOCITY),    &
-                 cons(:,:,:,nmin:nmax,this%YMOMENTUM),    &
-                 cons(:,:,:,nmin:nmax,this%ZMOMENTUM),    &
-                 yfluxes(:,:,:,nmin:nmax,this%DENSITY),   &
-                 yfluxes(:,:,:,nmin:nmax,this%YMOMENTUM), &
-                 yfluxes(:,:,:,nmin:nmax,this%ZMOMENTUM))
-      END IF
+    CASE(2) ! 2D flux
+      CALL SetFlux(this%fcsound%data4d(:,:,:,nmin:nmax),       &
+                prim(:,:,:,nmin:nmax,this%DENSITY),      &
+                prim(:,:,:,nmin:nmax,this%YVELOCITY),    &
+                cons(:,:,:,nmin:nmax,this%YMOMENTUM),    &
+                cons(:,:,:,nmin:nmax,this%XMOMENTUM),    &
+                yfluxes(:,:,:,nmin:nmax,this%DENSITY),   &
+                yfluxes(:,:,:,nmin:nmax,this%YMOMENTUM), &
+                yfluxes(:,:,:,nmin:nmax,this%XMOMENTUM))
     CASE(3) ! 3D flux
-      CALL SetFlux(this%fcsound(:,:,:,nmin:nmax),         &
+      CALL SetFlux(this%fcsound%data4d(:,:,:,nmin:nmax),         &
                  prim(:,:,:,nmin:nmax,this%DENSITY),      &
                  prim(:,:,:,nmin:nmax,this%YVELOCITY),    &
                  cons(:,:,:,nmin:nmax,this%YMOMENTUM),    &
@@ -981,36 +960,23 @@ CONTAINS
     !------------------------------------------------------------------------!
     SELECT CASE(this%VDIM)
     CASE(1) ! 1D flux
-      CALL SetFlux(this%fcsound(:,:,:,nmin:nmax),         &
+      CALL SetFlux(this%fcsound%data4d(:,:,:,nmin:nmax),         &
                  prim(:,:,:,nmin:nmax,this%DENSITY),      &
-                 prim(:,:,:,nmin:nmax,this%ZVELOCITY),    &
-                 cons(:,:,:,nmin:nmax,this%ZMOMENTUM),    &
-                 zfluxes(:,:,:,nmin:nmax,this%DENSITY),   &
-                 zfluxes(:,:,:,nmin:nmax,this%ZMOMENTUM))
-    CASE(2) ! 2D flux
-      IF (this%XMOMENTUM.GT.0) THEN
-        ! x-momentum transport
-        CALL SetFlux(this%fcsound(:,:,:,nmin:nmax),       &
-                 prim(:,:,:,nmin:nmax,this%DENSITY),      &
-                 prim(:,:,:,nmin:nmax,this%ZVELOCITY),    &
-                 cons(:,:,:,nmin:nmax,this%ZMOMENTUM),    &
+                 prim(:,:,:,nmin:nmax,this%XVELOCITY),    &
                  cons(:,:,:,nmin:nmax,this%XMOMENTUM),    &
                  zfluxes(:,:,:,nmin:nmax,this%DENSITY),   &
-                 zfluxes(:,:,:,nmin:nmax,this%ZMOMENTUM), &
                  zfluxes(:,:,:,nmin:nmax,this%XMOMENTUM))
-      ELSE
-        ! y-momentum transport
-        CALL SetFlux(this%fcsound(:,:,:,nmin:nmax),       &
-                 prim(:,:,:,nmin:nmax,this%DENSITY),      &
-                 prim(:,:,:,nmin:nmax,this%ZVELOCITY),    &
-                 cons(:,:,:,nmin:nmax,this%ZMOMENTUM),    &
-                 cons(:,:,:,nmin:nmax,this%YMOMENTUM),    &
-                 zfluxes(:,:,:,nmin:nmax,this%DENSITY),   &
-                 zfluxes(:,:,:,nmin:nmax,this%ZMOMENTUM), &
-                 zfluxes(:,:,:,nmin:nmax,this%YMOMENTUM))
-      END IF
+    CASE(2) ! 2D flux
+      CALL SetFlux(this%fcsound%data4d(:,:,:,nmin:nmax),       &
+                prim(:,:,:,nmin:nmax,this%DENSITY),      &
+                prim(:,:,:,nmin:nmax,this%YVELOCITY),    &
+                cons(:,:,:,nmin:nmax,this%YMOMENTUM),    &
+                cons(:,:,:,nmin:nmax,this%XMOMENTUM),    &
+                zfluxes(:,:,:,nmin:nmax,this%DENSITY),   &
+                zfluxes(:,:,:,nmin:nmax,this%YMOMENTUM), &
+                zfluxes(:,:,:,nmin:nmax,this%XMOMENTUM))
     CASE(3) ! 3D flux
-      CALL SetFlux(this%fcsound(:,:,:,nmin:nmax),         &
+      CALL SetFlux(this%fcsound%data4d(:,:,:,nmin:nmax),         &
                  prim(:,:,:,nmin:nmax,this%DENSITY),      &
                  prim(:,:,:,nmin:nmax,this%ZVELOCITY),    &
                  cons(:,:,:,nmin:nmax,this%ZMOMENTUM),    &
@@ -1399,7 +1365,7 @@ CONTAINS
     i2 = MAX(i,i1)
     i1 = MIN(i,i1)
     CALL SetCharVars( &
-          this%fcsound(i2,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,WEST), &
+          this%fcsound%data4d(i2,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,WEST), &
           pvar(i1,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,this%DENSITY), &
           pvar(i2,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,this%DENSITY), &
           pvar(i1,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,this%XVELOCITY), &
@@ -1439,7 +1405,7 @@ CONTAINS
     j1 = j + SIGN(1,dir) ! left handed if dir<0 and right handed otherwise
     j2 = MAX(j,j1)
     j1 = MIN(j,j1)
-    CALL SetCharVars(this%fcsound(Mesh%IMIN:Mesh%IMAX,j2,Mesh%KMIN:Mesh%KMAX,SOUTH), &
+    CALL SetCharVars(this%fcsound%data4d(Mesh%IMIN:Mesh%IMAX,j2,Mesh%KMIN:Mesh%KMAX,SOUTH), &
           pvar(Mesh%IMIN:Mesh%IMAX,j1,Mesh%KMIN:Mesh%KMAX,this%DENSITY), &
           pvar(Mesh%IMIN:Mesh%IMAX,j2,Mesh%KMIN:Mesh%KMAX,this%DENSITY), &
           pvar(Mesh%IMIN:Mesh%IMAX,j1,Mesh%KMIN:Mesh%KMAX,this%YVELOCITY), &
@@ -1480,7 +1446,7 @@ CONTAINS
 !    k1 = k + SIGN(1,dir) ! left handed if dir<0 and right handed otherwise
 !    k2 = MAX(k,k1)
 !    k1 = MIN(k,k1)
-!    CALL SetCharVars(this%fcsound(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k2,BOTTOM), &
+!    CALL SetCharVars(this%fcsound%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k2,BOTTOM), &
 !          pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k1,this%DENSITY), &
 !          pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k2,this%DENSITY), &
 !          pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k1,this%YVELOCITY), &
@@ -1512,7 +1478,7 @@ CONTAINS
        fidx = EAST
     END IF
     CALL SetBoundaryData( &
-          this%fcsound(i1,Mesh%JMIN:Mesh%JMAX,Mesh%KGMIN:Mesh%KGMAX,fidx), &
+          this%fcsound%data4d(i1,Mesh%JMIN:Mesh%JMAX,Mesh%KGMIN:Mesh%KGMAX,fidx), &
           1.0*SIGN(1,dir), &
           pvar(i1,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,this%DENSITY), &
           pvar(i1,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,this%XVELOCITY), &
@@ -1546,7 +1512,7 @@ CONTAINS
        fidx = NORTH
     END IF
     CALL SetBoundaryData( &
-          this%fcsound(Mesh%IMIN:Mesh%IMAX,j1,Mesh%KMIN:Mesh%KMAX,fidx), &
+          this%fcsound%data4d(Mesh%IMIN:Mesh%IMAX,j1,Mesh%KMIN:Mesh%KMAX,fidx), &
           1.0*SIGN(1,dir), &
           pvar(Mesh%IMIN:Mesh%IMAX,j1,Mesh%KMIN:Mesh%KMAX,this%DENSITY), &
           pvar(Mesh%IMIN:Mesh%IMAX,j1,Mesh%KMIN:Mesh%KMAX,this%YVELOCITY), &
@@ -1580,7 +1546,7 @@ CONTAINS
 !       fidx = TOP
 !    END IF
 !    CALL SetBoundaryData( &
-!          this%fcsound(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k1,fidx), &
+!          this%fcsound%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k1,fidx), &
 !          1.0*SIGN(1,dir), &
 !          pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k1,this%DENSITY), &
 !          pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k1,this%YVELOCITY), &
@@ -1600,6 +1566,7 @@ CONTAINS
     CLASS(physics_eulerisotherm), INTENT(INOUT) :: this
     !------------------------------------------------------------------------!
     CALL this%bccsound%Destroy() ! call destructor of the mesh array
+    CALL this%fcsound%Destroy()
     DEALLOCATE(this%bccsound,this%fcsound)
     CALL this%Finalize_base()
   END SUBROUTINE Finalize

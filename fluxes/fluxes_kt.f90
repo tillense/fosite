@@ -3,7 +3,7 @@
 !# fosite - 3D hydrodynamical simulation program                             #
 !# module: fluxes_kt.f90                                                     #
 !#                                                                           #
-!# Copyright (C) 2007-2017                                                   #
+!# Copyright (C) 2007-2018                                                   #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
 !# Manuel Jung <mjung@astrophysik.uni-kiel.de>                               #
 !# Jannes Klee <jklee@astrophysik.uni-kiel.de>                               #
@@ -84,22 +84,10 @@ CONTAINS
     !------------------------------------------------------------------------!
     CALL this%InitFluxes(Mesh,Physics,config,IO,KT,"KT")
 
-    ! set relative positions for reconstruction points:
-    ! cell face positions
+    !> \todo remove this in future version, no longer needed
     SELECT CASE(Mesh%GetType())
     CASE(MIDPOINT)
-         this%dx(:,:,:,1) = Mesh%curv%faces(:,:,:,1,1) - Mesh%curv%bcenter(:,:,:,1)
-         this%dx(:,:,:,2) = Mesh%curv%faces(:,:,:,2,1) - Mesh%curv%bcenter(:,:,:,1)
-         this%dy(:,:,:,1:2) = 0.0
-         this%dz(:,:,:,1:2) = 0.0
-         this%dx(:,:,:,3:4) = 0.0
-         this%dy(:,:,:,3) = Mesh%curv%faces(:,:,:,3,2) - Mesh%curv%bcenter(:,:,:,2)
-         this%dy(:,:,:,4) = Mesh%curv%faces(:,:,:,4,2) - Mesh%curv%bcenter(:,:,:,2)
-         this%dz(:,:,:,3:4) = 0.0
-         this%dx(:,:,:,5:6) = 0.0
-         this%dy(:,:,:,5:6) = 0.0
-         this%dz(:,:,:,5) = Mesh%curv%faces(:,:,:,5,3) - Mesh%curv%bcenter(:,:,:,3)
-         this%dz(:,:,:,6) = Mesh%curv%faces(:,:,:,6,3) - Mesh%curv%bcenter(:,:,:,3)
+      ! do nothing
     CASE(TRAPEZOIDAL)
       CALL this%Error("InitFluxes_kt", "Trapezoidal not supported from > 0.6")
     CASE DEFAULT

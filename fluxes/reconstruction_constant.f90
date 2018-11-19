@@ -36,6 +36,7 @@ MODULE reconstruction_constant_mod
   USE logging_base_mod
   USE reconstruction_base_mod
   USE mesh_base_mod
+  USE marray_compound_mod
   USE physics_base_mod
   USE common_dict
   IMPLICIT NONE
@@ -70,30 +71,24 @@ CONTAINS
   END SUBROUTINE InitReconstruction_constant
 
 
-  PURE SUBROUTINE CalculateStates(this,Mesh,Physics,npos,dx,dy,dz,rvar,rstates)
+  PURE SUBROUTINE CalculateStates(this,Mesh,Physics,rvar,rstates)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(reconstruction_constant), INTENT(INOUT) :: this
     CLASS(mesh_base),               INTENT(IN)    :: Mesh
     CLASS(physics_base),            INTENT(IN)    :: Physics
-    INTEGER                                       :: npos
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX, &
-                    Mesh%KGMIN:Mesh%KGMAX,npos)   :: dx,dy,dz
-    REAL :: rvar(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,    &
-                 Mesh%KGMIN:Mesh%KGMAX,Physics%vnum)
-    REAL :: rstates(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX, &
-                    Mesh%KGMIN:Mesh%KGMAX,npos,Physics%vnum)
+    CLASS(marray_compound),         INTENT(INOUT) :: rvar
+    REAL, INTENT(OUT) :: rstates(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX, &
+                    Mesh%KGMIN:Mesh%KGMAX,Mesh%NFACES,Physics%VNUM)
     !------------------------------------------------------------------------!
     INTEGER                                       :: n
     !------------------------------------------------------------------------!
-    INTENT(IN)                                    :: npos,rvar,dx,dy,dz
-    INTENT(OUT)                                   :: rstates
-    !------------------------------------------------------------------------!
 
     ! reconstruct boundary states
-    FORALL (n=1:npos)
-       rstates(:,:,:,n,:) = rvar(:,:,:,:)
-    END FORALL
+!NEC$ SHORTLOOP
+    DO n=1,Mesh%NFACES
+       rstates(:,:,:,n,:) = rvar%data4d(:,:,:,:)
+    END DO
   END SUBROUTINE CalculateStates
 
 

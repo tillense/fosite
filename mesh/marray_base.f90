@@ -23,8 +23,8 @@
 !#                                                                           #
 !#############################################################################
 !> \addtogroup marray
-!----------------------------------------------------------------------------!
-!> \author Tobias Illenseer
+!!
+!! \author Tobias Illenseer
 !!
 !! \brief base class for mesh arrays
 !!
@@ -279,7 +279,7 @@ MODULE marray_base_mod
   END SUBROUTINE AssignMArray_0
   
   !> assign 1D fortran array to mesh array
-  SUBROUTINE AssignMArray_1(this,a)
+  PURE SUBROUTINE AssignMArray_1(this,a)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(marray_base),INTENT(INOUT) :: this
@@ -289,7 +289,7 @@ MODULE marray_base_mod
   END SUBROUTINE AssignMArray_1
 
   !> assign 2D fortran array to mesh array
-  SUBROUTINE AssignMArray_2(this,a)
+  PURE SUBROUTINE AssignMArray_2(this,a)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(marray_base),INTENT(INOUT) :: this
@@ -299,7 +299,7 @@ MODULE marray_base_mod
   END SUBROUTINE AssignMArray_2
 
   !> assign 3D fortran array to mesh array
-  SUBROUTINE AssignMArray_3(this,a)
+  PURE SUBROUTINE AssignMArray_3(this,a)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(marray_base),INTENT(INOUT) :: this
@@ -310,7 +310,7 @@ MODULE marray_base_mod
   END SUBROUTINE AssignMArray_3
 
   !> assign 4D fortran array to mesh array
-  SUBROUTINE AssignMArray_4(this,a)
+  PURE SUBROUTINE AssignMArray_4(this,a)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(marray_base),INTENT(INOUT) :: this
@@ -321,7 +321,7 @@ MODULE marray_base_mod
   END SUBROUTINE AssignMArray_4
 
   !> assign 5D fortran array to mesh array
-  SUBROUTINE AssignMArray_5(this,a)
+  PURE SUBROUTINE AssignMArray_5(this,a)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(marray_base),INTENT(INOUT) :: this

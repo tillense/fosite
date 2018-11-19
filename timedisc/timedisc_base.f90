@@ -777,7 +777,7 @@ CONTAINS
       CLASS IS(physics_euler)
         SELECT TYPE(pvar => this%pvar)
         CLASS IS(statevector_euler)
-          CALL phys%UpdateSoundSpeed(Mesh,pvar)
+          CALL phys%UpdateSoundSpeed(pvar)
         END SELECT
       END SELECT
     END IF
@@ -801,10 +801,10 @@ CONTAINS
        invdt = MAXVAL(MAX(Fluxes%maxwav%data4d(:,:,:,1),-Fluxes%minwav%data4d(:,:,:,1)) / Mesh%dlx(:,:,:))
     ELSE IF ((Mesh%INUM.EQ.1).AND.(Mesh%KNUM.EQ.1)) THEN
        ! 1D, only y-direction
-       invdt = MAXVAL(MAX(Fluxes%maxwav%data4d(:,:,:,2),-Fluxes%minwav%data4d(:,:,:,2)) / Mesh%dly(:,:,:))
+       invdt = MAXVAL(MAX(Fluxes%maxwav%data4d(:,:,:,1),-Fluxes%minwav%data4d(:,:,:,1)) / Mesh%dly(:,:,:))
     ELSE IF ((Mesh%INUM.EQ.1).AND.(Mesh%JNUM.EQ.1)) THEN
        ! 1D, only z-direction
-       invdt = MAXVAL(MAX(Fluxes%maxwav%data4d(:,:,:,3),-Fluxes%minwav%data4d(:,:,:,3)) / Mesh%dlz(:,:,:))
+       invdt = MAXVAL(MAX(Fluxes%maxwav%data4d(:,:,:,1),-Fluxes%minwav%data4d(:,:,:,1)) / Mesh%dlz(:,:,:))
     ELSE IF ((Mesh%INUM.GT.1).AND.(Mesh%JNUM.GT.1).AND.(Mesh%KNUM.EQ.1)) THEN
        ! 2D, x-y-plane
        invdt = MAXVAL(MAX(Fluxes%maxwav%data4d(:,:,:,1),-Fluxes%minwav%data4d(:,:,:,1)) / Mesh%dlx(:,:,:) &
@@ -1061,7 +1061,7 @@ CONTAINS
       CLASS IS(physics_euler)
         SELECT TYPE(pvar => this%pvar)
         CLASS IS(statevector_euler)
-          CALL phys%UpdateSoundSpeed(Mesh,pvar)
+          CALL phys%UpdateSoundSpeed(pvar)
         END SELECT
       END SELECT
     END IF
