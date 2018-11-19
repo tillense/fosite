@@ -90,6 +90,8 @@ MODULE fileio_vtk_mod
 
   !--------------------------------------------------------------------------!
   TYPE, EXTENDS(fileio_base) :: fileio_vtk
+    PRIVATE
+    INTEGER   :: IP1,JP1,KP1
     CONTAINS
     ! methods
     PROCEDURE :: InitFileio_vtk
@@ -141,15 +143,38 @@ CONTAINS
     ! some sanity checks
     IF (this%cycles .NE. this%count+1) CALL this%Error('InitFileIO','VTK need filecycles = count+1')
 
+    ! determine dimensions for the coordinate array
+    IF (ABS(Mesh%xmax-Mesh%xmin).LT.2*EPSILON(Mesh%xmin) &
+       .OR.(Mesh%INUM.EQ.1.AND.Mesh%ROTSYM.EQ.1)) THEN
+      ! suppress x-direction in output
+      this%IP1 = 0
+    ELSE
+      this%IP1 = 1
+    END IF
+    IF (ABS(Mesh%ymax-Mesh%ymin).LT.2*EPSILON(Mesh%ymin) &
+       .OR.(Mesh%JNUM.EQ.1.AND.Mesh%ROTSYM.EQ.2)) THEN
+      ! suppress y-direction in output
+      this%JP1  = 0
+    ELSE
+      this%JP1  = 1
+    END IF
+    IF (ABS(Mesh%zmax-Mesh%zmin).LT.2*EPSILON(Mesh%zmin) &
+       .OR.(Mesh%KNUM.EQ.1.AND.Mesh%ROTSYM.EQ.3)) THEN
+      ! suppress z-direction in output
+      this%KP1  = 0
+    ELSE
+      this%KP1  = 1
+    END IF
+
     ! allocate memory for auxilliary data fields
     ALLOCATE(this%binout(MAXCOMP,                &
                          Mesh%IMIN:Mesh%IMAX,    &
                          Mesh%JMIN:Mesh%JMAX,    &
                          Mesh%KMIN:Mesh%KMAX),   &
              this%vtkcoords(3,                   &
-                         Mesh%IMIN:Mesh%IMAX+1,  &
-                         Mesh%JMIN:Mesh%JMAX+1,  &
-                         Mesh%KMIN:Mesh%KMAX+1), &
+                         Mesh%IMIN:Mesh%IMAX+this%IP1,  &
+                         Mesh%JMIN:Mesh%JMAX+this%JP1,  &
+                         Mesh%KMIN:Mesh%KMAX+this%KP1), &
              this%output(MAXCOLS),               &
              this%tsoutput(MAXCOLS),             &
              this%bflux(Physics%VNUM,6),         &
@@ -189,12 +214,13 @@ CONTAINS
        CALL this%Error( "InitFileio_vtk", "Unable to allocate memory.")
 
     ! store information about grid extent on each node
+    !> \bug This is most probably broken !
     sendbuf(1) = Mesh%IMIN
-    sendbuf(2) = Mesh%IMAX+1
+    sendbuf(2) = Mesh%IMAX+this%IP1
     sendbuf(3) = Mesh%JMIN
-    sendbuf(4) = Mesh%JMAX+1
+    sendbuf(4) = Mesh%JMAX+this%JP1
     sendbuf(5) = Mesh%KMIN
-    sendbuf(6) = Mesh%KMAX+1
+    sendbuf(6) = Mesh%KMAX+this%KP1
 
     ! gather information about grid extent on each node at the rank 0 node
     CALL MPI_Gather(sendbuf, 6, MPI_INTEGER, recvbuf, 6, MPI_INTEGER, &
@@ -218,29 +244,49 @@ CONTAINS
        corners => Mesh%RemapBounds(Mesh%curv%corners)
     END IF
 
-    ! determine the dimension of cartesian coordinates;
-    ! this part should be deprecated since everything is now 3D
-    n = SIZE(corners(:,:,:,:,:),5)
-!    SELECT CASE(n)
-!    CASE(2) ! 3rd coordinate vanishes
-!       this%vtkcoords(3,:,:) = 0.0
-!    CASE(3) ! do nothing, set below
-!    CASE DEFAULT
-!       CALL this%Error( "InitFileio_vtk", "2D or 3D cartesian coordinates expected.")
-!    END SELECT
-
     ! store mesh corners in appropriate array for VTK coordinate output
-    DO j=Mesh%JMIN,Mesh%JMAX+Mesh%jp1
-       DO i=Mesh%IMIN,Mesh%IMAX+Mesh%ip1
-          DO k=Mesh%KMIN,Mesh%KMAX+Mesh%kp1
-             this%vtkcoords(1:n,i,j,k) = corners(i,j,k,1,1:n)
-          END DO
-       END DO
+    DO k=Mesh%KMIN,Mesh%KMAX+Mesh%KP1
+      DO j=Mesh%JMIN,Mesh%JMAX+Mesh%JP1
+         DO i=Mesh%IMIN,Mesh%IMAX+Mesh%IP1
+            this%vtkcoords(1:3,i,j,k) = corners(i,j,k,1,1:3)
+         END DO
+      END DO
     END DO
-    ! byte offset, i.e. extend of coordinate data (3 coords!)
-    !  + 4 bytes for storing the size information which must be a 4 byte integer number
-    this%offset = 3*(Mesh%IMAX-Mesh%IMIN+2)*(Mesh%JMAX-Mesh%JMIN+2)* &
-                    (Mesh%KMAX-Mesh%KMIN+2)*this%realsize + 4
+
+    ! add coordinates in 1D/2D simulations with non-vanishing extent
+    IF (Mesh%INUM.EQ.1.AND.this%IP1.EQ.1) THEN
+      ! no transport in x-direction, but x-extent > 0
+      i = Mesh%IMIN
+      DO k=Mesh%KMIN,Mesh%KMAX+Mesh%KP1
+         DO j=Mesh%JMIN,Mesh%JMAX+Mesh%JP1
+            this%vtkcoords(1:3,i+1,j,k) = corners(i,j,k,2,1:3)
+         END DO
+      END DO
+    END IF
+
+    IF (Mesh%JNUM.EQ.1.AND.this%JP1.EQ.1) THEN
+      ! no transport in y-direction, but y-extent > 0
+      j = Mesh%JMIN
+      DO k=Mesh%KMIN,Mesh%KMAX+Mesh%KP1
+         DO i=Mesh%IMIN,Mesh%IMAX+Mesh%IP1
+            this%vtkcoords(1:3,i,j+1,k) = corners(i,j,k,3,1:3)
+         END DO
+      END DO
+    END IF
+
+    IF (Mesh%KNUM.EQ.1.AND.this%KP1.EQ.1) THEN
+      ! no transport in z-direction, but z-extent > 0
+      k = Mesh%KMIN
+      DO j=Mesh%JMIN,Mesh%JMAX+Mesh%JP1
+         DO i=Mesh%IMIN,Mesh%IMAX+Mesh%IP1
+            this%vtkcoords(1:3,i,j,k+1) = corners(i,j,k,5,1:3)
+         END DO
+      END DO
+    END IF
+
+    ! byte offset, i.e. extent of coordinate data + 4 bytes for storing
+    ! the size information which must be a 4 byte integer number
+    this%offset = SIZE(this%vtkcoords)*this%realsize + 4
 
     ! create list of output data arrays
     node => IO
@@ -632,7 +678,9 @@ CONTAINS
         '<VTKFile type="StructuredGrid" version="0.1" byte_order='&
                    //this%endianness//'>'//LF//&
         '  <StructuredGrid WholeExtent="',&
-                  Mesh%IMIN,Mesh%IMAX+1,Mesh%JMIN,Mesh%JMAX+1,Mesh%KMIN,Mesh%KMAX+1,'">'//LF// &
+                  Mesh%IMIN,Mesh%IMAX+this%IP1,Mesh%JMIN,Mesh%JMAX+this%JP1, &
+                  Mesh%KMIN,Mesh%KMAX+this%KP1,'">'//LF// &
+!                   Mesh%IMIN,Mesh%IMAX+1,Mesh%JMIN,Mesh%JMAX+1,Mesh%KMIN,Mesh%KMAX+1,'">'//LF// &
         '    <FieldData>'//LF// &
         '      <InformationKey type="String" Name="fosite version" format="ascii">'//LF// &
         '        '//TRIM(VERSION)//LF// &
@@ -848,7 +896,8 @@ CONTAINS
     WRITE(this%linebuf,FMT='(A,(6(I7)),A)')&
          '    </FieldData>'//LF// &
          '    <Piece Extent="', &
-                    Mesh%IMIN,Mesh%IMAX+1,Mesh%JMIN,Mesh%JMAX+1,Mesh%KMIN,Mesh%KMAX+1,'">'//LF// &
+                    Mesh%IMIN,Mesh%IMAX+this%IP1,Mesh%JMIN,Mesh%JMAX+this%JP1,&
+                    Mesh%KMIN,Mesh%KMAX+this%KP1,'">'//LF// &
          '    <Points>'//LF//&
          '      <DataArray type='//this%realfmt//' NumberOfComponents="3"'//&
                          ' Name="Point" format="appended" offset="0">'//LF// &
@@ -958,8 +1007,7 @@ CONTAINS
     ! a) coordinates:
     !    (i)  size of data array in bytes (must be a 4 byte integer)
     !    (ii) coordinate data array (generated in InitFileio)
-    WRITE(this%unit,IOSTAT=this%error_io) INT(this%offset,4), &
-          this%vtkcoords(1:3,Mesh%IMIN:Mesh%IMAX+1,Mesh%JMIN:Mesh%JMAX+1,Mesh%KMIN:Mesh%KMAX+1)
+    WRITE(this%unit,IOSTAT=this%error_io) INT(this%offset,4),this%vtkcoords(:,:,:,:)
     IF (this%error_io.GT.0) &
        CALL this%Error( "WriteDataset", "cannot write coordinates")
 

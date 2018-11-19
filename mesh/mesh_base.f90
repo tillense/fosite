@@ -477,17 +477,29 @@ CONTAINS
     ! reset dx,dy,dz if direction is suppressed
     ! additionally set a mesh_dx,mesh_dy,mesh_dz to set corners, etc. 
     ! for output correctly (see below)
-    IF (this%INUM.EQ.1) THEN
-      IF (this%dx.LT.2*EPSILON(this%dx)) this%dx = 1.0
-      mesh_dx = 0.0
+    IF (this%dx.LT.2*EPSILON(this%dx)) THEN
+      IF (this%INUM.EQ.1) THEN
+        this%dx = 1.0
+        mesh_dx = 0.0
+      ELSE
+        CALL this%Error("mesh_base::InitMesh","INUM > 1 conflicts with zero x-extent")
+      END IF
     END IF
-    IF (this%JNUM.EQ.1) THEN
-      IF (this%dy.LT.2*EPSILON(this%dy)) this%dy = 1.0
-      mesh_dy = 0.0
+    IF (this%dy.LT.2*EPSILON(this%dy)) THEN
+      IF (this%JNUM.EQ.1) THEN
+        this%dy = 1.0
+        mesh_dy = 0.0
+      ELSE
+        CALL this%Error("mesh_base::InitMesh","JNUM > 1 conflicts with zero y-extent")
+      END IF
     END IF
-    IF (this%KNUM.EQ.1) THEN
-      IF (this%dz.LT.2*EPSILON(this%dz)) this%dz = 1.0
-      mesh_dz = 0.0
+    IF (this%dz.LT.2*EPSILON(this%dz)) THEN
+      IF (this%KNUM.EQ.1) THEN
+        this%dz = 1.0
+        mesh_dz = 0.0
+      ELSE
+        CALL this%Error("mesh_base::InitMesh","KNUM > 1 conflicts with zero z-extent")
+      END IF
     END IF
 
     ! inverse coordinate differences
@@ -528,7 +540,7 @@ CONTAINS
          this%dlz(this%IGMIN:this%IGMAX,this%JGMIN:this%JGMAX,this%KGMIN:this%KGMAX), &
         STAT=err)
     IF (err.NE.0) THEN
-       CALL this%Error("InitMesh_common","Unable to allocate memory!")
+       CALL this%Error("mesh_base::InitMesh","Unable to allocate memory!")
     END IF
 
     ! nullify remaining mesh arrays
