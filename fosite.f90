@@ -324,16 +324,28 @@ CONTAINS
   END SUBROUTINE FirstStep
 
 
-  SUBROUTINE Run(this)
+  SUBROUTINE Run(this,aborted)
     IMPLICIT NONE
     !--------------------------------------------------------------------------!
     CLASS(fosite), INTENT(INOUT) :: this
+    LOGICAL, OPTIONAL, INTENT(OUT) :: aborted
     !--------------------------------------------------------------------------!
-
     ! main loop
     DO WHILE((this%Timedisc%maxiter.LE.0).OR.(this%iter.LE.this%Timedisc%maxiter))
       IF(this%Step()) EXIT
     END DO
+    !> \todo find a better solution for this:
+    !!   this%Step() may finish if the time step becomes to small.
+    !!   It should be possible to pass this information to the calling subroutine.
+    !!   Otherwise some tests report PASS although they actually failed.
+    IF (PRESENT(aborted)) THEN
+      IF (ABS(this%Timedisc%stoptime-this%Timedisc%time) &
+              .LE.1.0E-05*this%Timedisc%stoptime) THEN
+        aborted = .FALSE.
+      ELSE
+        aborted = .TRUE.
+      END IF
+    END IF
 
   END SUBROUTINE Run
 
