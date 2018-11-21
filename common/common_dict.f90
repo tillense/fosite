@@ -747,14 +747,14 @@ CONTAINS
     IF(PRESENT(prefix)) &
       prefix_ = TRIM(prefix)
     DO WHILE(ASSOCIATED(node))
-      WRITE(s,'(A,A,A)')TRIM(prefix_),'/',TRIM(node%key)
+      WRITE(s,'(A,A,A)') TRIM(prefix_),'/',TRIM(node%key)
       IF(ASSOCIATED(node%value)) THEN
         WRITE(str,'(A,I2,A,A,A,I4)') "type=",node%type,", key=",TRIM(s),&
           ", size=",SIZE(node%value)
       ELSE
         WRITE(str,'(A,I2,A,A)') "type=",node%type,", key=",TRIM(s)
       END IF
-      !CALL Info(this,str)
+      CALL this%Info(str)
       IF(ASSOCIATED(node%child)) &
         CALL PrintDict(node%child, s)
       node => node%next
