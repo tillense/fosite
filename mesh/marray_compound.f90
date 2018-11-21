@@ -136,23 +136,32 @@ CONTAINS
     CALL this%marray_base%AssignMArray_0(ma)
     SELECT TYPE(src => ma)
     CLASS IS(marray_compound)
-      this%num_entries = src%num_entries
       p => src%FirstItem()
       IF (.NOT.ASSOCIATED(p).OR.src%num_entries.LT.1) THEN
         this%num_entries = 0
         NULLIFY(this%list)
       ELSE
-        ! p is associated => generate new this%list with data from p, i.e. src
-        DO
-          CALL this%AppendItem(p%item)
-          IF (ASSOCIATED(p%next)) THEN
-            p => p%next
-          ELSE
-            EXIT
+        IF (.NOT.ASSOCIATED(this%list)) THEN
+          ! p is associated but this%list isn't
+          !  => generate new this%list with data from p, i.e. src
+          this%num_entries = 0
+          DO
+            CALL this%AppendItem(p%item)
+            IF (ASSOCIATED(p%next)) THEN
+              p => p%next
+            ELSE
+              EXIT
+            END IF
+          END DO
+          ! finally reassign all pointers
+          CALL this%AssignPointers()
+        ELSE
+          ! p and this%list are both associated
+          IF (src%num_entries.NE.this%num_entries) THEN
+            PRINT *,"ERROR in marray_compound::AssignMArray_0: src%num_entries != dest%num_entries"
+            STOP 1
           END IF
-        END DO
-        ! finally reassign all pointers
-        CALL this%AssignPointers()
+        END IF
       END IF
 ! IF (ASSOCIATED(src%data1d).AND.SIZE(src%data1d).GT.0) &
 ! PRINT *,"marray_compound::AssignMArray_0 ma",src%data1d(LBOUND(src%data1d,1)),src%data1d(UBOUND(src%data1d,1))
@@ -226,7 +235,8 @@ CONTAINS
       ! go through the whole compound and restore all 1D and multi-dim. pointers
       CALL this%AssignPointers()
       ! print debug info
-! PRINT '(3(A,I2),I2)',"item no. ",this%num_entries, " appended to rank ",this%RANK," compound with dims ",this%DIMS(1:2)
+! PRINT '(3(A,I2),I2)',"item no. ",this%num_entries, " appended to rank ",this%RANK," &
+!                      compound with dims ",this%DIMS(1:2)
 ! PRINT '(A,I6,A,I2,A,2(I3))', "  size", SIZE(this%data1d), &
 !                   "  item%rank", ma%RANK, &
 !                   "  item%dims", ma%DIMS(:)
@@ -314,6 +324,7 @@ CONTAINS
       p%item => ma
       p%extent = SIZE(ma%data1d)
       p%entry_num = this%num_entries
+      NULLIFY(p%next)
     END IF
   END SUBROUTINE AppendItem
 
