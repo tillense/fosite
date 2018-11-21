@@ -65,15 +65,15 @@ PROGRAM bondi2d
   REAL, PARAMETER    :: RHOINF  = 1.0E-20     ! density at infinity [kg/m^3]
   REAL, PARAMETER    :: CSINF   = 1.0E+04     ! sound speed at infinity [m/s]
   ! mesh settings
-  INTEGER, PARAMETER :: MGEO    = POLAR       ! geometry
-  INTEGER, PARAMETER :: XRES    = 50          ! x-resolution
-  INTEGER, PARAMETER :: YRES    = 10          ! y-resolution
+  INTEGER, PARAMETER :: MGEO    = CYLINDRICAL ! geometry
+  INTEGER, PARAMETER :: XRES    = 100         ! x-resolution
+  INTEGER, PARAMETER :: YRES    = 6           ! y-resolution
   INTEGER, PARAMETER :: ZRES    = 1           ! z-resolution
   REAL, PARAMETER    :: RIN     = 0.1         ! inner/outer radii in terms of
   REAL, PARAMETER    :: ROUT    = 2.0         !   the Bondi radius RB, ROUT > 1
   REAL, PARAMETER    :: GPAR    = 1.0         ! geometry scaling parameter in [RB]
   ! output parameters
-  INTEGER, PARAMETER :: ONUM    = 100         ! number of output data sets
+  INTEGER, PARAMETER :: ONUM    = 10          ! number of output data sets
   CHARACTER(LEN=256), PARAMETER &             ! output data dir
                      :: ODIR    = './'
   CHARACTER(LEN=256), PARAMETER &             ! output data file name
@@ -96,6 +96,7 @@ PROGRAM bondi2d
   CALL InitData(Sim%Mesh, Sim%Physics, Sim%Fluxes, Sim%Timedisc)
   CALL Sim%Run()
 
+  CALL Sim%Finalize()
   DEALLOCATE(Sim)
 
   TAP_CHECK(.TRUE.,"Finished simulation")
@@ -121,16 +122,23 @@ CONTAINS
 
     ! mesh settings
     SELECT CASE(MGEO)
-    CASE(POLAR)
+    CASE(CYLINDRICAL)
        x1 = RIN * RB
        x2 = ROUT * RB
        y1 = 0.0
        y2 = 2*PI
        z1 = 0.0
        z2 = 0.0
+       bc(WEST)   = NO_GRADIENTS
+       bc(EAST)   = FIXED
+       bc(SOUTH)  = PERIODIC
+       bc(NORTH)  = PERIODIC
+       bc(BOTTOM) = NO_GRADIENTS
+       bc(TOP)    = NO_GRADIENTS
     CASE DEFAULT
-       CALL Sim%Physics%Error("InitProgram","mesh geometry not supported for 2D Bondi accretion")
+       CALL Sim%Physics%Error("bondi2d::MakeConfig","geometry currently not supported")
     END SELECT
+    
     mesh => Dict( &
              "meshtype"  / MIDPOINT, &
              "geometry"  / MGEO, &
@@ -145,18 +153,6 @@ CONTAINS
              "zmax"      / z2, &
              "gparam"    / (GPAR*RB))
 
-    SELECT CASE(MGEO)
-    CASE(POLAR)
-       bc(WEST)   = ABSORBING
-       bc(EAST)   = FIXED
-       bc(SOUTH)  = PERIODIC
-       bc(NORTH)  = PERIODIC
-       bc(BOTTOM) = NO_GRADIENTS
-       bc(TOP)    = NO_GRADIENTS
-    CASE DEFAULT
-       CALL Sim%Physics%Error("InitProgram","mesh geometry not supported for 2D Bondi accretion")
-    END SELECT
-
     ! boundary conditions
     boundary => Dict( &
              "western"   / bc(WEST), &
@@ -168,7 +164,7 @@ CONTAINS
 
     ! physics settings
     physics => Dict( &
-             "problem"  / EULER2D, &
+             "problem"  / EULER, &
              "gamma"    / GAMMA)
 
     ! flux calculation and reconstruction method

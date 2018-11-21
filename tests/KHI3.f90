@@ -264,7 +264,7 @@ CONTAINS
 
     ! physics settings
     physics => Dict( &
-              "problem" /       EULER3D, &
+              "problem" /         EULER, &
               "gamma"   /         GAMMA  &         ! ratio of specific heats !
     )
 

@@ -476,8 +476,8 @@ PROGRAM riemann2d
 !!$  INTEGER, PARAMETER :: MGEO = LOGPOLAR
 !!$  INTEGER, PARAMETER :: MGEO = TANPOLAR
 !!$  INTEGER, PARAMETER :: MGEO = SINHPOLAR
-  INTEGER, PARAMETER :: XRES = 150         ! resolution
-  INTEGER, PARAMETER :: YRES = 150
+  INTEGER, PARAMETER :: XRES = 100         ! resolution
+  INTEGER, PARAMETER :: YRES = 100
   INTEGER, PARAMETER :: ZRES = 1
   REAL, PARAMETER    :: RMIN = 1.0E-4      ! inner radius for polar grids
   ! output file parameter
@@ -551,20 +551,20 @@ CONTAINS
        y2 =  0.5
        z1 = -0.0
        z2 =  0.0
-       bc(WEST)  = ABSORBING
-       bc(EAST)  = ABSORBING
-       bc(SOUTH) = ABSORBING
-       bc(NORTH) = ABSORBING
-       bc(BOTTOM)= ABSORBING
-       bc(TOP)   = ABSORBING
+       bc(WEST)  = NO_GRADIENTS
+       bc(EAST)  = NO_GRADIENTS
+       bc(SOUTH) = NO_GRADIENTS
+       bc(NORTH) = NO_GRADIENTS
+       bc(BOTTOM)= NO_GRADIENTS
+       bc(TOP)   = NO_GRADIENTS
     CASE(POLAR)
        sc = 1.0
        x1 = RMIN
        x2 = 0.5*SQRT(2.0)
        y1 = 0.0
        y2 = 2*PI
-       bc(WEST)  = ABSORBING
-       bc(EAST)  = ABSORBING
+       bc(WEST)  = NO_GRADIENTS
+       bc(EAST)  = NO_GRADIENTS
        bc(SOUTH) = PERIODIC
        bc(NORTH) = PERIODIC
     CASE(LOGPOLAR)
@@ -573,8 +573,8 @@ CONTAINS
        x2 = LOG(0.5*SQRT(2.0)/sc)
        y1 = 0.0
        y2 = 2*PI
-       bc(WEST)  = ABSORBING
-       bc(EAST)  = ABSORBING
+       bc(WEST)  = NO_GRADIENTS
+       bc(EAST)  = NO_GRADIENTS
        bc(SOUTH) = PERIODIC
        bc(NORTH) = PERIODIC
     CASE(TANPOLAR)
@@ -583,8 +583,8 @@ CONTAINS
        x2 = ATAN(0.5*SQRT(2.0)/sc)
        y1 = 0.0
        y2 = 2*PI
-       bc(WEST)  = ABSORBING
-       bc(EAST)  = ABSORBING
+       bc(WEST)  = NO_GRADIENTS
+       bc(EAST)  = NO_GRADIENTS
        bc(SOUTH) = PERIODIC
        bc(NORTH) = PERIODIC
     CASE(SINHPOLAR)
@@ -593,12 +593,12 @@ CONTAINS
        x2 = Asinh(0.5*SQRT(2.0)/sc)
        y1 = 0.0
        y2 = 2*PI
-       bc(WEST)  = ABSORBING
-       bc(EAST)  = ABSORBING
+       bc(WEST)  = NO_GRADIENTS
+       bc(EAST)  = NO_GRADIENTS
        bc(SOUTH) = PERIODIC
        bc(NORTH) = PERIODIC
     CASE DEFAULT
-       CALL Sim%Physics%Error("InitProgram", &
+       CALL Sim%Physics%Error("riemann2d::MakeConfig", &
             " geometry should be one of cartesian,polar,logpolar,tanpolar,sinhpolar")
     END SELECT
 
@@ -625,7 +625,7 @@ CONTAINS
                "topper"   / bc(TOP))
 
     ! physics settings
-    physics => Dict("problem" / EULER2D, &
+    physics => Dict("problem" / EULER, &
               "gamma"   / GAMMA)         ! ratio of specific heats        !
 
     ! flux calculation and reconstruction method

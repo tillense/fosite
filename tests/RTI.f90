@@ -30,6 +30,9 @@
 !! \author Tobias Illenseer
 !! \author Jannes Klee
 !!
+!! \todo implement 3D test in cartesian and cylindrical geometry with
+!!       and without axial symmetry
+!!
 !! References:
 !! - \cite strutt1883 Rayleigh, Lord (1883) "Investigation of the character
 !!     of the equilibrium of an incompressible heavy fluid of variable density"
@@ -83,7 +86,7 @@ PROGRAM RTI
   CALL Sim%InitFosite()
   CALL MakeConfig(Sim, Sim%config)
   CALL Sim%Setup()
-  CALL InitData(Sim%Mesh, Sim%Physics, Sim%Timedisc%pvar%data4d, Sim%Timedisc%cvar%data4d)
+  CALL InitData(Sim%Mesh, Sim%Physics, Sim%Timedisc%pvar, Sim%Timedisc%cvar)
   CALL Sim%Run()
   CALL Sim%Finalize()
   DEALLOCATE(Sim)
@@ -121,7 +124,7 @@ PROGRAM RTI
 
     ! physics settings
     physics => Dict( &
-              "problem"       / EULER2D, &       ! standard 2D hydrodynamics !
+              "problem"       / EULER, &         ! standard 2D hydrodynamics !
               "gamma"         / 1.4)             ! ratio of specific heats   !
 
     ! flux calculation and reconstruction method
@@ -189,14 +192,13 @@ PROGRAM RTI
   END SUBROUTINE MakeConfig
 
 
-  !> Set initial conditions
+  !> \public set initial conditions
   SUBROUTINE InitData(Mesh,Physics,pvar,cvar)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(physics_base), INTENT(IN) :: Physics
     CLASS(mesh_base),    INTENT(IN) :: Mesh
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
-                        INTENT(OUT) :: pvar,cvar
+    CLASS(physics_base), INTENT(IN) :: Physics
+    CLASS(marray_compound), POINTER, INTENT(INOUT) :: pvar,cvar
     !------------------------------------------------------------------------!
     ! Local variable declaration
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX) &
@@ -206,21 +208,25 @@ PROGRAM RTI
     y0(:,:,:) = 0.5*Mesh%ymax + A0*COS(2*PI*Mesh%bcenter(:,:,:,1)/Mesh%xmax)
 
     ! initial hydrostatic stratification
-    WHERE (Mesh%bcenter(:,:,:,2).GT.y0(:,:,:))
-       ! upper fluid
-       pvar(:,:,:,Physics%DENSITY)  = RHO0
-       pvar(:,:,:,Physics%PRESSURE) = P0 + YACC * RHO0 * (Mesh%ymax-Mesh%bcenter(:,:,:,2))
-    ELSEWHERE
-       ! lower fluid
-       pvar(:,:,:,Physics%DENSITY)  = RHO1
-       pvar(:,:,:,Physics%PRESSURE) = P0 + YACC * (RHO1 * (y0(:,:,:)-Mesh%bcenter(:,:,:,2)) &
-            + RHO0 * (Mesh%ymax-y0(:,:,:)))
-    END WHERE
+    SELECT TYPE(p => pvar)
+    TYPE IS(statevector_euler)
+      WHERE (Mesh%bcenter(:,:,:,2).GT.y0(:,:,:))
+        ! upper fluid
+        p%density%data3d(:,:,:)  = RHO0
+        p%pressure%data3d(:,:,:) = P0 + YACC * RHO0 * (Mesh%ymax-Mesh%bcenter(:,:,:,2))
+      ELSEWHERE
+        ! lower fluid
+        p%density%data3d(:,:,:)  = RHO1
+        p%pressure%data3d(:,:,:) = P0 + YACC * (RHO1 * (y0(:,:,:)-Mesh%bcenter(:,:,:,2)) &
+              + RHO0 * (Mesh%ymax-y0(:,:,:)))
+      END WHERE
+      ! velocity vanishes everywhere
+      p%velocity%data1d(:) = 0.
+    CLASS DEFAULT
+      CALL Physics%Error("shear::InitData","only non-isothermal HD supported")
+    END SELECT
 
-    ! velocity vanishes everywhere
-    pvar(:,:,:,Physics%XVELOCITY:Physics%YVELOCITY) = 0.
-
-    CALL Physics%Convert2Conservative(Mesh,pvar,cvar)
+    CALL Physics%Convert2Conservative(pvar,cvar)
     CALL Mesh%Info(" DATA-----> initial condition: " // &
          "Rayleigh–Taylor instability")
   END SUBROUTINE InitData

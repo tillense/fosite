@@ -239,7 +239,7 @@ CONTAINS
                "topper"   / bc(TOP))
 
     ! physics settings
-    physics => Dict("problem" / EULER2D, &
+    physics => Dict("problem" / EULER, &
               "gamma"   / GAMMA)                 ! ratio of specific heats        !
 
     ! flux calculation and reconstruction method

@@ -104,8 +104,7 @@ CONTAINS
     !------------------------------------------------------------------------!
     CLASS(physics_base), INTENT(IN) :: Physics
     INTEGER, OPTIONAL, INTENT(IN) :: flavour,num
-    CLASS(marray_compound), ALLOCATABLE, INTENT(INOUT) :: new_sv
-    TYPE(marray_base), POINTER :: ma
+    CLASS(marray_compound), POINTER :: new_sv
     !------------------------------------------------------------------------!
     ! allocate and initialize state vector depending on physics
     SELECT TYPE(phys => Physics)

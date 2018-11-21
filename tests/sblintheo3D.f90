@@ -84,12 +84,16 @@ PROGRAM sblintheo
   REAL, PARAMETER    :: TSIM       = 10.0/OMEGA     ! simulation time        !
   REAL, PARAMETER    :: GAMMA      = 2.0            ! dep. on vert. struct.  !
   REAL, PARAMETER    :: Q          = 1.5            ! shearing parameter     !
+  ! set (initial) speed of sound using the Toomre criterion and 
+  ! assuming marginal stabily; in non-isothermal simulations this is
+  ! used to set the initial pressure (see InitData) whereas in isothermal
+  ! simulations this is constant throughout the simulation
   REAL, PARAMETER    :: SOUNDSPEED = PI*GN*SIGMA0/OMEGA ! det. by. Toomre    !
   ! mesh settings
   INTEGER, PARAMETER :: MGEO       = CARTESIAN
-  INTEGER, PARAMETER :: XRES       = 64            ! amount of cells in x-  !
-  INTEGER, PARAMETER :: YRES       = 64            ! y-direction (rho/phi)  !
-  INTEGER, PARAMETER :: ZRES       = 64
+  INTEGER, PARAMETER :: XRES       = 20            ! amount of cells in x-  !
+  INTEGER, PARAMETER :: YRES       = 20            ! y-direction (rho/phi)  !
+  INTEGER, PARAMETER :: ZRES       = 20
   REAL               :: DOMAINX    = 40.0           ! domain size [GEOM]     !
   REAL               :: DOMAINY    = 40.0           ! domain size [GEOM]     !
   REAL               :: DOMAINZ    = 40.0           ! domain size [GEOM]     !
@@ -113,7 +117,7 @@ ALLOCATE(Sim)
 CALL Sim%InitFosite()
 CALL MakeConfig(Sim, Sim%config)
 CALL Sim%Setup()
-CALL InitData(Sim%Mesh, Sim%Physics, Sim%Timedisc%pvar%data4d, Sim%Timedisc%cvar%data4d)
+CALL InitData(Sim%Mesh, Sim%Physics, Sim%Timedisc%pvar, Sim%Timedisc%cvar)
 CALL Sim%Run()
 
 ! search for the amplitude
@@ -150,7 +154,7 @@ CONTAINS
 
     ! physics settings
     physics =>  Dict(&
-               "problem"     / EULER3D_ISOTHERM, &
+               "problem"     / EULER_ISOTHERM, &
                "cs"          / SOUNDSPEED, &
 !               "problem"     / EULER3D, &
 !               "gamma"       / GAMMA, &
@@ -252,49 +256,65 @@ CONTAINS
   END SUBROUTINE MakeConfig
 
   !> \public Initializes the data.
- SUBROUTINE InitData(Mesh,Physics,pvar,cvar)
+  SUBROUTINE InitData(Mesh,Physics,pvar,cvar)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(physics_base), INTENT(IN) :: Physics
     CLASS(mesh_base),    INTENT(IN) :: Mesh
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
-                        INTENT(OUT) :: pvar,cvar
+    CLASS(physics_base), INTENT(IN) :: Physics
+    CLASS(marray_compound), POINTER, INTENT(INOUT) :: pvar,cvar
     !------------------------------------------------------------------------!
     ! local variable declaration
     REAL              :: kx, ky, kz
-    REAL              :: SOUNDSPEED
     !------------------------------------------------------------------------!
+
     !---------------------- linear theory test ------------------------------!
-    ! initial density
     kx = -2*(2*PI/DOMAINX)
     ky = 2*PI/DOMAINY
     kz = 2*PI/DOMAINZ
-    IF(Mesh%WE_shear)THEN
-      pvar(:,:,:,Physics%DENSITY)    = SIGMA0 + DELSIGMA*COS( &
-                                              kx*Mesh%bcenter(:,:,:,1) + &
-                                              ky*Mesh%bcenter(:,:,:,2) + &
-                                              kz*Mesh%bcenter(:,:,:,3))
-      pvar(:,:,:,Physics%XVELOCITY)  = 0.0
-      pvar(:,:,:,Physics%YVELOCITY)  = -Q*OMEGA*Mesh%bcenter(:,:,:,1)
-      pvar(:,:,:,Physics%ZVELOCITY)  = 0.0
-    ELSE
-      pvar(:,:,:,Physics%DENSITY)    = SIGMA0 + DELSIGMA*COS( &
-                                              kz*Mesh%bcenter(:,:,:,3) + &
-                                              kx*Mesh%bcenter(:,:,:,2) - &
-                                              ky*Mesh%bcenter(:,:,:,1))
-      pvar(:,:,:,Physics%XVELOCITY)  = Q*OMEGA*Mesh%bcenter(:,:,:,2)
-      pvar(:,:,:,Physics%YVELOCITY)  = 0.0
-      pvar(:,:,:,Physics%ZVELOCITY)  = 0.0
-    END IF
 
-    ! initial soundspeed (isothermal) or pressure (thermal)
-    ! determined by Toomre-criterion
-    SOUNDSPEED = PI*Physics%Constants%GN*SIGMA0/OMEGA
-    IF (Physics%PRESSURE.GT.0) pvar(:,:,:,Physics%PRESSURE)   = &
-              PI*PI*GN*GN*SIGMA0**3./(GAMMA*OMEGA**2)
-    !------------------------------------------------------------------------!
+    ! initial condition
+    SELECT TYPE(p => pvar)
+    TYPE IS(statevector_eulerisotherm)
+      IF(Mesh%WE_shear)THEN
+        p%density%data3d(:,:,:) = SIGMA0 &
+          + DELSIGMA*COS(kx*Mesh%bcenter(:,:,:,1) &
+                       + ky*Mesh%bcenter(:,:,:,2) &
+                       + kz*Mesh%bcenter(:,:,:,3))
+        p%velocity%data2d(:,1) = 0.0
+        p%velocity%data4d(:,:,:,2) = -Q*OMEGA*Mesh%bcenter(:,:,:,1)
+        p%velocity%data2d(:,3) = 0.0
+      ELSE
+        p%density%data3d(:,:,:) = SIGMA0 &
+          + DELSIGMA*COS(kx*Mesh%bcenter(:,:,:,2) &
+                       - ky*Mesh%bcenter(:,:,:,1) &
+                       + kz*Mesh%bcenter(:,:,:,3))
+        p%velocity%data4d(:,:,:,1) = Q*OMEGA*Mesh%bcenter(:,:,:,2)
+        p%velocity%data2d(:,2) = 0.0
+        p%velocity%data2d(:,3) = 0.0
+      END IF
+    TYPE IS(statevector_euler) ! non-isothermal HD
+      IF(Mesh%WE_shear)THEN
+        p%density%data3d(:,:,:) = SIGMA0 &
+          + DELSIGMA*COS(kx*Mesh%bcenter(:,:,:,1) &
+                       + ky*Mesh%bcenter(:,:,:,2) &
+                       + kz*Mesh%bcenter(:,:,:,3))
+        p%velocity%data2d(:,1) = 0.0
+        p%velocity%data4d(:,:,:,2) = -Q*OMEGA*Mesh%bcenter(:,:,:,1)
+        p%velocity%data2d(:,3) = 0.0
+      ELSE
+        p%density%data3d(:,:,:) = SIGMA0 &
+          + DELSIGMA*COS(kx*Mesh%bcenter(:,:,:,2) &
+                       - ky*Mesh%bcenter(:,:,:,1) &
+                       + kz*Mesh%bcenter(:,:,:,3))
+        p%velocity%data4d(:,:,:,1) = Q*OMEGA*Mesh%bcenter(:,:,:,2)
+        p%velocity%data2d(:,2) = 0.0
+        p%velocity%data2d(:,3) = 0.0
+      END IF
+    CLASS DEFAULT
+      CALL Physics%Error("shear::InitData","only (non-)isothermal HD supported")
+    END SELECT
 
-    CALL Physics%Convert2Conservative(Mesh,pvar,cvar)
+    CALL Physics%Convert2Conservative(pvar,cvar)
     CALL Mesh%Info(" DATA-----> initial condition: " // &
          "Linear Theory Test - Shearingsheet")
   END SUBROUTINE InitData

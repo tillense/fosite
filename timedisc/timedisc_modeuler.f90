@@ -40,6 +40,7 @@
 MODULE timedisc_modeuler_mod
   USE timedisc_base_mod
   USE mesh_base_mod
+  USE marray_compound_mod
   USE fluxes_base_mod
   USE boundary_base_mod
   USE physics_base_mod
@@ -137,7 +138,7 @@ CONTAINS
     INTEGER                                 :: order
     REAL                                    :: t
     TYPE var_typ
-       REAL, DIMENSION(:,:,:,:), POINTER    :: var
+      TYPE(marray_compound), POINTER :: var
     END TYPE var_typ
     TYPE(var_typ)                           :: p(4),c(4)
     !------------------------------------------------------------------------!
@@ -155,7 +156,7 @@ CONTAINS
           t = time+zeta(n,order)*dt
           ! time step update of cvar and bfluxes
           CALL this%ComputeCVar_modeuler(Mesh,Physics,Fluxes,eta(n,order), &
-               t,dt,this%cold,this%pvar%data4d,this%cvar%data4d,this%rhs,this%cvar%data4d)
+               t,dt,this%cold,this%pvar,this%cvar,this%rhs,this%cvar)
           ! compute right hand side for next time step update
           CALL this%ComputeRHS(Mesh,Physics,Sources,Fluxes,t,dt,&
                this%pvar,this%cvar,CHECK_NOTHING,this%rhs)
@@ -163,17 +164,15 @@ CONTAINS
        err = 0.0
        dt = HUGE(dt)
     ELSE
-! this is broken (see below) -> abort
-CALL this%Error("timedisc_modeuler::SolveODE", &
-         "error control and advanced time stepping is currently not available")
-       p(1)%var => Mesh%RemapBounds(this%pvar%data4d)
-       p(2)%var => Mesh%RemapBounds(this%ptmp%data4d)  ! store intermediate result for error control
-       p(3)%var => Mesh%RemapBounds(this%pvar%data4d)
-       p(4)%var => Mesh%RemapBounds(this%pvar%data4d)
-       c(1)%var => Mesh%RemapBounds(this%cvar%data4d)
-       c(2)%var => Mesh%RemapBounds(this%ctmp%data4d)  ! store intermediate result for error control
-       c(3)%var => Mesh%RemapBounds(this%cvar%data4d)
-       c(4)%var => Mesh%RemapBounds(this%cvar%data4d)
+      ! with adaptive step size control (2nd / 3rd order scheme)
+       p(1)%var => this%pvar
+       p(2)%var => this%ptmp  ! store intermediate result for error control
+       p(3)%var => this%pvar
+       p(4)%var => this%pvar
+       c(1)%var => this%cvar
+       c(2)%var => this%ctmp  ! store intermediate result for error control
+       c(3)%var => this%cvar
+       c(4)%var => this%cvar
 !NEC$ UNROLL(3)
        DO n=1,order
           ! update time variable
@@ -187,10 +186,9 @@ CALL this%Error("timedisc_modeuler::SolveODE", &
              this%ctmp%data4d(:,:,:,:) = UpdateTimestep_modeuler(eta(2,2),dt,this%cold(:,:,:,:), &
                                 this%ctmp%data4d(:,:,:,:),this%rhs(:,:,:,:))
           ! compute right hand side for next time step update
-!> \todo fix this: dummy types for pvar,cvar are no longer arrays but statevectors
-!           IF (n.LT.order) &
-!              CALL this%ComputeRHS(Mesh,Physics,Sources,Fluxes,t,dt,p(n+1)%var,c(n+1)%var,&
-!                CHECK_NOTHING,this%rhs)
+          IF (n.LT.order) &
+             CALL this%ComputeRHS(Mesh,Physics,Sources,Fluxes,t,dt,p(n+1)%var,c(n+1)%var,&
+               CHECK_NOTHING,this%rhs)
        END DO
 
        err = this%ComputeError(Mesh,Physics,this%cvar%data4d,this%ctmp%data4d)
@@ -211,15 +209,15 @@ CALL this%Error("timedisc_modeuler::SolveODE", &
     CLASS(mesh_base),         INTENT(IN)    :: Mesh
     CLASS(physics_base),      INTENT(INOUT) :: Physics
     CLASS(fluxes_base),       INTENT(INOUT) :: Fluxes
+    TYPE(marray_compound), POINTER, INTENT(INOUT) :: pvar,cvar,cnew
     REAL                                    :: eta,time,dt
     REAL,DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX, &
                    Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM)          &
-                                            :: cold,pvar,cvar,cnew,rhs
+                                            :: cold,rhs
     !------------------------------------------------------------------------!
     INTEGER                                 :: i,j,k,l
     !------------------------------------------------------------------------!
-    INTENT(IN)                              :: eta,time,dt,cold,pvar,cvar,rhs
-    INTENT(OUT)                             :: cnew
+    INTENT(IN)                              :: eta,time,dt,rhs,cold
     !------------------------------------------------------------------------!
 !NEC$ NOVECTOR
     DO l=1,Physics%VNUM
@@ -230,7 +228,8 @@ CALL this%Error("timedisc_modeuler::SolveODE", &
 !NEC$ IVDEP
           DO i=Mesh%IMIN,Mesh%IMAX
             ! time step update of conservative variables
-            cnew(i,j,k,l) = UpdateTimestep_modeuler(eta,dt,cold(i,j,k,l),cvar(i,j,k,l),rhs(i,j,k,l))
+            cnew%data4d(i,j,k,l) = UpdateTimestep_modeuler(eta,dt, &
+               cold(i,j,k,l),cvar%data4d(i,j,k,l),rhs(i,j,k,l))
           END DO
         END DO
       END DO

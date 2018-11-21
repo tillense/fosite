@@ -4,7 +4,6 @@
 !# module: shear.f03                                                         #
 !#                                                                           #
 !# Copyright (C) 2008-2018                                                   #
-!# Björn Sperling   <sperling@astrophysik.uni-kiel.de>                       #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
 !# Jannes Klee      <jklee@astrophysik.uni-kiel.de>                          #
 !#                                                                           #
@@ -65,7 +64,7 @@ PROGRAM RTI
   CALL Sim%InitFosite()
   CALL MakeConfig(Sim, Sim%config)
   CALL Sim%Setup()
-  CALL InitData(Sim%Mesh, Sim%Physics, Sim%Timedisc%pvar%data4d, Sim%Timedisc%cvar%data4d)
+  CALL InitData(Sim%Mesh, Sim%Physics, Sim%Timedisc%pvar, Sim%Timedisc%cvar)
   CALL Sim%Run()
 
   CALL Sim%Finalize()
@@ -121,7 +120,7 @@ PROGRAM RTI
 
     ! physics settings
     physics =>  Dict(&
-                "problem"     / EULER2D, &
+                "problem"     / EULER, &
                 "gamma"       / GAMMA, &
                 "units"       / UNITS &
                 )
@@ -195,29 +194,28 @@ PROGRAM RTI
   SUBROUTINE InitData(Mesh,Physics,pvar,cvar)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(physics_base), INTENT(IN) :: Physics
     CLASS(mesh_base),    INTENT(IN) :: Mesh
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
-                        INTENT(OUT) :: pvar,cvar
-    !------------------------------------------------------------------------!
-    ! Local variable declaration
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX) &
-                      :: y0
+    CLASS(physics_base), INTENT(IN) :: Physics
+    CLASS(marray_compound), POINTER, INTENT(INOUT) :: pvar,cvar
     !------------------------------------------------------------------------!
     ! Test for shearing and boundary module
+    ! initial condition
+    SELECT TYPE(p => pvar)
+    TYPE IS(statevector_euler) ! non-isothermal HD
+      WHERE ((ABS(Mesh%bcenter(:,:,:,1)).LT.0.15*DOMAINX.AND. &
+              ABS(Mesh%bcenter(:,:,:,2)).LT.0.15*DOMAINY))
+        p%density%data3d(:,:,:) = SIGMA0
+      ELSEWHERE
+        p%density%data3d(:,:,:) = SIGMA0*1e-2
+      END WHERE
+      p%velocity%data2d(:,1) = 0.0
+      p%velocity%data4d(:,:,:,2) = -Mesh%Q*Mesh%bcenter(:,:,:,1)*Mesh%Omega
+      p%pressure%data1d(:) = 1e-1
+    CLASS DEFAULT
+      CALL Physics%Error("shear::InitData","only non-isothermal HD supported")
+    END SELECT
 
-    pvar(:,:,:,Physics%XVELOCITY) = 0.0
-    pvar(:,:,:,Physics%YVELOCITY) = -Mesh%Q*Mesh%bcenter(:,:,:,1)*Mesh%Omega
-    pvar(:,:,:,Physics%PRESSURE)  = 1e-1
-
-    WHERE ((ABS(Mesh%bcenter(:,:,:,1)).LT.0.15*DOMAINX.AND. &
-            ABS(Mesh%bcenter(:,:,:,2)).LT.0.15*DOMAINY))
-      pvar(:,:,:,Physics%DENSITY)   = SIGMA0
-    ELSEWHERE
-      pvar(:,:,:,Physics%DENSITY)  = SIGMA0*1e-2
-    END WHERE
-
-    CALL Physics%Convert2Conservative(Mesh,pvar,cvar)
+    CALL Physics%Convert2Conservative(pvar,cvar)
     CALL Mesh%Info(" DATA-----> initial condition: " // &
          "Shearing patch")
   END SUBROUTINE InitData

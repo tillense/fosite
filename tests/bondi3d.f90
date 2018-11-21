@@ -48,7 +48,7 @@ PROGRAM bondi3d
   REAL, PARAMETER    :: MSUN    = 1.989E+30   ! solar mass [kg]              !
   REAL, PARAMETER    :: GN      = 6.67408E-11 ! gravitional constant (SI)    !
   ! simulation parameters
-  REAL, PARAMETER    :: TSIM    = 0.1        ! simulation time [TAU]        !
+  REAL, PARAMETER    :: TSIM    = 2.0        ! simulation time [TAU]        !
   REAL, PARAMETER    :: ACCMASS = 1.0*MSUN    ! mass of the accreting object !
   REAL, PARAMETER    :: GAMMA   = 1.4         ! ratio of specific heats      !
   ! boundary conditions
@@ -56,9 +56,9 @@ PROGRAM bondi3d
   REAL, PARAMETER    :: CSINF   = 537.0       ! sound speed at infinity [m/s]!
   ! mesh settings
   INTEGER, PARAMETER :: MGEO    = SPHERICAL   ! geometry of the mesh         !
-  INTEGER, PARAMETER :: XRES    = 100          ! x-resolution                 !
-  INTEGER, PARAMETER :: YRES    = 10          ! y-resolution                 !
-  INTEGER, PARAMETER :: ZRES    = 1           ! z-resolution                 !
+  INTEGER, PARAMETER :: XRES    = 50         ! x-resolution                 !
+  INTEGER, PARAMETER :: YRES    = 6          ! y-resolution                 !
+  INTEGER, PARAMETER :: ZRES    = 12          ! z-resolution                 !
   REAL, PARAMETER    :: RIN     = 0.1         ! inner/outer radii in terms of!
   REAL, PARAMETER    :: ROUT    = 2.0         ! the Bondi radius RB, ROUT > 1!
   ! output parameters
@@ -72,6 +72,7 @@ PROGRAM bondi3d
   REAL               :: TAU                   ! free fall time scale
   !--------------------------------------------------------------------------!
   CLASS(fosite), ALLOCATABLE :: Sim
+  CLASS(marray_compound), POINTER :: pvar_exact
   !--------------------------------------------------------------------------!
 
   TAP_PLAN(1)
@@ -79,9 +80,18 @@ PROGRAM bondi3d
   ALLOCATE(Sim)
   CALL Sim%InitFosite()
   CALL MakeConfig(Sim, Sim%config)
+!  CALL PrintDict(Sim%config)
   CALL Sim%Setup()
-  CALL InitData(Sim%Mesh, Sim%Physics, Sim%Fluxes, Sim%Timedisc)
+  ! set initial condition
+  CALL InitData(Sim%Mesh,Sim%Physics,Sim%Timedisc)
+  ! compute numerical solution
   CALL Sim%Run()
+  ! compute exact solution
+  CALL new_statevector(Sim%Physics,pvar_exact,PRIMITIVE)
+  CALL ExactSolution(Sim%Mesh,Sim%Physics,pvar_exact)
+!> \todo implement custom or farfield boundary conditions and compare with analytic solution
+  CALL pvar_exact%Destroy()
+  CALL Sim%Finalize()
   DEALLOCATE(Sim)
 
   TAP_CHECK(.TRUE.,"Finished simulation")
@@ -110,14 +120,21 @@ CONTAINS
     ! geometry dependent setttings
     SELECT CASE(MGEO)
     CASE(SPHERICAL)
-       x1 = RIN * RB
-       x2 = ROUT * RB
-       y1 = 0.0
-       y2 = PI
-       z1 = 0.0
-       z2 = 2*PI
+      x1 = RIN * RB
+      x2 = ROUT * RB
+      y1 = 0.0
+      y2 = PI
+      z1 = 0.0
+      z2 = 2*PI
+      bc(WEST)   = NO_GRADIENTS
+!       bc(EAST)   = FIXED
+      bc(EAST)   = REFLECTING
+      bc(SOUTH)  = AXIS
+      bc(NORTH)  = AXIS
+      bc(BOTTOM) = PERIODIC
+      bc(TOP)    = PERIODIC
     CASE DEFAULT
-       CALL Sim%Physics%Error("InitProgram","mesh geometry not supported for Bondi accretion")
+       CALL Sim%Physics%Error("bondi3d::MakeConfig","geometry currently not supported")
     END SELECT
 
     mesh => Dict( &
@@ -135,20 +152,6 @@ CONTAINS
           "output/radius" / 1, &
           "gparam"      / RB)
 
-    ! geometry dependent setttings
-    SELECT CASE(MGEO)
-    CASE(SPHERICAL)
-       bc(WEST)   = NO_GRADIENTS !ABSORBING
-!       bc(EAST)   = FIXED
-       bc(EAST)   = REFLECTING
-       bc(SOUTH)  = AXIS
-       bc(NORTH)  = AXIS
-       bc(BOTTOM) = PERIODIC
-       bc(TOP)    = PERIODIC
-    CASE DEFAULT
-       CALL Sim%Physics%Error("InitProgram","mesh geometry not supported for Bondi accretion")
-    END SELECT
-
     ! boundary conditions
     boundary => Dict( &
           "western"     / bc(WEST), &
@@ -160,7 +163,7 @@ CONTAINS
 
     ! physics settings
     physics => Dict( &
-          "problem"     / EULER3D, &
+          "problem"     / EULER, &
           "gamma"       / GAMMA)
 
     ! flux calculation and reconstruction method
@@ -208,12 +211,11 @@ CONTAINS
   END SUBROUTINE MakeConfig
 
 
-  SUBROUTINE InitData(Mesh,Physics,Fluxes,Timedisc)
+  SUBROUTINE InitData(Mesh,Physics,Timedisc)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(physics_base),  INTENT(IN)    :: Physics
     CLASS(mesh_base),     INTENT(IN)    :: Mesh
-    CLASS(fluxes_base),   INTENT(IN)    :: Fluxes
     CLASS(timedisc_base), INTENT(INOUT) :: Timedisc
     !------------------------------------------------------------------------!
     ! Local variable declaration
@@ -228,24 +230,24 @@ CONTAINS
     Timedisc%pvar%data4d(:,:,:,Physics%ZVELOCITY) = 0.
     Timedisc%pvar%data4d(:,:,:,Physics%PRESSURE)  = RHOINF * CSINF**2 / GAMMA
 
-    CALL Physics%Convert2Conservative(Mesh,Timedisc%pvar%data4d,Timedisc%cvar%data4d)
+    CALL Physics%Convert2Conservative(Timedisc%pvar,Timedisc%cvar)
 
-!    IF ((Timedisc%Boundary%Boundary(EAST)%p%GetType()).EQ.FIXED) THEN
-!      DO k=Mesh%KMIN,Mesh%KMAX
-!        DO j=Mesh%JMIN,Mesh%JMAX
-!          DO i=1,Mesh%GNUM
-!            r = Mesh%radius%bcenter(Mesh%IMAX+i,j,k)
-!            CALL bondi(r/RB,GAMMA,RHOINF,CSINF,rho,vr)
-!            cs2 = CSINF**2 * (rho/RHOINF)**(GAMMA-1.0)
-!            Timedisc%Boundary%Boundary(EAST)%p%data(i,j,k,Physics%DENSITY)   = rho
-!            Timedisc%Boundary%Boundary(EAST)%p%data(i,j,k,Physics%XVELOCITY) = vr*Mesh%posvec%bcenter(Mesh%IMAX+i,j,k,1)/r
-!            Timedisc%Boundary%Boundary(EAST)%p%data(i,j,k,Physics%YVELOCITY) = vr*Mesh%posvec%bcenter(Mesh%IMAX+i,j,k,2)/r
-!            Timedisc%Boundary%Boundary(EAST)%p%data(i,j,k,Physics%ZVELOCITY) = 0.
-!            Timedisc%Boundary%Boundary(EAST)%p%data(i,j,k,Physics%PRESSURE)  = rho * cs2 / GAMMA
-!          END DO
-!        END DO
-!      END DO
-!    END IF
+    IF ((Timedisc%Boundary%Boundary(EAST)%p%GetType()).EQ.FIXED) THEN
+      DO k=Mesh%KMIN,Mesh%KMAX
+        DO j=Mesh%JMIN,Mesh%JMAX
+          DO i=1,Mesh%GNUM
+            r = Mesh%radius%bcenter(Mesh%IMAX+i,j,k)
+            CALL bondi(r/RB,GAMMA,RHOINF,CSINF,rho,vr)
+            cs2 = CSINF**2 * (rho/RHOINF)**(GAMMA-1.0)
+            Timedisc%Boundary%Boundary(EAST)%p%data(i,j,k,Physics%DENSITY)   = rho
+            Timedisc%Boundary%Boundary(EAST)%p%data(i,j,k,Physics%XVELOCITY) = vr*Mesh%posvec%bcenter(Mesh%IMAX+i,j,k,1)/r
+            Timedisc%Boundary%Boundary(EAST)%p%data(i,j,k,Physics%YVELOCITY) = vr*Mesh%posvec%bcenter(Mesh%IMAX+i,j,k,2)/r
+            Timedisc%Boundary%Boundary(EAST)%p%data(i,j,k,Physics%ZVELOCITY) = 0.
+            Timedisc%Boundary%Boundary(EAST)%p%data(i,j,k,Physics%PRESSURE)  = rho * cs2 / GAMMA
+          END DO
+        END DO
+      END DO
+    END IF
 
 
     ! boundary conditions
@@ -259,6 +261,37 @@ CONTAINS
     CALL Mesh%Info("                               " // "Free fall time:     " &
          // TRIM(info_str) // " s")
   END SUBROUTINE InitData
+
+
+  SUBROUTINE ExactSolution(Mesh,Physics,pvar)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(mesh_base),     INTENT(IN)    :: Mesh
+    CLASS(physics_base),  INTENT(IN)    :: Physics
+    CLASS(marray_compound), POINTER     :: pvar
+    !------------------------------------------------------------------------!
+    INTEGER :: i,j,k
+    REAL    :: r,rho,vr,cs2
+    !------------------------------------------------------------------------!
+    SELECT TYPE(p => pvar)
+    TYPE IS(statevector_euler) ! non-isothermal HD
+      DO k=Mesh%KMIN,Mesh%KMAX
+        DO j=Mesh%JMIN,Mesh%JMAX
+          DO i=Mesh%IMIN,Mesh%IMAX
+            r = Mesh%radius%bcenter(i,j,k)
+            CALL bondi(r/RB,GAMMA,RHOINF,CSINF,rho,vr)
+            cs2 = CSINF**2 * (rho/RHOINF)**(GAMMA-1.0)
+            p%density%data3d(i,j,k)  = rho
+            p%velocity%data4d(i,j,k,1:Physics%VDIM) = vr*Mesh%posvec%bcenter(i,j,k,1:Physics%VDIM)/r
+            p%pressure%data3d(i,j,k) = rho * cs2 / GAMMA
+          END DO
+        END DO
+      END DO
+    CLASS DEFAULT
+      CALL Physics%Error("bondi3d::ExactSolution","only non-isothermal HD supported")
+    END SELECT
+
+  END SUBROUTINE ExactSolution
 
 
   SUBROUTINE bondi(r,gamma,rhoinf,csinf,rho,vr)

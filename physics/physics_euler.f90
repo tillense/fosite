@@ -217,7 +217,7 @@ CONTAINS
     !------------------------------------------------------------------------!
     CLASS(physics_euler), INTENT(INOUT) :: this
     !------------------------------------------------------------------------!
-!     CALL this%PrintConfiguration()
+    CALL this%PrintConfiguration()
   END SUBROUTINE PrintConfiguration_euler
 
   PURE SUBROUTINE Convert2Primitive_new(this,cvar,pvar)
@@ -234,9 +234,9 @@ CONTAINS
           ! conservative -> primitive
           SELECT CASE(this%VDIM)
           CASE(1)
-            CALL Cons2Prim(this%gamma,c%density%data1d(:),c%momentum%data1d(:), &
+            CALL Cons2Prim(this%gamma,c%density%data1d(:),c%momentum%data2d(:,1), &
                           c%energy%data1d(:),p%density%data1d(:), &
-                          p%velocity%data1d(:),p%pressure%data1d(:))
+                          p%velocity%data2d(:,1),p%pressure%data1d(:))
           CASE(2)
             CALL Cons2Prim(this%gamma,c%density%data1d(:),c%momentum%data2d(:,1), &
                           c%momentum%data2d(:,2),c%energy%data1d(:), &
@@ -271,9 +271,9 @@ CONTAINS
           ! perform the transformation depending on dimensionality
           SELECT CASE(this%VDIM)
           CASE(1) ! 1D velocity / momentum
-            CALL Prim2Cons(this%gamma,p%density%data1d(:),p%velocity%data1d(:), &
+            CALL Prim2Cons(this%gamma,p%density%data1d(:),p%velocity%data2d(:,1), &
                           p%pressure%data1d(:),c%density%data1d(:), &
-                          c%momentum%data1d(:),c%energy%data1d(:))
+                          c%momentum%data2d(:,1),c%energy%data1d(:))
           CASE(2) ! 2D velocity / momentum
             CALL Prim2Cons(this%gamma,p%density%data1d(:),p%velocity%data2d(:,1), &
                           p%velocity%data2d(:,2),p%pressure%data1d(:), &
@@ -2138,7 +2138,7 @@ CONTAINS
     rho_out = rho_in
     u = mu * inv_rho
     v = mv * inv_rho
-    P = (gamma-1.)*(E - 0.5 * inv_rho * mu*mu)
+    P = (gamma-1.)*(E - 0.5 * inv_rho * (mu*mu + mv*mv))
   END SUBROUTINE Cons2Prim2d
 
   !> \private Convert from 3D conservative to primitive variables
@@ -2155,7 +2155,7 @@ CONTAINS
     u = mu * inv_rho
     v = mv * inv_rho
     w = mw * inv_rho
-    P = (gamma-1.)*(E - 0.5 * inv_rho * mu*mu)
+    P = (gamma-1.)*(E - 0.5 * inv_rho * (mu*mu + mv*mv + mw*mw))
   END SUBROUTINE Cons2Prim3d
 
   !> \private Convert from 1D primitive to conservative variables
@@ -2177,8 +2177,10 @@ CONTAINS
     REAL, INTENT(IN)  :: gamma,rho_in,u,v,P
     REAL, INTENT(OUT) :: rho_out,mu,mv,E
     !------------------------------------------------------------------------!
-    CALL Prim2Cons1d(gamma,rho_in,u,P,rho_out,mu,E)
+    rho_out = rho_in
+    mu = rho_in * u
     mv = rho_in * v
+    E = P/(gamma-1.) + 0.5 * rho_in * (u*u + v*v)
   END SUBROUTINE Prim2Cons2d
 
   !> \private Convert from 3D primitive to conservative variables
@@ -2188,8 +2190,11 @@ CONTAINS
     REAL, INTENT(IN)  :: gamma,rho_in,u,v,w,P
     REAL, INTENT(OUT) :: rho_out,mu,mv,mw,E
     !------------------------------------------------------------------------!
-    CALL Prim2Cons2d(gamma,rho_in,u,v,P,rho_out,mu,mv,E)
+    rho_out = rho_in
+    mu = rho_in * u
+    mv = rho_in * v
     mw = rho_in * w
+    E = P/(gamma-1.) + 0.5 * rho_in * (u*u + v*v + w*w)
   END SUBROUTINE Prim2Cons3d
 
   !> momentum source terms due to inertial forces

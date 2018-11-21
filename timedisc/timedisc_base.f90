@@ -78,7 +78,7 @@ PRIVATE
   TYPE, ABSTRACT, EXTENDS (logging_base) ::  timedisc_base
      !> \name Variables
      CLASS(boundary_generic), ALLOCATABLE :: Boundary  !< one for each boundary
-     CLASS(marray_compound), ALLOCATABLE  :: pvar,cvar,ptmp,ctmp
+     CLASS(marray_compound), POINTER  :: pvar,cvar,ptmp,ctmp
      INTEGER          :: order                         !< time order
      REAL             :: cfl                           !< Courant number
      REAL             :: dt                            !< actual time step

@@ -51,12 +51,12 @@ PROGRAM sedov2d
   ! R0 should be of the same order
   REAL, PARAMETER    :: R0      = 3.0E-2
   ! mesh settings
-!  INTEGER, PARAMETER :: MGEO    = CARTESIAN   ! geometry
-!  INTEGER, PARAMETER :: MGEO    = CYLINDRICAL   ! geometry
-  INTEGER, PARAMETER :: MGEO    = LOGCYLINDRICAL   ! geometry
+!   INTEGER, PARAMETER :: MGEO    = CARTESIAN   ! geometry
+ INTEGER, PARAMETER :: MGEO    = CYLINDRICAL   ! geometry
+!   INTEGER, PARAMETER :: MGEO    = LOGCYLINDRICAL   ! geometry
 !  INTEGER, PARAMETER :: MGEO    = SPHERICAL   ! geometry
   INTEGER, PARAMETER :: XRES    = 100          ! x-resolution
-  INTEGER, PARAMETER :: YRES    = 100          ! y-resolution
+  INTEGER, PARAMETER :: YRES    = 30          ! y-resolution
   INTEGER, PARAMETER :: ZRES    = 1           ! z-resolution
   REAL, PARAMETER    :: GPAR    = 0.2         ! geometry scaling parameter
   REAL, PARAMETER    :: RMAX    = 0.3         ! geometry scaling parameter

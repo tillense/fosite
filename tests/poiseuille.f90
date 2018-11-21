@@ -92,20 +92,32 @@ CONTAINS
     !------------------------------------------------------------------------!
     ! geometry dependent setttings
     SELECT CASE(MGEO)
-     CASE(CYLINDRICAL)
-       x1 = 0.0
-       x2 = RTUBE
-       y1 = 0.0
-       y2 = 2*PI
-       z1 = 0.0
-       z2 = LTUBE
+    CASE(CYLINDRICAL)
+      x1 = 0.0
+      x2 = RTUBE
+      y1 = 0.0
+      y2 = 2*PI
+      z1 = 0.0
+      z2 = LTUBE
+      bc(WEST)  = AXIS
+      bc(EAST)  = NOSLIP
+      bc(SOUTH) = PERIODIC
+      bc(NORTH) = PERIODIC
+      bc(BOTTOM)= FIXED
+      bc(TOP)   = FIXED
     CASE(CARTESIAN)
-       x1 = 0.0
-       x2 = RTUBE
-       y1 = 0.0
-       y2 = RTUBE
-       z1 = 0.0
-       z2 = LTUBE
+      x1 = 0.0
+      x2 = RTUBE
+      y1 = 0.0
+      y2 = RTUBE
+      z1 = 0.0
+      z2 = LTUBE
+      bc(WEST)  = NOSLIP
+      bc(EAST)  = NOSLIP
+      bc(SOUTH) = NOSLIP
+      bc(NORTH) = NOSLIP
+      bc(BOTTOM)= FIXED
+      bc(TOP)   = FIXED
     END SELECT
 
     ! mesh settings
@@ -121,30 +133,6 @@ CONTAINS
            "zmin"     / z1, &
            "zmax"     / z2)
 
-    ! compute viscosity constants
-    ! dynamic viscosity
-    dvis = SQRT(0.25 * (PIN-POUT) * RTUBE**3 * RHO0 / LTUBE / RE)
-    ! bulk viscosity
-    bvis = -2./3. * dvis
-
-    ! geometry dependent setttings
-    SELECT CASE(MGEO)
-     CASE(CYLINDRICAL)
-       bc(WEST)  = AXIS
-       bc(EAST)  = NOSLIP
-       bc(SOUTH) = PERIODIC
-       bc(NORTH) = PERIODIC
-       bc(BOTTOM)= FIXED
-       bc(TOP)   = FIXED
-    CASE(CARTESIAN)
-       bc(WEST)  = NOSLIP
-       bc(EAST)  = NOSLIP
-       bc(SOUTH) = NOSLIP
-       bc(NORTH) = NOSLIP
-       bc(BOTTOM)= FIXED
-       bc(TOP)   = FIXED
-    END SELECT
-
     ! boundary conditions
     boundary => Dict("western" / bc(WEST), &
                "eastern" / bc(EAST), &
@@ -154,7 +142,7 @@ CONTAINS
                "topper"   / bc(TOP))
 
     ! physics settings
-    physics => Dict("problem" / EULER3D, &
+    physics => Dict("problem" / EULER, &
               "gamma"   / 1.4)           ! ratio of specific heats        !
 
     ! flux calculation and reconstruction method
@@ -165,6 +153,10 @@ CONTAINS
              "theta"     / 1.2)          ! optional parameter for limiter !
 
     ! viscosity source term
+    ! dynamic viscosity
+    dvis = SQRT(0.25 * (PIN-POUT) * RTUBE**3 * RHO0 / LTUBE / RE)
+    ! bulk viscosity
+    bvis = -2./3. * dvis
     vis => Dict("stype"     / VISCOSITY, &
           "vismodel"  / MOLECULAR, &
           "dynconst"  / dvis, &

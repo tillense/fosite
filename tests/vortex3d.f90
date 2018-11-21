@@ -38,7 +38,10 @@ PROGRAM vortex3d
   ! simulation parameters
   REAL, PARAMETER    :: TSIM    = 30.0     ! simulation stop time
   REAL, PARAMETER    :: GAMMA   = 1.4      ! ratio of specific heats
-  REAL, PARAMETER    :: CSISO   = 1.0      ! if .ne. 0.0 -> isothermal simulation
+  REAL, PARAMETER    :: CSISO   = &
+!                                   0.0      ! non-isothermal simulation
+                                  1.127    ! isothermal simulation
+                                           !   with CSISO as sound speed
   ! initial condition (dimensionless units)
   REAL, PARAMETER    :: RHOINF  = 1.       ! ambient density
   REAL, PARAMETER    :: PINF    = 1.       ! ambient pressure
@@ -53,25 +56,19 @@ PROGRAM vortex3d
   REAL, PARAMETER    :: OMEGA   = 0.0      ! angular speed of rotational frame
                                            ! around [X0,Y0]
   ! mesh settings
-!!$  INTEGER, PARAMETER :: MGEO = CARTESIAN   ! geometry
-!!$  INTEGER, PARAMETER :: MGEO = POLAR
   INTEGER, PARAMETER :: MGEO = CYLINDRICAL
-!!$  INTEGER, PARAMETER :: MGEO = LOGPOLAR
-!!$  INTEGER, PARAMETER :: MGEO = TANPOLAR
-!!$  INTEGER, PARAMETER :: MGEO = SINHPOLAR
-!!$  INTEGER, PARAMETER :: MGEO = BIPOLAR
-!!$  INTEGER, PARAMETER :: MGEO = ELLIPTIC
   INTEGER, PARAMETER :: XRES = 40          ! x-resolution
   INTEGER, PARAMETER :: YRES = 40          ! y-resolution
   INTEGER, PARAMETER :: ZRES = 1           ! z-resolution
   REAL, PARAMETER    :: RMIN = 1.0E-2      ! inner radius for polar grids
   REAL, PARAMETER    :: RMAX = 5.0         ! outer radius
+  REAL, PARAMETER    :: ZMIN = -1.0        ! extent in z-direction
+  REAL, PARAMETER    :: ZMAX = 1.0
   REAL, PARAMETER    :: GPAR = 1.0         ! geometry scaling parameter     !
   ! physics settings
 !!$  LOGICAL, PARAMETER :: WITH_IAR = .TRUE.  ! use EULER2D_IAMROT
   LOGICAL, PARAMETER :: WITH_IAR = .FALSE.
-  REAL, PARAMETER    :: PTB_AMP = 0.0E-02  ! amplitude of velocity perturbations
-                                           !   set to zero to disable this
+
   ! output parameters
   INTEGER, PARAMETER :: ONUM = 10           ! number of output data sets
   CHARACTER(LEN=256), PARAMETER &          ! output data dir
@@ -79,26 +76,27 @@ PROGRAM vortex3d
   CHARACTER(LEN=256), PARAMETER &          ! output data file name
                      :: OFNAME = 'vortex3d'
   !--------------------------------------------------------------------------!
-  REAL               :: sigma
   CLASS(fosite),ALLOCATABLE :: Sim
+  CLASS(marray_compound), POINTER :: pvar_init
+  REAL :: sigma
   !--------------------------------------------------------------------------!
 
   TAP_PLAN(1)
 
   ALLOCATE(Sim)
-
   CALL Sim%InitFosite()
-
   CALL MakeConfig(Sim, Sim%config)
-
   CALL Sim%Setup()
-
-  sigma = Run(Sim%Mesh, Sim%Physics, Sim%Timedisc)
-
-  TAP_CHECK_SMALL(sigma,3.8E-3,"PP")
-
+  CALL InitData(Sim%Mesh, Sim%Physics, Sim%Timedisc)
+  CALL new_statevector(Sim%Physics,pvar_init,PRIMITIVE)
+  pvar_init = Sim%Timedisc%pvar
+  CALL Sim%Run()
+  ! compare with initial condition
+  sigma = SQRT(SUM((Sim%Timedisc%pvar%data1d(:)-pvar_init%data1d(:))**2)/SIZE(pvar_init%data1d))
   CALL Sim%Finalize()
-  DEALLOCATE(Sim)
+  CALL pvar_init%Destroy()
+  DEALLOCATE(Sim,pvar_init)
+  TAP_CHECK_SMALL(sigma,3.8E-2,"vortex3d")
   TAP_DONE
 
 CONTAINS
@@ -125,48 +123,33 @@ CONTAINS
        x2 =  RMAX
        y1 = -RMAX
        y2 =  RMAX
-       z1 = -RMAX
-       z2 =  RMAX
-    CASE(POLAR)
-       x1 = RMIN
-       x2 = RMAX
-       y1 = 0.0
-       y2 = 2.0*PI
+       bc(WEST)   = NO_GRADIENTS
+       bc(EAST)   = NO_GRADIENTS
+       bc(SOUTH)  = NO_GRADIENTS
+       bc(NORTH)  = NO_GRADIENTS
+       bc(BOTTOM) = NO_GRADIENTS
+       bc(TOP)    = NO_GRADIENTS
     CASE(CYLINDRICAL)
        x1 = RMIN
        x2 = RMAX
        y1 =  0.0
        y2 =  2.0*PI
-       z1 =  0.0
-       z2 = 10.0
-    CASE(LOGPOLAR)
-       x1 = LOG(RMIN/GPAR)
-       x2 = LOG(RMAX/GPAR)
-       y1 = 0.0
-       y2 = 2.0*PI
-    CASE(TANPOLAR)
-       x1 = ATAN(RMIN/GPAR)
-       x2 = ATAN(RMAX/GPAR)
-       y1 = 0.0
-       y2 = 2.0*PI
-    CASE(SINHPOLAR)
-       x1 = ASINH(RMIN/GPAR)
-       x2 = ASINH(RMAX/GPAR)
-       y1 = 0.0
-       y2 = 2.0*PI
-    CASE(BIPOLAR)
-       x1 = 0.0
-       x2 = 2.0*PI
-       y1 = -ASINH(GPAR/RMIN)
-       y2 = -y1
-    CASE(ELLIPTIC)
-       x1 = RMIN
-       x2 = ASINH(RMAX/GPAR)
-       y1 = 0.0
-       y2 = 2.0*PI
+       bc(WEST)   = NO_GRADIENTS
+       bc(EAST)   = NO_GRADIENTS
+       bc(SOUTH)  = PERIODIC
+       bc(NORTH)  = PERIODIC
+       bc(BOTTOM) = NO_GRADIENTS
+       bc(TOP)    = NO_GRADIENTS
     CASE DEFAULT
-       CALL Sim%Error("InitProgram","mesh geometry not supported for 3D isentropic vortex")
+       CALL Sim%Error("vortex3d::MakeConfig","geometry currently not supported")
     END SELECT
+    IF (ZRES.GT.1) THEN
+      z1 =  ZMIN
+      z2 =  ZMAX
+    ELSE
+      z1 = 0
+      z2 = 0
+    END IF
 
     !mesh settings
     mesh => Dict( &
@@ -184,27 +167,6 @@ CONTAINS
               "zmax"     / z2,       &
               "gparam"   / GPAR      )
 
-
-    ! mesh settings and boundary conditions
-    SELECT CASE(MGEO)
-    CASE(CARTESIAN)
-       bc(WEST)   = NO_GRADIENTS
-       bc(EAST)   = NO_GRADIENTS
-       bc(SOUTH)  = NO_GRADIENTS
-       bc(NORTH)  = NO_GRADIENTS
-       bc(BOTTOM) = NO_GRADIENTS
-       bc(TOP)    = NO_GRADIENTS
-    CASE(CYLINDRICAL)
-       bc(WEST)   = NO_GRADIENTS
-       bc(EAST)   = NO_GRADIENTS
-       bc(SOUTH)  = NO_GRADIENTS
-       bc(NORTH)  = NO_GRADIENTS
-       bc(BOTTOM) = NO_GRADIENTS
-       bc(TOP)    = NO_GRADIENTS
-    CASE DEFAULT
-       CALL Sim%Error("InitProgram","mesh geometry not supported for 3D isentropic vortex")
-    END SELECT
-
     ! boundary conditions
     boundary => Dict( &
                 "western"   / bc(WEST),   &
@@ -216,7 +178,7 @@ CONTAINS
 
     ! physics settings
     IF (CSISO.GT.TINY(CSISO)) THEN
-       physics => Dict("problem" / EULER3D_ISOTHERM, &
+       physics => Dict("problem" / EULER_ISOTHERM, &
                  "cs"      / CSISO)                      ! isothermal sound speed  !
     ELSE
        IF (WITH_IAR) THEN
@@ -229,7 +191,7 @@ CONTAINS
                      "softening"    / 0.5,                 & ! softening parameter     !
                      "gamma"        / GAMMA                ) ! ratio of specific heats !
        ELSE
-          physics => Dict("problem"   / EULER2D, &
+          physics => Dict("problem"   / EULER, &
                     "gamma"     / GAMMA)
        END IF
     END IF
@@ -266,12 +228,10 @@ CONTAINS
          "output/rothalpy" / 1          )
 
     ! initialize data input/output
-     datafile => Dict(&
+    datafile => Dict(&
           "fileformat" / VTK, &
-!          "fileformat" / BINARY, &
           "filename"   / (TRIM(ODIR) // TRIM(OFNAME)), &
           "count"      / ONUM)
-!    NULLIFY(datafile)
 
     config => Dict("mesh" / mesh,   &
              "physics"  / physics,  &
@@ -284,11 +244,10 @@ CONTAINS
     IF (ASSOCIATED(sources)) &
         CALL SetAttr(config, "sources", sources)
 
-
   END SUBROUTINE MakeConfig
 
 
-  FUNCTION Run(Mesh,Physics,Timedisc) RESULT(sigma)
+  SUBROUTINE InitData(Mesh,Physics,Timedisc)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(physics_base),INTENT(IN)    :: Physics
@@ -296,29 +255,26 @@ CONTAINS
     CLASS(timedisc_base),INTENT(INOUT):: Timedisc
     !------------------------------------------------------------------------!
     ! Local variable declaration
-    INTEGER           :: i,j,k
-!    INTEGER           :: dir,ig
-!    INTEGER           :: n,clock
-!    INTEGER, DIMENSION(:), ALLOCATABLE :: seed
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX) :: radius
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX) :: dist_rot
+    INTEGER           :: n
+    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX) &
+                      :: radius,dist_axis,domega
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,3) &
                       :: posvec,ephi,v0
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM) &
                       :: pvar0
-    REAL              :: csinf,domega,sigma
+    REAL              :: csinf
     !------------------------------------------------------------------------!
     IF (ABS(X0).LE.TINY(X0).AND.ABS(Y0).LE.TINY(Y0).AND.ABS(Z0).LE.TINY(Z0)) THEN
-       ! no shift of point mass set radius and posvec to Mesh defaults
+       ! no shift of rotational axis
        radius(:,:,:) = Mesh%radius%bcenter(:,:,:)
        posvec(:,:,:,:) = Mesh%posvec%bcenter(:,:,:,:)
-       dist_rot(:,:,:) = SQRT(posvec(:,:,:,1)**2 + posvec(:,:,:,2)**2)
     ELSE
-       ! shifted point mass position:
+       ! axis is assumed to be parallel to the cartesian z-axis
+       ! but shifted in the plane perpendicular to it
        ! compute curvilinear components of shift vector
        posvec(:,:,:,1) = X0
        posvec(:,:,:,2) = Y0
-       posvec(:,:,:,3) = Z0
+       posvec(:,:,:,3) = 0.0
        CALL Mesh%geometry%Convert2Curvilinear(Mesh%bcenter,posvec,posvec)
        ! subtract the result from the position vector:
        ! this gives you the curvilinear components of all vectors pointing
@@ -326,8 +282,9 @@ CONTAINS
        posvec(:,:,:,:) = Mesh%posvec%bcenter(:,:,:,:) - posvec(:,:,:,:)
        ! compute its absolute value
        radius(:,:,:) = SQRT(posvec(:,:,:,1)**2+posvec(:,:,:,2)**2+posvec(:,:,:,3)**2)
-       dist_rot(:,:,:) = SQRT(posvec(:,:,:,1)**2+posvec(:,:,:,2)**2)
-   END IF
+    END IF
+    ! distance to axis of rotation
+    dist_axis(:,:,:) = SQRT(posvec(:,:,:,1)**2+posvec(:,:,:,2)**2)
 
     ! curvilinear components of azimuthal unit vector
     ! (maybe with respect to shifted origin)
@@ -338,123 +295,47 @@ CONTAINS
     ephi(:,:,:,2) =  posvec(:,:,:,1)/radius(:,:,:)
     ephi(:,:,:,3) = 0.0
 
-    csinf = SQRT(GAMMA*PINF/RHOINF) ! sound speed at infinity (isentropic vortex)
-    ! initial condition depends on physics;
-    ! could be either isothermal or isentropic
-    DO k=Mesh%KGMIN,Mesh%KGMAX
-      DO j=Mesh%JGMIN,Mesh%JGMAX
-         DO i=Mesh%IGMIN,Mesh%IGMAX
-            ! local angular velocity of the vortex
-            domega = 0.5*VSTR/PI*EXP(0.5*(1.-(dist_rot(i,j,k)/R0)**2))
-            SELECT CASE(Physics%GetType())
-            CASE(EULER2D_ISOTHERM,EULER3D_ISOTHERM,EULER2D_ISOIAMT)
-               ! density
-               Timedisc%pvar%data4d(i,j,k,Physics%DENSITY) = RHOINF * EXP(-0.5*(R0*domega/CSISO)**2)
-            CASE(EULER2D,EULER2D_IAMROT,EULER2D_IAMT)
-               ! density
-               ! ATTENTION: there's a factor of 1/PI missing in the density
-               ! formula  eq. (3.3) in [1]
-               Timedisc%pvar%data4d(i,j,k,Physics%DENSITY) = RHOINF * (1.0 - &
-                    0.5*(GAMMA-1.0)*(R0*domega/csinf)**2  )**(1./(GAMMA-1.))
-               ! pressure
-               Timedisc%pvar%data4d(i,j,k,Physics%PRESSURE) = PINF &
-                    * (Timedisc%pvar%data4d(i,j,k,Physics%DENSITY)/RHOINF)**GAMMA
-            CASE DEFAULT
-               CALL Physics%Error("InitData","Physics must be either EULER2D or EULER2D_ISOTHERM")
-            END SELECT
-            Timedisc%pvar%data4d(i,j,k,Physics%XVELOCITY:Physics%ZVELOCITY) = &
-                    domega*dist_rot(i,j,k)*ephi(i,j,k,1:3)
-         END DO
+    ! initial condition
+    ! angular velocity
+    domega(:,:,:) = 0.5*VSTR/PI*EXP(0.5*(1.-(dist_axis(:,:,:)/R0)**2))
+    SELECT TYPE(pvar => Timedisc%pvar)
+    TYPE IS(statevector_eulerisotherm) ! isothermal HD
+      ! density
+      pvar%density%data3d(:,:,:)  = RHOINF * EXP(-0.5*(R0*domega(:,:,:)/CSISO)**2)
+      ! velocities
+      DO n=1,Physics%VDIM
+        pvar%velocity%data4d(:,:,:,n) = domega(:,:,:)*dist_axis(:,:,:)*ephi(:,:,:,n)
       END DO
-    END DO
+    TYPE IS(statevector_euler) ! non-isothermal HD
+      csinf = SQRT(GAMMA*PINF/RHOINF) ! sound speed at infinity (isentropic vortex)
+      ! density
+      ! ATTENTION: there's a factor of 1/PI missing in the density
+      ! formula  eq. (3.3) in [1]
+      pvar%density%data3d(:,:,:)  = RHOINF * (1.0 - &
+              0.5*(GAMMA-1.0)*(R0*domega/csinf)**2  )**(1./(GAMMA-1.))
+      ! pressure
+      pvar%pressure%data1d(:) = PINF * (pvar%density%data1d(:)/RHOINF)**GAMMA
+      ! velocities
+      DO n=1,Physics%VDIM
+        pvar%velocity%data4d(:,:,:,n) = domega(:,:,:)*dist_axis(:,:,:)*ephi(:,:,:,n)
+      END DO
+    END SELECT
 
-    ! compute curvilinear components of constant background velocity field
-    ! and add to the vortex velocity field
-    IF (ABS(UINF).GT.TINY(UINF).OR.ABS(VINF).GT.TINY(VINF).AND.ABS(WINF).LE.TINY(WINF)) THEN
-       v0(:,:,:,1) = UINF
-       v0(:,:,:,2) = VINF
-       v0(:,:,:,3) = WINF
-       CALL Mesh%geometry%Convert2Curvilinear(Mesh%bcenter,v0,v0)
-       Timedisc%pvar%data4d(:,:,:,Physics%XVELOCITY:Physics%ZVELOCITY) = &
-           Timedisc%pvar%data4d(:,:,:,Physics%XVELOCITY:Physics%ZVELOCITY) + v0(:,:,:,1:3)
-    END IF
+    CALL Physics%Convert2Conservative(Timedisc%pvar,Timedisc%cvar)
 
-!    IF (ASSOCIATED(Sources)) &
-!      CALL Convert2RotatingFrame_rotframe(&
-!          GetSourcesPointer(Physics%sources, ROTATING_FRAME),&
-!          Mesh,&
-!          Physics,&
-!          Timedisc%pvar)
-
-    ! boundary conditions
-!    DO dir=WEST,EAST
-!       DO j=Mesh%JMIN,Mesh%JMAX
-!          DO ig=1,Mesh%GNUM
-!             SELECT CASE(dir)
-!             CASE(WEST)
-!                i = Mesh%IMIN-ig
-!             CASE(EAST)
-!                i = Mesh%IMAX+ig
-!             END SELECT
-!             SELECT CASE(Timedisc%Boundary(dir)%p%GetType())
-!             CASE(NOSLIP)
-!                Timedisc%Boundary(dir)%data(ig,j,Physics%YVELOCITY) = &
-!                    Timedisc%pvar(i,j,Physics%YVELOCITY)
-!             CASE(CUSTOM)
-!                Timedisc%boundary(dir)%cbtype(j,Physics%DENSITY) = CUSTOM_REFLECT
-!                Timedisc%boundary(dir)%cbtype(j,Physics%XVELOCITY) = CUSTOM_REFLNEG
-!                Timedisc%boundary(dir)%cbtype(j,Physics%YVELOCITY) = CUSTOM_FIXED
-!                Timedisc%Boundary(dir)%data(ig,j,Physics%YVELOCITY) = &
-!                    Timedisc%pvar(i,j,Physics%YVELOCITY)
-!             END SELECT
-!          END DO
-!       END DO
-!    END DO
-!    DO dir=SOUTH,NORTH
-!       DO i=Mesh%IMIN,Mesh%IMAX
-!          DO ig=1,Mesh%GNUM
-!             SELECT CASE(dir)
-!             CASE(SOUTH)
-!                j = Mesh%JMIN-ig
-!             CASE(NORTH)
-!                j = Mesh%JMAX+ig
-!             END SELECT
-!             SELECT CASE(GetType(Timedisc%Boundary(dir)))
-!             CASE(NOSLIP)
-!                Timedisc%Boundary(dir)%data(i,ig,Physics%XVELOCITY) = &
-!                    Timedisc%pvar(i,j,Physics%XVELOCITY)
-!             CASE(CUSTOM)
-!                Timedisc%boundary(dir)%cbtype(i,Physics%DENSITY) = CUSTOM_REFLECT
-!                Timedisc%boundary(dir)%cbtype(i,Physics%XVELOCITY) = CUSTOM_FIXED
-!                Timedisc%boundary(dir)%cbtype(i,Physics%YVELOCITY) = CUSTOM_REFLNEG
-!                Timedisc%Boundary(dir)%data(i,ig,Physics%XVELOCITY) = &
-!                    Timedisc%pvar(i,j,Physics%XVELOCITY)
-!             END SELECT
-!          END DO
-!       END DO
-!    END DO
-
-    ! add velocity perturbations if requested
-    !IF (PTB_AMP.GT.TINY(PTB_AMP)) THEN
-    !   ! Seed the random number generator with a mix from current time and mpi rank
-    !   n = 4       ! has been choosen arbitrary
-    !   CALL RANDOM_SEED(size=n)
-    !   ALLOCATE(seed(n))
-    !   CALL SYSTEM_CLOCK(COUNT=clock)
-    !   seed = clock + (Timedisc%GetRank()+1) * (/(i-1, i=1,n)/)
-    !   CALL RANDOM_SEED(PUT=seed)
-    !   DEALLOCATE(seed)
-
-    !   CALL RANDOM_NUMBER(v0)
-    !   Timedisc%pvar(:,:,Physics%XVELOCITY:Physics%YVELOCITY) = (v0(:,:,1:2)-0.5)*PTB_AMP &
-    !        + Timedisc%pvar(:,:,Physics%XVELOCITY:Physics%YVELOCITY)
-    !END IF
-
-    CALL Physics%Convert2Conservative(Mesh,Timedisc%pvar%data4d,Timedisc%cvar%data4d)
+!     ! compute curvilinear components of constant background velocity field
+!     ! and add to the vortex velocity field
+!     IF (ABS(UINF).GT.TINY(UINF).OR.ABS(VINF).GT.TINY(VINF).AND.ABS(WINF).LE.TINY(WINF)) THEN
+!        v0(:,:,:,1) = UINF
+!        v0(:,:,:,2) = VINF
+!        v0(:,:,:,3) = WINF
+!        CALL Mesh%geometry%Convert2Curvilinear(Mesh%bcenter,v0,v0)
+!        Timedisc%pvar%data4d(:,:,:,Physics%XVELOCITY:Physics%ZVELOCITY) = &
+!            Timedisc%pvar%data4d(:,:,:,Physics%XVELOCITY:Physics%ZVELOCITY) + v0(:,:,:,1:3)
+!     END IF
+! 
+! 
     CALL Mesh%Info(" DATA-----> initial condition: 3D vortex")
+  END SUBROUTINE InitData
 
-    pvar0(:,:,:,:) = Timedisc%pvar%data4d(:,:,:,:)
-    CALL Sim%Run()
-    sigma = SQRT(SUM((Timedisc%pvar%data4d(:,:,:,:)-pvar0(:,:,:,:))**2)/SIZE(pvar0))
-  END Function Run
 END PROGRAM vortex3d

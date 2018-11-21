@@ -172,7 +172,7 @@ CONTAINS
        z1 = 0.0
        z2 = 2*PI
        bc(WEST)  = REFLECTING
-       bc(EAST)  = ABSORBING
+       bc(EAST)  = NO_GRADIENTS
        bc(SOUTH) = AXIS
        bc(NORTH) = AXIS
        bc(BOTTOM)= PERIODIC
@@ -185,7 +185,7 @@ CONTAINS
        z1 = 0.0
        z2 = 2*PI
        bc(WEST)  = REFLECTING
-       bc(EAST)  = ABSORBING
+       bc(EAST)  = NO_GRADIENTS
        bc(SOUTH) = AXIS
        bc(NORTH) = AXIS
        bc(BOTTOM)= PERIODIC
@@ -209,7 +209,7 @@ CONTAINS
        y1 = -0.5*PI
        y2 = 0.5*PI
        bc(WEST)  = FOLDED
-       bc(EAST)  = ABSORBING
+       bc(EAST)  = NO_GRADIENTS
        bc(SOUTH) = AXIS
        bc(NORTH) = AXIS
     CASE(TANCYLINDRICAL)
@@ -217,17 +217,17 @@ CONTAINS
        x2 = ATAN(RMAX/GPAR)
        y1 = 0.0
        y2 = RMAX
-       bc(WEST)  = ABSORBING
-       bc(EAST)  = ABSORBING
+       bc(WEST)  = NO_GRADIENTS
+       bc(EAST)  = NO_GRADIENTS
        bc(SOUTH) = AXIS
-       bc(NORTH) = ABSORBING
+       bc(NORTH) = NO_GRADIENTS
     CASE(SINHSPHERICAL)
        x1 = 0.0
        x2 = Asinh(RMAX/GPAR)
        y1 = 0.0
        y2 = PI
        bc(WEST)  = REFLECTING
-       bc(EAST)  = ABSORBING
+       bc(EAST)  = NO_GRADIENTS
        bc(SOUTH) = AXIS
        bc(NORTH) = AXIS
     CASE DEFAULT

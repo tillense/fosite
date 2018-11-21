@@ -96,7 +96,7 @@ PROGRAM shearingsheet
   ! simulation parameter
   REAL, PARAMETER    :: OMEGA      = 1.0            ! rotation at fid. point !
   REAL, PARAMETER    :: SIGMA0     = 1.0            ! mean surf.dens.        !
-  REAL, PARAMETER    :: TSIM       = 100./OMEGA     ! simulation time        !
+  REAL, PARAMETER    :: TSIM       = 30./OMEGA      ! simulation time        !
   REAL, PARAMETER    :: GAMMA      = 2.0            ! dep. on vert. struct.  !
   REAL, PARAMETER    :: BETA_C     = 10.0           ! cooling parameter      !
 !  REAL, PARAMETER    :: BETA_C     = 2.0           ! 2 -> collapse          !
@@ -111,10 +111,10 @@ PROGRAM shearingsheet
   ! fargo 0=off, 3=on (for SB)
   INTEGER, PARAMETER :: FARGO      = 0              ! 3 = Shearingbox        !
   ! number of output time steps
-  INTEGER, PARAMETER :: ONUM       = 100
+  INTEGER, PARAMETER :: ONUM       = 30
   ! output directory and output name
   CHARACTER(LEN=256), PARAMETER :: ODIR   = "./"
-  CHARACTER(LEN=256), PARAMETER :: OFNAME = "sbox"
+  CHARACTER(LEN=256), PARAMETER :: OFNAME = "shearingsheet"
   !--------------------------------------------------------------------------!
   CLASS(fosite), ALLOCATABLE :: Sim
   !--------------------------------------------------------------------------!
@@ -155,9 +155,9 @@ CONTAINS
 
     ! physics settings
     physics =>  Dict(&
-!                "problem"     / EULER2D_ISOTHERM, &
+!                "problem"     / EULER_ISOTHERM, &
 !                "cs"          / SOUNDSPEED, &
-                "problem"     / EULER2D, &
+                "problem"     / EULER, &
                 "gamma"       / GAMMA, &
                 "units"       / GEOMETRICAL &
                 )
@@ -302,7 +302,7 @@ CONTAINS
     !------------------------------------------------------------------------!
     CALL Physics%Convert2Conservative(Mesh,pvar,cvar)
     CALL Mesh%Info(" DATA-----> initial condition: " // &
-         "Standardrun Shearingsheet")
+         "Standard run shearingsheet")
   END SUBROUTINE InitData
 
   !> random number generator

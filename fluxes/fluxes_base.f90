@@ -64,8 +64,8 @@ MODULE fluxes_base_mod
                                   :: Reconstruction  !< reconstruction method
      CLASS(marray_base), ALLOCATABLE &
                                   :: minwav,maxwav   !< min/max wave speeds
-     CLASS(marray_compound), ALLOCATABLE :: prim, &  !< primitive/conservative
-                                            cons     !< state vectors on cell faces
+     CLASS(marray_compound), POINTER :: prim, &      !< primitive/conservative
+                                        cons         !< state vectors on cell faces
      !> \name
      !! #### various data fields
      REAL, DIMENSION(:,:,:,:), POINTER &
@@ -174,7 +174,7 @@ CONTAINS
     CALL GetAttr(config, "output/cstates", valwrite, 0)
     IF(valwrite.EQ.1) THEN
       DO i=1, Physics%VNUM
-        key = TRIM(Physics%pvarname(i)) // "_cstates"
+        key = TRIM(Physics%cvarname(i)) // "_cstates"
         CALL SetAttr(IO, TRIM(key), &
                      this%cons%data5d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,:,i))
       END DO
@@ -188,13 +188,6 @@ CONTAINS
       END DO
     END IF
 
-    ! initialize reconstruction modules
-    CALL new_reconstruction(this%Reconstruction,Mesh,Physics,config,IOrec)
-
-    ! add output data of reconstruction modules to IO dictionary
-    IF(ASSOCIATED(IOrec)) &
-      CALL SetAttr(IO,"reconstruction",IOrec)
-
     CALL GetAttr(config, "output/wave_speeds", valwrite, 0)
     IF(valwrite.EQ.1) THEN
       CALL SetAttr(IO, "minwav", &
@@ -202,6 +195,13 @@ CONTAINS
       CALL SetAttr(IO, "maxwav", &
                    this%maxwav%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,1:Mesh%NDIMS))
       END IF
+
+    ! initialize reconstruction modules
+    CALL new_reconstruction(this%Reconstruction,Mesh,Physics,config,IOrec)
+
+    ! add output data of reconstruction modules to IO dictionary
+    IF(ASSOCIATED(IOrec)) CALL SetAttr(IO,"reconstruction",IOrec)
+
 
     ! initialize boundary fluxes
     this%bxflux(:,:,:,:) = 0.
@@ -380,6 +380,7 @@ CONTAINS
     ELSE
        CALL this%Reconstruction%CalculateStates(Mesh,Physics,cvar,this%cons%data5d)
        CALL Physics%Convert2Primitive(this%cons,this%prim)
+!        CALL Physics%Convert2Primitive(Mesh,this%cons%data5d,this%prim%data5d)
     END IF
 
     ! update the speed of sound on cell faces (non-isotherml physics only)
