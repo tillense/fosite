@@ -99,7 +99,7 @@ CONTAINS
     CALL this%InitSources(Mesh,Fluxes,Physics,config,IO)
 
     SELECT CASE(Physics%GetType())
-    CASE(EULER2D,EULER2D_ISOTHERM,EULER3D,EULER3D_ISOTHERM)
+    CASE(EULER2D,EULER2D_ISOTHERM,EULER3D,EULER3D_ISOTHERM,EULER,EULER_ISOTHERM)
       ! do nothing
     CASE DEFAULT
       CALL this%Error("InitSources_shearbox","physics not supported")
