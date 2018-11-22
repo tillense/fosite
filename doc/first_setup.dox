@@ -109,8 +109,7 @@ PROGRAM RTI
   !CALL PrintDict(config)                 ! print the dictionary setup     !
   CALL Sim%Setup()                        ! uses the config for setup      !
   ! initialize the passive (pvar) & conservative variables (cvar)
-  CALL InitData(Sim%Mesh, Sim%Physics, Sim%Timedisc, Sim%Fluxes, Sim%Sources, &
-                Sim%Timedisc%pvar, Sim%Timedisc%cvar)
+  CALL InitData(Sim%Mesh, Sim%Physics, Sim%Timedisc%pvar, Sim%Timedisc%cvar)
   CALL Sim%Run()                          ! MAIN part: runs Fosite         !
   CALL Sim%Finalize()                     ! comp. runtime, deallocation    !
   DEALLOCATE(Sim)
@@ -155,7 +154,7 @@ mesh => Dict( &
           "geometry"      / CARTESIAN,  &    ! cartesian grid            !
           "inum"          / XRES,       &    ! resolution in x-direction !
           "jnum"          / YRES,       &    ! resolution in y-direction !
-          "jnum"          / ZRES,       &    ! resolution in z-direction !
+          "knum"          / ZRES,       &    ! resolution in z-direction !
           "xmin"          / 0.,         &    ! minimum value in x-dir.   !
           "xmax"          / WIDTH,      &    ! maximum value in x-dir.   !
           "ymin"          / 0.,         &    ! minimum value in y-dir.   !
@@ -173,40 +172,38 @@ Additionally you need to add some optional or necessary parameters, like in this
 the resolution and the fieldsize. The available keys can be looked up at the
 [module overview](group__mesh.html) in the html pages. Alternatively you
 need to look into the code of the derived type directly and search for the
-*GetAttr()* calls. At these positions the dictionaries are read out, which
+_GetAttr()_ calls. At these positions the dictionaries are read out, which
 is always done in the initialization routines of every class or subclass.
 
-The order of the dictionaries is not always arbitrary. For example, for
-defining the sources dictionary, you have first to define dictionaries for
-the single sources. In our case below, we have a constant acceleration and a
-viscosity. These have its own parameters. Eventually these dictionaries are
+The order of the dictionaries is not always arbitrary. For example, in order
+to define the sources dictionary, you need first to define dictionaries for
+the specific sources. In our case below, we have a constant acceleration and a
+viscosity. These have its own parameters. Eventually, these dictionaries are
 included in the overall sources dictionary. If you want to try out a test
 simulation without a certain source, you can just comment out the part, like
 shown for the viscosity source term in our case. Finally, all dictionaries are
-collected and stored *config*. This dictionary is passed through the routines
+collected and stored in *config*. This dictionary is passed through the routines
 in order to have the full configuration at hand.
 
 The output is also controlled by a dictionary. In fileformat you can
-chose the way the output should look like. *GNUPLOT* gives you back standard
-ASCII output which is [gnuplot](http://www.gnuplot.info/) readable. However,
-this is not recommended for large data outputs. The recommended
-package output is *XDMF* or *VTK* which is readable by common viewers like
-[Paraview](http://www.paraview.org/) or [VisIt](https://wci.llnl.gov/codes/visit/).
-An alternative dictionary compared to the one below could look like
+chose the way the output should look like. The recommanded output is *XDMF* or
+*VTK*. These are readable by common viewers like [Paraview](http://www.paraview.org/)
+or [VisIt](https://wci.llnl.gov/codes/visit/).  An alternative dictionary
+compared to the one below could look like
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~{.f}
     datafile => Dict( &
-              "fileformat"  / VTK, &
+              "fileformat"  / XDMF, &
               "filepath"    / TRIM('./'), &
               "filename"    / TRIM('RTI_modified'), &
               "count"       / 100)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-If you want to write out additonal parameters, there are keys in the relating
-dictionaries normally of the form "output/variable" which can either be
-set to 1 (yes) or 0 (no). For example the key/value pair *"output/volume" / 1*
+Additonal parameters can be written out by setting the keys in the relating
+dictionaries. These are normally of the form "output/variable" with value
+1 (yes) or 0 (no). For example the key/value pair *"output/volume" / 1*
 could be written in the mesh-dictionary in order to write out the volume of
-the cells to.
+the cells.
 
 Finally, the whole configuration subroutine could look like this:
 
@@ -287,8 +284,7 @@ Finally, the whole configuration subroutine could look like this:
 
     ! initialize data input/output
     datafile => Dict( &
-              "fileformat"    / GNUPLOT,         ! ASCII output              !
-              "filecycles"    / 0, &             ! write all data in one file!
+              "fileformat"    / VTK,             ! VTK output                !
               "filename"      / (TRIM(ODIR) // TRIM(OFNAME)), & ! filepath   !
               "count"         / ONUM)            ! number of outputs         !
 
@@ -309,18 +305,18 @@ Finally, the whole configuration subroutine could look like this:
 
 The last thing to do is to set up the initial data. The easiest way is to
 define the known primitive variables *pvar* on the whole domain.
-At the end of the initialization you should run at least these two routines:
+At the end of the initialization you can observe these two routines:
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~{.f}
     CALL Physics%Convert2Conservative(Mesh,pvar,cvar)
-    CALL Info(Mesh, " DATA-----> initial condition: " // &
+    CALL Mesh%Info(" DATA-----> initial condition: " // &
          "Rayleigh–Taylor instability")
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The first line is converting the primitive variable to conservative ones in
-order to store a full set of parameters in the beginning. The second is just
-a info-call for your later logfiles. Here you can write down a
-reasonable description for your initial conditions.
+order to store a full set of parameters in the beginning. This call is
+necessary. The second is an info-call for your later logfiles.
+Here you can write down a reasonable description for your initial conditions.
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~{.f}
   !> Set initial conditions
@@ -329,35 +325,35 @@ reasonable description for your initial conditions.
     !------------------------------------------------------------------------!
     TYPE(Physics_TYP) :: Physics
     TYPE(Mesh_TYP)    :: Mesh
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Physics%vnum)&
+    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM)&
                       :: pvar,cvar
     !------------------------------------------------------------------------!
     ! Local variable declaration
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX):: y0
+    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KMGMAX):: y0
     !------------------------------------------------------------------------!
     INTENT(IN)        :: Mesh, Physics
     INTENT(OUT)       :: pvar, cvar
     !------------------------------------------------------------------------!
     ! this marks the line between the two fluids
-    y0(:,:) = 0.5*Mesh%ymax + A0*COS(2*PI*Mesh%bcenter(:,:,1)/Mesh%xmax)
+    y0(:,:,:) = 0.5*Mesh%ymax + A0*COS(2*PI*Mesh%bcenter(:,:,:,1)/Mesh%xmax)
 
     ! initial hydrostatic stratification
-    WHERE (Mesh%bcenter(:,:,2).GT.y0(:,:))
+    WHERE (Mesh%bcenter(:,:,:,2).GT.y0(:,:,:))
        ! upper fluid
-       pvar(:,:,Physics%DENSITY)  = RHO0
-       pvar(:,:,Physics%PRESSURE) = P0 + YACC * RHO0 * (Mesh%ymax-Mesh%bcenter(:,:,2))
+       pvar(:,:,:,Physics%DENSITY)  = RHO0
+       pvar(:,:,:,Physics%PRESSURE) = P0 + YACC * RHO0 * (Mesh%ymax-Mesh%bcenter(:,:,:,2))
     ELSEWHERE
        ! lower fluid
-       pvar(:,:,Physics%DENSITY)  = RHO1
-       pvar(:,:,Physics%PRESSURE) = P0 + YACC * (RHO1 * (y0(:,:)-Mesh%bcenter(:,:,2)) &
-            + RHO0 * (Mesh%ymax-y0(:,:)))
+       pvar(:,:,:,Physics%DENSITY)  = RHO1
+       pvar(:,:,:,Physics%PRESSURE) = P0 + YACC * (RHO1 * (y0(:,:,:)-Mesh%bcenter(:,:,:,2)) &
+            + RHO0 * (Mesh%ymax-y0(:,:,:)))
     END WHERE
 
     ! velocity vanishes everywhere
-    pvar(:,:,Physics%XVELOCITY:Physics%YVELOCITY) = 0.
+    pvar(:,:,:,Physics%XVELOCITY:Physics%YVELOCITY) = 0.
 
-    CALL Convert2Conservative(Physics,Mesh,pvar,cvar)
-    CALL Info(Mesh, " DATA-----> initial condition: " // &
+    CALL Physics%Convert2Conservative(Mesh,pvar,cvar)
+    CALL Mesh%Info(" DATA-----> initial condition: " // &
          "Rayleigh–Taylor instability")
 
   END SUBROUTINE InitData
@@ -368,6 +364,6 @@ reasonable description for your initial conditions.
 There are lots of other [examples](examples.html), where you can find inspiration
 for different initializations. Especially, if you want to know how to include
 gravitational source terms have a look at a
-[self-graviting disk](markward_8f90-example.html).
+[self-graviting disk](mmsn_8f90-example.html).
 
 */
