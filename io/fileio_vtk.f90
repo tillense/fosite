@@ -130,7 +130,7 @@ CONTAINS
     TYPE(Dict_TYP),      INTENT(IN), POINTER :: IO       !< \param [in] IO Dictionary for I/O
     !------------------------------------------------------------------------!
     TYPE(Dict_TYP), POINTER             :: node
-    INTEGER                             :: k,n,i,j
+    INTEGER                             :: k,n,i,j,err
     INTEGER, DIMENSION(:), POINTER      :: sendbuf,recvbuf
     REAL, DIMENSION(:,:,:,:,:), POINTER :: corners
     !------------------------------------------------------------------------!
@@ -178,8 +178,8 @@ CONTAINS
              this%output(MAXCOLS),               &
              this%tsoutput(MAXCOLS),             &
              this%bflux(Physics%VNUM,6),         &
-             STAT = this%error_io)
-    IF (this%error_io.NE.0) &
+             STAT = err)
+    IF (err.NE.0) &
          CALL this%Error("InitFileio_vtk", "Unable to allocate memory.")
 
     ! determine extend and endianness of real numbers
