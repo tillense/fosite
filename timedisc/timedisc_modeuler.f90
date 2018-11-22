@@ -138,7 +138,7 @@ CONTAINS
     INTEGER                                 :: order
     REAL                                    :: t
     TYPE var_typ
-      TYPE(marray_compound), POINTER :: var
+      CLASS(marray_compound), POINTER :: var
     END TYPE var_typ
     TYPE(var_typ)                           :: p(4),c(4)
     !------------------------------------------------------------------------!
@@ -209,7 +209,7 @@ CONTAINS
     CLASS(mesh_base),         INTENT(IN)    :: Mesh
     CLASS(physics_base),      INTENT(INOUT) :: Physics
     CLASS(fluxes_base),       INTENT(INOUT) :: Fluxes
-    TYPE(marray_compound), POINTER, INTENT(INOUT) :: pvar,cvar,cnew
+    CLASS(marray_compound), POINTER, INTENT(INOUT) :: pvar,cvar,cnew
     REAL                                    :: eta,time,dt
     REAL,DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX, &
                    Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM)          &
