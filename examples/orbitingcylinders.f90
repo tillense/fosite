@@ -366,7 +366,7 @@ CONTAINS
     END DO
 
 
-    anapot => Timedisc%solution(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,1)
+    anapot => Timedisc%solution%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,1)
     numpot => gp%glist%pot(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,1)
 
     SELECT CASE(green)
@@ -385,7 +385,7 @@ CONTAINS
       DO k=Mesh%KGMIN,Mesh%KGMAX
         DO j=Mesh%JGMIN,Mesh%JGMAX
           DO i=Mesh%IGMIN,Mesh%IGMAX
-            Timedisc%solution(i,j,k,1) &
+            Timedisc%solution%data4d(i,j,k,1) &
 #ifdef HAVE_FGSL
            = -2.0 * r1(i,j,k)/sigma*(fgsl_sf_bessel_ic0(r1(i,j,k))*fgsl_sf_bessel_kc1(r1(i,j,k))&
                     -fgsl_sf_bessel_ic1(r1(i,j,k))*fgsl_sf_bessel_kc0(r1(i,j,k))) &
@@ -421,7 +421,7 @@ CONTAINS
       r2 = rsq(Mesh,Mesh%radius%faces(:,:,:,1),x3)
       r3 = rsq(Mesh,Mesh%radius%faces(:,:,:,1),x4)
 
-      Timedisc%solution(:,:,:,1) &
+      Timedisc%solution%data4d(:,:,:,1) &
         = - 2.0 / SQRT(r1) * ERF(SQRT(r1 / 2.) / sigma) &
           - 0.5 / SQRT(r2) * ERF(SQRT(r2 / 2.) / sigma) &
           - 1.0 / SQRT(r3) * ERF(SQRT(r3 / 2.) / sigma)

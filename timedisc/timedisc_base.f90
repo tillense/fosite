@@ -78,7 +78,9 @@ PRIVATE
   TYPE, ABSTRACT, EXTENDS (logging_base) ::  timedisc_base
      !> \name Variables
      CLASS(boundary_generic), ALLOCATABLE :: Boundary  !< one for each boundary
-     CLASS(marray_compound), POINTER  :: pvar,cvar,ptmp,ctmp
+     CLASS(marray_compound), POINTER  &
+                      :: pvar,cvar,ptmp,ctmp, &        !< prim/cons state vectors
+                         solution                      !< analytical solution
      INTEGER          :: order                         !< time order
      REAL             :: cfl                           !< Courant number
      REAL             :: dt                            !< actual time step
@@ -108,7 +110,6 @@ PRIVATE
      REAL                              :: ERR_N, H_N
      REAL, DIMENSION(:), POINTER       :: tol_abs          !< abs. error tolerance
      REAL                              :: beta             !< time step friction
-     REAL, DIMENSION(:,:,:,:), POINTER :: solution=>Null() !< analytical solution
      REAL, DIMENSION(:,:,:,:), POINTER :: cold             !< old prim/cons vars
 
      !> multistep vars
@@ -527,13 +528,13 @@ CONTAINS
     CALL GetAttr(config, "output/solution", valwrite, 0)
     IF(valwrite.EQ.1) THEN
       writeSolution = .TRUE.
-      ALLOCATE( &
-        this%solution(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
+      ALLOCATE(this%solution, &
         STAT = err)
       IF (err.NE.0) &
         CALL this%Error("SetOutput_timedisc", "Unable to allocate memory.")
+      CALL Physics%new_statevector(this%solution,PRIMITIVE)
     ELSE
-      writeSolution = .False.
+      writeSolution = .FALSE.
     END IF
 
     CALL GetAttr(config, "output/time", valwrite, 1)
@@ -554,7 +555,7 @@ CONTAINS
 
       IF(writeSolution) THEN
         CALL SetAttr(IO, TRIM(key)//"_solution", &
-          this%solution(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,i))
+          this%solution%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,i))
       END IF
 
       !cons
@@ -1957,7 +1958,10 @@ CONTAINS
 #endif
     IF(ASSOCIATED(this%bflux)) DEALLOCATE(this%bflux)
     IF(this%write_error) DEALLOCATE(this%errorval)
-    IF(ASSOCIATED(this%solution)) DEALLOCATE(this%solution)
+    IF(ASSOCIATED(this%solution)) THEN
+      CALL this%solution%Destroy()
+      DEALLOCATE(this%solution)
+    END IF
   END SUBROUTINE Finalize_base
 
 
