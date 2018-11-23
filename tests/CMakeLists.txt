@@ -19,7 +19,7 @@ set (EXES
 #  riemann1d-y
 #  riemann1d-z
   riemann2d
-  riemann2d-xz
+#  riemann2d-xz
   poiseuille
   sblintheo
   sblintheo3D
