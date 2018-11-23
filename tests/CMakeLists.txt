@@ -20,6 +20,7 @@ set (EXES
 #  riemann1d-z
   riemann2d
 #  riemann2d-xz
+  rootstest
   poiseuille
   sblintheo
   sblintheo3D
