@@ -1,17 +1,12 @@
 /*! \page test_framework Run the testing framework
 
-<div class="alert alert-danger">
-  This part needs to be revised (and the capability needs to be
-  introduced again)!
-</div>
+The testing framework is based on the testing environment of cmake ([CTest] 
+(https://cmake.org/cmake/help/v3.10/module/CTest.html)). The tests are stored in the eponymous
+folder. In order to run them type
 
-The testing framework is based on the [Test Anyting Protocol]
-(http://testanything.org/). The tests are stored in the eponymous
-folder. In order to run them type in:
+    make test
 
-    make check
-
-The tests can be run on multiple cores with the additional flag -j.
+from the build folder. The tests can be run on multiple cores with the additional flag -j.
 Testing in parallel executation is however not implemented yet.
 
 */
