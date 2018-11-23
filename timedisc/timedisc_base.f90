@@ -228,8 +228,6 @@ CONTAINS
 
 
   SUBROUTINE InitTimedisc(this,Mesh,Physics,config,IO,ttype,tname)
-    USE physics_eulerisotherm_mod, ONLY : statevector_eulerisotherm, physics_eulerisotherm
-    USE physics_euler_mod, ONLY : statevector_euler, physics_euler
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(timedisc_base), INTENT(INOUT) :: this
@@ -275,10 +273,10 @@ CONTAINS
     END IF
 
     ! initialize state vectors
-    CALL new_statevector(Physics,this%pvar,PRIMITIVE)
-    CALL new_statevector(Physics,this%ptmp,PRIMITIVE)
-    CALL new_statevector(Physics,this%cvar,CONSERVATIVE)
-    CALL new_statevector(Physics,this%ctmp,CONSERVATIVE)
+    CALL Physics%new_statevector(this%pvar,PRIMITIVE)
+    CALL Physics%new_statevector(this%ptmp,PRIMITIVE)
+    CALL Physics%new_statevector(this%cvar,CONSERVATIVE)
+    CALL Physics%new_statevector(this%ctmp,CONSERVATIVE)
 
     ! initialize all variables
     this%pvar%data1d(:)   = 0.

@@ -88,7 +88,7 @@ PROGRAM vortex3d
   CALL MakeConfig(Sim, Sim%config)
   CALL Sim%Setup()
   CALL InitData(Sim%Mesh, Sim%Physics, Sim%Timedisc)
-  CALL new_statevector(Sim%Physics,pvar_init,PRIMITIVE)
+  CALL Sim%Physics%new_statevector(pvar_init,PRIMITIVE)
   pvar_init = Sim%Timedisc%pvar
   CALL Sim%Run()
   ! compare with initial condition

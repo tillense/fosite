@@ -87,7 +87,7 @@ PROGRAM bondi3d
   ! compute numerical solution
   CALL Sim%Run()
   ! compute exact solution
-  CALL new_statevector(Sim%Physics,pvar_exact,PRIMITIVE)
+  CALL Sim%Physics%new_statevector(pvar_exact,PRIMITIVE)
   CALL ExactSolution(Sim%Mesh,Sim%Physics,pvar_exact)
 !> \todo implement custom or farfield boundary conditions and compare with analytic solution
   CALL pvar_exact%Destroy()

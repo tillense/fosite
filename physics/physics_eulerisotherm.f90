@@ -66,6 +66,7 @@ MODULE physics_eulerisotherm_mod
     PROCEDURE :: InitPhysics_eulerisotherm
     PROCEDURE :: PrintConfiguration_eulerisotherm
     PROCEDURE :: EnableOutput
+    PROCEDURE :: new_statevector
     !------Convert2Primitive-------!
     PROCEDURE :: Convert2Primitive_new
     PROCEDURE :: Convert2Primitive_center
@@ -269,6 +270,21 @@ CONTAINS
        CALL Setattr(IO, "fcsound",&
                     this%fcsound%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,:))
   END SUBROUTINE EnableOutput
+
+  !> \public allocate an initialize new isothermal state vector
+  SUBROUTINE new_statevector(this,new_sv,flavour,num)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(physics_eulerisotherm), INTENT(IN) :: this
+    CLASS(marray_compound), POINTER :: new_sv
+    INTEGER, OPTIONAL, INTENT(IN)   :: flavour,num
+    !------------------------------------------------------------------------!
+    ALLOCATE(statevector_eulerisotherm::new_sv)
+    SELECT TYPE(sv => new_sv)
+    TYPE IS (statevector_eulerisotherm)
+      sv = statevector_eulerisotherm(this,flavour,num)
+    END SELECT
+  END SUBROUTINE new_statevector
 
   !> Sets soundspeeds at cell-centers
   PURE SUBROUTINE SetSoundSpeeds_center(this,Mesh,bccsound)

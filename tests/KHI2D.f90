@@ -79,11 +79,11 @@ PROGRAM KHI
   CALL Sim%Setup()
   CALL InitData(Sim%Mesh, Sim%Physics, Sim%Timedisc)
   ! store transposed initial data
-  CALL new_statevector(Sim%Physics,pvar_init,PRIMITIVE)
+  CALL Sim%Physics%new_statevector(pvar_init,PRIMITIVE)
   CALL TransposeData(Sim%Mesh,Sim%Timedisc%pvar,pvar_init,"xy")
   CALL Sim%Run()
   ! store transposed result of the first run
-  CALL new_statevector(Sim%Physics,pvar,PRIMITIVE)
+  CALL Sim%Physics%new_statevector(pvar,PRIMITIVE)
   CALL TransposeData(Sim%Mesh,Sim%Timedisc%pvar,pvar,"xy")
   ! finish the simulation
   CALL Sim%Finalize()

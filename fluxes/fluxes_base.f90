@@ -156,8 +156,8 @@ CONTAINS
     this%maxwav = marray_base(Mesh%NDIMS)
 
     ! initialize state vectors on cell interfaces
-    CALL new_statevector(Physics,this%prim,PRIMITIVE,Mesh%NFACES)
-    CALL new_statevector(Physics,this%cons,CONSERVATIVE,Mesh%NFACES)
+    CALL Physics%new_statevector(this%prim,PRIMITIVE,Mesh%NFACES)
+    CALL Physics%new_statevector(this%cons,CONSERVATIVE,Mesh%NFACES)
 
     ! print some information
     CALL this%Info(" FLUXES---> fluxes type        " // TRIM(this%GetName()))

@@ -55,6 +55,7 @@ MODULE physics_euler_mod
   CONTAINS
     PROCEDURE :: InitPhysics_euler             !< constructor
     PROCEDURE :: PrintConfiguration_euler
+    PROCEDURE :: new_statevector
     !------Convert2Primitve--------!
     PROCEDURE :: Convert2Primitive_new
     PROCEDURE :: Convert2Primitive_centsub
@@ -219,6 +220,21 @@ CONTAINS
     !------------------------------------------------------------------------!
     CALL this%PrintConfiguration()
   END SUBROUTINE PrintConfiguration_euler
+
+  !> \public allocate an initialize new non-isothermal state vector
+  SUBROUTINE new_statevector(this,new_sv,flavour,num)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(physics_euler), INTENT(IN) :: this
+    CLASS(marray_compound), POINTER :: new_sv
+    INTEGER, OPTIONAL, INTENT(IN)   :: flavour,num
+    !------------------------------------------------------------------------!
+    ALLOCATE(statevector_euler::new_sv)
+    SELECT TYPE(sv => new_sv)
+    TYPE IS (statevector_euler)
+      sv = statevector_euler(this,flavour,num)
+    END SELECT
+  END SUBROUTINE new_statevector
 
   PURE SUBROUTINE Convert2Primitive_new(this,cvar,pvar)
     IMPLICIT NONE

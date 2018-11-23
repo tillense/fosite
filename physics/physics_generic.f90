@@ -29,6 +29,8 @@
 !!
 !! This module allocates the physics class and decides which specific
 !! physics to use from the config.
+!!
+!! \ingroup physics
 !----------------------------------------------------------------------------!
 MODULE physics_generic_mod
   USE marray_base_mod
@@ -97,26 +99,5 @@ CONTAINS
 !       CALL obj%InitPhysics_euler2D(Mesh,config,IO)
     END SELECT
   END SUBROUTINE
-  
-  !> \public allocate an initialize a new state vector
-  SUBROUTINE new_statevector(Physics,new_sv,flavour,num)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(physics_base), INTENT(IN) :: Physics
-    INTEGER, OPTIONAL, INTENT(IN) :: flavour,num
-    CLASS(marray_compound), POINTER :: new_sv
-    !------------------------------------------------------------------------!
-    ! allocate and initialize state vector depending on physics
-    SELECT TYPE(phys => Physics)
-    TYPE IS (physics_eulerisotherm)
-      ALLOCATE(statevector_eulerisotherm::new_sv)
-      new_sv = statevector_eulerisotherm(phys,flavour,num)
-    TYPE IS (physics_euler)
-      ALLOCATE(statevector_euler::new_sv)
-      new_sv = statevector_euler(phys,flavour,num)
-    CLASS DEFAULT
-      CALL Physics%Error("physics_generic::new_statevector","uninitialized or unknown physics")
-    END SELECT
-  END SUBROUTINE new_statevector
-  
+
 END MODULE physics_generic_mod

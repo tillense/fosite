@@ -25,7 +25,15 @@
 !# Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.                 #
 !#                                                                           #
 !#############################################################################
-!> \addtogroup physics
+!> \defgroup physics Physics
+!! \{
+!! \brief Family of physics modules
+!! \}
+!----------------------------------------------------------------------------!
+!> \brief Basic physics module
+!!
+!! This module provides the abstract class for all physics classes.
+!!
 !! - general physics settings
 !! \key{problem,INTEGER,advection problem
 !!      (see \link physics_generic \endlink for a list of currently supported
@@ -35,13 +43,11 @@
 !!       unit systems)}
 !! \key{mu,REAL,mean molecular weight (default is for air
 !!      at normal conditions),0.029}
-!----------------------------------------------------------------------------!
-!> \author Tobias Illenseer
+!!
+!! \author Tobias Illenseer
 !! \author Björn Sperling
 !! \author Manuel Jung
 !! \author Jannes Klee
-!!
-!! \brief abstract module for the advection problem
 !!
 !! \ingroup physics
 !----------------------------------------------------------------------------!
@@ -107,6 +113,7 @@ MODULE physics_base_mod
   CONTAINS
     PROCEDURE :: InitPhysics
     PROCEDURE :: PrintConfiguration
+    PROCEDURE (new_statevector),              DEFERRED :: new_statevector
     PROCEDURE (ExternalSources),              DEFERRED :: ExternalSources
     PROCEDURE (EnableOutput),                 DEFERRED :: EnableOutput
     !------Convert2Primitve--------!
@@ -195,6 +202,13 @@ MODULE physics_base_mod
       CLASS(physics_base), INTENT(INOUT) :: this
       CLASS(mesh_base),        INTENT(IN)   :: Mesh
       TYPE(Dict_TYP), POINTER, INTENT(IN)   :: config, IO
+    END SUBROUTINE
+    SUBROUTINE new_statevector(this,new_sv,flavour,num)
+      IMPORT physics_base, marray_compound
+      IMPLICIT NONE
+      CLASS(physics_base), INTENT(IN) :: this
+      CLASS(marray_compound), POINTER :: new_sv
+      INTEGER, OPTIONAL, INTENT(IN)   :: flavour,num
     END SUBROUTINE
     PURE SUBROUTINE Convert2Primitive_new(this,cvar,pvar)
       IMPORT physics_base, marray_compound
