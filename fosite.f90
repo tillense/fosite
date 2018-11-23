@@ -81,7 +81,7 @@ MODULE fosite_mod
     !> \name
     !! #### Variables
     INTEGER                :: iter
-    LOGICAL                :: break
+    LOGICAL                :: aborted = .TRUE.    !< .FALSE. if stoptime is reached
     DOUBLE PRECISION       :: wall_time           !< wall clock elapsed time
     DOUBLE PRECISION       :: log_time            !< time for next log output
     DOUBLE PRECISION       :: start_time          !< system clock start time
@@ -242,7 +242,6 @@ CONTAINS
 
 
   SUBROUTINE FirstStep(this)
-    USE physics_eulerisotherm_mod, ONLY : physics_eulerisotherm
     IMPLICIT NONE
     !--------------------------------------------------------------------------!
     CLASS(fosite), INTENT(INOUT) :: this
@@ -323,29 +322,15 @@ CONTAINS
   END SUBROUTINE FirstStep
 
 
-  SUBROUTINE Run(this,aborted)
+  SUBROUTINE Run(this)
     IMPLICIT NONE
     !--------------------------------------------------------------------------!
     CLASS(fosite), INTENT(INOUT) :: this
-    LOGICAL, OPTIONAL, INTENT(OUT) :: aborted
     !--------------------------------------------------------------------------!
     ! main loop
     DO WHILE((this%Timedisc%maxiter.LE.0).OR.(this%iter.LE.this%Timedisc%maxiter))
       IF(this%Step()) EXIT
     END DO
-    !> \todo find a better solution for this:
-    !!   this%Step() may finish if the time step becomes to small.
-    !!   It should be possible to pass this information to the calling subroutine.
-    !!   Otherwise some tests report PASS although they actually failed.
-    IF (PRESENT(aborted)) THEN
-      IF (ABS(this%Timedisc%stoptime-this%Timedisc%time) &
-              .LE.1.0E-05*this%Timedisc%stoptime) THEN
-        aborted = .FALSE.
-      ELSE
-        aborted = .TRUE.
-      END IF
-    END IF
-
   END SUBROUTINE Run
 
 
@@ -368,6 +353,7 @@ CONTAINS
     IF (ABS(this%Timedisc%stoptime-this%Timedisc%time)&
             .LE.1.0E-05*this%Timedisc%stoptime) THEN
       break = .TRUE.
+      this%aborted = .FALSE.
       RETURN
     END IF
 

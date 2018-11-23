@@ -3,7 +3,7 @@
 !# fosite - 2D hydrodynamical simulation program                             #
 !# module: riemann1d.f90                                                     #
 !#                                                                           #
-!# Copyright (C) 2006-2012                                                   #
+!# Copyright (C) 2006-2018                                                   #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
 !#                                                                           #
 !# This program is free software; you can redistribute it and/or modify      #
@@ -37,8 +37,9 @@
 !!     viscosity and an artificial heat-flux, J. Comput. Phys. 72 (1987), 78-120
 !!     DOI: 10.1016/0021-9991(87)90074-X
 !!
-!! \test Eight different tests, which show the numerical solution for 1D Euler-
-!!       equation with piecewise constant initial conditions.
+!! \test Eight different tests, which show the numerical solution for 1D 
+!!       isothermal and non-isothermal Euler equations with piecewise
+!!       constant initial conditions.
 !!
 !! initial conditions, one of
 !!  1. Sod problem, see ref. \cite toro1999, \cite sod1978
@@ -69,28 +70,27 @@ PROGRAM riemann1d
   !--------------------------------------------------------------------------!
   ! mesh settings
   CHARACTER(LEN=3), PARAMETER :: TESTDIR  = "all" ! direction: x,y,z or all
-  INTEGER, PARAMETER :: RES  = 100       ! resolution
+  INTEGER, PARAMETER :: RES  = 400       ! resolution
   ! output parameters
   INTEGER, PARAMETER :: ONUM = 1         ! number of output data sets
   CHARACTER(LEN=8), PARAMETER :: OFNAME(TESTNUM) = (/ & ! output file name
-    "sod     ","toro1   ","toro2   ","toro3   ","toro4   ","noh     ", &
+    "sod     ","toro2   ","toro3   ","toro4   ","toro5   ","noh     ", &
     "sodiso  ","noiso   " /)
   CHARACTER(LEN=256), PARAMETER &        ! output data dir
                      :: ODIR = './'
   ! some global constants
   REAL               :: GAMMA            ! ratio of specific heats
   REAL               :: TSIM             ! simulation time
-  REAL               :: CSISO            ! isothermal sound speed (test no. 6)
+  REAL               :: CSISO = 0.0      ! isothermal sound speed (test no. 6)
   !--------------------------------------------------------------------------!
   CLASS(fosite), ALLOCATABLE     :: Sim
   CLASS(marray_compound), POINTER :: pvar_exact
+  CHARACTER(LEN=64)  :: verbose_tap_output
   INTEGER            :: ic,sd,dir_min,dir_max
-  REAL               :: sigma
-  REAL, DIMENSION(3), PARAMETER &
-                     :: err = (/ 2.7E-2, 4.1E-2, 2.0E+1 /)
+  REAL, DIMENSION(:,:), ALLOCATABLE :: sigma
+  REAL, PARAMETER    :: sigma_tol(TESTNUM) &
+                        = (/ 1.8E-2, 1.4E-2, 7.9E+0, 3.5E+1, 4.3E+0, 7.9E-2, 1.0E+0, 1.0E+0 /)
   !--------------------------------------------------------------------------!
-
-!   TAP_PLAN(ICNUM)
 
   ! check whether we perform tests in all directions
   SELECT CASE (TRIM(TESTDIR))
@@ -109,6 +109,9 @@ PROGRAM riemann1d
     dir_max = 1
   END SELECT
   
+  TAP_PLAN(TESTNUM*(dir_max-dir_min+1))
+
+  ALLOCATE(sigma(TESTNUM,dir_min:dir_max))
   ! loop over all tests
   DO ic=1,TESTNUM
     ! loop over selected directions
@@ -118,51 +121,50 @@ PROGRAM riemann1d
       ALLOCATE(Sim)
       CALL Sim%InitFosite()
       
+      ! get configuration for the particular test and direction
       CALL MakeConfig(Sim, Sim%config,ic,sd)
+!       CALL PrintDict(config)
 
-  ! create state vector for exact solution
-!   CALL Sim%Physics%new_statevector(pvar_exact,PRIMITIVE)
-
-  !  CALL PrintDict(config)
-
+      ! setup the simulation
       CALL Sim%Setup()
 
-!      IF (.NOT.ALLOCATED(pvar0)) THEN
-!         SELECT CASE(DIR)
-!         CASE(1)
-!           ALLOCATE(pvar0(Sim(ic)%Mesh%IMIN:Sim(ic)%Mesh%IMAX,Sim(ic)%Physics%VNUM))
-!         CASE(2)
-!           ALLOCATE(pvar0(Sim(ic)%Mesh%JMIN:Sim(ic)%Mesh%JMAX,Sim(ic)%Physics%VNUM))
-!         CASE(3)
-!           ALLOCATE(pvar0(Sim(ic)%Mesh%KMIN:Sim(ic)%Mesh%KMAX,Sim(ic)%Physics%VNUM))
-!         END SELECT
-!      END IF
+      ! create state vector for exact solution
+      CALL Sim%Physics%new_statevector(pvar_exact,PRIMITIVE)
 
-      CALL InitData(Sim%Mesh,Sim%Physics,Sim%Timedisc,ic,sd)
+      ! set initial conditions and run the simulation
+      CALL Run(Sim,pvar_exact,ic,sd)
 
-      CALL Sim%Run()
-     ! set initial condition
-!     res = Run(Sim%Mesh, Sim%Physics, Sim%Timedisc, ic)
-!     sigma = SQRT(SUM( &
-!         (Sim(ic)%Timedisc%pvar%data4d(Sim(ic)%Mesh%IMIN:Sim(ic)%Mesh%IMAX,Sim(ic)%Mesh%JMIN,Sim(ic)%Mesh%KMIN, &
-!         Sim(ic)%Physics%DENSITY)-pvar0(:,1))**2 &
-!       + (Sim(ic)%Timedisc%pvar%data4d(Sim(ic)%Mesh%IMIN:Sim(ic)%Mesh%IMAX,Sim(ic)%Mesh%JMIN,Sim(ic)%Mesh%KMIN, &
-!         Sim(ic)%Physics%XVELOCITY)-pvar0(:,2))**2 &
-!       + (Sim(ic)%Timedisc%pvar%data4d(Sim(ic)%Mesh%IMIN:Sim(ic)%Mesh%IMAX,Sim(ic)%Mesh%JMIN,Sim(ic)%Mesh%KMIN, &
-!         Sim(ic)%Physics%PRESSURE)-pvar0(:,3))**2 &
-!       )/SIZE(pvar0))
-! ! This line is long if expanded. So we can't indent it or it will be cropped.
-! IF(ic.LE.3) TAP_CHECK_SMALL(sigma,err(ic),"Toro test")
+      IF (Sim%aborted) THEN
+        sigma(ic,sd) = HUGE(1.0)
+      ELSE
+        IF (ASSOCIATED(Sim%Timedisc%solution)) THEN
+          sigma(ic,sd) = SQRT(SUM((Sim%Timedisc%pvar%data1d(:) &
+                          -Sim%Timedisc%solution%data1d(:))**2)/SIZE(Sim%Timedisc%pvar%data1d))
+        ELSE
+          sigma(ic,sd) = 0.0
+        END IF
+      END IF
 
+      CALL pvar_exact%Destroy()
       CALL Sim%Finalize()
       DEALLOCATE(Sim)
 
     END DO
   END DO
 
-!   CALL pvar_exact%Destroy()
+  ! check results
+  ! loop over all tests
+  DO ic=1,TESTNUM
+    ! loop over selected directions
+    DO sd=dir_min,dir_max
+      WRITE (verbose_tap_output,'(A,ES8.2)') TRIM(TESTSTR(ic)) // " / " // ACHAR(119+sd) &
+        // " sigma = ", sigma(ic,sd)
+! This line is long if expanded. So we can't indent it or it will be cropped.
+TAP_CHECK_SMALL(sigma(ic,sd),sigma_tol(ic),TRIM(verbose_tap_output))
+    END DO
+  END DO
 
-!   TAP_DONE
+TAP_DONE
 
 CONTAINS
 
@@ -174,11 +176,10 @@ CONTAINS
     INTEGER           :: ic,dir
     !------------------------------------------------------------------------!
     ! Local variable declaration
-    INTEGER           :: bc(4),sgbc
     TYPE(Dict_TYP), POINTER :: mesh, physics, boundary, datafile, &
                                timedisc, fluxes
-    INTEGER           :: xres=1,yres=1,zres=1
-    REAL              :: xmax=0.0,ymax=0.0,zmax=0.0
+    INTEGER           :: xres,yres,zres,output_solution
+    REAL              :: xmax,ymax,zmax
     !------------------------------------------------------------------------!
     INTENT(INOUT)     :: Sim
     INTENT(IN)        :: ic,dir
@@ -255,7 +256,7 @@ CONTAINS
 
 
     ! physics settings
-    IF (ic.GE.7) THEN
+    IF (CSISO.NE.0.0) THEN
        physics => Dict("problem" / EULER_ISOTHERM, &
                  "cs"      / CSISO)
     ELSE   
@@ -278,13 +279,17 @@ CONTAINS
            "cfl"      / 0.4, &
            "stoptime" / TSIM, &
            "dtlimit"  / 1.0E-10, &
-           "maxiter"  / 100000 &
 !           "output/xmomentum" / 1, &
 !           "output/ymomentum" / 1, &
 !           "output/zmomentum" / 1, &
 !           "output/energy" / 1, &
 !           "output/rhs" / 1 &
-           ) 
+           "output/solution" / 0, &
+           "maxiter"  / 100000 &
+           )
+
+    ! compute and output exact solution in non-isothermal simulations
+    IF (CSISO.EQ.0.0) CALL SetAttr(timedisc,"output/solution",1)
 
     ! boundary conditions
     boundary => Dict( &
@@ -310,19 +315,18 @@ CONTAINS
              "datafile" / datafile)
   END SUBROUTINE MakeConfig
 
-  SUBROUTINE InitData(Mesh,Physics,Timedisc,ic,dir)
+  SUBROUTINE Run(this,pvar,ic,dir)
+    USE solutions
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(Physics_base) :: Physics
-    CLASS(Mesh_base)    :: Mesh
-    CLASS(Timedisc_base):: Timedisc
-    INTEGER             :: ic,dir
+    CLASS(fosite), INTENT(INOUT) :: this
+    CLASS(marray_compound), POINTER :: pvar
+    INTEGER, INTENT(IN)          :: ic,dir
     !------------------------------------------------------------------------!
     ! Local variable declaration
-    REAL              :: x0, rho_l, rho_r, u_l, u_r, p_l, p_r
-    !------------------------------------------------------------------------!
-    INTENT(IN)        :: Mesh,Physics,ic,dir
-    INTENT(INOUT)     :: Timedisc
+    INTEGER :: i,j,k
+    REAL    :: x0, rho_l, rho_r, u_l, u_r, p_l, p_r
+    REAL, DIMENSION(:), ALLOCATABLE :: x
     !------------------------------------------------------------------------!
 
     SELECT CASE(ic)
@@ -387,16 +391,16 @@ CONTAINS
        u_l   = 1.0
        u_r   = -1.0
     CASE DEFAULT
-       CALL Mesh%Error("InitData", "Test problem should be 1,2,3,4,5,6,7 or 8")
+       CALL this%Error("InitData", "Test problem should be 1,2,3,4,5,6,7 or 8")
     END SELECT
 
     ! initial condition
     ! always set density and first velocity
-    SELECT TYPE(pvar => Timedisc%pvar)
+    SELECT TYPE(pvar => this%Timedisc%pvar)
     CLASS IS(statevector_eulerisotherm)
       ! set all velocities to 0
       pvar%velocity%data1d(:) = 0.0
-      WHERE (Mesh%bcenter(:,:,:,DIR).LT.x0)
+      WHERE (this%Mesh%bcenter(:,:,:,dir).LT.x0)
         pvar%density%data3d(:,:,:)    = rho_l
         pvar%velocity%data4d(:,:,:,1) = u_l
       ELSEWHERE
@@ -406,21 +410,39 @@ CONTAINS
     END SELECT
     
     ! set pressure for non-isothermal HD
-    SELECT TYPE(pvar => Timedisc%pvar)
+    SELECT TYPE(pvar => this%Timedisc%pvar)
     TYPE IS(statevector_euler)
-      WHERE (Mesh%bcenter(:,:,:,DIR).LT.x0)
+      WHERE (this%Mesh%bcenter(:,:,:,dir).LT.x0)
         pvar%pressure%data3d(:,:,:)   = p_l
       ELSEWHERE
         pvar%pressure%data3d(:,:,:)   = p_r
       END WHERE
     END SELECT
    
-    CALL Physics%Convert2Conservative(Timedisc%pvar,Timedisc%cvar)
-    CALL Mesh%Info(" DATA-----> initial condition: " &
+    CALL this%Physics%Convert2Conservative(this%Timedisc%pvar,this%Timedisc%cvar)
+    CALL this%Info(" DATA-----> initial condition: " &
       // "1D Riemann problem: " // TRIM(TESTSTR(ic)))
 
-!     CALL riemann(x0,GAMMA,rho_l,u_l,p_l,rho_r,u_r,p_r,TSIM,&
-!                  Mesh%bcenter(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN,Mesh%KMIN,DIR),pvar0)
-  END SUBROUTINE InitData
+    IF (ASSOCIATED(this%Timedisc%solution)) THEN
+      ! store initial condition in exact solution array
+      this%Timedisc%solution = this%Timedisc%pvar
+
+      ! set 1D coordinate array for exact solution
+      ALLOCATE(x(SIZE(this%Mesh%cart%data3d(:,2,DIR),1)), &
+        SOURCE=this%Mesh%cart%data3d(:,2,DIR))
+
+      DO WHILE((this%Timedisc%maxiter.LE.0).OR.(this%iter.LE.this%Timedisc%maxiter))
+        SELECT TYPE(phys => this%Physics)
+        TYPE IS (physics_euler)
+          ! compute exact solution of the 1D Riemann problem (only non-isothermal HD)
+          CALL riemann(x0,phys%gamma,rho_l,u_l,p_l,rho_r,u_r,p_r, &
+                      this%Timedisc%time,x,this%Timedisc%solution%data2d(:,:))
+        END SELECT
+          IF(this%Step()) EXIT
+       END DO
+    ELSE
+       CALL this%Run()
+    END IF
+  END SUBROUTINE Run
 
 END PROGRAM riemann1d
