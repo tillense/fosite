@@ -3,7 +3,7 @@
 !# fosite - 3D hydrodynamical simulation program                             #
 !# program file: fosite.f90                                                  #
 !#                                                                           #
-!# Copyright (C) 2006-2014                                                   #
+!# Copyright (C) 2006-2018                                                   #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
 !# Manuel Jung      <mjung@astrophysik.uni-kiel.de>                          #
 !# Björn Sperling   <sperling@astrophysik.uni-kiel.de>                       #
@@ -27,7 +27,13 @@
 !#############################################################################
 
 !----------------------------------------------------------------------------!
-!> Module fosite
+!> \brief Main fosite module
+!!
+!! \author Tobias Illenseer
+!! \author Manuel Jung
+!! \author Jannes Klee
+!!
+!! \addtogroup fosite
 !----------------------------------------------------------------------------!
 MODULE fosite_mod
   USE logging_base_mod
@@ -40,7 +46,6 @@ MODULE fosite_mod
   USE boundary_generic_mod
   USE timedisc_generic_mod
   USE fileio_generic_mod
-!  USE gravity_generic_mod
   USE integration
   USE common_dict
 #ifdef PARALLEL
@@ -55,52 +60,46 @@ MODULE fosite_mod
 #endif
 #endif
   !--------------------------------------------------------------------------!
-  ! fosite struc class (only part of fosite class)
-  TYPE, PRIVATE :: FositeStruc_TYP
-     CHARACTER(LEN=16)      :: name
-     INTEGER                :: pos
-     INTEGER                :: dim
-     INTEGER                :: rank
-  END TYPE FositeStruc_TYP
   INTEGER, PRIVATE, PARAMETER           :: MAXLEN = 500
   INTEGER, PRIVATE, PARAMETER           :: simtype = 1
   CHARACTER(LEN=32), PRIVATE, PARAMETER :: simname = "fosite"
 
-  ! fosite main class
+  !> main fosite class
   TYPE, EXTENDS(logging_base) :: fosite
-  !> Fosite data structure
-  !!
-  !! This is the basic data structure, which stores all other information
-  !! inside of it.
-  !> \name Variables
-  TYPE(Dict_TYP),POINTER :: config => null()    ! global config           !
-  TYPE(Dict_TYP),POINTER :: IO => null()        ! global In-/Output Dict  !
-  CLASS(mesh_base),ALLOCATABLE       :: Mesh
-  CLASS(fluxes_base),ALLOCATABLE     :: Fluxes
-  CLASS(physics_base),ALLOCATABLE    :: Physics
-  CLASS(fileio_base),ALLOCATABLE     :: Datafile
-  CLASS(timedisc_base),ALLOCATABLE   :: Timedisc
-  CLASS(fileio_base),ALLOCATABLE     :: Logfile
-  CLASS(sources_base), POINTER &
-                         :: Sources => null()   !< list of source terms   !
-  INTEGER                :: iter
-  LOGICAL                :: break
-  DOUBLE PRECISION       :: wall_time           ! wall clock elapsed time !
-  DOUBLE PRECISION       :: log_time            ! time for next log output!
-  DOUBLE PRECISION       :: start_time          ! system clock start time !
-  DOUBLE PRECISION       :: end_time            ! system clock end time   !
-  DOUBLE PRECISION       :: run_time            ! = end_time - start_time !
-  INTEGER                :: start_count         ! system clock count
-  TYPE(Fositestruc_TYP),DIMENSION(:), POINTER &
-                         :: structure           ! structure of variables  !
+    !> \name
+    !! #### Classes
+    TYPE(Dict_TYP),POINTER :: config => null()    !< global config
+    TYPE(Dict_TYP),POINTER :: IO => null()        !< global In-/Output Dict
+    CLASS(mesh_base),ALLOCATABLE     :: Mesh
+    CLASS(fluxes_base),ALLOCATABLE   :: Fluxes
+    CLASS(physics_base),ALLOCATABLE  :: Physics
+    CLASS(fileio_base),ALLOCATABLE   :: Datafile
+    CLASS(timedisc_base),ALLOCATABLE :: Timedisc
+    CLASS(fileio_base),ALLOCATABLE   :: Logfile
+    CLASS(sources_base), POINTER     :: Sources & !< list of source terms
+                                        => null()
+    !> \name
+    !! #### Variables
+    INTEGER                :: iter
+    LOGICAL                :: break
+    DOUBLE PRECISION       :: wall_time           !< wall clock elapsed time
+    DOUBLE PRECISION       :: log_time            !< time for next log output
+    DOUBLE PRECISION       :: start_time          !< system clock start time
+    DOUBLE PRECISION       :: end_time            !< system clock end time
+    DOUBLE PRECISION       :: run_time            !< = end_time - start_time
+    INTEGER                :: start_count         !< system clock count
+    CHARACTER(MAXLEN)      :: buffer
+    !> \name
+    !! #### MPI Variables
 #ifdef PARALLEL
-  INTEGER                :: ierror
-  REAL                   :: dt_all              ! min timestep of all     !
-                                                ! processes               !
+    INTEGER                :: ierror
+    REAL                   :: dt_all              !< minimal timestep of all
+                                                  !<    processes
 #endif
-  CHARACTER(MAXLEN)      :: buffer
 
   CONTAINS
+    !> \name
+    !! #### Methods
     PROCEDURE :: InitFosite
     PROCEDURE :: Setup
     PROCEDURE :: FirstStep
@@ -436,15 +435,6 @@ CONTAINS
        IF(this%Timedisc%write_error) &
          this%Timedisc%errorval = 0.
     END IF
-
-    ! write output to log file
-!    IF (ALLOCATED(this%Logfile)) THEN
-!      IF(this%wall_time.GE.this%Logfile%dtwall) THEN
-!        CALL this%Logfile%WriteDataset(this%Mesh,this%Physics,this%Fluxes,&
-!                          this%Timedisc,this%config,this%IO)
-!        this%log_time = this%wall_time + this%log_time
-!      END IF
-!    END IF
 
     ! calculate next timestep
     this%Timedisc%dt = this%Timedisc%CalcTimestep(this%Mesh,this%Physics,this%Sources, &
