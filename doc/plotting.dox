@@ -1,55 +1,44 @@
 /*! \page plotting Plotting & Data Output
 
-<div class="alert alert-danger">
-  This part needs to be revised!
-</div>
-
 There are the following file formats in Fosite:
-- ASCII (recommended for light data, [gnuplot](http://www.gnuplot.info) readable)
-- Binary
-- [XDMF](http://www.xdmf.org)
-(recommended for heavy data)
-- [VTK](http://www.vtk.org/)
-- [HDF5](https://support.hdfgroup.org/HDF5/) (deprecated)
+- [VTK](http://www.vtk.org/) (recommended to use with [ParaView](https://www.paraview.org/))
+- Binary (recommended to be used with provided read.py file)
+- [XDMF](http://www.xdmf.org) (recommended to use with [VisIt](https://wci.llnl.gov/simulation/computer-codes/visit))
 
-
-### Plain ASCII output
-
-The data is written in columns with the coordinates in the first
-(1D) and second (2D) column followed by the data, i.e. density
-velocities, etc. depending on the physics module. One line represents
-one data point. If you carry out 2D simulations the data is sub-devided
-into blocks with constant x-coordinate. You can write all time steps into
-one data file setting filecycles=0 (see, e.g., [first setup](first_setup))
-when calling the InitFileIO subroutine
-or each time step into its own file (count=[number of data sets],
-filecycles=[number of data sets + 1]). In the former case the data
-blocks associated with one time step are separated from the next
-data set by an additional line feed (two empty lines instead of one).
-
-You can plot Z against X (and Y) of the ASCII data with gnuplot using
-the (s)plot command in a way similar to
-
-    (s)plot "datafile.dat" index TIMESTEP with 1:2(:3)
-
-in case of multiple time steps per data file. TIMESTEP has to be an integer value.
-
+// <!-- ### Plain ASCII output
+///
+/// The data is written in columns with the coordinates in the first
+/// (1D) and second (2D) column followed by the data, i.e. density
+/// velocities, etc. depending on the physics module. One line represents
+/// one data point. If you carry out 2D simulations the data is sub-devided
+/// into blocks with constant x-coordinate. You can write all time steps into
+/// one data file setting filecycles=0 (see, e.g., [first setup](first_setup))
+/// when calling the InitFileIO subroutine
+/// or each time step into its own file (count=[number of data sets],
+/// filecycles=[number of data sets + 1]). In the former case the data
+/// blocks associated with one time step are separated from the next
+/// data set by an additional line feed (two empty lines instead of one).
+///
+/// You can plot Z against X (and Y) of the ASCII data with gnuplot using
+/// the (s)plot command in a way similar to
+///
+///     (s)plot "datafile.dat" index TIMESTEP with 1:2(:3)
+///
+/// in case of multiple time steps per data file. TIMESTEP has to be an integer value.
+// -->
 
 ### XDMF and VTK
 
-For heavy outputs the non-ASCII formats should be use. XMDF is tested the
-most and is therefor recommended.
 The [xdmf file format](http://www.xdmf.org/index.php/XDMF_Model_and_Format)
 carries light data in a xml file and can store
-heavy data in binary or hdf5 files. This implementation stores heavy data
+heavy data in binary or hdf5 files. This implementation stores the heavy data
 in binary files (see the [fileio_binary](fileio_binary.f90) module). These
 are exactly the same files, like putting out only the Binary.
 XDMF file I/O needs Fortran Stream IO (F2003 standard).
 
 Some convenient programs to display the output data are
-[ParaView](http://www.paraview.org/) or [VisIt]
-(https://wci.llnl.gov/simulation/computer-codes/visit). Here, the xml or the
-vtk files need to be loaded.
+[ParaView](http://www.paraview.org/) (for VTK) or [VisIt]
+(https://wci.llnl.gov/simulation/computer-codes/visit) (for XDMF).
 
 
 ### Python
@@ -69,7 +58,7 @@ import matplotlib.pyplot as plt
 f = read('dataname.bin')
 
 density = f['/timedisc/density']
-x = f['/mesh/bary_centers'][:,:,0]
+x = f['/mesh/bary_centers'][:,:,:,0]
 
 plt.plot(x, density)
 plt.show()
@@ -87,58 +76,30 @@ The module should run with both Python 2 and Python 3. You are of course also
 free to use Python wrappers for [XDMF](http://www.xdmf.org/index.php/Xdmf3_Python_API) or
 [VTK](http://www.vtk.org/Wiki/VTK/Wrappers) if you are familiar with this.
 
-
 ### Binary Output Format
-
-#### Specification
+#### General Specification
 
 [header],[data],[data],[data],..
 
-| header  | magic 	| endian   | version   | real size	 | integer size   | total size |
-
 #### Header
-The header includes all
-!! This module implements file I/O, which writes all of the output array in
-!! a self describing binary data format including informations about
-!! endianness and precision.
+The header includes all necessary information in 13 bytes of ASCII signs.
 
 |   | magic 	| endian   | version   | real size	 | integer size   | total size |
 |---|---------|----------|-----------|-------------|----------------|------------|
 | bytes | 6   |  	 2     |     1     |     2       |   		 2        | =13  			 |
 
-
-   These are all ASCII characters except the version, which is single byte
-   unsigned integer.
+These are all ASCII characters except the version, which is single byte
+unsigned integer.
 
 #### Data
 |   | key length | key | type | data length | data |
 |---|------------|-----|------|-------------|------|
 | bytes | 4      |  *  |  4   |     *       |  *   |
 
-   If **type** indicates a 2D, 3D or 4D array, **data length** includes
-   8, 12 or 16 bytes extra, for dimensional information. The ASCII **key**
-   has the in **key length** specified size. The different **types** are
-   defined in the [common_dict](common_dict.f90) module.
-
-
-### Output on NEC SX8/SX9/SXACE
-
-For any binary output on SX8/SX9/SXACE machines there is a need for the
-support of Fortran streams as described in the Fortran 2003 standard. In
-case of the NEC SX8/SX9/SXACE computers this is not the case, but it is possible to
-enable unformatted output. This removes additional bytes for each output unit designated
-for all binary output styles by setting a runtime environment variable:
-
-    export F_NORCW=UNITNUMBER
-
-In addition one has to specify the unit number for these output modules
-in the initialization file programname.f90
-
-    CALL InitFileIO(..., unit = UNITNUMBER,...)
-
-in your programname.f90 file. UNITNUMBER must be an integer. Ensure, that this unit
-number is unique. (save way: UNITNUMBER > 1000)
-
-
+The *key* has the in *key length* specified size. It then contains,
+e.g., /timedisc/density (17 bytes). *type* indicates the type of the
+following data (e.g. 4D array) and *data length* includes then 16 bytes
+extra for dimensional information (4 bytes per dimension). The existing types
+are defined in the [common_dict](common_dict.f90) module.
 
 */
