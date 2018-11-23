@@ -24,7 +24,10 @@
 !# Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.                 #
 !#                                                                           #
 !#############################################################################
-
+!> \defgroup numtools Numtools
+!! \{
+!! \brief Collection of numerical tools used in fosite
+!! \}
 !----------------------------------------------------------------------------!
 !> \author Tobias Illenseer
 !! \author Manuel Jung
@@ -39,6 +42,8 @@
 !! - some Bessel functions of the first and second kind
 !! - exponential integral function Ei(x)
 !! - Gamma function
+!!
+!! \ingroup numtools
 !----------------------------------------------------------------------------!
 MODULE functions
   IMPLICIT NONE

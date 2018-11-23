@@ -30,10 +30,7 @@
 !! \brief Family of physics modules
 !! \}
 !----------------------------------------------------------------------------!
-!> \brief Basic physics module
-!!
-!! This module provides the abstract class for all physics classes.
-!!
+!> \addtogroup physics
 !! - general physics settings
 !! \key{problem,INTEGER,advection problem
 !!      (see \link physics_generic \endlink for a list of currently supported
@@ -43,11 +40,15 @@
 !!       unit systems)}
 !! \key{mu,REAL,mean molecular weight (default is for air
 !!      at normal conditions),0.029}
+!----------------------------------------------------------------------------!
+!> \brief Basic physics module
 !!
 !! \author Tobias Illenseer
 !! \author Björn Sperling
 !! \author Manuel Jung
 !! \author Jannes Klee
+!!
+!! This module provides the abstract class for all physics classes.
 !!
 !! \ingroup physics
 !----------------------------------------------------------------------------!

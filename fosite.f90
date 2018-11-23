@@ -27,13 +27,16 @@
 !#############################################################################
 
 !----------------------------------------------------------------------------!
-!> \brief Main fosite module
+!> \defgroup fosite Fosite
+!! \{
+!! \brief Main fosite module
+!! \}
 !!
 !! \author Tobias Illenseer
 !! \author Manuel Jung
 !! \author Jannes Klee
 !!
-!! \addtogroup fosite
+!! \ingroup fosite
 !----------------------------------------------------------------------------!
 MODULE fosite_mod
   USE logging_base_mod
