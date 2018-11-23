@@ -14,10 +14,10 @@ set (EXES
   ode
 #  pringle
   shear
-  riemann1d-x
-  riemann1d-2d-x
-  riemann1d-y
-  riemann1d-z
+  riemann1d
+#  riemann1d-2d-x
+#  riemann1d-y
+#  riemann1d-z
   riemann2d
   riemann2d-xz
   poiseuille
