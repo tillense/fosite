@@ -32,6 +32,7 @@
 !----------------------------------------------------------------------------!
 PROGRAM gauss2d
   USE fosite_mod
+#include "tap.h"
   IMPLICIT NONE
   !--------------------------------------------------------------------------!
   ! simulation parameter
@@ -69,9 +70,10 @@ PROGRAM gauss2d
                       :: OFNAME   = 'gauss2D'
   !--------------------------------------------------------------------------!
   CLASS(fosite), ALLOCATABLE   :: Sim
+  LOGICAL :: ok
   !--------------------------------------------------------------------------!
 
-!  TAP_PLAN(1)
+  TAP_PLAN(1)
 
   ALLOCATE(Sim)
   CALL Sim%InitFosite()
@@ -80,11 +82,12 @@ PROGRAM gauss2d
   CALL InitData(Sim%Mesh, Sim%Physics, Sim%Timedisc)
 
   CALL Sim%Run()
+  ok = .NOT.Sim%aborted
   CALL Sim%Finalize()
   DEALLOCATE(Sim)
 
-!  TAP_CHECK(.TRUE.,"Finished simulation")
-!  TAP_DONE
+  TAP_CHECK(ok,"stoptime reached")
+  TAP_DONE
 
 CONTAINS
 

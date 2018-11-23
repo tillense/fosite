@@ -83,6 +83,7 @@ PROGRAM bondi2d
   REAL               :: TAU                   ! free fall time scale
   !--------------------------------------------------------------------------!
   CLASS(fosite), ALLOCATABLE   :: Sim
+  LOGICAL :: ok
   !--------------------------------------------------------------------------!
 
   TAP_PLAN(1)
@@ -95,11 +96,12 @@ PROGRAM bondi2d
   ! set initial condition
   CALL InitData(Sim%Mesh, Sim%Physics, Sim%Fluxes, Sim%Timedisc)
   CALL Sim%Run()
+  ok = .NOT.Sim%aborted
 
   CALL Sim%Finalize()
   DEALLOCATE(Sim)
 
-  TAP_CHECK(.TRUE.,"Finished simulation")
+  TAP_CHECK(ok,"stoptime reached")
   TAP_DONE
 
 CONTAINS

@@ -73,6 +73,7 @@ PROGRAM bondi3d
   !--------------------------------------------------------------------------!
   CLASS(fosite), ALLOCATABLE :: Sim
   CLASS(marray_compound), POINTER :: pvar_exact
+  LOGICAL :: ok
   !--------------------------------------------------------------------------!
 
   TAP_PLAN(1)
@@ -86,6 +87,7 @@ PROGRAM bondi3d
   CALL InitData(Sim%Mesh,Sim%Physics,Sim%Timedisc)
   ! compute numerical solution
   CALL Sim%Run()
+  ok = .NOT.Sim%aborted
   ! compute exact solution
   CALL Sim%Physics%new_statevector(pvar_exact,PRIMITIVE)
   CALL ExactSolution(Sim%Mesh,Sim%Physics,pvar_exact)
@@ -94,7 +96,7 @@ PROGRAM bondi3d
   CALL Sim%Finalize()
   DEALLOCATE(Sim)
 
-  TAP_CHECK(.TRUE.,"Finished simulation")
+  TAP_CHECK(ok,"stoptime reached")
   TAP_DONE
 
 CONTAINS
