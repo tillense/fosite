@@ -74,9 +74,18 @@ par_test_poiseuille:
     script:
         - mpirun -n 2 ./par_build/tests/poiseuille
 
-ser_test_KHI:
+ser_test_KHI2D:
     stage: test
     script:
-       - ./ser_build/tests/KHI3
+       - ./ser_build/tests/KHI2D
 
+ser_test_rootstest:
+    stage: test
+    script:
+       - ./ser_build/tests/rootstest
+
+par_test_rootstest:
+    stage: test
+    script:
+       - mpirun -n 2 ./par_build/tests/rootstest
 
