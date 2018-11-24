@@ -24,7 +24,6 @@ set (EXES
   poiseuille
   sblintheo
   sblintheo3D
-  shearingsheet
 #  riemann3d
 #  rngtest
   RTI

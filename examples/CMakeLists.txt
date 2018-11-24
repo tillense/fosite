@@ -16,6 +16,7 @@ set (EXES
   #  markward
   mmsn
   orbitingcylinders
+  shearingsheet
   #  planet2d
   #  planeteu
   #  poiseuille
