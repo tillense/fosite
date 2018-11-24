@@ -80,6 +80,7 @@ PRIVATE
      CLASS(boundary_generic), ALLOCATABLE :: Boundary  !< one for each boundary
      CLASS(marray_compound), POINTER  &
                       :: pvar,cvar,ptmp,ctmp, &        !< prim/cons state vectors
+                         src,geo_src, &                !< source terms
                          solution                      !< analytical solution
      INTEGER          :: order                         !< time order
      REAL             :: cfl                           !< Courant number
@@ -117,7 +118,6 @@ PRIVATE
                                           newphi_s
      REAL, DIMENSION(:), POINTER       :: gamma
      INTEGER                           :: pc               !< = 1 predictor-corrector
-     REAL, DIMENSION(:,:,:,:), POINTER :: src,geo_src      !< source terms
      REAL, DIMENSION(:,:,:,:), POINTER :: rhs              !< ODE right hand side
      !> numerical fluxes divided by dy or dx
      REAL, DIMENSION(:,:,:,:), POINTER :: xfluxdydz,yfluxdzdx,zfluxdxdy
@@ -259,8 +259,6 @@ CONTAINS
       ! allocate memory for data structures needed in all timedisc modules
     ALLOCATE( &
       this%cold(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM),      &
-      this%geo_src(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM),   &
-      this%src(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM),       &
       this%xfluxdydz(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
       this%yfluxdzdx(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
       this%zfluxdxdy(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
@@ -278,15 +276,17 @@ CONTAINS
     CALL Physics%new_statevector(this%ptmp,PRIMITIVE)
     CALL Physics%new_statevector(this%cvar,CONSERVATIVE)
     CALL Physics%new_statevector(this%ctmp,CONSERVATIVE)
+    CALL Physics%new_statevector(this%geo_src,CONSERVATIVE)
+    CALL Physics%new_statevector(this%src,CONSERVATIVE)
 
     ! initialize all variables
-    this%pvar%data1d(:)   = 0.
-    this%ptmp%data1d(:)   = 0.
-    this%cvar%data1d(:)   = 0.
-    this%ctmp%data1d(:)   = 0.
+    this%pvar%data1d(:)    = 0.
+    this%ptmp%data1d(:)    = 0.
+    this%ctmp%data1d(:)    = 0.
+    this%cvar%data1d(:)    = 0.
+    this%geo_src%data1d(:) = 0.
+    this%src%data1d(:)     = 0.
     this%cold      = 0.
-    this%geo_src   = 0.
-    this%src       = 0.
     this%xfluxdydz = 0.
     this%yfluxdzdx = 0.
     this%zfluxdxdy = 0.
@@ -528,12 +528,9 @@ CONTAINS
     CALL GetAttr(config, "output/solution", valwrite, 0)
     IF(valwrite.EQ.1) THEN
       writeSolution = .TRUE.
-      ALLOCATE(this%solution, &
-        STAT = err)
-      IF (err.NE.0) &
-        CALL this%Error("SetOutput_timedisc", "Unable to allocate memory.")
       CALL Physics%new_statevector(this%solution,PRIMITIVE)
     ELSE
+      NULLIFY(this%solution)
       writeSolution = .FALSE.
     END IF
 
@@ -579,14 +576,14 @@ CONTAINS
       CALL GetAttr(config, "output/" // "geometrical_sources", valwrite, 0)
       IF (valwrite.EQ.1) THEN
            CALL SetAttr(IO, TRIM(key)//"_geo_src", &
-                        this%geo_src(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,i))
+                        this%geo_src%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,i))
       END IF
 
       ! write external sources
       CALL GetAttr(config, "output/" // "external_sources", valwrite, 0)
       IF (valwrite.EQ.1) THEN
            CALL SetAttr(IO, TRIM(key)//"_src", &
-                        this%src(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,i))
+                        this%src%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,i))
       END IF
 
       ! write right hand side
@@ -1070,12 +1067,12 @@ CONTAINS
       CALL this%CheckData(Mesh,Physics,Fluxes,pvar%data4d,cvar%data4d,checkdatabm)
 
     ! get geometrical sources
-    CALL Physics%GeometricalSources(Mesh,pvar%data4d,cvar%data4d,this%geo_src)
+    CALL Physics%GeometricalSources(Mesh,pvar%data4d,cvar%data4d,this%geo_src%data4d)
 
     ! get source terms due to external forces if present
     IF (ASSOCIATED(Sources)) &
        CALL Sources%ExternalSources(Mesh,Fluxes,Physics, &
-            time,dt,pvar%data4d,cvar%data4d,this%src)
+            time,dt,pvar%data4d,cvar%data4d,this%src%data4d)
 
     ! if fargo advection is enabled additional source terms occur;
     ! furthermore computation of numerical fluxes should always be
@@ -1085,7 +1082,7 @@ CONTAINS
         ! compute fargo source terms
         CALL Physics%FargoSources(Mesh,this%w,pvar%data4d,cvar%data4d,this%fargo_src)
         ! add them to the geometrical source terms
-        this%geo_src(:,:,:,:) = this%geo_src(:,:,:,:) + this%fargo_src(:,:,:,:)
+        this%geo_src%data4d(:,:,:,:) = this%geo_src%data4d(:,:,:,:) + this%fargo_src(:,:,:,:)
         ! subtract background velocity
         CALL Physics%SubtractBackgroundVelocityY(Mesh,this%w,pvar%data4d,cvar%data4d)
     CASE(3)
@@ -1143,7 +1140,7 @@ CONTAINS
                     Mesh%dydzdV(i,j,k)*(this%xfluxdydz(i,j,k,l) - this%xfluxdydz(i-Mesh%Ip1,j,k,l)) &
                   + Mesh%dzdxdV(i,j,k)*(this%yfluxdzdx(i,j,k,l) - this%yfluxdzdx(i,j-Mesh%Jp1,k,l)) &
                   + Mesh%dxdydV(i,j,k)*(this%zfluxdxdy(i,j,k,l) - this%zfluxdxdy(i,j,k-Mesh%Kp1,l)) &
-                  - this%geo_src(i,j,k,l) - this%src(i,j,k,l)
+                  - this%geo_src%data4d(i,j,k,l) - this%src%data4d(i,j,k,l)
             END DO
           END DO
         END DO
@@ -1210,38 +1207,38 @@ CONTAINS
           DO j=Mesh%JMIN,Mesh%JMAX
             DO i=Mesh%IMIN,Mesh%IMAX
               wp = pvar%data4d(i,j,k,Physics%YVELOCITY) + this%w(i,k) + Mesh%radius%bcenter(i,j,k)*Mesh%OMEGA
-              this%geo_src(i,j,k,Physics%XMOMENTUM) &
+              this%geo_src%data4d(i,j,k,Physics%XMOMENTUM) &
                 = pvar%data4d(i,j,k,Physics%DENSITY) * wp**2 * Mesh%cyxy%bcenter(i,j,k) &
                   + pvar%data4d(i,j,k,Physics%DENSITY) * pvar%data4d(i,j,k,Physics%XVELOCITY) * wp * Mesh%cxyx%bcenter(i,j,k)
 
-              this%geo_src(i,j,k,Physics%YMOMENTUM) &
+              this%geo_src%data4d(i,j,k,Physics%YMOMENTUM) &
                 = cvar%data4d(i,j,k,Physics%XMOMENTUM) &
                   * ( pvar%data4d(i,j,k,Physics%XVELOCITY) * Mesh%cxyx%center(i,j,k) )
 
               IF(Physics%PRESSURE.GT.0) THEN
-                this%geo_src(i,j,k,Physics%XMOMENTUM) &
-                  = this%geo_src(i,j,k,Physics%XMOMENTUM) &
+                this%geo_src%data4d(i,j,k,Physics%XMOMENTUM) &
+                  = this%geo_src%data4d(i,j,k,Physics%XMOMENTUM) &
                    +pvar%data4d(i,j,k,Physics%PRESSURE) &
                       *( Mesh%cyxy%center(i,j,k) + Mesh%czxz%center(i,j,k) )
-                this%geo_src(i,j,k,Physics%YMOMENTUM) &
-                  = this%geo_src(i,j,k,Physics%YMOMENTUM) &
+                this%geo_src%data4d(i,j,k,Physics%YMOMENTUM) &
+                  = this%geo_src%data4d(i,j,k,Physics%YMOMENTUM) &
                     + pvar%data4d(i,j,k,Physics%PRESSURE) &
                       *( Mesh%cxyx%center(i,j,k) + Mesh%czyz%center(i,j,k) )
-!                this%geo_src(i,j,Physics%XMOMENTUM) &
-!                  = this%geo_src(i,j,Physics%XMOMENTUM) &
+!                this%geo_src%data4d(i,j,Physics%XMOMENTUM) &
+!                  = this%geo_src%data4d(i,j,Physics%XMOMENTUM) &
 !                    - 0.5*(pvar%data4d(i+1,j,Physics%PRESSURE) - pvar%data4d(i-1,j,Physics%PRESSURE))/Mesh%dlx(i,j)
-!                this%geo_src(i,j,Physics%YMOMENTUM) &
-!                  = this%geo_src(i,j,Physics%YMOMENTUM) &
+!                this%geo_src%data4d(i,j,Physics%YMOMENTUM) &
+!                  = this%geo_src%data4d(i,j,Physics%YMOMENTUM) &
 !                    - 0.5*(pvar%data4d(i,j+1,Physics%PRESSURE) - pvar%data4d(i,j-1,Physics%PRESSURE))/Mesh%dly(i,j)
-                this%geo_src(i,j,k,Physics%ENERGY) = 0.
+                this%geo_src%data4d(i,j,k,Physics%ENERGY) = 0.
               ELSE
 
-                this%geo_src(i,j,k,Physics%XMOMENTUM) &
-                 = this%geo_src(i,j,k,Physics%XMOMENTUM) &
+                this%geo_src%data4d(i,j,k,Physics%XMOMENTUM) &
+                 = this%geo_src%data4d(i,j,k,Physics%XMOMENTUM) &
                    +pvar%data4d(i,j,k,Physics%DENSITY)*phys%bccsound%data3d(i,j,k)**2 &
                       * ( Mesh%cyxy%center(i,j,k) + Mesh%czxz%center(i,j,k) )
-                this%geo_src(i,j,k,Physics%YMOMENTUM) &
-                  = this%geo_src(i,j,k,Physics%YMOMENTUM) &
+                this%geo_src%data4d(i,j,k,Physics%YMOMENTUM) &
+                  = this%geo_src%data4d(i,j,k,Physics%YMOMENTUM) &
                     + pvar%data4d(i,j,k,Physics%DENSITY)*phys%bccsound%data3d(i,j,k)**2 &
                       *( Mesh%cxyx%center(i,j,k) + Mesh%czyz%center(i,j,k) )
               END IF
@@ -1300,7 +1297,7 @@ CONTAINS
 !NEC$ IVDEP
             DO i=Mesh%IMIN,Mesh%IMAX
               ! update right hand side of ODE
-              rhs(i,j,k,l) = rhs(i,j,k,l) - this%geo_src(i,j,k,l) - this%src(i,j,k,l)
+              rhs(i,j,k,l) = rhs(i,j,k,l) - this%geo_src%data4d(i,j,k,l) - this%src%data4d(i,j,k,l)
             END DO
           END DO
         END DO
@@ -1943,6 +1940,8 @@ CONTAINS
     CALL this%ptmp%Destroy()
     CALL this%cvar%Destroy()
     CALL this%ctmp%Destroy()
+    CALL this%geo_src%Destroy()
+    CALL this%src%Destroy()
 
     DEALLOCATE( &
       this%pvar,this%cvar,this%cold,this%ptmp,this%ctmp, &
