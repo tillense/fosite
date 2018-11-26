@@ -132,7 +132,7 @@ CONTAINS
        z1 = 0.0
        z2 = 0.0
        bc(WEST)   = NO_GRADIENTS
-       bc(EAST)   = FIXED
+       bc(EAST)   = CUSTOM
        bc(SOUTH)  = PERIODIC
        bc(NORTH)  = PERIODIC
        bc(BOTTOM) = NO_GRADIENTS
@@ -239,11 +239,16 @@ CONTAINS
     Timedisc%pvar%data4d(:,:,:,Physics%XVELOCITY) = 0.
     Timedisc%pvar%data4d(:,:,:,Physics%YVELOCITY) = 0.
     Timedisc%pvar%data4d(:,:,:,Physics%PRESSURE)  = rho * cs2 / GAMMA
-    CALL Physics%Convert2Conservative(Mesh,Timedisc%pvar%data4d,Timedisc%cvar%data4d)
+    CALL Physics%Convert2Conservative(Timedisc%pvar,Timedisc%cvar)
 
     ! boundary condition: subsonic inflow according to Bondi's solution
     ! calculate Bondi solution for y=ymin..ymax at xmax
-    IF ((Timedisc%Boundary%Boundary(EAST)%p%GetType()).EQ.FIXED) THEN
+    IF ((Timedisc%Boundary%Boundary(EAST)%p%GetType()).EQ.CUSTOM) THEN
+      ! this tells the boundary routine the actual boundary condition for each variable
+      Timedisc%Boundary%boundary(EAST)%p%cbtype(:,:,Physics%DENSITY)   = CUSTOM_FIXED
+      Timedisc%Boundary%boundary(EAST)%p%cbtype(:,:,Physics%XVELOCITY) = CUSTOM_NOGRAD
+      Timedisc%Boundary%boundary(EAST)%p%cbtype(:,:,Physics%YVELOCITY) = CUSTOM_FIXED
+      Timedisc%Boundary%boundary(EAST)%p%cbtype(:,:,Physics%PRESSURE)  = CUSTOM_FIXED
       DO k=Mesh%KMIN,Mesh%KMAX
         DO j=Mesh%JMIN,Mesh%JMAX
           DO i=1,Mesh%GNUM
@@ -258,9 +263,6 @@ CONTAINS
             Timedisc%Boundary%Boundary(EAST)%p%data(i,j,k,Physics%YVELOCITY) = 0.
             Timedisc%Boundary%Boundary(EAST)%p%data(i,j,k,Physics%PRESSURE)  = rho * cs2 / GAMMA
           END DO
-          ! this tells the boundary routine which values to fix (.TRUE.)
-          ! and which to extrapolate (.FALSE.)
-          Timedisc%Boundary%Boundary(EAST)%p%fixed(j,k,:) = (/ .TRUE., .FALSE., .TRUE., .TRUE. /)
         END DO
       END DO
     END IF
@@ -297,7 +299,6 @@ CONTAINS
     REAL :: gp1,gm1,rc,chi,lambda,psi,gr
     REAL :: params(2)
     INTEGER :: err
-!     COMMON /funcd_parameter/ gm1, gr
     !------------------------------------------------------------------------!
     ! for convenience
     gm1 = gamma - 1.0
