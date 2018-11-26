@@ -89,7 +89,7 @@ CONTAINS
     REAL, INTENT(IN)                        :: xi,eta,phi
     REAL, INTENT(OUT)                       :: radius
     !------------------------------------------------------------------------!
-    radius = xi
+    radius = SQRT(xi*xi+phi*phi)
   END SUBROUTINE Radius_0
 
 
