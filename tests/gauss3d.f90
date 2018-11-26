@@ -50,17 +50,16 @@ PROGRAM gauss3d
   REAL, PARAMETER     :: PWIDTH   = 0.06     ! half width of the Gaussian
   REAL, PARAMETER     :: OMEGA0   = 0.0      ! angular velocity
   REAL, PARAMETER     :: ETA      = 0.0      ! dynamic viscosity (0.0 disables)
-  ! location of the pulse in cylindrical coordinates
-  REAL, PARAMETER     :: R0       = 0.0      ! radial position
-  REAL, PARAMETER     :: Z0       = 0.0      ! vertical position
+  ! location of the initial pulse (cartesian coordinates)
+  REAL, PARAMETER     :: X0       = 0.0      ! x-position
+  REAL, PARAMETER     :: Y0       = 0.0      ! y-position
+  REAL, PARAMETER     :: Z0       = 0.0      ! z-position
   ! mesh settings
-  INTEGER, PARAMETER  :: MGEO     = CARTESIAN! geometry
-!   INTEGER, PARAMETER  :: MGEO     = CYLINDRICAL
-  INTEGER, PARAMETER  :: XRES     = 30       ! x-resolution
-  INTEGER, PARAMETER  :: YRES     = 30       ! y-resolution
-  INTEGER, PARAMETER  :: ZRES     = 30       ! z-resolution
-  REAL, PARAMETER     :: RMAX     = 1.0      ! width of square that fits into
-                                             !   computational domain
+!   INTEGER, PARAMETER  :: MGEO     = CARTESIAN! geometry
+  INTEGER, PARAMETER  :: MGEO     = CYLINDRICAL
+!   INTEGER, PARAMETER  :: MGEO     = SPHERICAL
+  INTEGER, PARAMETER  :: RES      = 30       ! x-/y-/z-resolution
+  REAL, PARAMETER     :: RMAX     = 0.5      ! maximal radial extent
   REAL, PARAMETER     :: GPAR     = 0.8      ! geometry scaling parameter
   ! output parameters
   INTEGER, PARAMETER  :: ONUM     = 10       ! number of output data sets
@@ -99,7 +98,7 @@ CONTAINS
     TYPE(Dict_TYP),POINTER  :: config
     !------------------------------------------------------------------------!
     ! Local variable declaration
-    INTEGER                 :: bc(6)
+    INTEGER                 :: bc(6),xres,yres,zres
     TYPE(Dict_TYP), POINTER :: mesh, physics, boundary, datafile, sources, &
                                timedisc, fluxes
     REAL                    :: x1,x2,y1,y2,z1,z2
@@ -109,12 +108,15 @@ CONTAINS
     ! mesh settings and boundary conditions
     SELECT CASE(MGEO)
     CASE(CARTESIAN)
-       x1         = -0.5
-       x2         =  0.5
-       y1         = -0.5
-       y2         =  0.5
-       z1         = -0.5
-       z2         =  0.5
+       x1         = -RMAX
+       x2         =  RMAX
+       y1         = -RMAX
+       y2         =  RMAX
+       z1         = -RMAX
+       z2         =  RMAX
+       xres       = RES
+       yres       = RES
+       zres       = RES
        bc(WEST)   = NO_GRADIENTS
        bc(EAST)   = NO_GRADIENTS
        bc(SOUTH)  = NO_GRADIENTS
@@ -122,16 +124,19 @@ CONTAINS
        bc(BOTTOM) = NO_GRADIENTS
        bc(TOP)    = NO_GRADIENTS
     CASE(CYLINDRICAL)
-       x1 = -0.5
-       x2 =  0.5
+       x1 =  0.01
+       x2 =  RMAX
        y1 =  0.0
        y2 = 2*PI
-       z1 = -0.5
-       z2 =  0.5
-       bc(WEST)   = NO_GRADIENTS
-       bc(EAST)   = NO_GRADIENTS
-       bc(SOUTH)  = NO_GRADIENTS
-       bc(NORTH)  = NO_GRADIENTS
+       z1 = -RMAX
+       z2 =  RMAX
+       xres       = RES / 2
+       yres       = RES / 2
+       zres       = RES
+       bc(WEST)   = AXIS
+       bc(EAST)   = AXIS
+       bc(SOUTH)  = PERIODIC
+       bc(NORTH)  = PERIODIC
        bc(BOTTOM) = NO_GRADIENTS
        bc(TOP)    = NO_GRADIENTS
     CASE(SPHERICAL)
@@ -141,10 +146,13 @@ CONTAINS
        y2 = PI
        z1 = 0.0
        z2 = 2*PI
-       bc(WEST)  = REFLECTING       !default: REFLECTING
-       bc(EAST)  = REFLECTING       !default: ABSORBING
-       bc(SOUTH) = REFLECTING       !default: AXIS
-       bc(NORTH) = REFLECTING       !default: AXIS
+       xres       = RES / 2
+       yres       = RES / 4
+       zres       = RES / 2
+       bc(WEST)  = NO_GRADIENTS
+       bc(EAST)  = NO_GRADIENTS
+       bc(SOUTH) = AXIS
+       bc(NORTH) = AXIS
        bc(BOTTOM)= PERIODIC
        bc(TOP)   = PERIODIC
     CASE DEFAULT
@@ -155,16 +163,17 @@ CONTAINS
     mesh => Dict( &
             "meshtype"  / MIDPOINT, &
             "geometry"  / MGEO, &
-            "inum"      / XRES, &
-            "jnum"      / YRES, &
-            "knum"      / ZRES, &
+            "inum"      / xres, &
+            "jnum"      / yres, &
+            "knum"      / zres, &
             "xmin"      / x1,   &
             "xmax"      / x2,   &
             "ymin"      / y1,   &
             "ymax"      / y2,   &
             "zmin"      / z1,   &
             "zmax"      / z2,   &
-            "decomposition"/ (/ 1, 1, 2/), &
+!             "decomposition"/ (/ 1, 1, 2/), &
+            "output/radius" / 1, &
             "gparam"    / GPAR)
 
     ! boundary conditions
@@ -224,8 +233,7 @@ CONTAINS
 
 
   SUBROUTINE InitData(Mesh,Physics,Timedisc)
-    USE physics_euler_mod, ONLY : physics_euler
-    USE physics_eulerisotherm_mod, ONLY : physics_eulerisotherm
+    USE geometry_base_mod
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(physics_base)         :: Physics
@@ -242,22 +250,23 @@ CONTAINS
     INTENT(IN)                  :: Mesh,Physics
     INTENT(INOUT)               :: Timedisc
     !------------------------------------------------------------------------!
-    IF (ABS(R0).LE.TINY(R0).AND.ABS(Z0).LE.TINY(Z0)) THEN
-       ! no shift of point mass set radius and posvec to Mesh defaults
-       radius(:,:,:)   = Mesh%radius%bcenter(:,:,:)
-       posvec(:,:,:,:) = Mesh%posvec%bcenter(:,:,:,:)
-    ELSE
+    IF (ANY((/ABS(X0),ABS(Y0),ABS(Z0)/).GT.TINY(Z0))) THEN
        ! shifted point mass position:
        ! compute curvilinear components of shift vector
-       posvec(:,:,:,1) = R0
-       posvec(:,:,:,2) = Z0
-       CALL Convert2Curvilinear(Mesh%geometry,Mesh%bcenter,posvec,posvec)
+       posvec(:,:,:,1) = X0
+       posvec(:,:,:,2) = Y0
+       posvec(:,:,:,3) = Z0
+       CALL Mesh%geometry%Convert2Curvilinear(Mesh%bcenter,posvec,posvec)
        ! subtract the result from the position vector:
        ! this gives you the curvilinear components of all vectors pointing
        ! from the point mass to the bary center of any cell on the mesh
        posvec(:,:,:,:) = Mesh%posvec%bcenter(:,:,:,:) - posvec(:,:,:,:)
        ! compute its absolute value
-       radius(:,:,:)   = SQRT(posvec(:,:,:,1)**2+posvec(:,:,:,2)**2)
+       radius(:,:,:)   = SQRT(posvec(:,:,:,1)**2+posvec(:,:,:,2)**2+posvec(:,:,:,3)**2)
+    ELSE
+       ! no shift of point mass set radius and posvec to Mesh defaults
+       radius(:,:,:)   = Mesh%radius%bcenter(:,:,:)
+       posvec(:,:,:,:) = Mesh%posvec%bcenter(:,:,:,:)
     END IF
 
     ! initial condition
