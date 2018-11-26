@@ -165,7 +165,6 @@ MODULE sources_base_mod
 
     PROCEDURE :: InitSources
     PROCEDURE (InfoSources),     DEFERRED :: InfoSources
-    PROCEDURE :: GeometricalSources
     PROCEDURE :: CloseSources_all
     PROCEDURE :: ExternalSources
     PROCEDURE (ExternalSources_single), DEFERRED :: ExternalSources_single
@@ -282,27 +281,6 @@ CONTAINS
     CALL this%Info(" SOURCES--> source term:       " // this%GetName())
     CALL this%InfoSources(Mesh)
   END SUBROUTINE InitSources
-
-
-  SUBROUTINE GeometricalSources(this,Physics,Mesh,Fluxes,pvar,cvar,sterm)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(sources_base), INTENT(IN)    :: this
-    CLASS(physics_base), INTENT(INOUT) :: Physics
-    CLASS(mesh_base),    INTENT(IN)    :: Mesh
-    CLASS(fluxes_base),  INTENT(IN)    :: Fluxes
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
-                         INTENT(IN)    :: pvar,cvar
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
-                         INTENT(OUT)    :: sterm
-    !------------------------------------------------------------------------!
-    ! calculate geometrical sources depending on the integration rule
-    SELECT CASE(Mesh%GetType())
-    CASE(MIDPOINT)
-      ! use center values for midpoint rule
-      CALL Physics%GeometricalSources(Mesh,pvar,cvar,sterm)
-    END SELECT
-  END SUBROUTINE GeometricalSources
 
 
   SUBROUTINE ExternalSources(this,Mesh,Fluxes,Physics,time,dt,pvar,cvar,sterm)

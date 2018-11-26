@@ -779,16 +779,16 @@ CONTAINS
     END IF
 
     SELECT TYPE(phys => Physics)
-      CLASS IS(physics_eulerisotherm)
+      TYPE IS(physics_eulerisotherm)
         SELECT TYPE(pvar => this%pvar)
         CLASS IS(statevector_eulerisotherm)
-          CALL phys%CalculateWaveSpeeds(pvar,Fluxes%minwav,Fluxes%maxwav)
+          CALL phys%CalculateWaveSpeeds(Mesh,pvar,Fluxes%minwav,Fluxes%maxwav)
         END SELECT
-!       CLASS IS(physics_euler)
-!         SELECT TYPE(pvar => this%pvar)
-!         CLASS IS(statevector_euler)
-!           CALL phys%CalculateWaveSpeeds(Mesh,pvar,Fluxes%minwav,Fluxes%maxwav)
-!         END SELECT
+      TYPE IS(physics_euler)
+        SELECT TYPE(pvar => this%pvar)
+        CLASS IS(statevector_euler)
+          CALL phys%CalculateWaveSpeeds(Mesh,pvar,Fluxes%minwav,Fluxes%maxwav)
+        END SELECT
     END SELECT
 
     ! compute maximum of inverse time for CFL condition
@@ -1067,7 +1067,7 @@ CONTAINS
       CALL this%CheckData(Mesh,Physics,Fluxes,pvar%data4d,cvar%data4d,checkdatabm)
 
     ! get geometrical sources
-    CALL Physics%GeometricalSources(Mesh,pvar%data4d,cvar%data4d,this%geo_src%data4d)
+    CALL Physics%GeometricalSources(Mesh,pvar,cvar,this%geo_src)
 
     ! get source terms due to external forces if present
     IF (ASSOCIATED(Sources)) &

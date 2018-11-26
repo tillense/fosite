@@ -161,10 +161,7 @@ MODULE physics_base_mod
     PROCEDURE (SubtractBackgroundVelocityY),  DEFERRED :: SubtractBackgroundVelocityY
     PROCEDURE (FargoSources),                 DEFERRED :: FargoSources
     !------Geometry Routines-------!
-    PROCEDURE (GeometricalSources_center),    DEFERRED :: GeometricalSources_center!, GeometricalSources_faces
-    GENERIC   :: GeometricalSources => &
-                   GeometricalSources_center!, &
-                   !GeometricalSources_faces
+    PROCEDURE (GeometricalSources),           DEFERRED :: GeometricalSources
     PROCEDURE (ReflectionMasks),              DEFERRED :: ReflectionMasks
 
 ! these routines are only necessary for special boundaries, fluxes
@@ -313,9 +310,10 @@ MODULE physics_base_mod
       CLASS(physics_base), INTENT(IN)            :: this
       LOGICAL, DIMENSION(this%VNUM), INTENT(OUT) :: reflX,reflY,reflZ
     END SUBROUTINE
-    PURE SUBROUTINE CalcWaveSpeeds_center(this,pvar,minwav,maxwav)
+    PURE SUBROUTINE CalcWaveSpeeds_center(this,Mesh,pvar,minwav,maxwav)
       IMPORT physics_base,mesh_base,marray_base,marray_compound
       CLASS(physics_base), INTENT(INOUT) :: this
+      CLASS(mesh_base),    INTENT(IN)  :: Mesh
       CLASS(marray_compound), INTENT(INOUT) :: pvar
       TYPE(marray_base), INTENT(INOUT)     :: minwav,maxwav
     END SUBROUTINE
@@ -393,14 +391,11 @@ MODULE physics_base_mod
       REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM+this%PNUM), &
                            INTENT(INOUT) ::  pvar,cvar
     END SUBROUTINE SubtractBackgroundVelocityY
-    PURE SUBROUTINE GeometricalSources_center(this,Mesh,pvar,cvar,sterm)
-      IMPORT physics_base,mesh_base
+    PURE SUBROUTINE GeometricalSources(this,Mesh,pvar,cvar,sterm)
+      IMPORT physics_base,mesh_base,marray_compound
       CLASS(physics_base), INTENT(INOUT) :: this
       CLASS(mesh_base),    INTENT(IN)    :: Mesh
-      REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM), &
-                           INTENT(IN)    :: pvar,cvar
-      REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM), &
-                           INTENT(OUT)   :: sterm
+      CLASS(marray_compound), INTENT(INOUT) :: pvar,cvar,sterm
     END SUBROUTINE
     PURE SUBROUTINE FargoSources(this,Mesh,w,pvar,cvar,sterm)
       IMPORT physics_base,mesh_base

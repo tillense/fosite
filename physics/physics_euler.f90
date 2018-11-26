@@ -80,7 +80,7 @@ MODULE physics_euler_mod
 !    PROCEDURE :: CalcIntermediateStateY
 
     PROCEDURE :: ExternalSources
-    PROCEDURE :: GeometricalSources_center
+    PROCEDURE :: GeometricalSources
     PROCEDURE :: ReflectionMasks                ! for reflecting boundaries
 
     ! boundarie routines
@@ -97,7 +97,6 @@ MODULE physics_euler_mod
 !    PROCEDURE :: CalcRiemann2PrimY        ! for farfield boundaries
 !    PROCEDURE :: CalcRiemann2PrimZ        ! for farfield boundaries
     PROCEDURE :: AxisMasks                 ! for axis boundaries
-!    PROCEDURE :: GeometricalSources_faces
     PROCEDURE :: ViscositySources
     PROCEDURE :: ViscositySources_euler
     PROCEDURE :: CalcStresses_euler
@@ -198,7 +197,7 @@ CONTAINS
       this%cvarname(next_idx) = "ymomentum"
       next_idx = next_idx + 1
     END IF
-    IF (Mesh%KNUM.GT.1.OR.Mesh%ROTSYM.EQ.2) THEN
+    IF (Mesh%KNUM.GT.1.OR.Mesh%ROTSYM.EQ.3) THEN
       this%pvarname(next_idx) = "zvelocity"
       this%cvarname(next_idx) = "zmomentum"
     END IF
@@ -1040,173 +1039,143 @@ CONTAINS
 !          pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k,this%PRESSURE))
 !  END SUBROUTINE CalcRiemann2PrimZ
 
-
-  !> Calculate geometrical sources at the center
-  PURE SUBROUTINE GeometricalSources_center(this,Mesh,pvar,cvar,sterm)
+  !> Calculates geometrical sources
+  PURE SUBROUTINE GeometricalSources(this,Mesh,pvar,cvar,sterm)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(physics_euler), INTENT(INOUT) :: this
-    CLASS(mesh_base),       INTENT(IN)    :: Mesh
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM), &
-                            INTENT(IN)    :: pvar,cvar
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM), &
-                            INTENT(OUT)   :: sterm
+    CLASS(mesh_base),    INTENT(IN)    :: Mesh
+    CLASS(marray_compound), INTENT(INOUT) :: pvar,cvar,sterm
     !------------------------------------------------------------------------!
-    INTEGER                               :: i,j,k
+    INTEGER                                 :: i,j,k
     !------------------------------------------------------------------------!
-    ! compute geometrical source only for non-cartesian mesh except for the
-    ! EULER2D_IAMROT case for which geometrical sources are always necessary.
-    IF ((Mesh%Geometry%GetType().NE.CARTESIAN)) THEN
-      DO k=Mesh%KGMIN,Mesh%KGMAX
-        DO j=Mesh%JGMIN,Mesh%JGMAX
-          DO i=Mesh%IGMIN,Mesh%IGMAX
-            CALL CalcGeometricalSources(cvar(i,j,k,this%XMOMENTUM),  &
-                                        cvar(i,j,k,this%YMOMENTUM),  &
-                                        pvar(i,j,k,this%XVELOCITY),  &
-                                        pvar(i,j,k,this%YVELOCITY),  &
-                                        pvar(i,j,k,this%PRESSURE),   &
-                                        Mesh%cxyx%bcenter(i,j,k),    &
-                                        Mesh%cyxy%bcenter(i,j,k),    &
-                                        Mesh%czxz%bcenter(i,j,k),    &
-                                        Mesh%czyz%bcenter(i,j,k),    &
-                                        sterm(i,j,k,this%DENSITY),   &
-                                        sterm(i,j,k,this%XMOMENTUM), &
-                                        sterm(i,j,k,this%YMOMENTUM),  &
-                                        sterm(i,j,k,this%ENERGY)  &
-                                        )
-          END DO
-        END DO
-      END DO
+    ! compute geometrical source only for non-cartesian mesh
+    IF (Mesh%Geometry%GetType().NE.CARTESIAN) THEN
+      SELECT TYPE(p => pvar)
+      TYPE IS(statevector_euler)
+        SELECT TYPE(c => cvar)
+        TYPE IS(statevector_euler)
+          SELECT TYPE(s => sterm)
+          TYPE IS(statevector_euler)
+            ! no source terms
+            s%density%data1d(:) = 0.0
+            s%energy%data1d(:) = 0.0
+            SELECT CASE(this%VDIM)
+            CASE(1) ! 1D
+              IF (Mesh%INUM.GT.1) THEN
+                ! x-momentum
+                ! vy = vz = my = mz = 0
+                s%momentum%data4d(:,:,:,1) = GetGeometricalSourceX( &
+                   Mesh%cxyx%bcenter(:,:,:),Mesh%cxzx%bcenter(:,:,:), &
+                   Mesh%cyxy%bcenter(:,:,:),Mesh%czxz%bcenter(:,:,:), &
+                   p%velocity%data4d(:,:,:,1),0.0,0.0, &
+                   p%pressure%data3d(:,:,:), &
+                   0.0,0.0)
+              ELSE IF (Mesh%JNUM.GT.1) THEN
+                ! y-momentum
+                ! vx = vz = mx = mz = 0
+                s%momentum%data4d(:,:,:,1) = GetGeometricalSourceY( &
+                   Mesh%cxyx%bcenter(:,:,:),Mesh%cyxy%bcenter(:,:,:), &
+                   Mesh%cyzy%bcenter(:,:,:),Mesh%czyz%bcenter(:,:,:), &
+                   0.0,p%velocity%data4d(:,:,:,1),0.0, &
+                   p%pressure%data3d(:,:,:), &
+                   0.0,0.0)
+              ELSE IF (Mesh%KNUM.GT.1) THEN
+                ! z-momentum
+                ! vx = vy = mx = my = 0
+                s%momentum%data4d(:,:,:,1) = GetGeometricalSourceZ( &
+                   Mesh%cxzx%bcenter(:,:,:),Mesh%cyzy%bcenter(:,:,:), &
+                   Mesh%czxz%bcenter(:,:,:),Mesh%czyz%bcenter(:,:,:), &
+                   0.0,0.0,p%velocity%data4d(:,:,:,1), &
+                   p%pressure%data3d(:,:,:), &
+                   0.0,0.0)
+              END IF
+            CASE(2) ! 2D
+              IF (Mesh%KNUM.EQ.1.AND..NOT.Mesh%ROTSYM.EQ.3) THEN
+                ! vz = mz = 0
+                ! x-momentum
+                s%momentum%data4d(:,:,:,1) = GetGeometricalSourceX( &
+                   Mesh%cxyx%bcenter(:,:,:),Mesh%cxzx%bcenter(:,:,:), &
+                   Mesh%cyxy%bcenter(:,:,:),Mesh%czxz%bcenter(:,:,:), &
+                   p%velocity%data4d(:,:,:,1),p%velocity%data4d(:,:,:,2),0.0, &
+                   p%pressure%data3d(:,:,:), &
+                   c%momentum%data4d(:,:,:,2),0.0)
+                ! y-momentum
+                s%momentum%data4d(:,:,:,2) = GetGeometricalSourceY( &
+                   Mesh%cxyx%bcenter(:,:,:),Mesh%cyxy%bcenter(:,:,:), &
+                   Mesh%cyzy%bcenter(:,:,:),Mesh%czyz%bcenter(:,:,:), &
+                   p%velocity%data4d(:,:,:,1),p%velocity%data4d(:,:,:,2),0.0, &
+                   p%pressure%data3d(:,:,:), &
+                   c%momentum%data4d(:,:,:,1),0.0)
+              ELSE IF (Mesh%JNUM.EQ.1.AND..NOT.Mesh%ROTSYM.EQ.2) THEN
+                ! vy = my = 0
+                ! x-momentum
+                s%momentum%data4d(:,:,:,1) = GetGeometricalSourceX( &
+                   Mesh%cxyx%bcenter(:,:,:),Mesh%cxzx%bcenter(:,:,:), &
+                   Mesh%cyxy%bcenter(:,:,:),Mesh%czxz%bcenter(:,:,:), &
+                   p%velocity%data4d(:,:,:,1),0.0,p%velocity%data4d(:,:,:,2), &
+                   p%pressure%data3d(:,:,:), &
+                   0.0,c%momentum%data4d(:,:,:,2))
+                ! z-momentum
+                s%momentum%data4d(:,:,:,2) = GetGeometricalSourceZ( &
+                   Mesh%cxzx%bcenter(:,:,:),Mesh%cyzy%bcenter(:,:,:), &
+                   Mesh%czxz%bcenter(:,:,:),Mesh%czyz%bcenter(:,:,:), &
+                   p%velocity%data4d(:,:,:,1),0.0,p%velocity%data4d(:,:,:,2), &
+                   p%pressure%data3d(:,:,:), &
+                   0.0,c%momentum%data4d(:,:,:,2))
+              ELSE IF (Mesh%INUM.EQ.1.AND..NOT.Mesh%ROTSYM.EQ.1) THEN
+                ! vx = mx = 0
+                ! y-momentum
+                s%momentum%data4d(:,:,:,1) = GetGeometricalSourceY( &
+                   Mesh%cxyx%bcenter(:,:,:),Mesh%cyxy%bcenter(:,:,:), &
+                   Mesh%cyzy%bcenter(:,:,:),Mesh%czyz%bcenter(:,:,:), &
+                   0.0,p%velocity%data4d(:,:,:,1),p%velocity%data4d(:,:,:,2), &
+                   p%pressure%data3d(:,:,:), &
+                   0.0,c%momentum%data4d(:,:,:,2))
+                ! z-momentum
+                s%momentum%data4d(:,:,:,2) = GetGeometricalSourceZ( &
+                   Mesh%cxzx%bcenter(:,:,:),Mesh%cyzy%bcenter(:,:,:), &
+                   Mesh%czxz%bcenter(:,:,:),Mesh%czyz%bcenter(:,:,:), &
+                   0.0,p%velocity%data4d(:,:,:,1),p%velocity%data4d(:,:,:,2), &
+                   p%pressure%data3d(:,:,:), &
+                   0.0,c%momentum%data4d(:,:,:,2))
+              END IF
+            CASE(3) ! 3D
+                ! x-momentum
+                s%momentum%data4d(:,:,:,1) = GetGeometricalSourceX( &
+                   Mesh%cxyx%bcenter(:,:,:),Mesh%cxzx%bcenter(:,:,:), &
+                   Mesh%cyxy%bcenter(:,:,:),Mesh%czxz%bcenter(:,:,:), &
+                   p%velocity%data4d(:,:,:,1),p%velocity%data4d(:,:,:,2), &
+                   p%velocity%data4d(:,:,:,3), &
+                   p%pressure%data3d(:,:,:), &
+                   c%momentum%data4d(:,:,:,2),c%momentum%data4d(:,:,:,3))
+                ! y-momentum
+                s%momentum%data4d(:,:,:,2) = GetGeometricalSourceY( &
+                   Mesh%cxyx%bcenter(:,:,:),Mesh%cyxy%bcenter(:,:,:), &
+                   Mesh%cyzy%bcenter(:,:,:),Mesh%czyz%bcenter(:,:,:), &
+                   p%velocity%data4d(:,:,:,1),p%velocity%data4d(:,:,:,2), &
+                   p%velocity%data4d(:,:,:,3), &
+                   p%pressure%data3d(:,:,:), &
+                   c%momentum%data4d(:,:,:,1),c%momentum%data4d(:,:,:,3))
+                ! z-momentum
+                s%momentum%data4d(:,:,:,3) = GetGeometricalSourceZ( &
+                   Mesh%cxzx%bcenter(:,:,:),Mesh%cyzy%bcenter(:,:,:), &
+                   Mesh%czxz%bcenter(:,:,:),Mesh%czyz%bcenter(:,:,:), &
+                   p%velocity%data4d(:,:,:,1),p%velocity%data4d(:,:,:,2), &
+                   p%velocity%data4d(:,:,:,3), &
+                   p%pressure%data3d(:,:,:), &
+                   c%momentum%data4d(:,:,:,1),c%momentum%data4d(:,:,:,2))
+            END SELECT
+          END SELECT
+        END SELECT
+      END SELECT
       ! reset ghost cell data
-      sterm(Mesh%IGMIN:Mesh%IMIN-Mesh%ip1,:,:,:) = 0.0
-      sterm(Mesh%IMAX+Mesh%ip1:Mesh%IGMAX,:,:,:) = 0.0
-      sterm(:,Mesh%JGMIN:Mesh%JMIN-Mesh%jp1,:,:) = 0.0
-      sterm(:,Mesh%JMAX+Mesh%jp1:Mesh%JGMAX,:,:) = 0.0
+      sterm%data4d(Mesh%IGMIN:Mesh%IMIN-Mesh%ip1,:,:,:) = 0.0
+      sterm%data4d(Mesh%IMAX+Mesh%ip1:Mesh%IGMAX,:,:,:) = 0.0
+      sterm%data4d(:,Mesh%JGMIN:Mesh%JMIN-Mesh%jp1,:,:) = 0.0
+      sterm%data4d(:,Mesh%JMAX+Mesh%jp1:Mesh%JGMAX,:,:) = 0.0
     END IF
-  END SUBROUTINE GeometricalSources_center
-
-  !TODO GENAUSO WIE IN GEOMETRICALSOURCES_CENTER, cxyx,... not at all touched!
-!  PURE SUBROUTINE GeometricalSources_faces(this,Mesh,prim,cons,sterm)
-!    IMPLICIT NONE
-!    !------------------------------------------------------------------------!
-!    CLASS(physics_euler), INTENT(IN) :: this
-!    CLASS(mesh_base),       INTENT(IN) :: Mesh
-!    REAL,                   INTENT(IN), &
-!      DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,6,this%VNUM) &
-!                                       :: prim,cons
-!    REAL,                   INTENT(OUT), &
-!      DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM) &
-!                                       :: sterm
-!    !------------------------------------------------------------------------!
-!    INTEGER                            :: i,j,k
-!    !------------------------------------------------------------------------!
-!    DO k=Mesh%KGMIN,Mesh%KGMAX
-!      DO j=Mesh%JGMIN,Mesh%JGMAX
-!        DO i=Mesh%IGMIN,Mesh%IGMAX
-!          ! no geometrical density or energy sources
-!          sterm(i,j,k,this%DENSITY)   = 0.
-!          sterm(i,j,k,this%ENERGY)    = 0.
-!          ! momentum sources (sum up corner values, don't use SUM function,
-!          ! because it prevents COLLAPSING and causes poor vectorization
-!          sterm(i,j,k,this%XMOMENTUM) = MomentumSourcesX( &
-!              cons(i,j,k,1,this%YMOMENTUM),cons(i,j,k,1,this%ZMOMENTUM), &
-!              prim(i,j,k,1,this%XVELOCITY),prim(i,j,k,1,this%YVELOCITY),&
-!              prim(i,j,k,1,this%ZVELOCITY),prim(i,j,k,1,this%PRESSURE), &
-!              Mesh%cxyx%faces(i,j,k,1),Mesh%cyxy%faces(i,j,k,1),Mesh%czxz%faces(i,j,k,1)) &
-!            + MomentumSourcesX(&
-!              cons(i,j,k,2,this%YMOMENTUM),cons(i,j,k,2,this%ZMOMENTUM), &
-!              prim(i,j,k,2,this%XVELOCITY),prim(i,j,k,2,this%YVELOCITY), &
-!              prim(i,j,k,2,this%ZVELOCITY),prim(i,j,k,2,this%PRESSURE), &
-!              Mesh%cxyx%faces(i,j,k,2),Mesh%cyxy%faces(i,j,k,2),Mesh%czxz%faces(i,j,k,2)) &
-!            + MomentumSourcesX(&
-!              cons(i,j,k,3,this%YMOMENTUM),cons(i,j,k,3,this%ZMOMENTUM), &
-!              prim(i,j,k,3,this%XVELOCITY),prim(i,j,k,3,this%YVELOCITY), &
-!              prim(i,j,k,3,this%ZVELOCITY),prim(i,j,k,3,this%PRESSURE), &
-!              Mesh%cxyx%faces(i,j,k,3),Mesh%cyxy%faces(i,j,k,3),Mesh%czxz%faces(i,j,k,3)) &
-!            + MomentumSourcesX(&
-!              cons(i,j,k,4,this%YMOMENTUM),cons(i,j,k,4,this%ZMOMENTUM), &
-!              prim(i,j,k,4,this%XVELOCITY),prim(i,j,k,4,this%YVELOCITY), &
-!              prim(i,j,k,4,this%ZVELOCITY),prim(i,j,k,4,this%PRESSURE), &
-!              Mesh%cxyx%faces(i,j,k,4),Mesh%cyxy%faces(i,j,k,4),Mesh%czxz%faces(i,j,k,4)) &
-!            + MomentumSourcesX(&
-!              cons(i,j,k,5,this%YMOMENTUM),cons(i,j,k,5,this%ZMOMENTUM), &
-!              prim(i,j,k,5,this%XVELOCITY),prim(i,j,k,5,this%YVELOCITY), &
-!              prim(i,j,k,5,this%ZVELOCITY),prim(i,j,k,5,this%PRESSURE), &
-!              Mesh%cxyx%faces(i,j,k,5),Mesh%cyxy%faces(i,j,k,5),Mesh%czxz%faces(i,j,k,5)) &
-!            + MomentumSourcesX(&
-!              cons(i,j,k,6,this%YMOMENTUM),cons(i,j,k,6,this%ZMOMENTUM), &
-!              prim(i,j,k,6,this%XVELOCITY),prim(i,j,k,6,this%YVELOCITY), &
-!              prim(i,j,k,6,this%ZVELOCITY),prim(i,j,k,6,this%PRESSURE), &
-!              Mesh%cxyx%faces(i,j,k,6),Mesh%cyxy%faces(i,j,k,6),Mesh%czxz%faces(i,j,k,6))
-!
-!          sterm(i,j,k,this%YMOMENTUM) = &
-!              MomentumSourcesY(&
-!              cons(i,j,k,1,this%ZMOMENTUM),cons(i,j,k,1,this%XMOMENTUM), &
-!              prim(i,j,k,1,this%XVELOCITY),prim(i,j,k,1,this%YVELOCITY), &
-!              prim(i,j,k,1,this%ZVELOCITY),prim(i,j,k,1,this%PRESSURE), &
-!              Mesh%cxyx%faces(i,j,k,1),Mesh%cyxy%faces(i,j,k,1),Mesh%czyz%faces(i,j,k,1)) &
-!            + MomentumSourcesY(&
-!              cons(i,j,k,2,this%ZMOMENTUM),cons(i,j,k,2,this%XMOMENTUM), &
-!              prim(i,j,k,2,this%XVELOCITY),prim(i,j,k,2,this%YVELOCITY), &
-!              prim(i,j,k,2,this%ZVELOCITY),prim(i,j,k,2,this%PRESSURE), &
-!              Mesh%cxyx%faces(i,j,k,2),Mesh%cyxy%faces(i,j,k,2),Mesh%czyz%faces(i,j,k,2)) &
-!            + MomentumSourcesY(&
-!              cons(i,j,k,3,this%ZMOMENTUM),cons(i,j,k,3,this%XMOMENTUM), &
-!              prim(i,j,k,3,this%XVELOCITY),prim(i,j,k,3,this%YVELOCITY), &
-!              prim(i,j,k,3,this%ZVELOCITY),prim(i,j,k,3,this%PRESSURE), &
-!              Mesh%cxyx%faces(i,j,k,3),Mesh%cyxy%faces(i,j,k,3),Mesh%czyz%faces(i,j,k,3)) &
-!            + MomentumSourcesY(&
-!              cons(i,j,k,4,this%ZMOMENTUM),cons(i,j,k,4,this%XMOMENTUM), &
-!              prim(i,j,k,4,this%XVELOCITY),prim(i,j,k,4,this%YVELOCITY), &
-!              prim(i,j,k,4,this%ZVELOCITY),prim(i,j,k,4,this%PRESSURE), &
-!              Mesh%cxyx%faces(i,j,k,4),Mesh%cyxy%faces(i,j,k,4),Mesh%czyz%faces(i,j,k,4)) &
-!            + MomentumSourcesY(&
-!              cons(i,j,k,5,this%ZMOMENTUM),cons(i,j,k,5,this%XMOMENTUM), &
-!              prim(i,j,k,5,this%XVELOCITY),prim(i,j,k,5,this%YVELOCITY), &
-!              prim(i,j,k,5,this%ZVELOCITY),prim(i,j,k,5,this%PRESSURE), &
-!              Mesh%cxyx%faces(i,j,k,5),Mesh%cyxy%faces(i,j,k,5),Mesh%czyz%faces(i,j,k,5)) &
-!            + MomentumSourcesY(&
-!              cons(i,j,k,6,this%ZMOMENTUM),cons(i,j,k,6,this%XMOMENTUM), &
-!              prim(i,j,k,6,this%XVELOCITY),prim(i,j,k,6,this%YVELOCITY), &
-!              prim(i,j,k,6,this%ZVELOCITY),prim(i,j,k,6,this%PRESSURE), &
-!              Mesh%cxyx%faces(i,j,k,6),Mesh%cyxy%faces(i,j,k,6),Mesh%czyz%faces(i,j,k,6))
-!
-!          sterm(i,j,k,this%ZMOMENTUM) = &
-!              MomentumSourcesZ(&
-!              cons(i,j,k,1,this%XMOMENTUM),cons(i,j,k,1,this%YMOMENTUM), &
-!              prim(i,j,k,1,this%XVELOCITY),prim(i,j,k,1,this%YVELOCITY), &
-!              prim(i,j,k,1,this%ZVELOCITY),prim(i,j,k,1,this%PRESSURE), &
-!              Mesh%cxyx%faces(i,j,k,1),Mesh%cyxy%faces(i,j,k,1),Mesh%czyz%faces(i,j,k,1)) &
-!            + MomentumSourcesZ(&
-!              cons(i,j,k,2,this%XMOMENTUM),cons(i,j,k,2,this%YMOMENTUM), &
-!              prim(i,j,k,2,this%XVELOCITY),prim(i,j,k,2,this%YVELOCITY), &
-!              prim(i,j,k,2,this%ZVELOCITY),prim(i,j,k,2,this%PRESSURE), &
-!              Mesh%cxyx%faces(i,j,k,2),Mesh%cyxy%faces(i,j,k,2),Mesh%czyz%faces(i,j,k,2)) &
-!            + MomentumSourcesZ(&
-!              cons(i,j,k,3,this%XMOMENTUM),cons(i,j,k,3,this%YMOMENTUM), &
-!              prim(i,j,k,3,this%XVELOCITY),prim(i,j,k,3,this%YVELOCITY), &
-!              prim(i,j,k,3,this%ZVELOCITY),prim(i,j,k,3,this%PRESSURE), &
-!              Mesh%cxyx%faces(i,j,k,3),Mesh%cyxy%faces(i,j,k,3),Mesh%czyz%faces(i,j,k,3)) &
-!            + MomentumSourcesZ(&
-!              cons(i,j,k,4,this%XMOMENTUM),cons(i,j,k,4,this%YMOMENTUM), &
-!              prim(i,j,k,4,this%XVELOCITY),prim(i,j,k,4,this%YVELOCITY), &
-!              prim(i,j,k,4,this%ZVELOCITY),prim(i,j,k,4,this%PRESSURE), &
-!              Mesh%cxyx%faces(i,j,k,4),Mesh%cyxy%faces(i,j,k,4),Mesh%czyz%faces(i,j,k,4)) &
-!            + MomentumSourcesZ(&
-!              cons(i,j,k,5,this%XMOMENTUM),cons(i,j,k,5,this%YMOMENTUM), &
-!              prim(i,j,k,5,this%XVELOCITY),prim(i,j,k,5,this%YVELOCITY), &
-!              prim(i,j,k,5,this%ZVELOCITY),prim(i,j,k,5,this%PRESSURE), &
-!              Mesh%cxyx%faces(i,j,k,5),Mesh%cyxy%faces(i,j,k,5),Mesh%czyz%faces(i,j,k,5)) &
-!            + MomentumSourcesZ(&
-!              cons(i,j,k,6,this%XMOMENTUM),cons(i,j,k,6,this%YMOMENTUM), &
-!              prim(i,j,k,6,this%XVELOCITY),prim(i,j,k,6,this%YVELOCITY), &
-!              prim(i,j,k,6,this%ZVELOCITY),prim(i,j,k,6,this%PRESSURE), &
-!              Mesh%cxyx%faces(i,j,k,6),Mesh%cyxy%faces(i,j,k,6),Mesh%czyz%faces(i,j,k,6))
-!        END DO
-!      END DO
-!    END DO
-!  END SUBROUTINE GeometricalSources_faces
-
+  END SUBROUTINE GeometricalSources
 
   ! momentum and energy sources due to external force
   PURE SUBROUTINE ExternalSources(this,Mesh,accel,pvar,cvar,sterm)
@@ -2213,23 +2182,45 @@ CONTAINS
     E = P/(gamma-1.) + 0.5 * rho_in * (u*u + v*v + w*w)
   END SUBROUTINE Prim2Cons3d
 
-  !> momentum source terms due to inertial forces
-  !! P is the isothermal pressure rho*cs*cs or the real pressure.
+  !> geometrical momentum source terms
+  !! P is the either isothermal pressure rho*cs**2 or the real pressure.
   !!
-  !! \attention This elemental function exists multiple times for performance
+  !! \attention These elemental functions exist multiple times for performance
   !!  reasons (inlining). Please keep this in mind for changes.
   !!  Other modules with this function:
   !!      - physics_eulerisotherm_mod
-  ELEMENTAL SUBROUTINE CalcGeometricalSources(mx,my,vx,vy,P,cxyx,cyxy,czxz,czyz,srho,smx,smy,sen)
+  !!
+  !! x-momentum geometrical source term
+  ELEMENTAL FUNCTION GetGeometricalSourceX(cxyx,cxzx,cyxy,czxz,vx,vy,vz,P,my,mz)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    REAL, INTENT(IN)  :: mx,my,vx,vy,P,cxyx,cyxy,czxz,czyz
-    REAL, INTENT(OUT) :: srho, smx, smy, sen
+    REAL, INTENT(IN)  :: cxyx,cxzx,cyxy,czxz,vx,vy,vz,P,my,mz
+    REAL :: GetGeometricalSourceX
     !------------------------------------------------------------------------!
-    srho = 0.
-    sen  = 0.
-    smx = -my * (cxyx * vx - cyxy * vy) + (cyxy + czxz) * P
-    smy = mx * (cxyx * vx - cyxy * vy) + (cxyx + czyz) * P
-  END SUBROUTINE CalcGeometricalSources
+    GetGeometricalSourceX = my * (cyxy*vy - cxyx*vx) + mz * (czxz*vz - cxzx*vx) &
+                            + (cyxy + czxz) * P
+  END FUNCTION GetGeometricalSourceX
+
+  !> y-momentum geometrical source term
+  ELEMENTAL FUNCTION GetGeometricalSourceY(cxyx,cyxy,cyzy,czyz,vx,vy,vz,P,mx,mz)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    REAL, INTENT(IN)  :: cxyx,cyxy,cyzy,czyz,vx,vy,vz,P,mx,mz
+    REAL :: GetGeometricalSourceY
+    !------------------------------------------------------------------------!
+    GetGeometricalSourceY = mz * (czyz*vz - cyzy*vy) + mx * (cxyx*vx - cyxy*vy) &
+                            + (cxyx + czyz) * P
+  END FUNCTION GetGeometricalSourceY
+
+  !> z-momentum geometrical source term
+  ELEMENTAL FUNCTION GetGeometricalSourceZ(cxzx,cyzy,czxz,czyz,vx,vy,vz,P,mx,my)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    REAL, INTENT(IN)  :: cxzx,cyzy,czxz,czyz,vx,vy,vz,P,mx,my
+    REAL :: GetGeometricalSourceZ
+    !------------------------------------------------------------------------!
+    GetGeometricalSourceZ = mx * (cxzx*vx - czxz*vz) + my * (cyzy*vy - czyz*vz) &
+                            + (cxzx + cyzy) * P
+  END FUNCTION GetGeometricalSourceZ
 
 END MODULE physics_euler_mod
