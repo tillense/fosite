@@ -42,6 +42,7 @@
 MODULE sources_base_mod
   USE logging_base_mod
   USE mesh_base_mod
+  USE marray_compound_mod
   USE gravity_base_mod
   USE physics_base_mod
   USE fluxes_base_mod
@@ -209,7 +210,7 @@ MODULE sources_base_mod
       INTENT(OUT)       :: dt
     END SUBROUTINE
     SUBROUTINE ExternalSources_single(this,Mesh,Physics,Fluxes,time,dt,pvar,cvar,sterm)
-      IMPORT Sources_base, Mesh_base, Physics_base, Fluxes_base
+      IMPORT sources_base, mesh_base, physics_base, fluxes_base, marray_compound
       IMPLICIT NONE
       !------------------------------------------------------------------------!
       CLASS(sources_base),INTENT(INOUT) :: this
@@ -217,11 +218,7 @@ MODULE sources_base_mod
       CLASS(physics_base),INTENT(INOUT)   :: Physics
       CLASS(fluxes_base),INTENT(IN)       :: Fluxes
       REAL,INTENT(IN)                     :: time, dt
-      REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM) &
-                      :: cvar,pvar,sterm
-      !------------------------------------------------------------------------!
-      INTENT(IN)        :: cvar,pvar
-      INTENT(OUT)       :: sterm
+      CLASS(marray_compound),INTENT(INOUT):: pvar,cvar,sterm
     END SUBROUTINE
     SUBROUTINE Finalize(this)
       Import sources_base
@@ -231,7 +228,7 @@ MODULE sources_base_mod
 
   END INTERFACE
   ! tempory storage for source terms
-  REAL, DIMENSION(:,:,:,:), ALLOCATABLE, SAVE :: temp_sterm
+  CLASS(marray_compound), POINTER, SAVE :: temp_sterm => null()
   ! flags for source terms
   INTEGER, PARAMETER :: GRAVITY          = 1
   INTEGER, PARAMETER :: DISK_THOMSON     = 2
@@ -268,15 +265,10 @@ CONTAINS
     TYPE(Dict_TYP), POINTER            :: config, IO
     !------------------------------------------------------------------------!
     CLASS(sources_base), POINTER :: sp
-    INTEGER :: stype, err
+    INTEGER :: stype
     INTEGER :: update_disk_height = 0
     !------------------------------------------------------------------------!
-    IF (.NOT.ALLOCATED(temp_sterm)) THEN
-      ALLOCATE(&
-        temp_sterm(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM+Physics%PNUM), &
-        STAT=err)
-      IF (err.NE.0) CALL this%Error("InitSources", "Unable allocate memory!")
-    END IF
+    CALL Physics%new_statevector(temp_sterm,CONSERVATIVE)
 
     CALL this%Info(" SOURCES--> source term:       " // this%GetName())
     CALL this%InfoSources(Mesh)
@@ -291,15 +283,12 @@ CONTAINS
     CLASS(fluxes_base),  INTENT(IN)         :: Fluxes
     CLASS(physics_base), INTENT(INOUT)      :: Physics
     REAL,                INTENT(IN)         :: time,dt
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
-                         INTENT(IN)         :: cvar,pvar
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
-                         INTENT(OUT)        :: sterm
+    CLASS(marray_compound), INTENT(INOUT)   :: pvar,cvar,sterm
     !------------------------------------------------------------------------!
     CLASS(Sources_base), POINTER :: srcptr
     !------------------------------------------------------------------------!
     ! reset sterm
-    sterm(:,:,:,:) = 0.0
+    sterm%data1d(:) = 0.0
     ! go through all source terms in the list
     srcptr => this
     DO WHILE (ASSOCIATED(srcptr))
@@ -307,23 +296,23 @@ CONTAINS
       CALL srcptr%ExternalSources_single(Mesh,Physics,Fluxes,time,dt,pvar,cvar,temp_sterm)
 
       ! add to the sources
-      sterm(:,:,:,:) = sterm(:,:,:,:) + temp_sterm(:,:,:,:)
+      sterm%data1d(:) = sterm%data1d(:) + temp_sterm%data1d(:)
       ! next source term
       srcptr => srcptr%next
 
     END DO
     ! reset ghost cell data
     IF (Mesh%GINUM.GT.0) THEN
-      sterm(Mesh%IGMIN:Mesh%IMIN-Mesh%IP1,:,:,:) = 0.0
-      sterm(Mesh%IMAX+Mesh%IP1:Mesh%IGMAX,:,:,:) = 0.0
+      sterm%data4d(Mesh%IGMIN:Mesh%IMIN-Mesh%IP1,:,:,:) = 0.0
+      sterm%data4d(Mesh%IMAX+Mesh%IP1:Mesh%IGMAX,:,:,:) = 0.0
     END IF
     IF (Mesh%GJNUM.GT.0) THEN
-      sterm(:,Mesh%JGMIN:Mesh%JMIN-Mesh%JP1,:,:) = 0.0
-      sterm(:,Mesh%JMAX+Mesh%JP1:Mesh%JGMAX,:,:) = 0.0
+      sterm%data4d(:,Mesh%JGMIN:Mesh%JMIN-Mesh%JP1,:,:) = 0.0
+      sterm%data4d(:,Mesh%JMAX+Mesh%JP1:Mesh%JGMAX,:,:) = 0.0
     END IF
     IF (Mesh%GKNUM.GT.0) THEN
-      sterm(:,:,Mesh%KGMIN:Mesh%KMIN-Mesh%KP1,:) = 0.0
-      sterm(:,:,Mesh%KMAX+Mesh%KP1:Mesh%KGMAX,:) = 0.0
+      sterm%data4d(:,:,Mesh%KGMIN:Mesh%KMIN-Mesh%KP1,:) = 0.0
+      sterm%data4d(:,:,Mesh%KMAX+Mesh%KP1:Mesh%KGMAX,:) = 0.0
     END IF
   END SUBROUTINE ExternalSources
 
@@ -343,7 +332,6 @@ CONTAINS
     !------------------------------------------------------------------------!
     CLASS(Sources_base), POINTER :: srcptr
     REAL              :: dt_new
-    INTEGER           :: hc
     !------------------------------------------------------------------------!
     INTENT(IN)        :: time,pvar,cvar
     INTENT(INOUT)     :: dt,dtcause
@@ -409,7 +397,11 @@ CONTAINS
     IF (.NOT.this%Initialized()) &
         CALL this%Error("CloseSources","not initialized")
 
-    IF(ALLOCATED(temp_sterm)) DEALLOCATE(temp_sterm)
+    IF(ASSOCIATED(temp_sterm)) THEN
+      IF (ASSOCIATED(temp_sterm%data1d)) CALL temp_sterm%Destroy()
+      DEALLOCATE(temp_sterm)
+      NULLIFY(temp_sterm)
+    END IF
   END SUBROUTINE Finalize_base
 
 END MODULE sources_base_mod

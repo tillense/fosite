@@ -1072,7 +1072,7 @@ CONTAINS
     ! get source terms due to external forces if present
     IF (ASSOCIATED(Sources)) &
        CALL Sources%ExternalSources(Mesh,Fluxes,Physics, &
-            time,dt,pvar%data4d,cvar%data4d,this%src%data4d)
+            time,dt,pvar,cvar,this%src)
 
     ! if fargo advection is enabled additional source terms occur;
     ! furthermore computation of numerical fluxes should always be

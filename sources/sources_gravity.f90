@@ -41,6 +41,7 @@
 MODULE sources_gravity_mod
   USE logging_base_mod
   USE mesh_base_mod
+  USE marray_compound_mod
   USE physics_base_mod
   USE sources_base_mod
   USE sources_c_accel_mod
@@ -107,6 +108,7 @@ CONTAINS
   !! gravitational participants.
   SUBROUTINE ExternalSources_single(this,Mesh,Physics,Fluxes,time,dt,pvar,cvar,sterm)
     USE physics_eulerisotherm_mod, ONLY : physics_eulerisotherm
+    USE physics_euler_mod, ONLY : statevector_euler
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(sources_gravity), INTENT(INOUT) :: this
@@ -114,10 +116,7 @@ CONTAINS
     CLASS(physics_base),    INTENT(INOUT) :: Physics
     CLASS(fluxes_base),     INTENT(IN)    :: Fluxes
     REAL,                   INTENT(IN)    :: time, dt
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
-                            INTENT(IN)    :: cvar,pvar
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
-                            INTENT(OUT)   :: sterm
+    CLASS(marray_compound),INTENT(INOUT)  :: pvar,cvar,sterm
     !------------------------------------------------------------------------!
     ! update acceleration of all gravity sources
     ! reset gterm
@@ -125,24 +124,27 @@ CONTAINS
     this%accel(:,:,:,:) = 0.
 
     ! go through all gravity terms in the list
-    CALL this%UpdateGravity(Mesh,Physics,Fluxes,pvar,time,dt)
+    CALL this%UpdateGravity(Mesh,Physics,Fluxes,pvar%data4d,time,dt)
 
     ! update disk scale height if requested
     IF (this%glist%update_disk_height) THEN
       SELECT TYPE(phys => Physics)
       CLASS IS (physics_eulerisotherm)
-        CALL this%glist%CalcDiskHeight(Mesh,phys,pvar)
+        CALL this%glist%CalcDiskHeight(Mesh,phys,pvar%data4d)
       END SELECT
     END IF
 
     ! gravitational source terms
     CALL Physics%ExternalSources(Mesh,this%accel,pvar,cvar,sterm)
 
+    !> \todo The treatment of energy sources should be handled in the physics
+    !! module and not here!
     ! Set src term in energy equation to zero, if it is handeled in the physics
     ! module
-    IF((.NOT.this%addtoenergy).AND.(Physics%ENERGY.GT.0)) THEN
-      sterm(:,:,:,Physics%ENERGY) = 0.
-    END IF
+    SELECT TYPE(s => sterm)
+    TYPE IS (statevector_euler)
+      IF (.NOT.this%addtoenergy) s%energy%data1d(:) = 0.
+    END SELECT
 
   END SUBROUTINE ExternalSources_single
 

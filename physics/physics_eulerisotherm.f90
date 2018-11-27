@@ -773,8 +773,6 @@ CONTAINS
     CLASS(mesh_base),    INTENT(IN)    :: Mesh
     CLASS(marray_compound), INTENT(INOUT) :: pvar,cvar,sterm
     !------------------------------------------------------------------------!
-    INTEGER                                 :: i,j,k
-    !------------------------------------------------------------------------!
     ! compute geometrical source only for non-cartesian mesh
     IF (Mesh%Geometry%GetType().NE.CARTESIAN) THEN
       SELECT TYPE(p => pvar)
@@ -1170,29 +1168,25 @@ CONTAINS
     !------------------------------------------------------------------------!
     CLASS(physics_eulerisotherm), INTENT(IN)  :: this
     CLASS(mesh_base),         INTENT(IN)  :: Mesh
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%NDIMS), &
+    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VDIM), &
                               INTENT(IN)  :: accel
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM), &
-                              INTENT(IN)  :: pvar,cvar
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM), &
-                              INTENT(OUT) :: sterm
+    CLASS(marray_compound), INTENT(INOUT) :: pvar,cvar,sterm
     !------------------------------------------------------------------------!
-    INTEGER                         :: i,j,k
+    INTEGER :: n
     !------------------------------------------------------------------------!
-!     DO k=Mesh%KGMIN,Mesh%KGMAX
-!       DO j=Mesh%JGMIN,Mesh%JGMAX
-!         DO i=Mesh%IGMIN,Mesh%IGMAX
-    FORALL (i=Mesh%IGMIN:Mesh%IGMAX,j=Mesh%JGMIN:Mesh%JGMAX,k=Mesh%KGMIN:Mesh%KGMAX)
-             sterm(i,j,k,this%DENSITY)   = 0.
-             sterm(i,j,k,this%XMOMENTUM) = pvar(i,j,k,this%DENSITY) * accel(i,j,k,1)
-             sterm(i,j,k,this%YMOMENTUM) = pvar(i,j,k,this%DENSITY) * accel(i,j,k,2)
-    END FORALL
-!         END DO
-!       END DO
-!     END DO
-!       sterm(:,:,:,this%DENSITY)   = 0.
-!       sterm(:,:,:,this%XMOMENTUM) = pvar(:,:,:,this%DENSITY) * accel(:,:,:,1)
-!       sterm(:,:,:,this%YMOMENTUM) = pvar(:,:,:,this%DENSITY) * accel(:,:,:,2)
+    SELECT TYPE(p => pvar)
+    TYPE IS(statevector_eulerisotherm)
+      SELECT TYPE(c => cvar)
+      TYPE IS(statevector_eulerisotherm)
+        SELECT TYPE(s => sterm)
+        TYPE IS(statevector_eulerisotherm)
+          s%density%data1d(:) = 0.0
+          DO n=1,this%VDIM
+            s%momentum%data4d(:,:,:,n) = c%density%data3d(:,:,:) * accel(:,:,:,n)
+          END DO
+        END SELECT
+      END SELECT
+    END SELECT
   END SUBROUTINE ExternalSources
 
 

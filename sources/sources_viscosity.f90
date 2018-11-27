@@ -44,6 +44,7 @@ MODULE sources_viscosity_mod
   USE physics_base_mod
   USE fluxes_base_mod
   USE mesh_base_mod
+  USE marray_compound_mod
   USE logging_base_mod
   USE common_dict
   IMPLICIT NONE
@@ -436,22 +437,18 @@ CONTAINS
   SUBROUTINE ExternalSources_single(this,Mesh,Physics,Fluxes,time,dt,pvar,cvar,sterm)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(Sources_viscosity),INTENT(INOUT) :: this
-    CLASS(Mesh_base),INTENT(IN)         :: Mesh
-    CLASS(Physics_base),INTENT(INOUT)   :: Physics
-    CLASS(Fluxes_base),INTENT(IN)       :: Fluxes
-    REAL,INTENT(IN)                     :: time, dt
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM) &
-                      :: cvar,pvar,sterm
+    CLASS(sources_viscosity),INTENT(INOUT) :: this
+    CLASS(mesh_base),INTENT(IN)            :: Mesh
+    CLASS(physics_base),INTENT(INOUT)      :: Physics
+    CLASS(fluxes_base),INTENT(IN)          :: Fluxes
+    REAL,INTENT(IN)                        :: time, dt
+    CLASS(marray_compound),INTENT(INOUT)   :: pvar,cvar,sterm
     !------------------------------------------------------------------------!
-    INTENT(IN)        :: cvar,pvar
-    INTENT(OUT)       :: sterm
-    !------------------------------------------------------------------------!
-    CALL this%UpdateViscosity(Mesh,Physics,Fluxes,time,pvar,cvar)
-    CALL Physics%CalcStresses_euler(Mesh,pvar,this%dynvis,this%bulkvis, &
+    CALL this%UpdateViscosity(Mesh,Physics,Fluxes,time,pvar%data4d,cvar%data4d)
+    CALL Physics%CalcStresses_euler(Mesh,pvar%data4d,this%dynvis,this%bulkvis, &
              this%btxx,this%btxy,this%btxz,this%btyy,this%btyz,this%btzz)
-    CALL Physics%ViscositySources(Mesh,pvar,this%btxx,this%btxy,this%btxz, &
-             this%btyy,this%btyz,this%btzz,sterm)
+    CALL Physics%ViscositySources(Mesh,pvar%data4d,this%btxx,this%btxy,this%btxz, &
+             this%btyy,this%btyz,this%btzz,sterm%data4d)
   END SUBROUTINE ExternalSources_single
 
 

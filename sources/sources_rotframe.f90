@@ -42,6 +42,7 @@ MODULE sources_rotframe_mod
   USE physics_base_mod
   USE fluxes_base_mod
   USE mesh_base_mod
+  USE marray_compound_mod
   USE common_dict
   !--------------------------------------------------------------------------!
   PRIVATE
@@ -77,7 +78,6 @@ CONTAINS
     !------------------------------------------------------------------------!
     INTEGER           :: stype
     INTEGER           :: err
-    INTEGER           :: i,j
     !------------------------------------------------------------------------!
     CALL GetAttr(config, "stype", stype)
     CALL this%InitLogging(stype,source_name)
@@ -155,10 +155,7 @@ CONTAINS
     CLASS(physics_base),     INTENT(INOUT) :: Physics
     CLASS(fluxes_base),      INTENT(IN)    :: Fluxes
     REAL,                    INTENT(IN)    :: time, dt
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
-                             INTENT(IN)    :: cvar,pvar
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
-                             INTENT(OUT)   :: sterm
+    CLASS(marray_compound),  INTENT(INOUT) :: pvar,cvar,sterm
     !------------------------------------------------------------------------!
     INTEGER       :: i,j,k
     !------------------------------------------------------------------------!
@@ -172,9 +169,9 @@ CONTAINS
           DO i=Mesh%IMIN,Mesh%IMAX
             this%accel(i,j,k,1) = Mesh%OMEGA*(Mesh%OMEGA*&
                    this%centproj(i,j,k,1) + 2.0*this%cos1(i,j,k,1)*&
-                   pvar(i,j,k,Physics%YVELOCITY))
+                   pvar%data4d(i,j,k,Physics%YVELOCITY))
             this%accel(i,j,k,2) = -Mesh%OMEGA*2.0*this%cos1(i,j,k,1)*&
-                   pvar(i,j,k,Physics%XVELOCITY)
+                   pvar%data4d(i,j,k,Physics%XVELOCITY)
           END DO
         END DO
       END DO
@@ -187,9 +184,9 @@ CONTAINS
           DO i=Mesh%IMIN,Mesh%IMAX
             ! components of centrifugal and coriolis acceleration
             this%accel(i,j,k,1) = Mesh%OMEGA*(Mesh%OMEGA*this%cent(i,j,k,1) &
-                 + 2.0*pvar(i,j,k,Physics%YVELOCITY))
+                 + 2.0*pvar%data4d(i,j,k,Physics%YVELOCITY))
             this%accel(i,j,k,2) = Mesh%OMEGA*(Mesh%OMEGA*this%cent(i,j,k,2) &
-                 - 2.0*pvar(i,j,k,Physics%XVELOCITY))
+                 - 2.0*pvar%data4d(i,j,k,Physics%XVELOCITY))
           END DO
         END DO
       END DO

@@ -62,6 +62,7 @@ MODULE sources_diskcooling_mod
   USE physics_base_mod
   USE fluxes_base_mod
   USE mesh_base_mod
+  USE marray_compound_mod
   USE logging_base_mod
   USE common_dict
   IMPLICIT NONE
@@ -286,25 +287,22 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(sources_diskcooling), INTENT(INOUT) :: this
-    CLASS(mesh_base),    INTENT(IN)    :: Mesh
-    CLASS(physics_base), INTENT(INOUT) :: Physics
-    CLASS(fluxes_base),  INTENT(IN)    :: Fluxes
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
-                         INTENT(IN)    :: pvar, cvar
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
-                         INTENT(OUT)   :: sterm
-    REAL,                INTENT(IN)    :: time, dt
+    CLASS(mesh_base),INTENT(IN)         :: Mesh
+    CLASS(physics_base),INTENT(INOUT)   :: Physics
+    CLASS(fluxes_base),INTENT(IN)       :: Fluxes
+    REAL,INTENT(IN)                     :: time, dt
+    CLASS(marray_compound),INTENT(INOUT):: pvar,cvar,sterm
     !------------------------------------------------------------------------!
-    sterm(:,:,:,Physics%DENSITY) = 0.0
-    sterm(:,:,:,Physics%XMOMENTUM) = 0.0
-    sterm(:,:,:,Physics%YMOMENTUM) = 0.0
+    sterm%data4d(:,:,:,Physics%DENSITY) = 0.0
+    sterm%data4d(:,:,:,Physics%XMOMENTUM) = 0.0
+    sterm%data4d(:,:,:,Physics%YMOMENTUM) = 0.0
 
     SELECT TYPE(phys => Physics)
     TYPE IS (physics_euler)
-       CALL this%UpdateCooling(Mesh,phys,time,pvar)
+       CALL this%UpdateCooling(Mesh,phys,time,pvar%data4d)
     END SELECT
     ! energy loss due to radiation processes
-    sterm(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,Physics%ENERGY) = &
+    sterm%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,Physics%ENERGY) = &
          -this%Qcool(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX)
   END SUBROUTINE ExternalSources_single
 

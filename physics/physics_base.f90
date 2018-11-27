@@ -295,15 +295,12 @@ MODULE physics_base_mod
                            INTENT(OUT) :: cons
     END SUBROUTINE
     PURE SUBROUTINE ExternalSources(this,Mesh,accel,pvar,cvar,sterm)
-      IMPORT physics_base, mesh_base
+      IMPORT physics_base, mesh_base, marray_compound
       CLASS(physics_base), INTENT(IN)  :: this
       CLASS(mesh_base),    INTENT(IN)  :: Mesh
       REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%NDIMS), &
                            INTENT(IN)  :: accel
-      REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM), &
-                           INTENT(IN)  :: pvar,cvar
-      REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM), &
-                           INTENT(OUT)  :: sterm
+      CLASS(marray_compound), INTENT(INOUT) :: pvar,cvar,sterm
     END SUBROUTINE
     PURE SUBROUTINE Masks(this,reflX,reflY,reflZ)
       IMPORT physics_base

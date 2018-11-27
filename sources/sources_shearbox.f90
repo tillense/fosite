@@ -43,6 +43,7 @@ MODULE sources_shearbox_mod
   USE physics_base_mod
   USE fluxes_base_mod
   USE mesh_base_mod
+  USE marray_compound_mod
   USE common_dict
 #ifdef PARALLEL
 #ifdef HAVE_MPI_MOD
@@ -174,37 +175,42 @@ CONTAINS
     CLASS(physics_base),     INTENT(INOUT) :: Physics
     CLASS(fluxes_base),      INTENT(IN)    :: Fluxes
     REAL,                    INTENT(IN)    :: time, dt
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
-                             INTENT(IN)    :: cvar,pvar
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
-                             INTENT(OUT)   :: sterm
+    CLASS(marray_compound),INTENT(INOUT)   :: pvar,cvar,sterm
     !------------------------------------------------------------------------!
     INTEGER       :: i,j,k
     !------------------------------------------------------------------------!
-    IF (Mesh%FARGO.EQ.0) THEN
-      sterm(:,:,:,:) = 0.0
-!NEC$ IVDEP
-      FORALL(i=Mesh%IMIN:Mesh%IMAX,j=Mesh%JMIN:Mesh%JMAX,k=Mesh%KMIN:Mesh%KMAX)
-        this%accel(i,j,k,this%I1) = Mesh%OMEGA*2.0*(Mesh%Q*Mesh%OMEGA*Mesh%bcenter(i,j,k,this%I1) + this%SIGN1*pvar(i,j,k,this%VEL1))
-        this%accel(i,j,k,this%I2) = this%SIGN2*Mesh%OMEGA*2.0*pvar(i,j,k,this%VEL2)
-      END FORALL
+    SELECT CASE(Mesh%FARGO)
+    CASE(0)
+      ! fargo transport disabled
+      this%accel(:,:,:,this%I1) = 2*Mesh%OMEGA &
+              * (Mesh%Q*Mesh%OMEGA*Mesh%bcenter(:,:,:,this%I1) &
+               + this%SIGN1*pvar%data4d(:,:,:,this%VEL1))
+      this%accel(:,:,:,this%I2) = 2*Mesh%OMEGA*this%SIGN2 &
+              * pvar%data4d(:,:,:,this%VEL2)
       ! shearingsheet inertial forces source terms
       CALL Physics%ExternalSources(Mesh,this%accel,pvar,cvar,sterm)
-    ELSE IF (Mesh%FARGO.EQ.3) THEN
-      sterm(:,:,:,Physics%DENSITY) = 0.0
+    CASE(3)
+      ! fargo transport type 3 enabled
+      sterm%data4d(:,:,:,Physics%DENSITY) = 0.0
 !NEC$ IVDEP
       FORALL(i=Mesh%IMIN:Mesh%IMAX,j=Mesh%JMIN:Mesh%JMAX,k=Mesh%KMIN:Mesh%KMAX)
-        sterm(i,j,k,this%MOMENTUM1) = pvar(i,j,k,Physics%DENSITY)*Mesh%OMEGA*2.0*this%SIGN1*pvar(i,j,k,this%VEL1)
-        sterm(i,j,k,this%MOMENTUM2) = pvar(i,j,k,Physics%DENSITY)*Mesh%OMEGA*(2.0-Mesh%Q)*this%SIGN2*pvar(i,j,k,this%VEL2)
+        sterm%data4d(i,j,k,this%MOMENTUM1) = pvar%data4d(i,j,k,Physics%DENSITY) &
+          *Mesh%OMEGA*2.0*this%SIGN1*pvar%data4d(i,j,k,this%VEL1)
+        sterm%data4d(i,j,k,this%MOMENTUM2) = pvar%data4d(i,j,k,Physics%DENSITY) &
+          *Mesh%OMEGA*(2.0-Mesh%Q)*this%SIGN2*pvar%data4d(i,j,k,this%VEL2)
       END FORALL
       IF (Physics%PRESSURE .GT. 0) THEN
         FORALL(i=Mesh%IMIN:Mesh%IMAX,j=Mesh%JMIN:Mesh%JMAX,k=Mesh%KMIN:Mesh%KMAX)
-            sterm(i,j,k,Physics%ENERGY) = &
-                 this%SIGN1*pvar(i,j,k,Physics%DENSITY)*Mesh%Q*Mesh%OMEGA* &
-                 pvar(i,j,k,this%VEL2)*pvar(i,j,k,this%VEL1)
+            sterm%data4d(i,j,k,Physics%ENERGY) = &
+                 this%SIGN1*pvar%data4d(i,j,k,Physics%DENSITY)*Mesh%Q*Mesh%OMEGA* &
+                 pvar%data4d(i,j,k,this%VEL2)*pvar%data4d(i,j,k,this%VEL1)
         END FORALL
       END IF
-    END IF
+    CASE DEFAULT
+      ! other fargo transport schemes are not supported
+      CALL this%Error("sources_shearbox::ExternalSources_single", &
+                      "currently only Fargo transport type 3 is supported")
+    END SELECT
   END SUBROUTINE ExternalSources_single
 
   !> \public Closes the shearingsheet source term.

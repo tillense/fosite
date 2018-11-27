@@ -1047,8 +1047,6 @@ CONTAINS
     CLASS(mesh_base),    INTENT(IN)    :: Mesh
     CLASS(marray_compound), INTENT(INOUT) :: pvar,cvar,sterm
     !------------------------------------------------------------------------!
-    INTEGER                                 :: i,j,k
-    !------------------------------------------------------------------------!
     ! compute geometrical source only for non-cartesian mesh
     IF (Mesh%Geometry%GetType().NE.CARTESIAN) THEN
       SELECT TYPE(p => pvar)
@@ -1180,32 +1178,34 @@ CONTAINS
   ! momentum and energy sources due to external force
   PURE SUBROUTINE ExternalSources(this,Mesh,accel,pvar,cvar,sterm)
     !------------------------------------------------------------------------!
-    CLASS(physics_euler), INTENT(IN) :: this
-    CLASS(mesh_base),       INTENT(IN) :: Mesh
-    REAL,                   INTENT(IN), &
-      DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%NDIMS) &
-                                       :: accel
-    REAL,                   INTENT(IN), &
-      DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM) &
-                                       :: pvar,cvar
-    REAL,                   INTENT(OUT), &
-      DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM) &
-                                       :: sterm
+    CLASS(physics_euler), INTENT(IN)  :: this
+    CLASS(mesh_base),         INTENT(IN)  :: Mesh
+    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VDIM), &
+                              INTENT(IN)  :: accel
+    CLASS(marray_compound), INTENT(INOUT) :: pvar,cvar,sterm
     !------------------------------------------------------------------------!
-    INTEGER                            :: i,j,k
+    INTEGER :: n
     !------------------------------------------------------------------------!
-    DO k=Mesh%KGMIN,Mesh%KGMAX
-      DO j=Mesh%JGMIN,Mesh%JGMAX
-        DO i=Mesh%IGMIN,Mesh%IGMAX
-          sterm(i,j,k,this%DENSITY)   = 0.
-          sterm(i,j,k,this%XMOMENTUM) = pvar(i,j,k,this%DENSITY) * accel(i,j,k,1)
-          sterm(i,j,k,this%YMOMENTUM) = pvar(i,j,k,this%DENSITY) * accel(i,j,k,2)
-          sterm(i,j,k,this%ENERGY)    = &
-               cvar(i,j,k,this%XMOMENTUM) * accel(i,j,k,1) + &
-               cvar(i,j,k,this%YMOMENTUM) * accel(i,j,k,2)
-        END DO
-      END DO
-    END DO
+    SELECT TYPE(p => pvar)
+    TYPE IS(statevector_euler)
+      SELECT TYPE(c => cvar)
+      TYPE IS(statevector_euler)
+        SELECT TYPE(s => sterm)
+        TYPE IS(statevector_euler)
+          s%density%data1d(:) = 0.0
+!NEC$ UNROLL=3
+          DO n=1,this%VDIM
+            s%momentum%data4d(:,:,:,n) = c%density%data3d(:,:,:) * accel(:,:,:,n)
+          END DO
+          s%energy%data3d(:,:,:) = c%momentum%data4d(:,:,:,1) * accel(:,:,:,1)
+!NEC$ UNROLL=2
+          DO n=2,this%VDIM
+            s%energy%data3d(:,:,:) = s%energy%data3d(:,:,:) &
+              + c%momentum%data4d(:,:,:,n) * accel(:,:,:,n)
+          END DO
+        END SELECT
+      END SELECT
+    END SELECT
   END SUBROUTINE ExternalSources
 
   PURE SUBROUTINE ViscositySources(this,Mesh,pvar,btxx,btxy,btxz,btyy,btyz,btzz,sterm)

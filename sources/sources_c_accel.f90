@@ -39,6 +39,7 @@ MODULE sources_c_accel_mod
   USE fluxes_base_mod
   USE physics_base_mod
   USE mesh_base_mod
+  USE marray_compound_mod
   USE common_dict
   IMPLICIT NONE
   !--------------------------------------------------------------------------!
@@ -97,19 +98,16 @@ CONTAINS
   SUBROUTINE ExternalSources_single(this,Mesh,Physics,Fluxes,time,dt,pvar,cvar,sterm)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(sources_c_accel), INTENT(INOUT) :: this
-    CLASS(mesh_base),       INTENT(IN)    :: Mesh
-    CLASS(physics_base),    INTENT(INOUT) :: Physics
-    CLASS(fluxes_base),     INTENT(IN)    :: Fluxes
-    REAL,                   INTENT(IN)    :: time, dt
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
-                            INTENT(IN)    :: cvar,pvar
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
-                            INTENT(OUT)   :: sterm
+    CLASS(sources_c_accel),INTENT(INOUT):: this
+    CLASS(mesh_base),INTENT(IN)         :: Mesh
+    CLASS(physics_base),INTENT(INOUT)   :: Physics
+    CLASS(fluxes_base),INTENT(IN)       :: Fluxes
+    REAL,INTENT(IN)                     :: time, dt
+    CLASS(marray_compound),INTENT(INOUT):: pvar,cvar,sterm
     !------------------------------------------------------------------------!
     ! compute source terms due to constant acceleration
     CALL Physics%ExternalSources(Mesh,this%accel,pvar,cvar,sterm)
-  END SUBROUTINE ExternalSources_single
+  END SUBROUTINE
 
   SUBROUTINE CalcTimestep_single(this,Mesh,Physics,Fluxes,time,pvar,cvar,dt)
     IMPLICIT NONE
