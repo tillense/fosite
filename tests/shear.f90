@@ -36,6 +36,10 @@ PROGRAM RTI
   REAL, PARAMETER    :: GN         = 1.0            ! grav. constant [GEOM]  !
   INTEGER, PARAMETER :: UNITS      = GEOMETRICAL
   ! simulation parameter
+  REAL, PARAMETER    :: CSISO    = &
+                                     0.0      ! non-isothermal simulation
+!                                      1.0      ! isothermal simulation
+                                              !   with CSISO as sound speed
   REAL, PARAMETER    :: OMEGA      = 1.0
   REAL, PARAMETER    :: SIGMA0     = 1.0
   REAL, PARAMETER    :: TSIM       = 10./OMEGA
@@ -119,11 +123,15 @@ PROGRAM RTI
                 )
 
     ! physics settings
-    physics =>  Dict(&
-                "problem"     / EULER, &
-                "gamma"       / GAMMA, &
-                "units"       / UNITS &
-                )
+    IF (CSISO.GT.TINY(CSISO)) THEN
+      physics => Dict("problem" / EULER_ISOTHERM, &
+                        "units" / UNITS, &
+                           "cs" / CSISO)             ! isothermal speed of sound
+    ELSE
+      physics => Dict("problem" / EULER, &
+                        "units" / UNITS, &
+                        "gamma" / GAMMA)             ! ratio of specific heats
+    END IF
 
     ! flux calculation and reconstruction method
     fluxes => Dict( &
@@ -170,6 +178,7 @@ PROGRAM RTI
               "stoptime"      / TSIM, &
               "dtlimit"       / 1.0E-40, &
               "tol_rel"       / 0.1, &
+              "output/external_sources" / 1, &
               "maxiter"       / 100000000)
 
     ! initialize data input/output
@@ -201,6 +210,15 @@ PROGRAM RTI
     ! Test for shearing and boundary module
     ! initial condition
     SELECT TYPE(p => pvar)
+    TYPE IS(statevector_eulerisotherm) ! isothermal HD
+      WHERE ((ABS(Mesh%bcenter(:,:,:,1)).LT.0.15*DOMAINX.AND. &
+              ABS(Mesh%bcenter(:,:,:,2)).LT.0.15*DOMAINY))
+        p%density%data3d(:,:,:) = SIGMA0
+      ELSEWHERE
+        p%density%data3d(:,:,:) = SIGMA0*1e-2
+      END WHERE
+      p%velocity%data2d(:,1) = 0.0
+      p%velocity%data4d(:,:,:,2) = -Mesh%Q*Mesh%bcenter(:,:,:,1)*Mesh%Omega
     TYPE IS(statevector_euler) ! non-isothermal HD
       WHERE ((ABS(Mesh%bcenter(:,:,:,1)).LT.0.15*DOMAINX.AND. &
               ABS(Mesh%bcenter(:,:,:,2)).LT.0.15*DOMAINY))
