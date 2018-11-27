@@ -207,7 +207,7 @@ CONTAINS
     ! time discretization settings
     timedisc => Dict( &
             "method"    / MODIFIED_EULER, &
-            "order"     / 1, &
+            "order"     / 3, &
             "cfl"       / 0.4, &
             "stoptime"  / TSIM, &
             "dtlimit"   / 1.0E-8, &
