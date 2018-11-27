@@ -83,6 +83,8 @@ PROGRAM bondi2d
   REAL               :: TAU                   ! free fall time scale
   !--------------------------------------------------------------------------!
   CLASS(fosite), ALLOCATABLE   :: Sim
+  REAL, DIMENSION(:), ALLOCATABLE :: sigma
+  INTEGER :: n
   LOGICAL :: ok
   !--------------------------------------------------------------------------!
 
@@ -95,8 +97,27 @@ PROGRAM bondi2d
   CALL Sim%Setup()
   ! set initial condition
   CALL InitData(Sim%Mesh, Sim%Physics, Sim%Fluxes, Sim%Timedisc)
+  ! run the simulation
   CALL Sim%Run()
   ok = .NOT.Sim%aborted
+  ! compare with exact solution if requested
+  IF (ASSOCIATED(Sim%Timedisc%solution)) THEN
+    ALLOCATE(sigma(Sim%Physics%VNUM))
+    DO n=1,Sim%Physics%VNUM
+      ! use L1 norm to estimate the deviation from the exact solution:
+      !   Σ |pvar - pvar_exact| / Σ |pvar_exact|
+      sigma(n) = SUM(ABS(Sim%Timedisc%pvar%data4d(Sim%Mesh%IMIN:Sim%Mesh%IMAX,&
+                           Sim%Mesh%JMIN:Sim%Mesh%JMAX,Sim%Mesh%KMIN:Sim%Mesh%KMAX,n) &
+                        -Sim%Timedisc%solution%data4d(Sim%Mesh%IMIN:Sim%Mesh%IMAX,&
+                           Sim%Mesh%JMIN:Sim%Mesh%JMAX,Sim%Mesh%KMIN:Sim%Mesh%KMAX,n))) &
+               /(SUM(ABS(Sim%Timedisc%solution%data4d(Sim%Mesh%IMIN:Sim%Mesh%IMAX,&
+                           Sim%Mesh%JMIN:Sim%Mesh%JMAX,Sim%Mesh%KMIN:Sim%Mesh%KMAX,n))))
+    END DO
+!     PRINT *,sigma(:)
+    DEALLOCATE(sigma)
+  ELSE
+    sigma(:) = 0.0
+  END IF
 
   CALL Sim%Finalize()
   DEALLOCATE(Sim)
@@ -195,6 +216,7 @@ CONTAINS
              "cfl"       / 0.4, &
              "stoptime"  / (TSIM * TAU), &
              "dtlimit"   / (1.0E-6 * TAU), &
+             "output/solution" / 1, &
              "maxiter"   / 1000000)
 
     ! initialize data input/output
@@ -227,19 +249,38 @@ CONTAINS
     INTEGER              :: i,j,k
     CHARACTER(LEN=64)    :: info_str
     !------------------------------------------------------------------------!
-    ! Bondi solution at the Bondi radius RB
-!!$    CALL bondi(1.0,GAMMA,RHOINF,CSINF,rho,vr)
-!!$    cs2 = CSINF**2 * (rho/RHOINF)**(GAMMA-1.0)
-    ! take values at infinity as initial condition
-    rho = RHOINF
-    cs2 = CSINF**2
-
     ! initial condition
-    Timedisc%pvar%data4d(:,:,:,Physics%DENSITY)   = rho
-    Timedisc%pvar%data4d(:,:,:,Physics%XVELOCITY) = 0.
-    Timedisc%pvar%data4d(:,:,:,Physics%YVELOCITY) = 0.
-    Timedisc%pvar%data4d(:,:,:,Physics%PRESSURE)  = rho * cs2 / GAMMA
+    SELECT TYPE(pvar => Timedisc%pvar)
+    TYPE IS(statevector_euler)
+      ! constant density and pressure, vanishing velocity
+      pvar%density%data1d(:)  = RHOINF
+      pvar%velocity%data1d(:) = 0.
+      pvar%pressure%data1d(:) = RHOINF * CSINF**2 / GAMMA
+    CLASS DEFAULT
+      CALL Physics%Error("bondi2d::InitData","only non-isothermal HD supported")
+    END SELECT
+
     CALL Physics%Convert2Conservative(Timedisc%pvar,Timedisc%cvar)
+
+    ! store exact stationary solution if requested,
+    ! i.e. output/solution == 1 in timedisc config
+    IF (ASSOCIATED(Timedisc%solution)) THEN
+      ! compute the stationary 2D planar bondi solution
+      SELECT TYPE(pvar => Timedisc%solution)
+      TYPE IS(statevector_euler)
+        DO k=Mesh%KMIN,Mesh%KMAX
+          DO j=Mesh%JMIN,Mesh%JMAX
+            DO i=Mesh%IMIN,Mesh%IMAX
+              CALL bondi(Mesh%radius%bcenter(i,j,k)/RB,GAMMA,RHOINF,CSINF, &
+                         pvar%density%data3d(i,j,k),pvar%velocity%data4d(i,j,k,1))
+              cs2 = CSINF**2 * (pvar%density%data3d(i,j,k)/RHOINF)**(GAMMA-1.0)
+              pvar%pressure%data3d(i,j,k) = pvar%density%data3d(i,j,k) * cs2 / GAMMA
+              pvar%velocity%data4d(i,j,k,2) = EPSILON(cs2)
+            END DO
+          END DO
+        END DO
+      END SELECT
+    END IF
 
     ! boundary condition: subsonic inflow according to Bondi's solution
     ! calculate Bondi solution for y=ymin..ymax at xmax
@@ -264,6 +305,30 @@ CONTAINS
             Timedisc%Boundary%Boundary(EAST)%p%data(i,j,k,Physics%PRESSURE)  = rho * cs2 / GAMMA
           END DO
         END DO
+      END DO
+    END IF
+
+    ! boundary condition: subsonic inflow according to Bondi's solution
+    ! calculate Bondi solution for y=ymin..ymax at xmax
+    IF ((Timedisc%Boundary%Boundary(EAST)%p%GetType()).EQ.FIXED) THEN
+      DO k=Mesh%KMIN,Mesh%KMAX
+        DO j=Mesh%JMIN,Mesh%JMAX
+          DO i=1,Mesh%GNUM
+            ! get distance to the origin for each boundary cell
+            r = Mesh%radius%bcenter(Mesh%IMAX+i,j,k)
+            CALL bondi(r/RB,GAMMA,RHOINF,CSINF,rho,vr)
+            cs2 = CSINF**2 * (rho/RHOINF)**(GAMMA-1.0)
+            ! set boundary data to either primitive or conservative values
+            ! depending on the reconstruction
+            Timedisc%Boundary%Boundary(EAST)%p%data(i,j,k,Physics%DENSITY)   = rho
+            Timedisc%Boundary%Boundary(EAST)%p%data(i,j,k,Physics%XVELOCITY) = vr
+            Timedisc%Boundary%Boundary(EAST)%p%data(i,j,k,Physics%YVELOCITY) = 0.
+            Timedisc%Boundary%Boundary(EAST)%p%data(i,j,k,Physics%PRESSURE)  = rho * cs2 / GAMMA
+          END DO
+        END DO
+        ! this tells the boundary routine which values to fix (.TRUE.)
+        ! and which to extrapolate (.FALSE.)
+        Timedisc%Boundary%Boundary(EAST)%p%fixed(j,k,:) = (/ .TRUE., .FALSE., .TRUE., .TRUE. /)
       END DO
     END IF
 
