@@ -88,7 +88,7 @@ PROGRAM bondi2d
   LOGICAL :: ok
   !--------------------------------------------------------------------------!
 
-  TAP_PLAN(1)
+  TAP_PLAN(4)
 
   ALLOCATE(Sim)
   CALL Sim%InitFosite()
@@ -113,8 +113,6 @@ PROGRAM bondi2d
                /(SUM(ABS(Sim%Timedisc%solution%data4d(Sim%Mesh%IMIN:Sim%Mesh%IMAX,&
                            Sim%Mesh%JMIN:Sim%Mesh%JMAX,Sim%Mesh%KMIN:Sim%Mesh%KMAX,n))))
     END DO
-!     PRINT *,sigma(:)
-    DEALLOCATE(sigma)
   ELSE
     sigma(:) = 0.0
   END IF
@@ -123,6 +121,14 @@ PROGRAM bondi2d
   DEALLOCATE(Sim)
 
   TAP_CHECK(ok,"stoptime reached")
+! These lines are very long if expanded. So we can't indent it or it will be cropped.
+TAP_CHECK_SMALL(sigma(1),1.0E-02,"density deviation < 1%")
+TAP_CHECK_SMALL(sigma(2),1.0E-02,"radial velocity deviation < 1%")
+! skip azimuthal velocity deviation, because exact value is 0
+TAP_CHECK_SMALL(sigma(4),1.0E-02,"pressure deviation < 1%")
+
+  IF (ALLOCATED(sigma)) DEALLOCATE(sigma)
+
   TAP_DONE
 
 CONTAINS
@@ -308,30 +314,7 @@ CONTAINS
       END DO
     END IF
 
-    ! boundary condition: subsonic inflow according to Bondi's solution
-    ! calculate Bondi solution for y=ymin..ymax at xmax
-    IF ((Timedisc%Boundary%Boundary(EAST)%p%GetType()).EQ.FIXED) THEN
-      DO k=Mesh%KMIN,Mesh%KMAX
-        DO j=Mesh%JMIN,Mesh%JMAX
-          DO i=1,Mesh%GNUM
-            ! get distance to the origin for each boundary cell
-            r = Mesh%radius%bcenter(Mesh%IMAX+i,j,k)
-            CALL bondi(r/RB,GAMMA,RHOINF,CSINF,rho,vr)
-            cs2 = CSINF**2 * (rho/RHOINF)**(GAMMA-1.0)
-            ! set boundary data to either primitive or conservative values
-            ! depending on the reconstruction
-            Timedisc%Boundary%Boundary(EAST)%p%data(i,j,k,Physics%DENSITY)   = rho
-            Timedisc%Boundary%Boundary(EAST)%p%data(i,j,k,Physics%XVELOCITY) = vr
-            Timedisc%Boundary%Boundary(EAST)%p%data(i,j,k,Physics%YVELOCITY) = 0.
-            Timedisc%Boundary%Boundary(EAST)%p%data(i,j,k,Physics%PRESSURE)  = rho * cs2 / GAMMA
-          END DO
-        END DO
-        ! this tells the boundary routine which values to fix (.TRUE.)
-        ! and which to extrapolate (.FALSE.)
-        Timedisc%Boundary%Boundary(EAST)%p%fixed(j,k,:) = (/ .TRUE., .FALSE., .TRUE., .TRUE. /)
-      END DO
-    END IF
-
+    ! print some information
     CALL Mesh%Info(" DATA-----> initial condition: 2D Bondi accretion")
     WRITE(info_str,"(ES9.3)") RB
     CALL Mesh%Info("                               " // "Bondi radius:       " &

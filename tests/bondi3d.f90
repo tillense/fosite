@@ -48,7 +48,7 @@ PROGRAM bondi3d
   REAL, PARAMETER    :: MSUN    = 1.989E+30   ! solar mass [kg]              !
   REAL, PARAMETER    :: GN      = 6.67408E-11 ! gravitional constant (SI)    !
   ! simulation parameters
-  REAL, PARAMETER    :: TSIM    = 2.0        ! simulation time [TAU]        !
+  REAL, PARAMETER    :: TSIM    = 20.0        ! simulation time [TAU]        !
   REAL, PARAMETER    :: ACCMASS = 1.0*MSUN    ! mass of the accreting object !
   REAL, PARAMETER    :: GAMMA   = 1.4         ! ratio of specific heats      !
   ! boundary conditions
@@ -56,9 +56,9 @@ PROGRAM bondi3d
   REAL, PARAMETER    :: CSINF   = 537.0       ! sound speed at infinity [m/s]!
   ! mesh settings
   INTEGER, PARAMETER :: MGEO    = SPHERICAL   ! geometry of the mesh         !
-  INTEGER, PARAMETER :: XRES    = 50         ! x-resolution                 !
-  INTEGER, PARAMETER :: YRES    = 6          ! y-resolution                 !
-  INTEGER, PARAMETER :: ZRES    = 12          ! z-resolution                 !
+  INTEGER, PARAMETER :: XRES    = 100          ! x-resolution                 !
+  INTEGER, PARAMETER :: YRES    = 4           ! y-resolution                 !
+  INTEGER, PARAMETER :: ZRES    = 8           ! z-resolution                 !
   REAL, PARAMETER    :: RIN     = 0.1         ! inner/outer radii in terms of!
   REAL, PARAMETER    :: ROUT    = 2.0         ! the Bondi radius RB, ROUT > 1!
   ! output parameters
@@ -72,11 +72,12 @@ PROGRAM bondi3d
   REAL               :: TAU                   ! free fall time scale
   !--------------------------------------------------------------------------!
   CLASS(fosite), ALLOCATABLE :: Sim
-  CLASS(marray_compound), POINTER :: pvar_exact
+  REAL, DIMENSION(:), ALLOCATABLE :: sigma
+  INTEGER :: n
   LOGICAL :: ok
   !--------------------------------------------------------------------------!
 
-  TAP_PLAN(1)
+  TAP_PLAN(4)
 
   ALLOCATE(Sim)
   CALL Sim%InitFosite()
@@ -88,15 +89,36 @@ PROGRAM bondi3d
   ! compute numerical solution
   CALL Sim%Run()
   ok = .NOT.Sim%aborted
-  ! compute exact solution
-  CALL Sim%Physics%new_statevector(pvar_exact,PRIMITIVE)
-  CALL ExactSolution(Sim%Mesh,Sim%Physics,pvar_exact)
-!> \todo implement custom or farfield boundary conditions and compare with analytic solution
-  CALL pvar_exact%Destroy()
+  ! compare with exact solution if requested
+  IF (ASSOCIATED(Sim%Timedisc%solution)) THEN
+    ALLOCATE(sigma(Sim%Physics%VNUM))
+    DO n=1,Sim%Physics%VNUM
+      ! use L1 norm to estimate the deviation from the exact solution:
+      !   Σ |pvar - pvar_exact| / Σ |pvar_exact|
+      sigma(n) = SUM(ABS(Sim%Timedisc%pvar%data4d(Sim%Mesh%IMIN:Sim%Mesh%IMAX,&
+                           Sim%Mesh%JMIN:Sim%Mesh%JMAX,Sim%Mesh%KMIN:Sim%Mesh%KMAX,n) &
+                        -Sim%Timedisc%solution%data4d(Sim%Mesh%IMIN:Sim%Mesh%IMAX,&
+                           Sim%Mesh%JMIN:Sim%Mesh%JMAX,Sim%Mesh%KMIN:Sim%Mesh%KMAX,n))) &
+               /(SUM(ABS(Sim%Timedisc%solution%data4d(Sim%Mesh%IMIN:Sim%Mesh%IMAX,&
+                           Sim%Mesh%JMIN:Sim%Mesh%JMAX,Sim%Mesh%KMIN:Sim%Mesh%KMAX,n))))
+    END DO
+! PRINT *,sigma(:)
+  ELSE
+    sigma(:) = 0.0
+  END IF
+
   CALL Sim%Finalize()
   DEALLOCATE(Sim)
 
   TAP_CHECK(ok,"stoptime reached")
+! These lines are very long if expanded. So we can't indent it or it will be cropped.
+TAP_CHECK_SMALL(sigma(1),4.0E-02,"density deviation < 4%")
+TAP_CHECK_SMALL(sigma(2),4.0E-02,"radial velocity deviation < 4%")
+! skip azimuthal & polar velocities, because exact values are 0
+TAP_CHECK_SMALL(sigma(5),6.0E-02,"pressure deviation < 6%")
+
+  IF (ALLOCATED(sigma)) DEALLOCATE(sigma)
+
   TAP_DONE
 
 CONTAINS
@@ -129,8 +151,7 @@ CONTAINS
       z1 = 0.0
       z2 = 2*PI
       bc(WEST)   = NO_GRADIENTS
-!       bc(EAST)   = FIXED
-      bc(EAST)   = REFLECTING
+      bc(EAST)   = CUSTOM
       bc(SOUTH)  = AXIS
       bc(NORTH)  = AXIS
       bc(BOTTOM) = PERIODIC
@@ -194,7 +215,8 @@ CONTAINS
           "cfl"         / 0.4, &
           "stoptime"    / (TSIM * TAU), &
           "dtlimit"     / (1.0E-6 * TAU), &
-          "maxiter"     / 1000000)
+          "output/solution" / 1, &
+          "maxiter"     / 20000)
 
     ! initialize data input/output
     datafile => Dict( &
@@ -225,37 +247,72 @@ CONTAINS
     INTEGER           :: i,j,k
     CHARACTER(LEN=64) :: info_str
     !------------------------------------------------------------------------!
-    ! initial condition: use data at infinity
-    Timedisc%pvar%data4d(:,:,:,Physics%DENSITY)   = RHOINF
-    Timedisc%pvar%data4d(:,:,:,Physics%XVELOCITY) = 0.
-    Timedisc%pvar%data4d(:,:,:,Physics%YVELOCITY) = 0.
-    Timedisc%pvar%data4d(:,:,:,Physics%ZVELOCITY) = 0.
-    Timedisc%pvar%data4d(:,:,:,Physics%PRESSURE)  = RHOINF * CSINF**2 / GAMMA
+    ! initial condition
+    SELECT TYPE(pvar => Timedisc%pvar)
+    TYPE IS(statevector_euler)
+      ! constant density and pressure, vanishing velocity
+      pvar%density%data1d(:)  = RHOINF
+      pvar%velocity%data1d(:) = 0.
+      pvar%pressure%data1d(:) = RHOINF * CSINF**2 / GAMMA
+    CLASS DEFAULT
+      CALL Physics%Error("bondi3d::InitData","only non-isothermal HD supported")
+    END SELECT
 
     CALL Physics%Convert2Conservative(Timedisc%pvar,Timedisc%cvar)
 
-    IF ((Timedisc%Boundary%Boundary(EAST)%p%GetType()).EQ.FIXED) THEN
+    ! store exact stationary solution if requested,
+    ! i.e. output/solution == 1 in timedisc config
+    IF (ASSOCIATED(Timedisc%solution)) THEN
+      ! compute the stationary 2D planar bondi solution
+      SELECT TYPE(pvar => Timedisc%solution)
+      TYPE IS(statevector_euler)
+        DO k=Mesh%KMIN,Mesh%KMAX
+          DO j=Mesh%JMIN,Mesh%JMAX
+            DO i=Mesh%IMIN,Mesh%IMAX
+              r = Mesh%radius%bcenter(i,j,k)
+              CALL bondi(r/RB,GAMMA,RHOINF,CSINF,rho,vr)
+              cs2 = CSINF**2 * (rho/RHOINF)**(GAMMA-1.0)
+              pvar%density%data3d(i,j,k)  = rho
+              ! set the minimum of the exact velocity to some value > 0
+              ! for comparison with the numerical results
+              pvar%velocity%data4d(i,j,k,1:Physics%VDIM) = SIGN(&
+                MAX(EPSILON(cs2),ABS(vr*Mesh%posvec%bcenter(i,j,k,1:Physics%VDIM)/r)), &
+                vr*Mesh%posvec%bcenter(i,j,k,1:Physics%VDIM))
+              pvar%pressure%data3d(i,j,k) = rho * cs2 / GAMMA
+            END DO
+          END DO
+        END DO
+      END SELECT
+    END IF
+
+    ! boundary condition: subsonic inflow according to Bondi's solution
+    ! calculate Bondi solution for y=ymin..ymax at xmax
+    IF ((Timedisc%Boundary%Boundary(EAST)%p%GetType()).EQ.CUSTOM) THEN
+      ! this tells the boundary routine the actual boundary condition for each variable
+      Timedisc%Boundary%boundary(EAST)%p%cbtype(:,:,Physics%DENSITY)   = CUSTOM_FIXED
+      Timedisc%Boundary%boundary(EAST)%p%cbtype(:,:,Physics%XVELOCITY) = CUSTOM_NOGRAD
+      Timedisc%Boundary%boundary(EAST)%p%cbtype(:,:,Physics%YVELOCITY) = CUSTOM_FIXED
+      Timedisc%Boundary%boundary(EAST)%p%cbtype(:,:,Physics%ZVELOCITY) = CUSTOM_FIXED
+      Timedisc%Boundary%boundary(EAST)%p%cbtype(:,:,Physics%PRESSURE)  = CUSTOM_FIXED
       DO k=Mesh%KMIN,Mesh%KMAX
         DO j=Mesh%JMIN,Mesh%JMAX
           DO i=1,Mesh%GNUM
+            ! get distance to the origin for each boundary cell
             r = Mesh%radius%bcenter(Mesh%IMAX+i,j,k)
             CALL bondi(r/RB,GAMMA,RHOINF,CSINF,rho,vr)
             cs2 = CSINF**2 * (rho/RHOINF)**(GAMMA-1.0)
+            ! set boundary data to either primitive or conservative values
+            ! depending on the reconstruction
             Timedisc%Boundary%Boundary(EAST)%p%data(i,j,k,Physics%DENSITY)   = rho
             Timedisc%Boundary%Boundary(EAST)%p%data(i,j,k,Physics%XVELOCITY) = vr*Mesh%posvec%bcenter(Mesh%IMAX+i,j,k,1)/r
             Timedisc%Boundary%Boundary(EAST)%p%data(i,j,k,Physics%YVELOCITY) = vr*Mesh%posvec%bcenter(Mesh%IMAX+i,j,k,2)/r
-            Timedisc%Boundary%Boundary(EAST)%p%data(i,j,k,Physics%ZVELOCITY) = 0.
+            Timedisc%Boundary%Boundary(EAST)%p%data(i,j,k,Physics%ZVELOCITY) = vr*Mesh%posvec%bcenter(Mesh%IMAX+i,j,k,3)/r
             Timedisc%Boundary%Boundary(EAST)%p%data(i,j,k,Physics%PRESSURE)  = rho * cs2 / GAMMA
           END DO
         END DO
       END DO
     END IF
 
-
-    ! boundary conditions
-    ! outflow condition, this is only for transition; in the end the flow
-    ! becomes supersonic and all variables are extrapolated from the interior
-    CALL Mesh%Info(" DATA-----> initial condition: 3D Bondi accretion")
     WRITE(info_str,"(ES9.3)") RB
     CALL Mesh%Info("                               " // "Bondi radius:       " &
          // TRIM(info_str) // " m")
@@ -263,37 +320,6 @@ CONTAINS
     CALL Mesh%Info("                               " // "Free fall time:     " &
          // TRIM(info_str) // " s")
   END SUBROUTINE InitData
-
-
-  SUBROUTINE ExactSolution(Mesh,Physics,pvar)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(mesh_base),     INTENT(IN)    :: Mesh
-    CLASS(physics_base),  INTENT(IN)    :: Physics
-    CLASS(marray_compound), POINTER     :: pvar
-    !------------------------------------------------------------------------!
-    INTEGER :: i,j,k
-    REAL    :: r,rho,vr,cs2
-    !------------------------------------------------------------------------!
-    SELECT TYPE(p => pvar)
-    TYPE IS(statevector_euler) ! non-isothermal HD
-      DO k=Mesh%KMIN,Mesh%KMAX
-        DO j=Mesh%JMIN,Mesh%JMAX
-          DO i=Mesh%IMIN,Mesh%IMAX
-            r = Mesh%radius%bcenter(i,j,k)
-            CALL bondi(r/RB,GAMMA,RHOINF,CSINF,rho,vr)
-            cs2 = CSINF**2 * (rho/RHOINF)**(GAMMA-1.0)
-            p%density%data3d(i,j,k)  = rho
-            p%velocity%data4d(i,j,k,1:Physics%VDIM) = vr*Mesh%posvec%bcenter(i,j,k,1:Physics%VDIM)/r
-            p%pressure%data3d(i,j,k) = rho * cs2 / GAMMA
-          END DO
-        END DO
-      END DO
-    CLASS DEFAULT
-      CALL Physics%Error("bondi3d::ExactSolution","only non-isothermal HD supported")
-    END SELECT
-
-  END SUBROUTINE ExactSolution
 
 
   SUBROUTINE bondi(r,gamma,rhoinf,csinf,rho,vr)
