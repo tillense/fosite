@@ -41,10 +41,7 @@
 !!
 !! Program and data initialization for a shearing-box simulation
 !!
-!! There are currently two different implementations, which all need
-!! different datatypes and array boundaries and optional plannings, etc.
-!! This is why there there are lots of preprocessing statements. Generally
-!! the following settings are possible. Please be aware that this module
+!! There are currently two different implementations. Please be aware that this module
 !! requires a certain domain decomposition in pencils and cannot be chosen
 !! arbitrarily.
 !!
@@ -54,18 +51,7 @@
 !! \todo Remove unnecessary allocations like ip_den, etc. At the moment there
 !!       are certainly possibilities to save memory, because for every task
 !!       a new array is allocated.
-!! \todo General cleanup: Many different array boundaries from 1:Mesh%INUM or
-!!       Mesh%IMIN:Mesh%IMAX. This should be somehow coherently. Although
-!!       Mesh%IMIN:Mesh%IMAX is used by Fosite, using Mesh%INUM.
-!!
-!! \note \b Concerning the parallel mode on SX Ace: \b Performance measurements
-!!       showed that there is a large performance gain, if the individual
-!!       strides are \b smaller \b than \f$ 256 \f$ cells. Simulations where
-!!       performed on a \f$ 512 \times 512 \f$ grid and \f$ 1, 2, 4, 8 \f$ and
-!!       \f$ 16 \f$ nodes (one core per node). Using \f$ 1 \f$ or \f$ 2 \f$
-!!       nodes was magnitudes slower (!) than using \f$ 4 \f$ nodes. For even
-!!       more nodes there was a typical performance gain.
-!!
+!
 !! \attention The parallel version with this module needs a pencil decomposition
 !!            of Mesh%INUM X Mesh%JNUM/nprocs for each process, in order to use
 !!            the FFT-method with period boundaries in one direction.
@@ -109,10 +95,11 @@ MODULE gravity_sboxspectral_mod
                                      :: Fmass2D(:,:)   !< temporary variable
     REAL, DIMENSION(:,:,:), POINTER  :: Fmass2D_real   !< temporary variable
     INTEGER(C_INTPTR_T)              :: local_joff
-    REAL,DIMENSION(:), POINTER       :: kx            !< wave numbers for FFT (x)
-    REAL,DIMENSION(:), POINTER       :: ky            !< wave numbers for FFT (y)
-    REAL                             :: Lx, Ly
-    REAL, DIMENSION(:), POINTER      :: joff, jrem   !< shifting indices (in SB)
+    REAL,DIMENSION(:), POINTER       :: kx             !< wave numbers for FFT (x)
+    REAL,DIMENSION(:), POINTER       :: ky             !< wave numbers for FFT (y)
+    REAL                             :: shiftconst     !< constant for shift
+    REAL, DIMENSION(:), POINTER      :: joff, jrem     !< shifting indices (in SB)
+    INTEGER                          :: order
 #ifdef PARALLEL
     INTEGER(C_INTPTR_T)              :: C_INUM, C_JNUM
     INTEGER(C_INTPTR_T)              :: alloc_local, local_JNUM
@@ -170,6 +157,9 @@ MODULE gravity_sboxspectral_mod
 #endif
     !------------------------------------------------------------------------!
     CALL GetAttr(config, "gtype", gravity_number)
+
+    CALL GetAttr(config, "order", this%order, 2)
+
     CALL this%InitLogging(gravity_number,solver_name)
 
     !-------------- checks & warnings for initial conditions ----------------!
@@ -183,14 +173,17 @@ MODULE gravity_sboxspectral_mod
     C_JNUM = Mesh%JNUM
 #endif
 
+    ! rotational symmetry is not allowed
     IF (Mesh%ROTSYM.NE.0) &
       CALL this%Error("InitGravity_sboxspectral", &
          "Rotational symmetry not supported.")
 
+    ! 1D simulations are not allowed
     IF (Mesh%NDIMS.EQ.1) &
       CALL this%Error("InitGravity_sboxspectral", &
          "Only 2D (shearingsheet) and 3D (shearingbox) simulations allowed with this module.")
 
+    ! check physics
     SELECT TYPE (phys => Physics)
     CLASS IS(physics_eulerisotherm)
       ! do nothing
@@ -223,9 +216,9 @@ MODULE gravity_sboxspectral_mod
     IF (Mesh%dims(1).GT.1 .AND. Mesh%SN_shear) THEN
       CALL this%Error("InitGravity_sboxspectral", &
                  "The first dimension needs to be fully accessible by each process. "// &
-                 "Please change domain decomposition to pencil decompositon by. " // &
+                 "Please change domain decomposition to pencil decompositon. " // &
                  "This needs to be done during initialization. In the Mesh dictionary " // &
-                 "use the key 'decompositon' and the value (/ 1,-1/) to force decomposition " // &
+                 "use the key 'decompositon' and the value (/ 1,-1, 1/) to force decomposition " // &
                  "along second direction")
     END IF
 #endif
@@ -303,6 +296,16 @@ MODULE gravity_sboxspectral_mod
     this%ky = cshift((/(i-(Mesh%JNUM+1)/2,i=0,Mesh%JNUM-1)/), &
                 +(Mesh%JNUM+1)/2)*2.*PI/(Mesh%YMAX-Mesh%YMIN)
 
+    ! precompute shift constant
+    IF(Mesh%WE_shear) THEN
+      this%shiftconst = Mesh%Q*Mesh%OMEGA*(Mesh%xmax-Mesh%xmin)/Mesh%dy
+    ELSE IF (Mesh%SN_shear) THEN
+      this%shiftconst = Mesh%Q*Mesh%OMEGA*(Mesh%ymax-Mesh%ymin)/Mesh%dx
+    ELSE
+      CALL this%Error("InitGravity_sboxspectral", &
+        "Either WE_shear or SN_shear need to be applied.")
+    END IF
+
     !------------------------------- output ---------------------------------!
     valwrite = 0
     CALL GetAttr(config, "output/phi", valwrite, 0)
@@ -354,30 +357,39 @@ MODULE gravity_sboxspectral_mod
     ! calc potential first
     CALL this%CalcPotential(Mesh,Physics,time,pvar)
 
-    w1 = 3./48.
-    w2 = 30./48.
-
-    !\todo{Here a more robust approximation needs to be searched}
-    ! Maybe Physics%VNUM is greater than 2 => set all to zero
     this%accel(:,:,:,:) = 0.
-    DO k = Mesh%KMIN,Mesh%KMAX
-      DO j = Mesh%JMIN,Mesh%JMAX
-        DO i = Mesh%IMIN,Mesh%IMAX
-          ! second order approximation
-          this%accel(i,j,k,1) = -1.0*(this%phi(i+1,j,k)-this%phi(i-1,j,k))/ &
-                               (2*Mesh%dlx(i,j,k))
-          this%accel(i,j,k,2) = -1.0*(this%phi(i,j+1,k)-this%phi(i,j-1,k))/ &
-                               (2*Mesh%dly(i,j,k))
-          ! fourth order
-!          this%accel(i,j,1) = -1.0*(w1*this%phi(i-2,j)-w2*this%phi(i-1,j)+ &
-!                                    w2*this%phi(i+1,j)-w1*this%phi(i+2,j))/ &
-!                                   (Mesh%dlx(i,j))
-!          this%accel(i,j,2) = -1.0*(w1*this%phi(i,j-2)-w2*this%phi(i,j-1)+ &
-!                                    w2*this%phi(i,j+1)-w1*this%phi(i,j+2)) / &
-!                                   (Mesh%dly(i,j))
+    IF (this%order.EQ.2) THEN
+      DO k = Mesh%KMIN,Mesh%KMAX
+        DO j = Mesh%JMIN,Mesh%JMAX
+          DO i = Mesh%IMIN,Mesh%IMAX
+            ! second order approximation
+            this%accel(i,j,k,1) = -1.0*(this%phi(i+1,j,k)-this%phi(i-1,j,k))/ &
+                                 (2*Mesh%dlx(i,j,k))
+            this%accel(i,j,k,2) = -1.0*(this%phi(i,j+1,k)-this%phi(i,j-1,k))/ &
+                                 (2*Mesh%dly(i,j,k))
+         END DO
         END DO
       END DO
-    END DO
+    ELSE IF (this%order.EQ.4) THEN
+      w1 = 3./48.
+      w2 = 30./48.
+      DO k = Mesh%KMIN,Mesh%KMAX
+        DO j = Mesh%JMIN,Mesh%JMAX
+          DO i = Mesh%IMIN,Mesh%IMAX
+            ! fourth order
+            this%accel(i,j,k,1) = -1.0*(w1*this%phi(i-2,j,k)-w2*this%phi(i-1,j,k)+ &
+                                        w2*this%phi(i+1,j,k)-w1*this%phi(i+2,j,k))/ &
+                                       (Mesh%dlx(i,j,k))
+            this%accel(i,j,k,2) = -1.0*(w1*this%phi(i,j-2,k)-w2*this%phi(i,j-1,k)+ &
+                                        w2*this%phi(i,j+1,k)-w1*this%phi(i,j+2,k)) / &
+                                       (Mesh%dly(i,j,k))
+          END DO
+        END DO
+      END DO
+    ELSE
+      CALL this%Error("InitGravity_sboxspectral", &
+        "The chosen order approximation does not exist (only 2 and 3).")
+    END IF
 #endif
   END SUBROUTINE UpdateGravity_single
 
@@ -464,7 +476,6 @@ MODULE gravity_sboxspectral_mod
               pvar(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%DENSITY), &
               this%den_ip(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX))
 
-! TODO POTENTIAL ERROR BECAUSE OF RESHAPE FUNCTIONS
 #if defined(PARALLEL)
     this%mass2D(1:Mesh%INUM,1:this%local_JNUM) = &
       RESHAPE(this%den_ip(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX), (/ Mesh%INUM,Mesh%JNUM/nprocs /))
@@ -481,7 +492,6 @@ CALL ftrace_region_begin("forward_fft")
 
     !> \todo Violation of best practices. It should take Fmass2D and mass2D as
     !!      dummy argument, but this is different for every combination
-    !!      Do this pretty when everything else works.
 !NEC$ IEXPAND
     CALL this%FFT_Forward(Mesh,Physics)
 
@@ -526,7 +536,6 @@ CALL ftrace_region_begin("backward_fft")
 
     !> \todo Violation of best practices. It should take Fmass2D and mass2D as
     !!      dummy argument, but this is different for every combination.
-    !!      Do this pretty when everything else works.
 !NEC$ EXPAND
     CALL this%FFT_Backward(Mesh,Physics)
 
@@ -558,7 +567,6 @@ CALL ftrace_region_end("backward_fft")
     END DO
 
     !----- copy values to boundaries in order to calculate acceleration -----!
-
     IF(Mesh%WE_shear) THEN
 !NEC$ NODEP
       DO j = 1,Mesh%GJNUM
@@ -566,34 +574,41 @@ CALL ftrace_region_end("backward_fft")
         this%phi(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN-j,Mesh%KMIN:Mesh%KMAX) = this%phi(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX-j+1,Mesh%KMIN:Mesh%KMAX)
         this%phi(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX+j,Mesh%KMIN:Mesh%KMAX) = this%phi(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN+j-1,Mesh%KMIN:Mesh%KMAX)
       END DO
+      joff2 = -this%shiftconst*delt
+      jrem2 = joff2 - FLOOR(joff2)
       DO i = 1,Mesh%GINUM
-        ! western (shorn periodic) - residual and integer shift
-        joff2 = -Mesh%Q*Mesh%OMEGA*(Mesh%XMAX-Mesh%XMIN)*delt/Mesh%dy
-        jrem2 = joff2 - FLOOR(joff2)
+        ! western (periodic)
+        this%phi(Mesh%IMIN-i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX) = this%phi(Mesh%IMAX-i+1,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX)
+        ! western integer shift
+        this%phi(Mesh%IMIN-i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX)  = &
+              CSHIFT(this%phi(Mesh%IMIN-i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX),FLOOR(joff2))
+        ! western residual shift
+        this%phi(Mesh%IMIN-i,Mesh%JMAX+1,:) = this%phi(Mesh%IMIN-i,Mesh%JMIN,:)
         DO k=Mesh%KMIN,Mesh%KMAX
           DO j=Mesh%JMIN,Mesh%JMAX
             this%phi(Mesh%IMIN-i,j,k) = &
-                (1.0 - jrem2)*this%phi(Mesh%IMAX-i+1,j,k) + jrem2*this%phi(Mesh%IMAX-i+1,j+1,k)
+                (1.0 - jrem2)*this%phi(Mesh%IMIN-i,j,k) + jrem2*this%phi(Mesh%IMIN-i,j+1,k)
           END DO
         END DO
-        this%phi(Mesh%IMIN-i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX)  = &
-              CSHIFT(this%phi(Mesh%IMIN-i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX),FLOOR(joff2))
-        ! eastern (shorn periodic) - residual and integer shift
-        joff2 = Mesh%Q*Mesh%OMEGA*(Mesh%XMAX-Mesh%XMIN)*delt/Mesh%dy
-        jrem2 = joff2 - FLOOR(joff2)
+      END DO
+      joff2 = this%shiftconst*delt
+      jrem2 = joff2 - FLOOR(joff2)
+      DO i = 1,Mesh%GINUM
+        ! eastern (periodic)
+        this%phi(Mesh%IMAX+i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX) = this%phi(Mesh%IMIN+i-1,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX)
+        ! eastern integer shift
+        this%phi(Mesh%IMAX+i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX)  = &
+              CSHIFT(this%phi(Mesh%IMAX+i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX),FLOOR(joff2))
+        ! eastern residual shift
+        this%phi(Mesh%IMAX+i,Mesh%JMAX+1,:) = this%phi(Mesh%IMAX+i,Mesh%JMIN,:)
         DO k=Mesh%KMIN,Mesh%KMAX
           DO j=Mesh%JMIN,Mesh%JMAX
             this%phi(Mesh%IMAX+i,j,k) = &
-                (1.0 - jrem2)*this%phi(Mesh%IMIN+i-1,j,k) + jrem2*this%phi(Mesh%IMIN+i-1,j+1,k)
+                (1.0 - jrem2)*this%phi(Mesh%IMAX+i,j,k) + jrem2*this%phi(Mesh%IMAX+i,j+1,k)
           END DO
         END DO
-        this%phi(Mesh%IMAX+i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX)  = &
-              CSHIFT(this%phi(Mesh%IMAX+i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX),FLOOR(joff2))
       END DO
 ! Only north-south direction has parallelization allowed
-! Approach below:
-! Either with or without parallel mode apply periodic boundaries to all cells. In a second step shift the
-! cells at the boundaries where it is necessary.
 ! Attention: The order of the copies plays a role. First the non-shifted direction needs to be
 ! copied, afterwards the shifted.
     ELSE IF(Mesh%SN_shear) THEN
@@ -630,16 +645,10 @@ CALL ftrace_region_end("backward_fft")
       ELSE
         DO j = 1,Mesh%GJNUM
           ! southern northern (periodic in first step - further shift-treatment below)
-          this%phi(Mesh%IGMIN:Mesh%IGMAX,Mesh%JMIN-j,Mesh%KGMIN:Mesh%KGMAX) = this%phi(Mesh%IGMIN:Mesh%IGMAX,Mesh%JMAX-j+1,Mesh%KGMIN:Mesh%KGMAX)
-          this%phi(Mesh%IGMIN:Mesh%IGMAX,Mesh%JMAX+j,Mesh%KGMIN:Mesh%KGMAX) = this%phi(Mesh%IGMIN:Mesh%IGMAX,Mesh%JMIN+j-1,Mesh%KGMIN:Mesh%KGMAX)
+          this%phi(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN-j,Mesh%KMIN:Mesh%KMAX) = this%phi(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX-j+1,Mesh%KMIN:Mesh%KMAX)
+          this%phi(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX+j,Mesh%KMIN:Mesh%KMAX) = this%phi(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN+j-1,Mesh%KMIN:Mesh%KMAX)
         END DO
       END IF
-#else
-      DO j = 1,Mesh%GJNUM
-        ! southern northern (periodic in first step - further shift-treatment below)
-        this%phi(Mesh%IGMIN:Mesh%IGMAX,Mesh%JMIN-j,Mesh%KGMIN:Mesh%KGMAX) = this%phi(Mesh%IGMIN:Mesh%IGMAX,Mesh%JMAX-j+1,Mesh%KGMIN:Mesh%KGMAX)
-        this%phi(Mesh%IGMIN:Mesh%IGMAX,Mesh%JMAX+j,Mesh%KGMIN:Mesh%KGMAX) = this%phi(Mesh%IGMIN:Mesh%IGMAX,Mesh%JMIN+j-1,Mesh%KGMIN:Mesh%KGMAX)
-      END DO
 #endif
 
 #ifdef PARALLEL
@@ -647,18 +656,22 @@ CALL ftrace_region_end("backward_fft")
 #endif
       DO j = 1,Mesh%GJNUM
         ! southern (shorn periodic) - residual and integer shift
-        joff2 = Mesh%Q*Mesh%OMEGA*(Mesh%YMAX-Mesh%YMIN)*delt/Mesh%dx
+#ifndef PARALLEL
+        this%phi(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN-j,Mesh%KMIN:Mesh%KMAX) = this%phi(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX-j+1,Mesh%KMIN:Mesh%KMAX)
+#endif
+        joff2 = this%shiftconst*delt
         jrem2 = joff2 - FLOOR(joff2)
+        !------- integral shift ---------------------------------------------!
+        this%phi(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN-j,Mesh%KMIN:Mesh%KMAX)  = &
+          CSHIFT(this%phi(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN-j,Mesh%KMIN:Mesh%KMAX),FLOOR(joff2))
         !------- residual shift ---------------------------------------------!
+        this%phi(Mesh%IMAX+1,Mesh%JMIN-j,:) = this%phi(Mesh%IMIN,Mesh%JMIN-j,:)
         DO k = Mesh%KMIN,Mesh%KMAX
           DO i=Mesh%IMIN,Mesh%IMAX
             this%phi(i,Mesh%JMIN-j,k) = &
               (1.0 - jrem2)*this%phi(i,Mesh%JMIN-j,k) + jrem2*this%phi(i+1,Mesh%JMIN-j,k)
           END DO
         END DO
-        !------- integral shift ---------------------------------------------!
-        this%phi(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN-j,Mesh%KMIN:Mesh%KMAX)  = &
-          CSHIFT(this%phi(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN-j,Mesh%KMIN:Mesh%KMAX),FLOOR(joff2))
       END DO
 #ifdef PARALLEL
       END IF
@@ -668,19 +681,23 @@ CALL ftrace_region_end("backward_fft")
       IF (Mesh%mycoords(2).EQ.Mesh%dims(2)-1) THEN
 #endif
       DO j = 1,Mesh%GJNUM
+#ifndef PARALLEL
+        this%phi(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX+j,Mesh%KMIN:Mesh%KMAX) = this%phi(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN+j-1,Mesh%KMIN:Mesh%KMAX)
+#endif
         ! northern (shorn periodic) - residual and integer shift
-        joff2 = -Mesh%Q*Mesh%OMEGA*(Mesh%YMAX-Mesh%YMIN)*delt/Mesh%dx
+        joff2 = -this%shiftconst*delt
         jrem2 = joff2 - FLOOR(joff2)
+        !------- integral shift ---------------------------------------------!
+        this%phi(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX+j,Mesh%KMIN:Mesh%KMAX)  = &
+          CSHIFT(this%phi(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX+j,Mesh%KMIN:Mesh%KMAX),FLOOR(joff2))
         !------- residual shift ---------------------------------------------!
+        this%phi(Mesh%IMAX+1,Mesh%JMAX+j,:) = this%phi(Mesh%IMIN,Mesh%JMAX+j,:)
         DO k = Mesh%KMIN,Mesh%KMAX
           DO i = Mesh%IMIN,Mesh%IMAX
             this%phi(i,Mesh%JMAX+j,k) = &
               (1.0 - jrem2)*this%phi(i,Mesh%JMAX+j,k) + jrem2*this%phi(i+1,Mesh%JMAX+j,k)
           END DO
         END DO
-        !------- integral shift ---------------------------------------------!
-        this%phi(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX+j,Mesh%KMIN:Mesh%KMAX)  = &
-          CSHIFT(this%phi(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX+j,Mesh%KMIN:Mesh%KMAX),FLOOR(joff2))
       END DO
 #ifdef PARALLEL
       END IF

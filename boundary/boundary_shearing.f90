@@ -23,38 +23,37 @@
   !# Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.                 #
   !#                                                                           #
   !#############################################################################
-  !> \addtogroup boundary
   !----------------------------------------------------------------------------!
   !> \author Jannes Klee
   !!
-  !! \brief Boundary module for a shearing box
+  !! \brief Boundary module for a shearingsheet/shearingbox.
   !!        (see e.g. the \link shearingsheet.f90 standard run \endlink)
   !!
+  !! \todo Implementation for shearing in third dimension is not included, yet.
+  !!
   !! Implementation of the boundaries in a shearing box. For details have a
-  !! look at \cite hawley1995 or \cite gammie2001 . The northern and southern boundary
-  !! conditions are periodic boundaries.
+  !! look at \cite hawley1995 or \cite gammie2001 .
   !!
   !! The dependent variables \f$ f = (\Sigma, E, v_{x}, v_{y}) \f$ are sheared-
-  !! periodic, thus:
+  !! periodic, thus for shearing in the western/eastern boundaries:
   !! \f[
   !!      f(x,y) = f(x,y+L) \\
   !!      f(x,y) = f(x+L,y-q \Omega L t).
   !! \f]
   !!
-  !! Since the sheared cells move continuously in time, linear interpolation
-  !! is used, in order to set the boundary in the fixed ghost cells.
-  !! For implementation it is important to notice that there is an integral
-  !! shift and a rest one. The latter is done by linear interpolation between
-  !! two cells.
+  !! There is an integral shift and a residual one. The latter is done by
+  !! linear interpolation between two cells.
   !!
-  !! \attention For a good numerical setup, the shearing boundary should be applied
-  !!            after the other boundaries, because the shearing accesses the edge cells.
+  !! \attention The shearing boundaries are either applying periodic boundaries
+  !!            first or assuming that periodic boundaries are applied (parallel).
   !!
   !! <div class="row"> <div class="col-md-6">
   !! \image html boundaries_shift.png "illustration of boundary mapping"
   !! </div> <div class="col-md-6">
   !! \image html boundaries_velshift.png "velocity substraction for the v_y component"
   !! </div></div>
+  !!
+  !> \ingroup boundary
   !----------------------------------------------------------------------------!
 MODULE boundary_shearing_mod
   USE boundary_base_mod
@@ -78,8 +77,8 @@ MODULE boundary_shearing_mod
   CHARACTER(LEN=32), PARAMETER  :: boundcond_name = "shearing"
 
   TYPE, EXTENDS(boundary_periodic) :: boundary_shearing
-    REAL, DIMENSION(:), POINTER :: velocity_shift  !< shear box parameter
-    REAL                        :: velocity_offset !< shear box parameter
+    REAL                        :: velocity_offset !< velocity-shift distance L
+    REAL, DIMENSION(:), POINTER :: velocity_shift  !< extra shift in one direction
   CONTAINS
     PROCEDURE :: InitBoundary_shearing
     PROCEDURE :: SetBoundaryData
@@ -157,15 +156,15 @@ CONTAINS
   !! are calculated during initialization of the \link timedisc_generic \endlink
   !! module.
   !!
-  !! \attention The implemenation is done in a way, that periodic boundaries
-  !! are already applied. Thus, only the shifting on the **same** side is
-  !! applied to the primitive variables. This gives us the benefit to be able
-  !! to reuse the periodic boundaries automatically applied by MPI because
+  !! The implemenation is done in a way, that periodic boundaries are applied at
+  !! the very beginning (in serial) or are already applied (in parallel). Thus,
+  !! only the shifting on the same side is applied. This gives us the benefit to be able
+  !! to reuse the periodic boundaries, that are automatically applied by MPI from
   !! of domain decomposition. When running on a single core the periodic
   !! boundaries are applied by hand at the beginning.
   !!
-  !! \attention Currently, this implementation only works parallelized with processes
-  !!  along the y-axis, which means that
+  !! For parallel usage: currently, this implementation only works
+  !! in parallel with processes along the y-axis.
   !!
   !!                                 NB
   !!                          ----------------
@@ -179,7 +178,7 @@ CONTAINS
   !!                          ----------------
   !!                                 SB
   !!
-  !! \attention Here, NB, SB are northern and southern boundaries, respectively.
+  !! Here, NB, SB are northern and southern boundaries, respectively.
   !! p1,p2,... are the used processes. This kind of parallization goes in
   !! concordance with the parallelization used for the gravitation fourier
   !! solvers, which need full strides in one direction. We use solely the
@@ -226,64 +225,68 @@ CONTAINS
         intshift = FLOOR(offset_tmp)
         offremain = offset_tmp - intshift
         DO i=1,Mesh%GNUM
+          !------- integral shift ---------------------------------------------!
+          pvar(Mesh%IMIN-i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,l)  = &
+            CSHIFT(pvar(Mesh%IMIN-i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,l),intshift)
           !------- residual shift ---------------------------------------------!
+          pvar(Mesh%IMIN-i,Mesh%JMAX+1,:,l) = pvar(Mesh%IMIN-i,Mesh%JMIN,:,l)
           DO k=Mesh%KMIN,Mesh%KMAX
             DO j=Mesh%JMIN,Mesh%JMAX
               pvar(Mesh%IMIN-i,j,k,l) = (1.0 - offremain)*pvar(Mesh%IMIN-i,j,k,l) + &
                 offremain*pvar(Mesh%IMIN-i,j+1,k,l) + this%velocity_shift(l)
             END DO
           END DO
-          !------- integral shift ---------------------------------------------!
-          pvar(Mesh%IMIN-i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,l)  = &
-            CSHIFT(pvar(Mesh%IMIN-i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,l),intshift)
         END DO
       CASE(EAST)
         offset_tmp = -offset
         intshift = FLOOR(offset_tmp)
         offremain = offset_tmp - intshift
         DO i=1,Mesh%GNUM
+          !------- integral shift ---------------------------------------------!
+          pvar(Mesh%IMAX+i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,l)  = &
+            CSHIFT(pvar(Mesh%IMAX+i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,l),intshift)
           !------- residual shift ---------------------------------------------!
+          pvar(Mesh%IMAX+i,Mesh%JMAX+1,:,l) = pvar(Mesh%IMAX+i,Mesh%JMIN,:,l)
           DO k=Mesh%KMIN,Mesh%KMAX
             DO j=Mesh%JMIN,Mesh%JMAX
               pvar(Mesh%IMAX+i,j,k,l) = (1.0 - offremain)*pvar(Mesh%IMAX+i,j,k,l) + &
                 offremain*pvar(Mesh%IMAX+i,j+1,k,l) - this%velocity_shift(l)
             END DO
           END DO
-          !------- integral shift ---------------------------------------------!
-          pvar(Mesh%IMAX+i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,l)  = &
-            CSHIFT(pvar(Mesh%IMAX+i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,l),intshift)
         END DO
       CASE(SOUTH)
         offset_tmp = -offset
         intshift = FLOOR(offset_tmp)
         offremain = offset_tmp - intshift
         DO j=1,Mesh%GNUM
+          !------- integral shift ---------------------------------------------!
+          pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN-j,Mesh%KMIN:Mesh%KMAX,l)  = &
+            CSHIFT(pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN-j,Mesh%KMIN:Mesh%KMAX,l),intshift)
           !------- residual shift ---------------------------------------------!
+          pvar(Mesh%IMAX+1,Mesh%JMIN-j,:,l) = pvar(Mesh%IMIN,Mesh%JMIN-j,:,l)
           DO k=Mesh%KMIN,Mesh%KMAX
             DO i=Mesh%IMIN,Mesh%IMAX
               pvar(i,Mesh%JMIN-j,k,l) = (1.0 - offremain)*pvar(i,Mesh%JMIN-j,k,l) + &
                 offremain*pvar(i+1,Mesh%JMIN-j,k,l) - this%velocity_shift(l)
             END DO
           END DO
-          !------- integral shift ---------------------------------------------!
-          pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN-j,Mesh%KMIN:Mesh%KMAX,l)  = &
-            CSHIFT(pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN-j,Mesh%KMIN:Mesh%KMAX,l),intshift)
         END DO
       CASE(NORTH)
         offset_tmp = offset
         intshift = FLOOR(offset_tmp)
         offremain = offset_tmp - intshift
         DO j=1,Mesh%GNUM
+          !------- integral shift ---------------------------------------------!
+          pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX+j,Mesh%KMIN:Mesh%KMAX,l)  = &
+            CSHIFT(pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX+j,Mesh%KMIN:Mesh%KMAX,l),intshift)
           !------- residual shift ---------------------------------------------!
+          pvar(Mesh%IMAX+1,Mesh%JMAX+j,:,l) = pvar(Mesh%IMIN,Mesh%JMAX+j,:,l)
           DO k=Mesh%KMIN,Mesh%KMAX
             DO i=Mesh%IMIN,Mesh%IMAX
               pvar(i,Mesh%JMAX+j,k,l) = (1.0 - offremain)*pvar(i,Mesh%JMAX+j,k,l) + &
                 offremain*pvar(i+1,Mesh%JMAX+j,k,l) + this%velocity_shift(l)
             END DO
           END DO
-          !------- integral shift ---------------------------------------------!
-          pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX+j,Mesh%KMIN:Mesh%KMAX,l)  = &
-            CSHIFT(pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX+j,Mesh%KMIN:Mesh%KMAX,l),intshift)
         END DO
       CASE(BOTTOM)
        !CALL this%Error("SetBoundary", "Shearing not supported in BOTTOM direction.")

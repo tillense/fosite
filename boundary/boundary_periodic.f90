@@ -30,7 +30,6 @@
 !!
 !! \brief Boundary module for periodic boundary conditions
 !!
-!! \extends boundary_nogradients
 !! \ingroup boundary
 !----------------------------------------------------------------------------!
 MODULE boundary_periodic_mod
