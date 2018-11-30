@@ -1,7 +1,7 @@
 !#############################################################################
 !#                                                                           #
-!# fosite - 2D hydrodynamical simulation program                             #
-!# module: timedisc_dormand_prince.f90                                       #
+!# fosite - 3D hydrodynamical simulation program                             #
+!# module: timedisc_dormand_prince.f03                                       #
 !#                                                                           #
 !# Copyright (C) 2013                                                        #
 !# Björn Sperling   <sperling@astrophysik.uni-kiel.de>                       #
@@ -78,9 +78,6 @@ CONTAINS
     ! set default order
     CALL GetAttr(config, "order", this%order, 5)
 
-    CALL GetAttr(config, "method", method)
-    CALL this%InitTimedisc(Mesh,Physics,config,IO,method,ODEsolver_name)
-
     SELECT CASE(this%GetOrder())
     CASE(5)
        !set number of coefficients
@@ -117,6 +114,9 @@ CONTAINS
     ! set RHS pointer to the first entry of the coeff field
     this%rhs => Mesh%RemapBounds(this%coeff(:,:,:,:,1))
 
+    CALL GetAttr(config, "method", method)
+    CALL this%InitTimedisc(Mesh,Physics,config,IO,method,ODEsolver_name)
+
     IF ((this%tol_rel.LT.0.0).OR.MINVAL(this%tol_abs(:)).LT.0.0) &
          CALL this%Error("timedisc_dormand_prince", &
          "error tolerance levels must be greater than 0")
@@ -127,8 +127,11 @@ CONTAINS
          CALL this%Warning("timedisc_dormand_prince", &
              "You chose a relatively high tol_rel (in comparison to order)",0)
     END IF
+
     CALL GetAttr(config, "ShowButcherTableau", ShowBut, 0)
     IF (ShowBut .EQ. 1) CALL this%ShowButcherTableau()
+
+
   END SUBROUTINE InitTimedisc_dormand_prince
 
   SUBROUTINE Finalize(this)
@@ -136,7 +139,6 @@ CONTAINS
     !-----------------------------------------------------------------------!
     CLASS(timedisc_dormand_prince) :: this
     !-----------------------------------------------------------------------!
-!    DEALLOCATE(this%coeff,this%b_high,this%b_low,this%c,this%a)
     CALL this%timedisc_rkfehlberg%Finalize()
   END SUBROUTINE
 END MODULE timedisc_dormand_prince_mod

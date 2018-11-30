@@ -36,8 +36,7 @@
 !! \ingroup timedisc
 !----------------------------------------------------------------------------!
 MODULE timedisc_ssprk_mod
-
-USE timedisc_base_mod
+  USE timedisc_base_mod
   USE mesh_base_mod
   USE fluxes_base_mod
   USE boundary_base_mod
@@ -77,8 +76,6 @@ CONTAINS
     ! set default order
     CALL GetAttr(config, "order", this%order, 5)
 
-    CALL GetAttr(config, "method", method)
-    CALL this%InitTimedisc(Mesh,Physics,config,IO,method,ODEsolver_name)
 
     SELECT CASE(this%GetOrder())
     CASE(3)
@@ -90,7 +87,7 @@ CONTAINS
          "a butchers tableau. => Better use the 5th order scheme!")
        !set number of coefficients
        this%m = 3
-       ! allocate memory 
+       ! allocate memory
        ALLOCATE(this%coeff(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM,this%m), &
                 this%b_high(this%m),&
                 this%b_low(this%m),&
@@ -107,13 +104,13 @@ CONTAINS
                  0.0,  0.0,  0.0, &
                  1.0,  0.0,  0.0, &
                  0.25, 0.25, 0.0 /),(/this%m,this%m/)))
-    CASE(5) 
-       ! RK(5,4) SSP(5,3) 
-       ! Reference: Colin Barr Macdonald: Constructing High-Order Runge_lutta Methods with Embedded 
+    CASE(5)
+       ! RK(5,4) SSP(5,3)
+       ! Reference: Colin Barr Macdonald: Constructing High-Order Runge_lutta Methods with Embedded
        ! Strong-Stability-PReserving Pairs (2003)
        !set number of coefficients
        this%m = 5
-       ! allocate memory 
+       ! allocate memory
        ALLOCATE(this%coeff(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM,this%m), &
                 this%b_high(this%m),&
                 this%b_low(this%m),&
@@ -138,6 +135,9 @@ CONTAINS
 
     ! set RHS pointer to the first entry of the coeff field
     this%rhs => Mesh%RemapBounds(this%coeff(:,:,:,:,1))
+
+    CALL GetAttr(config, "method", method)
+    CALL this%InitTimedisc(Mesh,Physics,config,IO,method,ODEsolver_name)
 
     IF ((this%tol_rel.LT.0.0).OR.MINVAL(this%tol_abs(:)).LT.0.0) &
          CALL this%Error("timedisc_ssprk", &

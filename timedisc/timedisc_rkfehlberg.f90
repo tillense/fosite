@@ -1,7 +1,7 @@
 !#############################################################################
 !#                                                                           #
-!# fosite - 2D hydrodynamical simulation program                             #
-!# module: timedisc_rkfehlberg .f90                                          #
+!# fosite - 3D hydrodynamical simulation program                             #
+!# module: timedisc_rkfehlberg .f03                                          #
 !#                                                                           #
 !# Copyright (C) 2011,2014                                                   #
 !# Björn Sperling   <sperling@astrophysik.uni-kiel.de>                       #
@@ -37,7 +37,6 @@
 !!      formulas with stepsize control and their application to some heat
 !!      transfer problems.
 !!
-!! \extends timedisc_common
 !! \ingroup timedisc
 !----------------------------------------------------------------------------!
 MODULE timedisc_rkfehlberg_mod
@@ -46,11 +45,7 @@ MODULE timedisc_rkfehlberg_mod
   USE fluxes_base_mod
   USE boundary_base_mod
   USE physics_base_mod
-  USE timedisc_modeuler_mod!, &
-!          AdjustTimestep_rkfehlberg => AdjustTimestep_modeuler, &
-!          CalcTimestep_rkfehlberg => CalcTimestep_modeuler, &
-!          ComputeError_rkfehlberg => ComputeError_modeuler, &
-!          ComputeRHS_rkfehlberg => ComputeRHS_modeuler
+  USE timedisc_modeuler_mod
   USE sources_base_mod
   USE common_dict
 #ifdef PARALLEL
@@ -68,8 +63,8 @@ MODULE timedisc_rkfehlberg_mod
   PRIVATE
   TYPE, EXTENDS (timedisc_modeuler) :: timedisc_rkfehlberg
      REAL, DIMENSION(:,:,:,:,:),POINTER :: coeff            !< coefficents
-     REAL, DIMENSION(:), POINTER       :: b_low,b_high,c   !<    needed by
-     REAL, DIMENSION(:,:), POINTER     :: a                !<    embedded RK
+     REAL, DIMENSION(:), POINTER        :: b_low,b_high,c   !<    needed by
+     REAL, DIMENSION(:,:), POINTER      :: a                !<    embedded RK
   CONTAINS
     PROCEDURE :: InitTimedisc_rkfehlberg
     PROCEDURE :: Finalize
@@ -82,16 +77,7 @@ MODULE timedisc_rkfehlberg_mod
   !--------------------------------------------------------------------------!
   PUBLIC :: &
        ! types
-       timedisc_rkfehlberg!, &
-       ! methods 
-!       InitTimedisc_rkfehlberg, &
-!       CloseTimedisc_rkfehlberg, &
-!       SolveODE_rkfehlberg, &
-!       CalcTimestep_rkfehlberg, &
-!       ComputeCVar_rkfehlberg, &
-!       ComputeRHS_rkfehlberg, &
-!       ComputeError_rkfehlberg, &
-!       ShowButcherTableau, &
+       timedisc_rkfehlberg
   !--------------------------------------------------------------------------!
 
 CONTAINS
@@ -104,13 +90,11 @@ CONTAINS
     CLASS(Physics_base),        INTENT(IN)    :: Physics
     TYPE(Dict_TYP), POINTER                   :: config,IO
     !------------------------------------------------------------------------!
-    INTEGER            :: err,method,ShowBut
+    INTEGER :: err,ShowBut
     !------------------------------------------------------------------------!
     ! set default order
     CALL GetAttr(config, "order", this%order, 5)
 
- !   CALL GetAttr(config, "method", method)
-    CALL this%InitTimedisc(Mesh,Physics,config,IO,RK_FEHLBERG,ODEsolver_name)
 
     ! set number of coefficients
     SELECT CASE(this%GetOrder())
@@ -135,6 +119,8 @@ CONTAINS
 
     ! set RHS pointer to the first entry of the coeff field
     this%rhs => Mesh%RemapBounds(this%coeff(:,:,:,:,1))
+
+    CALL this%InitTimedisc(Mesh,Physics,config,IO,RK_FEHLBERG,ODEsolver_name)
 
     SELECT CASE(this%GetOrder())
     CASE(3)
@@ -176,6 +162,7 @@ CONTAINS
 
     CALL GetAttr(config, "ShowButcherTableau", ShowBut, 0)
     IF (ShowBut .EQ. 1) CALL this%ShowButcherTableau()
+
   END SUBROUTINE InitTimedisc_rkfehlberg
 
 
@@ -190,7 +177,7 @@ CONTAINS
     REAL,                       INTENT(IN)    :: time
     REAL,                       INTENT(INOUT) :: dt,err
     !------------------------------------------------------------------------!
-    INTEGER            :: n,i,j,k,l,m
+    INTEGER            :: i,j,k,l,m
     REAL               :: t
     !------------------------------------------------------------------------!
     t = time
@@ -294,46 +281,14 @@ CONTAINS
     REAL,DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM,this%m), &
              INTENT(IN)          :: coeff
     !------------------------------------------------------------------------!
-    INTEGER            :: i,j,k,mm
+    INTEGER :: mm
     !------------------------------------------------------------------------!
-    ! compute y + SUM(a_mi*k_i) = y + SUM(a_mi*dt*rhs_i)  : i in [1,m-1] 
+    ! compute y + SUM(a_mi*k_i) = y + SUM(a_mi*dt*rhs_i)  : i in [1,m-1]
     ! see Runge-Kutta method (Butcher tableau)
-!     cnew(:,:,:) = cvar(:,:,:) - this%a(m,1)*dt*coeff(:,:,:,1)
-! 
-!     ! time step update of boundary fluxes
-!     DO j=Mesh%JMIN,Mesh%JMAX
-!        ! western and eastern boundary
-!        Fluxes%bxflux(j,1,:) = Fluxes%bxflux(j,1,:) - this%a(m,1)*dt*coeff(Mesh%IMIN-1,j,:,1)
-!        Fluxes%bxflux(j,2,:) = Fluxes%bxflux(j,2,:) - this%a(m,1)*dt*coeff(Mesh%IMAX+1,j,:,1)
-!     END DO
-! 
-!    ! southern and northern boundary fluxes
-! !NEC$ IVDEP
-!    DO i=Mesh%IMIN,Mesh%IMAX
-!       ! time step update of boundary fluxes
-!       Fluxes%byflux(i,1,:) = Fluxes%byflux(i,1,:) - this%a(m,1)*dt*coeff(i,Mesh%JMIN-1,:,1)
-!       Fluxes%byflux(i,2,:) = Fluxes%byflux(i,2,:) - this%a(m,1)*dt*coeff(i,Mesh%JMAX+1,:,1)
-!    END DO
-
-   cnew(:,:,:,:) = cvar(:,:,:,:)
-!NEC$ NOVECTOR   
+    cnew(:,:,:,:) = cvar(:,:,:,:)
+!NEC$ NOVECTOR
     DO mm=1,m-1
        cnew(:,:,:,:) = cnew(:,:,:,:) - this%a(m,mm)*dt*coeff(:,:,:,:,mm)
-
-!        ! time step update of boundary fluxes
-!        DO j=Mesh%JMIN,Mesh%JMAX
-!           ! western and eastern boundary
-!           Fluxes%bxflux(j,1,k) = Fluxes%bxflux(j,1,k) - this%a(m,mm)*dt*coeff(Mesh%IMIN-1,j,k,mm)
-!           Fluxes%bxflux(j,2,k) = Fluxes%bxflux(j,2,k) - this%a(m,mm)*dt*coeff(Mesh%IMAX+1,j,k,mm)
-!        END DO
-! 
-!        ! southern and northern boundary fluxes
-! !NEC IVDEP
-!        DO i=Mesh%IMIN,Mesh%IMAX
-!           ! time step update of boundary fluxes
-!           Fluxes%byflux(i,1,k) = Fluxes%byflux(i,1,k) - this%a(m,mm)*dt*coeff(i,Mesh%JMIN-1,k,mm)
-!           Fluxes%byflux(i,2,k) = Fluxes%byflux(i,2,k) - this%a(m,mm)*dt*coeff(i,Mesh%JMAX+1,k,mm)
-!        END DO
     END DO
   END SUBROUTINE ComputeCVar_rkfehlberg
 

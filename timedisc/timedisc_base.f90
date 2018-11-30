@@ -1,7 +1,7 @@
 !r#############################################################################
 !#                                                                           #
 !# fosite - 3D hydrodynamical simulation program                             #
-!# module: timedisc_generic.f90                                              #
+!# module: timedisc_base.f03                                                 #
 !#                                                                           #
 !# Copyright (C) 2007-2018                                                   #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
@@ -132,13 +132,8 @@ PRIVATE
      REAL, DIMENSION(:,:,:,:), POINTER :: fargo_src =>null() !< fargo source terms
      INTEGER                           :: fargo_order     !< used in FargoAdvection
 
-
-!     TYPE(elem_TYP),POINTER            :: ts=>Null()       !< timesteps (multistep)
-!  TYPE elem_TYP
-!    TYPE(elem_TYP), POINTER            :: next,prev
-!    REAL                               :: t                !< time
-!  END TYPE elem_TYP
   CONTAINS
+
     PROCEDURE           :: InitTimedisc
     PROCEDURE           :: SetOutput
     PROCEDURE           :: IntegrationStep
@@ -171,16 +166,6 @@ PRIVATE
       REAL,                 INTENT(IN)    :: time
       REAL,                 INTENT(INOUT) :: dt, err
     END SUBROUTINE
-!    REAL FUNCTION CalcTimestep(this,Mesh,Physics,Fluxes,time,dtcause) RESULT(dt)
-!      IMPORT timedisc_base, mesh_base, physics_base, fluxes_base
-!      IMPLICIT NONE
-!      CLASS(timedisc_base), INTENT(INOUT) :: this
-!      CLASS(mesh_base),     INTENT(IN)    :: Mesh
-!      CLASS(physics_base),  INTENT(INOUT) :: Physics
-!      CLASS(fluxes_base),   INTENT(INOUT) :: Fluxes
-!      REAL,                 INTENT(IN)    :: time
-!      INTEGER,              INTENT(INOUT) :: dtcause
-!    END FUNCTION
   SUBROUTINE Finalize(this)
     IMPORT timedisc_base
     IMPLICIT NONE
@@ -194,7 +179,6 @@ PRIVATE
   INTEGER, PARAMETER :: RK_FEHLBERG      = 2
   INTEGER, PARAMETER :: CASH_KARP        = 3
   INTEGER, PARAMETER :: DORMAND_PRINCE   = 4
-!  INTEGER, PARAMETER :: MULTISTEP        = 5
   INTEGER, PARAMETER :: SSPRK            = 5
   !--------------------------------------------------------------------------!
   INTEGER, PARAMETER :: DTCAUSE_CFL      =  0 ! smallest ts due to cfl cond. !
@@ -218,7 +202,7 @@ PRIVATE
        ! types
        timedisc_base, &
        ! constants
-       MODIFIED_EULER, RK_FEHLBERG, CASH_KARP, DORMAND_PRINCE, &! MULTISTEP, &
+       MODIFIED_EULER, RK_FEHLBERG, CASH_KARP, DORMAND_PRINCE, &
        SSPRK, &
        DTCAUSE_CFL,DTCAUSE_ERRADJ,DTCAUSE_SMALLERR, DTCAUSE_FILEIO, &
        CHECK_ALL, CHECK_NOTHING, CHECK_CSOUND, CHECK_RHOMIN, CHECK_PMIN, &
@@ -1004,8 +988,6 @@ CONTAINS
     INTEGER                             :: i,j,k,l
     REAL                                :: t
     REAL                                :: phi,wp
-!     REAL,DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX) &
-!                                         :: w
     REAL, DIMENSION(:,:,:,:), POINTER   :: pot
     CLASS(sources_base),      POINTER   :: sp
     CLASS(sources_gravity),   POINTER   :: grav

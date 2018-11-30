@@ -1,9 +1,9 @@
 !#############################################################################
 !#                                                                           #
-!# fosite - 2D hydrodynamical simulation program                             #
-!# module: timedisc_cashkarp.f90                                             #
+!# fosite - 3D hydrodynamical simulation program                             #
+!# module: timedisc_cashkarp.f03                                             #
 !#                                                                           #
-!# Copyright (C) 2011,2013                                                   #
+!# Copyright (C) 2011-2018                                                   #
 !# Björn Sperling   <sperling@astrophysik.uni-kiel.de>                       #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
 !#                                                                           #
@@ -77,13 +77,10 @@ CONTAINS
     TYPE(Dict_TYP), POINTER &
                        :: config, IO
     !------------------------------------------------------------------------!
-    INTEGER            :: err,method,ShowBut
+    INTEGER            :: err,ShowBut
     !------------------------------------------------------------------------!
     ! set default order
     CALL GetAttr(config, "order", this%order, 5)
-
-!    CALL GetAttr(config, "method", method)
-    CALL this%InitTimedisc(Mesh,Physics,config,IO,CASH_KARP,ODEsolver_name)
 
     SELECT CASE(this%GetOrder())
     CASE(5)
@@ -118,6 +115,8 @@ CONTAINS
 
     ! set RHS pointer to the first entry of the coeff field
     this%rhs => Mesh%RemapBounds(this%coeff(:,:,:,:,1))
+
+    CALL this%InitTimedisc(Mesh,Physics,config,IO,CASH_KARP,ODEsolver_name)
 
     IF ((this%tol_rel.LT.0.0).OR.MINVAL(this%tol_abs(:)).LT.0.0) &
          CALL this%Error("timedisc_cashkarp", &
