@@ -6,7 +6,7 @@
   <a href="http://fortranwiki.org/fortran/show/Fortran+2003+status" target="_blank">Fortran-Wiki</a>
   in order to get an overview. We encourage you to use the most recent compilers in order to benefit from vectorization features
   on new architectures. The following compilers were tested and should work:
-    - gfortran (>=6.2): GNU fortran compiler
+    - gfortran (>=6.4): GNU fortran compiler
     - ifort (>=16.0.4): Intel fortran compiler
     - nfort (>=1.6.0): NEC compiler for SX-Tsubasa system
 - **Needed**: <a href="https://cmake.org/" target='_blank'> cmake </a> (>=2.8.10) - Necessary to configure fosite.
