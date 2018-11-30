@@ -129,14 +129,14 @@ CONTAINS
     CLASS(fosite), INTENT(INOUT) :: this
     !--------------------------------------------------------------------------!
 #ifdef PARALLEL
-    LOGICAL            :: already_initialized
+    LOGICAL            :: already_initialized = .FALSE.
 #endif
     !--------------------------------------------------------------------------!
 #ifdef PARALLEL
-! initialize MPI library for parallel execution, if Fosite is not initialized
+    ! initialize MPI library for parallel execution, if Fosite is not initialized
     IF(.NOT.this%Initialized()) &
       CALL MPI_Initialized(already_initialized,this%ierror)
-      IF (.NOT.already_initialized) &
+    IF (.NOT.already_initialized) &
       CALL MPI_Init(this%ierror)
 #endif
     !> if Fosite is already initialized, close it, but do not finalize MPI
@@ -144,6 +144,21 @@ CONTAINS
       CALL this%Finalize(.FALSE.)
 
     CALL this%InitLogging(simtype,simname)
+
+    CALL InitDict()
+    this%iter = 0
+  END SUBROUTINE InitFosite
+
+  SUBROUTINE Setup(this)
+    IMPLICIT NONE
+    !--------------------------------------------------------------------------!
+    CLASS(fosite),  INTENT(INOUT) :: this
+    TYPE(Dict_TYP), POINTER       :: dir, IOdir, config_copy
+    !--------------------------------------------------------------------------!
+    IF (.NOT.this%Initialized()) &
+      CALL this%Error("Setup","Sim is uninitialized")
+
+    CALL DeleteDict(this%IO)
 
     IF (this%GetRank().EQ.0) THEN
         ! print some information
@@ -164,20 +179,6 @@ CONTAINS
         CALL this%Info(this%buffer)
         CALL this%Info("Initializing simulation:")
     END IF
-    CALL InitDict()
-    this%iter = 0
-  END SUBROUTINE InitFosite
-
-  SUBROUTINE Setup(this)
-    IMPLICIT NONE
-    !--------------------------------------------------------------------------!
-    CLASS(fosite),  INTENT(INOUT) :: this
-    TYPE(Dict_TYP), POINTER       :: dir, IOdir, config_copy
-    !--------------------------------------------------------------------------!
-    IF (.NOT.this%Initialized()) &
-      CALL this%Error("Setup","Sim is uninitialized")
-
-    CALL DeleteDict(this%IO)
 
     CALL GetAttr(this%config, "mesh", dir)
     IF(ASSOCIATED(dir)) THEN
