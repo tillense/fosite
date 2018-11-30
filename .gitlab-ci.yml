@@ -56,6 +56,11 @@ ser_test_bondi3d:
     script:
         - ./ser_build/tests/bondi3d
 
+par_test_bondi3d:
+    stage: test
+    script:
+        - mpirun -n 2 ./par_build/tests/bondi3d
+
 ser_test_sedov2d:
     stage: test
     script:
@@ -70,6 +75,11 @@ ser_test_bondi2d:
     stage: test
     script:
         - ./ser_build/tests/bondi2d
+
+par_test_bondi2d:
+    stage: test
+    script:
+        - mpirun -n 2 ./par_build/tests/bondi2d
 
 ser_test_poiseuille:
     stage: test

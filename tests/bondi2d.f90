@@ -84,14 +84,25 @@ PROGRAM bondi2d
   !--------------------------------------------------------------------------!
   CLASS(fosite), ALLOCATABLE   :: Sim
   REAL, DIMENSION(:), ALLOCATABLE :: sigma
+  REAL :: sum_numer, sum_denom
   INTEGER :: n
+#ifdef PARALLEL
+  INTEGER :: ierr
+#endif
   LOGICAL :: ok
   !--------------------------------------------------------------------------!
 
-  TAP_PLAN(4)
-
   ALLOCATE(Sim)
   CALL Sim%InitFosite()
+
+#ifdef PARALLEL
+  IF (Sim%GetRank().EQ.0) THEN
+#endif
+TAP_PLAN(4)
+#ifdef PARALLEL
+  END IF
+#endif
+
   CALL MakeConfig(Sim, Sim%config)
 !  CALL PrintDict(config)
   CALL Sim%Setup()
@@ -106,30 +117,48 @@ PROGRAM bondi2d
     DO n=1,Sim%Physics%VNUM
       ! use L1 norm to estimate the deviation from the exact solution:
       !   Σ |pvar - pvar_exact| / Σ |pvar_exact|
-      sigma(n) = SUM(ABS(Sim%Timedisc%pvar%data4d(Sim%Mesh%IMIN:Sim%Mesh%IMAX,&
+      sum_numer = SUM(ABS(Sim%Timedisc%pvar%data4d(Sim%Mesh%IMIN:Sim%Mesh%IMAX,&
                            Sim%Mesh%JMIN:Sim%Mesh%JMAX,Sim%Mesh%KMIN:Sim%Mesh%KMAX,n) &
                         -Sim%Timedisc%solution%data4d(Sim%Mesh%IMIN:Sim%Mesh%IMAX,&
-                           Sim%Mesh%JMIN:Sim%Mesh%JMAX,Sim%Mesh%KMIN:Sim%Mesh%KMAX,n))) &
-               /(SUM(ABS(Sim%Timedisc%solution%data4d(Sim%Mesh%IMIN:Sim%Mesh%IMAX,&
-                           Sim%Mesh%JMIN:Sim%Mesh%JMAX,Sim%Mesh%KMIN:Sim%Mesh%KMAX,n))))
+                           Sim%Mesh%JMIN:Sim%Mesh%JMAX,Sim%Mesh%KMIN:Sim%Mesh%KMAX,n)))
+      sum_denom = SUM(ABS(Sim%Timedisc%solution%data4d(Sim%Mesh%IMIN:Sim%Mesh%IMAX,&
+                           Sim%Mesh%JMIN:Sim%Mesh%JMAX,Sim%Mesh%KMIN:Sim%Mesh%KMAX,n)))
+#ifdef PARALLEL
+      IF (Sim%GetRank().GT.0) THEN
+        CALL MPI_Reduce(sum_numer,sum_numer,1,DEFAULT_MPI_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+        CALL MPI_Reduce(sum_denom,sum_denom,1,DEFAULT_MPI_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+      ELSE
+        CALL MPI_Reduce(MPI_IN_PLACE,sum_numer,1,DEFAULT_MPI_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+        CALL MPI_Reduce(MPI_IN_PLACE,sum_denom,1,DEFAULT_MPI_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+#endif
+      sigma(n) = sum_numer / sum_denom
+#ifdef PARALLEL
+      END IF
+#endif
     END DO
   ELSE
     sigma(:) = 0.0
   END IF
 
-  CALL Sim%Finalize()
-  DEALLOCATE(Sim)
+  CALL Sim%Finalize(mpifinalize_=.FALSE.)
 
-  TAP_CHECK(ok,"stoptime reached")
+#ifdef PARALLEL
+  IF (Sim%GetRank().EQ.0) THEN
+#endif
+TAP_CHECK(ok,"stoptime reached")
 ! These lines are very long if expanded. So we can't indent it or it will be cropped.
 TAP_CHECK_SMALL(sigma(1),1.0E-02,"density deviation < 1%")
 TAP_CHECK_SMALL(sigma(2),1.0E-02,"radial velocity deviation < 1%")
 ! skip azimuthal velocity deviation, because exact value is 0
 TAP_CHECK_SMALL(sigma(4),1.0E-02,"pressure deviation < 1%")
+TAP_DONE
+#ifdef PARALLEL
+  END IF
+  CALL MPI_Finalize(ierr)
+#endif
 
   IF (ALLOCATED(sigma)) DEALLOCATE(sigma)
-
-  TAP_DONE
+  DEALLOCATE(Sim)
 
 CONTAINS
 
