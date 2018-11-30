@@ -229,6 +229,8 @@ CONTAINS
 
 
   SUBROUTINE InitTimedisc(this,Mesh,Physics,config,IO,ttype,tname)
+    USE physics_eulerisotherm_mod, ONLY : physics_eulerisotherm
+    USE physics_euler_mod, ONLY : physics_euler
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(timedisc_base), INTENT(INOUT) :: this
@@ -377,8 +379,8 @@ CONTAINS
        ! do nothing
     CASE(1,2,3) ! fargo enabled
        ! check physics
-       SELECT CASE(Physics%GetType())
-       CASE(EULER2D_ISOIAMT,EULER2D_IAMT,EULER2D_ISOIAMROT,EULER2D_ISOTHERM,EULER2D)
+       SELECT TYPE(phys => Physics)
+       CLASS IS(physics_eulerisotherm)
           ! check geometry
           SELECT CASE(Mesh%Geometry%GetType())
           CASE(POLAR,TANPOLAR,LOGPOLAR,CYLINDRICAL,LOGCYLINDRICAL,SINHPOLAR)
@@ -428,7 +430,7 @@ CONTAINS
              CALL this%Warning("InitTimedisc", &
                  "fargo has been disabled, because the geometry is not supported.")
           END SELECT
-       CASE DEFAULT
+       CLASS DEFAULT
           ! geometry not supported -> disable fargo
           Mesh%FARGO = 0
           CALL this%Warning("InitTimedisc","fargo has been disabled, because the physics is not supported.")
@@ -1072,7 +1074,7 @@ CONTAINS
     ! get source terms due to external forces if present
     IF (ASSOCIATED(Sources)) &
        CALL Sources%ExternalSources(Mesh,Fluxes,Physics, &
-            time,dt,pvar,cvar,this%src)
+            t,dt,pvar,cvar,this%src)
 
     ! if fargo advection is enabled additional source terms occur;
     ! furthermore computation of numerical fluxes should always be
