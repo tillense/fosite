@@ -152,6 +152,7 @@ MODULE gravity_sboxspectral_mod
   !! The possible combinations are
   !! 1. FFTW - serial, parallel
   SUBROUTINE InitGravity_sboxspectral(this,Mesh,Physics,config,IO)
+    USE physics_eulerisotherm_mod, ONLY : physics_eulerisotherm
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(gravity_sboxspectral), INTENT(INOUT) :: this
@@ -176,12 +177,27 @@ MODULE gravity_sboxspectral_mod
     CALL this%Error("InitGravity_sboxspectral", &
          "No fftw package could be loaded.")
 #else
-    !>\todo{implement a check for equidistant mesh}
 #ifdef PARALLEL
     CALL fftw_mpi_init()
     C_INUM = Mesh%INUM
     C_JNUM = Mesh%JNUM
 #endif
+
+    IF (Mesh%ROTSYM.NE.0) &
+      CALL this%Error("InitGravity_sboxspectral", &
+         "Rotational symmetry not supported.")
+
+    IF (Mesh%NDIMS.EQ.1) &
+      CALL this%Error("InitGravity_sboxspectral", &
+         "Only 2D (shearingsheet) and 3D (shearingbox) simulations allowed with this module.")
+
+    SELECT TYPE (phys => Physics)
+    CLASS IS(physics_eulerisotherm)
+      ! do nothing
+    CLASS DEFAULT
+      CALL this%Error("InitGravity_sboxspectral", &
+         "Physics modules with density necessary for this module.")
+    END SELECT
 
     ! Check even number of cells
     IF(.NOT.(MOD(Mesh%JMAX-Mesh%JMIN+1,2)==0)) THEN
@@ -545,12 +561,12 @@ CALL ftrace_region_end("backward_fft")
 
     IF(Mesh%WE_shear) THEN
 !NEC$ NODEP
-      DO j = 1,Mesh%GINUM
+      DO j = 1,Mesh%GJNUM
         ! southern northern (periodic)
         this%phi(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN-j,Mesh%KMIN:Mesh%KMAX) = this%phi(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX-j+1,Mesh%KMIN:Mesh%KMAX)
         this%phi(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX+j,Mesh%KMIN:Mesh%KMAX) = this%phi(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN+j-1,Mesh%KMIN:Mesh%KMAX)
       END DO
-      DO i = 1,Mesh%GNUM
+      DO i = 1,Mesh%GINUM
         ! western (shorn periodic) - residual and integer shift
         joff2 = -Mesh%Q*Mesh%OMEGA*(Mesh%XMAX-Mesh%XMIN)*delt/Mesh%dy
         jrem2 = joff2 - FLOOR(joff2)
