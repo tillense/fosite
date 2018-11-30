@@ -508,11 +508,7 @@ CALL ftrace_region_end("forward_fft")
     END IF
 
     DO j = Mesh%JMIN,Mesh%JMAX
-#if defined(HAVE_FFTKEISAN) && defined(PARALLEL)
-      DO i = Mesh%IMIN,Mesh%IMAX
-#else
       DO i = Mesh%IMIN,Mesh%IMAX/2+1
-#endif
         IF (Mesh%WE_shear) THEN
           K2 = (this%kx(i) + Mesh%Q*Mesh%OMEGA*this%ky(j)*delt)**2 + this%ky(j)**2
         ELSE IF (Mesh%SN_shear) THEN
