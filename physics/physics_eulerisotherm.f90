@@ -1873,8 +1873,13 @@ CONTAINS
       ! allocate memory for density and velocity mesh arrays
       ALLOCATE(new_sv%density,new_sv%velocity)
       ! create a bunch of scalars and vectors
-      new_sv%density  = marray_base(num)              ! one/num scalars
-      new_sv%velocity = marray_base(num,Physics%VDIM) ! one/num vectors
+      IF (PRESENT(num)) THEN
+        new_sv%density  = marray_base(num)              ! num scalars
+        new_sv%velocity = marray_base(num,Physics%VDIM) ! num vectors
+      ELSE
+        new_sv%density  = marray_base()                 ! one scalar
+        new_sv%velocity = marray_base(Physics%VDIM)     ! one vector
+      END IF      
       ! append to compound
       CALL new_sv%AppendMArray(new_sv%density)
       CALL new_sv%AppendMArray(new_sv%velocity)
@@ -1882,8 +1887,13 @@ CONTAINS
       ! allocate memory for density and momentum mesh arrays
       ALLOCATE(new_sv%density,new_sv%momentum)
       ! create a bunch of scalars and vectors
-      new_sv%density  = marray_base(num)              ! one/num scalars
-      new_sv%momentum = marray_base(num,Physics%VDIM) ! one/num vectors
+      IF (PRESENT(num)) THEN
+        new_sv%density  = marray_base(num)              ! num scalars
+        new_sv%momentum = marray_base(num,Physics%VDIM) ! num vectors
+      ELSE
+        new_sv%density  = marray_base()                 ! one scalar
+        new_sv%momentum = marray_base(Physics%VDIM)     ! one vector
+      END IF
       ! append to compound
       CALL new_sv%AppendMArray(new_sv%density)
       CALL new_sv%AppendMArray(new_sv%momentum)

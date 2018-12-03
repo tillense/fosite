@@ -1920,9 +1920,15 @@ CONTAINS
       ! allocate memory for density and velocity mesh arrays
       ALLOCATE(new_sv%density,new_sv%velocity,new_sv%pressure)
       ! create a bunch of scalars and vectors
-      new_sv%density  = marray_base(num)              ! one/num scalars
-      new_sv%velocity = marray_base(num,Physics%VDIM) ! one/num vectors
-      new_sv%pressure = marray_base(num)              ! one/num scalars
+      IF (PRESENT(num)) THEN
+        new_sv%density  = marray_base(num)              ! num scalars
+        new_sv%velocity = marray_base(num,Physics%VDIM) ! num vectors
+        new_sv%pressure = marray_base(num)              ! num scalars
+      ELSE
+        new_sv%density  = marray_base()                 ! one scalar
+        new_sv%velocity = marray_base(Physics%VDIM)     ! one vector
+        new_sv%pressure = marray_base()                 ! one scalar
+      END IF      
       ! append to compound
       CALL new_sv%AppendMArray(new_sv%density)
       CALL new_sv%AppendMArray(new_sv%velocity)
@@ -1931,9 +1937,15 @@ CONTAINS
       ! allocate memory for density and momentum mesh arrays
       ALLOCATE(new_sv%density,new_sv%momentum,new_sv%energy)
       ! create a bunch of scalars and vectors
-      new_sv%density  = marray_base(num)              ! one/num scalars
-      new_sv%momentum = marray_base(num,Physics%VDIM) ! one/num vectors
-      new_sv%energy  = marray_base(num)               ! one/num scalars
+      IF (PRESENT(num)) THEN
+        new_sv%density  = marray_base(num)              ! num scalars
+        new_sv%momentum = marray_base(num,Physics%VDIM) ! num vectors
+        new_sv%energy   = marray_base(num)              ! num scalars
+      ELSE
+        new_sv%density  = marray_base()                 ! one scalar
+        new_sv%momentum = marray_base(Physics%VDIM)     ! one vector
+        new_sv%energy   = marray_base()                 ! one scalar
+      END IF
       ! append to compound
       CALL new_sv%AppendMArray(new_sv%density)
       CALL new_sv%AppendMArray(new_sv%momentum)
