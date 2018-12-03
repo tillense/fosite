@@ -13,7 +13,7 @@ set (EXES
   #  keplerianvortex
   #  KHI2
   #  linearwave
-  #  markward
+  mestel
   mmsn
   orbitingcylinders
   shearingsheet

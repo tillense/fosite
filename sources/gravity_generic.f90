@@ -102,13 +102,6 @@ CONTAINS
            CALL obj%InitGravity_spectral(Mesh,Physics,grav,IOgrav)
         END SELECT
 
-        ! print some information
-!        IF (ASSOCIATED(this)) THEN
-!           CALL this%nextg%Info(" GRAVITY--> Gravity term:      " // GetName(this%glist))
-!           ! print setup information of the individual Gravity terms
-!           CALL InfoGravity(this%nextg)
-!        END IF
-
         IF(ASSOCIATED(IOgrav)) CALL SetAttr(IO, GetKey(dir), IOgrav)
       END IF
       dir => GetNext(dir)

@@ -62,6 +62,7 @@
 !----------------------------------------------------------------------------!
 MODULE gravity_sboxspectral_mod
   USE gravity_base_mod
+  USE gravity_spectral_mod, ONLY : gravity_spectral
   USE boundary_base_mod
   USE fluxes_base_mod
   USE physics_base_mod
@@ -86,7 +87,7 @@ MODULE gravity_sboxspectral_mod
   REAL, PARAMETER              :: SQRTTWOPI &
     = 2.50662827463100050241576528481104525300698674
 
-  TYPE, EXTENDS(gravity_base) :: gravity_sboxspectral
+  TYPE, EXTENDS(gravity_spectral) :: gravity_sboxspectral
 #ifdef HAVE_FFTW
     !> \name
     !!#### spectral poisson solver shearing box

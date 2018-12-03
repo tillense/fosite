@@ -95,13 +95,14 @@ CONTAINS
 
   END SUBROUTINE InitSources_c_accel
 
-  SUBROUTINE ExternalSources_single(this,Mesh,Physics,Fluxes,time,dt,pvar,cvar,sterm)
+  SUBROUTINE ExternalSources_single(this,Mesh,Physics,Fluxes,Sources,time,dt,pvar,cvar,sterm)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(sources_c_accel),INTENT(INOUT):: this
     CLASS(mesh_base),INTENT(IN)         :: Mesh
     CLASS(physics_base),INTENT(INOUT)   :: Physics
     CLASS(fluxes_base),INTENT(IN)       :: Fluxes
+    CLASS(sources_base), INTENT(INOUT)  :: Sources
     REAL,INTENT(IN)                     :: time, dt
     CLASS(marray_compound),INTENT(INOUT):: pvar,cvar,sterm
     !------------------------------------------------------------------------!

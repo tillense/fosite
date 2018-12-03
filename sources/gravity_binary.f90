@@ -3,7 +3,7 @@
 !# fosite - 3D hydrodynamical simulation program                             #
 !# module: gravity_binary.f03                                                #
 !#                                                                           #
-!# Copyright (C) 2010-2014                                                   #
+!# Copyright (C) 2010-2018                                                   #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
 !# Björn Sperling   <sperling@astrophysik.uni-kiel.de>                       #
 !# Anna Feiler      <afeiler@astrophysik.uni-kiel.de>                        #

@@ -39,6 +39,7 @@
 !----------------------------------------------------------------------------!
 MODULE sources_rotframe_mod
   USE sources_c_accel_mod
+  USE sources_base_mod
   USE physics_base_mod
   USE fluxes_base_mod
   USE mesh_base_mod
@@ -147,13 +148,14 @@ CONTAINS
   END SUBROUTINE InfoSources
 
 
-  SUBROUTINE ExternalSources_single(this,Mesh,Physics,Fluxes,time,dt,pvar,cvar,sterm)
+  SUBROUTINE ExternalSources_single(this,Mesh,Physics,Fluxes,Sources,time,dt,pvar,cvar,sterm)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(sources_rotframe), INTENT(INOUT) :: this
     CLASS(mesh_base),        INTENT(IN)    :: Mesh
     CLASS(physics_base),     INTENT(INOUT) :: Physics
     CLASS(fluxes_base),      INTENT(IN)    :: Fluxes
+    CLASS(sources_base),     INTENT(INOUT) :: Sources
     REAL,                    INTENT(IN)    :: time, dt
     CLASS(marray_compound),  INTENT(INOUT) :: pvar,cvar,sterm
     !------------------------------------------------------------------------!

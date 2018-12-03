@@ -136,7 +136,7 @@ MODULE gravity_spectral_mod
 
 !    IF(.NOT.(GetType(Boundary(NORTH)).EQ.PERIODIC .AND. &
 !             GetType(Boundary(SOUTH)).EQ.PERIODIC)) THEN
-!      CALL Error(this,"InitGravity_spectral", &
+!      CALL this%Error(,"InitGravity_spectral", &
 !                 "The boundary conditions in north and south direction have " // &
 !                 "to be periodic! Don't forget: This kind of " // &
 !                 "self-gravitation only works for polar-like coordinate " // &
@@ -332,7 +332,7 @@ MODULE gravity_spectral_mod
 
 
 #if defined(HAVE_FFTW)
-  SUBROUTINE CalcPotential(this,Mesh,Physics,pvar)
+  SUBROUTINE CalcPotential(this,Mesh,Physics,time,pvar)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(gravity_spectral), INTENT(INOUT):: this
@@ -340,6 +340,7 @@ MODULE gravity_spectral_mod
     CLASS(physics_base), INTENT(IN) :: Physics
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
                          INTENT(IN) :: pvar
+    REAL, INTENT(IN)                :: time
     !------------------------------------------------------------------------!
     INTEGER           :: i,j,k,m,i0,ier,oldmcut
 #ifdef PARALLEL
@@ -623,7 +624,7 @@ MODULE gravity_spectral_mod
     !------------------------------------------------------------------------!
 #ifdef HAVE_FFTW
     ! calc potential first
-    CALL this%CalcPotential(Mesh,Physics,pvar)
+    CALL this%CalcPotential(Mesh,Physics,time,pvar)
 
     ! compute gravitational acceleration using the gradient of the potential
     ! ATTENTION: ghost cell values and any other component of the gravitational
@@ -631,8 +632,8 @@ MODULE gravity_spectral_mod
     ! \todo This difference quotient is still 2D and only the third component is
     !       added. It will not work in 3D.
     DO k = Mesh%KMIN,Mesh%KMAX
-      DO j = Mesh%JMIN-1,Mesh%JMAX+1
-        DO i = Mesh%IMIN-1,Mesh%IMAX
+      DO j = Mesh%JMIN-Mesh%JP1,Mesh%JMAX+Mesh%JP1
+        DO i = Mesh%IMIN-Mesh%IP1,Mesh%IMAX
           this%accel(i,j,k,1) = -1.0*(this%phi2D(i+1,j)-this%phi2D(i,j))/Mesh%dlx(i,j,k)
           this%accel(i,j,k,2) = -1.0*(this%phi2D(i+1,j+1)+this%phi2D(i,j+1) &
                            -this%phi2D(i+1,j-1)-this%phi2D(i,j-1))&
@@ -707,9 +708,9 @@ MODULE gravity_spectral_mod
 #ifdef HAVE_FFTW
     ! compute the laplacian of the gravitational potential in the disks
     ! equatorial plane; gravity_generic updates the gravitational acceleration
-    DO k=Mesh%KMIN-1,Mesh%KMAX
-      DO j=Mesh%JMIN-1,Mesh%JMAX
-        DO i=Mesh%IMIN-1,Mesh%IMAX
+    DO k=Mesh%KMIN-Mesh%KP1,Mesh%KMAX
+      DO j=Mesh%JMIN-Mesh%JP1,Mesh%JMAX
+        DO i=Mesh%IMIN-Mesh%IP1,Mesh%IMAX
           phi(i,j,1) = Mesh%hy%faces(i,j,k,2)*Mesh%hz%faces(i,j,k,2)/Mesh%hx%faces(i,j,k,2)&
            * this%pot(i,j,k,2)
           phi(i,j,2) = Mesh%hx%faces(i,j,k,4)*Mesh%hz%faces(i,j,k,4)/Mesh%hy%faces(i,j,k,4)&

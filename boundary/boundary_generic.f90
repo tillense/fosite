@@ -368,9 +368,6 @@ CONTAINS
 #ifdef PARALLEL
     INTEGER                               :: req(4)
     INTEGER                               :: ierr
-!    REAL    :: mpi_buf2(Mesh%IGMIN:Mesh%IGMAX,1:Mesh%GJNUM,Mesh%KGMIN:Mesh%KGMAX,1:Physics%VNUM)
-!    REAL    :: mpi_buf2(Mesh%IMIN:Mesh%IMAX,Mesh%GJNUM,Mesh%KMIN:Mesh%KMAX) !TODO: ONLY 2D
-!    INTEGER :: status2(MPI_STATUS_SIZE)
 #ifdef MPI_USE_SENDRECV
     INTEGER                               :: status(MPI_STATUS_SIZE)
 #else
@@ -398,7 +395,6 @@ CONTAINS
       CALL this%Boundary(BOTTOM)%p%SetBoundaryData(Mesh,Physics,time,pvar)
       CALL this%Boundary(TOP)%p%SetBoundaryData(Mesh,Physics,time,pvar)
     END IF
-
 
 #ifdef PARALLEL
     ! NOTE: if you want to use MPI_Sendrecv instead of nonblocking
@@ -837,6 +833,7 @@ CONTAINS
       !  CALL this%warning('CenterBoundary', 'No Setting for corner-GC found! Only for 2D implemented!')
       END IF
       ! TODO Ghost cells have to to set for 3D
+
 
     ! convert primitive variables in ghost cells
     CALL Physics%Convert2Conservative(Mesh,Mesh%IGMIN,Mesh%IMIN-1, &

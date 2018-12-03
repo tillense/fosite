@@ -149,7 +149,7 @@ CONTAINS
     !------------------------------------------------------------------------!
     CALL GetAttr(config, "stype", stype)
     CALL this%InitLogging(stype,this%source_name)
-    
+
     ! some sanity checks
     ! isothermal modules are excluded
     SELECT TYPE (phys => Physics)
@@ -282,13 +282,14 @@ CONTAINS
   END SUBROUTINE SetOutput
 
 
-  SUBROUTINE ExternalSources_single(this,Mesh,Physics,Fluxes,time,dt,pvar,cvar,sterm)
+  SUBROUTINE ExternalSources_single(this,Mesh,Physics,Fluxes,Sources,time,dt,pvar,cvar,sterm)
     USE physics_euler_mod, ONLY : physics_euler
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(sources_diskcooling), INTENT(INOUT) :: this
     CLASS(mesh_base),INTENT(IN)         :: Mesh
     CLASS(physics_base),INTENT(INOUT)   :: Physics
+    CLASS(sources_base),INTENT(INOUT)   :: Sources
     CLASS(fluxes_base),INTENT(IN)       :: Fluxes
     REAL,INTENT(IN)                     :: time, dt
     CLASS(marray_compound),INTENT(INOUT):: pvar,cvar,sterm
@@ -299,7 +300,7 @@ CONTAINS
 
     SELECT TYPE(phys => Physics)
     TYPE IS (physics_euler)
-       CALL this%UpdateCooling(Mesh,phys,time,pvar%data4d)
+       CALL this%UpdateCooling(Mesh,phys,Sources,time,pvar%data4d)
     END SELECT
     ! energy loss due to radiation processes
     sterm%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,Physics%ENERGY) = &
@@ -332,13 +333,14 @@ CONTAINS
   END SUBROUTINE CalcTimestep_single
 
   !> \private Updates the cooling function at each time step.
-  SUBROUTINE UpdateCooling(this,Mesh,Physics,time,pvar)
+  SUBROUTINE UpdateCooling(this,Mesh,Physics,Sources,time,pvar)
     USE physics_euler_mod, ONLY : physics_euler
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(sources_diskcooling)         :: this
     CLASS(mesh_base),    INTENT(IN)    :: Mesh
     CLASS(physics_euler),INTENT(INOUT) :: Physics
+    CLASS(sources_base), INTENT(INOUT) :: Sources
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
                          INTENT(IN)    :: pvar
     REAL,                INTENT(IN)    :: time
@@ -365,7 +367,7 @@ CONTAINS
           muRgamma = Physics%mu/(Physics%Constants%RG*Physics%gamma)
           Qfactor  = 8./3.*Physics%Constants%SB
           ! compute gray cooling term
-          this%Qcool(:,:,:) = Lambda_gray(pvar(:,:,:,Physics%DENSITY),this%height(:,:,:), &
+          this%Qcool(:,:,:) = Lambda_gray(pvar(:,:,:,Physics%DENSITY),Sources%height(:,:,:), &
                muRgamma*Physics%bccsound%data3d(:,:,:)*Physics%bccsound%data3d(:,:,:), &
                this%rho_0,this%T_0,Qfactor)
        CASE(GAMMIE)

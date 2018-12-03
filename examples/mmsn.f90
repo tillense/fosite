@@ -144,7 +144,7 @@ CONTAINS
 
     ! physics settings
     physics => Dict( &
-              "problem"         / EULER2D_ISOTHERM, &
+              "problem"         / EULER_ISOTHERM, &
 !              "cs"              / CSISO, &
               "units"           / GEOMETRICAL,&
               "output/bccsound" / 1)

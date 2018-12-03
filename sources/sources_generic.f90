@@ -98,12 +98,14 @@ CONTAINS
           CALL obj%InitSources_c_accel(Mesh,Physics,Fluxes,src,IOsrc)
         TYPE IS (sources_diskcooling)
           CALL obj%InitSources_diskcooling(Mesh,Physics,Fluxes,src,IOsrc)
+          IF (obj%cooling%GetType().EQ.GRAY) update_disk_height = 1
         TYPE IS (sources_rotframe)
           CALL obj%InitSources_rotframe(Mesh,Physics,Fluxes,src,IOsrc)
         TYPE IS (sources_shearbox)
           CALL obj%InitSources_shearbox(Mesh,Physics,Fluxes,src,IOsrc)
         TYPE IS (sources_viscosity)
           CALL obj%InitSources_viscosity(Mesh,Physics,Fluxes,src,IOsrc)
+          IF (obj%viscosity%GetType().EQ.ALPHA_ALT) update_disk_height = 1
         END SELECT
 
         IF (stype .NE. GRAVITY) THEN

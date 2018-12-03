@@ -53,87 +53,66 @@ MODULE gravity_base_mod
   PRIVATE
   TYPE, ABSTRACT, EXTENDS(logging_base) :: gravity_base
      !> \name Variables
-     CLASS(logging_base), ALLOCATABLE :: gravitytype  !< type of gravity term
-     CLASS(gravity_base), POINTER     :: next => null() !< next gravity in list
-     REAL                             :: time         !< last update
-     REAL                             :: alphag,alphah!< viscosity parameter
-     LOGICAL                          :: CALCALPHA    !< true if alpha output is on
+     CLASS(logging_base), ALLOCATABLE   :: gravitytype  !< type of gravity term
+     CLASS(gravity_base), POINTER       :: next => null() !< next gravity in list
+     REAL                               :: time         !< last update
+     REAL                               :: alphag,alphah!< viscosity parameter
+     LOGICAL                            :: CALCALPHA    !< true if alpha output is on
      !> time when the pointmass is fully switched on
-     REAL                             :: scaling      !< scaling for switchon procedure
+     REAL                               :: scaling      !< scaling for switchon procedure
      !> angular velocity of rotating reference frame
-     REAL                             :: omega_rot
+     REAL                               :: omega_rot
      !> time of a orbital period at the inner and outer boundaries
-     REAL, DIMENSION(2)               :: tau
-     INTEGER                          :: outbound     !< outflow boundary
-     REAL, DIMENSION(:,:,:,:), POINTER   :: accel        !< acceleration
-     REAL, DIMENSION(:,:,:), POINTER     :: radius,radius3!< distance to origin
-     REAL, DIMENSION(:,:,:), POINTER    :: den_ip       !< interpolated density
-     REAL, DIMENSION(:,:,:), POINTER    :: omega        !< angular velocity
+     REAL, DIMENSION(2)                 :: tau
+     INTEGER                            :: outbound     !< outflow boundary
+     REAL, DIMENSION(:,:,:,:), POINTER  :: accel        !< acceleration
+     REAL, DIMENSION(:,:,:),   POINTER  :: radius,radius3!< distance to origin
+     REAL, DIMENSION(:,:,:),   POINTER  :: den_ip       !< interpolated density
+     REAL, DIMENSION(:,:,:),   POINTER  :: omega        !< angular velocity
      REAL, DIMENSION(:,:,:,:), POINTER  :: omega2       !< Omega Kepler squared
      REAL, DIMENSION(:,:,:,:), POINTER  :: gposvecr3    !< = GN*x/radius**3
-     REAL, DIMENSION(:,:,:), POINTER    :: cellmass     !< rho*dV
-     REAL, DIMENSION(:,:,:), POINTER    :: enclmass     !< enclosed mass
-     REAL, DIMENSION(:,:,:), POINTER    :: rho_c        !< disk density in equatorial plane
-     REAL, DIMENSION(:,:,:), POINTER    :: inv2PIr2     !< = 1/ (2*PI*r**2)
-     REAL, DIMENSION(:,:,:), POINTER    :: tmp,tmp2,tmp3!< temp arrays
-     REAL, DIMENSION(:,:,:), POINTER    :: dVpart       !< partial cell volumes (monopole approx.)
-     LOGICAL                         :: addtoenergy
-     LOGICAL                         :: update_disk_height !< enable/disable computation of disk scale height
-     INTEGER                         :: timeid       !<    update of this id?
-
-     !> \name todo this part is of the multigrid method
-     !! which was not understandable in fosite 2D anymore
-     !!#### Poisson module
-!     TYPE(Common_TYP)                :: poissontype   !< type of source term
-!     TYPE(Multipole_TYP)             :: multipole     !< multipole expansion
-!     TYPE(Grid_TYP), POINTER         :: grid(:)       !< coarse grids
-!     REAL                            :: MAXRESIDNORM  !< max error of residuum
-!     !> type of relaxation method
-!     INTEGER                         :: RELAXTYPE
-!     INTEGER                         :: NGRID         !< number of grids
-!     INTEGER                         :: NPRE,NPOST    !< pre and post smoothing
-!     INTEGER                         :: NMAXCYCLE     !< max of iterations
-!     INTEGER                         :: MINRES        !< min resolution
-     REAL, DIMENSION(:,:,:), POINTER    :: phi           !< potential
-     REAL, DIMENSION(:,:,:,:), POINTER  :: pot           !< general potential
+     REAL, DIMENSION(:,:,:),   POINTER  :: cellmass     !< rho*dV
+     REAL, DIMENSION(:,:,:),   POINTER  :: enclmass     !< enclosed mass
+     REAL, DIMENSION(:,:,:),   POINTER  :: rho_c        !< disk density in equatorial plane
+     REAL, DIMENSION(:,:,:),   POINTER  :: inv2PIr2     !< = 1/ (2*PI*r**2)
+     REAL, DIMENSION(:,:,:),   POINTER  :: tmp,tmp2,tmp3!< temp arrays
+     REAL, DIMENSION(:,:,:),   POINTER  :: dVpart       !< partial cell volumes (monopole approx.)
+     LOGICAL                            :: addtoenergy  !< for alternative rhstype=1
+     LOGICAL                            :: update_disk_height !< enable/disable computation of disk scale height
+     INTEGER                            :: timeid       !<    update of this id?
+     REAL, DIMENSION(:,:,:), POINTER    :: phi          !< potential
+     REAL, DIMENSION(:,:,:,:), POINTER  :: pot          !< general potential
      REAL, DIMENSION(:,:,:,:,:), POINTER :: mpot        !< multiple potentials
-     REAL, DIMENSION(:,:,:), POINTER    :: rho_ext       !< disk density in equatorial plane
-                                                      !< of the external potentials
+     REAL, DIMENSION(:,:,:), POINTER    :: rho_ext      !< disk density in equatorial plane
+                                                        !< of the external potentials
      REAL, DIMENSION(:,:,:,:,:), POINTER :: mrho_ext    !< multiple rho_ext
-     REAL, DIMENSION(:,:,:), POINTER  :: invheight2=>null()   !< 1/h**2
-     REAL, DIMENSION(:,:,:), POINTER  :: height=>null()  !< disk scale height
-     REAL, DIMENSION(:,:,:), POINTER  :: h_ext=>null()  !< disk scale height
-     INTEGER                          :: n             !< number of potentials
-     REAL,DIMENSION(:,:),POINTER      :: s0, sdelta    !< ramp fn: s0 + sdelta*t
-     REAL,DIMENSION(:),POINTER        :: lastfac       !< last switchon factors
-     INTEGER, DIMENSION(4)            :: Boundary      !< boundary condition
-     LOGICAL                          :: DIRICHLET     !< true if min ONE bound.
-                                                      !< boundary cond. is
-!    REAL, DIMENSION(:), POINTER      :: height
+     INTEGER                            :: n            !< number of potentials
+     REAL,DIMENSION(:,:),POINTER        :: s0, sdelta   !< ramp fn: s0 + sdelta*t
+     REAL,DIMENSION(:),POINTER          :: lastfac      !< last switchon factors
+     INTEGER, DIMENSION(4)              :: Boundary     !< boundary condition
+     LOGICAL                            :: DIRICHLET    !< true if min ONE bound.
+                                                        !< boundary cond. is
     !> local IMAX, INUM
-    INTEGER                          :: IMAX, KMAX
+    INTEGER                             :: IMAX, KMAX
     !> plan for real to complex fourier transforms
 #ifdef HAVE_FFTW
-    TYPE(C_PTR)                      :: plan_r2c
+    TYPE(C_PTR)                         :: plan_r2c
     !> plan for complex to real fourier transforms
-    TYPE(C_PTR)                      :: plan_c2r
+    TYPE(C_PTR)                         :: plan_c2r
 #endif
     !> \name Variables in Parallel Mode
 #ifdef PARALLEL
-    INTEGER                          :: mpierr         !< MPI error flag
-    REAL,DIMENSION(:,:),POINTER      :: sbuf1,sbuf2,rbuf1,rbuf2
+    INTEGER                             :: mpierr       !< MPI error flag
+    REAL,DIMENSION(:,:),POINTER         :: sbuf1,sbuf2,rbuf1,rbuf2
 #endif
-    INTEGER, DIMENSION(:),POINTER :: relaxcount
+    INTEGER, DIMENSION(:),POINTER       :: relaxcount
 
   CONTAINS
 
     PROCEDURE :: InitGravity
     PROCEDURE :: SetOutput
     PROCEDURE (InfoGravity),     DEFERRED :: InfoGravity
-!    PROCEDURE :: GravitySources
-!    PROCEDURE :: UpdateGravity
     PROCEDURE (UpdateGravity_single), DEFERRED :: UpdateGravity_single
-    PROCEDURE :: CalcDiskHeight
     PROCEDURE (CalcDiskHeight_single), DEFERRED :: CalcDiskHeight_single
     PROCEDURE :: GetGravityPointer
     PROCEDURE :: Finalize_base
@@ -211,43 +190,6 @@ CONTAINS
     INTEGER                :: gtype,err,i
     LOGICAL                :: external_potential = .FALSE.
     !------------------------------------------------------------------------!
-    ! Add source terms to energy equation?
-    ! Set this to zero, if a potential is defined in physics_euler2Diamt
-    CALL GetAttr(config, "energy", i, 1)
-    IF(i.EQ.0) THEN
-      this%addtoenergy = .FALSE.
-    ELSE
-      this%addtoenergy = .TRUE.
-    END IF
-
-    ! enable update of disk scale height if requested
-    CALL GetAttr(config, "update_disk_height", i, 0)
-    IF (i.EQ.1) THEN
-      !> \todo check if this is really sufficient, what we really need is
-      !! to check whether the geometry is flat or not
-      IF (Physics%VDIM.EQ.2) THEN
-        this%update_disk_height = .TRUE.
-        IF (.NOT.ASSOCIATED(this%height)) &
-          ALLOCATE(this%height(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
-                   STAT=err)
-          this%height = 0.0
-        IF (err.EQ.0) &
-          ALLOCATE(this%h_ext(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
-                   this%invheight2(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
-                   STAT=err)
-          this%h_ext = 0.0
-          this%invheight2 = 0.0
-        IF (err.NE.0) CALL this%Error("InitGravity","Memory allocation failed!")
-        IF (external_potential) &
-          CALL this%Warning("InitGravity", &
-          "calculation of disk height not fully supported for external potential")
-      ELSE
-         CALL this%Error("InitGravity", "DiskHeight is only supported in 2D")
-      END IF
-    ELSE
-       this%update_disk_height = .FALSE.
-    END IF
-
     ! reset start value for time variable
     this%time = -1.0
     this%timeid = 0
@@ -255,55 +197,6 @@ CONTAINS
     CALL this%Info(" GRAVITY--> gravity term:      " // this%GetName())
     CALL this%InfoGravity(Mesh)
   END SUBROUTINE InitGravity
-
-
-  SUBROUTINE CalcDiskHeight(this,Mesh,Physics,pvar)
-    USE physics_eulerisotherm_mod, ONLY : physics_eulerisotherm
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(gravity_base), TARGET, INTENT(INOUT) :: this
-    CLASS(mesh_base),    INTENT(IN)            :: Mesh
-    CLASS(physics_eulerisotherm), INTENT(IN)   :: Physics
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
-                         INTENT(IN)    :: pvar
-    !------------------------------------------------------------------------!
-    CLASS(gravity_base), POINTER :: grav_ptr,selfgrav_ptr => null()
-    LOGICAL                      :: has_external_potential = .FALSE.
-    !------------------------------------------------------------------------!
-    ! reset inverse scale height^2
-    this%invheight2(:,:,:) = 0.0
-    ! go through all gravity terms in the list
-    grav_ptr => this
-    ! \todo Most probably here it is necessar to make a selection for all types
-    DO WHILE(ASSOCIATED(grav_ptr))
-      ! call specific subroutine
-!CDIR IEXPAND
-      CALL grav_ptr%CalcDiskHeight_single(Mesh,Physics,pvar,Physics%bccsound%data3d,this%h_ext,this%height)
-      this%invheight2(:,:,:) = this%invheight2(:,:,:) + 1./this%h_ext(:,:,:)**2
-      has_external_potential = .TRUE.
-!     \todo add this routines to underlying sub-classes
-!      CASE(MONOPOL,SPECTRAL,SBOXSPECTRAL)
-!        ! remember self-gravity pointer
-!        selfgrav_ptr => grav_ptr
-
-      ! next gravity term
-      grav_ptr => grav_ptr%next
-    END DO
-
-    ! self-gravity of the disk needs special treatment
-    IF (ASSOCIATED(selfgrav_ptr)) THEN
-      IF (has_external_potential) THEN
-        ! compute the resultant height due to all external gravitational forces
-        this%h_ext(:,:,:) = 1./SQRT(this%invheight2(:,:,:))
-      END IF
-      CALL selfgrav_ptr%CalcDiskHeight_single(Mesh,Physics,pvar,Physics%bccsound%data3d, &
-                                  this%h_ext,this%height)
-    ELSE
-      ! non-selfgravitating disk
-      this%height(:,:,:) = 1./SQRT(this%invheight2(:,:,:))
-    END IF
-
-  END SUBROUTINE CalcDiskHeight
 
   SUBROUTINE SetOutput(this,Mesh,Physics,config,IO)
     IMPLICIT NONE
@@ -328,19 +221,6 @@ CONTAINS
     IF (valwrite .EQ. 1) &
        CALL SetAttr(IO, "potential",&
          this%pot(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,1))
-
-    CALL GetAttr(config, "output/height", valwrite, 0)
-    IF (valwrite .EQ. 1) THEN
-       CALL SetAttr(config, "update_disk_height", 1)
-       IF (.NOT.ASSOCIATED(this%height)) THEN
-          ALLOCATE(this%height(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
-                   STAT=err)
-          IF (err.NE.0) CALL this%Error("SetOutput", &
-                                   "Memory allocation failed for this%height!")
-       END IF
-       CALL SetAttr(IO, "height", &
-         this%height(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX))
-    END IF
 
   END SUBROUTINE SetOutput
 
@@ -368,8 +248,6 @@ CONTAINS
     CLASS(gravity_base), POINTER :: gravptr,ptemp
     !------------------------------------------------------------------------!
     ! release temporary/global storage
-    IF(ASSOCIATED(this%h_ext)) DEALLOCATE(this%h_ext)
-    IF(ASSOCIATED(this%height)) DEALLOCATE(this%height)
 
   END SUBROUTINE Finalize_base
 

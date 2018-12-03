@@ -89,8 +89,10 @@ MODULE sources_base_mod
      !! 2: secondary
      INTEGER                         :: star
      LOGICAL                         :: update_disk_height !< enable/disable computation of disk scale height
-     REAL, DIMENSION(:,:,:), POINTER   :: height         !< disk scale height
-     REAL, DIMENSION(:,:,:,:), POINTER :: accart       !< acceleration
+     REAL, DIMENSION(:,:,:), POINTER  :: invheight2=>null() !< 1/h**2
+     REAL, DIMENSION(:,:,:), POINTER  :: height=>null() !< disk scale height
+     REAL, DIMENSION(:,:,:), POINTER  :: h_ext=>null()  !< disk scale height
+     REAL, DIMENSION(:,:,:,:), POINTER :: accart        !< acceleration
      REAL, DIMENSION(:,:,:,:), POINTER :: bcposvec,bccart !< position vector
      REAL, DIMENSION(:,:,:), POINTER   :: radius       !< distance to origin
      REAL, DIMENSION(:,:,:), POINTER   :: invr         !< 1./radius
@@ -209,15 +211,16 @@ MODULE sources_base_mod
       INTENT(IN)        :: pvar,cvar
       INTENT(OUT)       :: dt
     END SUBROUTINE
-    SUBROUTINE ExternalSources_single(this,Mesh,Physics,Fluxes,time,dt,pvar,cvar,sterm)
+    SUBROUTINE ExternalSources_single(this,Mesh,Physics,Fluxes,Sources,time,dt,pvar,cvar,sterm)
       IMPORT sources_base, mesh_base, physics_base, fluxes_base, marray_compound
       IMPLICIT NONE
       !------------------------------------------------------------------------!
-      CLASS(sources_base),INTENT(INOUT) :: this
-      CLASS(mesh_base),INTENT(IN)         :: Mesh
-      CLASS(physics_base),INTENT(INOUT)   :: Physics
-      CLASS(fluxes_base),INTENT(IN)       :: Fluxes
-      REAL,INTENT(IN)                     :: time, dt
+      CLASS(sources_base),INTENT(INOUT)  :: this
+      CLASS(mesh_base),INTENT(IN)        :: Mesh
+      CLASS(physics_base),INTENT(INOUT)  :: Physics
+      CLASS(sources_base), INTENT(INOUT) :: Sources
+      CLASS(fluxes_base),INTENT(IN)      :: Fluxes
+      REAL,INTENT(IN)                    :: time, dt
       CLASS(marray_compound),INTENT(INOUT):: pvar,cvar,sterm
     END SUBROUTINE
     SUBROUTINE Finalize(this)
@@ -278,7 +281,7 @@ CONTAINS
   SUBROUTINE ExternalSources(this,Mesh,Fluxes,Physics,time,dt,pvar,cvar,sterm)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(sources_base), TARGET, INTENT(IN) :: this !, POINTER :: this
+    CLASS(sources_base), TARGET, INTENT(INOUT) :: this
     CLASS(mesh_base),    INTENT(IN)         :: Mesh
     CLASS(fluxes_base),  INTENT(IN)         :: Fluxes
     CLASS(physics_base), INTENT(INOUT)      :: Physics
@@ -293,7 +296,7 @@ CONTAINS
     srcptr => this
     DO WHILE (ASSOCIATED(srcptr))
 
-      CALL srcptr%ExternalSources_single(Mesh,Physics,Fluxes,time,dt,pvar,cvar,temp_sterm)
+      CALL srcptr%ExternalSources_single(Mesh,Physics,Fluxes,this,time,dt,pvar,cvar,temp_sterm)
 
       ! add to the sources
       sterm%data1d(:) = sterm%data1d(:) + temp_sterm%data1d(:)
