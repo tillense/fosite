@@ -1048,7 +1048,7 @@ CONTAINS
 
     ! check for illegal data
     IF(checkdatabm.NE.CHECK_NOTHING) &
-      CALL this%CheckData(Mesh,Physics,Fluxes,pvar%data4d,cvar%data4d,checkdatabm)
+      CALL this%CheckData(Mesh,Physics,Fluxes,pvar,cvar,checkdatabm)
 
     ! get geometrical sources
     CALL Physics%GeometricalSources(Mesh,pvar,cvar,this%geo_src)
@@ -1300,9 +1300,7 @@ CONTAINS
     CLASS(mesh_base),     INTENT(IN)    :: Mesh
     CLASS(physics_base),  INTENT(INOUT) :: Physics
     CLASS(fluxes_base),   INTENT(IN)    :: Fluxes
-    REAL,DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX, &
-                   Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
-                          INTENT(INOUT) :: pvar,cvar
+    CLASS(marray_compound),INTENT(INOUT):: pvar,cvar
     INTEGER,              INTENT(IN)    :: checkdatabm
     !------------------------------------------------------------------------!
 #ifdef PARALLEL
@@ -1326,43 +1324,39 @@ CONTAINS
     END IF
     IF((IAND(checkdatabm,CHECK_PMIN).NE.CHECK_NOTHING)) THEN
       ! check for non-isothermal physics with pressure defined
-      SELECT TYPE(phys => Physics)
-      CLASS IS(physics_euler)
-        val = MINVAL(pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX, &
-                          Mesh%KMIN:Mesh%KMAX,phys%PRESSURE))
+      SELECT TYPE(p => pvar)
+      CLASS IS(statevector_euler)
+        val = MINVAL(p%pressure%data3d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX, &
+                          Mesh%KMIN:Mesh%KMAX))
         IF(val.LT.this%pmin) THEN
           ! warn now and stop after file output
           CALL this%Warning("CheckData","Pressure below allowed pmin value.")
           this%break = .TRUE.
         END IF
-      CLASS DEFAULT
-        CALL this%Warning("CheckData","check pressure selected for isothermal physics")
       END SELECT
     END IF
 
     IF(IAND(checkdatabm,CHECK_RHOMIN).NE.CHECK_NOTHING) THEN
       ! check for physics with density defined
-      SELECT TYPE(phys => Physics)
-      CLASS IS(physics_eulerisotherm)
-        val = MINVAL(pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX, &
-                          Mesh%KMIN:Mesh%KMAX,phys%DENSITY))
+      SELECT TYPE(p => pvar)
+      CLASS IS(statevector_eulerisotherm)
+        val = MINVAL(p%density%data3d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX, &
+                          Mesh%KMIN:Mesh%KMAX))
         IF(val.LT.this%rhomin) THEN
             ! warn now and stop after file output
             CALL this%Warning("CheckData","Density below allowed rhomin value.")
             this%break = .TRUE.
         END IF
-      CLASS DEFAULT
-        CALL this%Warning("CheckData","check density selected, but density not defined in physics")
       END SELECT
     END IF
 
     IF(IAND(checkdatabm,CHECK_INVALID).NE.CHECK_NOTHING) THEN
-      IF(ANY((cvar.NE.cvar).OR.(pvar.NE.pvar))) THEN
+      IF(ANY((cvar%data1d.NE.cvar%data1d).OR.(pvar%data1d.NE.pvar%data1d))) THEN
         ! warn now and stop after file output
         CALL this%Warning("CheckData","Found NaN in pvar or cvar.")
         this%break = .TRUE.
       END IF
-      IF(ANY((cvar.GT.HUGE(cvar)).OR.pvar.GT.HUGE(pvar))) THEN
+      IF(ANY((cvar%data1d.GT.HUGE(cvar%data1d)).OR.pvar%data1d.GT.HUGE(pvar%data1d))) THEN
         ! warn now and stop after file output
         CALL this%Warning("CheckData","Found Infinity in pvar or cvar.")
         this%break = .TRUE.
