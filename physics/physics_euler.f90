@@ -110,9 +110,9 @@ MODULE physics_euler_mod
     CONTAINS
     PROCEDURE :: AssignMArray_0
   END TYPE
-  INTERFACE statevector_euler
-    MODULE PROCEDURE CreateStateVector
-  END INTERFACE
+!   INTERFACE statevector_euler
+!     MODULE PROCEDURE CreateStateVector
+!   END INTERFACE
   INTERFACE SetFlux
     MODULE PROCEDURE SetFlux1d, SetFlux2d, SetFlux3d
   END INTERFACE
@@ -126,7 +126,8 @@ MODULE physics_euler_mod
   PUBLIC :: &
        ! types
        physics_euler, &
-       statevector_euler
+       statevector_euler, &
+       CreateStateVector_euler
   !--------------------------------------------------------------------------!
 
 CONTAINS
@@ -230,7 +231,8 @@ CONTAINS
     ALLOCATE(statevector_euler::new_sv)
     SELECT TYPE(sv => new_sv)
     TYPE IS (statevector_euler)
-      sv = statevector_euler(this,flavour,num)
+!      sv = statevector_euler(this,flavour,num)
+      CALL CreateStateVector_euler(this,sv,flavour,num)
     END SELECT
   END SUBROUTINE new_statevector
 
@@ -1872,7 +1874,8 @@ CONTAINS
     TYPE(statevector_euler) :: new_sv
     !-------------------------------------------------------------------!
     ! call inherited function
-    new_sv = statevector_eulerisotherm(Physics,flavour,num)
+!!!!!!! ATTENTION, uncomment this line, if compiler bug on SX-Aurora is fixed
+!     new_sv = statevector_eulerisotherm(Physics,flavour,num)
     ! add entries specific for euler physics
     SELECT CASE(flavour)
     CASE(PRIMITIVE)
@@ -1891,6 +1894,54 @@ CONTAINS
       CALL Physics%Warning("physics_euler::CreateStateVector", "incomplete state vector")
     END SELECT
   END FUNCTION CreateStateVector
+
+  SUBROUTINE CreateStateVector_euler(Physics,new_sv,flavour,num)
+    IMPLICIT NONE
+    !-------------------------------------------------------------------!
+    CLASS(physics_base), INTENT(IN) :: Physics
+    TYPE(statevector_euler), INTENT(INOUT) :: new_sv
+    INTEGER, OPTIONAL, INTENT(IN) :: flavour,num
+    !-------------------------------------------------------------------!
+    IF (.NOT.Physics%Initialized()) &
+      CALL Physics%Error("physics_eulerisotherm::CreateStatevector", "Physics not initialized.")
+
+    ! create a new empty compound of marrays
+    new_sv = marray_compound(num)
+    IF (PRESENT(flavour)) THEN
+      SELECT CASE(flavour)
+      CASE(PRIMITIVE,CONSERVATIVE)
+        new_sv%flavour = flavour
+      CASE DEFAULT
+        new_sv%flavour = UNDEFINED
+      END SELECT
+    END IF
+    SELECT CASE(new_sv%flavour)
+    CASE(PRIMITIVE)
+      ! allocate memory for density and velocity mesh arrays
+      ALLOCATE(new_sv%density,new_sv%velocity,new_sv%pressure)
+      ! create a bunch of scalars and vectors
+      new_sv%density  = marray_base(num)              ! one/num scalars
+      new_sv%velocity = marray_base(num,Physics%VDIM) ! one/num vectors
+      new_sv%pressure = marray_base(num)              ! one/num scalars
+      ! append to compound
+      CALL new_sv%AppendMArray(new_sv%density)
+      CALL new_sv%AppendMArray(new_sv%velocity)
+      CALL new_sv%AppendMArray(new_sv%pressure)
+    CASE(CONSERVATIVE)
+      ! allocate memory for density and momentum mesh arrays
+      ALLOCATE(new_sv%density,new_sv%momentum,new_sv%energy)
+      ! create a bunch of scalars and vectors
+      new_sv%density  = marray_base(num)              ! one/num scalars
+      new_sv%momentum = marray_base(num,Physics%VDIM) ! one/num vectors
+      new_sv%energy  = marray_base(num)               ! one/num scalars
+      ! append to compound
+      CALL new_sv%AppendMArray(new_sv%density)
+      CALL new_sv%AppendMArray(new_sv%momentum)
+      CALL new_sv%AppendMArray(new_sv%energy)
+    CASE DEFAULT
+      CALL Physics%Warning("physics_euler::CreateStateVector_euler", "Empty state vector created.")
+    END SELECT
+  END SUBROUTINE CreateStateVector_euler
 
   !> assigns one state vector to another state vector
   SUBROUTINE AssignMArray_0(this,ma)

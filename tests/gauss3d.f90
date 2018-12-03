@@ -55,8 +55,8 @@ PROGRAM gauss3d
   REAL, PARAMETER     :: Y0       = 0.0      ! y-position
   REAL, PARAMETER     :: Z0       = 0.0      ! z-position
   ! mesh settings
-!   INTEGER, PARAMETER  :: MGEO     = CARTESIAN! geometry
-  INTEGER, PARAMETER  :: MGEO     = CYLINDRICAL
+  INTEGER, PARAMETER  :: MGEO     = CARTESIAN! geometry
+!   INTEGER, PARAMETER  :: MGEO     = CYLINDRICAL
 !   INTEGER, PARAMETER  :: MGEO     = SPHERICAL
   INTEGER, PARAMETER  :: RES      = 30       ! x-/y-/z-resolution
   REAL, PARAMETER     :: RMAX     = 0.5      ! maximal radial extent
@@ -208,6 +208,7 @@ CONTAINS
     timedisc => Dict( &
             "method"    / MODIFIED_EULER, &
             "order"     / 3, &
+            "tol_rel"   / 10.0, & ! > 1 disables adaptive step size
             "cfl"       / 0.4, &
             "stoptime"  / TSIM, &
             "dtlimit"   / 1.0E-8, &
@@ -282,6 +283,8 @@ CONTAINS
                * (radius(:,:,:)/RWIDTH)**2)
       ! vanishing velocities
       pvar%velocity%data1d(:) = 0.0
+    CLASS DEFAULT
+      CALL Physics%Error("gauss3d::InitData","unsupported physics")
     END SELECT
 
     CALL Physics%Convert2Conservative(Timedisc%pvar,Timedisc%cvar)
