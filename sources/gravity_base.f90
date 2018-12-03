@@ -77,8 +77,6 @@ MODULE gravity_base_mod
      REAL, DIMENSION(:,:,:),   POINTER  :: inv2PIr2     !< = 1/ (2*PI*r**2)
      REAL, DIMENSION(:,:,:),   POINTER  :: tmp,tmp2,tmp3!< temp arrays
      REAL, DIMENSION(:,:,:),   POINTER  :: dVpart       !< partial cell volumes (monopole approx.)
-     LOGICAL                            :: addtoenergy  !< for alternative rhstype=1
-     LOGICAL                            :: update_disk_height !< enable/disable computation of disk scale height
      INTEGER                            :: timeid       !<    update of this id?
      REAL, DIMENSION(:,:,:), POINTER    :: phi          !< potential
      REAL, DIMENSION(:,:,:,:), POINTER  :: pot          !< general potential

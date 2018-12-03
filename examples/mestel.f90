@@ -173,8 +173,6 @@ CONTAINS
     boundary => Dict( &
         "western"         / CUSTOM, &
         "eastern"         / CUSTOM, &
-!        "western"         / NO_GRADIENTS, &
-!        "eastern"         / NO_GRADIENTS, &
         "southern"        / PERIODIC, &
         "northern"        / PERIODIC, &
         "bottomer"        / REFLECTING, &
@@ -184,8 +182,8 @@ CONTAINS
         "stype"           / GRAVITY, &
         "cvis"            / 0.9, &
         "output/height"   / 1, &
-!        "self/gtype"      / SPECTRAL, &
-!        "self/green"      / 1, &
+        "self/gtype"      / SPECTRAL, &
+        "self/green"      / 1, &
         "pmass/gtype"     / POINTMASS, &
         "pmass/potential" / NEWTON, &
         "pmass/mass"      / MBH, &

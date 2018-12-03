@@ -121,6 +121,9 @@ MODULE gravity_spectral_mod
     !------------------------------------------------------------------------!
     CALL GetAttr(config, "gtype", solver)
     CALL this%InitLogging(solver,solver_name)
+
+    CALL this%InitGravity(Mesh,Physics,config,IO)
+
 #if !defined(HAVE_FFTW)
     CALL this%Error("InitGravity_spectral", &
          "Mandatory requirement fft has not been enabled. "//&
@@ -203,13 +206,12 @@ MODULE gravity_spectral_mod
     ! >0 : automatic setting of mcut
     CALL GetAttr(config, "ecut", this%ecut, 0.)
 
-    CALL this%Info(" POISSON--> spectral method")
-    CALL this%Info(" POISSON--> Initializing")
+    CALL this%Info("        --> Initializing")
 
     WRITE (info_str, '(I8)') this%green
-    CALL this%Info(" POISSON--> green-fn type:     " // TRIM(info_str))
+    CALL this%Info("        --> green-fn type:     " // TRIM(info_str))
     WRITE (info_str, '(ES8.2)') this%sigma
-    CALL this%Info(" POISSON--> sigma:             " // TRIM(info_str))
+    CALL this%Info("        --> sigma:             " // TRIM(info_str))
 
 
     !\todo only 2D variables
@@ -281,9 +283,7 @@ MODULE gravity_spectral_mod
 
     CALL this%PrecomputeI(Mesh, Physics)
 
-    CALL this%Info(" POISSON--> .. done initializing")
-
-    CALL this%InitGravity(Mesh,Physics,config,IO)
+    CALL this%Info("        --> .. done initializing")
 #endif
 
   END SUBROUTINE InitGravity_spectral

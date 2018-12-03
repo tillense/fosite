@@ -174,7 +174,7 @@ CONTAINS
     CALL this%UpdateGravity(Mesh,Physics,Fluxes,pvar%data4d,time,dt)
 
     ! update disk scale height if requested
-    IF (this%glist%update_disk_height) THEN
+    IF (this%update_disk_height) THEN
       SELECT TYPE(phys => Physics)
       CLASS IS (physics_eulerisotherm)
         CALL this%CalcDiskHeight(Mesh,phys,pvar%data4d)
@@ -242,7 +242,6 @@ CONTAINS
     LOGICAL                      :: has_external_potential = .FALSE.
     !------------------------------------------------------------------------!
     ! reset inverse scale height^2
-    this%invheight2(:,:,:) = 0.0
     ! go through all gravity terms in the list
     grav_ptr => this%glist
     DO WHILE(ASSOCIATED(grav_ptr))
