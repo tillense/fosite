@@ -158,8 +158,6 @@ MODULE gravity_sboxspectral_mod
     !------------------------------------------------------------------------!
     CALL GetAttr(config, "gtype", gravity_number)
 
-    CALL GetAttr(config, "order", this%order, 2)
-
     CALL this%InitLogging(gravity_number,solver_name)
 
     !-------------- checks & warnings for initial conditions ----------------!
@@ -167,6 +165,8 @@ MODULE gravity_sboxspectral_mod
     CALL this%Error("InitGravity_sboxspectral", &
          "No fftw package could be loaded.")
 #else
+    CALL GetAttr(config, "order", this%order, 2)
+
 #ifdef PARALLEL
     CALL fftw_mpi_init()
     C_INUM = Mesh%INUM
