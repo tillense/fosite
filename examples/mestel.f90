@@ -292,7 +292,7 @@ CONTAINS
     Sigma => Mesh%RemapBounds(pvar(:,:,:,Physics%DENSITY))
 
     ! set surface density using radial power law (1/r) with a little noise
-    CALL InitRandSeed(Timedisc)
+    CALL InitRandSeed(Physics)
     CALL RANDOM_NUMBER(rands)
     rands = rands * NOISE * 2.0 + (1.0 - NOISE)
     Sigma = rands*(RMIN/r(:,:,:))
@@ -343,10 +343,10 @@ CONTAINS
 
   END SUBROUTINE InitData
 
-  SUBROUTINE InitRandSeed(Timedisc)
+  SUBROUTINE InitRandSeed(Physics)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(timedisc_base), INTENT(IN) :: Timedisc
+    CLASS(physics_base), INTENT(IN) :: Physics
     INTEGER :: i, n, clock
     INTEGER, DIMENSION(:), ALLOCATABLE :: seed
     !------------------------------------------------------------------------!
@@ -357,7 +357,7 @@ CONTAINS
     CALL SYSTEM_CLOCK(COUNT=clock)
     seed = clock + 37 * (/ (i - 1, i = 1, n) /)
 #ifdef PARALLEL
-    seed = seed + GetRank(Timedisc)
+    seed = seed + Physics%GetRank()
 #endif
     CALL RANDOM_SEED(PUT = seed)
     DEALLOCATE(seed)
