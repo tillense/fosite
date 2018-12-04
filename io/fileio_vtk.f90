@@ -49,9 +49,6 @@
 !! \extends fileio_common
 !! \ingroup fileio
 !----------------------------------------------------------------------------!
-#if defined(NECSXAURORA)
-#define NOSTREAM
-#endif
 MODULE fileio_vtk_mod
   USE fileio_base_mod
   USE geometry_base_mod
@@ -574,11 +571,7 @@ CONTAINS
     CASE('vts')
        ! open the VTS file
        OPEN(this%unit, FILE=this%GetFilename(),STATUS=TRIM(sta), &
-#ifndef NOSTREAM
             ACCESS = 'STREAM' ,   &
-#else
-            FORM   = 'UNFORMATTED',&
-#endif
             ACTION=TRIM(act),POSITION=TRIM(pos),IOSTAT=this%error_io)
 #ifdef PARALLEL
     CASE('pvts')
