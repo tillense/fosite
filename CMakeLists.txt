@@ -95,7 +95,7 @@ endif (CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
 # set preprocessor macro to the vector length of the target system
 # DEFAULT: 1
 if (CMAKE_SYSTEM_NAME MATCHES "(.*)SX-Aurora")
-  add_compile_options(-DVECTOR_LENGTH="256")
+  add_definitions(-DVECTOR_LENGTH="256" -DNECSXAURORA)
 else ()#(CMAKE_SYSTEM_NAME MATCHES "(.*)SX-AURORA")
   if (X86_VECTOR_EXTENSION MATCHES "AVX")
     add_compile_options(-DVECTOR_LENGTH="16")
