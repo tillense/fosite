@@ -1811,9 +1811,7 @@ CONTAINS
       ! This is not true for the second component of physics with
       ! angular momentum transport, but that component should be zero.
       SELECT CASE(Physics%GetType())
-      CASE(EULER2D,EULER2D_ISOTHERM,EULER3D_ROTSYM,EULER3D_ROTAMT,&
-           EULER3D_ROTSYMSGS,EULER2D_SGS,EULER3D_ROTAMTSGS,EULER2D_ISOIAMT, &
-           EULER2D_IAMT,EULER2D_ISOIAMROT)
+      CASE(EULER,EULER_ISOTHERM)
         ! do nothing
       CASE DEFAULT
         CALL this%Error("GetCentrifugalVelocity","It is unknown, if the "&

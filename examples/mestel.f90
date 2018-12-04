@@ -107,8 +107,8 @@ PROGRAM mestel
   REAL, PARAMETER :: RMAX = 1.E+0 * PARSEC  ! outer radius [m]
   REAL, PARAMETER :: RGEO = 1.0 * PARSEC    ! geometry scaling constant
   INTEGER, PARAMETER :: MGEO = LOGCYLINDRICAL ! mesh geometry
-  INTEGER, PARAMETER :: XRES = 32          ! mesh resolution (radial)
-  INTEGER, PARAMETER :: YRES = 64          ! mesh resolution (azimuthal)
+  INTEGER, PARAMETER :: XRES = 64          ! mesh resolution (radial)
+  INTEGER, PARAMETER :: YRES = 128          ! mesh resolution (azimuthal)
   INTEGER, PARAMETER :: ZRES = 1            ! mesh resolution (z)
   ! output settings
   INTEGER, PARAMETER :: ONUM = 1000         ! number of output time steps
@@ -315,29 +315,9 @@ CONTAINS
 
     CALL Physics%Convert2Conservative(Mesh,pvar,cvar)
 
-
-    ! 2. azimuthal velocity: balance initial radial acceleration with centrifugal acceleration
-    ! get gravitational acceleration
-    sp => Sources
-    DO
-      IF (ASSOCIATED(sp).EQV..FALSE.) RETURN
-      SELECT TYPE(sp)
-      CLASS IS(sources_gravity)
-        gp => sp
-        EXIT
-      END SELECT
-      sp => sp%next
-    END DO
-
-    IF (ASSOCIATED(sp)) THEN
-       CALL gp%UpdateGravity(Mesh,Physics,Fluxes,pvar,0.0,0.0)
-    ELSE
-       CALL Sim%Error("InitData","no gravity term initialized")
-    END IF
-
     ! set the velocity due to the centrifugal force
     pvar(:,:,:,Physics%XVELOCITY:Physics%XVELOCITY+Physics%VDIM-1) = &
-          Timedisc%GetCentrifugalVelocity(Mesh,Physics,Fluxes,Sources,(/0.,0.,1./),gp%accel)
+          Timedisc%GetCentrifugalVelocity(Mesh,Physics,Fluxes,Sources,(/0.,0.,1./))
 
     ! setting for custom boundary conditions (western boundary)
     IF(Timedisc%Boundary%boundary(WEST)%p%GetType().EQ.CUSTOM) THEN
