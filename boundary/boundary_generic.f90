@@ -354,7 +354,9 @@ CONTAINS
   END SUBROUTINE InitBoundary
 
 
+  !> Sets boundaries in all directions
   SUBROUTINE CenterBoundary(this,Mesh,Physics,time,pvar,cvar)
+    USE boundary_shearing_mod, ONLY : boundary_shearing
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(boundary_generic),INTENT(INOUT) :: this
@@ -385,10 +387,38 @@ CONTAINS
     END IF
 
     ! set physical boundary conditions at southern and northern boundaries
+    !
+    ! Here an extra case for parallel execution is handled, when shearing
+    ! boundaries are applied in northern/southern direction. The application
+    ! of the boundary conditions is done after the MPI communication, because
+    ! the shearing boundaries need to first apply periodic boundary conditions.
+    ! This is done MPI below across the computational domains.
+#ifdef PARALLEL
+    SELECT TYPE(bound1 => this%Boundary(SOUTH)%p)
+    TYPE IS (boundary_shearing)
+      ! Apply shearing boundaries after MPI communication. Compare with
+      ! code passage further below.
+    CLASS DEFAULT
+      IF (Mesh%JNUM.GT.1) THEN
+        CALL this%Boundary(SOUTH)%p%SetBoundaryData(Mesh,Physics,time,pvar)
+      END IF
+    END SELECT
+
+    SELECT TYPE(bound2 => this%Boundary(NORTH)%p)
+    TYPE IS (boundary_shearing)
+      ! Apply shearing boundaries after MPI communication. Compare with
+      ! code passage further below.
+    CLASS DEFAULT
+      IF (Mesh%JNUM.GT.1) THEN
+        CALL this%Boundary(NORTH)%p%SetBoundaryData(Mesh,Physics,time,pvar)
+      END IF
+    END SELECT
+#else
     IF (Mesh%JNUM.GT.1) THEN
       CALL this%Boundary(SOUTH)%p%SetBoundaryData(Mesh,Physics,time,pvar)
       CALL this%Boundary(NORTH)%p%SetBoundaryData(Mesh,Physics,time,pvar)
     END IF
+#endif
 
     ! set physical boundary conditions at top and bottom boundaries
     IF (Mesh%KNUM.GT.1) THEN
@@ -640,6 +670,29 @@ CONTAINS
     END IF
 #endif
 #endif
+
+#ifdef PARALLEL
+    ! set physical boundary conditions at southern and northern boundaries
+    ! Here an extra case for parallel execution is handled. When shearing
+    ! boundaries are applied, periodic boundaries are assumed.
+    SELECT TYPE(bound1 => this%Boundary(SOUTH)%p)
+    TYPE IS (boundary_shearing)
+      IF (Mesh%JNUM.GT.1) THEN
+        CALL this%Boundary(SOUTH)%p%SetBoundaryData(Mesh,Physics,time,pvar)
+      END IF
+    CLASS DEFAULT
+      ! do nothing
+    END SELECT
+    SELECT TYPE(bound2 => this%Boundary(NORTH)%p)
+    TYPE IS (boundary_shearing)
+      IF (Mesh%JNUM.GT.1) THEN
+        CALL this%Boundary(NORTH)%p%SetBoundaryData(Mesh,Physics,time,pvar)
+      END IF
+    CLASS DEFAULT
+      ! do nothing
+    END SELECT
+#endif
+
 
     ! \todo This module should be not necessary anymore, since the
     !       remaining region vanishes.
