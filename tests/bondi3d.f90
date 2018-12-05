@@ -75,9 +75,6 @@ PROGRAM bondi3d
   REAL, DIMENSION(:), ALLOCATABLE :: sigma
   REAL :: sum_numer, sum_denom
   INTEGER :: n,DEN,VEL,PRE
-#ifdef PARALLEL
-  INTEGER :: ierr
-#endif
   LOGICAL :: ok
   !--------------------------------------------------------------------------!
 
@@ -132,7 +129,6 @@ TAP_PLAN(4)
   DEN = Sim%Physics%DENSITY
   VEL = Sim%Physics%XVELOCITY
   PRE = Sim%Physics%PRESSURE
-  CALL Sim%Finalize(mpifinalize_=.FALSE.)
 
 #ifdef PARALLEL
   IF (Sim%GetRank().EQ.0) THEN
@@ -146,10 +142,10 @@ TAP_CHECK_SMALL(sigma(PRE),6.0E-02,"pressure deviation < 6%")
 TAP_DONE
 #ifdef PARALLEL
   END IF
-  CALL MPI_Finalize(ierr)
 #endif
 
   IF (ALLOCATED(sigma)) DEALLOCATE(sigma)
+  CALL Sim%Finalize()
   DEALLOCATE(Sim)
 
 CONTAINS
