@@ -815,14 +815,18 @@ CONTAINS
 
     ! largest time step due to CFL condition
     dt_cfl = this%cfl / invdt
-    ! due to cfl = 0
+    ! time step limitation due to cfl -> dtcause = 0
     dtcause = 0
 
-    ! initialize this to be sure dt_src > 0
-    dt_src = dt_cfl
-    CALL Sources%CalcTimestep(Mesh,Physics,Fluxes,time,this%pvar%data4d,this%cvar%data4d,dt_src,dtcause)
-
-    dt = MIN(dt_cfl,dt_src)
+    ! check for sources
+    IF (ASSOCIATED(Sources)) THEN
+      ! initialize this to be sure dt_src > 0
+      dt_src = dt_cfl
+      CALL Sources%CalcTimestep(Mesh,Physics,Fluxes,time,this%pvar%data4d,this%cvar%data4d,dt_src,dtcause)
+      dt = MIN(dt_cfl,dt_src)
+    ELSE
+      dt = dt_cfl
+    END IF
   END FUNCTION CalcTimestep
 
   SUBROUTINE AcceptSolution(this,Mesh,Physics,Sources,Fluxes,time,dt,iter)

@@ -56,7 +56,7 @@ CONTAINS
     CLASS(physics_base)          :: Physics
     TYPE(DICT_TYP),      POINTER :: config, IO
     !------------------------------------------------------------------------!
-    CLASS(sources_base), POINTER :: newsrc, tmpsrc
+    CLASS(sources_base), POINTER :: newsrc => null(), tmpsrc => null()
     TYPE(Dict_TYP),      POINTER :: dir,src,IOsrc,gsrc => null(),gdir => null()
     INTEGER                      :: update_disk_height = 0
     INTEGER                      :: stype
@@ -92,33 +92,36 @@ CONTAINS
           CALL this%Error("new_sources","Unknown source type")
         END SELECT
 
-        ! basic initialization
-        SELECT TYPE(obj => newsrc)
-        TYPE IS (sources_c_accel)
-          CALL obj%InitSources_c_accel(Mesh,Physics,Fluxes,src,IOsrc)
-        TYPE IS (sources_diskcooling)
-          CALL obj%InitSources_diskcooling(Mesh,Physics,Fluxes,src,IOsrc)
-          IF (obj%cooling%GetType().EQ.GRAY) update_disk_height = 1
-        TYPE IS (sources_rotframe)
-          CALL obj%InitSources_rotframe(Mesh,Physics,Fluxes,src,IOsrc)
-        TYPE IS (sources_shearbox)
-          CALL obj%InitSources_shearbox(Mesh,Physics,Fluxes,src,IOsrc)
-        TYPE IS (sources_viscosity)
-          CALL obj%InitSources_viscosity(Mesh,Physics,Fluxes,src,IOsrc)
-          IF (obj%viscosity%GetType().EQ.ALPHA_ALT) update_disk_height = 1
-        END SELECT
-
-        IF (stype .NE. GRAVITY) THEN
+        ! basic initialization of all source terms except gravity
+        IF (ASSOCIATED(newsrc)) THEN
+          SELECT TYPE(obj => newsrc)
+          TYPE IS (sources_c_accel)
+            CALL obj%InitSources_c_accel(Mesh,Physics,Fluxes,src,IOsrc)
+          TYPE IS (sources_diskcooling)
+            CALL obj%InitSources_diskcooling(Mesh,Physics,Fluxes,src,IOsrc)
+            IF (obj%cooling%GetType().EQ.GRAY) update_disk_height = 1
+          TYPE IS (sources_rotframe)
+            CALL obj%InitSources_rotframe(Mesh,Physics,Fluxes,src,IOsrc)
+          TYPE IS (sources_shearbox)
+            CALL obj%InitSources_shearbox(Mesh,Physics,Fluxes,src,IOsrc)
+          TYPE IS (sources_viscosity)
+            CALL obj%InitSources_viscosity(Mesh,Physics,Fluxes,src,IOsrc)
+            IF (obj%viscosity%GetType().EQ.ALPHA_ALT) update_disk_height = 1
+          END SELECT
+          ! check if list of source terms is empty
           IF (.NOT.ASSOCIATED(this)) THEN
+            ! first entry is the new source term
             this => newsrc
             NULLIFY(this%next)
           ELSE
+            ! prepend new source term to the list of source terms
             tmpsrc => this
             this => newsrc
             this%next => tmpsrc
           END IF
         END IF
 
+        ! process the output dictionary
         IF(ASSOCIATED(IOsrc)) CALL SetAttr(IO, GetKey(dir), IOsrc)
 
       END IF

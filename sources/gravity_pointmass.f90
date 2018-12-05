@@ -132,7 +132,7 @@ CONTAINS
     TYPE(Dict_TYP),           POINTER       :: config,IO
     !------------------------------------------------------------------------!
     INTEGER :: potential_number, valwrite, gtype
-    INTEGER :: err,i,j,k
+    INTEGER :: err,i,j,k,l
     REAL    :: r,r_schwarzschild=0.0,eps
     REAL    :: invdt_x, invdt_y
     !------------------------------------------------------------------------!
@@ -259,7 +259,10 @@ CONTAINS
              (( this%r_prim(i,j,k) * (this%r_prim(i,j,k)-r_schwarzschild)**2) + eps**3) / (Physics%Constants%GN*this%mass) )
           this%omega(i,j,k) = SQRT(this%omega2(i,j,k,1))
           ! curvilinear components of the gravitational acceleration
-          this%accel(i,j,k,1:2) = -this%omega2(i,j,k,1) * this%posvec_prim(i,j,k,1:2)
+!NEC$ UNROLL(3)
+          DO l=1,Physics%VDIM
+            this%accel(i,j,k,l) = -this%omega2(i,j,k,1) * this%posvec_prim(i,j,k,l)
+          END DO
         END DO
       END DO
     END DO
@@ -343,6 +346,7 @@ CONTAINS
                               INTENT(IN)    :: pvar
     REAL,                     INTENT(IN)    :: time,dt
     !------------------------------------------------------------------------!
+    INTEGER                       :: l
     REAL, DIMENSION(Physics%VNUM) :: bflux
     REAL                          :: oldmass,massfac,sqrmassfac,dmass,dmasslim
     !------------------------------------------------------------------------!
@@ -385,8 +389,10 @@ CONTAINS
       this%scaling = SIN(0.5*PI*time/this%switchon)**2
       ! compute acceleration and scale it;
       ! during the switchon phase accretion is disabled
-      this%accel(:,:,:,1) = -this%scaling * this%omega2(:,:,:,1) * this%posvec_prim(:,:,:,1)
-      this%accel(:,:,:,2) = -this%scaling * this%omega2(:,:,:,1) * this%posvec_prim(:,:,:,2)
+!NEC$ UNROLL(3)
+      DO l=1,Physics%VDIM
+        this%accel(:,:,:,l) = -this%scaling * this%omega2(:,:,:,1) * this%posvec_prim(:,:,:,l)
+      END DO
     END IF
 
   END SUBROUTINE UpdateGravity_single
