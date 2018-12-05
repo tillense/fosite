@@ -174,6 +174,7 @@ MODULE common_dict
        CopyDict,      &
        PrintDict,     &
        InitDict,      &
+       CloseDict,     &
        DeleteDict
   !--------------------------------------------------------------------------!
 
@@ -181,11 +182,15 @@ CONTAINS
   SUBROUTINE InitDict()
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    INTEGER, PARAMETER :: type = 0
-    CHARACTER(LEN=32), PARAMETER :: name = "Dictionary"
-    !------------------------------------------------------------------------!
-    !CALL InitDict_common(this, type, name)
+    IF (.NOT.ALLOCATED(mold)) ALLOCATE(mold(1))
   END SUBROUTINE InitDict
+
+
+  SUBROUTINE CloseDict()
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    IF (ALLOCATED(mold)) DEALLOCATE(mold)
+  END SUBROUTINE CloseDict
 
 
   !> Search for the path in 'key' beginning at root and return a pointer to

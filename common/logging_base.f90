@@ -276,8 +276,8 @@ CONTAINS
     END IF
     ! output unit for printing, defaults to STDOUT
     output_unit = STDOUT
-    IF (PRESENT(tostderr).AND.tostderr) THEN
-       output_unit = STDERR ! print on STDERR if requested
+    IF (PRESENT(tostderr)) THEN
+       IF (tostderr) output_unit = STDERR ! print on STDERR if requested
     ENDIF
 #ifdef PARALLEL
     IF (.NOT.parinit) CALL MPI_Comm_rank(mpi_comm_world,myrank,ierr)

@@ -466,6 +466,7 @@ CONTAINS
 
     CALL DeleteDict(this%IO)
     CALL DeleteDict(this%config)
+    CALL CloseDict()
 
 #ifdef PARALLEL
     IF(PRESENT(mpifinalize_)) THEN
