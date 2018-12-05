@@ -74,7 +74,7 @@ PROGRAM bondi3d
   CLASS(fosite), ALLOCATABLE :: Sim
   REAL, DIMENSION(:), ALLOCATABLE :: sigma
   REAL :: sum_numer, sum_denom
-  INTEGER :: n
+  INTEGER :: n,DEN,VEL,PRE
 #ifdef PARALLEL
   INTEGER :: ierr
 #endif
@@ -129,6 +129,9 @@ TAP_PLAN(4)
     sigma(:) = 0.0
   END IF
 
+  DEN = Sim%Physics%DENSITY
+  VEL = Sim%Physics%XVELOCITY
+  PRE = Sim%Physics%PRESSURE
   CALL Sim%Finalize(mpifinalize_=.FALSE.)
 
 #ifdef PARALLEL
@@ -136,10 +139,10 @@ TAP_PLAN(4)
 #endif
 TAP_CHECK(ok,"stoptime reached")
 ! These lines are very long if expanded. So we can't indent it or it will be cropped.
-TAP_CHECK_SMALL(sigma(1),4.0E-02,"density deviation < 4%")
-TAP_CHECK_SMALL(sigma(2),4.0E-02,"radial velocity deviation < 4%")
+TAP_CHECK_SMALL(sigma(DEN),4.0E-02,"density deviation < 4%")
+TAP_CHECK_SMALL(sigma(VEL),4.0E-02,"radial velocity deviation < 4%")
 ! skip azimuthal velocity deviation, because exact value is 0
-TAP_CHECK_SMALL(sigma(5),6.0E-02,"pressure deviation < 6%")
+TAP_CHECK_SMALL(sigma(PRE),6.0E-02,"pressure deviation < 6%")
 TAP_DONE
 #ifdef PARALLEL
   END IF
@@ -272,7 +275,7 @@ CONTAINS
     !------------------------------------------------------------------------!
     ! Local variable declaration
     REAL              :: r,rho,vr,cs2
-    INTEGER           :: i,j,k
+    INTEGER           :: i,j,k,l
     CHARACTER(LEN=64) :: info_str
     !------------------------------------------------------------------------!
     ! initial condition
@@ -303,9 +306,12 @@ CONTAINS
               pvar%density%data3d(i,j,k)  = rho
               ! set the minimum of the exact velocity to some value > 0
               ! for comparison with the numerical results
-              pvar%velocity%data4d(i,j,k,1:Physics%VDIM) = SIGN(&
-                MAX(EPSILON(cs2),ABS(vr*Mesh%posvec%bcenter(i,j,k,1:Physics%VDIM)/r)), &
-                vr*Mesh%posvec%bcenter(i,j,k,1:Physics%VDIM))
+!NEC$ UNROLL(3)
+              DO l=1,Physics%VDIM
+                pvar%velocity%data4d(i,j,k,l) = SIGN(&
+                  MAX(EPSILON(cs2),ABS(vr*Mesh%posvec%bcenter(i,j,k,l)/r)), &
+                    vr*Mesh%posvec%bcenter(i,j,k,l))
+              END DO
               pvar%pressure%data3d(i,j,k) = rho * cs2 / GAMMA
             END DO
           END DO
@@ -317,11 +323,8 @@ CONTAINS
     ! calculate Bondi solution for y=ymin..ymax at xmax
     IF ((Timedisc%Boundary%Boundary(EAST)%p%GetType()).EQ.CUSTOM) THEN
       ! this tells the boundary routine the actual boundary condition for each variable
-      Timedisc%Boundary%boundary(EAST)%p%cbtype(:,:,Physics%DENSITY)   = CUSTOM_FIXED
+      Timedisc%Boundary%boundary(EAST)%p%cbtype(:,:,:)   = CUSTOM_FIXED
       Timedisc%Boundary%boundary(EAST)%p%cbtype(:,:,Physics%XVELOCITY) = CUSTOM_NOGRAD
-      Timedisc%Boundary%boundary(EAST)%p%cbtype(:,:,Physics%YVELOCITY) = CUSTOM_FIXED
-      Timedisc%Boundary%boundary(EAST)%p%cbtype(:,:,Physics%ZVELOCITY) = CUSTOM_FIXED
-      Timedisc%Boundary%boundary(EAST)%p%cbtype(:,:,Physics%PRESSURE)  = CUSTOM_FIXED
       DO k=Mesh%KMIN,Mesh%KMAX
         DO j=Mesh%JMIN,Mesh%JMAX
           DO i=1,Mesh%GNUM
@@ -329,12 +332,11 @@ CONTAINS
             r = Mesh%radius%bcenter(Mesh%IMAX+i,j,k)
             CALL bondi(r/RB,GAMMA,RHOINF,CSINF,rho,vr)
             cs2 = CSINF**2 * (rho/RHOINF)**(GAMMA-1.0)
-            ! set boundary data to either primitive or conservative values
-            ! depending on the reconstruction
             Timedisc%Boundary%Boundary(EAST)%p%data(i,j,k,Physics%DENSITY)   = rho
-            Timedisc%Boundary%Boundary(EAST)%p%data(i,j,k,Physics%XVELOCITY) = vr*Mesh%posvec%bcenter(Mesh%IMAX+i,j,k,1)/r
-            Timedisc%Boundary%Boundary(EAST)%p%data(i,j,k,Physics%YVELOCITY) = vr*Mesh%posvec%bcenter(Mesh%IMAX+i,j,k,2)/r
-            Timedisc%Boundary%Boundary(EAST)%p%data(i,j,k,Physics%ZVELOCITY) = vr*Mesh%posvec%bcenter(Mesh%IMAX+i,j,k,3)/r
+            DO l=1,Physics%VDIM
+              Timedisc%Boundary%Boundary(EAST)%p%data(i,j,k,Physics%XVELOCITY+l-1) &
+                = vr*Mesh%posvec%bcenter(Mesh%IMAX+i,j,k,l)/r
+            END DO
             Timedisc%Boundary%Boundary(EAST)%p%data(i,j,k,Physics%PRESSURE)  = rho * cs2 / GAMMA
           END DO
         END DO
