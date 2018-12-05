@@ -78,16 +78,17 @@ CONTAINS
     CLASS(mesh_base),               INTENT(IN)    :: Mesh
     CLASS(physics_base),            INTENT(IN)    :: Physics
     CLASS(marray_compound),         INTENT(INOUT) :: rvar
-    REAL, INTENT(OUT) :: rstates(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX, &
-                    Mesh%KGMIN:Mesh%KGMAX,Mesh%NFACES,Physics%VNUM)
+    CLASS(marray_compound),         INTENT(INOUT) :: rstates
     !------------------------------------------------------------------------!
-    INTEGER                                       :: n
+    INTEGER                                       :: l,n
     !------------------------------------------------------------------------!
-
-    ! reconstruct boundary states
+    ! reconstruct cell face values
 !NEC$ SHORTLOOP
-    DO n=1,Mesh%NFACES
-       rstates(:,:,:,n,:) = rvar%data4d(:,:,:,:)
+    DO l=1,Physics%VNUM
+!NEC$ SHORTLOOP
+      DO n=1,Mesh%NFACES
+         rstates%data3d(:,n,l) = rvar%data2d(:,l)
+      END DO
     END DO
   END SUBROUTINE CalculateStates
 

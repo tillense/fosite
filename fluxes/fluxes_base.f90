@@ -374,13 +374,11 @@ CONTAINS
     !------------------------------------------------------------------------!
     ! reconstruct data on cell faces
     IF (this%Reconstruction%PrimRecon()) THEN
-       CALL this%Reconstruction%CalculateStates(Mesh,Physics,pvar,this%prim%data5d)
+       CALL this%Reconstruction%CalculateStates(Mesh,Physics,pvar,this%prim)
        CALL Physics%Convert2Conservative(this%prim,this%cons)
-!        CALL Physics%Convert2Conservative(Mesh,this%prim%data5d,this%cons%data5d)
     ELSE
-       CALL this%Reconstruction%CalculateStates(Mesh,Physics,cvar,this%cons%data5d)
+       CALL this%Reconstruction%CalculateStates(Mesh,Physics,cvar,this%cons)
        CALL Physics%Convert2Primitive(this%cons,this%prim)
-!        CALL Physics%Convert2Primitive(Mesh,this%cons%data5d,this%prim%data5d)
     END IF
 
     ! update the speed of sound on cell faces (non-isotherml physics only)

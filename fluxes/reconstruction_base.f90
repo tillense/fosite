@@ -62,8 +62,7 @@ MODULE reconstruction_base_mod
       CLASS(mesh_base),           INTENT(IN)      :: Mesh
       CLASS(physics_base),        INTENT(IN)      :: Physics
       CLASS(marray_compound),     INTENT(INOUT)   :: rvar
-      REAL, INTENT(OUT) :: rstates(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX, &
-                    Mesh%KGMIN:Mesh%KGMAX,Mesh%NFACES,Physics%VNUM)
+      CLASS(marray_compound),     INTENT(INOUT)   :: rstates
     END SUBROUTINE
     SUBROUTINE Finalize(this)
       IMPORT reconstruction_base

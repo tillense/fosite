@@ -207,19 +207,20 @@ CONTAINS
     CLASS(mesh_base),             INTENT(IN)    :: Mesh
     CLASS(physics_base),          INTENT(IN)    :: Physics
     CLASS(marray_compound),       INTENT(INOUT) :: rvar
-    REAL, INTENT(OUT) :: rstates(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX, &
-                    Mesh%KGMIN:Mesh%KGMAX,Mesh%NFACES,Physics%VNUM)
+    CLASS(marray_compound),       INTENT(INOUT) :: rstates
     !------------------------------------------------------------------------!
     INTEGER                                     :: l,n
     !------------------------------------------------------------------------!
     ! calculate slopes first
     CALL this%CalculateSlopes(Mesh,Physics,rvar)
 
-    ! reconstruct states
+    ! reconstruct cell face values
+!NEC$ SHORTLOOP
     DO l=1,Physics%VNUM
+!NEC$ SHORTLOOP
       DO n=1,Mesh%NFACES
-        rstates(:,:,:,n,l) = rvar%data4d(:,:,:,l) + &
-           this%slopes%data5d(:,:,:,((n+1)/2),l)*this%dx%data4d(:,:,:,n)
+        rstates%data3d(:,n,l) = rvar%data2d(:,l) + &
+           this%slopes%data3d(:,((n+1)/2),l)*this%dx%data2d(:,n)
       END DO
     END DO
   END SUBROUTINE CalculateStates
