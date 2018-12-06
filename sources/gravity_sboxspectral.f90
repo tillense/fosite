@@ -472,7 +472,7 @@ MODULE gravity_sboxspectral_mod
     delt = time - time0
 
     !----------------- shift field to periodic point ------------------------!
-!NEC$ IEXPAND
+!!NEC$ IEXPAND
     CALL this%FieldShift(Mesh,Physics,delt, &
               pvar(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%DENSITY), &
               this%den_ip(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX))
@@ -493,7 +493,7 @@ CALL ftrace_region_begin("forward_fft")
 
     !> \todo Violation of best practices. It should take Fmass2D and mass2D as
     !!      dummy argument, but this is different for every combination
-!NEC$ IEXPAND
+!!NEC$ IEXPAND
     CALL this%FFT_Forward(Mesh,Physics)
 
 ! performance checks
@@ -533,7 +533,7 @@ CALL ftrace_region_begin("backward_fft")
 
     !> \todo Violation of best practices. It should take Fmass2D and mass2D as
     !!      dummy argument, but this is different for every combination.
-!NEC$ EXPAND
+!!NEC$ EXPAND
     CALL this%FFT_Backward(Mesh,Physics)
 
 #ifdef _FTRACE
@@ -550,7 +550,7 @@ CALL ftrace_region_end("backward_fft")
       END DO
     END DO
     !-------------------------- shift field back ----------------------------!
-!NEC$ IEXPAND
+!!NEC$ IEXPAND
     CALL this%FieldShift(Mesh,Physics,-delt, &
             this%phi(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
             this%den_ip(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX))
@@ -565,7 +565,7 @@ CALL ftrace_region_end("backward_fft")
 
     !----- copy values to boundaries in order to calculate acceleration -----!
     IF(Mesh%WE_shear) THEN
-!NEC$ NODEP
+!NEC$ IVDEP
       DO j = 1,Mesh%GJNUM
         ! southern northern (periodic)
         this%phi(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN-j,Mesh%KMIN:Mesh%KMAX) = this%phi(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX-j+1,Mesh%KMIN:Mesh%KMAX)

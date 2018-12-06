@@ -396,7 +396,7 @@ CONTAINS
     REAL :: Tfactor
     !------------------------------------------------------------------------!
     ! compute kappa_i^4 for all cooling mechanisms
-!CDIR UNROLL=8
+!NEC$ unroll(8)
     kappa4(:) = EXP(MAX(-40.0,MIN(40.0, &
          4.*(logkappa0(:)+rexp(:)*logrho+Texp(:)*logT))))
     ! compute (T/T0)**10

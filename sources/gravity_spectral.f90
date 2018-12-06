@@ -729,9 +729,9 @@ MODULE gravity_spectral_mod
       END DO
     END DO
 
-!CDIR COLLAPSE
+!NEC$ collapse
     ! disk height with external potential
-!CDIR COLLAPSE
+!NEC$ collapse
 !    DO k=Mesh%KGMIN,Mesh%KGMAX
 !      DO j=Mesh%JGMIN,Mesh%JGMAX
 !        DO i=Mesh%IGMIN,Mesh%IGMAX
@@ -744,7 +744,7 @@ MODULE gravity_spectral_mod
 !      END DO
 !    END DO
        ! pure self-gravitating disk without external potential
-!CDIR COLLAPSE
+!NEC$ collapse
       DO k=Mesh%KGMIN,Mesh%KGMAX
         DO j=Mesh%JGMIN,Mesh%JGMAX
           DO i=Mesh%IGMIN,Mesh%IGMAX

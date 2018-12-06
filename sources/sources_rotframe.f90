@@ -164,10 +164,10 @@ CONTAINS
     ! Two cases due to different angles between angular velocity to mesh
     ! 1. only a projected part plays role for bianglespherical geometry
     IF ((Mesh%Geometry%GetType()).EQ.BIANGLESPHERICAL) THEN
-!CDIR OUTERUNROLL=8
+!NEC$ outerloop_unroll(8)
       DO k=Mesh%KMIN,Mesh%KMAX
         DO j=Mesh%JMIN,Mesh%JMAX
-!CDIR NODEP
+!NEC$ ivdep
           DO i=Mesh%IMIN,Mesh%IMAX
             this%accel(i,j,k,1) = Mesh%OMEGA*(Mesh%OMEGA*&
                    this%centproj(i,j,k,1) + 2.0*this%cos1(i,j,k,1)*&
@@ -179,10 +179,10 @@ CONTAINS
       END DO
     ! 2. OMEGA is always perpendicular to other curvilinear coordinates
     ELSE
-!CDIR OUTERUNROLL=8
+!NEC$ outerloop_unroll(8)
       DO k=Mesh%KMIN,Mesh%KMAX
         DO j=Mesh%JMIN,Mesh%JMAX
-  !CDIR NODEP
+  !NEC$ ivdep
           DO i=Mesh%IMIN,Mesh%IMAX
             ! components of centrifugal and coriolis acceleration
             this%accel(i,j,k,1) = Mesh%OMEGA*(Mesh%OMEGA*this%cent(i,j,k,1) &

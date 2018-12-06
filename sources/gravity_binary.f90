@@ -360,10 +360,10 @@ CONTAINS
     this%pot(:,:,:,:) = this%pot_prim(:,:,:,:) + this%pot_sec(:,:,:,:)
 
     ! set curvilinear components of the gravitational acceleration
-!CDIR COLLAPSE
+!NEC$ collapse
     DO k=Mesh%KGMIN,Mesh%KGMAX
       DO j=Mesh%JGMIN,Mesh%JGMAX
-!CDIR NODEP
+!NEC$ ivdep
         DO i=Mesh%IGMIN,Mesh%IGMAX
           this%accel(i,j,k,1:Physics%VDIM) = -this%omega2(i,j,k,1) * this%posvec_prim(i,j,k,1:Physics%VDIM)&
                            -this%omega2(i,j,k,2) * this%posvec_sec(i,j,k,1:Physics%VDIM)
