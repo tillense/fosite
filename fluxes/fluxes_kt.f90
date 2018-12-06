@@ -126,10 +126,11 @@ CONTAINS
       m = 1 ! index counting the number of spatial directions for which transport is enabled
       ! physical fluxes
       CALL Physics%CalculateFluxesX(Mesh,2*m-1,2*m,this%prim%data5d,this%cons%data5d,this%pfluxes)
-!NEC$ UNROLL(8)
+!NEC$ SHORTLOOP
       DO l=1,Physics%VNUM
-!NEC$ UNROLL(8)
+!NEC$ IVDEP
         DO k=Mesh%KGMIN,Mesh%KGMAX
+!NEC$ IVDEP
           DO j=Mesh%JGMIN,Mesh%JGMAX
 !NEC$ IVDEP
             DO i=Mesh%IMIN+Mesh%IM1,Mesh%IMAX
@@ -154,10 +155,13 @@ CONTAINS
                 ! on whether there was transport in x-direction or not
       ! physical fluxes
       CALL Physics%CalculateFluxesY(Mesh,2*m-1,2*m,this%prim%data5d,this%cons%data5d,this%pfluxes)
-!NEC$ UNROLL(8)
+!NEC$ SHORTLOOP
       DO l=1,Physics%VNUM
+!NEC$ IVDEP
         DO k=Mesh%KGMIN,Mesh%KGMAX
+!NEC$ IVDEP
           DO j=Mesh%JMIN+Mesh%JM1,Mesh%JMAX
+!NEC$ IVDEP
             DO i=Mesh%IGMIN,Mesh%IGMAX
                 yfluxdzdx(i,j,k,l) = Mesh%dAydzdx(i,j+1,k,1) / &
                         (this%maxwav%data4d(i,j,k,m) - this%minwav%data4d(i,j,k,m)) * &
@@ -178,10 +182,11 @@ CONTAINS
                 ! on whether there was transport in x- and/or y-direction or not
         ! physical fluxes
       CALL Physics%CalculateFluxesZ(Mesh,2*m-1,2*m,this%prim%data5d,this%cons%data5d,this%pfluxes)
-!NEC$ UNROLL(8)
+!NEC$ SHORTLOOP
       DO l=1,Physics%VNUM
-!NEC$ UNROLL(8)
+!NEC$ IVDEP
         DO k=Mesh%KMIN+Mesh%KM1,Mesh%KMAX
+!NEC$ IVDEP
           DO j=Mesh%JGMIN,Mesh%JGMAX
 !NEC$ IVDEP
             DO i=Mesh%IGMIN,Mesh%IGMAX
