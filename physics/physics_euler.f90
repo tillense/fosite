@@ -1063,115 +1063,117 @@ CONTAINS
               IF (Mesh%INUM.GT.1) THEN
                 ! x-momentum
                 ! vy = vz = my = mz = 0
-                s%momentum%data4d(:,:,:,1) = GetGeometricalSourceX( &
-                   Mesh%cxyx%bcenter(:,:,:),Mesh%cxzx%bcenter(:,:,:), &
-                   Mesh%cyxy%bcenter(:,:,:),Mesh%czxz%bcenter(:,:,:), &
-                   p%velocity%data4d(:,:,:,1),0.0,0.0, &
-                   p%pressure%data3d(:,:,:), &
+                s%momentum%data2d(:,1) = GetGeometricalSourceX( &
+                   Mesh%cxyx%data2d(:,2),Mesh%cxzx%data2d(:,2), &
+                   Mesh%cyxy%data2d(:,2),Mesh%czxz%data2d(:,2), &
+                   p%velocity%data2d(:,1),0.0,0.0, &
+                   p%pressure%data1d(:), &
                    0.0,0.0)
               ELSE IF (Mesh%JNUM.GT.1) THEN
                 ! y-momentum
                 ! vx = vz = mx = mz = 0
-                s%momentum%data4d(:,:,:,1) = GetGeometricalSourceY( &
-                   Mesh%cxyx%bcenter(:,:,:),Mesh%cyxy%bcenter(:,:,:), &
-                   Mesh%cyzy%bcenter(:,:,:),Mesh%czyz%bcenter(:,:,:), &
-                   0.0,p%velocity%data4d(:,:,:,1),0.0, &
-                   p%pressure%data3d(:,:,:), &
+                s%momentum%data2d(:,1) = GetGeometricalSourceY( &
+                   Mesh%cxyx%data2d(:,2),Mesh%cyxy%data2d(:,2), &
+                   Mesh%cyzy%data2d(:,2),Mesh%czyz%data2d(:,2), &
+                   0.0,p%velocity%data2d(:,1),0.0, &
+                   p%pressure%data1d(:), &
                    0.0,0.0)
               ELSE IF (Mesh%KNUM.GT.1) THEN
                 ! z-momentum
                 ! vx = vy = mx = my = 0
-                s%momentum%data4d(:,:,:,1) = GetGeometricalSourceZ( &
-                   Mesh%cxzx%bcenter(:,:,:),Mesh%cyzy%bcenter(:,:,:), &
-                   Mesh%czxz%bcenter(:,:,:),Mesh%czyz%bcenter(:,:,:), &
-                   0.0,0.0,p%velocity%data4d(:,:,:,1), &
-                   p%pressure%data3d(:,:,:), &
+                s%momentum%data2d(:,1) = GetGeometricalSourceZ( &
+                   Mesh%cxzx%data2d(:,2),Mesh%cyzy%data2d(:,2), &
+                   Mesh%czxz%data2d(:,2),Mesh%czyz%data2d(:,2), &
+                   0.0,0.0,p%velocity%data2d(:,1), &
+                   p%pressure%data1d(:), &
                    0.0,0.0)
               END IF
             CASE(2) ! 2D
               IF (Mesh%KNUM.EQ.1.AND..NOT.Mesh%ROTSYM.EQ.3) THEN
                 ! vz = mz = 0
                 ! x-momentum
-                s%momentum%data4d(:,:,:,1) = GetGeometricalSourceX( &
-                   Mesh%cxyx%bcenter(:,:,:),Mesh%cxzx%bcenter(:,:,:), &
-                   Mesh%cyxy%bcenter(:,:,:),Mesh%czxz%bcenter(:,:,:), &
-                   p%velocity%data4d(:,:,:,1),p%velocity%data4d(:,:,:,2),0.0, &
-                   p%pressure%data3d(:,:,:), &
-                   c%momentum%data4d(:,:,:,2),0.0)
+                s%momentum%data2d(:,1) = GetGeometricalSourceX( &
+                   Mesh%cxyx%data2d(:,2),Mesh%cxzx%data2d(:,2), &
+                   Mesh%cyxy%data2d(:,2),Mesh%czxz%data2d(:,2), &
+                   p%velocity%data2d(:,1),p%velocity%data2d(:,2),0.0, &
+                   p%pressure%data1d(:), &
+                   c%momentum%data2d(:,2),0.0)
                 ! y-momentum
-                s%momentum%data4d(:,:,:,2) = GetGeometricalSourceY( &
-                   Mesh%cxyx%bcenter(:,:,:),Mesh%cyxy%bcenter(:,:,:), &
-                   Mesh%cyzy%bcenter(:,:,:),Mesh%czyz%bcenter(:,:,:), &
-                   p%velocity%data4d(:,:,:,1),p%velocity%data4d(:,:,:,2),0.0, &
-                   p%pressure%data3d(:,:,:), &
-                   c%momentum%data4d(:,:,:,1),0.0)
+                s%momentum%data2d(:,2) = GetGeometricalSourceY( &
+                   Mesh%cxyx%data2d(:,2),Mesh%cyxy%data2d(:,2), &
+                   Mesh%cyzy%data2d(:,2),Mesh%czyz%data2d(:,2), &
+                   p%velocity%data2d(:,1),p%velocity%data2d(:,2),0.0, &
+                   p%pressure%data1d(:), &
+                   c%momentum%data2d(:,1),0.0)
               ELSE IF (Mesh%JNUM.EQ.1.AND..NOT.Mesh%ROTSYM.EQ.2) THEN
                 ! vy = my = 0
                 ! x-momentum
-                s%momentum%data4d(:,:,:,1) = GetGeometricalSourceX( &
-                   Mesh%cxyx%bcenter(:,:,:),Mesh%cxzx%bcenter(:,:,:), &
-                   Mesh%cyxy%bcenter(:,:,:),Mesh%czxz%bcenter(:,:,:), &
-                   p%velocity%data4d(:,:,:,1),0.0,p%velocity%data4d(:,:,:,2), &
-                   p%pressure%data3d(:,:,:), &
-                   0.0,c%momentum%data4d(:,:,:,2))
+                s%momentum%data2d(:,1) = GetGeometricalSourceX( &
+                   Mesh%cxyx%data2d(:,2),Mesh%cxzx%data2d(:,2), &
+                   Mesh%cyxy%data2d(:,2),Mesh%czxz%data2d(:,2), &
+                   p%velocity%data2d(:,1),0.0,p%velocity%data2d(:,2), &
+                   p%pressure%data1d(:), &
+                   0.0,c%momentum%data2d(:,2))
                 ! z-momentum
-                s%momentum%data4d(:,:,:,2) = GetGeometricalSourceZ( &
-                   Mesh%cxzx%bcenter(:,:,:),Mesh%cyzy%bcenter(:,:,:), &
-                   Mesh%czxz%bcenter(:,:,:),Mesh%czyz%bcenter(:,:,:), &
-                   p%velocity%data4d(:,:,:,1),0.0,p%velocity%data4d(:,:,:,2), &
-                   p%pressure%data3d(:,:,:), &
-                   0.0,c%momentum%data4d(:,:,:,2))
+                s%momentum%data2d(:,2) = GetGeometricalSourceZ( &
+                   Mesh%cxzx%data2d(:,2),Mesh%cyzy%data2d(:,2), &
+                   Mesh%czxz%data2d(:,2),Mesh%czyz%data2d(:,2), &
+                   p%velocity%data2d(:,1),0.0,p%velocity%data2d(:,2), &
+                   p%pressure%data1d(:), &
+                   0.0,c%momentum%data2d(:,2))
               ELSE IF (Mesh%INUM.EQ.1.AND..NOT.Mesh%ROTSYM.EQ.1) THEN
                 ! vx = mx = 0
                 ! y-momentum
-                s%momentum%data4d(:,:,:,1) = GetGeometricalSourceY( &
-                   Mesh%cxyx%bcenter(:,:,:),Mesh%cyxy%bcenter(:,:,:), &
-                   Mesh%cyzy%bcenter(:,:,:),Mesh%czyz%bcenter(:,:,:), &
-                   0.0,p%velocity%data4d(:,:,:,1),p%velocity%data4d(:,:,:,2), &
-                   p%pressure%data3d(:,:,:), &
-                   0.0,c%momentum%data4d(:,:,:,2))
+                s%momentum%data2d(:,1) = GetGeometricalSourceY( &
+                   Mesh%cxyx%data2d(:,2),Mesh%cyxy%data2d(:,2), &
+                   Mesh%cyzy%data2d(:,2),Mesh%czyz%data2d(:,2), &
+                   0.0,p%velocity%data2d(:,1),p%velocity%data2d(:,2), &
+                   p%pressure%data1d(:), &
+                   0.0,c%momentum%data2d(:,2))
                 ! z-momentum
-                s%momentum%data4d(:,:,:,2) = GetGeometricalSourceZ( &
-                   Mesh%cxzx%bcenter(:,:,:),Mesh%cyzy%bcenter(:,:,:), &
-                   Mesh%czxz%bcenter(:,:,:),Mesh%czyz%bcenter(:,:,:), &
-                   0.0,p%velocity%data4d(:,:,:,1),p%velocity%data4d(:,:,:,2), &
-                   p%pressure%data3d(:,:,:), &
-                   0.0,c%momentum%data4d(:,:,:,2))
+                s%momentum%data2d(:,2) = GetGeometricalSourceZ( &
+                   Mesh%cxzx%data2d(:,2),Mesh%cyzy%data2d(:,2), &
+                   Mesh%czxz%data2d(:,2),Mesh%czyz%data2d(:,2), &
+                   0.0,p%velocity%data2d(:,1),p%velocity%data2d(:,2), &
+                   p%pressure%data1d(:), &
+                   0.0,c%momentum%data2d(:,2))
               END IF
             CASE(3) ! 3D
                 ! x-momentum
-                s%momentum%data4d(:,:,:,1) = GetGeometricalSourceX( &
-                   Mesh%cxyx%bcenter(:,:,:),Mesh%cxzx%bcenter(:,:,:), &
-                   Mesh%cyxy%bcenter(:,:,:),Mesh%czxz%bcenter(:,:,:), &
-                   p%velocity%data4d(:,:,:,1),p%velocity%data4d(:,:,:,2), &
-                   p%velocity%data4d(:,:,:,3), &
-                   p%pressure%data3d(:,:,:), &
-                   c%momentum%data4d(:,:,:,2),c%momentum%data4d(:,:,:,3))
+                s%momentum%data2d(:,1) = GetGeometricalSourceX( &
+                   Mesh%cxyx%data2d(:,2),Mesh%cxzx%data2d(:,2), &
+                   Mesh%cyxy%data2d(:,2),Mesh%czxz%data2d(:,2), &
+                   p%velocity%data2d(:,1),p%velocity%data2d(:,2), &
+                   p%velocity%data2d(:,3), &
+                   p%pressure%data1d(:), &
+                   c%momentum%data2d(:,2),c%momentum%data2d(:,3))
                 ! y-momentum
-                s%momentum%data4d(:,:,:,2) = GetGeometricalSourceY( &
-                   Mesh%cxyx%bcenter(:,:,:),Mesh%cyxy%bcenter(:,:,:), &
-                   Mesh%cyzy%bcenter(:,:,:),Mesh%czyz%bcenter(:,:,:), &
-                   p%velocity%data4d(:,:,:,1),p%velocity%data4d(:,:,:,2), &
-                   p%velocity%data4d(:,:,:,3), &
-                   p%pressure%data3d(:,:,:), &
-                   c%momentum%data4d(:,:,:,1),c%momentum%data4d(:,:,:,3))
+                s%momentum%data2d(:,2) = GetGeometricalSourceY( &
+                   Mesh%cxyx%data2d(:,2),Mesh%cyxy%data2d(:,2), &
+                   Mesh%cyzy%data2d(:,2),Mesh%czyz%data2d(:,2), &
+                   p%velocity%data2d(:,1),p%velocity%data2d(:,2), &
+                   p%velocity%data2d(:,3), &
+                   p%pressure%data1d(:), &
+                   c%momentum%data2d(:,1),c%momentum%data2d(:,3))
                 ! z-momentum
-                s%momentum%data4d(:,:,:,3) = GetGeometricalSourceZ( &
-                   Mesh%cxzx%bcenter(:,:,:),Mesh%cyzy%bcenter(:,:,:), &
-                   Mesh%czxz%bcenter(:,:,:),Mesh%czyz%bcenter(:,:,:), &
-                   p%velocity%data4d(:,:,:,1),p%velocity%data4d(:,:,:,2), &
-                   p%velocity%data4d(:,:,:,3), &
-                   p%pressure%data3d(:,:,:), &
-                   c%momentum%data4d(:,:,:,1),c%momentum%data4d(:,:,:,2))
+                s%momentum%data2d(:,3) = GetGeometricalSourceZ( &
+                   Mesh%cxzx%data2d(:,2),Mesh%cyzy%data2d(:,2), &
+                   Mesh%czxz%data2d(:,2),Mesh%czyz%data2d(:,2), &
+                   p%velocity%data2d(:,1),p%velocity%data2d(:,2), &
+                   p%velocity%data2d(:,3), &
+                   p%pressure%data1d(:), &
+                   c%momentum%data2d(:,1),c%momentum%data2d(:,2))
             END SELECT
           END SELECT
         END SELECT
       END SELECT
       ! reset ghost cell data
-      sterm%data4d(Mesh%IGMIN:Mesh%IMIN-Mesh%ip1,:,:,:) = 0.0
-      sterm%data4d(Mesh%IMAX+Mesh%ip1:Mesh%IGMAX,:,:,:) = 0.0
-      sterm%data4d(:,Mesh%JGMIN:Mesh%JMIN-Mesh%jp1,:,:) = 0.0
-      sterm%data4d(:,Mesh%JMAX+Mesh%jp1:Mesh%JGMAX,:,:) = 0.0
+      sterm%data4d(Mesh%IGMIN:Mesh%IMIN-Mesh%IP1,:,:,:) = 0.0
+      sterm%data4d(Mesh%IMAX+Mesh%IP1:Mesh%IGMAX,:,:,:) = 0.0
+      sterm%data4d(:,Mesh%JGMIN:Mesh%JMIN-Mesh%JP1,:,:) = 0.0
+      sterm%data4d(:,Mesh%JMAX+Mesh%JP1:Mesh%JGMAX,:,:) = 0.0
+      sterm%data4d(:,:,Mesh%KGMIN:Mesh%KMIN-Mesh%KP1,:) = 0.0
+      sterm%data4d(:,:,Mesh%KMAX+Mesh%KP1:Mesh%KGMAX,:) = 0.0
     END IF
   END SUBROUTINE GeometricalSources
 
