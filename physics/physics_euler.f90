@@ -1168,12 +1168,18 @@ CONTAINS
         END SELECT
       END SELECT
       ! reset ghost cell data
-      sterm%data4d(Mesh%IGMIN:Mesh%IMIN-Mesh%IP1,:,:,:) = 0.0
-      sterm%data4d(Mesh%IMAX+Mesh%IP1:Mesh%IGMAX,:,:,:) = 0.0
-      sterm%data4d(:,Mesh%JGMIN:Mesh%JMIN-Mesh%JP1,:,:) = 0.0
-      sterm%data4d(:,Mesh%JMAX+Mesh%JP1:Mesh%JGMAX,:,:) = 0.0
-      sterm%data4d(:,:,Mesh%KGMIN:Mesh%KMIN-Mesh%KP1,:) = 0.0
-      sterm%data4d(:,:,Mesh%KMAX+Mesh%KP1:Mesh%KGMAX,:) = 0.0
+      IF (Mesh%INUM.GT.1) THEN
+        sterm%data4d(Mesh%IGMIN:Mesh%IMIN+Mesh%IM1,:,:,:) = 0.0
+        sterm%data4d(Mesh%IMAX+Mesh%IP1:Mesh%IGMAX,:,:,:) = 0.0
+      END IF
+      IF (Mesh%JNUM.GT.1) THEN
+        sterm%data4d(:,Mesh%JGMIN:Mesh%JMIN+Mesh%JM1,:,:) = 0.0
+        sterm%data4d(:,Mesh%JMAX+Mesh%JP1:Mesh%JGMAX,:,:) = 0.0
+      END IF
+      IF (Mesh%KNUM.GT.1) THEN
+        sterm%data4d(:,:,Mesh%KGMIN:Mesh%KMIN+Mesh%KM1,:) = 0.0
+        sterm%data4d(:,:,Mesh%KMAX+Mesh%KP1:Mesh%KGMAX,:) = 0.0
+      END IF
     END IF
   END SUBROUTINE GeometricalSources
 
