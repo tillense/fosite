@@ -75,7 +75,7 @@ PROGRAM Restart
   !--------------------------------------------------------------------------!
 
   ! load file
-  CALL GETARG(1, filename)
+  CALL GET_COMMAND_ARGUMENT(1, filename)
   INQUIRE(FILE=TRIM(filename), EXIST=file_exists)
   IF(.NOT.file_exists) THEN
     print *, "restart, ", "Input file does not exist!"
