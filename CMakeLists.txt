@@ -26,19 +26,6 @@ set (CMAKE_INSTALL_PREFIX ${default_prefix} CACHE STRING
       FORCE)
 
 #------------------------ command line options -------------------------#
-option(PARALLEL "PARALLEL" OFF)
-option(MPI_USE_SENDRECV "MPI_USE_SENDRECV" ON)
-if (PARALLEL MATCHES "ON")
-  add_compile_options(-DPARALLEL -DHAVE_MPI_MOD)
-  if(MPI_USE_SENDRECV MATCHES "ON")
-    add_compile_options(-DMPI_USE_SENDRECV)
-  endif()
-  set(CMAKE_Fortran_COMPILER_NAMES mpifort)
-  message(STATUS "Configuring parallel build using MPI")
-endif()
-
-set (X86_VECTOR_EXTENSION NONE CACHE STRING "Enable x86 vector extensions, possible values are: NONE AVX AVX2 AVX-512")
-
 enable_language (Fortran)
 # workaround for unknown compiler ID NEC
 if (CMAKE_Fortran_COMPILER MATCHES ".*nfort")
@@ -46,7 +33,29 @@ if (CMAKE_Fortran_COMPILER MATCHES ".*nfort")
 endif()
 enable_testing()
 
-# message("${CMAKE_Fortran_COMPILER_ID}")
+option(PARALLEL "PARALLEL" OFF)
+option(MPI_USE_SENDRECV "MPI_USE_SENDRECV" ON)
+option(USE_MPI_MOD "USE_MPI_MOD" ON)
+if (PARALLEL MATCHES "ON")
+  add_compile_options(-DPARALLEL)
+  if(USE_MPI_MOD MATCHES "ON")
+    add_compile_options(-DHAVE_MPI_MOD)
+  else()
+    add_compile_options(-DHAVE_MPIF_H)
+  endif()
+  if(MPI_USE_SENDRECV MATCHES "ON")
+    add_compile_options(-DMPI_USE_SENDRECV)
+  endif()
+  if (CMAKE_Fortran_COMPILER_ID MATCHES "NEC")
+    set(CMAKE_Fortran_COMPILER_NAMES mpinfort)
+    set(CMAKE_Fortran_COMPILER mpinfort)
+  else()
+    set(CMAKE_Fortran_COMPILER_NAMES mpifort)
+  endif()
+  message(STATUS "Configuring parallel build using MPI")
+endif()
+
+set (X86_VECTOR_EXTENSION NONE CACHE STRING "Enable x86 vector extensions, possible values are: NONE AVX AVX2 AVX-512")
 
 #-------------------- choose compiler & set flags ---------------------#
 #get_filename_component (Fortran_COMPILER_NAME ${CMAKE_Fortran_COMPILER} NAME)
@@ -111,36 +120,42 @@ endif ()#(CMAKE_SYSTEM_NAME MATCHES "(.*)SX-AURORA")
 MARK_AS_ADVANCED(CMAKE_Fortran_FLAGS_PROFILING
     CMAKE_EXE_LINKER_FLAGS_PROFILING)
 
-#message(STATUS "${CMAKE_Fortran_COMPILER_ID}")
-
 #----------------------- search FFTW -----------------------------------------#
 set(CMAKE_FIND_ROOT_PATH ${FFTW_DIR})
-# search for library
 
+# search for library
 find_library(
   FFTW_LIB
-	NAMES fftw3
+	NAMES fftw3 aslfftw3
 	DOC "Fastest Fourier Transform of the West."
+  HINTS /opt/nec/ve/nlc/1.0.0/lib/ ${FFTW_DIR}/lib
 )
+
 if(PARALLEL)
   find_library(
     FFTWMPI_LIB
-	  NAMES fftw3_mpi
+	  NAMES fftw3_mpi aslfftw3_mpi
     DOC "Distributed parallel implementation of FFTW."
+    HINTS /opt/nec/ve/nlc/1.0.0/lib/ ${FFTW_DIR}/lib
   )
 endif()
+#end search for libraries
 
 # search for headers
-if(PARALLEL)
-  set (fftw_incfile fftw3-mpi.f03)
-else()
-  set (fftw_incfile fftw3.f03)
+if(NOT PARALLEL)
+  set (fftw_incfiles fftw.f03)
+elseif(PARALLEL)
+  set (fftw_incfiles fftw3-mpi.f03)
 endif()
 
 find_path(
   FFTW_INCLUDE
-  NAMES ${fftw_incfile}
+  NAMES ${fftw_incfiles}
 )
+if (CMAKE_SYSTEM_NAME MATCHES "(.*)SX-Aurora")
+  set (FFTW_INCLUDE /opt/nec/ve/nlc/1.0.0/include/)
+endif()
+# end search for headers
 
 if(NOT FFTW_LIB)
   message(WARNING "No FFTW Library found.")
@@ -175,10 +190,20 @@ endforeach (p)
 
 add_library(fosite fosite.f90)
 target_link_libraries(fosite ${LIBDIRS})
-if(FFTW_LIB)
-  target_link_libraries(fosite ${FFTW_LIB})
-  if(PARALLEL)
-    target_link_libraries(fosite ${FFTWMPI_LIB} m)
+
+# add fftw
+if (NOT CMAKE_SYSTEM_NAME MATCHES "(.*)SX-Aurora")
+  if(FFTW_LIB)
+    target_link_libraries(fosite ${FFTW_LIB})
+    if(PARALLEL)
+      target_link_libraries(fosite ${FFTWMPI_LIB} m)
+    endif()
+  endif()
+else()
+  if(NOT PARALLEL)
+    target_link_libraries(fosite ${FFTW_LIB} asl_sequential)
+  else()
+    target_link_libraries(fosite ${FFTWMPI_LIB} asl_mpi_sequential)
   endif()
 endif()
 

@@ -59,9 +59,9 @@ MODULE logging_base_mod
     CHARACTER(LEN=32) :: mod_name                !< module type name
     INTEGER           :: err                     !< error code
     LOGICAL           :: isinitialized = .FALSE. !< init status
-    INTEGER, POINTER  :: myrank                  !< rank of parallel process
-    INTEGER, POINTER  :: ppnum                   !< number of parallel processes
-    LOGICAL, POINTER  :: parinit                 !< init status of parallel process
+    INTEGER, POINTER  :: myrank => null()        !< rank of parallel process
+    INTEGER, POINTER  :: ppnum => null()         !< number of parallel processes
+    LOGICAL, POINTER  :: parinit => null()       !< init status of parallel process
   CONTAINS
     PROCEDURE :: InitLogging
     FINAL     :: Finalize
@@ -231,10 +231,13 @@ CONTAINS
     CLASS(logging_base), INTENT(IN) :: this !< \param [in] this module type and name
     LOGICAL                         :: i
     !------------------------------------------------------------------------!
-#ifdef PARALLEL
-    i = this%isinitialized .AND. this%parinit
-#else
     i = this%isinitialized
+#ifdef PARALLEL
+    IF (ASSOCIATED(this%parinit)) THEN
+      i = i.AND.this%parinit
+    ELSE
+      i = .FALSE.
+    END IF
 #endif
   END FUNCTION Initialized
 
