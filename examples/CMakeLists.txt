@@ -16,6 +16,7 @@ set (EXES
   mestel
   mmsn
   orbitingcylinders
+  restart
   shearingsheet
   #  planet2d
   #  planeteu
