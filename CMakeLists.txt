@@ -143,7 +143,7 @@ endif()
 
 # search for headers
 if(NOT PARALLEL)
-  set (fftw_incfiles fftw.f03)
+  set (fftw_incfiles fftw3.f03)
 elseif(PARALLEL)
   set (fftw_incfiles fftw3-mpi.f03)
 endif()
