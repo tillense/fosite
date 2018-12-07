@@ -44,6 +44,8 @@ MODULE gravity_base_mod
   USE physics_base_mod
   USE fluxes_base_mod
   USE boundary_base_mod
+  USE marray_base_mod
+  USE marray_compound_mod
   USE common_dict
 #if defined(HAVE_FFTW)
   USE fftw
@@ -137,18 +139,14 @@ MODULE gravity_base_mod
       REAL,                INTENT(IN)    :: time,dt
     END SUBROUTINE
     SUBROUTINE CalcDiskHeight_single(this,Mesh,Physics,pvar,bccsound,h_ext,height)
-      IMPORT gravity_base, mesh_base, physics_base
+      IMPORT gravity_base, mesh_base, physics_base, marray_compound, marray_base
       IMPLICIT NONE
       !------------------------------------------------------------------------!
       CLASS(gravity_base), INTENT(INOUT) :: this
       CLASS(mesh_base),    INTENT(IN)    :: Mesh
       CLASS(physics_base), INTENT(IN)    :: Physics
-      REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
-                           INTENT(IN)    :: pvar
-      REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
-                           INTENT(IN)    :: bccsound
-      REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
-                           INTENT(INOUT) :: h_ext,height
+      CLASS(marray_compound), INTENT(INOUT) :: pvar
+      TYPE(marray_base),      INTENT(INOUT) :: bccsound,h_ext,height
     END SUBROUTINE
     SUBROUTINE Finalize(this)
       IMPORT gravity_base

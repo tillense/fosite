@@ -172,7 +172,7 @@ CONTAINS
     IF (this%update_disk_height) THEN
       SELECT TYPE(phys => Physics)
       CLASS IS (physics_eulerisotherm)
-        CALL this%CalcDiskHeight(Mesh,phys,pvar%data4d)
+        CALL this%CalcDiskHeight(Mesh,phys,pvar)
       END SELECT
     END IF
 
@@ -229,10 +229,8 @@ CONTAINS
     !------------------------------------------------------------------------!
     CLASS(sources_gravity),TARGET,INTENT(INOUT) :: this
     CLASS(mesh_base),             INTENT(IN)    :: Mesh
-    CLASS(physics_eulerisotherm), INTENT(IN)    :: Physics
-!    CLASS(marray_compound),       INTENT(INOUT) :: pvar
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
-                                  INTENT(IN)    :: pvar
+    CLASS(physics_eulerisotherm), INTENT(INOUT) :: Physics
+    CLASS(marray_compound),       INTENT(INOUT) :: pvar
     !------------------------------------------------------------------------!
     CLASS(gravity_base), POINTER :: grav_ptr,selfgrav_ptr => null()
     LOGICAL                      :: has_external_potential = .FALSE.
@@ -244,7 +242,7 @@ CONTAINS
       SELECT TYPE (grav => grav_ptr)
       CLASS IS (gravity_pointmass)
 !CDIR IEXPAND
-        CALL grav%CalcDiskHeight_single(Mesh,Physics,pvar,Physics%bccsound%data4d,this%h_ext%data3d,this%height%data3d)
+        CALL grav%CalcDiskHeight_single(Mesh,Physics,pvar,Physics%bccsound,this%h_ext,this%height)
         this%invheight2%data1d(:) = this%invheight2%data1d(:) + 1./this%h_ext%data1d(:)**2
         has_external_potential = .TRUE.
       CLASS IS (gravity_spectral)
@@ -261,8 +259,7 @@ CONTAINS
         ! compute the resultant height due to all external gravitational forces
         this%h_ext%data1d(:) = 1./SQRT(this%invheight2%data1d(:))
       END IF
-      CALL selfgrav_ptr%CalcDiskHeight_single(Mesh,Physics,pvar,Physics%bccsound%data4d, &
-                                  this%h_ext%data3d,this%height%data3d)
+      CALL selfgrav_ptr%CalcDiskHeight_single(Mesh,Physics,pvar,Physics%bccsound,this%h_ext,this%height)
     ELSE
       ! non-selfgravitating disk
       this%height%data1d(:) = 1./SQRT(this%invheight2%data1d(:))

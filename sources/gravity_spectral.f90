@@ -46,6 +46,8 @@ MODULE gravity_spectral_mod
   USE physics_base_mod
   USE mesh_base_mod
   USE logging_base_mod
+  USE marray_base_mod
+  USE marray_compound_mod
   USE functions
   USE common_dict
   USE fftw
@@ -691,14 +693,10 @@ MODULE gravity_spectral_mod
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(gravity_spectral), INTENT(INOUT) :: this
-    CLASS(mesh_base),    INTENT(IN)    :: Mesh
-    CLASS(physics_base), INTENT(IN)    :: Physics
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KMIN:Mesh%KMAX,Physics%VNUM), &
-                         INTENT(IN)    :: pvar
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KMIN:Mesh%KMAX), &
-                         INTENT(IN)    :: bccsound
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KMIN:Mesh%KMAX), &
-                         INTENT(INOUT) :: h_ext,height
+    CLASS(mesh_base),        INTENT(IN)    :: Mesh
+    CLASS(physics_base),     INTENT(IN)    :: Physics
+    CLASS(marray_compound),  INTENT(INOUT) :: pvar
+    TYPE(marray_base),       INTENT(INOUT) :: bccsound,h_ext,height
     !------------------------------------------------------------------------!
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,2) &
                       :: phi
@@ -748,11 +746,11 @@ MODULE gravity_spectral_mod
       DO k=Mesh%KGMIN,Mesh%KGMAX
         DO j=Mesh%JGMIN,Mesh%JGMAX
           DO i=Mesh%IGMIN,Mesh%IGMAX
-            cs2 = bccsound(i,j,k)**2
-            p = SQRTTWOPI*Physics%Constants%GN*pvar(i,j,k,Physics%DENSITY)*Mesh%radius%bcenter(i,j,k)/cs2
-            q = this%tmp2D(i,j)*h_ext(i,j,k)**2/cs2
+            cs2 = bccsound%data3d(i,j,k)**2
+            p = SQRTTWOPI*Physics%Constants%GN*pvar%data4d(i,j,k,Physics%DENSITY)*Mesh%radius%bcenter(i,j,k)/cs2
+            q = this%tmp2D(i,j)*h_ext%data3d(i,j,k)**2/cs2
             ! return the new disk height
-            height(i,j,k) = Mesh%radius%bcenter(i,j,k) / (p+SQRT(q+p*p))
+            height%data3d(i,j,k) = Mesh%radius%bcenter(i,j,k) / (p+SQRT(q+p*p))
           END DO
         END DO
       END DO

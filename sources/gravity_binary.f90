@@ -57,6 +57,8 @@ MODULE gravity_binary_mod
   USE physics_base_mod
   USE mesh_base_mod
   USE logging_base_mod
+  USE marray_base_mod
+  USE marray_compound_mod
   USE common_dict
 #ifdef PARALLEL
 #ifdef HAVE_MPI_MOD
@@ -516,20 +518,16 @@ CONTAINS
   PURE SUBROUTINE CalcDiskHeight_single(this,Mesh,Physics,pvar,bccsound,h_ext,height)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(gravity_binary), INTENT(INOUT) :: this
-    CLASS(mesh_base),      INTENT(IN)    :: Mesh
-    CLASS(physics_base),   INTENT(IN)    :: Physics
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
-                           INTENT(IN)    :: pvar
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
-                           INTENT(IN)    :: bccsound
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
-                           INTENT(INOUT) :: height, h_ext
+    CLASS(gravity_binary),  INTENT(INOUT) :: this
+    CLASS(mesh_base),       INTENT(IN)    :: Mesh
+    CLASS(physics_base),    INTENT(IN)    :: Physics
+    CLASS(marray_compound), INTENT(INOUT) :: pvar
+    TYPE(marray_base),      INTENT(INOUT) :: bccsound,h_ext,height
     !------------------------------------------------------------------------!
     ! compute the effective omega
     this%omega(:,:,:) = SQRT(this%omega2(:,:,:,1) + this%omega2(:,:,:,2))
     ! compute the disk height
-    height(:,:,:) = GetDiskHeight(bccsound(:,:,:),this%omega(:,:,:))
+    height%data3d(:,:,:) = GetDiskHeight(bccsound%data3d(:,:,:),this%omega(:,:,:))
   END SUBROUTINE CalcDiskHeight_single
 
 

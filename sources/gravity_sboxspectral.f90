@@ -68,6 +68,8 @@ MODULE gravity_sboxspectral_mod
   USE physics_base_mod
   USE mesh_base_mod
   USE logging_base_mod
+  USE marray_base_mod
+  USE marray_compound_mod
   USE common_dict
   USE fftw
 #ifdef PARALLEL
@@ -824,14 +826,10 @@ CALL ftrace_region_end("foward FFT")
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(gravity_sboxspectral), INTENT(INOUT) :: this
-    CLASS(mesh_base),    INTENT(IN)    :: Mesh
-    CLASS(physics_base), INTENT(IN)    :: Physics
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KMIN:Mesh%KMAX,Physics%VNUM), &
-                         INTENT(IN)    :: pvar
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KMIN:Mesh%KMAX), &
-                         INTENT(IN)    :: bccsound
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KMIN:Mesh%KMAX), &
-                         INTENT(INOUT) :: h_ext, height
+    CLASS(mesh_base),            INTENT(IN)    :: Mesh
+    CLASS(physics_base),         INTENT(IN)    :: Physics
+    CLASS(marray_compound),      INTENT(INOUT) :: pvar
+    TYPE(marray_base),           INTENT(INOUT) :: bccsound,h_ext,height
     !------------------------------------------------------------------------!
     INTEGER           :: i,j,k
     REAL              :: cs2,p,q
@@ -844,12 +842,12 @@ CALL ftrace_region_end("foward FFT")
       DO j=Mesh%JGMIN,Mesh%JGMAX
 !NEC$ IVDEP
         DO i=Mesh%IGMIN,Mesh%IGMAX
-           cs2 = bccsound(i,j,k)*bccsound(i,j,k)
-           p = -SQRTTWOPI*Physics%Constants%GN*pvar(i,j,k,Physics%DENSITY) &
+           cs2 = bccsound%data3d(i,j,k)*bccsound%data3d(i,j,k)
+           p = -SQRTTWOPI*Physics%Constants%GN*pvar%data4d(i,j,k,Physics%DENSITY) &
                   /Mesh%OMEGA**2.
            q = cs2/Mesh%OMEGA**2.
            ! return the new disk height
-           height(i,j,k) = p+SQRT(q+p*p)
+           height%data3d(i,j,k) = p+SQRT(q+p*p)
         END DO
       END DO
     END DO
