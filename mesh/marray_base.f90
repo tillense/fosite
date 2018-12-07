@@ -477,7 +477,7 @@ MODULE marray_base_mod
     !-------------------------------------------------------------------!
     CLASS(marray_base) :: this
     !-------------------------------------------------------------------!
-    DEALLOCATE(this%data1d)
+    IF (ASSOCIATED(this%data1d)) DEALLOCATE(this%data1d)
     NULLIFY(this%data1d,this%data2d,this%data3d,this%data4d,this%data5d)
     this%RANK = 0
     this%DIMS = 0
