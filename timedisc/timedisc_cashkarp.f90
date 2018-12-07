@@ -48,6 +48,7 @@ MODULE timedisc_cashkarp_mod
   USE physics_base_mod
   USE sources_base_mod
   USE timedisc_rkfehlberg_mod
+  USE marray_base_mod
   USE common_dict
   IMPLICIT NONE
   !--------------------------------------------------------------------------!
@@ -87,8 +88,9 @@ CONTAINS
        !set number of coefficients
        this%m = 6
        ! allocate memory
-       ALLOCATE(this%coeff(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM,this%m), &
-                this%b_high(this%m),&
+       this%coeff = marray_base(Physics%VNUM,this%m)
+       this%coeff%data1d(:) = 0.0
+       ALLOCATE(this%b_high(this%m),&
                 this%b_low(this%m),&
                 this%c(this%m),&
                 this%a(this%m,this%m), &
@@ -114,7 +116,7 @@ CONTAINS
     END SELECT
 
     ! set RHS pointer to the first entry of the coeff field
-    this%rhs => Mesh%RemapBounds(this%coeff(:,:,:,:,1))
+    this%rhs => Mesh%RemapBounds(this%coeff%data5d(:,:,:,:,1))
 
     CALL this%InitTimedisc(Mesh,Physics,config,IO,CASH_KARP,ODEsolver_name)
 

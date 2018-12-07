@@ -46,6 +46,7 @@ MODULE timedisc_rkfehlberg_mod
   USE boundary_base_mod
   USE physics_base_mod
   USE timedisc_modeuler_mod
+  USE marray_base_mod
   USE sources_base_mod
   USE common_dict
 #ifdef PARALLEL
@@ -62,7 +63,7 @@ MODULE timedisc_rkfehlberg_mod
   !--------------------------------------------------------------------------!
   PRIVATE
   TYPE, EXTENDS (timedisc_modeuler) :: timedisc_rkfehlberg
-     REAL, DIMENSION(:,:,:,:,:),POINTER :: coeff            !< coefficents
+     TYPE(marray_base)                  :: coeff
      REAL, DIMENSION(:), POINTER        :: b_low,b_high,c   !<    needed by
      REAL, DIMENSION(:,:), POINTER      :: a                !<    embedded RK
   CONTAINS
@@ -107,8 +108,10 @@ CONTAINS
     END SELECT
 
     ! allocate memory
-    ALLOCATE(this%coeff(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM,this%m), &
-             this%b_high(this%m),&
+    this%coeff = marray_base(Physics%VNUM,this%m)
+    this%coeff%data1d = 0.0
+
+    ALLOCATE(this%b_high(this%m),&
              this%b_low(this%m),&
              this%c(this%m),&
              this%a(this%m,this%m), &
@@ -118,7 +121,7 @@ CONTAINS
     END IF
 
     ! set RHS pointer to the first entry of the coeff field
-    this%rhs => Mesh%RemapBounds(this%coeff(:,:,:,:,1))
+    this%rhs => Mesh%RemapBounds(this%coeff%data5d(:,:,:,:,1))
 
     CALL this%InitTimedisc(Mesh,Physics,config,IO,RK_FEHLBERG,ODEsolver_name)
 
@@ -185,13 +188,14 @@ CONTAINS
     ! step this is done in FirstStepFosite, any later step must update coeff(:,:,:,1)
     ! at the end of the whole time step update. This is done in AcceptTimestep
     ! or RejectTimestep. Don't forget: this%rhs => this%coeff(:,:,:,1).
+!NEC$ SHORTLOOP
     DO m=2,this%m
        ! time step update of cell mean values
-       CALL this%ComputeCVar_rkfehlberg(Mesh,Physics,Fluxes,dt,m,this%coeff,this%cvar%data4d,this%ctmp%data4d)
+       CALL this%ComputeCVar_rkfehlberg(Mesh,Physics,Fluxes,dt,m,this%coeff%data5d,this%cvar%data4d,this%ctmp%data4d)
        ! compute right-hand-side
        ! coeff_m is k_m/dt from Butcher tableau
        CALL this%ComputeRHS(Mesh,Physics,Sources,Fluxes,t+this%c(m)*dt,dt,&
-                           this%ptmp,this%ctmp,CHECK_NOTHING,this%coeff(:,:,:,:,m))
+                           this%ptmp,this%ctmp,CHECK_NOTHING,this%coeff%data5d(:,:,:,:,m))
     END DO
 
     !reset ctmp
@@ -200,22 +204,14 @@ CONTAINS
     DO m=1,this%m
 !NEC$ NOVECTOR
       DO l=1,Physics%VNUM
-!NEC$ COLLAPSE
-       DO k=Mesh%KMIN,Mesh%KMAX
-!NEC$ COLLAPSE
-        DO j=Mesh%JMIN,Mesh%JMAX
+        ! compute two solutions with different numerical orders
+        ! y_n+1 = y_n + SUM(b_i*k_i) = y_n + SUM(b_i*dt*coeff_i)
 !NEC$ IVDEP
-          DO i=Mesh%IGMIN,Mesh%IGMAX
-             ! compute two solutions with different numerical orders
-             ! y_n+1 = y_n + SUM(b_i*k_i) = y_n + SUM(b_i*dt*coeff_i)
-             this%ctmp%data4d(i,j,k,l) = this%ctmp%data4d(i,j,k,l) &
-                                - this%b_low(m)*dt*this%coeff(i,j,k,l,m)
-             this%cvar%data4d(i,j,k,l) = this%cvar%data4d(i,j,k,l) &
-                                - this%b_high(m)*dt*this%coeff(i,j,k,l,m)
-          END DO
-        END DO
+        this%ctmp%data2d(:,l) = this%ctmp%data2d(:,l) &
+                           - this%b_low(m)*dt*this%coeff%data3d(:,l,m)
+        this%cvar%data2d(:,l) = this%cvar%data2d(:,l) &
+                           - this%b_high(m)*dt*this%coeff%data3d(:,l,m)
       END DO
-     END DO
     END DO
 
     ! at the boundary the this%rhs contains the boundary fluxes
@@ -223,29 +219,32 @@ CONTAINS
     DO m=1,this%m
       DO l=1,Physics%VNUM
         ! western and eastern
+!NEC$ IVDEP
         DO k=Mesh%KMIN,Mesh%KMAX
 !NEC$ IVDEP
           DO j=Mesh%JMIN,Mesh%JMAX
              Fluxes%bxflux(j,k,1,l) = Fluxes%bxflux(j,k,1,l) &
-                               - dt*this%b_high(m)*this%coeff(Mesh%IMIN-Mesh%IP1,j,k,l,m)
+                               - dt*this%b_high(m)*this%coeff%data5d(Mesh%IMIN-Mesh%IP1,j,k,l,m)
              Fluxes%bxflux(j,k,2,l) = Fluxes%bxflux(j,k,2,l) &
-                               - dt*this%b_high(m)*this%coeff(Mesh%IMAX+Mesh%IP1,j,k,l,m)
+                               - dt*this%b_high(m)*this%coeff%data5d(Mesh%IMAX+Mesh%IP1,j,k,l,m)
           END DO
         ! southern and northern
 !NEC$ IVDEP
           DO i=Mesh%IMIN,Mesh%IMAX
             Fluxes%byflux(k,i,1,l) = Fluxes%byflux(k,i,1,l) &
-                              - dt*this%b_high(m)*this%coeff(i,Mesh%JMIN-Mesh%JP1,k,l,m)
+                              - dt*this%b_high(m)*this%coeff%data5d(i,Mesh%JMIN-Mesh%JP1,k,l,m)
             Fluxes%byflux(k,i,2,l) = Fluxes%byflux(k,i,2,l) &
-                              - dt*this%b_high(m)*this%coeff(i,Mesh%JMAX+Mesh%JP1,k,l,m)
+                              - dt*this%b_high(m)*this%coeff%data5d(i,Mesh%JMAX+Mesh%JP1,k,l,m)
           END DO
         END DO
+!NEC$ IVDEP
         DO j=Mesh%JMIN,Mesh%JMAX
+!NEC$ IVDEP
           DO i=Mesh%IMIN,Mesh%IMAX
             Fluxes%bzflux(i,j,1,l) = Fluxes%bzflux(i,j,1,l) &
-                              - dt*this%b_high(m)*this%coeff(i,j,Mesh%KMIN-Mesh%KP1,l,m)
+                              - dt*this%b_high(m)*this%coeff%data5d(i,j,Mesh%KMIN-Mesh%KP1,l,m)
             Fluxes%bzflux(i,j,2,l) = Fluxes%bzflux(i,j,2,l) &
-                              - dt*this%b_high(m)*this%coeff(i,j,Mesh%KMAX+Mesh%KP1,l,m)
+                              - dt*this%b_high(m)*this%coeff%data5d(i,j,Mesh%KMAX+Mesh%KP1,l,m)
           END DO
         END DO
       END DO
@@ -333,9 +332,7 @@ CONTAINS
     !------------------------------------------------------------------------!
      DEALLOCATE(this%b_high,this%b_low,this%c,this%a)
 
-     IF(ASSOCIATED(this%coeff)) &
-      DEALLOCATE(this%coeff)
-
+    CALL this%coeff%Destroy()
     CALL this%timedisc_modeuler%Finalize()
   END SUBROUTINE Finalize
 
