@@ -287,8 +287,9 @@ CONTAINS
     CLASS(gravity_base),    POINTER       :: gravptr
     !------------------------------------------------------------------------!
     DEALLOCATE(this%pot,this%accel)
-    CALL this%height%Destroy()
-    CALL this%h_ext%Destroy()
+    IF (ASSOCIATED(this%height%data1d)) CALL this%height%Destroy()
+    IF (ASSOCIATED(this%invheight2%data1d)) CALL this%invheight2%Destroy()
+    IF (ASSOCIATED(this%h_ext%data1d)) CALL this%h_ext%Destroy()
 
     gravptr => this%glist
     DO WHILE (ASSOCIATED(gravptr))
