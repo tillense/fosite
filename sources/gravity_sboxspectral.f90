@@ -516,25 +516,37 @@ CALL ftrace_region_end("forward_fft")
       K2max = 0.5*PI**2/(Mesh%dy**2)
     END IF
 
+    IF (Mesh%WE_shear) THEN
 !NEC$ IVDEP
-    DO j = Mesh%JMIN,Mesh%JMAX
+      DO j = Mesh%JMIN,Mesh%JMAX
 !NEC$ IVDEP
-      DO i = Mesh%IMIN,Mesh%IMAX/2+1
-        IF (Mesh%WE_shear) THEN
+        DO i = Mesh%IMIN,Mesh%IMAX/2+1
           K2 = (this%kx(i) + Mesh%Q*Mesh%OMEGA*this%ky(j)*delt)**2 + this%ky(j)**2
-        ELSE IF (Mesh%SN_shear) THEN
-          K2 = this%kx(i)**2 + (this%ky(j)-Mesh%Q*mesh%OMEGA*this%kx(i)*delt)**2
-        END IF
-
-        KO = SQRT(K2)
-        IF ((K2 .LT. K2max) .AND. (K2 .GT. 0)) THEN
-          this%Fmass2D(i,j-this%local_joff) = -2.*PI*Physics%Constants%GN* &
-                                            this%Fmass2D(i,j-this%local_joff)/KO
-        ELSE
-          this%Fmass2D(i,j-this%local_joff) = 0.0
-        END IF
+          KO = SQRT(K2)
+          IF ((K2 .LT. K2max) .AND. (K2 .GT. 0)) THEN
+            this%Fmass2D(i,j-this%local_joff) = -2.*PI*Physics%Constants%GN* &
+                                              this%Fmass2D(i,j-this%local_joff)/KO
+          ELSE
+            this%Fmass2D(i,j-this%local_joff) = 0.0
+          END IF
+        END DO
       END DO
-    END DO
+    ELSE IF (Mesh%SN_shear) THEN
+!NEC$ IVDEP
+      DO j = Mesh%JMIN,Mesh%JMAX
+!NEC$ IVDEP
+        DO i = Mesh%IMIN,Mesh%IMAX/2+1
+          K2 = this%kx(i)**2 + (this%ky(j)-Mesh%Q*mesh%OMEGA*this%kx(i)*delt)**2
+           KO = SQRT(K2)
+          IF ((K2 .LT. K2max) .AND. (K2 .GT. 0)) THEN
+            this%Fmass2D(i,j-this%local_joff) = -2.*PI*Physics%Constants%GN* &
+                                              this%Fmass2D(i,j-this%local_joff)/KO
+          ELSE
+            this%Fmass2D(i,j-this%local_joff) = 0.0
+          END IF
+        END DO
+      END DO
+    END IF
 
     !----------- fourier transform (backward) of shifted density -----------!
 #ifdef _FTRACE
@@ -551,8 +563,11 @@ CALL ftrace_region_end("backward_fft")
 #endif
 
     !------ calculate final potential with backshift and normalization ------!
+!NEC$ IVDEP
     DO k = Mesh%KMIN,Mesh%KMAX
+!NEC$ IVDEP
       DO j = Mesh%JMIN,Mesh%JMAX
+!NEC$ IVDEP
         DO i = Mesh%IMIN,Mesh%IMAX
           this%phi(i,j,k) = this%mass2D(i,j-this%local_joff)/ &
                (Mesh%JNUM*Mesh%INUM)                        ! no norm. by FFTW !
@@ -565,8 +580,11 @@ CALL ftrace_region_end("backward_fft")
             this%phi(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
             this%den_ip(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX))
 
+!NEC$ IVDEP
     DO k = Mesh%KMIN,Mesh%KMAX
+!NEC$ IVDEP
       DO j = Mesh%JMIN,Mesh%JMAX
+!NEC$ IVDEP
         DO i = Mesh%IMIN,Mesh%IMAX
           this%phi(i,j,k) = this%den_ip(i,j,k)
         END DO
@@ -575,7 +593,7 @@ CALL ftrace_region_end("backward_fft")
 
     !----- copy values to boundaries in order to calculate acceleration -----!
     IF(Mesh%WE_shear) THEN
-!NEC$ IVDEP
+!NEC$ SHORTLOOP
       DO j = 1,Mesh%GJNUM
         ! southern northern (periodic)
         this%phi(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN-j,Mesh%KMIN:Mesh%KMAX) = this%phi(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX-j+1,Mesh%KMIN:Mesh%KMAX)
@@ -583,6 +601,7 @@ CALL ftrace_region_end("backward_fft")
       END DO
       joff2 = -this%shiftconst*delt
       jrem2 = joff2 - FLOOR(joff2)
+!NEC$ SHORTLOOP
       DO i = 1,Mesh%GINUM
         ! western (periodic)
         this%phi(Mesh%IMIN-i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX) = this%phi(Mesh%IMAX-i+1,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX)
@@ -600,6 +619,7 @@ CALL ftrace_region_end("backward_fft")
       END DO
       joff2 = this%shiftconst*delt
       jrem2 = joff2 - FLOOR(joff2)
+!NEC$ SHORTLOOP
       DO i = 1,Mesh%GINUM
         ! eastern (periodic)
         this%phi(Mesh%IMAX+i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX) = this%phi(Mesh%IMIN+i-1,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX)
@@ -619,6 +639,7 @@ CALL ftrace_region_end("backward_fft")
 ! Attention: The order of the copies plays a role. First the non-shifted direction needs to be
 ! copied, afterwards the shifted.
     ELSE IF(Mesh%SN_shear) THEN
+!NEC$ SHORTLOOP
       DO i = 1,Mesh%GINUM
         ! western and eastern (always periodic)
         this%phi(Mesh%IMIN-i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX) = this%phi(Mesh%IMAX-i+1,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX)
@@ -650,6 +671,7 @@ CALL ftrace_region_end("backward_fft")
         this%phi(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX+1:Mesh%JGMAX,Mesh%KMIN:Mesh%KMAX) = &
           mpi_buf(Mesh%IMIN:Mesh%IMAX,1:Mesh%GJNUM,Mesh%KMIN:Mesh%KMAX)
       ELSE
+!NEC$ SHORTLOOP
         DO j = 1,Mesh%GJNUM
           ! southern northern (periodic in first step - further shift-treatment below)
           this%phi(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN-j,Mesh%KMIN:Mesh%KMAX) = this%phi(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX-j+1,Mesh%KMIN:Mesh%KMAX)
@@ -661,6 +683,7 @@ CALL ftrace_region_end("backward_fft")
 #ifdef PARALLEL
       IF (Mesh%mycoords(2).EQ.0) THEN
 #endif
+!NEC$ SHORTLOOP
       DO j = 1,Mesh%GJNUM
         ! southern (shorn periodic) - residual and integer shift
 #ifndef PARALLEL
@@ -687,6 +710,7 @@ CALL ftrace_region_end("backward_fft")
 #ifdef PARALLEL
       IF (Mesh%mycoords(2).EQ.Mesh%dims(2)-1) THEN
 #endif
+!NEC$ SHORTLOOP
       DO j = 1,Mesh%GJNUM
 #ifndef PARALLEL
         this%phi(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX+j,Mesh%KMIN:Mesh%KMAX) = this%phi(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN+j-1,Mesh%KMIN:Mesh%KMAX)
@@ -905,11 +929,14 @@ CALL ftrace_region_end("foward FFT")
     local_joff = this%local_joff
 
     IF (Mesh%SN_shear) THEN
+!NEC$ IVDEP
       DO k = Mesh%KMIN,Mesh%KMAX
+!NEC$ IVDEP
         DO j = Mesh%JMIN,Mesh%JMAX
           this%joff(j)   = Mesh%Q*Mesh%OMEGA*Mesh%bcenter(Mesh%IMIN,j,k,2)* &
                       delt/Mesh%dx
           this%jrem(j)  = this%joff(j) - FLOOR(this%joff(j))
+!NEC$ IVDEP
           DO i = Mesh%IMIN,Mesh%IMAX
             mass2D(i,j-local_joff) = &
              (1.0-this%jrem(j))*field(1+MODULO(i-1+FLOOR(this%joff(j)), &
@@ -919,7 +946,9 @@ CALL ftrace_region_end("foward FFT")
         END DO
       END DO
     ELSE IF (Mesh%WE_shear) THEN
+!NEC$ IVDEP
       DO k = Mesh%KMIN,Mesh%KMAX
+!NEC$ IVDEP
         DO i = Mesh%IMIN,Mesh%IMAX
           this%joff(i)   = -Mesh%Q*Mesh%OMEGA*Mesh%bcenter(i,Mesh%JMIN,k,1)* &
                       delt/Mesh%dy
@@ -927,6 +956,7 @@ CALL ftrace_region_end("foward FFT")
         END DO
 !NEC$ COLLAPSE
         DO j = Mesh%JMIN,Mesh%JMAX
+!NEC$ IVDEP
           DO i = Mesh%IMIN,Mesh%IMAX
             mass2D(i,j) = &
              (1.0-this%jrem(i))*field(i,1+MODULO(j-1+FLOOR(this%joff(i)), &
