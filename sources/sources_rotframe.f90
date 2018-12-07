@@ -43,15 +43,16 @@ MODULE sources_rotframe_mod
   USE physics_base_mod
   USE fluxes_base_mod
   USE mesh_base_mod
+  USE marray_base_mod
   USE marray_compound_mod
   USE common_dict
   !--------------------------------------------------------------------------!
   PRIVATE
   CHARACTER(LEN=32), PARAMETER :: source_name = "inertial forces"
   TYPE, EXTENDS(sources_c_accel) :: sources_rotframe
-    REAL, DIMENSION(:,:,:,:), POINTER :: cent         !< rot. frame centrifugal
-    REAL, DIMENSION(:,:,:,:), POINTER :: centproj     !< rot.frame centr.3d->2d
-    REAL, DIMENSION(:,:,:,:), POINTER :: cos1
+    TYPE(marray_base) :: cent                       !< rot. frame centrifugal
+    TYPE(marray_base) :: centproj                   !< rot.frame centr.3d->2d
+    TYPE(marray_base) :: cos1
   CONTAINS
     PROCEDURE :: InitSources_rotframe
     PROCEDURE :: InfoSources
@@ -78,7 +79,6 @@ CONTAINS
     TYPE(Dict_TYP),          POINTER :: config, IO
     !------------------------------------------------------------------------!
     INTEGER           :: stype
-    INTEGER           :: err
     !------------------------------------------------------------------------!
     CALL GetAttr(config, "stype", stype)
     CALL this%InitLogging(stype,source_name)
@@ -91,13 +91,14 @@ CONTAINS
        CALL this%Error("ExternalSources_rotframe","physics not supported")
     END SELECT
 
-    ALLOCATE( &
-         this%accel(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VDIM), &
-         this%cent(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,3), &
-         this%centproj(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,3), &
-         this%cos1(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,3), &
-         STAT = err)
-    IF (err.NE.0) CALL this%Error("InitSources_rotframe", "Unable allocate memory!")
+    this%accel = marray_base(Physics%VDIM)
+    this%accel%data1d(:) = 0.
+    this%cent = marray_base(3)
+    this%cent%data1d(:) = 0.
+    this%centproj = marray_base(3)
+    this%centproj%data1d(:) = 0.
+    this%cos1 = marray_base(3)
+    this%cos1%data1d(:) = 0.
 
     CALL GetAttr(config, "gparam", this%gparam, 1.0)
 
@@ -106,32 +107,29 @@ CONTAINS
     ! (for a planet reasonable)
     IF ((Mesh%Geometry%GetType()).EQ.BIANGLESPHERICAL) THEN
 
-      this%centproj(:,:,:,1) = this%gparam*SIN(Mesh%bcenter(:,:,:,1))*&
+      this%centproj%data4d(:,:,:,1) = this%gparam*SIN(Mesh%bcenter(:,:,:,1))*&
                               COS(Mesh%bcenter(:,:,:,1))
       ! for better performance
-      this%cos1(:,:,:,1)  = COS(Mesh%bcenter(:,:,:,1))
-      this%cos1(:,:,:,2)  = COS(Mesh%bcenter(:,:,:,2))
+      this%cos1%data4d(:,:,:,1)  = COS(Mesh%bcenter(:,:,:,1))
+      this%cos1%data4d(:,:,:,2)  = COS(Mesh%bcenter(:,:,:,2))
     ELSE
       IF (ABS(Mesh%rotcent(1)).LE.TINY(Mesh%rotcent(1)) &
        .AND.ABS(Mesh%rotcent(2)).LE.TINY(Mesh%rotcent(2))) THEN
         ! no shift of point mass: set position vector to Mesh defaults
-        this%cent(:,:,:,:) = Mesh%posvec%bcenter(:,:,:,:)
+        this%cent%data4d(:,:,:,:) = Mesh%posvec%bcenter(:,:,:,:)
       ELSE
         ! shifted center of rotation:
         ! compute curvilinear components of shift vector
-        this%cent(:,:,:,1) = Mesh%rotcent(1)
-        this%cent(:,:,:,2) = Mesh%rotcent(2)
-        this%cent(:,:,:,3) = Mesh%rotcent(3)
-        CALL Mesh%Geometry%Convert2Curvilinear(Mesh%bcenter,this%cent,this%cent)
+        this%cent%data4d(:,:,:,1) = Mesh%rotcent(1)
+        this%cent%data4d(:,:,:,2) = Mesh%rotcent(2)
+        this%cent%data4d(:,:,:,3) = Mesh%rotcent(3)
+        CALL Mesh%Geometry%Convert2Curvilinear(Mesh%bcenter,this%cent%data4d,this%cent%data4d)
         ! subtract the result from the position vector:
         ! this gives you the curvilinear components of all vectors pointing
         ! from the center of rotation to the bary center of any cell on the mesh
-        this%cent(:,:,:,:) = Mesh%posvec%bcenter(:,:,:,:) - this%cent(:,:,:,:)
+        this%cent%data4d(:,:,:,:) = Mesh%posvec%bcenter(:,:,:,:) - this%cent%data4d(:,:,:,:)
       END IF
     END IF
-
-    ! reset acceleration term
-    this%accel(:,:,:,:) = 0.0
   END SUBROUTINE InitSources_rotframe
 
 
@@ -169,10 +167,10 @@ CONTAINS
         DO j=Mesh%JMIN,Mesh%JMAX
 !NEC$ ivdep
           DO i=Mesh%IMIN,Mesh%IMAX
-            this%accel(i,j,k,1) = Mesh%OMEGA*(Mesh%OMEGA*&
-                   this%centproj(i,j,k,1) + 2.0*this%cos1(i,j,k,1)*&
+            this%accel%data4d(i,j,k,1) = Mesh%OMEGA*(Mesh%OMEGA*&
+                   this%centproj%data4d(i,j,k,1) + 2.0*this%cos1%data4d(i,j,k,1)*&
                    pvar%data4d(i,j,k,Physics%YVELOCITY))
-            this%accel(i,j,k,2) = -Mesh%OMEGA*2.0*this%cos1(i,j,k,1)*&
+            this%accel%data4d(i,j,k,2) = -Mesh%OMEGA*2.0*this%cos1%data4d(i,j,k,1)*&
                    pvar%data4d(i,j,k,Physics%XVELOCITY)
           END DO
         END DO
@@ -185,9 +183,9 @@ CONTAINS
   !NEC$ ivdep
           DO i=Mesh%IMIN,Mesh%IMAX
             ! components of centrifugal and coriolis acceleration
-            this%accel(i,j,k,1) = Mesh%OMEGA*(Mesh%OMEGA*this%cent(i,j,k,1) &
+            this%accel%data4d(i,j,k,1) = Mesh%OMEGA*(Mesh%OMEGA*this%cent%data4d(i,j,k,1) &
                  + 2.0*pvar%data4d(i,j,k,Physics%YVELOCITY))
-            this%accel(i,j,k,2) = Mesh%OMEGA*(Mesh%OMEGA*this%cent(i,j,k,2) &
+            this%accel%data4d(i,j,k,2) = Mesh%OMEGA*(Mesh%OMEGA*this%cent%data4d(i,j,k,2) &
                  - 2.0*pvar%data4d(i,j,k,Physics%XVELOCITY))
           END DO
         END DO
@@ -195,7 +193,7 @@ CONTAINS
     END IF
 
     ! inertial forces source terms
-    CALL Physics%ExternalSources(Mesh,this%accel,pvar,cvar,sterm)
+    CALL Physics%ExternalSources(Mesh,this%accel%data4d,pvar,cvar,sterm)
   END SUBROUTINE ExternalSources_single
 
   SUBROUTINE Convert2RotatingFrame(this,Mesh,Physics,pvar)
@@ -214,9 +212,9 @@ CONTAINS
                             Mesh%OMEGA*SIN(Mesh%bcenter(:,:,:,1))*this%gparam
     ELSE
       pvar(:,:,:,Physics%XVELOCITY) = pvar(:,:,:,Physics%XVELOCITY) + &
-                                      Mesh%OMEGA * this%cent(:,:,:,2)
+                                      Mesh%OMEGA * this%cent%data4d(:,:,:,2)
       pvar(:,:,:,Physics%YVELOCITY) = pvar(:,:,:,Physics%YVELOCITY) - &
-                                      Mesh%OMEGA * this%cent(:,:,:,1)
+                                      Mesh%OMEGA * this%cent%data4d(:,:,:,1)
     END IF
   END SUBROUTINE Convert2RotatingFrame
 
@@ -225,7 +223,11 @@ CONTAINS
     !------------------------------------------------------------------------!
     CLASS(sources_rotframe), INTENT(INOUT) :: this
     !------------------------------------------------------------------------!
-    DEALLOCATE(this%accel,this%cent,this%cos1,this%centproj)
+    CALL this%accel%Destroy()
+    CALL this%cent%Destroy()
+    CALL this%centproj%Destroy()
+    CALL this%cos1%Destroy()
+
     CALL this%next%Finalize()
   END SUBROUTINE Finalize
 

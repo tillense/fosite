@@ -330,7 +330,7 @@ CONTAINS
     ! which calls CenterBoundary. Since the FARFIELD boundary conditions are not
     ! initialized at this stage (see below), the result is undefined.
     pvar(:,:,:,Physics%XVELOCITY:Physics%XVELOCITY+Physics%VDIM-1) = &
-        Timedisc%GetCentrifugalVelocity(Mesh,Physics,Fluxes,Sources,(/0.,0.,1./),gp%accel)
+        Timedisc%GetCentrifugalVelocity(Mesh,Physics,Fluxes,Sources,(/0.,0.,1./),gp%accel%data4d)
 
 
     ! transform velocities to rotating frame

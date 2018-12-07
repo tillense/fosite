@@ -224,7 +224,7 @@ MODULE gravity_sboxspectral_mod
     END IF
 #endif
     ALLOCATE( &
-             this%phi(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KMAX), &
+             this%phi(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
              this%accel(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VDIM), &
 #if !defined(PARALLEL)
              this%mass2D(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX), &
@@ -360,8 +360,11 @@ MODULE gravity_sboxspectral_mod
 
     this%accel(:,:,:,:) = 0.
     IF (this%order.EQ.2) THEN
+!NEC$ ivdep
       DO k = Mesh%KMIN,Mesh%KMAX
+!NEC$ ivdep
         DO j = Mesh%JMIN,Mesh%JMAX
+!NEC$ ivdep
           DO i = Mesh%IMIN,Mesh%IMAX
             ! second order approximation
             this%accel(i,j,k,1) = -1.0*(this%phi(i+1,j,k)-this%phi(i-1,j,k))/ &
@@ -374,8 +377,11 @@ MODULE gravity_sboxspectral_mod
     ELSE IF (this%order.EQ.4) THEN
       w1 = 3./48.
       w2 = 30./48.
+!NEC$ ivdep
       DO k = Mesh%KMIN,Mesh%KMAX
+!NEC$ ivdep
         DO j = Mesh%JMIN,Mesh%JMAX
+!NEC$ ivdep
           DO i = Mesh%IMIN,Mesh%IMAX
             ! fourth order
             this%accel(i,j,k,1) = -1.0*(w1*this%phi(i-2,j,k)-w2*this%phi(i-1,j,k)+ &
@@ -508,7 +514,9 @@ CALL ftrace_region_end("forward_fft")
       K2max = 0.5*PI**2/(Mesh%dy**2)
     END IF
 
+!NEC$ IVDEP
     DO j = Mesh%JMIN,Mesh%JMAX
+!NEC$ IVDEP
       DO i = Mesh%IMIN,Mesh%IMAX/2+1
         IF (Mesh%WE_shear) THEN
           K2 = (this%kx(i) + Mesh%Q*Mesh%OMEGA*this%ky(j)*delt)**2 + this%ky(j)**2
@@ -832,7 +840,9 @@ CALL ftrace_region_end("foward FFT")
     ! pure self-gravitating shearing sheet with external point mass potential
 !NEC$ COLLAPSE
     DO k=Mesh%KGMIN,Mesh%KGMAX
+!NEC$ IVDEP
       DO j=Mesh%JGMIN,Mesh%JGMAX
+!NEC$ IVDEP
         DO i=Mesh%IGMIN,Mesh%IGMAX
            cs2 = bccsound(i,j,k)*bccsound(i,j,k)
            p = -SQRTTWOPI*Physics%Constants%GN*pvar(i,j,k,Physics%DENSITY) &

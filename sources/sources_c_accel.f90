@@ -39,6 +39,7 @@ MODULE sources_c_accel_mod
   USE fluxes_base_mod
   USE physics_base_mod
   USE mesh_base_mod
+  USE marray_base_mod
   USE marray_compound_mod
   USE common_dict
   IMPLICIT NONE
@@ -47,7 +48,7 @@ MODULE sources_c_accel_mod
     CHARACTER(LEN=32) :: source_name = "constant acceleration"
 
   TYPE, EXTENDS(sources_base) :: sources_c_accel
-    REAL, DIMENSION(:,:,:,:), POINTER :: accel          !< acceleration      !
+    TYPE(marray_base)                 :: accel          !< acceleration      !
   CONTAINS
     PROCEDURE :: InitSources_c_accel
     PROCEDURE :: ExternalSources_single
@@ -78,19 +79,15 @@ CONTAINS
     CALL this%InitLogging(stype,source_name)
     CALL this%InitSources(Mesh,Fluxes,Physics,config,IO)
 
-    ALLOCATE(&
-      this%accel(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,&
-                 Mesh%KGMIN:Mesh%KGMAX,Physics%VDIM), &
-         STAT = err)
-    IF (err.NE.0) &
-         CALL this%Error("InitSources_c_accel","memory allocation failed")
+    this%accel = marray_base(Physics%VDIM)
+    this%accel%data1d(:) = 0.0
 
     ! initialize constant acceleration
     CALL GetAttr(config, "xaccel", accel(1), 0.0)
     CALL GetAttr(config, "yaccel", accel(2), 0.0)
     CALL GetAttr(config, "zaccel", accel(3), 0.0)
     DO k=1,Physics%VDIM
-      this%accel(:,:,:,k) = accel(k)
+      this%accel%data2d(:,k) = accel(k)
     END DO
 
   END SUBROUTINE InitSources_c_accel
@@ -107,7 +104,7 @@ CONTAINS
     CLASS(marray_compound),INTENT(INOUT):: pvar,cvar,sterm
     !------------------------------------------------------------------------!
     ! compute source terms due to constant acceleration
-    CALL Physics%ExternalSources(Mesh,this%accel,pvar,cvar,sterm)
+    CALL Physics%ExternalSources(Mesh,this%accel%data4d,pvar,cvar,sterm)
   END SUBROUTINE
 
   SUBROUTINE CalcTimestep_single(this,Mesh,Physics,Fluxes,time,pvar,cvar,dt)
@@ -146,7 +143,7 @@ CONTAINS
     !------------------------------------------------------------------------!
     CLASS(sources_c_accel), INTENT(INOUT) :: this
     !------------------------------------------------------------------------!
-    DEALLOCATE(this%accel)
+    CALL this%accel%Destroy()
     CALL this%Finalize_base()
 
     IF(ASSOCIATED(this%next)) CALL this%next%Finalize()

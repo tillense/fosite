@@ -1148,7 +1148,7 @@ CONTAINS
       NULLIFY(pot)
       IF(ASSOCIATED(grav)) THEN
         IF(.NOT.grav%addtoenergy) THEN
-          pot => Mesh%RemapBounds(grav%pot(:,:,:,:))
+          pot => Mesh%RemapBounds(grav%pot%data4d(:,:,:,:))
         END IF
       END IF
 

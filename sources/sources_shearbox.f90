@@ -44,6 +44,7 @@ MODULE sources_shearbox_mod
   USE physics_base_mod
   USE fluxes_base_mod
   USE mesh_base_mod
+  USE marray_base_mod
   USE marray_compound_mod
   USE common_dict
 #ifdef PARALLEL
@@ -114,10 +115,8 @@ CONTAINS
       CALL this%Error("InitSources_shearbox","mesh not supported")
     END SELECT
 
-    ALLOCATE(&
-       this%accel(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX, &
-                  Mesh%KGMIN:Mesh%KGMAX,Physics%VDIM), &
-       STAT = err)
+    this%accel = marray_base(Physics%VDIM)
+    this%accel%data1d(:) = 0.
 
     IF(Mesh%WE_shear) THEN
       this%Vel1=Physics%YVELOCITY
@@ -139,10 +138,6 @@ CONTAINS
       this%MOMENTUM2 = Physics%XMOMENTUM
     END IF
 
-    IF (err.NE.0) CALL this%Error("InitSources_shearbox", "Unable allocate memory!")
-
-    ! reset acceleration term
-    this%accel(:,:,:,:) = 0.0
   END SUBROUTINE InitSources_shearbox
 
   !> \public Write shearbox fictious forces parameters to screen.
@@ -184,13 +179,14 @@ CONTAINS
     SELECT CASE(Mesh%FARGO)
     CASE(0)
       ! fargo transport disabled
-      this%accel(:,:,:,this%I1) = 2*Mesh%OMEGA &
+!NEC$ IVDEP
+      this%accel%data4d(:,:,:,this%I1) = 2*Mesh%OMEGA &
               * (Mesh%Q*Mesh%OMEGA*Mesh%bcenter(:,:,:,this%I1) &
                + this%SIGN1*pvar%data4d(:,:,:,this%VEL1))
-      this%accel(:,:,:,this%I2) = 2*Mesh%OMEGA*this%SIGN2 &
+      this%accel%data4d(:,:,:,this%I2) = 2*Mesh%OMEGA*this%SIGN2 &
               * pvar%data4d(:,:,:,this%VEL2)
       ! shearingsheet inertial forces source terms
-      CALL Physics%ExternalSources(Mesh,this%accel,pvar,cvar,sterm)
+      CALL Physics%ExternalSources(Mesh,this%accel%data4d,pvar,cvar,sterm)
     CASE(3)
       ! fargo transport type 3 enabled
       sterm%data2d(:,Physics%DENSITY) = 0.0
@@ -217,7 +213,7 @@ CONTAINS
     !------------------------------------------------------------------------!
     CLASS(sources_shearbox), INTENT(INOUT) :: this
     !------------------------------------------------------------------------!
-    DEALLOCATE(this%accel)
+    CALL this%accel%Destroy()
     CALL this%Finalize_base()
 
     IF (ASSOCIATED(this%next)) CALL this%next%Finalize()

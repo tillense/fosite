@@ -90,11 +90,10 @@ CONTAINS
     CALL this%InitLogging(stype,source_name)
     CALL this%InitSources(Mesh,Fluxes,Physics,config,IO)
 
-    ALLOCATE(this%accel(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VDIM), &
-             this%pot(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,4), &
-             STAT=err)
-    IF (err.NE.0) CALL this%Error("InitGravity", "Unable allocate memory!")
-    this%accel(:,:,:,:) = 0.
+    this%accel = marray_base(Physics%VDIM)
+    this%accel%data1d(:) = 0.
+    this%pot = marray_base(4)
+    this%pot%data1d(:) = 0.
 
     ! Add source terms to energy equation?
     ! Set this to zero, if a potential is defined in physics_euler2Diamt
@@ -159,12 +158,12 @@ CONTAINS
     CLASS(fluxes_base),     INTENT(IN)    :: Fluxes
     CLASS(sources_base),    INTENT(INOUT) :: Sources
     REAL,                   INTENT(IN)    :: time, dt
-    CLASS(marray_compound),INTENT(INOUT)  :: pvar,cvar,sterm
+    CLASS(marray_compound), INTENT(INOUT) :: pvar,cvar,sterm
     !------------------------------------------------------------------------!
     ! update acceleration of all gravity sources
     ! reset gterm
-    this%pot(:,:,:,:) = 0.
-    this%accel(:,:,:,:) = 0.
+    this%pot%data1d(:) = 0.
+    this%accel%data1d(:) = 0.
 
     ! go through all gravity terms in the list
     CALL this%UpdateGravity(Mesh,Physics,Fluxes,pvar%data4d,time,dt)
@@ -178,7 +177,7 @@ CONTAINS
     END IF
 
     ! gravitational source terms
-    CALL Physics%ExternalSources(Mesh,this%accel,pvar,cvar,sterm)
+    CALL Physics%ExternalSources(Mesh,this%accel%data4d,pvar,cvar,sterm)
 
     !> \todo The treatment of energy sources should be handled in the physics
     !! module and not here!
@@ -213,9 +212,9 @@ CONTAINS
       CALL gravptr%UpdateGravity_single(Mesh,Physics,Fluxes,pvar,time,dt)
 
       ! add to the sources
-      this%accel(:,:,:,:) = this%accel(:,:,:,:) + gravptr%accel(:,:,:,:)
+      this%accel%data4d(:,:,:,:) = this%accel%data4d(:,:,:,:) + gravptr%accel(:,:,:,:)
       IF(ASSOCIATED(gravptr%pot)) &
-        this%pot(:,:,:,:) = this%pot(:,:,:,:) + gravptr%pot(:,:,:,:)
+        this%pot%data4d(:,:,:,:) = this%pot%data4d(:,:,:,:) + gravptr%pot(:,:,:,:)
 
       ! next source term
       gravptr => gravptr%next
@@ -228,11 +227,12 @@ CONTAINS
     USE gravity_spectral_mod, ONLY : gravity_spectral
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(sources_gravity), TARGET, INTENT(INOUT) :: this
-    CLASS(mesh_base),    INTENT(IN)            :: Mesh
-    CLASS(physics_eulerisotherm), INTENT(IN)   :: Physics
+    CLASS(sources_gravity),TARGET,INTENT(INOUT) :: this
+    CLASS(mesh_base),             INTENT(IN)    :: Mesh
+    CLASS(physics_eulerisotherm), INTENT(IN)    :: Physics
+!    CLASS(marray_compound),       INTENT(INOUT) :: pvar
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
-                         INTENT(IN)    :: pvar
+                                  INTENT(IN)    :: pvar
     !------------------------------------------------------------------------!
     CLASS(gravity_base), POINTER :: grav_ptr,selfgrav_ptr => null()
     LOGICAL                      :: has_external_potential = .FALSE.
@@ -244,7 +244,7 @@ CONTAINS
       SELECT TYPE (grav => grav_ptr)
       CLASS IS (gravity_pointmass)
 !CDIR IEXPAND
-        CALL grav%CalcDiskHeight_single(Mesh,Physics,pvar,Physics%bccsound%data3d,this%h_ext%data3d,this%height%data3d)
+        CALL grav%CalcDiskHeight_single(Mesh,Physics,pvar,Physics%bccsound%data4d,this%h_ext%data3d,this%height%data3d)
         this%invheight2%data1d(:) = this%invheight2%data1d(:) + 1./this%h_ext%data1d(:)**2
         has_external_potential = .TRUE.
       CLASS IS (gravity_spectral)
@@ -261,7 +261,7 @@ CONTAINS
         ! compute the resultant height due to all external gravitational forces
         this%h_ext%data1d(:) = 1./SQRT(this%invheight2%data1d(:))
       END IF
-      CALL selfgrav_ptr%CalcDiskHeight_single(Mesh,Physics,pvar,Physics%bccsound%data3d, &
+      CALL selfgrav_ptr%CalcDiskHeight_single(Mesh,Physics,pvar,Physics%bccsound%data4d, &
                                   this%h_ext%data3d,this%height%data3d)
     ELSE
       ! non-selfgravitating disk
@@ -286,8 +286,8 @@ CONTAINS
     CLASS(sources_gravity), INTENT(INOUT) :: this
     CLASS(gravity_base),    POINTER       :: gravptr
     !------------------------------------------------------------------------!
-    DEALLOCATE(this%pot,this%accel)
-
+    CALL this%pot%Destroy()
+    CALL this%accel%Destroy()
     CALL this%height%Destroy()
     CALL this%invheight2%Destroy()
     CALL this%h_ext%Destroy()
