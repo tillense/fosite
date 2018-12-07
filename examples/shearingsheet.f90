@@ -111,7 +111,7 @@ PROGRAM shearingsheet
   ! fargo 0=off, 3=on (for SB)
   INTEGER, PARAMETER :: FARGO      = 3              ! 3 = Shearingbox        !
   ! number of output time steps
-  INTEGER, PARAMETER :: ONUM       = 30
+  INTEGER, PARAMETER :: ONUM       = 10
   ! output directory and output name
   CHARACTER(LEN=256), PARAMETER :: ODIR   = "./"
   CHARACTER(LEN=256), PARAMETER :: OFNAME = "shearingsheet"
@@ -124,7 +124,7 @@ ALLOCATE(Sim)
 CALL Sim%InitFosite()
 CALL MakeConfig(Sim, Sim%config)
 CALL Sim%Setup()
-CALL InitData(Sim%Mesh, Sim%Physics, Sim%Timedisc%pvar%data4d, Sim%Timedisc%cvar%data4d)
+CALL InitData(Sim%Mesh, Sim%Physics, Sim%Timedisc%pvar, Sim%Timedisc%cvar)
 CALL Sim%Run()
 CALL Sim%Finalize()
 
@@ -262,40 +262,53 @@ CONTAINS
     !------------------------------------------------------------------------!
     CLASS(mesh_base),    INTENT(IN)  :: Mesh
     CLASS(physics_base), INTENT(IN)  :: Physics
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
-                         INTENT(OUT) :: pvar,cvar
+    CLASS(marray_compound), POINTER, INTENT(INOUT) :: pvar,cvar
     !------------------------------------------------------------------------!
-    REAL              :: ylen, kx, ky, xlen, SOUNDSPEED
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KMAX) &
-                      :: rands2, rands, K
-    INTEGER           :: i,j
+    REAL              :: SOUNDSPEED
+    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX) &
+                      :: rands
     !------------------------ standard run ----------------------------------!
-    ! constant initial density
-    pvar(:,:,:,Physics%DENSITY)    = SIGMA0
+    SELECT TYPE(p => pvar)
+    TYPE IS(statevector_euler)
+      ! constant initial density
+      p%density%data3d(:,:,:) = SIGMA0
 
-    ! constant initial pressure determined by Q = 1
-    SOUNDSPEED = PI*Physics%Constants%GN*SIGMA0/OMEGA ! Toomre-criterion
-    pvar(:,:,:,Physics%PRESSURE) = 2.5**2*PI*PI* &
-                        Physics%Constants%GN**2.*SIGMA0**3./(GAMMA*OMEGA**2)
+      ! constant initial pressure determined by Q = 1
+      SOUNDSPEED = PI*Physics%Constants%GN*SIGMA0/OMEGA ! Toomre-criterion
+      p%pressure%data3d(:,:,:) = 2.5**2*PI*PI* &
+                          Physics%Constants%GN**2.*SIGMA0**3./(GAMMA*OMEGA**2)
 
-    ! create random numbers for setup of initial velocities
-    CALL InitRandSeed(Physics)
-    CALL RANDOM_NUMBER(rands2)
-    rands2 = (rands2-0.5)*0.1
-    rands = SQRT(pvar(:,:,:,Physics%PRESSURE)/ &
-                 pvar(:,:,:,Physics%DENSITY))*rands2(:,:,:)
-    rands = SOUNDSPEED*rands2(:,:,:)
-    pvar(:,:,:,Physics%XVELOCITY)  =  rands(:,:,:)
-    CALL RANDOM_NUMBER(rands2)
-    rands2 = (rands2-0.5)*0.1
-    rands = SQRT(pvar(:,:,:,Physics%PRESSURE)/ &
-                 pvar(:,:,:,Physics%DENSITY))*rands2(:,:,:)
-    rands = SOUNDSPEED*rands2(:,:,:)
-    pvar(:,:,:,Physics%YVELOCITY)  = -Q*OMEGA*Mesh%bcenter(:,:,:,1) + &
-                                            rands(:,:,:)
+      ! create random numbers for setup of initial velocities
+      IF (Mesh%WE_shear) THEN
+        CALL InitRandSeed(Physics)
+        CALL RANDOM_NUMBER(rands)
+        CALL RANDOM_NUMBER(rands)
+        rands = (rands-0.5)*0.1*SOUNDSPEED
+        p%velocity%data4d(:,:,:,1) = rands(:,:,:)
 
+        CALL InitRandSeed(Physics)
+        CALL RANDOM_NUMBER(rands)
+        CALL RANDOM_NUMBER(rands)
+        rands = (rands-0.5)*0.1*SOUNDSPEED
+        p%velocity%data4d(:,:,:,2)  = -Q*OMEGA*Mesh%bcenter(:,:,:,1) + rands(:,:,:)
+      ELSE IF (Mesh%SN_shear) THEN
+        CALL InitRandSeed(Physics)
+        CALL RANDOM_NUMBER(rands)
+        CALL RANDOM_NUMBER(rands)
+        rands = (rands-0.5)*0.1*SOUNDSPEED
+        p%velocity%data4d(:,:,:,1) = Q*OMEGA*Mesh%bcenter(:,:,:,2) + rands(:,:,:)
+
+        CALL InitRandSeed(Physics)
+        CALL RANDOM_NUMBER(rands)
+        CALL RANDOM_NUMBER(rands)
+        rands = (rands-0.5)*0.1*SOUNDSPEED
+        p%velocity%data4d(:,:,:,2)  = rands(:,:,:)
+      END IF
+    CLASS DEFAULT
+      CALL Physics%Error("shear::InitData","only non-isothermal HD supported")
+    END SELECT
     !------------------------------------------------------------------------!
-    CALL Physics%Convert2Conservative(Mesh,pvar,cvar)
+    CALL Physics%Convert2Conservative(pvar,cvar)
     CALL Mesh%Info(" DATA-----> initial condition: " // &
          "Standard run shearingsheet")
   END SUBROUTINE InitData
