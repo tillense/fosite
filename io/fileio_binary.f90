@@ -53,11 +53,7 @@
 !! \extends fileio_gnuplot
 !! \ingroup fileio
 !----------------------------------------------------------------------------!
-!#ifdef FORTRAN_STREAMS
 #define HAVE_VTK
-!#elif defined(NECSXAURORA)
-!#define NOSTREAM
-!#endif
 MODULE fileio_binary_mod
   USE fileio_base_mod
   USE geometry_base_mod
@@ -228,11 +224,7 @@ CONTAINS
         CALL MPI_File_seek(this%handle,this%offset,MPI_SEEK_SET,this%error_io)
 #else
        OPEN(this%unit,FILE=this%GetFilename(),STATUS="OLD", &
-#ifndef NOSTREAM
             ACCESS = 'STREAM' ,   &
-#else
-            FORM   = 'UNFORMATTED',&
-#endif
             ACTION="READ",POSITION="REWIND",IOSTAT=this%error_io)
 #endif
     CASE(READEND)
@@ -245,11 +237,7 @@ CONTAINS
        CALL MPI_File_sync(this%handle,this%error_io)
 #else
        OPEN(this%unit,FILE=this%GetFilename(),STATUS="OLD", &
-#ifndef NOSTREAM
             ACCESS = 'STREAM' ,   &
-#else
-            FORM   = 'UNFORMATTED',&
-#endif
             ACTION="READ",POSITION="APPEND",IOSTAT=this%error_io)
 #endif
     CASE(REPLACE)
@@ -259,11 +247,7 @@ CONTAINS
             MPI_MODE_CREATE),MPI_INFO_NULL,this%handle,this%error_io)
 #else
        OPEN(this%unit,FILE=this%GetFilename(),STATUS="REPLACE",&
-#ifndef NOSTREAM
             ACCESS = 'STREAM' ,   &
-#else
-            FORM   = 'UNFORMATTED',&
-#endif
             ACTION="WRITE",POSITION="REWIND",IOSTAT=this%error_io)
 #endif
     CASE(APPEND)
@@ -276,11 +260,7 @@ CONTAINS
        CALL MPI_File_sync(this%handle,this%error_io)
 #else
        OPEN(this%unit,FILE=this%GetFilename(),STATUS="OLD",&
-#ifndef NOSTREAM
             ACCESS = 'STREAM' ,   &
-#else
-            FORM   = 'UNFORMATTED',&
-#endif
             ACTION="READWRITE",POSITION="APPEND",IOSTAT=this%error_io)
 #endif
     CASE DEFAULT
