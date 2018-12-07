@@ -167,33 +167,33 @@ CONTAINS
       this%dx%data4d(:,:,:,m+1) = Mesh%curv%faces(:,:,:,6,3) - Mesh%curv%bcenter(:,:,:,3)
     END IF
 
-!     CALL GetAttr(config, "output/slopes", valwrite, 0)
-!     IF(valwrite.EQ.1) THEN
-!       m = 1
-!       IF (Mesh%INUM.GT.1) THEN
-!         DO l=1,Physics%VNUM
-!           key = TRIM(Physics%pvarname(l)) // "_xslope"
-!           CALL SetAttr(IO, TRIM(key), &
-!             this%slopes%data5d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m,l))
-!         END DO
-!         m = m + 1
-!       END IF
-!       IF (Mesh%JNUM.GT.1) THEN
-!         DO l=1,Physics%VNUM
-!           key = TRIM(Physics%pvarname(l)) // "_yslope"
-!           CALL SetAttr(IO, TRIM(key), &
-!             this%slopes%data5d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m,l))
-!         END DO
-!         m = m + 1
-!       END IF
-!       IF (Mesh%KNUM.GT.1) THEN
-!         DO l=1,Physics%VNUM
-!           key = TRIM(Physics%pvarname(l)) // "_zslope"
-!           CALL SetAttr(IO, TRIM(key), &
-!             this%slopes%data5d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m,l))
-!         END DO
-!       END IF
-!     END IF
+     CALL GetAttr(config, "output/slopes", valwrite, 0)
+     IF(valwrite.EQ.1) THEN
+       m = 1
+       IF (Mesh%INUM.GT.1) THEN
+         DO l=1,Physics%VNUM
+           key = TRIM(Physics%pvarname(l)) // "_xslope"
+           CALL SetAttr(IO, TRIM(key), &
+             this%slopes%data5d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m,l))
+         END DO
+         m = m + 1
+       END IF
+       IF (Mesh%JNUM.GT.1) THEN
+         DO l=1,Physics%VNUM
+           key = TRIM(Physics%pvarname(l)) // "_yslope"
+           CALL SetAttr(IO, TRIM(key), &
+             this%slopes%data5d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m,l))
+         END DO
+         m = m + 1
+       END IF
+       IF (Mesh%KNUM.GT.1) THEN
+         DO l=1,Physics%VNUM
+           key = TRIM(Physics%pvarname(l)) // "_zslope"
+           CALL SetAttr(IO, TRIM(key), &
+             this%slopes%data5d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m,l))
+         END DO
+       END IF
+     END IF
 
     CALL this%Info("            limiter:           " // TRIM(this%GetName()))
   END SUBROUTINE InitReconstruction_linear
