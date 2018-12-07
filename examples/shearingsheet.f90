@@ -96,20 +96,20 @@ PROGRAM shearingsheet
   ! simulation parameter
   REAL, PARAMETER    :: OMEGA      = 1.0            ! rotation at fid. point !
   REAL, PARAMETER    :: SIGMA0     = 1.0            ! mean surf.dens.        !
-  REAL, PARAMETER    :: TSIM       = 30./OMEGA      ! simulation time        !
+  REAL, PARAMETER    :: TSIM       = 1./OMEGA     ! simulation time        !
   REAL, PARAMETER    :: GAMMA      = 2.0            ! dep. on vert. struct.  !
   REAL, PARAMETER    :: BETA_C     = 10.0           ! cooling parameter      !
 !  REAL, PARAMETER    :: BETA_C     = 2.0           ! 2 -> collapse          !
   REAL, PARAMETER    :: Q          = 1.5            ! shearing parameter     !
   ! mesh settings
   INTEGER, PARAMETER :: MGEO       = CARTESIAN
-  INTEGER, PARAMETER :: XRES       = 64            ! cells in x-direction   !
-  INTEGER, PARAMETER :: YRES       = 64            ! cells in y-direction   !
+  INTEGER, PARAMETER :: XRES       = 128            ! cells in x-direction   !
+  INTEGER, PARAMETER :: YRES       = 128            ! cells in y-direction   !
   INTEGER, PARAMETER :: ZRES       = 1              ! cells in z-direction   !
   REAL               :: DOMAINX    = 320.0          ! domain size [GEOM]     !
   REAL               :: DOMAINY    = 320.0          ! domain size [GEOM]     !
   ! fargo 0=off, 3=on (for SB)
-  INTEGER, PARAMETER :: FARGO      = 0              ! 3 = Shearingbox        !
+  INTEGER, PARAMETER :: FARGO      = 3              ! 3 = Shearingbox        !
   ! number of output time steps
   INTEGER, PARAMETER :: ONUM       = 30
   ! output directory and output name
@@ -155,8 +155,6 @@ CONTAINS
 
     ! physics settings
     physics =>  Dict(&
-!                "problem"     / EULER_ISOTHERM, &
-!                "cs"          / SOUNDSPEED, &
                 "problem"     / EULER, &
                 "gamma"       / GAMMA, &
                 "units"       / GEOMETRICAL &
@@ -168,6 +166,7 @@ CONTAINS
                 "geometry"    / MGEO, &
                 "omega"       / OMEGA, &
                 "fargo"       / FARGO, &
+                "shift_dir"   / 1, &
                 "inum"        / XRES, &
                 "jnum"        / YRES, &
                 "knum"        / ZRES, &
@@ -189,14 +188,10 @@ CONTAINS
 
     ! boundary conditions
     boundary => Dict(&
-                "western"     / SHEARING, &
-                "eastern"     / SHEARING, &
-                "southern"    / PERIODIC, &
-                "northern"    / PERIODIC, &
-!                "western"     / PERIODIC, &
-!                "eastern"     / PERIODIC, &
-!                "southern"    / SHEARING, &
-!                "northern"    / SHEARING, &
+                "western"     / PERIODIC, &
+                "eastern"     / PERIODIC, &
+                "southern"    / SHEARING, &
+                "northern"    / SHEARING, &
                 "bottomer"    / REFLECTING, &
                 "topper"      / REFLECTING &
                 )

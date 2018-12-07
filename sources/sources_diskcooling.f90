@@ -63,6 +63,7 @@ MODULE sources_diskcooling_mod
   USE fluxes_base_mod
   USE mesh_base_mod
   USE marray_compound_mod
+  USE marray_base_mod
   USE logging_base_mod
   USE common_dict
   IMPLICIT NONE
@@ -110,8 +111,8 @@ MODULE sources_diskcooling_mod
     REAL                            :: b_final      !< final cooling parameter
     REAL                            :: t_start      !< cooling starting time
     REAL                            :: dt_bdec      !< cooling decrease time
-    REAL, DIMENSION(:,:,:), POINTER   :: Qcool      !< energy sink due to cooling
-    REAL, DIMENSION(:,:,:,:), POINTER :: ephir      !< azimuthal unit vector / radius
+    TYPE(marray_base) :: Qcool        !< energy sink due to cooling
+    TYPE(marray_base) :: ephir        !< azimuthal unit vector / radius
     REAL                            :: T_0          !< equilibrium temp
     REAL                            :: rho_0        !< minimum density
   CONTAINS
@@ -136,6 +137,8 @@ CONTAINS
   !> \public Constructor of disk cooling module
   SUBROUTINE InitSources_diskcooling(this,Mesh,Physics,Fluxes,config,IO)
     USE physics_euler_mod, ONLY : physics_euler
+    USE geometry_cylindrical_mod, ONLY : geometry_cylindrical
+    USE geometry_cartesian_mod, ONLY : geometry_cartesian
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(sources_diskcooling) :: this
@@ -160,6 +163,29 @@ CONTAINS
       CALL this%Error("InitSources_diskcooling","physics not supported")
     END SELECT
 
+    SELECT CASE(cooling_func)
+    CASE(GAMMIE)
+      ! check for geometry
+      SELECT TYPE (mgeo => Mesh%Geometry)
+      CLASS IS(geometry_cylindrical)
+        ! do nothing
+      CLASS DEFAULT
+        CALL this%Error("InitSources_diskcooling","geometry not supported")
+      END SELECT
+    CASE(GAMMIE_SB)
+      SELECT TYPE (mgeo => Mesh%Geometry)
+      TYPE IS(geometry_cartesian)
+        ! do nothing
+      CLASS DEFAULT
+        CALL this%Error("InitSources_diskcooling","geometry not supported")
+      END SELECT
+    END SELECT
+
+    ! check for dimensions
+    IF (Physics%VDIM.GT.2) THEN
+      CALL this%Error("InitSources_diskcooling","only 2D simulations supported")
+    END IF
+
     ! get cooling method
     CALL GetAttr(config,"method",cooling_func)
     ALLOCATE(logging_base::this%cooling)
@@ -168,21 +194,23 @@ CONTAINS
       IF (Physics%constants%GetType().NE.SI) &
          CALL this%Error("InitSources_diskcooling","only SI units supported for gray cooling")
       CALL this%cooling%InitLogging(GRAY,"gray cooling")
-      ALLOCATE(this%Qcool(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
-               STAT=err)
+
+      this%Qcool = marray_base()
+
     CASE(GAMMIE)
       CALL this%cooling%InitLogging(GAMMIE,"Gammie cooling")
-      ALLOCATE(this%Qcool(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
-               this%ephir(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,2),&
-               STAT=err)
+
+      this%Qcool = marray_base()
+      this%ephir = marray_base(2)
+
     CASE(GAMMIE_SB)
-       CALL this%cooling%InitLogging(GAMMIE_SB,"Gammie cooling (SB)")
-       ALLOCATE(this%Qcool(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
-                STAT=err)
+      CALL this%cooling%InitLogging(GAMMIE_SB,"Gammie cooling (SB)")
+
+      this%Qcool = marray_base()
+
     CASE DEFAULT
        CALL this%Error("UpdateCooling","Cooling function not supported!")
     END SELECT
-    IF (err.NE.0) CALL this%Error("InitSources_diskcooling","memory allocation failed")
 
     ! Courant number, i.e. safety factor for numerical stability
     CALL GetAttr(config, "cvis", this%cvis, 0.1)
@@ -210,13 +238,13 @@ CONTAINS
     this%time = -1.0
 
     ! initialize arrays
-    this%Qcool(:,:,:)  = 0.0
+    this%Qcool%data1d(:)  = 0.0
     SELECT CASE(cooling_func)
     CASE(GRAY)
       ! do nothing
     CASE(GAMMIE)
-      this%ephir(:,:,:,1) = -Mesh%posvec%bcenter(:,:,:,2)/Mesh%radius%bcenter(:,:,:)**2
-      this%ephir(:,:,:,2) = Mesh%posvec%bcenter(:,:,:,1)/Mesh%radius%bcenter(:,:,:)**2
+      this%ephir%data4d(:,:,:,1) = -Mesh%posvec%bcenter(:,:,:,2)/Mesh%radius%bcenter(:,:,:)**2
+      this%ephir%data4d(:,:,:,2) = Mesh%posvec%bcenter(:,:,:,1)/Mesh%radius%bcenter(:,:,:)**2
     CASE(GAMMIE_SB)
       ! do nothing
     END SELECT
@@ -277,7 +305,7 @@ CONTAINS
     CALL GetAttr(config, "output/Qcool", valwrite, 0)
     IF (valwrite .EQ. 1) &
          CALL SetAttr(IO, "Qcool", &
-         this%Qcool(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX))
+         this%Qcool%data3d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX))
 
   END SUBROUTINE SetOutput
 
@@ -294,17 +322,16 @@ CONTAINS
     REAL,INTENT(IN)                     :: time, dt
     CLASS(marray_compound),INTENT(INOUT):: pvar,cvar,sterm
     !------------------------------------------------------------------------!
-    sterm%data4d(:,:,:,Physics%DENSITY) = 0.0
-    sterm%data4d(:,:,:,Physics%XMOMENTUM) = 0.0
-    sterm%data4d(:,:,:,Physics%YMOMENTUM) = 0.0
+    sterm%data2d(:,Physics%DENSITY) = 0.0
+    sterm%data2d(:,Physics%XMOMENTUM) = 0.0
+    sterm%data2d(:,Physics%YMOMENTUM) = 0.0
 
     SELECT TYPE(phys => Physics)
     TYPE IS (physics_euler)
-       CALL this%UpdateCooling(Mesh,phys,Sources,time,pvar%data4d)
+       CALL this%UpdateCooling(Mesh,phys,Sources,time,pvar)
     END SELECT
     ! energy loss due to radiation processes
-    sterm%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,Physics%ENERGY) = &
-         -this%Qcool(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX)
+    sterm%data2d(:,Physics%ENERGY) = -this%Qcool%data1d(:)
   END SUBROUTINE ExternalSources_single
 
 
@@ -323,7 +350,7 @@ CONTAINS
     REAL              :: invdt
     !------------------------------------------------------------------------!
     ! maximum of inverse cooling timescale t_cool ~ P/Q_cool
-    invdt = MAXVAL(ABS(this%Qcool(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX) &
+    invdt = MAXVAL(ABS(this%Qcool%data3d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX) &
          / pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,Physics%PRESSURE)))
     IF (invdt.GT.TINY(invdt)) THEN
        dt = this%cvis / invdt
@@ -341,8 +368,7 @@ CONTAINS
     CLASS(mesh_base),    INTENT(IN)    :: Mesh
     CLASS(physics_euler),INTENT(INOUT) :: Physics
     CLASS(sources_base), INTENT(INOUT) :: Sources
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
-                         INTENT(IN)    :: pvar
+    CLASS(marray_compound),INTENT(INOUT):: pvar
     REAL,                INTENT(IN)    :: time
     !------------------------------------------------------------------------!
     REAL              :: muRgamma,Qfactor
@@ -367,20 +393,20 @@ CONTAINS
           muRgamma = Physics%mu/(Physics%Constants%RG*Physics%gamma)
           Qfactor  = 8./3.*Physics%Constants%SB
           ! compute gray cooling term
-          this%Qcool(:,:,:) = Lambda_gray(pvar(:,:,:,Physics%DENSITY),Sources%height(:,:,:), &
-               muRgamma*Physics%bccsound%data3d(:,:,:)*Physics%bccsound%data3d(:,:,:), &
+          this%Qcool%data1d(:) = Lambda_gray(pvar%data2d(:,Physics%DENSITY),Sources%height%data1d(:), &
+               muRgamma*Physics%bccsound%data1d(:)*Physics%bccsound%data1d(:), &
                this%rho_0,this%T_0,Qfactor)
        CASE(GAMMIE)
           ! compute Gammie cooling term with
           ! t_cool = b_cool / Omega
           ! and Omega = ephi*v / r
-          this%Qcool(:,:,:) = Lambda_gammie(pvar(:,:,:,Physics%PRESSURE) / (Physics%gamma-1.), &
-              ABS((this%ephir(:,:,:,1)*pvar(:,:,:,Physics%XVELOCITY) &
-                  +this%ephir(:,:,:,2)*(pvar(:,:,:,Physics%YVELOCITY)&
-                    +Mesh%OMEGA*Mesh%radius%bcenter))) / this%b_cool)
+          this%Qcool%data3d(:,:,:) = Lambda_gammie(pvar%data4d(:,:,:,Physics%PRESSURE) / (Physics%gamma-1.), &
+              ABS((this%ephir%data4d(:,:,:,1)*pvar%data4d(:,:,:,Physics%XVELOCITY) &
+                  +this%ephir%data4d(:,:,:,2)*(pvar%data4d(:,:,:,Physics%YVELOCITY)&
+                    +Mesh%OMEGA*Mesh%radius%bcenter(:,:,:)))) / this%b_cool)
        CASE(GAMMIE_SB)
           ! in sb t_cool = b_cool
-          this%Qcool(:,:,:) = Lambda_gammie(pvar(:,:,:,Physics%PRESSURE) / (Physics%gamma-1.), &
+          this%Qcool%data1d(:) = Lambda_gammie(pvar%data2d(:,Physics%PRESSURE) / (Physics%gamma-1.), &
               Mesh%OMEGA/this%b_cool)
     END SELECT
 
@@ -471,13 +497,13 @@ CONTAINS
     !------------------------------------------------------------------------!
     SELECT CASE(this%GetType())
     CASE(GRAY)
-       DEALLOCATE(this%Qcool)
+      CALL this%Qcool%Destroy()
     CASE(GAMMIE)
-       DEALLOCATE(this%ephir,this%Qcool)
+      CALL this%Qcool%Destroy()
+      CALL this%ephir%Destroy()
     CASE(GAMMIE_SB)
-       DEALLOCATE(this%Qcool)
+      CALL this%Qcool%Destroy()
     END SELECT
-!    CALL this%CloseSources(this)
   END SUBROUTINE Finalize
 
 END MODULE sources_diskcooling_mod

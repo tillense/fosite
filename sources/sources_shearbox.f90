@@ -193,20 +193,16 @@ CONTAINS
       CALL Physics%ExternalSources(Mesh,this%accel,pvar,cvar,sterm)
     CASE(3)
       ! fargo transport type 3 enabled
-      sterm%data4d(:,:,:,Physics%DENSITY) = 0.0
+      sterm%data2d(:,Physics%DENSITY) = 0.0
 !NEC$ IVDEP
-      FORALL(i=Mesh%IMIN:Mesh%IMAX,j=Mesh%JMIN:Mesh%JMAX,k=Mesh%KMIN:Mesh%KMAX)
-        sterm%data4d(i,j,k,this%MOMENTUM1) = pvar%data4d(i,j,k,Physics%DENSITY) &
-          *Mesh%OMEGA*2.0*this%SIGN1*pvar%data4d(i,j,k,this%VEL1)
-        sterm%data4d(i,j,k,this%MOMENTUM2) = pvar%data4d(i,j,k,Physics%DENSITY) &
-          *Mesh%OMEGA*(2.0-Mesh%Q)*this%SIGN2*pvar%data4d(i,j,k,this%VEL2)
-      END FORALL
+      sterm%data2d(:,this%MOMENTUM1) = pvar%data2d(:,Physics%DENSITY) &
+        *Mesh%OMEGA*2.0*this%SIGN1*pvar%data2d(:,this%VEL1)
+      sterm%data2d(:,this%MOMENTUM2) = pvar%data2d(:,Physics%DENSITY) &
+        *Mesh%OMEGA*(2.0-Mesh%Q)*this%SIGN2*pvar%data2d(:,this%VEL2)
       IF (Physics%PRESSURE .GT. 0) THEN
-        FORALL(i=Mesh%IMIN:Mesh%IMAX,j=Mesh%JMIN:Mesh%JMAX,k=Mesh%KMIN:Mesh%KMAX)
-            sterm%data4d(i,j,k,Physics%ENERGY) = &
-                 this%SIGN1*pvar%data4d(i,j,k,Physics%DENSITY)*Mesh%Q*Mesh%OMEGA* &
-                 pvar%data4d(i,j,k,this%VEL2)*pvar%data4d(i,j,k,this%VEL1)
-        END FORALL
+        sterm%data2d(:,Physics%ENERGY) = &
+             this%SIGN1*pvar%data2d(:,Physics%DENSITY)*Mesh%Q*Mesh%OMEGA* &
+             pvar%data2d(:,this%VEL2)*pvar%data2d(:,this%VEL1)
       END IF
     CASE DEFAULT
       ! other fargo transport schemes are not supported

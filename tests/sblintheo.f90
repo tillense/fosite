@@ -91,16 +91,16 @@ PROGRAM sblintheo
   REAL, PARAMETER    :: SOUNDSPEED = PI*GN*SIGMA0/OMEGA
   ! mesh settings
   INTEGER, PARAMETER :: MGEO       = CARTESIAN
-  INTEGER, PARAMETER :: XRES       = 64            ! amount of cells in x-  !
-  INTEGER, PARAMETER :: YRES       = 64            ! y-direction (rho/phi)  !
+  INTEGER, PARAMETER :: XRES       = 128            ! amount of cells in x-  !
+  INTEGER, PARAMETER :: YRES       = 128            ! y-direction (rho/phi)  !
   INTEGER, PARAMETER :: ZRES       = 1
   REAL               :: DOMAINX    = 40.0           ! domain size [GEOM]     !
   REAL               :: DOMAINY    = 40.0           ! domain size [GEOM]     !
   ! fargo 0=off, 3=on (for SB)
   INTEGER, PARAMETER :: FARGO      = 3              ! 3 = Shearingbox        !
   ! number of output time steps
-!  INTEGER, PARAMETER :: ONUM       = 1
-  INTEGER, PARAMETER :: ONUM       = 100
+  INTEGER, PARAMETER :: ONUM       = 10
+!  INTEGER, PARAMETER :: ONUM       = 100
   ! output directory and output name
   CHARACTER(LEN=256), PARAMETER :: ODIR   = "./"
   CHARACTER(LEN=256), PARAMETER :: OFNAME = "sblintheo"
@@ -172,7 +172,7 @@ CONTAINS
                 "zmin"        / ZMIN, &
                 "zmax"        / ZMAX, &
                 "fargo"       / FARGO, &
-                "shift_dir"   / 2, &
+                "shift_dir"   / 1, &
                 "omega"       / OMEGA, &
                 "decomposition"/ (/ 1, -1, 1/), &
                 "output/rotation" / 0, &
@@ -192,14 +192,10 @@ CONTAINS
 
     ! boundary conditions
     boundary => Dict(&
-                "western"     / SHEARING, &
-                "eastern"     / SHEARING, &
-                "southern"    / PERIODIC, &
-                "northern"    / PERIODIC, &
- !               "western"     / PERIODIC, &
- !               "eastern"     / PERIODIC, &
- !               "southern"    / SHEARING, &
- !               "northern"    / SHEARING, &
+                "western"     / PERIODIC, &
+                "eastern"     / PERIODIC, &
+                "southern"    / SHEARING, &
+                "northern"    / SHEARING, &
                 "bottomer"    / REFLECTING, &
                 "topper"      / REFLECTING &
                 )
@@ -236,7 +232,7 @@ CONTAINS
 
     ! initialize data input/output
     datafile => Dict( &
-              "fileformat"    / VTK, &
+              "fileformat"    / XDMF, &
               "filename"      / (TRIM(ODIR) // TRIM(OFNAME)), &
               "count"         / ONUM)
 

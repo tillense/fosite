@@ -1493,6 +1493,7 @@ CONTAINS
 
     ! advect with residual velocity
     DO k=Mesh%KGMIN,Mesh%KGMAX
+!NEC$ SHORTLOOP
       DO i=GMIN1,GMAX1
 #ifdef PARALLEL
         IF(ABS(this%shift(i,k)).GT.MINNUM1) THEN
@@ -1508,11 +1509,13 @@ CONTAINS
 
         ! residual shift along x- or y-direction
         IF(Mesh%SN_shear) THEN
+!NEC$ SHORTLOOP
           DO l=1,Physics%VNUM+Physics%PNUM
             CALL ResidualLineShift(Mesh,Fluxes,order,GMIN2,GMAX2,MIN2,MAX2, &
                                    this%delxy(i,k),this%cvar%data4d(:,i,k,l))
           END DO
         ELSE
+!NEC$ SHORTLOOP
           DO l=1,Physics%VNUM+Physics%PNUM
             CALL ResidualLineShift(Mesh,Fluxes,order,GMIN2,GMAX2,MIN2,MAX2, &
                                    this%delxy(i,k),this%cvar%data4d(i,:,k,l))
@@ -1579,12 +1582,14 @@ CONTAINS
 
     ! Integer shift along x- or y-direction
     IF (Mesh%SN_shear) THEN
+!NEC$ SHORTLOOP
       DO l=1,Physics%VNUM+Physics%PNUM
         this%cvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,l) &
           = CSHIFT(this%cvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,l), &
           -this%shift(Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX),1)
       END DO
     ELSE
+!NEC$ SHORTLOOP
       DO l=1,Physics%VNUM+Physics%PNUM
         this%cvar%data4d(Mesh%IGMIN:Mesh%IGMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,l) &
           = CSHIFT(this%cvar%data4d(Mesh%IGMIN:Mesh%IGMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KGMIN:Mesh%KGMAX,l), &

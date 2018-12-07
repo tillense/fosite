@@ -43,6 +43,7 @@ MODULE sources_base_mod
   USE logging_base_mod
   USE mesh_base_mod
   USE marray_compound_mod
+  USE marray_base_mod
   USE gravity_base_mod
   USE physics_base_mod
   USE fluxes_base_mod
@@ -89,9 +90,9 @@ MODULE sources_base_mod
      !! 2: secondary
      INTEGER                         :: star
      LOGICAL                         :: update_disk_height !< enable/disable computation of disk scale height
-     REAL, DIMENSION(:,:,:), POINTER  :: invheight2=>null() !< 1/h**2
-     REAL, DIMENSION(:,:,:), POINTER  :: height=>null() !< disk scale height
-     REAL, DIMENSION(:,:,:), POINTER  :: h_ext=>null()  !< disk scale height
+     TYPE(marray_base)               :: invheight2   !< energy sink due to cooling
+     TYPE(marray_base)               :: height       !< energy sink due to cooling
+     TYPE(marray_base)               :: h_ext        !< energy sink due to cooling
      REAL, DIMENSION(:,:,:,:), POINTER :: accart        !< acceleration
      REAL, DIMENSION(:,:,:,:), POINTER :: bcposvec,bccart !< position vector
      REAL, DIMENSION(:,:,:), POINTER   :: radius       !< distance to origin

@@ -41,6 +41,7 @@
 MODULE sources_gravity_mod
   USE logging_base_mod
   USE mesh_base_mod
+  USE marray_base_mod
   USE marray_compound_mod
   USE physics_base_mod
   USE sources_base_mod
@@ -94,7 +95,6 @@ CONTAINS
              STAT=err)
     IF (err.NE.0) CALL this%Error("InitGravity", "Unable allocate memory!")
     this%accel(:,:,:,:) = 0.
-    NULLIFY(this%height,this%h_ext,this%invheight2)
 
     ! Add source terms to energy equation?
     ! Set this to zero, if a potential is defined in physics_euler2Diamt
@@ -112,19 +112,15 @@ CONTAINS
       !! to check whether the geometry is flat or not
       IF (Physics%VDIM.EQ.2) THEN
         this%update_disk_height = .TRUE.
-        IF (.NOT.ASSOCIATED(this%height)) &
-          ALLOCATE(this%height(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
-                   STAT=err)
-          this%height = 0.0
-        IF (err.EQ.0) &
-          ALLOCATE(this%h_ext(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
-                   this%invheight2(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
-                   STAT=err)
-          this%h_ext = 0.0
-          this%invheight2 = 0.0
-        IF (err.NE.0) CALL this%Error("InitGravity","Memory allocation failed!")
+
+        this%height = marray_base()
+        this%h_ext= marray_base()
+        this%invheight2 = marray_base()
+        this%height%data1d = 0.0
+        this%h_ext%data1d = 0.0
+        this%invheight2%data1d = 0.0
       ELSE
-         CALL this%Error("InitGravity", "DiskHeight is only supported in 2D")
+        CALL this%Error("InitGravity", "DiskHeight is only supported in 2D")
       END IF
     ELSE
        this%update_disk_height = .FALSE.
@@ -136,14 +132,14 @@ CONTAINS
     CALL GetAttr(config, "output/height", valwrite, 0)
     IF (valwrite .EQ. 1) THEN
        CALL SetAttr(config, "update_disk_height", 1)
-       IF (.NOT.ASSOCIATED(this%height)) THEN
-          ALLOCATE(this%height(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
+       IF (.NOT.ASSOCIATED(this%height%data1d)) THEN
+          ALLOCATE(this%height%data3d(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
                    STAT=err)
           IF (err.NE.0) CALL this%Error("SetOutput", &
                                    "Memory allocation failed for this%height!")
        END IF
        CALL SetAttr(IO, "height", &
-         this%height(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX))
+         this%height%data3d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX))
     END IF
 
   END SUBROUTINE InitSources_gravity
@@ -248,8 +244,8 @@ CONTAINS
       SELECT TYPE (grav => grav_ptr)
       CLASS IS (gravity_pointmass)
 !CDIR IEXPAND
-        CALL grav%CalcDiskHeight_single(Mesh,Physics,pvar,Physics%bccsound%data3d,this%h_ext,this%height)
-        this%invheight2(:,:,:) = this%invheight2(:,:,:) + 1./this%h_ext(:,:,:)**2
+        CALL grav%CalcDiskHeight_single(Mesh,Physics,pvar,Physics%bccsound%data3d,this%h_ext%data3d,this%height%data3d)
+        this%invheight2%data1d(:) = this%invheight2%data1d(:) + 1./this%h_ext%data1d(:)**2
         has_external_potential = .TRUE.
       CLASS IS (gravity_spectral)
         selfgrav_ptr => grav_ptr
@@ -263,13 +259,13 @@ CONTAINS
     IF (ASSOCIATED(selfgrav_ptr)) THEN
       IF (has_external_potential) THEN
         ! compute the resultant height due to all external gravitational forces
-        this%h_ext(:,:,:) = 1./SQRT(this%invheight2(:,:,:))
+        this%h_ext%data1d(:) = 1./SQRT(this%invheight2%data1d(:))
       END IF
       CALL selfgrav_ptr%CalcDiskHeight_single(Mesh,Physics,pvar,Physics%bccsound%data3d, &
-                                  this%h_ext,this%height)
+                                  this%h_ext%data3d,this%height%data3d)
     ELSE
       ! non-selfgravitating disk
-      this%height(:,:,:) = 1./SQRT(this%invheight2(:,:,:))
+      this%height%data1d(:) = 1./SQRT(this%invheight2%data1d(:))
     END IF
 
   END SUBROUTINE CalcDiskHeight
@@ -291,8 +287,8 @@ CONTAINS
     CLASS(gravity_base),    POINTER       :: gravptr
     !------------------------------------------------------------------------!
     DEALLOCATE(this%pot,this%accel)
-    IF(ASSOCIATED(this%h_ext)) DEALLOCATE(this%h_ext)
-    IF(ASSOCIATED(this%height)) DEALLOCATE(this%height)
+    CALL this%height%Destroy()
+    CALL this%h_ext%Destroy()
 
     gravptr => this%glist
     DO WHILE (ASSOCIATED(gravptr))
