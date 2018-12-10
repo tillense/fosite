@@ -171,6 +171,7 @@ CONTAINS
      IF(valwrite.EQ.1) THEN
        m = 1
        IF (Mesh%INUM.GT.1) THEN
+!NEC$ NOVECTOR
          DO l=1,Physics%VNUM
            key = TRIM(Physics%pvarname(l)) // "_xslope"
            CALL SetAttr(IO, TRIM(key), &
@@ -179,6 +180,7 @@ CONTAINS
          m = m + 1
        END IF
        IF (Mesh%JNUM.GT.1) THEN
+!NEC$ NOVECTOR
          DO l=1,Physics%VNUM
            key = TRIM(Physics%pvarname(l)) // "_yslope"
            CALL SetAttr(IO, TRIM(key), &
@@ -187,6 +189,7 @@ CONTAINS
          m = m + 1
        END IF
        IF (Mesh%KNUM.GT.1) THEN
+!NEC$ NOVECTOR
          DO l=1,Physics%VNUM
            key = TRIM(Physics%pvarname(l)) // "_zslope"
            CALL SetAttr(IO, TRIM(key), &
@@ -259,16 +262,17 @@ CONTAINS
       END IF
       ! calculate slopes in y-direction
       IF (Mesh%JNUM.GT.1) THEN
+        i = Mesh%IGMAX-Mesh%IGMIN+1
 !NEC$ SHORTLOOP
         DO l=1,Physics%VNUM
+!NEC$ NOVECTOR
           DO k=Mesh%KGMIN,Mesh%KGMAX
-            DO j=Mesh%JGMIN+Mesh%JP1,Mesh%JGMAX+Mesh%JM1
-!NEC$ IVDEP
-              DO i=Mesh%IGMIN,Mesh%IGMAX
-                this%slopes%data5d(i,j,k,m,l) = Mesh%invdy * minmod2_limiter(&
-                  rvar%data4d(i,j,k,l) - rvar%data4d(i,j-1,k,l), &
-                  rvar%data4d(i,j+1,k,l) - rvar%data4d(i,j,k,l))
-              END DO
+! use collapsed arrays for better vectorization
+!NEC$ NOVECTOR
+            DO j=i+1,SIZE(rvar%data3d,1)-i
+                this%slopes%data4d(j,k,m,l) = Mesh%invdy * minmod2_limiter(&
+                  rvar%data3d(j,k,l) - rvar%data3d(j-i,k,l), &
+                  rvar%data3d(j+i,k,l) - rvar%data3d(j,k,l))
             END DO
           END DO
         END DO
@@ -276,17 +280,15 @@ CONTAINS
       END IF
       ! calculate slopes in z-direction
       IF (Mesh%KNUM.GT.1) THEN
+        i = (Mesh%IGMAX-Mesh%IGMIN+1)*(Mesh%JGMAX-Mesh%JGMIN+1)
 !NEC$ SHORTLOOP
         DO l=1,Physics%VNUM
-          DO k=Mesh%KGMIN+Mesh%KP1,Mesh%KGMAX+Mesh%KM1
-            DO j=Mesh%JGMIN,Mesh%JGMAX
+! use collapsed arrays for better vectorization
 !NEC$ IVDEP
-              DO i=Mesh%IGMIN,Mesh%IGMAX
-                this%slopes%data5d(i,j,k,m,l) = Mesh%invdz * minmod2_limiter(&
-                  rvar%data4d(i,j,k,l) - rvar%data4d(i,j,k-1,l), &
-                  rvar%data4d(i,j,k+1,l) - rvar%data4d(i,j,k,l))
-              END DO
-            END DO
+          DO j=i+1,SIZE(rvar%data2d,1)-i
+              this%slopes%data3d(j,m,l) = Mesh%invdz * minmod2_limiter(&
+                rvar%data2d(j,l) - rvar%data2d(j-i,l), &
+                rvar%data2d(j+i,l) - rvar%data2d(j,l))
           END DO
         END DO
       END IF
@@ -311,17 +313,17 @@ CONTAINS
       END IF
       ! calculate slopes in y-direction
       IF (Mesh%JNUM.GT.1) THEN
+        i = Mesh%IGMAX-Mesh%IGMIN+1
 !NEC$ SHORTLOOP
         DO l=1,Physics%VNUM
           DO k=Mesh%KGMIN,Mesh%KGMAX
-            DO j=Mesh%JGMIN+Mesh%JP1,Mesh%JGMAX+Mesh%JM1
+! use collapsed arrays for better vectorization
 !NEC$ IVDEP
-              DO i=Mesh%IGMIN,Mesh%IGMAX
-                this%slopes%data5d(i,j,k,m,l) = Mesh%invdy * minmod3_limiter(&
-                   this%limiter_param*(rvar%data4d(i,j,k,l)- rvar%data4d(i,j-1,k,l)),&
-                   this%limiter_param*(rvar%data4d(i,j+1,k,l) - rvar%data4d(i,j,k,l)),&
-                   0.5*(rvar%data4d(i,j+1,k,l) - rvar%data4d(i,j-1,k,l)))
-              END DO
+            DO j=i+1,SIZE(rvar%data3d,1)-i
+              this%slopes%data4d(j,k,m,l) = Mesh%invdy * minmod3_limiter(&
+                  this%limiter_param*(rvar%data3d(j,k,l) - rvar%data3d(j-i,k,l)),&
+                  this%limiter_param*(rvar%data3d(j+i,k,l) - rvar%data3d(j,k,l)),&
+                  0.5*(rvar%data3d(j+i,k,l) - rvar%data3d(j-i,k,l)))
             END DO
           END DO
         END DO
@@ -329,18 +331,16 @@ CONTAINS
       END IF
       ! calculate slopes in z-direction
       IF (Mesh%KNUM.GT.1) THEN
+        i = (Mesh%IGMAX-Mesh%IGMIN+1)*(Mesh%JGMAX-Mesh%JGMIN+1)
 !NEC$ SHORTLOOP
         DO l=1,Physics%VNUM
-          DO k=Mesh%KGMIN+Mesh%KP1,Mesh%KGMAX+Mesh%KM1
-            DO j=Mesh%JGMIN,Mesh%JGMAX
+! use collapsed arrays for better vectorization
 !NEC$ IVDEP
-              DO i=Mesh%IGMIN,Mesh%IGMAX
-                this%slopes%data5d(i,j,k,m,l) = Mesh%invdz * minmod3_limiter(&
-                   this%limiter_param*(rvar%data4d(i,j,k,l)- rvar%data4d(i,j,k-1,l)),&
-                   this%limiter_param*(rvar%data4d(i,j,k+1,l) - rvar%data4d(i,j,k,l)),&
-                   0.5*(rvar%data4d(i,j,k+1,l) - rvar%data4d(i,j,k-1,l)))
-              END DO
-            END DO
+          DO j=i+1,SIZE(rvar%data2d,1)-i
+            this%slopes%data3d(j,m,l) = Mesh%invdz * minmod3_limiter(&
+                this%limiter_param*(rvar%data2d(j,l) - rvar%data2d(j-i,l)),&
+                this%limiter_param*(rvar%data2d(j+i,l) - rvar%data2d(j,l)),&
+                0.5*(rvar%data2d(j+i,l) - rvar%data2d(j-i,l)))
           END DO
         END DO
       END IF
@@ -365,17 +365,17 @@ CONTAINS
       END IF
       ! calculate slopes in y-direction
       IF (Mesh%JNUM.GT.1) THEN
+        i = Mesh%IGMAX-Mesh%IGMIN+1
 !NEC$ SHORTLOOP
         DO l=1,Physics%VNUM
           DO k=Mesh%KGMIN,Mesh%KGMAX
-            DO j=Mesh%JGMIN+Mesh%JP1,Mesh%JGMAX+Mesh%JM1
+! use collapsed arrays for better vectorization
 !NEC$ IVDEP
-              DO i=Mesh%IGMIN,Mesh%IGMAX
-                 this%slopes%data5d(i,j,k,m,l) = Mesh%invdy * sweby_limiter(&
-                    rvar%data4d(i,j,k,l) - rvar%data4d(i,j-1,k,l), &
-                    rvar%data4d(i,j+1,k,l) - rvar%data4d(i,j,k,l),&
-                    this%limiter_param)
-              END DO
+            DO j=i+1,SIZE(rvar%data3d,1)-i
+              this%slopes%data4d(j,k,m,l) = Mesh%invdy * sweby_limiter(&
+                  this%limiter_param*(rvar%data3d(j,k,l) - rvar%data3d(j-i,k,l)),&
+                  this%limiter_param*(rvar%data3d(j+i,k,l) - rvar%data3d(j,k,l)),&
+                  this%limiter_param)
             END DO
           END DO
         END DO
@@ -383,18 +383,16 @@ CONTAINS
       END IF
       ! calculate slopes in z-direction
       IF (Mesh%KNUM.GT.1) THEN
+        i = (Mesh%IGMAX-Mesh%IGMIN+1)*(Mesh%JGMAX-Mesh%JGMIN+1)
 !NEC$ SHORTLOOP
         DO l=1,Physics%VNUM
-          DO k=Mesh%KGMIN+Mesh%KP1,Mesh%KGMAX+Mesh%KM1
-            DO j=Mesh%JGMIN,Mesh%JGMAX
+! use collapsed arrays for better vectorization
 !NEC$ IVDEP
-              DO i=Mesh%IGMIN,Mesh%IGMAX
-                this%slopes%data5d(i,j,k,m,l) = Mesh%invdz * sweby_limiter(&
-                   rvar%data4d(i,j,k,l) - rvar%data4d(i,j,k-1,l), &
-                   rvar%data4d(i,j,k+1,l) - rvar%data4d(i,j,k,l),&
-                   this%limiter_param)
-              END DO
-            END DO
+          DO j=i+1,SIZE(rvar%data2d,1)-i
+            this%slopes%data3d(j,m,l) = Mesh%invdz * sweby_limiter(&
+                this%limiter_param*(rvar%data2d(j,l) - rvar%data2d(j-i,l)),&
+                this%limiter_param*(rvar%data2d(j+i,l) - rvar%data2d(j,l)),&
+                this%limiter_param)
           END DO
         END DO
       END IF
@@ -418,16 +416,16 @@ CONTAINS
       END IF
       ! calculate slopes in y-direction
       IF (Mesh%JNUM.GT.1) THEN
+        i = Mesh%IGMAX-Mesh%IGMIN+1
 !NEC$ SHORTLOOP
         DO l=1,Physics%VNUM
           DO k=Mesh%KGMIN,Mesh%KGMAX
-            DO j=Mesh%JGMIN+Mesh%JP1,Mesh%JGMAX+Mesh%JM1
+! use collapsed arrays for better vectorization
 !NEC$ IVDEP
-              DO i=Mesh%IGMIN,Mesh%IGMAX
-                 this%slopes%data5d(i,j,k,m,l) = Mesh%invdy * sweby_limiter(&
-                    rvar%data4d(i,j,k,l) - rvar%data4d(i,j-1,k,l), &
-                    rvar%data4d(i,j+1,k,l) - rvar%data4d(i,j,k,l), 2.0)
-              END DO
+            DO j=i+1,SIZE(rvar%data3d,1)-i
+              this%slopes%data4d(j,k,m,l) = Mesh%invdy * sweby_limiter(&
+                  this%limiter_param*(rvar%data3d(j,k,l) - rvar%data3d(j-i,k,l)),&
+                  this%limiter_param*(rvar%data3d(j+i,k,l) - rvar%data3d(j,k,l)), 2.0)
             END DO
           END DO
         END DO
@@ -435,17 +433,15 @@ CONTAINS
      END IF
       ! calculate slopes in z-direction
       IF (Mesh%KNUM.GT.1) THEN
+        i = (Mesh%IGMAX-Mesh%IGMIN+1)*(Mesh%JGMAX-Mesh%JGMIN+1)
 !NEC$ SHORTLOOP
         DO l=1,Physics%VNUM
-          DO k=Mesh%KGMIN+Mesh%KP1,Mesh%KGMAX+Mesh%KM1
-            DO j=Mesh%JGMIN,Mesh%JGMAX
+! use collapsed arrays for better vectorization
 !NEC$ IVDEP
-              DO i=Mesh%IGMIN,Mesh%IGMAX
-                this%slopes%data5d(i,j,k,m,l) = Mesh%invdz * sweby_limiter(&
-                   rvar%data4d(i,j,k,l) - rvar%data4d(i,j,k-1,l), &
-                   rvar%data4d(i,j,k+1,l) - rvar%data4d(i,j,k,l), 2.0)
-              END DO
-            END DO
+          DO j=i+1,SIZE(rvar%data2d,1)-i
+            this%slopes%data3d(j,m,l) = Mesh%invdz * sweby_limiter(&
+                this%limiter_param*(rvar%data2d(j,l) - rvar%data2d(j-i,l)),&
+                this%limiter_param*(rvar%data2d(j+i,l) - rvar%data2d(j,l)), 2.0)
           END DO
         END DO
       END IF
@@ -469,16 +465,16 @@ CONTAINS
       END IF
       ! calculate slopes in y-direction
       IF (Mesh%JNUM.GT.1) THEN
+        i = Mesh%IGMAX-Mesh%IGMIN+1
 !NEC$ SHORTLOOP
         DO l=1,Physics%VNUM
           DO k=Mesh%KGMIN,Mesh%KGMAX
-            DO j=Mesh%JGMIN+Mesh%JP1,Mesh%JGMAX+Mesh%JM1
+! use collapsed arrays for better vectorization
 !NEC$ IVDEP
-              DO i=Mesh%IGMIN,Mesh%IGMAX
-                 this%slopes%data5d(i,j,k,m,l) = Mesh%invdy * ospre_limiter(&
-                    rvar%data4d(i,j,k,l) - rvar%data4d(i,j-1,k,l), &
-                    rvar%data4d(i,j+1,k,l) - rvar%data4d(i,j,k,l))
-              END DO
+            DO j=i+1,SIZE(rvar%data3d,1)-i
+              this%slopes%data4d(j,k,m,l) = Mesh%invdy * ospre_limiter(&
+                  this%limiter_param*(rvar%data3d(j,k,l) - rvar%data3d(j-i,k,l)),&
+                  this%limiter_param*(rvar%data3d(j+i,k,l) - rvar%data3d(j,k,l)))
             END DO
           END DO
         END DO
@@ -486,17 +482,15 @@ CONTAINS
       END IF
       ! calculate slopes in z-direction
       IF (Mesh%KNUM.GT.1) THEN
+        i = (Mesh%IGMAX-Mesh%IGMIN+1)*(Mesh%JGMAX-Mesh%JGMIN+1)
 !NEC$ SHORTLOOP
         DO l=1,Physics%VNUM
-          DO k=Mesh%KGMIN+Mesh%KP1,Mesh%KGMAX+Mesh%KM1
-            DO j=Mesh%JGMIN,Mesh%JGMAX
+! use collapsed arrays for better vectorization
 !NEC$ IVDEP
-              DO i=Mesh%IGMIN,Mesh%IGMAX
-                 this%slopes%data5d(i,j,k,m,l) = Mesh%invdz * ospre_limiter(&
-                    rvar%data4d(i,j,k,l) - rvar%data4d(i,j,k-1,l), &
-                    rvar%data4d(i,j,k+1,l) - rvar%data4d(i,j,k,l))
-              END DO
-            END DO
+          DO j=i+1,SIZE(rvar%data2d,1)-i
+            this%slopes%data3d(j,m,l) = Mesh%invdz * ospre_limiter(&
+                this%limiter_param*(rvar%data2d(j,l) - rvar%data2d(j-i,l)),&
+                this%limiter_param*(rvar%data2d(j+i,l) - rvar%data2d(j,l)))
           END DO
         END DO
       END IF
@@ -541,16 +535,16 @@ CONTAINS
       END IF
        ! calculate slopes in y-direction
       IF (Mesh%JNUM.GT.1) THEN
+        i = Mesh%IGMAX-Mesh%IGMIN+1
 !NEC$ SHORTLOOP
         DO l=1,Physics%VNUM
           DO k=Mesh%KGMIN,Mesh%KGMAX
-            DO j=Mesh%JGMIN+Mesh%JP1,Mesh%JGMAX+Mesh%JM1
+! use collapsed arrays for better vectorization
 !NEC$ IVDEP
-              DO i=Mesh%IGMIN,Mesh%IGMAX
-                this%slopes%data5d(i,j,k,m,l) = Mesh%invdy * vanleer_limiter(&
-                   rvar%data4d(i,j,k,l) - rvar%data4d(i,j-1,k,l), &
-                   rvar%data4d(i,j+1,k,l) - rvar%data4d(i,j,k,l))
-              END DO
+            DO j=i+1,SIZE(rvar%data3d,1)-i
+              this%slopes%data4d(j,k,m,l) = Mesh%invdy * vanleer_limiter(&
+                  this%limiter_param*(rvar%data3d(j,k,l) - rvar%data3d(j-i,k,l)),&
+                  this%limiter_param*(rvar%data3d(j+i,k,l) - rvar%data3d(j,k,l)))
             END DO
           END DO
         END DO
@@ -558,17 +552,15 @@ CONTAINS
       END IF
       ! calculate slopes in z-direction
       IF (Mesh%KNUM.GT.1) THEN
+        i = (Mesh%IGMAX-Mesh%IGMIN+1)*(Mesh%JGMAX-Mesh%JGMIN+1)
 !NEC$ SHORTLOOP
         DO l=1,Physics%VNUM
-          DO k=Mesh%KGMIN+Mesh%KP1,Mesh%KGMAX+Mesh%KM1
-            DO j=Mesh%JGMIN,Mesh%JGMAX
+! use collapsed arrays for better vectorization
 !NEC$ IVDEP
-              DO i=Mesh%IGMIN,Mesh%IGMAX
-                this%slopes%data5d(i,j,k,m,l) = Mesh%invdz * vanleer_limiter(&
-                   rvar%data4d(i,j,k,l) - rvar%data4d(i,j,k-1,l), &
-                   rvar%data4d(i,j,k+1,l) - rvar%data4d(i,j,k,l))
-              END DO
-            END DO
+          DO j=i+1,SIZE(rvar%data2d,1)-i
+            this%slopes%data3d(j,m,l) = Mesh%invdz * vanleer_limiter(&
+                this%limiter_param*(rvar%data2d(j,l) - rvar%data2d(j-i,l)),&
+                this%limiter_param*(rvar%data2d(j+i,l) - rvar%data2d(j,l)))
           END DO
         END DO
       END IF
@@ -592,16 +584,16 @@ CONTAINS
       END IF
       ! calculate slopes in y-direction
       IF (Mesh%JNUM.GT.1) THEN
+        i = Mesh%IGMAX-Mesh%IGMIN+1
 !NEC$ SHORTLOOP
         DO l=1,Physics%VNUM
           DO k=Mesh%KGMIN,Mesh%KGMAX
-            DO j=Mesh%JGMIN+Mesh%JP1,Mesh%JGMAX+Mesh%JM1
+! use collapsed arrays for better vectorization
 !NEC$ IVDEP
-              DO i=Mesh%IGMIN,Mesh%IGMAX
-                this%slopes%data5d(i,j,k,m,l) = Mesh%invdy * nolimit_limiter(&
-                   rvar%data4d(i,j,k,l) - rvar%data4d(i,j-1,k,l), &
-                   rvar%data4d(i,j+1,k,l) - rvar%data4d(i,j,k,l))
-              END DO
+            DO j=i+1,SIZE(rvar%data3d,1)-i
+              this%slopes%data4d(j,k,m,l) = Mesh%invdy * nolimit_limiter(&
+                  this%limiter_param*(rvar%data3d(j,k,l) - rvar%data3d(j-i,k,l)),&
+                  this%limiter_param*(rvar%data3d(j+i,k,l) - rvar%data3d(j,k,l)))
             END DO
           END DO
         END DO
@@ -609,17 +601,15 @@ CONTAINS
       END IF
       ! calculate slopes in z-direction
       IF (Mesh%KNUM.GT.1) THEN
+        i = (Mesh%IGMAX-Mesh%IGMIN+1)*(Mesh%JGMAX-Mesh%JGMIN+1)
 !NEC$ SHORTLOOP
         DO l=1,Physics%VNUM
-          DO k=Mesh%KGMIN+Mesh%KP1,Mesh%KGMAX+Mesh%KM1
-            DO j=Mesh%JGMIN,Mesh%JGMAX
+! use collapsed arrays for better vectorization
 !NEC$ IVDEP
-              DO i=Mesh%IGMIN,Mesh%IGMAX
-                this%slopes%data5d(i,j,k,m,l) = Mesh%invdz * nolimit_limiter(&
-                   rvar%data4d(i,j,k,l) - rvar%data4d(i,j,k-1,l), &
-                   rvar%data4d(i,j,k+1,l) - rvar%data4d(i,j,k,l))
-              END DO
-            END DO
+          DO j=i+1,SIZE(rvar%data2d,1)-i
+            this%slopes%data3d(j,m,l) = Mesh%invdz * nolimit_limiter(&
+                this%limiter_param*(rvar%data2d(j,l) - rvar%data2d(j-i,l)),&
+                this%limiter_param*(rvar%data2d(j+i,l) - rvar%data2d(j,l)))
           END DO
         END DO
       END IF
