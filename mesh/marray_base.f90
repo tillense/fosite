@@ -60,11 +60,11 @@ MODULE marray_base_mod
   !> basic mesh array class
   TYPE :: marray_base
     INTEGER       :: RANK = 0,DIMS(2) = 0
-    REAL, POINTER :: data1d(:) => null()
-    REAL, POINTER :: data2d(:,:) => null()
-    REAL, POINTER :: data3d(:,:,:) => null()
-    REAL, POINTER :: data4d(:,:,:,:) => null()
-    REAL, POINTER :: data5d(:,:,:,:,:) => null()
+    REAL, POINTER, CONTIGUOUS :: data1d(:) => null()
+    REAL, POINTER, CONTIGUOUS :: data2d(:,:) => null()
+    REAL, POINTER, CONTIGUOUS :: data3d(:,:,:) => null()
+    REAL, POINTER, CONTIGUOUS :: data4d(:,:,:,:) => null()
+    REAL, POINTER, CONTIGUOUS :: data5d(:,:,:,:,:) => null()
     CONTAINS
     PROCEDURE :: AssignPointers
     PROCEDURE :: RemapBounds_0
@@ -172,7 +172,6 @@ MODULE marray_base_mod
   
   !> \public assign pointers of different shapes to the 1D data
   SUBROUTINE AssignPointers(this)
-    USE, INTRINSIC :: ISO_C_BINDING
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(marray_base),INTENT(INOUT) :: this
@@ -180,29 +179,20 @@ MODULE marray_base_mod
     IF (ASSOCIATED(this%data1d).AND.SIZE(this%data1d).GT.0) THEN
       SELECT CASE(this%RANK)
       CASE(0)
-        CALL C_F_POINTER(C_LOC(this%data1d(LBOUND(this%data1d,1))), &
-                        this%data2d,[inum*jnum,knum])
-        CALL C_F_POINTER(C_LOC(this%data1d(LBOUND(this%data1d,1))), &
-                        this%data3d,[inum,jnum,knum])
-        this%data3d => this%RemapBounds(this%data3d)
+        this%data2d(1:INUM*JNUM,KGMIN:KGMAX) => this%data1d
+        this%data3d(IGMIN:IGMAX,JGMIN:JGMAX,KGMIN:KGMAX) => this%data1d
+        this%data4d(IGMIN:IGMAX,JGMIN:JGMAX,KGMIN:KGMAX,1:1) => this%data1d
+        this%data5d(IGMIN:IGMAX,JGMIN:JGMAX,KGMIN:KGMAX,1:1,1:1) => this%data1d
       CASE(1)
-        CALL C_F_POINTER(C_LOC(this%data1d(LBOUND(this%data1d,1))), &
-                        this%data2d,[inum*jnum*knum,this%DIMS(1)])
-        CALL C_F_POINTER(C_LOC(this%data1d(LBOUND(this%data1d,1))), &
-                        this%data3d,[inum*jnum,knum,this%DIMS(1)])
-        CALL C_F_POINTER(C_LOC(this%data1d(LBOUND(this%data1d,1))), &
-                        this%data4d,[inum,jnum,knum,this%DIMS(1)])
-        this%data4d => this%RemapBounds(this%data4d)
+        this%data2d(1:INUM*JNUM*KNUM,1:this%DIMS(1)) => this%data1d
+        this%data3d(1:INUM*JNUM,KGMIN:KGMAX,1:this%DIMS(1)) => this%data1d
+        this%data4d(IGMIN:IGMAX,JGMIN:JGMAX,KGMIN:KGMAX,1:this%DIMS(1)) => this%data1d
+        this%data5d(IGMIN:IGMAX,JGMIN:JGMAX,KGMIN:KGMAX,1:this%DIMS(1),1:1) => this%data1d
       CASE(2)
-        CALL C_F_POINTER(C_LOC(this%data1d(LBOUND(this%data1d,1))), &
-                        this%data2d,[inum*jnum*knum*this%DIMS(1),this%DIMS(2)])
-        CALL C_F_POINTER(C_LOC(this%data1d(LBOUND(this%data1d,1))), &
-                        this%data3d,[inum*jnum*knum,this%DIMS(1),this%DIMS(2)])
-        CALL C_F_POINTER(C_LOC(this%data1d(LBOUND(this%data1d,1))), &
-                        this%data4d,[inum*jnum,knum,this%DIMS(1),this%DIMS(2)])
-        CALL C_F_POINTER(C_LOC(this%data1d(LBOUND(this%data1d,1))), &
-                        this%data5d,[inum,jnum,knum,this%DIMS(1),this%DIMS(2)])
-        this%data5d => this%RemapBounds(this%data5d)
+        this%data2d(1:INUM*JNUM*KNUM*this%DIMS(1),1:this%DIMS(2)) => this%data1d
+        this%data3d(1:INUM*JNUM*KNUM,1:this%DIMS(1),1:this%DIMS(2)) => this%data1d
+        this%data4d(1:INUM*JNUM,KGMIN:KGMAX,1:this%DIMS(1),1:this%DIMS(2)) => this%data1d
+        this%data5d(IGMIN:IGMAX,JGMIN:JGMAX,KGMIN:KGMAX,1:this%DIMS(1),1:this%DIMS(2)) => this%data1d
       END SELECT
     END IF
   END SUBROUTINE AssignPointers
