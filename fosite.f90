@@ -312,7 +312,7 @@ CONTAINS
 
 
     ! store old values
-    this%Timedisc%cold(:,:,:,:) = this%Timedisc%cvar%data4d(:,:,:,:)
+    this%Timedisc%cold = this%Timedisc%cvar
 
     ! store initial data
     IF (this%Timedisc%time.EQ.0.0) THEN
@@ -422,8 +422,9 @@ CONTAINS
        this%Timedisc%dtmean = 0.
        this%Timedisc%dtstddev = 0.
        this%Timedisc%dtaccept = 0
+       ! reset max error of cvar
        IF(this%Timedisc%write_error) &
-         this%Timedisc%errorval = 0.
+         this%Timedisc%cerr_max%data1d(:) = 0.
     END IF
 
     ! calculate next timestep

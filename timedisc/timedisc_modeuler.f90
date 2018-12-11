@@ -183,7 +183,7 @@ CONTAINS
           ! for 3rd order scheme compute the 2nd order result with the same RHS
           ! and store it in this%ctmp, bfluxes are not required
           IF (n.EQ.2.AND.order.EQ.3) &
-             this%ctmp%data4d(:,:,:,:) = UpdateTimestep_modeuler(eta(2,2),dt,this%cold(:,:,:,:), &
+             this%ctmp%data4d(:,:,:,:) = UpdateTimestep_modeuler(eta(2,2),dt,this%cold%data4d(:,:,:,:), &
                                 this%ctmp%data4d(:,:,:,:),this%rhs(:,:,:,:))
           ! compute right hand side for next time step update
           IF (n.LT.order) &
@@ -191,7 +191,7 @@ CONTAINS
                CHECK_NOTHING,this%rhs)
        END DO
 
-       err = this%ComputeError(Mesh,Physics,this%cvar%data4d,this%ctmp%data4d)
+       err = this%ComputeError(Mesh,Physics,this%cvar,this%ctmp)
        dt = this%AdjustTimestep(err,dt)
 
     END IF
@@ -209,15 +209,15 @@ CONTAINS
     CLASS(mesh_base),         INTENT(IN)    :: Mesh
     CLASS(physics_base),      INTENT(INOUT) :: Physics
     CLASS(fluxes_base),       INTENT(INOUT) :: Fluxes
-    CLASS(marray_compound), POINTER, INTENT(INOUT) :: pvar,cvar,cnew
+    CLASS(marray_compound),   INTENT(INOUT) :: cold,pvar,cvar,cnew
     REAL                                    :: eta,time,dt
     REAL,DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX, &
                    Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM)          &
-                                            :: cold,rhs
+                                            :: rhs
     !------------------------------------------------------------------------!
     INTEGER                                 :: i,j,k,l
     !------------------------------------------------------------------------!
-    INTENT(IN)                              :: eta,time,dt,rhs,cold
+    INTENT(IN)                              :: eta,time,dt,rhs
     !------------------------------------------------------------------------!
 !NEC$ NOVECTOR
     DO l=1,Physics%VNUM
@@ -229,7 +229,7 @@ CONTAINS
           DO i=Mesh%IMIN,Mesh%IMAX
             ! time step update of conservative variables
             cnew%data4d(i,j,k,l) = UpdateTimestep_modeuler(eta,dt, &
-               cold(i,j,k,l),cvar%data4d(i,j,k,l),rhs(i,j,k,l))
+               cold%data4d(i,j,k,l),cvar%data4d(i,j,k,l),rhs(i,j,k,l))
           END DO
         END DO
       END DO

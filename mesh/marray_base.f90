@@ -41,6 +41,22 @@ MODULE marray_base_mod
   INTEGER, SAVE          :: KGMIN,KGMAX                   !< 3rd dim
   INTEGER, SAVE          :: INUM,JNUM,KNUM                !< array sizes
   LOGICAL, SAVE          :: IDX_INIT = .FALSE.            !< init status
+  !> type for selecting parts of an marray
+  TYPE selection_base
+     !> \name Variables
+     INTEGER           :: imin,imax                  !< selection in x-direction
+     INTEGER           :: jmin,jmax                  !< selection in y-direction
+     INTEGER           :: kmin,kmax                  !< selection in z-direction
+     LOGICAL, POINTER  :: mask1d(:)                  !< 1d selection mask
+     LOGICAL, POINTER  :: mask2d(:,:)                !< 2d selection mask
+     LOGICAL, POINTER, CONTIGUOUS :: mask3d(:,:,:)   !< 3d selection mask
+  CONTAINS
+     !> \name Methods
+     PROCEDURE :: Cuboid
+     PROCEDURE :: Everything
+     PROCEDURE :: Destroy_selection
+     GENERIC :: Destroy => Destroy_selection
+  END TYPE selection_base
   !> basic mesh array class
   TYPE :: marray_base
     INTEGER       :: RANK = 0,DIMS(2) = 0
@@ -84,8 +100,12 @@ MODULE marray_base_mod
   INTERFACE marray_base
     MODULE PROCEDURE CreateMArray
   END INTERFACE
+  INTERFACE selection_base
+    MODULE PROCEDURE CreateSelection
+  END INTERFACE
   !--------------------------------------------------------------------------!
   PUBLIC :: marray_base, &
+    selection_base, &
     InitMeshProperties, &
     CloseMeshProperties
 
@@ -482,5 +502,77 @@ MODULE marray_base_mod
     this%DIMS = 0
   END SUBROUTINE Destroy
 
+  FUNCTION CreateSelection(idx) RESULT(new_sel)
+    IMPLICIT NONE
+    !-------------------------------------------------------------------!
+    TYPE(selection_base) :: new_sel
+    INTEGER, OPTIONAL    :: idx(6)
+    !-------------------------------------------------------------------!
+    IF (IDX_INIT) THEN
+      ! allocate 1D mask array
+      ALLOCATE(new_sel%mask3d(IGMIN:IGMAX,JGMIN:JGMAX,KGMIN:KGMAX))
+      ! create 2D & 3D pointers into the 1D mask array
+      new_sel%mask1d(1:INUM*JNUM*KNUM) => new_sel%mask3d
+      new_sel%mask2d(1:INUM*JNUM,KGMIN:KGMAX) => new_sel%mask3d
+      IF (PRESENT(idx)) THEN
+        CALL new_sel%Cuboid(idx(1),idx(2),idx(3),idx(4),idx(5),idx(6))
+      ELSE
+        CALL new_sel%Everything()
+      END IF
+    END IF
+  END FUNCTION CreateSelection
+
+  SUBROUTINE Cuboid(this,imin,imax,jmin,jmax,kmin,kmax)
+    IMPLICIT NONE
+    !-------------------------------------------------------------------!
+    CLASS(selection_base) :: this
+    INTEGER, INTENT(IN)   :: imin,imax,jmin,jmax,kmin,kmax
+    !-------------------------------------------------------------------!
+    INTEGER :: i,j,k
+    !-------------------------------------------------------------------!
+    this%imin = MIN(MAX(imin,IGMIN),IGMAX)
+    this%imax = MAX(MIN(imax,IGMAX),IGMIN)
+    this%jmin = MIN(MAX(jmin,JGMIN),JGMAX)
+    this%jmax = MAX(MIN(jmax,JGMAX),JGMIN)
+    this%kmin = MIN(MAX(kmin,KGMIN),KGMAX)
+    this%kmax = MAX(MIN(kmax,KGMAX),KGMIN)
+    DO k=KGMIN,KGMAX
+      DO j=JGMIN,JGMAX
+        DO i=IGMIN,IGMAX
+          IF ((i.GE.this%imin.AND.i.LE.this%imax).AND. &
+              (j.GE.this%jmin.AND.j.LE.this%jmax).AND. &
+              (k.GE.this%kmin.AND.k.LE.this%kmax)) THEN
+            this%mask3d(i,j,k) = .TRUE.
+          ELSE
+            this%mask3d(i,j,k) = .FALSE.
+          END IF
+        END DO
+      END DO
+    END DO
+  END SUBROUTINE Cuboid
+
+  SUBROUTINE Everything(this)
+    IMPLICIT NONE
+    !-------------------------------------------------------------------!
+    CLASS(selection_base) :: this
+    !-------------------------------------------------------------------!
+    this%imin = IGMIN
+    this%imax = IGMAX
+    this%jmin = JGMIN
+    this%jmax = JGMAX
+    this%kmin = KGMIN
+    this%imax = KGMAX
+    this%mask1d(:) = .TRUE.
+  END SUBROUTINE Everything
+
+  !> deconstructor of the mesh array
+  SUBROUTINE Destroy_selection(this)
+    IMPLICIT NONE
+    !-------------------------------------------------------------------!
+    CLASS(selection_base) :: this
+    !-------------------------------------------------------------------!
+    IF (ASSOCIATED(this%mask3d)) DEALLOCATE(this%mask3d)
+    NULLIFY(this%mask1d,this%mask2d)
+  END SUBROUTINE Destroy_selection
 
 END MODULE marray_base_mod

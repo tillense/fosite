@@ -252,8 +252,10 @@ CONTAINS
 
     ! compute an error estimate based on the two independent numerical
     ! solutions err and dt
-    err = this%ComputeError(Mesh,Physics,this%cvar%data4d,this%ctmp%data4d)
-    dt = this%AdjustTimestep(err,dt)
+    IF (this%tol_rel.LE.1.0) THEN
+      err = this%ComputeError(Mesh,Physics,this%cvar,this%ctmp)
+      dt = this%AdjustTimestep(err,dt)
+    END IF
 
   END SUBROUTINE SolveODE
 

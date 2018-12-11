@@ -79,9 +79,11 @@ PRIVATE
      !> \name Variables
      CLASS(boundary_generic), ALLOCATABLE :: Boundary  !< one for each boundary
      CLASS(marray_compound), POINTER  &
-                      :: pvar,cvar,ptmp,ctmp, &        !< prim/cons state vectors
+                      :: pvar,cvar,ptmp,ctmp,cold, &   !< prim/cons state vectors
                          src,geo_src, &                !< source terms
+                         cerr,cerr_max, &              !< error control & output
                          solution                      !< analytical solution
+     CLASS(selection_base), ALLOCATABLE :: selection   !< for masking part of comp. domain
      INTEGER          :: order                         !< time order
      REAL             :: cfl                           !< Courant number
      REAL             :: dt                            !< actual time step
@@ -111,7 +113,6 @@ PRIVATE
      REAL                              :: ERR_N, H_N
      REAL, DIMENSION(:), POINTER       :: tol_abs          !< abs. error tolerance
      REAL                              :: beta             !< time step friction
-     REAL, DIMENSION(:,:,:,:), POINTER :: cold             !< old prim/cons vars
 
      !> multistep vars
      REAL, DIMENSION(:,:,:,:), POINTER :: phi,oldphi_s,&
@@ -123,7 +124,6 @@ PRIVATE
      REAL, DIMENSION(:,:,:,:), POINTER :: xfluxdydz,yfluxdzdx,zfluxdxdy
      REAL, DIMENSION(:,:,:,:), POINTER :: amax            !< max. wave speeds
      REAL, DIMENSION(:,:), POINTER     :: bflux           !< boundary fluxes for output
-     REAL, DIMENSION(:,:,:,:), POINTER :: errorval        !< max. wave speeds
      LOGICAL                           :: write_error     !< enable err writing
      INTEGER, DIMENSION(:,:), POINTER  :: shift=>null()   !< fargo annulus shift
      REAL, DIMENSION(:,:), POINTER     :: buf=>null()     !< fargo MPI buffer
@@ -244,7 +244,6 @@ CONTAINS
 
       ! allocate memory for data structures needed in all timedisc modules
     ALLOCATE( &
-      this%cold(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM),      &
       this%xfluxdydz(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
       this%yfluxdzdx(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
       this%zfluxdxdy(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
@@ -262,6 +261,7 @@ CONTAINS
     CALL Physics%new_statevector(this%ptmp,PRIMITIVE)
     CALL Physics%new_statevector(this%cvar,CONSERVATIVE)
     CALL Physics%new_statevector(this%ctmp,CONSERVATIVE)
+    CALL Physics%new_statevector(this%cold,CONSERVATIVE)
     CALL Physics%new_statevector(this%geo_src,CONSERVATIVE)
     CALL Physics%new_statevector(this%src,CONSERVATIVE)
 
@@ -270,9 +270,9 @@ CONTAINS
     this%ptmp%data1d(:)    = 0.
     this%ctmp%data1d(:)    = 0.
     this%cvar%data1d(:)    = 0.
+    this%cold%data1d(:)    = 0.
     this%geo_src%data1d(:) = 0.
     this%src%data1d(:)     = 0.
-    this%cold      = 0.
     this%xfluxdydz = 0.
     this%yfluxdzdx = 0.
     this%zfluxdxdy = 0.
@@ -456,9 +456,14 @@ CONTAINS
     CALL this%Info("            beta:              " //TRIM(beta_str))
     ! adaptive step size control
     IF (this%tol_rel.LT.1.0) THEN
-       WRITE (info_str,'(ES7.1)') this%tol_rel*100
-       CALL this%Info("            step size control: enabled")
-       CALL this%Info("            rel. precision:    "//TRIM(info_str)//" %")
+      ! create state vector to store the error
+      CALL Physics%new_statevector(this%cerr,CONSERVATIVE)
+      this%cerr%data1d(:)    = 0.
+      ! create selection for the internal region
+      this%selection = selection_base((/Mesh%IMIN,Mesh%IMAX,Mesh%JMIN,Mesh%JMAX,Mesh%KMIN,Mesh%KMAX/))
+      WRITE (info_str,'(ES7.1)') this%tol_rel*100
+      CALL this%Info("            step size control: enabled")
+      CALL this%Info("            rel. precision:    "//TRIM(info_str)//" %")
     ELSE
        WRITE (info_str,'(A)') "disabled"
     END IF
@@ -498,14 +503,10 @@ CONTAINS
     !------------------------------------------------------------------------!
     valwrite = 0
     CALL GetAttr(config, "output/error", valwrite, 0)
-    IF(valwrite.EQ.1) THEN
+    IF((valwrite.EQ.1).AND.this%tol_rel.LE.1.0) THEN
       this%write_error = .TRUE.
-      ALLOCATE( &
-        this%errorval(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
-        STAT = err)
-      IF (err.NE.0) &
-        CALL this%Error("SetOutput_timedisc", "Unable to allocate memory.")
-      this%errorval = 0.
+      CALL Physics%new_statevector(this%cerr_max,CONSERVATIVE)
+      this%cerr_max%data1d(:) = 0.
     ELSE
       this%write_error = .FALSE.
     END IF
@@ -554,8 +555,8 @@ CONTAINS
 
       key = TRIM(Physics%cvarname(i))
       IF(this%write_error) THEN
-        CALL SetAttr(IO, "error_" // TRIM(key), &
-                     this%errorval(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,i))
+        CALL SetAttr(IO, TRIM(key) // "_error", &
+                     this%cerr_max%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,i))
       END IF
 
       ! write geometrical sources
@@ -634,9 +635,9 @@ CONTAINS
       this%dtmin = dt
       this%dtmincause = this%dtcause
     END IF
+!NEC$ NOVECTOR
     timestep: DO WHILE (time+dt.LE.this%time+this%dt)
       dtold = dt
-
 
       CALL this%SolveODE(Mesh,Physics,Sources,Fluxes,time,dt,err)
       ! check truncation error and restart if necessary
@@ -666,7 +667,6 @@ CONTAINS
     IF (Mesh%FARGO.GT.0) THEN
       CALL this%FargoAdvection(Fluxes,Mesh,Physics,Sources)
     END IF
-
 
   END SUBROUTINE IntegrationStep
 
@@ -851,10 +851,16 @@ CONTAINS
     this%dtstddev = this%dtstddev + (dt - dtmeanold)*(dt-this%dtmean)
     CALL this%ComputeRHS(Mesh,Physics,Sources,Fluxes,time,dt,this%pvar,&
       this%cvar,this%checkdatabm,this%rhs)
-    this%cold(:,:,:,:) = this%cvar%data4d(:,:,:,:)
-    Fluxes%bxfold(:,:,:,:) = Fluxes%bxflux(:,:,:,:)
-    Fluxes%byfold(:,:,:,:) = Fluxes%byflux(:,:,:,:)
-    Fluxes%bzfold(:,:,:,:) = Fluxes%bzflux(:,:,:,:)
+    this%cold%data1d(:)    = this%cvar%data1d(:)
+    IF (Mesh%INUM.GT.1) THEN
+      Fluxes%bxfold(:,:,:,:) = Fluxes%bxflux(:,:,:,:)
+    END IF
+    IF (Mesh%JNUM.GT.1) THEN
+      Fluxes%byfold(:,:,:,:) = Fluxes%byflux(:,:,:,:)
+    END IF
+    IF (Mesh%KNUM.GT.1) THEN
+      Fluxes%bzfold(:,:,:,:) = Fluxes%bzflux(:,:,:,:)
+    END IF
     iter = iter + 1
   END SUBROUTINE AcceptSolution
 
@@ -871,7 +877,7 @@ CONTAINS
     INTENT(IN)                          :: time
     INTENT(INOUT)                       :: dt
     !------------------------------------------------------------------------!
-    this%cvar%data4d(:,:,:,:) = this%cold(:,:,:,:)
+    this%cvar%data1d(:) = this%cold%data1d(:)
     ! This data has already been checked at AcceptSolution
     CALL this%ComputeRHS(Mesh,Physics,Sources,Fluxes,time,dt,this%pvar, &
       this%cvar,CHECK_NOTHING,this%rhs)
@@ -895,9 +901,7 @@ CONTAINS
     CLASS(timedisc_base), INTENT(INOUT) :: this
     CLASS(mesh_base),     INTENT(IN)    :: Mesh
     CLASS(physics_base),  INTENT(IN)    :: Physics
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX, Mesh%JGMIN:Mesh%JGMAX, &
-                    Mesh%KGMIN:Mesh%KGMAX, Physics%VNUM)          &
-                       :: cvar_high,cvar_low
+    CLASS(marray_compound),INTENT(INOUT):: cvar_high,cvar_low
     REAL               :: maxerr
     !------------------------------------------------------------------------!
     INTEGER            :: i,j,k,l
@@ -906,43 +910,17 @@ CONTAINS
 #endif
     REAL               :: rel_err(Physics%VNUM),err
     !------------------------------------------------------------------------!
-    INTENT(IN)         :: cvar_high,cvar_low
-    !------------------------------------------------------------------------!
-    ! check for error output
-    IF (this%write_error) THEN
-       DO l=1,Physics%VNUM
-          rel_err(l) = 0.
-          DO k=Mesh%KMIN,Mesh%KMAX
-            DO j=Mesh%JMIN,Mesh%JMAX
-               DO i=Mesh%IMIN,Mesh%IMAX
-                  ! estimate the error for all variables
-                  err = ABS(cvar_high(i,j,k,l)-cvar_low(i,j,k,l)) &
-                        / (this%tol_rel*ABS(cvar_high(i,j,k,l)) + this%tol_abs(l))
-                  ! determine the global maximum on the whole grid for each variable
-                  rel_err(l) = MAX(rel_err(l),err)
-                  ! store the maximum error for output
-                  this%errorval(i,j,k,l) = MAX(this%errorval(i,j,k,l),err)
-               END DO
-            END DO
-          END DO
-       END DO
-    ELSE
-       DO l=1,Physics%VNUM
-          rel_err(l) = 0.
-          DO k=Mesh%KMIN,Mesh%KMAX
-            DO j=Mesh%JMIN,Mesh%JMAX
-               DO i=Mesh%IMIN,Mesh%IMAX
-                  ! estimate the error for all variables
-                  err = ABS(cvar_high(i,j,k,l)-cvar_low(i,j,k,l)) &
-                        / (this%tol_rel*ABS(cvar_high(i,j,k,l)) + this%tol_abs(l))
-                  ! determine the global maximum on the whole grid for each variable
-                  rel_err(l) = MAX(rel_err(l),err)
-               END DO
-            END DO
-          END DO
-       END DO
-
-    END IF
+!NEC$ SHORTLOOP
+    DO l=1,Physics%VNUM
+      ! compute the local error (including ghost zones)
+      this%cerr%data2d(:,l) = ABS(cvar_high%data2d(:,l)-cvar_low%data2d(:,l)) &
+                         / (this%tol_rel*ABS(cvar_high%data2d(:,l)) + this%tol_abs(l))
+      ! determine the global maximum on the whole grid except for ghost zones
+      rel_err(l) = MAXVAL(this%cerr%data2d(:,l),MASK=this%selection%mask1d(:))
+      ! store the maximum between two output time steps
+      IF (this%write_error) &
+        this%cerr_max%data2d(:,l) = MAX(this%cerr_max%data2d(:,l),this%cerr%data2d(:,l))
+    END DO
 
     ! compute the maximum of all variables
     maxerr = MAXVAL(rel_err(:))
@@ -1023,20 +1001,17 @@ CONTAINS
     CALL this%boundary%CenterBoundary(Mesh,Physics,t,pvar%data4d,cvar%data4d)
 
     IF(IAND(checkdatabm,CHECK_TMIN).NE.CHECK_NOTHING.AND.&
-      this%tmin.GT.1.E-10.AND.&
-      Physics%PRESSURE.GT.0) THEN
-      ! Check if the temperature is below tmin. If it is, increase the pressure
-      ! to reach tmin
-      DO k=Mesh%KGMIN,Mesh%KGMAX
-        DO j=Mesh%JGMIN,Mesh%JGMAX
-          DO i=Mesh%IGMIN,Mesh%IGMAX
-            pvar%data4d(i,j,k,Physics%PRESSURE) &
-              = MAX(pvar%data4d(i,j,k,Physics%PRESSURE), &
-                    pvar%data4d(i,j,k,Physics%DENSITY)*Physics%Constants%RG/Physics%MU*this%TMIN)
-          END DO
-        END DO
-      END DO
-      CALL Physics%Convert2Conservative(Mesh,pvar%data4d,cvar%data4d)
+      this%tmin.GT.1.E-10) THEN
+      SELECT TYPE(p => pvar)
+      CLASS IS(statevector_euler)
+        SELECT TYPE(c => cvar)
+        CLASS IS(statevector_euler)
+          ! If temperature is below TMIN limit pressure to density*RG/MU*TMIN.
+          p%pressure%data1d(:) = MAX(p%pressure%data1d(:), &
+            p%density%data1d(:)*Physics%Constants%RG/Physics%MU*this%TMIN)
+          CALL Physics%Convert2Conservative(p,c)
+        END SELECT
+      END SELECT
     END IF
 
     ! update the speed of sound (non-isotherml physics only)
@@ -1603,7 +1578,7 @@ CONTAINS
     CALL this%ComputeRHS(Mesh,Physics,Sources,Fluxes,this%time,0.,this%pvar,this%cvar,&
                     this%checkdatabm,this%rhs)
 
-    this%cold(:,:,:,:) = this%cvar%data4d(:,:,:,:)
+    this%cold%data1d(:) = this%cvar%data1d(:)
 
   END SUBROUTINE FargoAdvection
 
@@ -1925,6 +1900,7 @@ CONTAINS
     CALL this%ptmp%Destroy()
     CALL this%cvar%Destroy()
     CALL this%ctmp%Destroy()
+    CALL this%cold%Destroy()
     CALL this%geo_src%Destroy()
     CALL this%src%Destroy()
 
@@ -1934,6 +1910,14 @@ CONTAINS
       this%xfluxdydz,this%yfluxdzdx,this%zfluxdxdy,this%amax,this%tol_abs,&
       this%dtmean,this%dtstddev,this%time)
 
+    IF (ASSOCIATED(this%cerr)) THEN
+      CALL this%cerr%Destroy()
+      DEALLOCATE(this%cerr)
+    END IF
+    IF (ASSOCIATED(this%cerr_max)) THEN
+      CALL this%cerr_max%Destroy()
+      DEALLOCATE(this%cerr_max)
+    END IF
     IF (ASSOCIATED(this%w)) DEALLOCATE(this%w)
     IF (ASSOCIATED(this%delxy))DEALLOCATE(this%delxy)
     IF (ASSOCIATED(this%shift))DEALLOCATE(this%shift)
@@ -1941,7 +1925,6 @@ CONTAINS
     IF(ASSOCIATED(this%buf))  DEALLOCATE(this%buf)
 #endif
     IF(ASSOCIATED(this%bflux)) DEALLOCATE(this%bflux)
-    IF(this%write_error) DEALLOCATE(this%errorval)
     IF(ASSOCIATED(this%solution)) THEN
       CALL this%solution%Destroy()
       DEALLOCATE(this%solution)

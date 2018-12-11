@@ -95,14 +95,6 @@ MODULE mesh_base_mod
      NORTH  = 4, & !< named constant for northern boundary
      BOTTOM = 5, & !< named constant for bottom   boundary
      TOP    = 6    !< named constant for top      boundary
-  !> index selection type
-  TYPE Selection_TYP
-     !> \name Variables
-     INTEGER           :: IMIN,IMAX       !< selection in x-direction
-     INTEGER           :: JMIN,JMAX       !< selection in y-direction
-     INTEGER           :: KMIN,KMAX       !< selection in z-direction
-     LOGICAL, POINTER  :: mask(:,:)       !< optional selection mask
-  END TYPE Selection_TYP
   !> mesh data structure
   !PRIVATE
   TYPE,ABSTRACT, EXTENDS(logging_base) :: mesh_base
@@ -259,7 +251,6 @@ MODULE mesh_base_mod
   PUBLIC :: &
        ! types
        mesh_base, &
-       Selection_TYP, &
        ! constants
        PI, &
 #ifdef PARALLEL
