@@ -264,6 +264,7 @@ CONTAINS
     CALL Physics%new_statevector(this%cold,CONSERVATIVE)
     CALL Physics%new_statevector(this%geo_src,CONSERVATIVE)
     CALL Physics%new_statevector(this%src,CONSERVATIVE)
+    NULLIFY(this%cerr,this%cerr_max)
 
     ! initialize all variables
     this%pvar%data1d(:)    = 0.
