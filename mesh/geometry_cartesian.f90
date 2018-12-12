@@ -41,12 +41,27 @@ MODULE geometry_cartesian_mod
   TYPE, EXTENDS (geometry_base) ::  geometry_cartesian
   CONTAINS
     PROCEDURE :: InitGeometry_cartesian
-    PROCEDURE :: ScaleFactors_0
-    PROCEDURE :: Radius_0
-    PROCEDURE :: PositionVector_0
-    PROCEDURE :: Convert2Cartesian_coords_0
+    PROCEDURE :: ScaleFactors_1
+    PROCEDURE :: ScaleFactors_2
+    PROCEDURE :: ScaleFactors_3
+    PROCEDURE :: ScaleFactors_4
+    PROCEDURE :: Radius_1
+    PROCEDURE :: Radius_2
+    PROCEDURE :: Radius_3
+    PROCEDURE :: Radius_4
+    PROCEDURE :: PositionVector_1
+    PROCEDURE :: PositionVector_2
+    PROCEDURE :: PositionVector_3
+    PROCEDURE :: PositionVector_4
+    PROCEDURE :: Convert2Cartesian_coords_1
+    PROCEDURE :: Convert2Cartesian_coords_2
+    PROCEDURE :: Convert2Cartesian_coords_3
+    PROCEDURE :: Convert2Cartesian_coords_4
+    PROCEDURE :: Convert2Curvilinear_coords_1
+    PROCEDURE :: Convert2Curvilinear_coords_2
+    PROCEDURE :: Convert2Curvilinear_coords_3
+    PROCEDURE :: Convert2Curvilinear_coords_4
     PROCEDURE :: Convert2Cartesian_vectors_0
-    PROCEDURE :: Convert2Curvilinear_coords_0
     PROCEDURE :: Convert2Curvilinear_vectors_0
     PROCEDURE :: Finalize
   END TYPE
@@ -70,65 +85,208 @@ CONTAINS
     CALL GetAttr(config, "dz", dz, 1.0)
   END SUBROUTINE InitGeometry_cartesian
 
-  ELEMENTAL SUBROUTINE ScaleFactors_0(this,xi,eta,phi,hx,hy,hz)
+  PURE SUBROUTINE ScaleFactors_1(this,coords,hx,hy,hz)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(geometry_cartesian), INTENT(IN) :: this
-    REAL, INTENT(IN)                      :: xi,eta,phi
-    REAL, INTENT(OUT)                     :: hx,hy,hz
+    REAL, INTENT(IN),  DIMENSION(:,:) :: coords
+    REAL, INTENT(OUT), DIMENSION(:)   :: hx,hy,hz
     !------------------------------------------------------------------------!
-    ! scale factors are unity
-    hx = 1.
-    hy = 1.
-    hz = 1.
-  END SUBROUTINE ScaleFactors_0
+    CALL ScaleFactors(coords(:,1),coords(:,2),coords(:,3),hx(:),hy(:),hz(:))
+  END SUBROUTINE ScaleFactors_1
 
-  ELEMENTAL SUBROUTINE Radius_0(this,xi,eta,phi,radius)
+  PURE SUBROUTINE ScaleFactors_2(this,coords,hx,hy,hz)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(geometry_cartesian), INTENT(IN) :: this
-    REAL, INTENT(IN)                      :: xi,eta,phi
-    REAL, INTENT(OUT)                     :: radius
+    REAL, INTENT(IN),  DIMENSION(:,:,:) :: coords
+    REAL, INTENT(OUT), DIMENSION(:,:)   :: hx,hy,hz
     !------------------------------------------------------------------------!
-    radius = SQRT(xi*xi+eta*eta+phi*phi)
-  END SUBROUTINE Radius_0
+    CALL ScaleFactors(coords(:,:,1),coords(:,:,2),coords(:,:,3), &
+                      hx(:,:),hy(:,:),hz(:,:))
+  END SUBROUTINE ScaleFactors_2
 
-  ELEMENTAL SUBROUTINE PositionVector_0(this,xi,eta,phi,x,y,z)
+  PURE SUBROUTINE ScaleFactors_3(this,coords,hx,hy,hz)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(geometry_cartesian), INTENT(IN) :: this
-    REAL, INTENT(IN)                      :: xi,eta,phi
-    REAL, INTENT(OUT)                     :: x,y,z
+    REAL, INTENT(IN),  DIMENSION(:,:,:,:) :: coords
+    REAL, INTENT(OUT), DIMENSION(:,:,:)   :: hx,hy,hz
     !------------------------------------------------------------------------!
-    x = xi
-    y = eta
-    z = phi
-  END SUBROUTINE PositionVector_0
+    CALL ScaleFactors(coords(:,:,:,1),coords(:,:,:,2),coords(:,:,:,3), &
+                      hx(:,:,:),hy(:,:,:),hz(:,:,:))
+  END SUBROUTINE ScaleFactors_3
 
-  ! coordinate transformations
-  ELEMENTAL SUBROUTINE Convert2Cartesian_coords_0(this,xi,eta,phi,x,y,z)
+  PURE SUBROUTINE ScaleFactors_4(this,coords,hx,hy,hz)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(geometry_cartesian), INTENT(IN) :: this
-    REAL, INTENT(IN)                      :: xi,eta,phi
-    REAL, INTENT(OUT)                     :: x,y,z
+    REAL, INTENT(IN),  DIMENSION(:,:,:,:,:) :: coords
+    REAL, INTENT(OUT), DIMENSION(:,:,:,:)   :: hx,hy,hz
     !------------------------------------------------------------------------!
-    x = xi
-    y = eta
-    z = phi
-  END SUBROUTINE Convert2Cartesian_coords_0
+    CALL ScaleFactors(coords(:,:,:,:,1),coords(:,:,:,:,2),coords(:,:,:,:,3), &
+                      hx(:,:,:,:),hy(:,:,:,:),hz(:,:,:,:))
+  END SUBROUTINE ScaleFactors_4
 
-  ELEMENTAL SUBROUTINE Convert2Curvilinear_coords_0(this,x,y,z,xi,eta,phi)
+  PURE SUBROUTINE Radius_1(this,coords,r)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(geometry_cartesian), INTENT(IN) :: this
-    REAL, INTENT(IN)                      :: x,y,z
-    REAL, INTENT(OUT)                     :: xi,eta,phi
+    REAL, DIMENSION(:,:), INTENT(IN) :: coords
+    REAL, DIMENSION(:),  INTENT(OUT) :: r
     !------------------------------------------------------------------------!
-    xi  = x
-    eta = y
-    phi = z
-  END SUBROUTINE Convert2Curvilinear_coords_0
+    r = Radius(coords(:,1),coords(:,2),coords(:,3))
+  END SUBROUTINE Radius_1
+
+  PURE SUBROUTINE Radius_2(this,coords,r)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(geometry_cartesian), INTENT(IN) :: this
+    REAL, DIMENSION(:,:,:), INTENT(IN) :: coords
+    REAL, DIMENSION(:,:),  INTENT(OUT) :: r
+    !------------------------------------------------------------------------!
+    r = Radius(coords(:,:,1),coords(:,:,2),coords(:,:,3))
+  END SUBROUTINE Radius_2
+
+  PURE SUBROUTINE Radius_3(this,coords,r)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(geometry_cartesian), INTENT(IN) :: this
+    REAL, DIMENSION(:,:,:,:), INTENT(IN) :: coords
+    REAL, DIMENSION(:,:,:),  INTENT(OUT) :: r
+    !------------------------------------------------------------------------!
+    r = Radius(coords(:,:,:,1),coords(:,:,:,2),coords(:,:,:,3))
+  END SUBROUTINE Radius_3
+
+  PURE SUBROUTINE Radius_4(this,coords,r)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(geometry_cartesian), INTENT(IN) :: this
+    REAL, DIMENSION(:,:,:,:,:), INTENT(IN) :: coords
+    REAL, DIMENSION(:,:,:,:),  INTENT(OUT) :: r
+    !------------------------------------------------------------------------!
+    r = Radius(coords(:,:,:,:,1),coords(:,:,:,:,2),coords(:,:,:,:,3))
+  END SUBROUTINE Radius_4
+
+  PURE SUBROUTINE PositionVector_1(this,coords,posvec)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(geometry_cartesian), INTENT(IN)  :: this
+    REAL, DIMENSION(:,:), INTENT(IN)  :: coords
+    REAL, DIMENSION(:,:), INTENT(OUT) :: posvec
+    !------------------------------------------------------------------------!
+    posvec = coords
+  END SUBROUTINE PositionVector_1
+
+  PURE SUBROUTINE PositionVector_2(this,coords,posvec)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(geometry_cartesian), INTENT(IN)  :: this
+    REAL, DIMENSION(:,:,:), INTENT(IN)  :: coords
+    REAL, DIMENSION(:,:,:), INTENT(OUT) :: posvec
+    !------------------------------------------------------------------------!
+    posvec = coords
+  END SUBROUTINE PositionVector_2
+
+  PURE SUBROUTINE PositionVector_3(this,coords,posvec)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(geometry_cartesian), INTENT(IN)  :: this
+    REAL, DIMENSION(:,:,:,:), INTENT(IN)  :: coords
+    REAL, DIMENSION(:,:,:,:), INTENT(OUT) :: posvec
+    !------------------------------------------------------------------------!
+    posvec = coords
+  END SUBROUTINE PositionVector_3
+
+  PURE SUBROUTINE PositionVector_4(this,coords,posvec)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(geometry_cartesian), INTENT(IN)  :: this
+    REAL, DIMENSION(:,:,:,:,:), INTENT(IN)  :: coords
+    REAL, DIMENSION(:,:,:,:,:), INTENT(OUT) :: posvec
+    !------------------------------------------------------------------------!
+    posvec = coords
+  END SUBROUTINE PositionVector_4
+
+  PURE SUBROUTINE Convert2Cartesian_coords_1(this,curv,cart)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(geometry_cartesian), INTENT(IN) :: this
+    REAL, DIMENSION(:,:), INTENT(IN)  :: curv
+    REAL, DIMENSION(:,:), INTENT(OUT) :: cart
+    !------------------------------------------------------------------------!
+    cart = curv
+  END SUBROUTINE Convert2Cartesian_coords_1
+
+  PURE SUBROUTINE Convert2Cartesian_coords_2(this,curv,cart)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(geometry_cartesian), INTENT(IN) :: this
+    REAL, DIMENSION(:,:,:), INTENT(IN)  :: curv
+    REAL, DIMENSION(:,:,:), INTENT(OUT) :: cart
+    !------------------------------------------------------------------------!
+    cart = curv
+  END SUBROUTINE Convert2Cartesian_coords_2
+
+  PURE SUBROUTINE Convert2Cartesian_coords_3(this,curv,cart)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(geometry_cartesian), INTENT(IN) :: this
+    REAL, DIMENSION(:,:,:,:), INTENT(IN)  :: curv
+    REAL, DIMENSION(:,:,:,:), INTENT(OUT) :: cart
+    !------------------------------------------------------------------------!
+    cart = curv
+  END SUBROUTINE Convert2Cartesian_coords_3
+
+  PURE SUBROUTINE Convert2Cartesian_coords_4(this,curv,cart)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(geometry_cartesian), INTENT(IN) :: this
+    REAL, DIMENSION(:,:,:,:,:), INTENT(IN)  :: curv
+    REAL, DIMENSION(:,:,:,:,:), INTENT(OUT) :: cart
+    !------------------------------------------------------------------------!
+    cart = curv
+  END SUBROUTINE Convert2Cartesian_coords_4
+
+  PURE SUBROUTINE Convert2Curvilinear_coords_1(this,cart,curv)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(geometry_cartesian), INTENT(IN) :: this
+    REAL, DIMENSION(:,:), INTENT(IN)  :: cart
+    REAL, DIMENSION(:,:), INTENT(OUT) :: curv
+    !------------------------------------------------------------------------!
+    curv = cart
+  END SUBROUTINE Convert2Curvilinear_coords_1
+
+  PURE SUBROUTINE Convert2Curvilinear_coords_2(this,cart,curv)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(geometry_cartesian), INTENT(IN) :: this
+    REAL, DIMENSION(:,:,:), INTENT(IN)  :: cart
+    REAL, DIMENSION(:,:,:), INTENT(OUT) :: curv
+    !------------------------------------------------------------------------!
+    curv = cart
+  END SUBROUTINE Convert2Curvilinear_coords_2
+
+  PURE SUBROUTINE Convert2Curvilinear_coords_3(this,cart,curv)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(geometry_cartesian), INTENT(IN) :: this
+    REAL, DIMENSION(:,:,:,:), INTENT(IN)  :: cart
+    REAL, DIMENSION(:,:,:,:), INTENT(OUT) :: curv
+    !------------------------------------------------------------------------!
+    curv = cart
+  END SUBROUTINE Convert2Curvilinear_coords_3
+
+  PURE SUBROUTINE Convert2Curvilinear_coords_4(this,cart,curv)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(geometry_cartesian), INTENT(IN) :: this
+    REAL, DIMENSION(:,:,:,:,:), INTENT(IN)  :: cart
+    REAL, DIMENSION(:,:,:,:,:), INTENT(OUT) :: curv
+    !------------------------------------------------------------------------!
+    curv = cart
+  END SUBROUTINE Convert2Curvilinear_coords_4
 
   ! vector transformations
   ELEMENTAL SUBROUTINE Convert2Cartesian_vectors_0(this,xi,eta,phi,vxi,veta,vphi,vx,vy,vz)
@@ -162,5 +320,25 @@ CONTAINS
     !------------------------------------------------------------------------!
     CALL this%Finalize_base()
   END SUBROUTINE Finalize
+
+  ELEMENTAL SUBROUTINE ScaleFactors(x,y,z,hx,hy,hz)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    REAL, INTENT(IN)  :: x,y,z
+    REAL, INTENT(OUT) :: hx,hy,hz
+    !------------------------------------------------------------------------!
+    hx = 1.
+    hy = 1.
+    hz = 1.
+  END SUBROUTINE ScaleFactors
+
+  ELEMENTAL FUNCTION Radius(x,y,z)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    REAL, INTENT(IN)  :: x,y,z
+    REAL :: Radius
+    !------------------------------------------------------------------------!
+    Radius = SQRT(x*x+y*y+z*z)
+  END FUNCTION Radius
 
 END MODULE geometry_cartesian_mod

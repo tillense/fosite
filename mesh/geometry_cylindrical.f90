@@ -30,7 +30,7 @@
 !!
 !! \brief defines properties of a 3D cylindrical mesh
 !!
-!! \extends geometry_cartesian
+!! \extends geometry_cylindrical
 !! \ingroup geometry
 !----------------------------------------------------------------------------!
 MODULE geometry_cylindrical_mod
@@ -41,12 +41,27 @@ MODULE geometry_cylindrical_mod
   TYPE, EXTENDS (geometry_base) :: geometry_cylindrical
   CONTAINS
     PROCEDURE :: InitGeometry_cylindrical
-    PROCEDURE :: ScaleFactors_0
-    PROCEDURE :: Radius_0
-    PROCEDURE :: PositionVector_0
-    PROCEDURE :: Convert2Cartesian_coords_0
+    PROCEDURE :: ScaleFactors_1
+    PROCEDURE :: ScaleFactors_2
+    PROCEDURE :: ScaleFactors_3
+    PROCEDURE :: ScaleFactors_4
+    PROCEDURE :: Radius_1
+    PROCEDURE :: Radius_2
+    PROCEDURE :: Radius_3
+    PROCEDURE :: Radius_4
+    PROCEDURE :: PositionVector_1
+    PROCEDURE :: PositionVector_2
+    PROCEDURE :: PositionVector_3
+    PROCEDURE :: PositionVector_4
+    PROCEDURE :: Convert2Cartesian_coords_1
+    PROCEDURE :: Convert2Cartesian_coords_2
+    PROCEDURE :: Convert2Cartesian_coords_3
+    PROCEDURE :: Convert2Cartesian_coords_4
+    PROCEDURE :: Convert2Curvilinear_coords_1
+    PROCEDURE :: Convert2Curvilinear_coords_2
+    PROCEDURE :: Convert2Curvilinear_coords_3
+    PROCEDURE :: Convert2Curvilinear_coords_4
     PROCEDURE :: Convert2Cartesian_vectors_0
-    PROCEDURE :: Convert2Curvilinear_coords_0
     PROCEDURE :: Convert2Curvilinear_vectors_0
     PROCEDURE :: Finalize
   END TYPE
@@ -68,72 +83,216 @@ CONTAINS
     CALL this%SetAzimuthIndex(2)
   END SUBROUTINE InitGeometry_cylindrical
 
-
-  ELEMENTAL SUBROUTINE ScaleFactors_0(this,xi,eta,phi,hx,hy,hz)
+  PURE SUBROUTINE ScaleFactors_1(this,coords,hx,hy,hz)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(geometry_cylindrical), INTENT(IN) :: this
-    REAL, INTENT(IN)                        :: xi,eta,phi
-    REAL, INTENT(OUT)                       :: hx,hy,hz
+    REAL, INTENT(IN),  DIMENSION(:,:) :: coords
+    REAL, INTENT(OUT), DIMENSION(:)   :: hx,hy,hz
     !------------------------------------------------------------------------!
-    hx = 1.
-    hy = xi
-    hz = 1.
-  END SUBROUTINE ScaleFactors_0
+    CALL ScaleFactors(coords(:,1),hx(:),hy(:),hz(:))
+  END SUBROUTINE ScaleFactors_1
 
-
-  ELEMENTAL SUBROUTINE Radius_0(this,xi,eta,phi,radius)
+  PURE SUBROUTINE ScaleFactors_2(this,coords,hx,hy,hz)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(geometry_cylindrical), INTENT(IN) :: this
-    REAL, INTENT(IN)                        :: xi,eta,phi
-    REAL, INTENT(OUT)                       :: radius
+    REAL, INTENT(IN),  DIMENSION(:,:,:) :: coords
+    REAL, INTENT(OUT), DIMENSION(:,:)   :: hx,hy,hz
     !------------------------------------------------------------------------!
-    radius = SQRT(xi*xi+phi*phi)
-  END SUBROUTINE Radius_0
+    CALL ScaleFactors(coords(:,:,1),hx(:,:),hy(:,:),hz(:,:))
+  END SUBROUTINE ScaleFactors_2
 
-
-  ELEMENTAL SUBROUTINE PositionVector_0(this,xi,eta,phi,x,y,z)
+  PURE SUBROUTINE ScaleFactors_3(this,coords,hx,hy,hz)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(geometry_cylindrical), INTENT(IN) :: this
-    REAL, INTENT(IN)                        :: xi,eta,phi
-    REAL, INTENT(OUT)                       :: x,y,z
+    REAL, INTENT(IN),  DIMENSION(:,:,:,:) :: coords
+    REAL, INTENT(OUT), DIMENSION(:,:,:)   :: hx,hy,hz
     !------------------------------------------------------------------------!
-    CALL this%Radius_0(xi,eta,phi,x)
-    y = 0.0
-    z = phi
-  END SUBROUTINE PositionVector_0
+    CALL ScaleFactors(coords(:,:,:,1),hx(:,:,:),hy(:,:,:),hz(:,:,:))
+  END SUBROUTINE ScaleFactors_3
 
-
-  ELEMENTAL SUBROUTINE Convert2Cartesian_coords_0(this,xi,eta,phi,x,y,z)
+  PURE SUBROUTINE ScaleFactors_4(this,coords,hx,hy,hz)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(geometry_cylindrical), INTENT(IN) :: this
-    REAL, INTENT(IN)                        :: xi,eta,phi
-    REAL, INTENT(OUT)                       :: x,y,z
+    REAL, INTENT(IN),  DIMENSION(:,:,:,:,:) :: coords
+    REAL, INTENT(OUT), DIMENSION(:,:,:,:)   :: hx,hy,hz
     !------------------------------------------------------------------------!
-    x = xi*COS(eta)
-    y = xi*SIN(eta)
-    z = phi
-  END SUBROUTINE Convert2Cartesian_coords_0
+    CALL ScaleFactors(coords(:,:,:,:,1),hx(:,:,:,:),hy(:,:,:,:),hz(:,:,:,:))
+  END SUBROUTINE ScaleFactors_4
 
-
-  ELEMENTAL SUBROUTINE Convert2Curvilinear_coords_0(this,x,y,z,xi,eta,phi)
+  PURE SUBROUTINE Radius_1(this,coords,r)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(geometry_cylindrical), INTENT(IN) :: this
-    REAL, INTENT(IN)                        :: x,y,z
-    REAL, INTENT(OUT)                       :: xi,eta,phi
+    REAL, DIMENSION(:,:), INTENT(IN) :: coords
+    REAL, DIMENSION(:),  INTENT(OUT) :: r
     !------------------------------------------------------------------------!
-    xi = SQRT(x*x + y*y)
-    eta = ATAN2(y, x)
-    phi = z
-    IF(eta.LT.0.0) THEN
-      eta = eta + 2.0*PI
-    END IF
-  END SUBROUTINE Convert2Curvilinear_coords_0
+    r = Radius(coords(:,1),coords(:,3))
+  END SUBROUTINE Radius_1
 
+  PURE SUBROUTINE Radius_2(this,coords,r)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(geometry_cylindrical), INTENT(IN) :: this
+    REAL, DIMENSION(:,:,:), INTENT(IN) :: coords
+    REAL, DIMENSION(:,:),  INTENT(OUT) :: r
+    !------------------------------------------------------------------------!
+    r = Radius(coords(:,:,1),coords(:,:,3))
+  END SUBROUTINE Radius_2
+
+  PURE SUBROUTINE Radius_3(this,coords,r)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(geometry_cylindrical), INTENT(IN) :: this
+    REAL, DIMENSION(:,:,:,:), INTENT(IN) :: coords
+    REAL, DIMENSION(:,:,:),  INTENT(OUT) :: r
+    !------------------------------------------------------------------------!
+    r = Radius(coords(:,:,:,1),coords(:,:,:,3))
+  END SUBROUTINE Radius_3
+
+  PURE SUBROUTINE Radius_4(this,coords,r)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(geometry_cylindrical), INTENT(IN) :: this
+    REAL, DIMENSION(:,:,:,:,:), INTENT(IN) :: coords
+    REAL, DIMENSION(:,:,:,:),  INTENT(OUT) :: r
+    !------------------------------------------------------------------------!
+    r = Radius(coords(:,:,:,:,1),coords(:,:,:,:,3))
+  END SUBROUTINE Radius_4
+
+  PURE SUBROUTINE PositionVector_1(this,coords,posvec)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(geometry_cylindrical), INTENT(IN)  :: this
+    REAL, DIMENSION(:,:), INTENT(IN)  :: coords
+    REAL, DIMENSION(:,:), INTENT(OUT) :: posvec
+    !------------------------------------------------------------------------!
+    CALL PositionVector(coords(:,1),coords(:,3),posvec(:,1),posvec(:,2),posvec(:,3))
+  END SUBROUTINE PositionVector_1
+
+  PURE SUBROUTINE PositionVector_2(this,coords,posvec)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(geometry_cylindrical), INTENT(IN)  :: this
+    REAL, DIMENSION(:,:,:), INTENT(IN)  :: coords
+    REAL, DIMENSION(:,:,:), INTENT(OUT) :: posvec
+    !------------------------------------------------------------------------!
+    CALL PositionVector(coords(:,:,1),coords(:,:,3),posvec(:,:,1), &
+                        posvec(:,:,2),posvec(:,:,3))
+  END SUBROUTINE PositionVector_2
+
+  PURE SUBROUTINE PositionVector_3(this,coords,posvec)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(geometry_cylindrical), INTENT(IN)  :: this
+    REAL, DIMENSION(:,:,:,:), INTENT(IN)  :: coords
+    REAL, DIMENSION(:,:,:,:), INTENT(OUT) :: posvec
+    !------------------------------------------------------------------------!
+    CALL PositionVector(coords(:,:,:,1),coords(:,:,:,3),posvec(:,:,:,1), &
+                        posvec(:,:,:,2),posvec(:,:,:,3))
+  END SUBROUTINE PositionVector_3
+
+  PURE SUBROUTINE PositionVector_4(this,coords,posvec)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(geometry_cylindrical), INTENT(IN)  :: this
+    REAL, DIMENSION(:,:,:,:,:), INTENT(IN)  :: coords
+    REAL, DIMENSION(:,:,:,:,:), INTENT(OUT) :: posvec
+    !------------------------------------------------------------------------!
+    CALL PositionVector(coords(:,:,:,:,1),coords(:,:,:,:,3),posvec(:,:,:,:,1), &
+                        posvec(:,:,:,:,2),posvec(:,:,:,:,3))
+  END SUBROUTINE PositionVector_4
+
+  PURE SUBROUTINE Convert2Cartesian_coords_1(this,curv,cart)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(geometry_cylindrical), INTENT(IN) :: this
+    REAL, DIMENSION(:,:), INTENT(IN)  :: curv
+    REAL, DIMENSION(:,:), INTENT(OUT) :: cart
+    !------------------------------------------------------------------------!
+    CALL Convert2Cartesian_coords(curv(:,1),curv(:,2),curv(:,3), &
+                                  cart(:,1),cart(:,2),cart(:,3))
+  END SUBROUTINE Convert2Cartesian_coords_1
+
+  PURE SUBROUTINE Convert2Cartesian_coords_2(this,curv,cart)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(geometry_cylindrical), INTENT(IN) :: this
+    REAL, DIMENSION(:,:,:), INTENT(IN)  :: curv
+    REAL, DIMENSION(:,:,:), INTENT(OUT) :: cart
+    !------------------------------------------------------------------------!
+    CALL Convert2Cartesian_coords(curv(:,:,1),curv(:,:,2),curv(:,:,3), &
+                                  cart(:,:,1),cart(:,:,2),cart(:,:,3))
+  END SUBROUTINE Convert2Cartesian_coords_2
+
+  PURE SUBROUTINE Convert2Cartesian_coords_3(this,curv,cart)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(geometry_cylindrical), INTENT(IN) :: this
+    REAL, DIMENSION(:,:,:,:), INTENT(IN)  :: curv
+    REAL, DIMENSION(:,:,:,:), INTENT(OUT) :: cart
+    !------------------------------------------------------------------------!
+    CALL Convert2Cartesian_coords(curv(:,:,:,1),curv(:,:,:,2),curv(:,:,:,3), &
+                                  cart(:,:,:,1),cart(:,:,:,2),cart(:,:,:,3))
+  END SUBROUTINE Convert2Cartesian_coords_3
+
+  PURE SUBROUTINE Convert2Cartesian_coords_4(this,curv,cart)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(geometry_cylindrical), INTENT(IN) :: this
+    REAL, DIMENSION(:,:,:,:,:), INTENT(IN)  :: curv
+    REAL, DIMENSION(:,:,:,:,:), INTENT(OUT) :: cart
+    !------------------------------------------------------------------------!
+    CALL Convert2Cartesian_coords(curv(:,:,:,:,1),curv(:,:,:,:,2),curv(:,:,:,:,3), &
+                                  cart(:,:,:,:,1),cart(:,:,:,:,2),cart(:,:,:,:,3))
+  END SUBROUTINE Convert2Cartesian_coords_4
+
+  PURE SUBROUTINE Convert2Curvilinear_coords_1(this,cart,curv)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(geometry_cylindrical), INTENT(IN) :: this
+    REAL, DIMENSION(:,:), INTENT(IN)  :: cart
+    REAL, DIMENSION(:,:), INTENT(OUT) :: curv
+    !------------------------------------------------------------------------!
+    CALL Convert2Curvilinear_coords(cart(:,1),cart(:,2),cart(:,3), &
+                                    curv(:,1),curv(:,2),curv(:,3))
+  END SUBROUTINE Convert2Curvilinear_coords_1
+
+  PURE SUBROUTINE Convert2Curvilinear_coords_2(this,cart,curv)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(geometry_cylindrical), INTENT(IN) :: this
+    REAL, DIMENSION(:,:,:), INTENT(IN)  :: cart
+    REAL, DIMENSION(:,:,:), INTENT(OUT) :: curv
+    !------------------------------------------------------------------------!
+    CALL Convert2Curvilinear_coords(cart(:,:,1),cart(:,:,2),cart(:,:,3), &
+                                    curv(:,:,1),curv(:,:,2),curv(:,:,3))
+  END SUBROUTINE Convert2Curvilinear_coords_2
+
+  PURE SUBROUTINE Convert2Curvilinear_coords_3(this,cart,curv)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(geometry_cylindrical), INTENT(IN) :: this
+    REAL, DIMENSION(:,:,:,:), INTENT(IN)  :: cart
+    REAL, DIMENSION(:,:,:,:), INTENT(OUT) :: curv
+    !------------------------------------------------------------------------!
+    CALL Convert2Curvilinear_coords(cart(:,:,:,1),cart(:,:,:,2),cart(:,:,:,3), &
+                                    curv(:,:,:,1),curv(:,:,:,2),curv(:,:,:,3))
+  END SUBROUTINE Convert2Curvilinear_coords_3
+
+  PURE SUBROUTINE Convert2Curvilinear_coords_4(this,cart,curv)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(geometry_cylindrical), INTENT(IN) :: this
+    REAL, DIMENSION(:,:,:,:,:), INTENT(IN)  :: cart
+    REAL, DIMENSION(:,:,:,:,:), INTENT(OUT) :: curv
+    !------------------------------------------------------------------------!
+    CALL Convert2Curvilinear_coords(cart(:,:,:,:,1),cart(:,:,:,:,2),cart(:,:,:,:,3), &
+                                    curv(:,:,:,:,1),curv(:,:,:,:,2),curv(:,:,:,:,3))
+  END SUBROUTINE Convert2Curvilinear_coords_4
 
   !> Reference: \cite bronstein2008 , Tabelle 13.1
   ELEMENTAL SUBROUTINE Convert2Cartesian_vectors_0(this,xi,eta,phi,vxi,veta,vphi,vx,vy,vz)
@@ -169,5 +328,61 @@ CONTAINS
     !------------------------------------------------------------------------!
     CALL this%Finalize_base()
   END SUBROUTINE Finalize
+
+  ELEMENTAL SUBROUTINE ScaleFactors(r,hr,hphi,hz)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    REAL, INTENT(IN)  :: r
+    REAL, INTENT(OUT) :: hr,hphi,hz
+    !------------------------------------------------------------------------!
+    hr   = 1.
+    hphi = r
+    hz   = 1.
+  END SUBROUTINE ScaleFactors
+
+  ELEMENTAL FUNCTION Radius(r,z)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    REAL, INTENT(IN)  :: r,z
+    REAL :: Radius
+    !------------------------------------------------------------------------!
+    Radius = SQRT(r*r+z*z)
+  END FUNCTION Radius
+
+  ELEMENTAL SUBROUTINE PositionVector(r,z,rx,ry,rz)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    REAL, INTENT(IN)  :: r,z
+    REAL, INTENT(OUT) :: rx,ry,rz
+    !------------------------------------------------------------------------!
+    rx = Radius(r,z)
+    ry = 0.0
+    rz = z
+  END SUBROUTINE PositionVector
+
+  ELEMENTAL SUBROUTINE Convert2Cartesian_coords(r,phi,zz,x,y,z)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    REAL, INTENT(IN)  :: r,phi,zz
+    REAL, INTENT(OUT) :: x,y,z
+    !------------------------------------------------------------------------!
+    x = r*COS(phi)
+    y = r*SIN(phi)
+    z = zz
+  END SUBROUTINE Convert2Cartesian_coords
+
+  ELEMENTAL SUBROUTINE Convert2Curvilinear_coords(x,y,z,r,phi,zz)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    REAL, INTENT(IN)  :: x,y,z
+    REAL, INTENT(OUT) :: r,phi,zz
+    !------------------------------------------------------------------------!
+    r = SQRT(x*x+y*y)
+    phi = ATAN2(y,x)
+    IF (phi.LT.0.0) THEN
+      phi = phi + 2.0*PI
+    END IF
+    zz = z
+  END SUBROUTINE Convert2Curvilinear_coords
 
 END MODULE geometry_cylindrical_mod

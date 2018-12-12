@@ -39,12 +39,27 @@ MODULE geometry_logspherical_mod
   TYPE, EXTENDS(geometry_spherical) :: geometry_logspherical
   CONTAINS
     PROCEDURE :: InitGeometry_logspherical
-    PROCEDURE :: ScaleFactors_0
-    PROCEDURE :: Radius_0
-    PROCEDURE :: PositionVector_0
-    PROCEDURE :: Convert2Cartesian_coords_0
+    PROCEDURE :: ScaleFactors_1
+    PROCEDURE :: ScaleFactors_2
+    PROCEDURE :: ScaleFactors_3
+    PROCEDURE :: ScaleFactors_4
+    PROCEDURE :: Radius_1
+    PROCEDURE :: Radius_2
+    PROCEDURE :: Radius_3
+    PROCEDURE :: Radius_4
+    PROCEDURE :: PositionVector_1
+    PROCEDURE :: PositionVector_2
+    PROCEDURE :: PositionVector_3
+    PROCEDURE :: PositionVector_4
+    PROCEDURE :: Convert2Cartesian_coords_1
+    PROCEDURE :: Convert2Cartesian_coords_2
+    PROCEDURE :: Convert2Cartesian_coords_3
+    PROCEDURE :: Convert2Cartesian_coords_4
+    PROCEDURE :: Convert2Curvilinear_coords_1
+    PROCEDURE :: Convert2Curvilinear_coords_2
+    PROCEDURE :: Convert2Curvilinear_coords_3
+    PROCEDURE :: Convert2Curvilinear_coords_4
     PROCEDURE :: Convert2Cartesian_vectors_0
-    PROCEDURE :: Convert2Curvilinear_coords_0
     PROCEDURE :: Convert2Curvilinear_vectors_0
     PROCEDURE :: Finalize
   END TYPE
@@ -71,75 +86,221 @@ CONTAINS
     CALL this%SetAzimuthIndex(3)
   END SUBROUTINE InitGeometry_logspherical
 
-  ELEMENTAL SUBROUTINE ScaleFactors_0(this,xi,eta,phi,hx,hy,hz)
+  PURE SUBROUTINE ScaleFactors_1(this,coords,hx,hy,hz)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(geometry_logspherical), INTENT(IN) :: this
-    REAL, INTENT(IN)                      :: xi,eta,phi
-    REAL, INTENT(OUT)                     :: hx,hy,hz
+    REAL, INTENT(IN),  DIMENSION(:,:) :: coords
+    REAL, INTENT(OUT), DIMENSION(:)   :: hx,hy,hz
     !------------------------------------------------------------------------!
-    CALL this%Radius_0(xi,eta,phi,hx)
-    hy = hx
-    hz = hx * SIN(eta)
-  END SUBROUTINE ScaleFactors_0
+    CALL ScaleFactors(this%geoparam(1),coords(:,1),coords(:,2),coords(:,3), &
+                      hx(:),hy(:),hz(:))
+  END SUBROUTINE ScaleFactors_1
 
-  ELEMENTAL SUBROUTINE Radius_0(this,xi,eta,phi,radius)
+  PURE SUBROUTINE ScaleFactors_2(this,coords,hx,hy,hz)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(geometry_logspherical), INTENT(IN) :: this
-    REAL, INTENT(IN)                      :: xi,eta,phi
-    REAL, INTENT(OUT)                     :: radius
+    REAL, INTENT(IN),  DIMENSION(:,:,:) :: coords
+    REAL, INTENT(OUT), DIMENSION(:,:)   :: hx,hy,hz
     !------------------------------------------------------------------------!
-    radius = this%GetScale() * EXP(xi)
-  END SUBROUTINE Radius_0
+    CALL ScaleFactors(this%geoparam(1),coords(:,:,1),coords(:,:,2), &
+                      coords(:,:,3),hx(:,:),hy(:,:),hz(:,:))
+  END SUBROUTINE ScaleFactors_2
 
-  ELEMENTAL SUBROUTINE PositionVector_0(this,xi,eta,phi,x,y,z)
+  PURE SUBROUTINE ScaleFactors_3(this,coords,hx,hy,hz)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(geometry_logspherical), INTENT(IN) :: this
-    REAL, INTENT(IN)                      :: xi,eta,phi
-    REAL, INTENT(OUT)                     :: x,y,z
+    REAL, INTENT(IN),  DIMENSION(:,:,:,:) :: coords
+    REAL, INTENT(OUT), DIMENSION(:,:,:)   :: hx,hy,hz
     !------------------------------------------------------------------------!
-    CALL this%Radius_0(xi,eta,phi,x)
-    y = 0.0
-    z = 0.0
-  END SUBROUTINE PositionVector_0
+    CALL ScaleFactors(this%geoparam(1),coords(:,:,:,1),coords(:,:,:,2), &
+                      coords(:,:,:,3),hx(:,:,:),hy(:,:,:),hz(:,:,:))
+  END SUBROUTINE ScaleFactors_3
 
-  ! coordinate transformations
-  ELEMENTAL SUBROUTINE Convert2Cartesian_coords_0(this,xi,eta,phi,x,y,z)
+  PURE SUBROUTINE ScaleFactors_4(this,coords,hx,hy,hz)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(geometry_logspherical), INTENT(IN) :: this
-    REAL, INTENT(IN)                      :: xi,eta,phi
-    REAL, INTENT(OUT)                     :: x,y,z
+    REAL, INTENT(IN),  DIMENSION(:,:,:,:,:) :: coords
+    REAL, INTENT(OUT), DIMENSION(:,:,:,:)   :: hx,hy,hz
     !------------------------------------------------------------------------!
-    REAL :: r
-    !------------------------------------------------------------------------!
-    r = this%GetScale()*EXP(xi)
-    x = r*SIN(eta)*COS(phi)
-    y = r*SIN(eta)*SIN(phi)
-    z = r*COS(eta)
-  END SUBROUTINE Convert2Cartesian_coords_0
+    CALL ScaleFactors(this%geoparam(1),coords(:,:,:,:,1),coords(:,:,:,:,2), &
+                      coords(:,:,:,:,3),hx(:,:,:,:),hy(:,:,:,:),hz(:,:,:,:))
+  END SUBROUTINE ScaleFactors_4
 
-  ELEMENTAL SUBROUTINE Convert2Curvilinear_coords_0(this,x,y,z,xi,eta,phi)
+  PURE SUBROUTINE Radius_1(this,coords,r)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(geometry_logspherical), INTENT(IN) :: this
-    REAL, INTENT(IN)                      :: x,y,z
-    REAL, INTENT(OUT)                     :: xi,eta,phi
+    REAL, DIMENSION(:,:), INTENT(IN) :: coords
+    REAL, DIMENSION(:),  INTENT(OUT) :: r
     !------------------------------------------------------------------------!
-    REAL :: x1,y1,z1
+    r = Radius(this%geoparam(1),coords(:,1))
+  END SUBROUTINE Radius_1
+
+  PURE SUBROUTINE Radius_2(this,coords,r)
+    IMPLICIT NONE
     !------------------------------------------------------------------------!
-    x1 = x/this%GetScale()
-    y1 = y/this%GetScale()
-    z1 = z/this%GetScale()
-    xi  = SQRT(x1*x1+y1*y1+z1*z1)
-    eta = ACOS(z1/xi)
-    phi = ATAN2(y1,x1)
-    IF(phi.LT.0.0) THEN
-        phi = phi + 2.0*PI
-    END IF
-  END SUBROUTINE Convert2Curvilinear_coords_0
+    CLASS(geometry_logspherical), INTENT(IN) :: this
+    REAL, DIMENSION(:,:,:), INTENT(IN) :: coords
+    REAL, DIMENSION(:,:),  INTENT(OUT) :: r
+    !------------------------------------------------------------------------!
+    r = Radius(this%geoparam(1),coords(:,:,1))
+  END SUBROUTINE Radius_2
+
+  PURE SUBROUTINE Radius_3(this,coords,r)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(geometry_logspherical), INTENT(IN) :: this
+    REAL, DIMENSION(:,:,:,:), INTENT(IN) :: coords
+    REAL, DIMENSION(:,:,:),  INTENT(OUT) :: r
+    !------------------------------------------------------------------------!
+    r = Radius(this%geoparam(1),coords(:,:,:,1))
+  END SUBROUTINE Radius_3
+
+  PURE SUBROUTINE Radius_4(this,coords,r)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(geometry_logspherical), INTENT(IN) :: this
+    REAL, DIMENSION(:,:,:,:,:), INTENT(IN) :: coords
+    REAL, DIMENSION(:,:,:,:),  INTENT(OUT) :: r
+    !------------------------------------------------------------------------!
+    r = Radius(this%geoparam(1),coords(:,:,:,:,1))
+  END SUBROUTINE Radius_4
+
+  PURE SUBROUTINE PositionVector_1(this,coords,posvec)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(geometry_logspherical), INTENT(IN)  :: this
+    REAL, DIMENSION(:,:), INTENT(IN)  :: coords
+    REAL, DIMENSION(:,:), INTENT(OUT) :: posvec
+    !------------------------------------------------------------------------!
+    CALL PositionVector(this%geoparam(1),coords(:,1),posvec(:,1), &
+                        posvec(:,2),posvec(:,3))
+  END SUBROUTINE PositionVector_1
+
+  PURE SUBROUTINE PositionVector_2(this,coords,posvec)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(geometry_logspherical), INTENT(IN)  :: this
+    REAL, DIMENSION(:,:,:), INTENT(IN)  :: coords
+    REAL, DIMENSION(:,:,:), INTENT(OUT) :: posvec
+    !------------------------------------------------------------------------!
+    CALL PositionVector(this%geoparam(1),coords(:,:,1),posvec(:,:,1), &
+                        posvec(:,:,2),posvec(:,:,3))
+  END SUBROUTINE PositionVector_2
+
+  PURE SUBROUTINE PositionVector_3(this,coords,posvec)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(geometry_logspherical), INTENT(IN)  :: this
+    REAL, DIMENSION(:,:,:,:), INTENT(IN)  :: coords
+    REAL, DIMENSION(:,:,:,:), INTENT(OUT) :: posvec
+    !------------------------------------------------------------------------!
+    CALL PositionVector(this%geoparam(1),coords(:,:,:,1),posvec(:,:,:,1), &
+                        posvec(:,:,:,2),posvec(:,:,:,3))
+  END SUBROUTINE PositionVector_3
+
+  PURE SUBROUTINE PositionVector_4(this,coords,posvec)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(geometry_logspherical), INTENT(IN)  :: this
+    REAL, DIMENSION(:,:,:,:,:), INTENT(IN)  :: coords
+    REAL, DIMENSION(:,:,:,:,:), INTENT(OUT) :: posvec
+    !------------------------------------------------------------------------!
+    CALL PositionVector(this%geoparam(1),coords(:,:,:,:,1),posvec(:,:,:,:,1), &
+                        posvec(:,:,:,:,2),posvec(:,:,:,:,3))
+  END SUBROUTINE PositionVector_4
+
+  PURE SUBROUTINE Convert2Cartesian_coords_1(this,curv,cart)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(geometry_logspherical), INTENT(IN) :: this
+    REAL, DIMENSION(:,:), INTENT(IN)  :: curv
+    REAL, DIMENSION(:,:), INTENT(OUT) :: cart
+    !------------------------------------------------------------------------!
+    CALL Convert2Cartesian_coords(this%geoparam(1),curv(:,1),curv(:,2),curv(:,3), &
+                                  cart(:,1),cart(:,2),cart(:,3))
+  END SUBROUTINE Convert2Cartesian_coords_1
+
+  PURE SUBROUTINE Convert2Cartesian_coords_2(this,curv,cart)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(geometry_logspherical), INTENT(IN) :: this
+    REAL, DIMENSION(:,:,:), INTENT(IN)  :: curv
+    REAL, DIMENSION(:,:,:), INTENT(OUT) :: cart
+    !------------------------------------------------------------------------!
+    CALL Convert2Cartesian_coords(this%geoparam(1),curv(:,:,1),curv(:,:,2),curv(:,:,3), &
+                                  cart(:,:,1),cart(:,:,2),cart(:,:,3))
+  END SUBROUTINE Convert2Cartesian_coords_2
+
+  PURE SUBROUTINE Convert2Cartesian_coords_3(this,curv,cart)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(geometry_logspherical), INTENT(IN) :: this
+    REAL, DIMENSION(:,:,:,:), INTENT(IN)  :: curv
+    REAL, DIMENSION(:,:,:,:), INTENT(OUT) :: cart
+    !------------------------------------------------------------------------!
+    CALL Convert2Cartesian_coords(this%geoparam(1),curv(:,:,:,1),curv(:,:,:,2),curv(:,:,:,3), &
+                                  cart(:,:,:,1),cart(:,:,:,2),cart(:,:,:,3))
+  END SUBROUTINE Convert2Cartesian_coords_3
+
+  PURE SUBROUTINE Convert2Cartesian_coords_4(this,curv,cart)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(geometry_logspherical), INTENT(IN) :: this
+    REAL, DIMENSION(:,:,:,:,:), INTENT(IN)  :: curv
+    REAL, DIMENSION(:,:,:,:,:), INTENT(OUT) :: cart
+    !------------------------------------------------------------------------!
+    CALL Convert2Cartesian_coords(this%geoparam(1),curv(:,:,:,:,1),curv(:,:,:,:,2),curv(:,:,:,:,3), &
+                                  cart(:,:,:,:,1),cart(:,:,:,:,2),cart(:,:,:,:,3))
+  END SUBROUTINE Convert2Cartesian_coords_4
+
+  PURE SUBROUTINE Convert2Curvilinear_coords_1(this,cart,curv)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(geometry_logspherical), INTENT(IN) :: this
+    REAL, DIMENSION(:,:), INTENT(IN)  :: cart
+    REAL, DIMENSION(:,:), INTENT(OUT) :: curv
+    !------------------------------------------------------------------------!
+    CALL Convert2Curvilinear_coords(this%geoparam(1),cart(:,1),cart(:,2),cart(:,3), &
+                                    curv(:,1),curv(:,2),curv(:,3))
+  END SUBROUTINE Convert2Curvilinear_coords_1
+
+  PURE SUBROUTINE Convert2Curvilinear_coords_2(this,cart,curv)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(geometry_logspherical), INTENT(IN) :: this
+    REAL, DIMENSION(:,:,:), INTENT(IN)  :: cart
+    REAL, DIMENSION(:,:,:), INTENT(OUT) :: curv
+    !------------------------------------------------------------------------!
+    CALL Convert2Curvilinear_coords(this%geoparam(1),cart(:,:,1),cart(:,:,2),cart(:,:,3), &
+                                    curv(:,:,1),curv(:,:,2),curv(:,:,3))
+  END SUBROUTINE Convert2Curvilinear_coords_2
+
+  PURE SUBROUTINE Convert2Curvilinear_coords_3(this,cart,curv)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(geometry_logspherical), INTENT(IN) :: this
+    REAL, DIMENSION(:,:,:,:), INTENT(IN)  :: cart
+    REAL, DIMENSION(:,:,:,:), INTENT(OUT) :: curv
+    !------------------------------------------------------------------------!
+    CALL Convert2Curvilinear_coords(this%geoparam(1),cart(:,:,:,1),cart(:,:,:,2),cart(:,:,:,3), &
+                                    curv(:,:,:,1),curv(:,:,:,2),curv(:,:,:,3))
+  END SUBROUTINE Convert2Curvilinear_coords_3
+
+  PURE SUBROUTINE Convert2Curvilinear_coords_4(this,cart,curv)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(geometry_logspherical), INTENT(IN) :: this
+    REAL, DIMENSION(:,:,:,:,:), INTENT(IN)  :: cart
+    REAL, DIMENSION(:,:,:,:,:), INTENT(OUT) :: curv
+    !------------------------------------------------------------------------!
+    CALL Convert2Curvilinear_coords(this%geoparam(1),cart(:,:,:,:,1),cart(:,:,:,:,2),cart(:,:,:,:,3), &
+                                    curv(:,:,:,:,1),curv(:,:,:,:,2),curv(:,:,:,:,3))
+  END SUBROUTINE Convert2Curvilinear_coords_4
 
   !> Reference: \cite bronstein2008 , Tabelle 13.1
   ELEMENTAL SUBROUTINE Convert2Cartesian_vectors_0(this,xi,eta,phi,vxi,veta,vphi,vx,vy,vz)
@@ -174,5 +335,67 @@ CONTAINS
     !------------------------------------------------------------------------!
     CALL this%Finalize_base()
   END SUBROUTINE Finalize
+
+  ELEMENTAL SUBROUTINE ScaleFactors(gp,logr,theta,phi,hlogr,htheta,hphi)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    REAL, INTENT(IN)  :: gp,logr,theta,phi
+    REAL, INTENT(OUT) :: hlogr,htheta,hphi
+    !------------------------------------------------------------------------!
+    hlogr  = gp*EXP(logr)
+    htheta = hlogr
+    hphi   = hlogr * SIN(theta)
+  END SUBROUTINE ScaleFactors
+
+  ELEMENTAL FUNCTION Radius(gp,logr)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    REAL, INTENT(IN)  :: gp,logr
+    REAL :: Radius
+    !------------------------------------------------------------------------!
+    Radius = gp*EXP(logr)
+  END FUNCTION Radius
+
+  ELEMENTAL SUBROUTINE PositionVector(gp,logr,rx,ry,rz)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    REAL, INTENT(IN)  :: gp,logr
+    REAL, INTENT(OUT) :: rx,ry,rz
+    !------------------------------------------------------------------------!
+    rx = Radius(gp,logr)
+    ry = 0.0
+    rz = 0.0
+  END SUBROUTINE PositionVector
+
+  ELEMENTAL SUBROUTINE Convert2Cartesian_coords(gp,logr,theta,phi,x,y,z)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    REAL, INTENT(IN)  :: gp,logr,theta,phi
+    REAL, INTENT(OUT) :: x,y,z
+    !------------------------------------------------------------------------!
+    REAL :: r
+    !------------------------------------------------------------------------!
+    r = gp*EXP(logr)
+    x = r*SIN(theta)*COS(phi)
+    y = r*SIN(theta)*SIN(phi)
+    z = r*COS(theta)
+  END SUBROUTINE Convert2Cartesian_coords
+
+  ELEMENTAL SUBROUTINE Convert2Curvilinear_coords(gp,x,y,z,logr,theta,phi)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    REAL, INTENT(IN)  :: gp,x,y,z
+    REAL, INTENT(OUT) :: logr,theta,phi
+    !------------------------------------------------------------------------!
+    REAL :: r
+    !------------------------------------------------------------------------!
+    r = SQRT(x*x+y*y+z*z)
+    logr = LOG(r/gp)
+    theta = ACOS(z/r)
+    phi = ATAN2(y,x)
+    IF(phi.LT.0.0) THEN
+        phi = phi + 2.0*PI
+    END IF
+  END SUBROUTINE Convert2Curvilinear_coords
 
 END MODULE geometry_logspherical_mod

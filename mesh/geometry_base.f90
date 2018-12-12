@@ -3,7 +3,7 @@
 !# fosite - 3D hydrodynamical simulation program                             #
 !# module: geometry_generic.f90                                              #
 !#                                                                           #
-!# Copyright (C) 2007-2010                                                   #
+!# Copyright (C) 2007-2018                                                   #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
 !# Jannes Klee <jklee@astrophysik.uni-kiel.de>                               #
 !#                                                                           #
@@ -54,30 +54,35 @@ MODULE geometry_base_mod
   CONTAINS
 
 !    PRIVATE
-    PROCEDURE :: ScaleFactors_all
-    PROCEDURE (ScaleFactors_0), DEFERRED :: ScaleFactors_0
-    PROCEDURE :: ScaleFactors_1
-    PROCEDURE :: ScaleFactors_2
-    PROCEDURE :: Radius_all
-    PROCEDURE (Radius_0), DEFERRED :: Radius_0
-    PROCEDURE :: Radius_1
-    PROCEDURE :: Radius_2
-    PROCEDURE :: PositionVector_all
-    PROCEDURE (PositionVector_0), DEFERRED :: PositionVector_0
-    PROCEDURE :: PositionVector_1
-    PROCEDURE :: PositionVector_2
-    PROCEDURE :: Convert2Cartesian_all
-    PROCEDURE (Convert2Cartesian_coords_0), DEFERRED :: Convert2Cartesian_coords_0
-    PROCEDURE :: Convert2Cartesian_coords_1
-    PROCEDURE :: Convert2Cartesian_coords_2
+    PROCEDURE :: ScaleFactors_0
+    PROCEDURE (ScaleFactors_1), DEFERRED :: ScaleFactors_1
+    PROCEDURE (ScaleFactors_2), DEFERRED :: ScaleFactors_2
+    PROCEDURE (ScaleFactors_3), DEFERRED :: ScaleFactors_3
+    PROCEDURE (ScaleFactors_4), DEFERRED :: ScaleFactors_4
+    PROCEDURE :: Radius_0
+    PROCEDURE (Radius_1), DEFERRED :: Radius_1
+    PROCEDURE (Radius_2), DEFERRED :: Radius_2
+    PROCEDURE (Radius_3), DEFERRED :: Radius_3
+    PROCEDURE (Radius_4), DEFERRED :: Radius_4
+    PROCEDURE :: PositionVector_0
+    PROCEDURE (PositionVector_1), DEFERRED :: PositionVector_1
+    PROCEDURE (PositionVector_2), DEFERRED :: PositionVector_2
+    PROCEDURE (PositionVector_3), DEFERRED :: PositionVector_3
+    PROCEDURE (PositionVector_4), DEFERRED :: PositionVector_4
+    PROCEDURE :: Convert2Cartesian_coords
+    PROCEDURE (Convert2Cartesian_coords_1), DEFERRED :: Convert2Cartesian_coords_1
+    PROCEDURE (Convert2Cartesian_coords_2), DEFERRED :: Convert2Cartesian_coords_2
+    PROCEDURE (Convert2Cartesian_coords_3), DEFERRED :: Convert2Cartesian_coords_3
+    PROCEDURE (Convert2Cartesian_coords_4), DEFERRED :: Convert2Cartesian_coords_4
+    PROCEDURE :: Convert2Curvilinear_coords
+    PROCEDURE (Convert2Curvilinear_coords_1), DEFERRED :: Convert2Curvilinear_coords_1
+    PROCEDURE (Convert2Curvilinear_coords_2), DEFERRED :: Convert2Curvilinear_coords_2
+    PROCEDURE (Convert2Curvilinear_coords_3), DEFERRED :: Convert2Curvilinear_coords_3
+    PROCEDURE (Convert2Curvilinear_coords_4), DEFERRED :: Convert2Curvilinear_coords_4
     PROCEDURE (Convert2Cartesian_vectors_0), DEFERRED :: Convert2Cartesian_vectors_0
     PROCEDURE :: Convert2Cartesian_vectors_1
     PROCEDURE :: Convert2Cartesian_vectors_2
     PROCEDURE :: Convert2Cartesian_vectors_3
-    PROCEDURE :: Convert2Curvilinear_all
-    PROCEDURE (Convert2Curvilinear_coords_0), DEFERRED :: Convert2Curvilinear_coords_0
-    PROCEDURE :: Convert2Curvilinear_coords_1
-    PROCEDURE :: Convert2Curvilinear_coords_2
     PROCEDURE (Convert2Curvilinear_vectors_0), DEFERRED :: Convert2Curvilinear_vectors_0
     PROCEDURE :: Convert2Curvilinear_vectors_1
     PROCEDURE :: Convert2Curvilinear_vectors_2
@@ -95,55 +100,170 @@ MODULE geometry_base_mod
     PROCEDURE, PUBLIC   :: Finalize_base
     PROCEDURE (Finalize), DEFERRED    :: Finalize
 
-    GENERIC, PUBLIC     :: ScaleFactors => ScaleFactors_all, ScaleFactors_0, ScaleFactors_1, ScaleFactors_2
-    !> \public Convert curvilinear to cartesian coordinates
-    GENERIC, PUBLIC     :: Convert2Cartesian => Convert2Cartesian_all, &
-                                                Convert2Cartesian_coords_0, Convert2Cartesian_coords_1,&
-                                                Convert2Cartesian_coords_2, &
-                                                Convert2Cartesian_vectors_0, Convert2Cartesian_vectors_1,&
-                                                Convert2Cartesian_vectors_2, Convert2Cartesian_vectors_3
-    !> \public Convert curvilinear to cartesian coordinates
-    GENERIC, PUBLIC     :: Convert2Curvilinear => Convert2Curvilinear_all, &
-                                                  Convert2Curvilinear_coords_0, Convert2Curvilinear_coords_1,&
-                                                  Convert2Curvilinear_coords_2, &
-                                                  Convert2Curvilinear_vectors_0, Convert2Curvilinear_vectors_1,&
-                                                  Convert2Curvilinear_vectors_2, Convert2Curvilinear_vectors_3
+    !> \public Compute scale factors for the given geometry
+    GENERIC, PUBLIC :: ScaleFactors => ScaleFactors_0, ScaleFactors_1, ScaleFactors_2, &
+                                       ScaleFactors_3, ScaleFactors_4
     !> \public Compute radial distances to the origin
-    GENERIC, PUBLIC     :: Radius => Radius_all, Radius_0, Radius_1, Radius_2
+    GENERIC, PUBLIC :: Radius => Radius_0, Radius_1, Radius_2, Radius_3, Radius_4
     !> \public Compute position vector components
-    GENERIC, PUBLIC     :: PositionVector => PositionVector_all, PositionVector_0, PositionVector_1, PositionVector_2
-    GENERIC             :: SetScale => SetScale1, SetScale2, SetScale3
-    GENERIC             :: GetScale => GetScale1, GetScale2
+    GENERIC, PUBLIC :: PositionVector => PositionVector_0, PositionVector_1, PositionVector_2, &
+                                         PositionVector_3, PositionVector_4
+    !> \public Convert curvilinear to cartesian coordinates
+    GENERIC, PUBLIC :: Convert2Cartesian => Convert2Cartesian_coords, &
+                                            Convert2Cartesian_coords_1, Convert2Cartesian_coords_2,&
+                                            Convert2Cartesian_coords_3, Convert2Cartesian_coords_4, &
+                                            Convert2Cartesian_vectors_0, Convert2Cartesian_vectors_1,&
+                                            Convert2Cartesian_vectors_2, Convert2Cartesian_vectors_3
+    !> \public Convert curvilinear to cartesian coordinates
+    GENERIC, PUBLIC :: Convert2Curvilinear => Convert2Curvilinear_coords, &
+                                              Convert2Curvilinear_coords_1, Convert2Curvilinear_coords_2,&
+                                              Convert2Curvilinear_coords_3, Convert2Curvilinear_coords_4,&
+                                              Convert2Curvilinear_vectors_0, Convert2Curvilinear_vectors_1,&
+                                              Convert2Curvilinear_vectors_2, Convert2Curvilinear_vectors_3
+    GENERIC         :: SetScale => SetScale1, SetScale2, SetScale3
+    GENERIC         :: GetScale => GetScale1, GetScale2
   END TYPE geometry_base
 
   ABSTRACT INTERFACE
-    PURE ELEMENTAL SUBROUTINE ScaleFactors_0(this,xi,eta,phi,hx,hy,hz)
+    PURE SUBROUTINE ScaleFactors_1(this,coords,hx,hy,hz)
       IMPORT geometry_base
       IMPLICIT NONE
       CLASS(geometry_base), INTENT(IN) :: this
-      REAL, INTENT(IN)                 :: xi,eta,phi
-      REAL, INTENT(OUT)                :: hx,hy,hz
+      REAL, DIMENSION(:,:), INTENT(IN) :: coords
+      REAL, DIMENSION(:),  INTENT(OUT) :: hx,hy,hz
     END SUBROUTINE
-    PURE ELEMENTAL SUBROUTINE Radius_0(this,xi,eta,phi,radius)
+    PURE SUBROUTINE ScaleFactors_2(this,coords,hx,hy,hz)
       IMPORT geometry_base
       IMPLICIT NONE
-      CLASS(geometry_base), INTENT(IN) :: this
-      REAL, INTENT(IN)                 :: xi,eta,phi
-      REAL, INTENT(OUT)                :: radius
+      CLASS(geometry_base), INTENT(IN)   :: this
+      REAL, DIMENSION(:,:,:), INTENT(IN) :: coords
+      REAL, DIMENSION(:,:),  INTENT(OUT) :: hx,hy,hz
     END SUBROUTINE
-    PURE ELEMENTAL SUBROUTINE PositionVector_0(this,xi,eta,phi,x,y,z)
+    PURE SUBROUTINE ScaleFactors_3(this,coords,hx,hy,hz)
       IMPORT geometry_base
       IMPLICIT NONE
-      CLASS(geometry_base), INTENT(IN) :: this
-      REAL, INTENT(IN)                 :: xi,eta,phi
-      REAL, INTENT(OUT)                :: x,y,z
+      CLASS(geometry_base), INTENT(IN)     :: this
+      REAL, DIMENSION(:,:,:,:), INTENT(IN) :: coords
+      REAL, DIMENSION(:,:,:),  INTENT(OUT) :: hx,hy,hz
     END SUBROUTINE
-    PURE ELEMENTAL SUBROUTINE Convert2Cartesian_coords_0(this,xi,eta,phi,x,y,z)
+    PURE SUBROUTINE ScaleFactors_4(this,coords,hx,hy,hz)
+      IMPORT geometry_base
+      IMPLICIT NONE
+      CLASS(geometry_base), INTENT(IN)       :: this
+      REAL, DIMENSION(:,:,:,:,:), INTENT(IN) :: coords
+      REAL, DIMENSION(:,:,:,:),  INTENT(OUT) :: hx,hy,hz
+    END SUBROUTINE
+    PURE SUBROUTINE Radius_1(this,coords,r)
       IMPORT geometry_base
       IMPLICIT NONE
       CLASS(geometry_base), INTENT(IN) :: this
-      REAL, INTENT(IN)  :: xi,eta,phi
-      REAL, INTENT(OUT) :: x,y,z
+      REAL, DIMENSION(:,:), INTENT(IN) :: coords
+      REAL, DIMENSION(:),  INTENT(OUT) :: r
+    END SUBROUTINE
+    PURE SUBROUTINE Radius_2(this,coords,r)
+      IMPORT geometry_base
+      IMPLICIT NONE
+      CLASS(geometry_base), INTENT(IN)   :: this
+      REAL, DIMENSION(:,:,:), INTENT(IN) :: coords
+      REAL, DIMENSION(:,:),  INTENT(OUT) :: r
+    END SUBROUTINE
+    PURE SUBROUTINE Radius_3(this,coords,r)
+      IMPORT geometry_base
+      IMPLICIT NONE
+      CLASS(geometry_base), INTENT(IN)     :: this
+      REAL, DIMENSION(:,:,:,:), INTENT(IN) :: coords
+      REAL, DIMENSION(:,:,:),  INTENT(OUT) :: r
+    END SUBROUTINE
+    PURE SUBROUTINE Radius_4(this,coords,r)
+      IMPORT geometry_base
+      IMPLICIT NONE
+      CLASS(geometry_base), INTENT(IN)       :: this
+      REAL, DIMENSION(:,:,:,:,:), INTENT(IN) :: coords
+      REAL, DIMENSION(:,:,:,:),  INTENT(OUT) :: r
+    END SUBROUTINE
+    PURE SUBROUTINE PositionVector_1(this,coords,posvec)
+      IMPORT geometry_base
+      IMPLICIT NONE
+      CLASS(geometry_base), INTENT(IN)  :: this
+      REAL, DIMENSION(:,:), INTENT(IN)  :: coords
+      REAL, DIMENSION(:,:), INTENT(OUT) :: posvec
+    END SUBROUTINE
+    PURE SUBROUTINE PositionVector_2(this,coords,posvec)
+      IMPORT geometry_base
+      IMPLICIT NONE
+      CLASS(geometry_base), INTENT(IN)    :: this
+      REAL, DIMENSION(:,:,:), INTENT(IN)  :: coords
+      REAL, DIMENSION(:,:,:), INTENT(OUT) :: posvec
+    END SUBROUTINE
+    PURE SUBROUTINE PositionVector_3(this,coords,posvec)
+      IMPORT geometry_base
+      IMPLICIT NONE
+      CLASS(geometry_base), INTENT(IN)      :: this
+      REAL, DIMENSION(:,:,:,:), INTENT(IN)  :: coords
+      REAL, DIMENSION(:,:,:,:), INTENT(OUT) :: posvec
+    END SUBROUTINE
+    PURE SUBROUTINE PositionVector_4(this,coords,posvec)
+      IMPORT geometry_base
+      IMPLICIT NONE
+      CLASS(geometry_base), INTENT(IN)        :: this
+      REAL, DIMENSION(:,:,:,:,:), INTENT(IN)  :: coords
+      REAL, DIMENSION(:,:,:,:,:), INTENT(OUT) :: posvec
+    END SUBROUTINE
+    PURE SUBROUTINE Convert2Cartesian_coords_1(this,curv,cart)
+      IMPORT geometry_base
+      IMPLICIT NONE
+      CLASS(geometry_base), INTENT(IN)  :: this
+      REAL, DIMENSION(:,:), INTENT(IN)  :: curv
+      REAL, DIMENSION(:,:), INTENT(OUT) :: cart
+    END SUBROUTINE
+    PURE SUBROUTINE Convert2Cartesian_coords_2(this,curv,cart)
+      IMPORT geometry_base
+      IMPLICIT NONE
+      CLASS(geometry_base), INTENT(IN)    :: this
+      REAL, DIMENSION(:,:,:), INTENT(IN)  :: curv
+      REAL, DIMENSION(:,:,:), INTENT(OUT) :: cart
+    END SUBROUTINE
+    PURE SUBROUTINE Convert2Cartesian_coords_3(this,curv,cart)
+      IMPORT geometry_base
+      IMPLICIT NONE
+      CLASS(geometry_base), INTENT(IN)      :: this
+      REAL, DIMENSION(:,:,:,:), INTENT(IN)  :: curv
+      REAL, DIMENSION(:,:,:,:), INTENT(OUT) :: cart
+    END SUBROUTINE
+    PURE SUBROUTINE Convert2Cartesian_coords_4(this,curv,cart)
+      IMPORT geometry_base
+      IMPLICIT NONE
+      CLASS(geometry_base), INTENT(IN)        :: this
+      REAL, DIMENSION(:,:,:,:,:), INTENT(IN)  :: curv
+      REAL, DIMENSION(:,:,:,:,:), INTENT(OUT) :: cart
+    END SUBROUTINE
+    PURE SUBROUTINE Convert2Curvilinear_coords_1(this,cart,curv)
+      IMPORT geometry_base
+      IMPLICIT NONE
+      CLASS(geometry_base), INTENT(IN)  :: this
+      REAL, DIMENSION(:,:), INTENT(IN)  :: cart
+      REAL, DIMENSION(:,:), INTENT(OUT) :: curv
+    END SUBROUTINE
+    PURE SUBROUTINE Convert2Curvilinear_coords_2(this,cart,curv)
+      IMPORT geometry_base
+      IMPLICIT NONE
+      CLASS(geometry_base), INTENT(IN)    :: this
+      REAL, DIMENSION(:,:,:), INTENT(IN)  :: cart
+      REAL, DIMENSION(:,:,:), INTENT(OUT) :: curv
+    END SUBROUTINE
+    PURE SUBROUTINE Convert2Curvilinear_coords_3(this,cart,curv)
+      IMPORT geometry_base
+      IMPLICIT NONE
+      CLASS(geometry_base), INTENT(IN)      :: this
+      REAL, DIMENSION(:,:,:,:), INTENT(IN)  :: cart
+      REAL, DIMENSION(:,:,:,:), INTENT(OUT) :: curv
+    END SUBROUTINE
+    PURE SUBROUTINE Convert2Curvilinear_coords_4(this,cart,curv)
+      IMPORT geometry_base
+      IMPLICIT NONE
+      CLASS(geometry_base), INTENT(IN)        :: this
+      REAL, DIMENSION(:,:,:,:,:), INTENT(IN)  :: cart
+      REAL, DIMENSION(:,:,:,:,:), INTENT(OUT) :: curv
     END SUBROUTINE
     PURE ELEMENTAL SUBROUTINE Convert2Cartesian_vectors_0(this,xi,eta,phi,vxi,veta,vphi,vx,vy,vz)
       IMPORT geometry_base
@@ -151,13 +271,6 @@ MODULE geometry_base_mod
       CLASS(geometry_base), INTENT(IN) :: this
       REAL, INTENT(IN)                 :: xi,eta,phi,vxi,veta,vphi
       REAL, INTENT(OUT)                :: vx,vy,vz
-    END SUBROUTINE
-    PURE ELEMENTAL SUBROUTINE Convert2Curvilinear_coords_0(this,x,y,z,xi,eta,phi)
-      IMPORT geometry_base
-      IMPLICIT NONE
-      CLASS(geometry_base), INTENT(IN) :: this
-      REAL, INTENT(IN)                 :: x,y,z
-      REAL, INTENT(OUT)                :: xi,eta,phi
     END SUBROUTINE
     PURE ELEMENTAL SUBROUTINE Convert2Curvilinear_vectors_0(this,xi,eta,phi,vx,vy,vz,vxi,veta,vphi)
       IMPORT geometry_base
@@ -331,236 +444,77 @@ CONTAINS
   !!   h_y = \left|\frac{\partial \vec{r}}{\partial y}\right|,\quad
   !!   h_z = \left|\frac{\partial \vec{r}}{\partial z}\right|
   !! \f]
-  PURE SUBROUTINE ScaleFactors_all(this,coords,hx,hy,hz)
+  !! ATTENTION: hx,hy,hz should actually be intent(out), but this breaks the
+  !!            pointer assignments to hx%data1d,... in the mesh array
+  PURE SUBROUTINE ScaleFactors_0(this,coords,hx,hy,hz)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(geometry_base), INTENT(IN)   :: this
     TYPE(marray_cellvector), INTENT(IN)    :: coords
     TYPE(marray_cellscalar), INTENT(INOUT) :: hx,hy,hz
     !------------------------------------------------------------------------!
-    CALL this%ScaleFactors_1(coords%center ,hx%center ,hy%center ,hz%center)
-    CALL this%ScaleFactors_1(coords%bcenter,hx%bcenter,hy%bcenter,hz%bcenter)
-    CALL this%ScaleFactors_2(coords%faces  ,hx%faces  ,hy%faces  ,hz%faces)
-    CALL this%ScaleFactors_2(coords%corners,hx%corners,hy%corners,hz%corners)
-  END SUBROUTINE ScaleFactors_all
+    CALL this%ScaleFactors(coords%data2d(:,:),hx%data1d(:),hy%data1d(:),hz%data1d(:))
+  END SUBROUTINE ScaleFactors_0
 
-  PURE SUBROUTINE ScaleFactors_1(this,coords,hx,hy,hz)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(geometry_base), INTENT(IN)      :: this
-    REAL, INTENT(IN),  DIMENSION(:,:,:,:) :: coords
-    REAL, INTENT(OUT), DIMENSION(:,:,:)   :: hx,hy,hz
-    !------------------------------------------------------------------------!
-       CALL this%ScaleFactors(coords(:,:,:,1),coords(:,:,:,2),coords(:,:,:,3), &
-                                  hx(:,:,:)  ,    hy(:,:,:)  ,    hz(:,:,:))
-  END SUBROUTINE ScaleFactors_1
-
-  !> \public Compute scale factors
+  !> \public Compute radial distances to the origin
   !!
-  !! Computes the scale factors of the given geometry.
-  !! \f[
-  !!   h_x = \left|\frac{\partial \vec{r}}{\partial x}\right|,\quad
-  !!   h_y = \left|\frac{\partial \vec{r}}{\partial y}\right|,\quad
-  !!   h_z = \left|\frac{\partial \vec{r}}{\partial z}\right|
-  !! \f]
-  PURE SUBROUTINE ScaleFactors_2(this,coords,hx,hy,hz)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(geometry_base), INTENT(IN)        :: this
-    REAL, INTENT(IN),  DIMENSION(:,:,:,:,:) :: coords
-    REAL, INTENT(OUT), DIMENSION(:,:,:,:)   :: hx,hy,hz
-    !------------------------------------------------------------------------!
-    CALL this%ScaleFactors(coords(:,:,:,:,1),coords(:,:,:,:,2),coords(:,:,:,:,3), &
-                               hx(:,:,:,:)  ,    hy(:,:,:,:)  ,    hz(:,:,:,:))
-  END SUBROUTINE ScaleFactors_2
-
-
-  !> \public Compute radial distances to the origin for all cell positions
-  !!
+  !! Computes the radial distances to the origin for the given
+  !! coordinates depending on the geometry.
   !! ATTENTION: radius should actually be intent(out), but this breaks the
   !!            pointer assignment to radius%data1d in the mesh array
-  PURE SUBROUTINE Radius_all(this,coords,radius)
+  PURE SUBROUTINE Radius_0(this,coords,radius)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(geometry_base), INTENT(IN)     :: this
     TYPE(marray_cellvector), INTENT(IN)    :: coords
     TYPE(marray_cellscalar), INTENT(INOUT) :: radius
     !------------------------------------------------------------------------!
-    CALL this%Radius_1(coords%center ,radius%center)
-    CALL this%Radius_1(coords%bcenter,radius%bcenter)
-    CALL this%Radius_2(coords%faces  ,radius%faces)
-    CALL this%Radius_2(coords%corners,radius%corners)
-  END SUBROUTINE Radius_all
-
-  !> \public Compute radial distances to the origin
-  !!
-  !! Computes the radial distances to the origin for the given
-  !! coordinates depending on the geometry.
-  PURE SUBROUTINE Radius_1(this,coords,radius)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(geometry_base), INTENT(IN)      :: this
-    REAL, INTENT(IN),  DIMENSION(:,:,:,:) :: coords
-    REAL, INTENT(OUT), DIMENSION(:,:,:)   :: radius
-    !------------------------------------------------------------------------!
-    CALL this%Radius(coords(:,:,:,1),coords(:,:,:,2),coords(:,:,:,3),radius(:,:,:))
-  END SUBROUTINE Radius_1
-
-  !> \public Compute radial distances to the origin
-  !!
-  !! Computes the radial distances to the origin for the given
-  !! coordinates depending on the geometry.
-  PURE SUBROUTINE Radius_2(this,coords,radius)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(geometry_base), INTENT(IN)        :: this
-    REAL, INTENT(IN),  DIMENSION(:,:,:,:,:) :: coords
-    REAL, INTENT(OUT), DIMENSION(:,:,:,:)   :: radius
-    !------------------------------------------------------------------------!
-    CALL this%Radius(coords(:,:,:,:,1),coords(:,:,:,:,2),coords(:,:,:,:,3),radius(:,:,:,:))
-  END SUBROUTINE Radius_2
+    CALL this%Radius(coords%data2d(:,:),radius%data1d(:))
+  END SUBROUTINE Radius_0
 
   !> \public compute position vector components for all cell positions
   !!
+  !! Computes the curvilinear position vector components with respect to
+  !! the given geometry.
   !! ATTENTION: posvec should actually be intent(out), but this breaks the
   !!            pointer assignment to posvec%data1d in the mesh array
-  PURE SUBROUTINE PositionVector_all(this,coords,posvec)
+  PURE SUBROUTINE PositionVector_0(this,coords,posvec)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(geometry_base), INTENT(IN) :: this
     TYPE(marray_cellvector), INTENT(IN)    :: coords
     TYPE(marray_cellvector), INTENT(INOUT) :: posvec
     !------------------------------------------------------------------------!
-    CALL this%PositionVector_1(coords%center ,posvec%center)
-    CALL this%PositionVector_1(coords%bcenter,posvec%bcenter)
-    CALL this%PositionVector_2(coords%faces  ,posvec%faces)
-    CALL this%PositionVector_2(coords%corners,posvec%corners)
-  END SUBROUTINE PositionVector_all
-
-  !> \public Compute position vector components
-  !!
-  !! Computes the curvilinear position vector components with respect to
-  !! the given geometry.
-  PURE SUBROUTINE PositionVector_1(this,coords,posvec)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(geometry_base), INTENT(IN)      :: this
-    REAL, INTENT(IN),  DIMENSION(:,:,:,:) :: coords
-    REAL, INTENT(OUT), DIMENSION(:,:,:,:) :: posvec
-    !------------------------------------------------------------------------!
-    CALL this%PositionVector(coords(:,:,:,1),coords(:,:,:,2),coords(:,:,:,3), &
-                             posvec(:,:,:,1),posvec(:,:,:,2),posvec(:,:,:,3))
-  END SUBROUTINE PositionVector_1
-
-  !> \public Compute position vector components
-  !!
-  !! Computes the curvilinear position vector components with respect to
-  !! the given geometry.
-  PURE SUBROUTINE PositionVector_2(this,coords,posvec)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(geometry_base), INTENT(IN)        :: this
-    REAL, INTENT(IN),  DIMENSION(:,:,:,:,:) :: coords
-    REAL, INTENT(OUT), DIMENSION(:,:,:,:,:) :: posvec
-    !------------------------------------------------------------------------!
-    CALL this%PositionVector(coords(:,:,:,:,1),coords(:,:,:,:,2),coords(:,:,:,:,3), &
-                             posvec(:,:,:,:,1),posvec(:,:,:,:,2),posvec(:,:,:,:,3))
-  END SUBROUTINE PositionVector_2
+    CALL this%PositionVector(coords%data2d(:,:),posvec%data2d(:,:))
+  END SUBROUTINE PositionVector_0
 
   !> \public Convert curvilinear to cartesian coordinates
   !!
   !! ATTENTION: cart should actually be intent(out), but this breaks the
   !!            pointer assignment to cart%data1d in the mesh array
-  PURE SUBROUTINE Convert2Cartesian_all(this,curv,cart)
+  PURE SUBROUTINE Convert2Cartesian_coords(this,curv,cart)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(geometry_base), INTENT(IN)       :: this  !> \param [in] this geometry class
-    TYPE(marray_cellvector), INTENT(IN  )  :: curv  !> \param [in] curv curvilinear coordinates
+    TYPE(marray_cellvector), INTENT(IN)    :: curv  !> \param [in] curv curvilinear coordinates
     TYPE(marray_cellvector), INTENT(INOUT) :: cart  !> \param [out] cart cartesian coordinates
     !------------------------------------------------------------------------!
-    CALL this%Convert2Cartesian_coords_1(curv%center ,cart%center)
-    CALL this%Convert2Cartesian_coords_1(curv%bcenter,cart%bcenter)
-    CALL this%Convert2Cartesian_coords_2(curv%faces  ,cart%faces)
-    CALL this%Convert2Cartesian_coords_2(curv%corners,cart%corners)
-  END SUBROUTINE Convert2Cartesian_all
-
-  !> \public Convert curvilinear to cartesian coordinates
-  PURE SUBROUTINE Convert2Cartesian_coords_1(this,curv,cart)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(geometry_base),INTENT(IN) :: this
-    REAL, DIMENSION(:,:,:,:)        :: curv, cart
-    !------------------------------------------------------------------------!
-    INTENT(IN)                      :: curv
-    INTENT(OUT)                     :: cart
-    !------------------------------------------------------------------------!
-    CALL this%Convert2Cartesian(curv(:,:,:,1),curv(:,:,:,2),curv(:,:,:,3), &
-                                cart(:,:,:,1),cart(:,:,:,2),cart(:,:,:,3))
-  END SUBROUTINE Convert2Cartesian_coords_1
-
-
-  !> \public Convert curvilinear to cartesian coordinates
-  PURE SUBROUTINE Convert2Cartesian_coords_2(this,curv,cart)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(geometry_base),INTENT(IN) :: this
-    REAL, DIMENSION(:,:,:,:,:)      :: curv, cart
-    !------------------------------------------------------------------------!
-    INTENT(IN)                      :: curv
-    INTENT(OUT)                     :: cart
-    !------------------------------------------------------------------------!
-    CALL this%Convert2Cartesian(curv(:,:,:,:,1),curv(:,:,:,:,2),curv(:,:,:,:,3), &
-                                cart(:,:,:,:,1),cart(:,:,:,:,2),cart(:,:,:,:,3))
-  END SUBROUTINE Convert2Cartesian_coords_2
-
+    CALL this%Convert2Cartesian(curv%data2d(:,:),cart%data2d(:,:))
+  END SUBROUTINE Convert2Cartesian_coords
 
   !> \public Convert cartesian to curvilinear coordinates
   !!
   !! ATTENTION: curv should actually be intent(out), but this breaks the
   !!            pointer assignment to curv%data1d in the mesh array
-  PURE SUBROUTINE Convert2Curvilinear_all(this,cart,curv)
+  PURE SUBROUTINE Convert2Curvilinear_coords(this,cart,curv)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(geometry_base), INTENT(IN)       :: this  !> \param [in] this geometry type
     TYPE(marray_cellvector), INTENT(IN)    :: cart  !> \param [in] cart cartesian coordinates
     TYPE(marray_cellvector), INTENT(INOUT) :: curv  !> \param [out] curv curvilinear coordinates
     !------------------------------------------------------------------------!
-    CALL this%Convert2Curvilinear_coords_1(cart%center ,curv%center)
-    CALL this%Convert2Curvilinear_coords_1(cart%bcenter,curv%bcenter)
-    CALL this%Convert2Curvilinear_coords_2(cart%faces  ,curv%faces)
-    CALL this%Convert2Curvilinear_coords_2(cart%corners,curv%corners)
-  END SUBROUTINE Convert2Curvilinear_all
-
-
-  !> \public Convert cartesian to curvilinear coordinates
-  PURE SUBROUTINE Convert2Curvilinear_coords_1(this,cart,curv)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(geometry_base), INTENT(IN)     :: this  !> \param [in] this geometry type
-    REAL, DIMENSION(:,:,:,:)             :: cart  !> \param [in] cart cartesian coordinates
-    REAL, DIMENSION(:,:,:,:)             :: curv  !> \param [out] curv curvilinear coordinates
-    !------------------------------------------------------------------------!
-    INTENT(IN)                           :: cart
-    INTENT(OUT)                          :: curv
-    !------------------------------------------------------------------------!
-    CALL this%Convert2Curvilinear(cart(:,:,:,1),cart(:,:,:,2),cart(:,:,:,3), &
-                                  curv(:,:,:,1),curv(:,:,:,2),curv(:,:,:,3))
-  END SUBROUTINE Convert2Curvilinear_coords_1
-
-
-  !> \public Convert cartesian to curvilinear coordinates
-  PURE SUBROUTINE Convert2Curvilinear_coords_2(this,cart,curv)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(geometry_base), INTENT(IN)     :: this  !> \param [in] this geometry type
-    REAL, DIMENSION(:,:,:,:,:)           :: cart, curv
-    !------------------------------------------------------------------------!
-    INTENT(IN)                           :: cart
-    INTENT(OUT)                          :: curv
-    !------------------------------------------------------------------------!
-    CALL this%Convert2Curvilinear(cart(:,:,:,:,1),cart(:,:,:,:,2),cart(:,:,:,:,3), &
-                                  curv(:,:,:,:,1),curv(:,:,:,:,2),curv(:,:,:,:,3))
-  END SUBROUTINE Convert2Curvilinear_coords_2
+    CALL this%Convert2Curvilinear(cart%data2d(:,:),curv%data2d(:,:))
+  END SUBROUTINE Convert2Curvilinear_coords
 
   !> \public Convert curvilinear vector components to cartesian vector components
   PURE SUBROUTINE Convert2Cartesian_vectors_1(this,curv,v_curv,v_cart)
