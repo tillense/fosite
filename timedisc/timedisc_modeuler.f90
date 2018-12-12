@@ -41,6 +41,7 @@ MODULE timedisc_modeuler_mod
   USE timedisc_base_mod
   USE mesh_base_mod
   USE marray_compound_mod
+  USE marray_base_mod
   USE fluxes_base_mod
   USE boundary_base_mod
   USE physics_base_mod
@@ -156,7 +157,7 @@ CONTAINS
           t = time+zeta(n,order)*dt
           ! time step update of cvar and bfluxes
           CALL this%ComputeCVar_modeuler(Mesh,Physics,Fluxes,eta(n,order), &
-               t,dt,this%cold,this%pvar,this%cvar,this%rhs,this%cvar)
+               t,dt,this%cold%data4d,this%pvar,this%cvar,this%rhs,this%cvar)
           ! compute right hand side for next time step update
           CALL this%ComputeRHS(Mesh,Physics,Sources,Fluxes,t,dt,&
                this%pvar,this%cvar,CHECK_NOTHING,this%rhs)
@@ -179,7 +180,7 @@ CONTAINS
           t = time+zeta(n,order)*dt
           ! time step update of cvar and bfluxes
           CALL this%ComputeCVar_modeuler(Mesh,Physics,Fluxes,eta(n,order), &
-               t,dt,this%cold,p(n)%var,c(n)%var,this%rhs,c(n+1)%var)
+               t,dt,this%cold%data4d,p(n)%var,c(n)%var,this%rhs,c(n+1)%var)
           ! for 3rd order scheme compute the 2nd order result with the same RHS
           ! and store it in this%ctmp, bfluxes are not required
           IF (n.EQ.2.AND.order.EQ.3) &
