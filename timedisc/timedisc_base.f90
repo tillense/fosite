@@ -861,6 +861,7 @@ CONTAINS
     INTEGER                             :: iter
     !------------------------------------------------------------------------!
     REAL                                :: dtmeanold
+    REAL, DIMENSION(:), POINTER         :: bflux,bfold
     !------------------------------------------------------------------------!
     INTENT(INOUT)                       :: time,dt
     !------------------------------------------------------------------------!
@@ -873,13 +874,25 @@ CONTAINS
       this%cvar,this%checkdatabm,this%rhs)
     this%cold%data1d(:)    = this%cvar%data1d(:)
     IF (Mesh%INUM.GT.1) THEN
-      Fluxes%bxfold(:,:,:,:) = Fluxes%bxflux(:,:,:,:)
+      ! collapse the 4D arrays to improve vector performance;
+      ! maybe we can switch to the old style assignments if
+      ! automatic collapsing of NEC nfort compiler works
+      bflux(1:SIZE(Fluxes%bxflux)) => Fluxes%bxflux
+      bfold(1:SIZE(Fluxes%bxfold)) => Fluxes%bxfold
+      bfold(:) = bflux(:)
+!       Fluxes%bxfold(:,:,:,:) = Fluxes%bxflux(:,:,:,:)
     END IF
     IF (Mesh%JNUM.GT.1) THEN
-      Fluxes%byfold(:,:,:,:) = Fluxes%byflux(:,:,:,:)
+      bflux(1:SIZE(Fluxes%byflux)) => Fluxes%byflux
+      bfold(1:SIZE(Fluxes%byfold)) => Fluxes%byfold
+      bfold(:) = bflux(:)
+!       Fluxes%byfold(:,:,:,:) = Fluxes%byflux(:,:,:,:)
     END IF
     IF (Mesh%KNUM.GT.1) THEN
-      Fluxes%bzfold(:,:,:,:) = Fluxes%bzflux(:,:,:,:)
+      bflux(1:SIZE(Fluxes%bzflux)) => Fluxes%bzflux
+      bfold(1:SIZE(Fluxes%bzfold)) => Fluxes%bzfold
+      bfold(:) = bflux(:)
+!       Fluxes%bzfold(:,:,:,:) = Fluxes%bzflux(:,:,:,:)
     END IF
     iter = iter + 1
   END SUBROUTINE AcceptSolution

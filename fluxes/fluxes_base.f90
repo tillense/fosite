@@ -69,7 +69,7 @@ MODULE fluxes_base_mod
                                         pfluxes      !< physical fluxes
      !> \name
      !! #### various data fields
-     REAL, DIMENSION(:,:,:,:), POINTER &
+     REAL, DIMENSION(:,:,:,:), POINTER, CONTIGUOUS &
                                   :: bxflux,byflux, &
                                      bzflux,bxfold, &
                                      byfold,bzfold   !< boundary fluxes
