@@ -323,34 +323,25 @@ MODULE physics_base_mod
       TYPE(marray_base), INTENT(INOUT)   :: minwav,maxwav
     END SUBROUTINE
     PURE SUBROUTINE CalcFluxesX(this,Mesh,nmin,nmax,prim,cons,xfluxes)
-      IMPORT physics_base,mesh_base
+      IMPORT physics_base,mesh_base,marray_compound
       CLASS(physics_base), INTENT(IN)  :: this
       CLASS(mesh_base),    INTENT(IN)  :: Mesh
       INTEGER,             INTENT(IN)  :: nmin,nmax
-      REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%nfaces,this%vnum), &
-                           INTENT(IN)  :: prim,cons
-      REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%nfaces,this%vnum), &
-                           INTENT(OUT) :: xfluxes
+      CLASS(marray_compound), INTENT(INOUT) :: prim,cons,xfluxes
     END SUBROUTINE
     PURE SUBROUTINE CalcFluxesY(this,Mesh,nmin,nmax,prim,cons,yfluxes)
-      IMPORT physics_base,mesh_base
+      IMPORT physics_base,mesh_base,marray_compound
       CLASS(physics_base), INTENT(IN)  :: this
       CLASS(mesh_base),    INTENT(IN)  :: Mesh
       INTEGER,             INTENT(IN)  :: nmin,nmax
-      REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%nfaces,this%vnum), &
-                           INTENT(IN)  :: prim,cons
-      REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%nfaces,this%vnum), &
-                           INTENT(OUT) :: yfluxes
+      CLASS(marray_compound), INTENT(INOUT) :: prim,cons,yfluxes
     END SUBROUTINE
     PURE SUBROUTINE CalcFluxesZ(this,Mesh,nmin,nmax,prim,cons,zfluxes)
-      IMPORT physics_base,mesh_base
+      IMPORT physics_base,mesh_base,marray_compound
       CLASS(physics_base), INTENT(IN)  :: this
       CLASS(mesh_base),    INTENT(IN)  :: Mesh
       INTEGER,             INTENT(IN)  :: nmin,nmax
-      REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%nfaces,this%vnum), &
-                           INTENT(IN)  :: prim,cons
-      REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%nfaces,this%vnum), &
-                           INTENT(OUT) :: zfluxes
+      CLASS(marray_compound), INTENT(INOUT) :: prim,cons,zfluxes
     END SUBROUTINE
     PURE SUBROUTINE AddBackgroundVelocityX(this,Mesh,w,pvar,cvar)
       IMPORT physics_base,mesh_base

@@ -316,45 +316,51 @@ CONTAINS
     CLASS(physics_euler), INTENT(IN)  :: this
     CLASS(mesh_base),       INTENT(IN)  :: Mesh
     INTEGER,                INTENT(IN)  :: nmin,nmax
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%NFACES,this%VNUM), &
-                            INTENT(IN)  :: prim,cons
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%NFACES,this%VNUM), &
-                            INTENT(OUT) :: xfluxes
+    CLASS(marray_compound), INTENT(INOUT) :: prim,cons,xfluxes
     !------------------------------------------------------------------------!
-    SELECT CASE(this%VDIM)
-    CASE(1) ! 1D flux
-      CALL SetFlux(prim(:,:,:,nmin:nmax,this%DENSITY),    &
-                 prim(:,:,:,nmin:nmax,this%XVELOCITY),    &
-                 prim(:,:,:,nmin:nmax,this%PRESSURE),     &
-                 cons(:,:,:,nmin:nmax,this%XMOMENTUM),    &
-                 cons(:,:,:,nmin:nmax,this%ENERGY),       &
-                 xfluxes(:,:,:,nmin:nmax,this%DENSITY),   &
-                 xfluxes(:,:,:,nmin:nmax,this%XMOMENTUM), &
-                 xfluxes(:,:,:,nmin:nmax,this%ENERGY))
-    CASE(2) ! 2D flux
-      CALL SetFlux(prim(:,:,:,nmin:nmax,this%DENSITY),    &
-                 prim(:,:,:,nmin:nmax,this%XVELOCITY),    &
-                 prim(:,:,:,nmin:nmax,this%PRESSURE),     &
-                 cons(:,:,:,nmin:nmax,this%XMOMENTUM),    &
-                 cons(:,:,:,nmin:nmax,this%YMOMENTUM),    &
-                 cons(:,:,:,nmin:nmax,this%ENERGY),       &
-                 xfluxes(:,:,:,nmin:nmax,this%DENSITY),   &
-                 xfluxes(:,:,:,nmin:nmax,this%XMOMENTUM), &
-                 xfluxes(:,:,:,nmin:nmax,this%YMOMENTUM), &
-                 xfluxes(:,:,:,nmin:nmax,this%ENERGY))
-    CASE(3) ! 3D flux
-      CALL SetFlux(prim(:,:,:,nmin:nmax,this%DENSITY),    &
-                 prim(:,:,:,nmin:nmax,this%XVELOCITY),    &
-                 prim(:,:,:,nmin:nmax,this%PRESSURE),     &
-                 cons(:,:,:,nmin:nmax,this%XMOMENTUM),    &
-                 cons(:,:,:,nmin:nmax,this%YMOMENTUM),    &
-                 cons(:,:,:,nmin:nmax,this%ZMOMENTUM),    &
-                 cons(:,:,:,nmin:nmax,this%ENERGY),       &
-                 xfluxes(:,:,:,nmin:nmax,this%DENSITY),   &
-                 xfluxes(:,:,:,nmin:nmax,this%XMOMENTUM), &
-                 xfluxes(:,:,:,nmin:nmax,this%YMOMENTUM), &
-                 xfluxes(:,:,:,nmin:nmax,this%ZMOMENTUM), &
-                 xfluxes(:,:,:,nmin:nmax,this%ENERGY))
+    SELECT TYPE(p => prim)
+    TYPE IS(statevector_euler)
+      SELECT TYPE(c => cons)
+      TYPE IS(statevector_euler)
+        SELECT TYPE(f => xfluxes)
+        TYPE IS(statevector_euler)
+          SELECT CASE(this%VDIM)
+          CASE(1) ! 1D flux
+            CALL SetFlux(p%density%data2d(:,nmin:nmax),    &
+                      p%velocity%data3d(:,nmin:nmax,1),    &
+                      p%pressure%data2d(:,nmin:nmax),      &
+                      c%momentum%data3d(:,nmin:nmax,1),    &
+                      c%energy%data2d(:,nmin:nmax),        &
+                      f%density%data2d(:,nmin:nmax),       &
+                      f%momentum%data3d(:,nmin:nmax,1),    &
+                      f%energy%data2d(:,nmin:nmax))
+          CASE(2) ! 2D flux
+            CALL SetFlux(p%density%data2d(:,nmin:nmax),    &
+                      p%velocity%data3d(:,nmin:nmax,1),    &
+                      p%pressure%data2d(:,nmin:nmax),      &
+                      c%momentum%data3d(:,nmin:nmax,1),    &
+                      c%momentum%data3d(:,nmin:nmax,2),    &
+                      c%energy%data2d(:,nmin:nmax),        &
+                      f%density%data2d(:,nmin:nmax),       &
+                      f%momentum%data3d(:,nmin:nmax,1),    &
+                      f%momentum%data3d(:,nmin:nmax,2),    &
+                      f%energy%data2d(:,nmin:nmax))
+          CASE(3) ! 3D flux
+            CALL SetFlux(p%density%data2d(:,nmin:nmax),    &
+                      p%velocity%data3d(:,nmin:nmax,1),    &
+                      p%pressure%data2d(:,nmin:nmax),      &
+                      c%momentum%data3d(:,nmin:nmax,1),    &
+                      c%momentum%data3d(:,nmin:nmax,2),    &
+                      c%momentum%data3d(:,nmin:nmax,3),    &
+                      c%energy%data2d(:,nmin:nmax),        &
+                      f%density%data2d(:,nmin:nmax),       &
+                      f%momentum%data3d(:,nmin:nmax,1),    &
+                      f%momentum%data3d(:,nmin:nmax,2),    &
+                      f%momentum%data3d(:,nmin:nmax,3),    &
+                      f%energy%data2d(:,nmin:nmax))
+          END SELECT
+        END SELECT
+      END SELECT
     END SELECT
   END SUBROUTINE CalcFluxesX
 
@@ -366,45 +372,51 @@ CONTAINS
     CLASS(physics_euler), INTENT(IN)  :: this
     CLASS(mesh_base),       INTENT(IN)  :: Mesh
     INTEGER,                INTENT(IN)  :: nmin,nmax
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%NFACES,this%VNUM), &
-                            INTENT(IN)  :: prim,cons
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%NFACES,this%VNUM), &
-                            INTENT(OUT) :: yfluxes
+    CLASS(marray_compound), INTENT(INOUT) :: prim,cons,yfluxes
     !------------------------------------------------------------------------!
-    SELECT CASE(this%VDIM)
-    CASE(1) ! 1D flux
-      CALL SetFlux(prim(:,:,:,nmin:nmax,this%DENSITY),    &
-                 prim(:,:,:,nmin:nmax,this%XVELOCITY),    &
-                 prim(:,:,:,nmin:nmax,this%PRESSURE),     &
-                 cons(:,:,:,nmin:nmax,this%XMOMENTUM),    &
-                 cons(:,:,:,nmin:nmax,this%ENERGY),       &
-                 yfluxes(:,:,:,nmin:nmax,this%DENSITY),   &
-                 yfluxes(:,:,:,nmin:nmax,this%XMOMENTUM), &
-                 yfluxes(:,:,:,nmin:nmax,this%ENERGY))
-    CASE(2) ! 2D flux
-      CALL SetFlux(prim(:,:,:,nmin:nmax,this%DENSITY),    &
-                 prim(:,:,:,nmin:nmax,this%YVELOCITY),    &
-                 prim(:,:,:,nmin:nmax,this%PRESSURE),     &
-                 cons(:,:,:,nmin:nmax,this%YMOMENTUM),    &
-                 cons(:,:,:,nmin:nmax,this%XMOMENTUM),    &
-                 cons(:,:,:,nmin:nmax,this%ENERGY),       &
-                 yfluxes(:,:,:,nmin:nmax,this%DENSITY),   &
-                 yfluxes(:,:,:,nmin:nmax,this%YMOMENTUM), &
-                 yfluxes(:,:,:,nmin:nmax,this%XMOMENTUM), &
-                 yfluxes(:,:,:,nmin:nmax,this%ENERGY))
-    CASE(3) ! 3D flux
-      CALL SetFlux(prim(:,:,:,nmin:nmax,this%DENSITY),    &
-                 prim(:,:,:,nmin:nmax,this%YVELOCITY),    &
-                 prim(:,:,:,nmin:nmax,this%PRESSURE),     &
-                 cons(:,:,:,nmin:nmax,this%YMOMENTUM),    &
-                 cons(:,:,:,nmin:nmax,this%XMOMENTUM),    &
-                 cons(:,:,:,nmin:nmax,this%ZMOMENTUM),    &
-                 cons(:,:,:,nmin:nmax,this%ENERGY),       &
-                 yfluxes(:,:,:,nmin:nmax,this%DENSITY),   &
-                 yfluxes(:,:,:,nmin:nmax,this%YMOMENTUM), &
-                 yfluxes(:,:,:,nmin:nmax,this%XMOMENTUM), &
-                 yfluxes(:,:,:,nmin:nmax,this%ZMOMENTUM), &
-                 yfluxes(:,:,:,nmin:nmax,this%ENERGY))
+    SELECT TYPE(p => prim)
+    TYPE IS(statevector_euler)
+      SELECT TYPE(c => cons)
+      TYPE IS(statevector_euler)
+        SELECT TYPE(f => yfluxes)
+        TYPE IS(statevector_euler)
+          SELECT CASE(this%VDIM)
+          CASE(1) ! 1D flux
+            CALL SetFlux(p%density%data2d(:,nmin:nmax),    &
+                      p%velocity%data3d(:,nmin:nmax,1),    &
+                      p%pressure%data2d(:,nmin:nmax),      &
+                      c%momentum%data3d(:,nmin:nmax,1),    &
+                      c%energy%data2d(:,nmin:nmax),        &
+                      f%density%data2d(:,nmin:nmax),       &
+                      f%momentum%data3d(:,nmin:nmax,1),    &
+                      f%energy%data2d(:,nmin:nmax))
+          CASE(2) ! 2D flux
+            CALL SetFlux(p%density%data2d(:,nmin:nmax),    &
+                      p%velocity%data3d(:,nmin:nmax,2),    &
+                      p%pressure%data2d(:,nmin:nmax),      &
+                      c%momentum%data3d(:,nmin:nmax,2),    &
+                      c%momentum%data3d(:,nmin:nmax,1),    &
+                      c%energy%data2d(:,nmin:nmax),        &
+                      f%density%data2d(:,nmin:nmax),       &
+                      f%momentum%data3d(:,nmin:nmax,2),    &
+                      f%momentum%data3d(:,nmin:nmax,1),    &
+                      f%energy%data2d(:,nmin:nmax))
+          CASE(3) ! 3D flux
+            CALL SetFlux(p%density%data2d(:,nmin:nmax),    &
+                      p%velocity%data3d(:,nmin:nmax,2),    &
+                      p%pressure%data2d(:,nmin:nmax),      &
+                      c%momentum%data3d(:,nmin:nmax,2),    &
+                      c%momentum%data3d(:,nmin:nmax,1),    &
+                      c%momentum%data3d(:,nmin:nmax,3),    &
+                      c%energy%data2d(:,nmin:nmax),        &
+                      f%density%data2d(:,nmin:nmax),       &
+                      f%momentum%data3d(:,nmin:nmax,2),    &
+                      f%momentum%data3d(:,nmin:nmax,1),    &
+                      f%momentum%data3d(:,nmin:nmax,3),    &
+                      f%energy%data2d(:,nmin:nmax))
+          END SELECT
+        END SELECT
+      END SELECT
     END SELECT
   END SUBROUTINE CalcFluxesY
 
@@ -416,45 +428,51 @@ CONTAINS
     CLASS(physics_euler), INTENT(IN)  :: this
     CLASS(mesh_base),       INTENT(IN)  :: Mesh
     INTEGER,                INTENT(IN)  :: nmin,nmax
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%NFACES,this%VNUM), &
-                            INTENT(IN)  :: prim,cons
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%NFACES,this%VNUM), &
-                            INTENT(OUT) :: zfluxes
+    CLASS(marray_compound), INTENT(INOUT) :: prim,cons,zfluxes
     !------------------------------------------------------------------------!
-    SELECT CASE(this%VDIM)
-    CASE(1) ! 1D flux
-      CALL SetFlux(prim(:,:,:,nmin:nmax,this%DENSITY),    &
-                 prim(:,:,:,nmin:nmax,this%XVELOCITY),    &
-                 prim(:,:,:,nmin:nmax,this%PRESSURE),     &
-                 cons(:,:,:,nmin:nmax,this%XMOMENTUM),    &
-                 cons(:,:,:,nmin:nmax,this%ENERGY),       &
-                 zfluxes(:,:,:,nmin:nmax,this%DENSITY),   &
-                 zfluxes(:,:,:,nmin:nmax,this%XMOMENTUM), &
-                 zfluxes(:,:,:,nmin:nmax,this%ENERGY))
-    CASE(2) ! 2D flux
-      CALL SetFlux(prim(:,:,:,nmin:nmax,this%DENSITY),    &
-                 prim(:,:,:,nmin:nmax,this%YVELOCITY),    &
-                 prim(:,:,:,nmin:nmax,this%PRESSURE),     &
-                 cons(:,:,:,nmin:nmax,this%YMOMENTUM),    &
-                 cons(:,:,:,nmin:nmax,this%XMOMENTUM),    &
-                 cons(:,:,:,nmin:nmax,this%ENERGY),       &
-                 zfluxes(:,:,:,nmin:nmax,this%DENSITY),   &
-                 zfluxes(:,:,:,nmin:nmax,this%YMOMENTUM), &
-                 zfluxes(:,:,:,nmin:nmax,this%XMOMENTUM), &
-                 zfluxes(:,:,:,nmin:nmax,this%ENERGY))
-    CASE(3) ! 3D flux
-      CALL SetFlux(prim(:,:,:,nmin:nmax,this%DENSITY),    &
-                 prim(:,:,:,nmin:nmax,this%ZVELOCITY),    &
-                 prim(:,:,:,nmin:nmax,this%PRESSURE),     &
-                 cons(:,:,:,nmin:nmax,this%ZMOMENTUM),    &
-                 cons(:,:,:,nmin:nmax,this%XMOMENTUM),    &
-                 cons(:,:,:,nmin:nmax,this%YMOMENTUM),    &
-                 cons(:,:,:,nmin:nmax,this%ENERGY),       &
-                 zfluxes(:,:,:,nmin:nmax,this%DENSITY),   &
-                 zfluxes(:,:,:,nmin:nmax,this%ZMOMENTUM), &
-                 zfluxes(:,:,:,nmin:nmax,this%XMOMENTUM), &
-                 zfluxes(:,:,:,nmin:nmax,this%YMOMENTUM), &
-                 zfluxes(:,:,:,nmin:nmax,this%ENERGY))
+    SELECT TYPE(p => prim)
+    TYPE IS(statevector_euler)
+      SELECT TYPE(c => cons)
+      TYPE IS(statevector_euler)
+        SELECT TYPE(f => zfluxes)
+        TYPE IS(statevector_euler)
+          SELECT CASE(this%VDIM)
+          CASE(1) ! 1D flux
+            CALL SetFlux(p%density%data2d(:,nmin:nmax),    &
+                      p%velocity%data3d(:,nmin:nmax,1),    &
+                      p%pressure%data2d(:,nmin:nmax),      &
+                      c%momentum%data3d(:,nmin:nmax,1),    &
+                      c%energy%data2d(:,nmin:nmax),        &
+                      f%density%data2d(:,nmin:nmax),       &
+                      f%momentum%data3d(:,nmin:nmax,1),    &
+                      f%energy%data2d(:,nmin:nmax))
+          CASE(2) ! 2D flux
+            CALL SetFlux(p%density%data2d(:,nmin:nmax),    &
+                      p%velocity%data3d(:,nmin:nmax,2),    &
+                      p%pressure%data2d(:,nmin:nmax),      &
+                      c%momentum%data3d(:,nmin:nmax,2),    &
+                      c%momentum%data3d(:,nmin:nmax,1),    &
+                      c%energy%data2d(:,nmin:nmax),        &
+                      f%density%data2d(:,nmin:nmax),       &
+                      f%momentum%data3d(:,nmin:nmax,2),    &
+                      f%momentum%data3d(:,nmin:nmax,1),    &
+                      f%energy%data2d(:,nmin:nmax))
+          CASE(3) ! 3D flux
+            CALL SetFlux(p%density%data2d(:,nmin:nmax),    &
+                      p%velocity%data3d(:,nmin:nmax,3),    &
+                      p%pressure%data2d(:,nmin:nmax),      &
+                      c%momentum%data3d(:,nmin:nmax,3),    &
+                      c%momentum%data3d(:,nmin:nmax,1),    &
+                      c%momentum%data3d(:,nmin:nmax,2),    &
+                      c%energy%data2d(:,nmin:nmax),        &
+                      f%density%data2d(:,nmin:nmax),       &
+                      f%momentum%data3d(:,nmin:nmax,3),    &
+                      f%momentum%data3d(:,nmin:nmax,1),    &
+                      f%momentum%data3d(:,nmin:nmax,2),    &
+                      f%energy%data2d(:,nmin:nmax))
+          END SELECT
+        END SELECT
+      END SELECT
     END SELECT
   END SUBROUTINE CalcFluxesZ
 

@@ -65,15 +65,14 @@ MODULE fluxes_base_mod
      CLASS(marray_base), ALLOCATABLE &
                                   :: minwav,maxwav   !< min/max wave speeds
      CLASS(marray_compound), POINTER :: prim, &      !< primitive/conservative
-                                        cons         !< state vectors on cell faces
+                                        cons, &      !< state vectors on cell faces
+                                        pfluxes      !< physical fluxes
      !> \name
      !! #### various data fields
      REAL, DIMENSION(:,:,:,:), POINTER &
                                   :: bxflux,byflux, &
                                      bzflux,bxfold, &
                                      byfold,bzfold   !< boundary fluxes
-     REAL, DIMENSION(:,:,:,:,:), POINTER &
-                                  :: pfluxes         !< physical fluxes
   CONTAINS
     PROCEDURE                               :: InitFluxes
     PROCEDURE (CalculateFluxes), DEFERRED   :: CalculateFluxes
@@ -139,7 +138,6 @@ CONTAINS
 
     ! allocate memory for all arrays used in fluxes
     ALLOCATE(this%minwav,this%maxwav, &
-      this%pfluxes(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%NFACES,Physics%VNUM), &
       this%bxflux(Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,2,Physics%VNUM),      &
       this%byflux(Mesh%KGMIN:Mesh%KGMAX,Mesh%IGMIN:Mesh%IGMAX,2,Physics%VNUM),      &
       this%bzflux(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,2,Physics%VNUM),      &
@@ -158,6 +156,9 @@ CONTAINS
     ! initialize state vectors on cell interfaces
     CALL Physics%new_statevector(this%prim,PRIMITIVE,Mesh%NFACES)
     CALL Physics%new_statevector(this%cons,CONSERVATIVE,Mesh%NFACES)
+
+    ! initialize state vector for physical fluxes
+    CALL Physics%new_statevector(this%pfluxes,CONSERVATIVE,Mesh%NFACES)
 
     ! print some information
     CALL this%Info(" FLUXES---> fluxes type        " // TRIM(this%GetName()))
@@ -184,7 +185,7 @@ CONTAINS
       DO i=1, Physics%VNUM
         key = TRIM(Physics%pvarname(i)) // "_pfluxes"
         CALL SetAttr(IO, TRIM(key), &
-                     this%pfluxes(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,:,i))
+                     this%pfluxes%data5d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,:,i))
       END DO
     END IF
 
@@ -406,6 +407,7 @@ CONTAINS
     CALL this%maxwav%Destroy()
     CALL this%prim%Destroy()
     CALL this%cons%Destroy()
+    CALL this%pfluxes%Destroy()
     DEALLOCATE(this%cons,this%prim,this%pfluxes,this%minwav,this%maxwav, &
          this%bxflux,this%byflux,this%bzflux,this%bxfold,this%byfold,this%bzfold)
     CALL this%Reconstruction%Finalize()
