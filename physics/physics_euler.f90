@@ -1195,8 +1195,9 @@ CONTAINS
         sterm%data4d(:,Mesh%JMAX+Mesh%JP1:Mesh%JGMAX,:,:) = 0.0
       END IF
       IF (Mesh%KNUM.GT.1) THEN
-        sterm%data4d(:,:,Mesh%KGMIN:Mesh%KMIN+Mesh%KM1,:) = 0.0
-        sterm%data4d(:,:,Mesh%KMAX+Mesh%KP1:Mesh%KGMAX,:) = 0.0
+        ! collapse the first 2 dimensions
+        sterm%data3d(:,Mesh%KGMIN:Mesh%KMIN+Mesh%KM1,:) = 0.0
+        sterm%data3d(:,Mesh%KMAX+Mesh%KP1:Mesh%KGMAX,:) = 0.0
       END IF
     END IF
   END SUBROUTINE GeometricalSources
