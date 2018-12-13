@@ -1249,32 +1249,46 @@ CONTAINS
        DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM) &
                                           :: sterm
    !------------------------------------------------------------------------!
-   CALL this%ViscositySources_euler(Mesh,pvar,btxx,btxy,btyy,sterm)
- 
-   !compute scalar product of v and tau (x-component)
-   this%tmp(:,:,:) = pvar(:,:,:,this%XVELOCITY)*btxx(:,:,:) &
-                    + pvar(:,:,:,this%YVELOCITY)*btxy(:,:,:) 
- !                   + pvar(:,:,:,this%ZVELOCITY)*btxz(:,:,:)
+   CALL this%ViscositySources_euler(Mesh,pvar,btxx,btxy,btxz,btyy,btyz,btzz,sterm)
+   SELECT CASE(this%VDIM)
+   CASE(2)
+     !compute scalar product of v and tau (x-component)
+    this%tmp(:,:,:) = pvar(:,:,:,this%XVELOCITY)*btxx(:,:,:) &
+                    + pvar(:,:,:,this%YVELOCITY)*btxy(:,:,:)
 
-   !compute scalar product of v and tau (y-component)
-   this%tmp1(:,:,:) = pvar(:,:,:,this%XVELOCITY)*btxy(:,:,:) &
-                    + pvar(:,:,:,this%YVELOCITY)*btyy(:,:,:) 
-  !                  + pvar(:,:,:,this%ZVELOCITY)*btyz(:,:,:)
+    !compute scalar product of v and tau (y-component)
+    this%tmp1(:,:,:) = pvar(:,:,:,this%XVELOCITY)*btxy(:,:,:) &
+                    + pvar(:,:,:,this%YVELOCITY)*btyy(:,:,:)
 
-   !compute scalar product of v and tau (z-component)
-   !this%tmp2(:,:,:) = pvar(:,:,:,this%XVELOCITY)*btxz(:,:,:) &
-   !                 + pvar(:,:,:,this%YVELOCITY)*btyz(:,:,:) &
-   !                 + pvar(:,:,:,this%ZVELOCITY)*btzz(:,:,:)
-   ! compute vector divergence of scalar product v and tau
-   CALL Mesh%Divergence(this%tmp(:,:,:),this%tmp1(:,:,:), &
-        sterm(:,:,:,this%ENERGY))
+    ! compute vector divergence of scalar product v and tau
+    CALL Mesh%Divergence(this%tmp(:,:,:),this%tmp1(:,:,:), &
+          sterm(:,:,:,this%ENERGY))
+  CASE(3) 
+    !compute scalar product of v and tau (x-component)
+    this%tmp(:,:,:) = pvar(:,:,:,this%XVELOCITY)*btxx(:,:,:) &
+                    + pvar(:,:,:,this%YVELOCITY)*btxy(:,:,:) & 
+                    + pvar(:,:,:,this%ZVELOCITY)*btxz(:,:,:)
+
+    !compute scalar product of v and tau (y-component)
+    this%tmp1(:,:,:) = pvar(:,:,:,this%XVELOCITY)*btxy(:,:,:) &
+                    + pvar(:,:,:,this%YVELOCITY)*btyy(:,:,:) &
+                    + pvar(:,:,:,this%ZVELOCITY)*btyz(:,:,:)
+
+    !compute scalar product of v and tau (z-component)
+    this%tmp2(:,:,:) = pvar(:,:,:,this%XVELOCITY)*btxz(:,:,:) &
+                    + pvar(:,:,:,this%YVELOCITY)*btyz(:,:,:) &
+                    + pvar(:,:,:,this%ZVELOCITY)*btzz(:,:,:)
+    ! compute vector divergence of scalar product v and tau
+    CALL Mesh%Divergence(this%tmp(:,:,:),this%tmp1(:,:,:),this%tmp2(:,:,:), &
+          sterm(:,:,:,this%ENERGY))
+   END SELECT
  END SUBROUTINE ViscositySources
 
 
 
 
   ! identical to isothermal case
-  PURE SUBROUTINE ViscositySources_euler(this,Mesh,pvar,btxx,btxy,btyy,sterm)
+  PURE SUBROUTINE ViscositySources_euler(this,Mesh,pvar,btxx,btxy,btxz,btyy,btyz,btzz,sterm)
     IMPLICIT NONE
    !------------------------------------------------------------------------!
     CLASS(Physics_euler),INTENT(IN)  :: this
@@ -1282,10 +1296,10 @@ CONTAINS
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM) :: &
           pvar,sterm
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX) :: &
-                    btxx,btxy,btyy
+                    btxx,btxy,btxz,btyy,btyz,btzz
    !------------------------------------------------------------------------!
    !------------------------------------------------------------------------!
-    INTENT(IN)        :: pvar,btxx,btxy,btyy
+    INTENT(IN)        :: pvar,btxx,btxy,btxz,btyy,btyz,btzz
     INTENT(OUT)       :: sterm
    !------------------------------------------------------------------------!
    ! mean values of stress tensor components across the cell interfaces
@@ -1295,8 +1309,14 @@ CONTAINS
 
    ! compute viscous momentum sources
    ! divergence of stress tensor with symmetry btyx=btxy
-    CALL Mesh%Divergence(btxx,btxy,btxy,btyy,sterm(:,:,:,this%XMOMENTUM), &
-                         sterm(:,:,:,this%YMOMENTUM))
+    SELECT CASE(this%VDIM)
+    CASE(2)
+      CALL Mesh%Divergence(btxx,btxy,btxy,btyy,sterm(:,:,:,this%XMOMENTUM), &
+                           sterm(:,:,:,this%YMOMENTUM))
+    CASE(3)
+      CALL Mesh%Divergence(btxx,btxy,btxz,btxy,btyy,btyz,btxz,btyz,btzz,sterm(:,:,:,this%XMOMENTUM), &
+                           sterm(:,:,:,this%YMOMENTUM),sterm(:,:,:,this%ZMOMENTUM))
+    END SELECT
   END SUBROUTINE ViscositySources_euler
 
   ! identical to isothermal case. 
@@ -1319,55 +1339,90 @@ CONTAINS
     ! inside the computational domain including one slice of ghost cells
 
     ! compute bulk viscosity first and store the result in this%tmp
-    CALL Mesh%Divergence(pvar(:,:,:,this%XVELOCITY),pvar(:,:,:,this%YVELOCITY),this%tmp(:,:,:))
+    SELECT CASE (this%VDIM) 
+    CASE(2)
+      CALL Mesh%Divergence(pvar(:,:,:,this%XVELOCITY),pvar(:,:,:,this%YVELOCITY),this%tmp(:,:,:))
+    CASE(3)
+      CALL Mesh%Divergence(pvar(:,:,:,this%XVELOCITY),pvar(:,:,:,this%YVELOCITY),pvar(:,:,:,this%ZVELOCITY),this%tmp(:,:,:))
+    END SELECT
     this%tmp(:,:,:) = bulkvis(:,:,:)*this%tmp(:,:,:)
 
-!NEC$ OUTERLOOP_UNROLL(8)
-  DO k=Mesh%KMIN-Mesh%KP1,Mesh%KMAX+Mesh%KP1
-    DO j=Mesh%JMIN-Mesh%JP1,Mesh%JMAX+Mesh%JP1
-!NEC$ IVDEP
-       DO i=Mesh%IMIN-Mesh%IP1,Mesh%IMAX+Mesh%IP1
-          ! compute the diagonal elements of the stress tensor
-          btxx(i,j,k) = dynvis(i,j,k) * &
+    SELECT CASE(this%VDIM)
+    CASE(2) 
+      !NEC$ OUTERLOOP_UNROLL(8)
+      DO k=Mesh%KMIN-Mesh%KP1,Mesh%KMAX+Mesh%KP1
+        DO j=Mesh%JMIN-Mesh%JP1,Mesh%JMAX+Mesh%JP1
+          !NEC$ IVDEP
+          DO i=Mesh%IMIN-Mesh%IP1,Mesh%IMAX+Mesh%IP1
+            ! compute the diagonal elements of the stress tensor
+            btxx(i,j,k) = dynvis(i,j,k) * &
                 ((pvar(i+1,j,k,this%XVELOCITY) - pvar(i-1,j,k,this%XVELOCITY)) / Mesh%dlx(i,j,k) &
-               + 2.0 * Mesh%cxyx%bcenter(i,j,k) * pvar(i,j,k,this%YVELOCITY) ) &
- !              + 2.0 * Mesh%cxzx%bcenter(i,j,k) * pvar(i,j,k,this%ZVELOCITY) ) &
+               + 2.0 * Mesh%cxyx%bcenter(i,j,k) * pvar(i,j,k,this%YVELOCITY))  &
                + this%tmp(i,j,k)
 
-          btyy(i,j,k) = dynvis(i,j,k) * &
+            btyy(i,j,k) = dynvis(i,j,k) * &
                ( (pvar(i,j+1,k,this%YVELOCITY) - pvar(i,j-1,k,this%YVELOCITY)) / Mesh%dly(i,j,k) &
-               + 2.0 * Mesh%cyxy%bcenter(i,j,k) * pvar(i,j,k,this%XVELOCITY) ) &
-!               + 2.0 * Mesh%cyzy%bcenter(i,j,k) * pvar(i,j,k,this%ZVELOCITY) ) &
+               + 2.0 * Mesh%cyxy%bcenter(i,j,k) * pvar(i,j,k,this%XVELOCITY))  &
                + this%tmp(i,j,k)
 
-!          btzz(i,j,k) = dynvis(i,j,k) * &
-!               ( (pvar(i,j,k+1,this%ZVELOCITY) - pvar(i,j,k-1,this%ZVELOCITY)) / Mesh%dlz(i,j,k) &
-!               + 2.0 * Mesh%czxz%bcenter(i,j,k) * pvar(i,j,k,this%XVELOCITY) &
-!               + 2.0 * Mesh%czyz%bcenter(i,j,k) * pvar(i,j,k,this%YVELOCITY) ) &
-!               + this%tmp(i,j,k)
-
-          ! compute the off-diagonal elements (no bulk viscosity)
-          btxy(i,j,k) = dynvis(i,j,k) * ( 0.5 * &
+            ! compute the off-diagonal elements (no bulk viscosity)
+            btxy(i,j,k) = dynvis(i,j,k) * ( 0.5 * &
                ( (pvar(i+1,j,k,this%YVELOCITY) - pvar(i-1,j,k,this%YVELOCITY)) / Mesh%dlx(i,j,k) &
                + (pvar(i,j+1,k,this%XVELOCITY) - pvar(i,j-1,k,this%XVELOCITY)) / Mesh%dly(i,j,k) ) &
                - Mesh%cxyx%bcenter(i,j,k) * pvar(i,j,k,this%XVELOCITY) &
                - Mesh%cyxy%bcenter(i,j,k) * pvar(i,j,k,this%YVELOCITY) )
 
-!          btxz(i,j,k) = dynvis(i,j,k) * ( 0.5 * &
-!               ( (pvar(i+1,j,k,this%ZVELOCITY) - pvar(i-1,j,k,this%ZVELOCITY)) / Mesh%dlx(i,j,k) &
-!               + (pvar(i,j,k+1,this%XVELOCITY) - pvar(i,j,k-1,this%XVELOCITY)) / Mesh%dlz(i,j,k) ) &
-!               - Mesh%czxz%bcenter(i,j,k) * pvar(i,j,k,this%ZVELOCITY) &
-!               - Mesh%cxzx%bcenter(i,j,k) * pvar(i,j,k,this%XVELOCITY) )
+          END DO
+        END DO
+      END DO
+    CASE(3)
+      !NEC$ OUTERLOOP_UNROLL(8)
+      DO k=Mesh%KMIN-Mesh%KP1,Mesh%KMAX+Mesh%KP1
+        DO j=Mesh%JMIN-Mesh%JP1,Mesh%JMAX+Mesh%JP1
+          !NEC$ IVDEP
+          DO i=Mesh%IMIN-Mesh%IP1,Mesh%IMAX+Mesh%IP1
+            ! compute the diagonal elements of the stress tensor
+            btxx(i,j,k) = dynvis(i,j,k) * &
+                ((pvar(i+1,j,k,this%XVELOCITY) - pvar(i-1,j,k,this%XVELOCITY)) / Mesh%dlx(i,j,k) &
+               + 2.0 * Mesh%cxyx%bcenter(i,j,k) * pvar(i,j,k,this%YVELOCITY)  &
+               + 2.0 * Mesh%cxzx%bcenter(i,j,k) * pvar(i,j,k,this%ZVELOCITY) ) &
+               + this%tmp(i,j,k)
 
-!          btyz(i,j,k) = dynvis(i,j,k) * ( 0.5 * &
-!               ( (pvar(i,j,k+1,this%YVELOCITY) - pvar(i,j,k-1,this%YVELOCITY)) / Mesh%dlz(i,j,k) &
-!               + (pvar(i,j+1,k,this%ZVELOCITY) - pvar(i,j-1,k,this%ZVELOCITY)) / Mesh%dly(i,j,k) ) &
-!               - Mesh%czyz%bcenter(i,j,k) * pvar(i,j,k,this%ZVELOCITY) &
-!               - Mesh%cyzy%bcenter(i,j,k) * pvar(i,j,k,this%YVELOCITY) )
+            btyy(i,j,k) = dynvis(i,j,k) * &
+               ( (pvar(i,j+1,k,this%YVELOCITY) - pvar(i,j-1,k,this%YVELOCITY)) / Mesh%dly(i,j,k) &
+               + 2.0 * Mesh%cyxy%bcenter(i,j,k) * pvar(i,j,k,this%XVELOCITY)  &
+               + 2.0 * Mesh%cyzy%bcenter(i,j,k) * pvar(i,j,k,this%ZVELOCITY) ) &
+               + this%tmp(i,j,k)
 
-       END DO
-    END DO
-  END DO
+            btzz(i,j,k) = dynvis(i,j,k) * &
+               ( (pvar(i,j,k+1,this%ZVELOCITY) - pvar(i,j,k-1,this%ZVELOCITY)) / Mesh%dlz(i,j,k) &
+               + 2.0 * Mesh%czxz%bcenter(i,j,k) * pvar(i,j,k,this%XVELOCITY) &
+               + 2.0 * Mesh%czyz%bcenter(i,j,k) * pvar(i,j,k,this%YVELOCITY) ) &
+               + this%tmp(i,j,k)
+
+            ! compute the off-diagonal elements (no bulk viscosity)
+            btxy(i,j,k) = dynvis(i,j,k) * ( 0.5 * &
+               ( (pvar(i+1,j,k,this%YVELOCITY) - pvar(i-1,j,k,this%YVELOCITY)) / Mesh%dlx(i,j,k) &
+               + (pvar(i,j+1,k,this%XVELOCITY) - pvar(i,j-1,k,this%XVELOCITY)) / Mesh%dly(i,j,k) ) &
+               - Mesh%cxyx%bcenter(i,j,k) * pvar(i,j,k,this%XVELOCITY) &
+               - Mesh%cyxy%bcenter(i,j,k) * pvar(i,j,k,this%YVELOCITY) )
+
+            btxz(i,j,k) = dynvis(i,j,k) * ( 0.5 * &
+               ( (pvar(i+1,j,k,this%ZVELOCITY) - pvar(i-1,j,k,this%ZVELOCITY)) / Mesh%dlx(i,j,k) &
+               + (pvar(i,j,k+1,this%XVELOCITY) - pvar(i,j,k-1,this%XVELOCITY)) / Mesh%dlz(i,j,k) ) &
+               - Mesh%czxz%bcenter(i,j,k) * pvar(i,j,k,this%ZVELOCITY) &
+               - Mesh%cxzx%bcenter(i,j,k) * pvar(i,j,k,this%XVELOCITY) )
+
+            btyz(i,j,k) = dynvis(i,j,k) * ( 0.5 * &
+               ( (pvar(i,j,k+1,this%YVELOCITY) - pvar(i,j,k-1,this%YVELOCITY)) / Mesh%dlz(i,j,k) &
+               + (pvar(i,j+1,k,this%ZVELOCITY) - pvar(i,j-1,k,this%ZVELOCITY)) / Mesh%dly(i,j,k) ) &
+               - Mesh%czyz%bcenter(i,j,k) * pvar(i,j,k,this%ZVELOCITY) &
+               - Mesh%cyzy%bcenter(i,j,k) * pvar(i,j,k,this%YVELOCITY) )
+
+          END DO
+        END DO
+      END DO
+    END SELECT
   END SUBROUTINE CalcStresses_euler
 
 

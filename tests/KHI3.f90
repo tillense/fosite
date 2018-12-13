@@ -398,8 +398,7 @@ CONTAINS
               + TRANSPOSE(dv(:,:,k,2)-0.5)*0.2
          Timedisc%pvar%data4d(:,:,k,Physics%YVELOCITY) = Timedisc%pvar%data4d(:,:,k,Physics%YVELOCITY) &
               + TRANSPOSE(dv(:,:,k,1)-0.5)*0.2
-         IF (Physics%GetType().EQ.Euler3D) &
-              Timedisc%pvar%data4d(:,:,k,Physics%ZVELOCITY) = Timedisc%pvar%data4d(:,:,k,Physics%ZVELOCITY) &
+         Timedisc%pvar%data4d(:,:,k,Physics%ZVELOCITY) = Timedisc%pvar%data4d(:,:,k,Physics%ZVELOCITY) &
               + TRANSPOSE(dv(:,:,k,3)-0.5)*0.2
        END DO
     ! initial condition
@@ -431,8 +430,7 @@ CONTAINS
              + TRANSPOSE(dv_temp(i,:,:,1)-0.5)*0.2
         Timedisc%pvar%data4d(i,:,:,Physics%YVELOCITY) = Timedisc%pvar%data4d(i,:,:,Physics%YVELOCITY) &
              + TRANSPOSE(dv_temp(i,:,:,3)-0.5)*0.2
-        IF (Physics%GetType().EQ.Euler3D) &
-             Timedisc%pvar%data4d(i,:,:,Physics%ZVELOCITY) = Timedisc%pvar%data4d(i,:,:,Physics%ZVELOCITY) &
+        Timedisc%pvar%data4d(i,:,:,Physics%ZVELOCITY) = Timedisc%pvar%data4d(i,:,:,Physics%ZVELOCITY) &
              + TRANSPOSE(dv_temp(i,:,:,2)-0.5)*0.2
       END DO
     ELSEIF (PRESENT(flow_dir).AND.flow_dir.EQ.'xy') THEN
@@ -456,8 +454,7 @@ CONTAINS
              + (dv(:,:,:,1)-0.5)*0.2
         Timedisc%pvar%data4d(:,:,:,Physics%YVELOCITY) = Timedisc%pvar%data4d(:,:,:,Physics%YVELOCITY) &
              + (dv(:,:,:,2)-0.5)*0.2
-        IF (Physics%GetType().EQ.Euler3D) &
-             Timedisc%pvar%data4d(:,:,:,Physics%ZVELOCITY) = Timedisc%pvar%data4d(:,:,:,Physics%ZVELOCITY) &
+        Timedisc%pvar%data4d(:,:,:,Physics%ZVELOCITY) = Timedisc%pvar%data4d(:,:,:,Physics%ZVELOCITY) &
              + (dv(:,:,:,3)-0.5)*0.2
 
      ELSEIF (PRESENT(flow_dir).AND.flow_dir.EQ.'xz') THEN
@@ -482,8 +479,7 @@ CONTAINS
              + TRANSPOSE(dv(i,:,:,1)-0.5)*0.2
         Timedisc%pvar%data4d(i,:,:,Physics%YVELOCITY) = Timedisc%pvar%data4d(i,:,:,Physics%YVELOCITY) &
              + TRANSPOSE(dv(i,:,:,3)-0.5)*0.2
-        IF (Physics%GetType().EQ.Euler3D) &
-             Timedisc%pvar%data4d(i,:,:,Physics%ZVELOCITY) = Timedisc%pvar%data4d(i,:,:,Physics%ZVELOCITY) &
+        Timedisc%pvar%data4d(i,:,:,Physics%ZVELOCITY) = Timedisc%pvar%data4d(i,:,:,Physics%ZVELOCITY) &
              + TRANSPOSE(dv(i,:,:,2)-0.5)*0.2
       END DO
    ELSEIF (PRESENT(flow_dir).AND.flow_dir.EQ.'zy') THEN
@@ -508,8 +504,7 @@ CONTAINS
              + TRANSPOSE(dv(:,j,:,3)-0.5)*0.2
         Timedisc%pvar%data4d(:,j,:,Physics%YVELOCITY) = Timedisc%pvar%data4d(:,j,:,Physics%YVELOCITY) &
              + TRANSPOSE(dv(:,j,:,2)-0.5)*0.2
-        IF (Physics%GetType().EQ.Euler3D) &
-             Timedisc%pvar%data4d(:,j,:,Physics%ZVELOCITY) = Timedisc%pvar%data4d(:,j,:,Physics%ZVELOCITY) &
+        Timedisc%pvar%data4d(:,j,:,Physics%ZVELOCITY) = Timedisc%pvar%data4d(:,j,:,Physics%ZVELOCITY) &
              + TRANSPOSE(dv(:,j,:,1)-0.5)*0.2
        END DO
    ELSEIF (PRESENT(flow_dir).AND.flow_dir.EQ.'yz') THEN
@@ -539,8 +534,7 @@ CONTAINS
              + TRANSPOSE(dv_temp(:,:,k,2)-0.5)*0.2
         Timedisc%pvar%data4d(:,:,k,Physics%YVELOCITY) = Timedisc%pvar%data4d(:,:,k,Physics%YVELOCITY) &
              + TRANSPOSE(dv_temp(:,:,k,1)-0.5)*0.2
-        IF (Physics%GetType().EQ.Euler3D) &
-             Timedisc%pvar%data4d(:,:,k,Physics%ZVELOCITY) = Timedisc%pvar%data4d(:,:,k,Physics%ZVELOCITY) &
+        Timedisc%pvar%data4d(:,:,k,Physics%ZVELOCITY) = Timedisc%pvar%data4d(:,:,k,Physics%ZVELOCITY) &
              + TRANSPOSE(dv_temp(:,:,k,3)-0.5)*0.2
       END DO
     ELSE 
