@@ -78,6 +78,7 @@ CONTAINS
            ! at the end to make sure gravity is the first source term in the list
            gsrc => src
            gdir => dir
+           newsrc => null()
         CASE(C_ACCEL)
           ALLOCATE(sources_c_accel::newsrc)
         CASE(DISK_COOLING)

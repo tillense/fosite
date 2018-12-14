@@ -30,7 +30,7 @@
 !!
 !! \author Jannes Klee
 !!
-!! \example shearingsheet.f90
+!! \example shearingsheet.f03
 !!
 !! This program runs the self-gravitating shearingsheet simulation first
 !! done by Gammie (2001) \cite gammie2001 . For initialization a constant
@@ -49,16 +49,16 @@
 !!  flux solver                   | \f$ \mathtt{KT} \f$
 !!  time-discretization           | \f$ \mathtt{DORMAND-PRINCE} \f$
 !!  limiter                       | \f$ \mathtt{VANLEER} \f$
-!!  boundaries (north, south)     | periodic
-!!  boundaries (east, west)       | shearing
+!!  boundaries (north, south)     | shearing
+!!  boundaries (east, west)       | periodic
 !!  heat capacity ratio \f$ \gamma \f$ | \f$ 2.0 \f$
 !!
 !!  Initial condition       | |
 !!  ------------------      | -----------------
 !!  density \f$ \Sigma \f$  | \f$ 1.0 \f$
 !!  pressure \f$ P \f$      | \f$ \frac{2.5^2 \pi^2 G \Sigma^3}{\gamma \Omega^2} \f$
-!!  velocity \f$ v_x \f$ | \f$ \delta v_x \f$
-!!  velocity \f$ v_y \f$ | \f$ -q \Omega x + \delta v_y \f$
+!!  velocity \f$ v_x \f$ | \f$ q \Omega y + \delta v_x \f$
+!!  velocity \f$ v_y \f$ | \f$ \delta v_y \f$
 !!  random velocities \f$ \delta v_x, \delta v_y \f$ | \f$ < c_{\mathrm{s}} \f$
 !! </div> <div class="col-md-6">
 !!   \image html http://www.astrophysik.uni-kiel.de/fosite/1024_beta10_vanleer_gamma2.png "slow cooling"
@@ -103,8 +103,8 @@ PROGRAM shearingsheet
   REAL, PARAMETER    :: Q          = 1.5            ! shearing parameter     !
   ! mesh settings
   INTEGER, PARAMETER :: MGEO       = CARTESIAN
-  INTEGER, PARAMETER :: XRES       = 128            ! cells in x-direction   !
-  INTEGER, PARAMETER :: YRES       = 128            ! cells in y-direction   !
+  INTEGER, PARAMETER :: XRES       = 1024           ! cells in x-direction   !
+  INTEGER, PARAMETER :: YRES       = 1024           ! cells in y-direction   !
   INTEGER, PARAMETER :: ZRES       = 1              ! cells in z-direction   !
   REAL               :: DOMAINX    = 320.0          ! domain size [GEOM]     !
   REAL               :: DOMAINY    = 320.0          ! domain size [GEOM]     !
@@ -139,7 +139,7 @@ CONTAINS
     !--------------------------------------------------------------------------!
     ! local variable declaration
     TYPE(Dict_TYP), POINTER :: mesh,physics,fluxes,boundary,&
-                               grav,vis,cooling,shearingbox,sources,timedisc,&
+                               grav,cooling,shearingbox,sources,timedisc,&
                                datafile
     REAL :: XMIN,XMAX,YMIN,YMAX,ZMIN,ZMAX, SOUNDSPEED
     !--------------------------------------------------------------------------!
@@ -216,14 +216,14 @@ CONTAINS
 
     ! shearing box fictious forces
     shearingbox => Dict(&
-                "stype"           / SHEARBOX &
+                "stype"        / SHEARBOX &
                 )
 
     ! sources settings (contains source terms)
     sources =>  Dict(&
-                "grav"        / grav, &
                 "cooling"     / cooling, &
-                "shearing"    / shearingbox &
+                "shearing"    / shearingbox, &
+                "grav"        / grav &
                 )
 
     ! time discretization settings
@@ -279,27 +279,20 @@ CONTAINS
                           Physics%Constants%GN**2.*SIGMA0**3./(GAMMA*OMEGA**2)
 
       ! create random numbers for setup of initial velocities
+      CALL InitRandSeed(Physics)
       IF (Mesh%WE_shear) THEN
-        CALL InitRandSeed(Physics)
-        CALL RANDOM_NUMBER(rands)
         CALL RANDOM_NUMBER(rands)
         rands = (rands-0.5)*0.1*SOUNDSPEED
         p%velocity%data4d(:,:,:,1) = rands(:,:,:)
 
-        CALL InitRandSeed(Physics)
-        CALL RANDOM_NUMBER(rands)
         CALL RANDOM_NUMBER(rands)
         rands = (rands-0.5)*0.1*SOUNDSPEED
         p%velocity%data4d(:,:,:,2)  = -Q*OMEGA*Mesh%bcenter(:,:,:,1) + rands(:,:,:)
       ELSE IF (Mesh%SN_shear) THEN
-        CALL InitRandSeed(Physics)
-        CALL RANDOM_NUMBER(rands)
         CALL RANDOM_NUMBER(rands)
         rands = (rands-0.5)*0.1*SOUNDSPEED
         p%velocity%data4d(:,:,:,1) = Q*OMEGA*Mesh%bcenter(:,:,:,2) + rands(:,:,:)
 
-        CALL InitRandSeed(Physics)
-        CALL RANDOM_NUMBER(rands)
         CALL RANDOM_NUMBER(rands)
         rands = (rands-0.5)*0.1*SOUNDSPEED
         p%velocity%data4d(:,:,:,2)  = rands(:,:,:)
