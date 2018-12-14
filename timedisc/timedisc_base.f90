@@ -85,7 +85,6 @@ PRIVATE
                          rhs, &                        !< ODE right hand side
                          cerr,cerr_max, &              !< error control & output
                          solution                      !< analytical solution
-     CLASS(selection_base), ALLOCATABLE :: selection   !< for masking part of comp. domain
      INTEGER          :: order                         !< time order
      REAL             :: cfl                           !< Courant number
      REAL             :: dt                            !< actual time step
@@ -460,7 +459,6 @@ CONTAINS
       CALL Physics%new_statevector(this%cerr,CONSERVATIVE)
       this%cerr%data1d(:)    = 0.
       ! create selection for the internal region
-      this%selection = selection_base((/Mesh%IMIN,Mesh%IMAX,Mesh%JMIN,Mesh%JMAX,Mesh%KMIN,Mesh%KMAX/))
       WRITE (info_str,'(ES7.1)') this%tol_rel*100
       CALL this%Info("            step size control: enabled")
       CALL this%Info("            rel. precision:    "//TRIM(info_str)//" %")
@@ -919,7 +917,7 @@ CONTAINS
       this%cerr%data2d(:,l) = ABS(cvar_high%data2d(:,l)-cvar_low%data2d(:,l)) &
                          / (this%tol_rel*ABS(cvar_high%data2d(:,l)) + this%tol_abs(l))
       ! determine the global maximum on the whole grid except for ghost zones
-      rel_err(l) = MAXVAL(this%cerr%data2d(:,l),MASK=this%selection%mask1d(:))
+      rel_err(l) = MAXVAL(this%cerr%data2d(:,l),MASK=Mesh%without_ghost_zones%mask1d(:))
       ! store the maximum between two output time steps
       IF (this%write_error) &
         this%cerr_max%data2d(:,l) = MAX(this%cerr_max%data2d(:,l),this%cerr%data2d(:,l))

@@ -100,6 +100,7 @@ MODULE mesh_base_mod
   TYPE,ABSTRACT, EXTENDS(logging_base) :: mesh_base
     !> \name Variables
     CLASS(geometry_base),ALLOCATABLE :: Geometry        !< geometrical properties
+    TYPE(selection_base) :: without_ghost_zones !< for masking part of comp. domain
     INTEGER           :: GNUM              !< number of ghost cells
     INTEGER           :: GINUM,GJNUM,GKNUM !< number of ghost cells in any direction
     INTEGER           :: INUM,JNUM,KNUM    !< resolution
@@ -457,6 +458,9 @@ CONTAINS
 
     ! initialize mesh arrays using indices with ghost cells
     CALL InitMeshProperties(this%IGMIN,this%IGMAX,this%JGMIN,this%JGMAX,this%KGMIN,this%KGMAX)
+
+    ! create selection for the internal region
+    this%without_ghost_zones = selection_base((/this%IMIN,this%IMAX,this%JMIN,this%JMAX,this%KMIN,this%KMAX/))
 
     ! coordinate differences in each direction
     this%dx = (this%xmax - this%xmin) / this%INUM
@@ -1486,6 +1490,8 @@ CONTAINS
           CALL MPI_Comm_free(this%comm_boundaries(i),ierror)
     END DO
 #endif
+
+
     CALL this%curv%Destroy()
     CALL this%hx%Destroy()
     CALL this%hy%Destroy()
@@ -1499,16 +1505,13 @@ CONTAINS
     CALL this%czyz%Destroy()
 
     DEALLOCATE(this%volume,this%dxdydV,this%dydzdV,this%dzdxdV,this%dlx,this%dly,this%dlz)
-    IF(ASSOCIATED(this%rotation)) &
-        DEALLOCATE(this%rotation)
-
-
     CALL this%cart%Destroy()
-
     CALL this%radius%Destroy()
     CALL this%posvec%Destroy()
 
     IF (ASSOCIATED(this%rotation)) DEALLOCATE(this%rotation)
+
+    CALL this%without_ghost_zones%Destroy()
 
     CALL CloseMeshProperties
 
