@@ -108,26 +108,26 @@ CONTAINS
     this%dAz(:,:,:,:) = this%dAzdxdy(:,:,:,:)*this%dx*this%dy    ! perpendicular to z-direction
 
     ! volume elements = hx*hy*hz*dx*dy*dz
-    this%volume(:,:,:) = this%sqrtg%center(:,:,:)*this%dx*this%dy*this%dz
+    this%volume%data3d(:,:,:) = this%sqrtg%center(:,:,:)*this%dx*this%dy*this%dz
 
     ! inverse volume elements multiplied by dxdy or dydz or dzdx
-    this%dxdydV(:,:,:) = this%dx*this%dy/(this%volume(:,:,:)+TINY(this%dx))
-    this%dydzdV(:,:,:) = this%dy*this%dz/(this%volume(:,:,:)+TINY(this%dy))
-    this%dzdxdV(:,:,:) = this%dz*this%dx/(this%volume(:,:,:)+TINY(this%dz))
+    this%dxdydV%data1d(:) = this%dx*this%dy/(this%volume%data1d(:)+TINY(this%dx))
+    this%dydzdV%data1d(:) = this%dy*this%dz/(this%volume%data1d(:)+TINY(this%dy))
+    this%dzdxdV%data1d(:) = this%dz*this%dx/(this%volume%data1d(:)+TINY(this%dz))
 
     ! commutator coefficients (geometric center values)
     this%cyxy%center(:,:,:) = 0.5*(this%hz%faces(:,:,:,2)+this%hz%faces(:,:,:,1)) &
-         * (this%hy%faces(:,:,:,2)-this%hy%faces(:,:,:,1)) * this%dydzdV(:,:,:)
+         * (this%hy%faces(:,:,:,2)-this%hy%faces(:,:,:,1)) * this%dydzdV%data3d(:,:,:)
     this%cyzy%center(:,:,:) = 0.5*(this%hx%faces(:,:,:,6)+this%hx%faces(:,:,:,5)) &
-         * (this%hy%faces(:,:,:,6)-this%hy%faces(:,:,:,5)) * this%dxdydV(:,:,:)
+         * (this%hy%faces(:,:,:,6)-this%hy%faces(:,:,:,5)) * this%dxdydV%data3d(:,:,:)
     this%cxyx%center(:,:,:) = 0.5*(this%hz%faces(:,:,:,4)+this%hz%faces(:,:,:,3)) &
-         * (this%hx%faces(:,:,:,4)-this%hx%faces(:,:,:,3)) * this%dzdxdV(:,:,:)
+         * (this%hx%faces(:,:,:,4)-this%hx%faces(:,:,:,3)) * this%dzdxdV%data3d(:,:,:)
     this%cxzx%center(:,:,:) = 0.5*(this%hy%faces(:,:,:,6)+this%hy%faces(:,:,:,5)) &
-         * (this%hx%faces(:,:,:,6)-this%hx%faces(:,:,:,5)) * this%dxdydV(:,:,:)
+         * (this%hx%faces(:,:,:,6)-this%hx%faces(:,:,:,5)) * this%dxdydV%data3d(:,:,:)
     this%czxz%center(:,:,:) = 0.5*(this%hy%faces(:,:,:,2)+this%hy%faces(:,:,:,1)) &
-         * (this%hz%faces(:,:,:,2)-this%hz%faces(:,:,:,1)) * this%dydzdV(:,:,:)
+         * (this%hz%faces(:,:,:,2)-this%hz%faces(:,:,:,1)) * this%dydzdV%data3d(:,:,:)
     this%czyz%center(:,:,:) = 0.5*(this%hx%faces(:,:,:,4)+this%hx%faces(:,:,:,3)) &
-         * (this%hz%faces(:,:,:,4)-this%hz%faces(:,:,:,3)) * this%dzdxdV(:,:,:)
+         * (this%hz%faces(:,:,:,4)-this%hz%faces(:,:,:,3)) * this%dzdxdV%data3d(:,:,:)
 
     ! set bary center values to geometric center values
     this%cyxy%bcenter(:,:,:) = this%cyxy%center(:,:,:)
@@ -170,7 +170,7 @@ CONTAINS
                              this%dAxdydz(i,j,k,1),this%dAxdydz(i,j,k,2), &
                              this%dAydzdx(i,j,k,1),this%dAydzdx(i,j,k,2), &
                              this%dAzdxdy(i,j,k,1),this%dAzdxdy(i,j,k,2), &
-                             this%dxdydV(i,j,k),this%dzdxdV(i,j,k),this%dydzdV(i,j,k), &
+                             this%dxdydV%data3d(i,j,k),this%dzdxdV%data3d(i,j,k),this%dydzdV%data3d(i,j,k), &
                              0.0,0.0,0.0,0.0, & ! no commutator coefficients
                              0.5*(vx(i-1,j,k)+vx(i,j,k)),0.5*(vx(i+1,j,k)+vx(i,j,k)), &
                              0.5*(vy(i,j-1,k)+vy(i,j,k)),0.5*(vy(i,j+1,k)+vy(i,j,k)), &
@@ -243,7 +243,7 @@ CONTAINS
          divTx(i,j,k) = Divergence3D(this%dAxdydz(i,j,k,1),this%dAxdydz(i,j,k,2), &
                                  this%dAydzdx(i,j,k,1),this%dAydzdx(i,j,k,2), &
                                  this%dAzdxdy(i,j,k,1),this%dAzdxdy(i,j,k,2), &
-                                 this%dxdydV(i,j,k),this%dzdxdV(i,j,k),this%dydzdV(i,j,k), &
+                                 this%dxdydV%data3d(i,j,k),this%dzdxdV%data3d(i,j,k),this%dydzdV%data3d(i,j,k), &
                                  this%cxyx%center(i,j,k),this%cyxy%center(i,j,k), &
                                  0.0,0.0, & ! czxz = 0 and cxzx = 0 because of 2D
                                  0.5*(Txx(i-1,j,k)+Txx(i,j,k)),0.5*(Txx(i+1,j,k)+Txx(i,j,k)), &
@@ -254,7 +254,7 @@ CONTAINS
          divTy(i,j,k) = Divergence3D(this%dAxdydz(i,j,k,1),this%dAxdydz(i,j,k,2), &
                                  this%dAydzdx(i,j,k,1),this%dAydzdx(i,j,k,2), &
                                  this%dAzdxdy(i,j,k,1),this%dAzdxdy(i,j,k,2), &
-                                 this%dxdydV(i,j,k),this%dzdxdV(i,j,k),this%dydzdV(i,j,k), &
+                                 this%dxdydV%data3d(i,j,k),this%dzdxdV%data3d(i,j,k),this%dydzdV%data3d(i,j,k), &
                                  -this%cxyx%center(i,j,k),-this%cyxy%center(i,j,k), &
                                  0.0,0.0, & ! czyz = 0 and cyzy = 0 because of 2D
                                  0.5*(Tyx(i-1,j,k)+Tyx(i,j,k)),0.5*(Tyx(i+1,j,k)+Tyx(i,j,k)), &
@@ -345,7 +345,7 @@ CONTAINS
           divv(i,j,k) = Divergence3D(this%dAxdydz(i,j,k,1),this%dAxdydz(i,j,k,2), &
                                      this%dAydzdx(i,j,k,1),this%dAydzdx(i,j,k,2), &
                                      this%dAzdxdy(i,j,k,1),this%dAzdxdy(i,j,k,2), &
-                                     this%dxdydV(i,j,k),this%dzdxdV(i,j,k),this%dydzdV(i,j,k), &
+                                     this%dxdydV%data3d(i,j,k),this%dzdxdV%data3d(i,j,k),this%dydzdV%data3d(i,j,k), &
                                      0.0,0.0,0.0,0.0, & ! no commutator coefficients
                                      0.5*(vx(i-1,j,k)+vx(i,j,k)),0.5*(vx(i+1,j,k)+vx(i,j,k)), &
                                      0.5*(vy(i,j-1,k)+vy(i,j,k)),0.5*(vy(i,j+1,k)+vy(i,j,k)), &
@@ -387,7 +387,7 @@ CONTAINS
              divTx(i,j,k) = Divergence3D(this%dAxdydz(i,j,k,1),this%dAxdydz(i,j,k,2),                                 &
                                          this%dAydzdx(i,j,k,1),this%dAydzdx(i,j,k,2),                                 &
                                          this%dAzdxdy(i,j,k,1),this%dAzdxdy(i,j,k,2),                                 &
-                                         this%dxdydV(i,j,k),this%dzdxdV(i,j,k),this%dydzdV(i,j,k),                    &
+                                         this%dxdydV%data3d(i,j,k),this%dzdxdV%data3d(i,j,k),this%dydzdV%data3d(i,j,k),                    &
                                          this%cxyx%center(i,j,k),this%cxzx%center(i,j,k),this%cyxy%center(i,j,k),this%czxz%center(i,j,k), &
                                          0.5*(Txx(i-1,j,k)+Txx(i,j,k)),0.5*(Txx(i+1,j,k)+Txx(i,j,k)),             &
                                          0.5*(Txy(i,j-1,k)+Txy(i,j,k)),0.5*(Txy(i,j+1,k)+Txy(i,j,k)),             &
@@ -398,7 +398,7 @@ CONTAINS
              divTy(i,j,k) = Divergence3D(this%dAxdydz(i,j,k,1),this%dAxdydz(i,j,k,2),                                  &
                                          this%dAydzdx(i,j,k,1),this%dAydzdx(i,j,k,2),                                  &
                                          this%dAzdxdy(i,j,k,1),this%dAzdxdy(i,j,k,2),                                  &
-                                         this%dxdydV(i,j,k),this%dzdxdV(i,j,k),this%dydzdV(i,j,k),                     &
+                                         this%dxdydV%data3d(i,j,k),this%dzdxdV%data3d(i,j,k),this%dydzdV%data3d(i,j,k),                     &
                                         -this%cxyx%center(i,j,k),this%cyzy%center(i,j,k),-this%cyxy%center(i,j,k),this%czyz%center(i,j,k), &
                                          0.5*(Tyx(i-1,j,k)+Tyx(i,j,k)),0.5*(Tyx(i+1,j,k)+Tyx(i,j,k)),              &
                                          0.5*(Tyy(i,j-1,k)+Tyy(i,j,k)),0.5*(Tyy(i,j+1,k)+Tyy(i,j,k)),              &
@@ -408,7 +408,7 @@ CONTAINS
              divTz(i,j,k) = Divergence3D(this%dAxdydz(i,j,k,1),this%dAxdydz(i,j,k,2),                     &
                                          this%dAydzdx(i,j,k,1),this%dAydzdx(i,j,k,2),                     &
                                          this%dAzdxdy(i,j,k,1),this%dAzdxdy(i,j,k,2),                     &
-                                         this%dxdydV(i,j,k),this%dzdxdV(i,j,k),this%dydzdV(i,j,k),        &
+                                         this%dxdydV%data3d(i,j,k),this%dzdxdV%data3d(i,j,k),this%dydzdV%data3d(i,j,k),        &
                                          this%czyz%center(i,j,k),-this%cxzx%center(i,j,k),-this%czxz%center(i,j,k),this%cyzy%center(i,j,k), &
                                          0.5*(Tzx(i-1,j,k)+Tzx(i,j,k)),0.5*(Tzx(i+1,j,k)+Tzx(i,j,k)), &
                                          0.5*(Tzy(i,j-1,k)+Tzy(i,j,k)),0.5*(Tzy(i,j+1,k)+Tzy(i,j,k)), &

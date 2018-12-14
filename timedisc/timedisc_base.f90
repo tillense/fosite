@@ -1099,9 +1099,9 @@ CONTAINS
             DO i=Mesh%IMIN,Mesh%IMAX
               ! update right hand side of ODE
               rhs%data4d(i,j,k,l) = &
-                    Mesh%dydzdV(i,j,k)*(this%xfluxdydz(i,j,k,l) - this%xfluxdydz(i-Mesh%Ip1,j,k,l)) &
-                  + Mesh%dzdxdV(i,j,k)*(this%yfluxdzdx(i,j,k,l) - this%yfluxdzdx(i,j-Mesh%Jp1,k,l)) &
-                  + Mesh%dxdydV(i,j,k)*(this%zfluxdxdy(i,j,k,l) - this%zfluxdxdy(i,j,k-Mesh%Kp1,l)) &
+                    Mesh%dydzdV%data3d(i,j,k)*(this%xfluxdydz(i,j,k,l) - this%xfluxdydz(i-Mesh%Ip1,j,k,l)) &
+                  + Mesh%dzdxdV%data3d(i,j,k)*(this%yfluxdzdx(i,j,k,l) - this%yfluxdzdx(i,j-Mesh%Jp1,k,l)) &
+                  + Mesh%dxdydV%data3d(i,j,k)*(this%zfluxdxdy(i,j,k,l) - this%zfluxdxdy(i,j,k-Mesh%Kp1,l)) &
                   - this%geo_src%data4d(i,j,k,l) - this%src%data4d(i,j,k,l)
             END DO
           END DO
@@ -1221,14 +1221,14 @@ CONTAINS
             DO i=Mesh%IMIN,Mesh%IMAX
               ! update right hand side of ODE
               IF(l.EQ.Physics%YMOMENTUM) THEN
-                rhs%data4d(i,j,k,l) = Mesh%dydzdV(i,j,k)*(this%xfluxdydz(i,j,k,l) - this%xfluxdydz(i-1,j,k,l)) &
+                rhs%data4d(i,j,k,l) = Mesh%dydzdV%data3d(i,j,k)*(this%xfluxdydz(i,j,k,l) - this%xfluxdydz(i-1,j,k,l)) &
                              / Mesh%hy%center(i,j,k)
               ELSE
-                rhs%data4d(i,j,k,l) = Mesh%dydzdV(i,j,k)*(this%xfluxdydz(i,j,k,l) - this%xfluxdydz(i-1,j,k,l))
+                rhs%data4d(i,j,k,l) = Mesh%dydzdV%data3d(i,j,k)*(this%xfluxdydz(i,j,k,l) - this%xfluxdydz(i-1,j,k,l))
               END IF
               ! time step update
               rhs%data4d(i,j,k,l) = rhs%data4d(i,j,k,l) &
-                           + Mesh%dzdxdV(i,j,k)*(this%yfluxdzdx(i,j,k,l) - this%yfluxdzdx(i,j-1,k,l))
+                           + Mesh%dzdxdV%data3d(i,j,k)*(this%yfluxdzdx(i,j,k,l) - this%yfluxdzdx(i,j-1,k,l))
             END DO
           END DO
         END DO

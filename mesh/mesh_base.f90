@@ -141,10 +141,10 @@ MODULE mesh_base_mod
                          ccart           !< cartesian corner positions
     !> \name
     !! #### line, area and volume elements
-    REAL, DIMENSION(:,:,:), POINTER :: &
-                         dlx,dly,dlz, &        !< cell centered line elements
-                         volume, &             !< cell volumes
+    TYPE(marray_base) :: volume, &             !< cell volumes
                          dxdydV,dydzdV,dzdxdV  !< dx/volume and dy/volume
+    REAL, DIMENSION(:,:,:), POINTER :: &
+                         dlx,dly,dlz           !< cell centered line elements
     REAL, DIMENSION(:,:,:,:), POINTER :: &
                          dAx,dAy,dAz, &            !< cell surface area elements
                          dAxdydz,dAydzdx,dAzdxdy  !< dAx/dydz, dAy/dxdz and dAz/dxdy
@@ -523,13 +523,14 @@ CONTAINS
     this%czxz = marray_cellscalar()
     this%czyz = marray_cellscalar()
 
+    ! create mesh arrays for line and volume elements and related arrays
+    this%volume = marray_base()
+    this%dxdydV = marray_base()
+    this%dydzdV = marray_base()
+    this%dzdxdV = marray_base()
 
     ! allocate memory for all pointers that are independent of fluxtype
     ALLOCATE( &
-         this%volume(this%IGMIN:this%IGMAX,this%JGMIN:this%JGMAX,this%KGMIN:this%KGMAX), &
-         this%dxdydV(this%IGMIN:this%IGMAX,this%JGMIN:this%JGMAX,this%KGMIN:this%KGMAX), &
-         this%dydzdV(this%IGMIN:this%IGMAX,this%JGMIN:this%JGMAX,this%KGMIN:this%KGMAX), &
-         this%dzdxdV(this%IGMIN:this%IGMAX,this%JGMIN:this%JGMAX,this%KGMIN:this%KGMAX), &
          this%dlx(this%IGMIN:this%IGMAX,this%JGMIN:this%JGMAX,this%KGMIN:this%KGMAX), &
          this%dly(this%IGMIN:this%IGMAX,this%JGMIN:this%JGMAX,this%KGMIN:this%KGMAX), &
          this%dlz(this%IGMIN:this%IGMAX,this%JGMIN:this%JGMAX,this%KGMIN:this%KGMAX), &
@@ -836,8 +837,8 @@ CONTAINS
     END IF
 
     CALL GetAttr(config, "output/volume", writefields, 0)
-    IF((writefields.EQ.1).AND.ASSOCIATED(this%volume)) &
-        CALL SetAttr(IO,"volume",this%volume(this%IMIN:this%IMAX,this%JMIN:this%JMAX,this%KMIN:this%KMAX))
+    IF((writefields.EQ.1).AND.ASSOCIATED(this%volume%data3d)) &
+        CALL SetAttr(IO,"volume",this%volume%data3d(this%IMIN:this%IMAX,this%JMIN:this%JMAX,this%KMIN:this%KMAX))
 
     CALL GetAttr(config, "output/dA", writefields, 0)
     IF(writefields.EQ.1) THEN
@@ -1503,8 +1504,12 @@ CONTAINS
     CALL this%cyzy%Destroy()
     CALL this%czxz%Destroy()
     CALL this%czyz%Destroy()
+    CALL this%volume%Destroy()
+    CALL this%dxdydV%Destroy()
+    CALL this%dydzdV%Destroy()
+    CALL this%dzdxdV%Destroy()
 
-    DEALLOCATE(this%volume,this%dxdydV,this%dydzdV,this%dzdxdV,this%dlx,this%dly,this%dlz)
+    DEALLOCATE(this%dlx,this%dly,this%dlz)
     CALL this%cart%Destroy()
     CALL this%radius%Destroy()
     CALL this%posvec%Destroy()
