@@ -186,7 +186,7 @@ CONTAINS
       this%accel%data4d(:,:,:,this%I2) = 2*Mesh%OMEGA*this%SIGN2 &
               * pvar%data4d(:,:,:,this%VEL2)
       ! shearingsheet inertial forces source terms
-      CALL Physics%ExternalSources(Mesh,this%accel%data4d,pvar,cvar,sterm)
+      CALL Physics%ExternalSources(this%accel,pvar,cvar,sterm)
     CASE(3)
       ! fargo transport type 3 enabled
       sterm%data2d(:,Physics%DENSITY) = 0.0

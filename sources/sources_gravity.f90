@@ -177,7 +177,7 @@ CONTAINS
     END IF
 
     ! gravitational source terms
-    CALL Physics%ExternalSources(Mesh,this%accel%data4d,pvar,cvar,sterm)
+    CALL Physics%ExternalSources(this%accel,pvar,cvar,sterm)
 
     !> \todo The treatment of energy sources should be handled in the physics
     !! module and not here!

@@ -193,7 +193,7 @@ CONTAINS
     END IF
 
     ! inertial forces source terms
-    CALL Physics%ExternalSources(Mesh,this%accel%data4d,pvar,cvar,sterm)
+    CALL Physics%ExternalSources(this%accel,pvar,cvar,sterm)
   END SUBROUTINE ExternalSources_single
 
   SUBROUTINE Convert2RotatingFrame(this,Mesh,Physics,pvar)

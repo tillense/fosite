@@ -104,7 +104,7 @@ CONTAINS
     CLASS(marray_compound),INTENT(INOUT):: pvar,cvar,sterm
     !------------------------------------------------------------------------!
     ! compute source terms due to constant acceleration
-    CALL Physics%ExternalSources(Mesh,this%accel%data4d,pvar,cvar,sterm)
+    CALL Physics%ExternalSources(this%accel,pvar,cvar,sterm)
   END SUBROUTINE
 
   SUBROUTINE CalcTimestep_single(this,Mesh,Physics,Fluxes,time,pvar,cvar,dt)

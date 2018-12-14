@@ -1213,26 +1213,25 @@ CONTAINS
       END SELECT
   END SUBROUTINE CalcStresses_euler
 
-  ! momentum and energy sources due to external force
-  PURE SUBROUTINE ExternalSources(this,Mesh,accel,pvar,cvar,sterm)
+  !> compute momentum sources given an external force
+  PURE SUBROUTINE ExternalSources(this,accel,pvar,cvar,sterm)
     !------------------------------------------------------------------------!
     CLASS(physics_eulerisotherm), INTENT(IN)  :: this
-    CLASS(mesh_base),         INTENT(IN)  :: Mesh
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VDIM), &
-                              INTENT(IN)  :: accel
+    CLASS(marray_base),       INTENT(IN)  :: accel
     CLASS(marray_compound), INTENT(INOUT) :: pvar,cvar,sterm
     !------------------------------------------------------------------------!
     INTEGER :: n
     !------------------------------------------------------------------------!
     SELECT TYPE(p => pvar)
-    TYPE IS(statevector_eulerisotherm)
+    CLASS IS(statevector_eulerisotherm)
       SELECT TYPE(c => cvar)
-      TYPE IS(statevector_eulerisotherm)
+      CLASS IS(statevector_eulerisotherm)
         SELECT TYPE(s => sterm)
-        TYPE IS(statevector_eulerisotherm)
+        CLASS IS(statevector_eulerisotherm)
           s%density%data1d(:) = 0.0
+!NEC$ UNROLL(3)
           DO n=1,this%VDIM
-            s%momentum%data4d(:,:,:,n) = c%density%data3d(:,:,:) * accel(:,:,:,n)
+            s%momentum%data2d(:,n) = c%density%data1d(:) * accel%data2d(:,n)
           END DO
         END SELECT
       END SELECT
