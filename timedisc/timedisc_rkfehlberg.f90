@@ -76,7 +76,7 @@ MODULE timedisc_rkfehlberg_mod
     PROCEDURE :: Finalize
     PROCEDURE :: SolveODE
     PROCEDURE :: ComputeCVar_rkfehlberg
-    GENERIC   :: ComputeCVar => ComputeCVar_modeuler, ComputeCVar_rkfehlberg
+    GENERIC   :: ComputeCVar => ComputeCVar_rkfehlberg
     PROCEDURE :: SetButcherTableau
     PROCEDURE :: ShowButcherTableau
   END TYPE timedisc_rkfehlberg
