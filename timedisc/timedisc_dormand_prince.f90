@@ -45,7 +45,6 @@ MODULE timedisc_dormand_prince_mod
   USE physics_base_mod
   USE sources_base_mod
   USE timedisc_rkfehlberg_mod
-  USE marray_base_mod
   USE common_dict
   IMPLICIT NONE
   !--------------------------------------------------------------------------!
@@ -53,6 +52,7 @@ MODULE timedisc_dormand_prince_mod
   TYPE, EXTENDS(timedisc_rkfehlberg) :: timedisc_dormand_prince
   CONTAINS
     PROCEDURE :: InitTimedisc_dormand_prince
+    PROCEDURE :: SetButcherTableau
     PROCEDURE :: Finalize
   END TYPE timedisc_dormand_prince
   CHARACTER(LEN=32), PARAMETER :: ODEsolver_name = "Dormand-Prince method"
@@ -71,30 +71,30 @@ CONTAINS
     CLASS(timedisc_dormand_prince), INTENT(INOUT) :: this
     CLASS(mesh_base),               INTENT(INOUT) :: Mesh
     CLASS(physics_base),            INTENT(IN)    :: Physics
-    TYPE(Dict_TYP), POINTER &
-                       :: config,IO
-    !------------------------------------------------------------------------!
-    INTEGER            :: err,method,ShowBut
+    TYPE(Dict_TYP), POINTER :: config,IO
     !------------------------------------------------------------------------!
     ! set default order
     CALL GetAttr(config, "order", this%order, 5)
 
+    ! set number of coefficients
     SELECT CASE(this%GetOrder())
     CASE(5)
-       !set number of coefficients
        this%m = 7
-       ! allocate memory
-       this%coeff = marray_base(Physics%VNUM,this%m)
-       this%coeff%data1d(:) = 0.0
-       ALLOCATE(this%b_high(this%m),&
-                this%b_low(this%m),&
-                this%c(this%m),&
-                this%a(this%m,this%m), &
-                STAT = err)
-       IF (err.NE.0) THEN
-          CALL this%Error("timedisc_dormand_prince", "Unable to allocate memory.")
-       END IF
-       !set coefficient scheme of dormand_prince
+    CASE DEFAULT
+       CALL this%Error("InitTimedisc_dormand_prince","only order 5 supported")
+    END SELECT
+
+    CALL this%InitTimedisc(Mesh,Physics,config,IO,DORMAND_PRINCE,ODEsolver_name)
+  END SUBROUTINE InitTimedisc_dormand_prince
+
+  !> set coefficients for dormand_prince scheme
+  SUBROUTINE SetButcherTableau(this)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(timedisc_dormand_prince)   :: this
+    !------------------------------------------------------------------------!
+    SELECT CASE(this%GetOrder())
+    CASE(5)
        this%b_high = (/ 35./384.,0.,500./1113.,125./192.,-2187./6784.,11./84.,0. /)
        this%b_low  = (/ 5179./57600., 0., 7571./16695., 393./640., &
                        -92097./339200., 187./2100., 1./40. /)
@@ -108,33 +108,10 @@ CONTAINS
                  9017./3168.,-355./33., 46732./5247.,49./176.,-5103./18656.,0.,0., &
                  35./384.,0.,500./1113.,125./192.,-2187./6784.,11./84.,0. /),&
                  (/this%m,this%m/)))
-
     CASE DEFAULT
-       CALL this%Error("timedisc_dormand_prince","time order must be 5")
+      CALL this%Error("timedisc_dormand_prince::SetButcherTableau","only order 5 supported")
     END SELECT
-
-    ! set RHS pointer to the first entry of the coeff field
-    this%rhs => Mesh%RemapBounds(this%coeff%data5d(:,:,:,:,1))
-
-    CALL GetAttr(config, "method", method)
-    CALL this%InitTimedisc(Mesh,Physics,config,IO,method,ODEsolver_name)
-
-    IF ((this%tol_rel.LT.0.0).OR.MINVAL(this%tol_abs(:)).LT.0.0) &
-         CALL this%Error("timedisc_dormand_prince", &
-         "error tolerance levels must be greater than 0")
-    IF (this%tol_rel.GT.1.0) THEN
-         CALL this%Warning("timedisc_dormand_prince", &
-            "adaptive step size control disabled (tol_rel>1)",0)
-    ELSE IF(this%tol_rel.GE.0.01) THEN
-         CALL this%Warning("timedisc_dormand_prince", &
-             "You chose a relatively high tol_rel (in comparison to order)",0)
-    END IF
-
-    CALL GetAttr(config, "ShowButcherTableau", ShowBut, 0)
-    IF (ShowBut .EQ. 1) CALL this%ShowButcherTableau()
-
-
-  END SUBROUTINE InitTimedisc_dormand_prince
+  END SUBROUTINE SetButcherTableau
 
   SUBROUTINE Finalize(this)
     IMPLICIT NONE

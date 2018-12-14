@@ -64,6 +64,7 @@ MODULE timedisc_modeuler_mod
   CONTAINS
     PROCEDURE :: InitTimedisc_modeuler
     PROCEDURE :: ComputeCVar_modeuler
+    GENERIC   :: ComputeCVar => ComputeCVar_modeuler
     PROCEDURE :: SolveODE
     PROCEDURE :: Finalize
   END TYPE timedisc_modeuler
@@ -73,7 +74,7 @@ MODULE timedisc_modeuler_mod
        RESHAPE((/ 0.0, 0.0, 0.0, 0.0, 0.5, 0.0, 0.0, 0.75, 1.0/3.0 /),(/3,3/))
   REAL, PARAMETER :: zeta(3,3) = &
        RESHAPE((/ 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.5 /),(/3,3/))
- !--------------------------------------------------------------------------!
+  !--------------------------------------------------------------------------!
   PUBLIC :: &
        ! types
        timedisc_modeuler, &
@@ -81,7 +82,6 @@ MODULE timedisc_modeuler_mod
        DTCAUSE_CFL,DTCAUSE_ERRADJ,DTCAUSE_SMALLERR, &
        CHECK_ALL, CHECK_NOTHING, CHECK_CSOUND, CHECK_PMIN, CHECK_RHOMIN, &
        CHECK_INVALID, CHECK_TMIN
-       ! methods
   !--------------------------------------------------------------------------!
 
 CONTAINS
@@ -94,11 +94,8 @@ CONTAINS
     CLASS(physics_base),      INTENT(IN)    :: Physics
     TYPE(Dict_TYP),           POINTER       :: config, IO
     !------------------------------------------------------------------------!
-!     INTEGER                                 :: method
-    !------------------------------------------------------------------------!
     ! set default order
     CALL GetAttr(config, "order", this%order, 3)
-!    CALL GetAttr(config, "method", method)
 
     CALL this%InitTimedisc(Mesh,Physics,config,IO,MODIFIED_EULER,ODEsolver_name)
 
@@ -156,7 +153,7 @@ CONTAINS
           ! update time variable
           t = time+zeta(n,order)*dt
           ! time step update of cvar and bfluxes
-          CALL this%ComputeCVar_modeuler(Mesh,Physics,Fluxes,eta(n,order), &
+          CALL this%ComputeCVar(Mesh,Physics,Fluxes,eta(n,order), &
                t,dt,this%cold,this%pvar,this%cvar,this%rhs,this%cvar)
           ! compute right hand side for next time step update
           CALL this%ComputeRHS(Mesh,Physics,Sources,Fluxes,t,dt,&
@@ -179,13 +176,13 @@ CONTAINS
           ! update time variable
           t = time+zeta(n,order)*dt
           ! time step update of cvar and bfluxes
-          CALL this%ComputeCVar_modeuler(Mesh,Physics,Fluxes,eta(n,order), &
+          CALL this%ComputeCVar(Mesh,Physics,Fluxes,eta(n,order), &
                t,dt,this%cold,p(n)%var,c(n)%var,this%rhs,c(n+1)%var)
           ! for 3rd order scheme compute the 2nd order result with the same RHS
           ! and store it in this%ctmp, bfluxes are not required
           IF (n.EQ.2.AND.order.EQ.3) &
              this%ctmp%data4d(:,:,:,:) = UpdateTimestep_modeuler(eta(2,2),dt,this%cold%data4d(:,:,:,:), &
-                                this%ctmp%data4d(:,:,:,:),this%rhs(:,:,:,:))
+                                this%ctmp%data4d(:,:,:,:),this%rhs%data4d(:,:,:,:))
           ! compute right hand side for next time step update
           IF (n.LT.order) &
              CALL this%ComputeRHS(Mesh,Physics,Sources,Fluxes,t,dt,p(n+1)%var,c(n+1)%var,&
@@ -210,15 +207,12 @@ CONTAINS
     CLASS(mesh_base),         INTENT(IN)    :: Mesh
     CLASS(physics_base),      INTENT(INOUT) :: Physics
     CLASS(fluxes_base),       INTENT(INOUT) :: Fluxes
-    CLASS(marray_compound),   INTENT(INOUT) :: cold,pvar,cvar,cnew
+    CLASS(marray_compound),   INTENT(INOUT) :: cold,pvar,cvar,cnew,rhs
     REAL                                    :: eta,time,dt
-    REAL,DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX, &
-                   Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM)          &
-                                            :: rhs
     !------------------------------------------------------------------------!
     INTEGER                                 :: i,j,k,l
     !------------------------------------------------------------------------!
-    INTENT(IN)                              :: eta,time,dt,rhs
+    INTENT(IN)                              :: eta,time,dt
     !------------------------------------------------------------------------!
 !NEC$ NOVECTOR
     DO l=1,Physics%VNUM
@@ -230,7 +224,7 @@ CONTAINS
           DO i=Mesh%IMIN,Mesh%IMAX
             ! time step update of conservative variables
             cnew%data4d(i,j,k,l) = UpdateTimestep_modeuler(eta,dt, &
-               cold%data4d(i,j,k,l),cvar%data4d(i,j,k,l),rhs(i,j,k,l))
+               cold%data4d(i,j,k,l),cvar%data4d(i,j,k,l),rhs%data4d(i,j,k,l))
           END DO
         END DO
       END DO
@@ -242,9 +236,9 @@ CONTAINS
         DO j=Mesh%JMIN,Mesh%JMAX
           ! time step update of boundary fluxes
           Fluxes%bxflux(j,k,1,l) = UpdateTimestep_modeuler(eta,dt,Fluxes%bxfold(j,k,1,l), &
-               Fluxes%bxflux(j,k,1,l),rhs(Mesh%IMIN-Mesh%Ip1,j,k,l))
+               Fluxes%bxflux(j,k,1,l),rhs%data4d(Mesh%IMIN-Mesh%IP1,j,k,l))
           Fluxes%bxflux(j,k,2,l) = UpdateTimestep_modeuler(eta,dt,Fluxes%bxfold(j,k,2,l), &
-               Fluxes%bxflux(j,k,2,l),rhs(Mesh%IMAX+Mesh%Ip1,j,k,l))
+               Fluxes%bxflux(j,k,2,l),rhs%data4d(Mesh%IMAX+Mesh%IP1,j,k,l))
         END DO
       END DO
 
@@ -255,9 +249,9 @@ CONTAINS
         DO k=Mesh%KMIN,Mesh%KMAX
           ! time step update of boundary fluxes
           Fluxes%byflux(k,i,1,l) = UpdateTimestep_modeuler(eta,dt,Fluxes%byfold(k,i,1,l), &
-               Fluxes%byflux(k,i,1,l),rhs(i,Mesh%JMIN-Mesh%Jp1,k,l))
+               Fluxes%byflux(k,i,1,l),rhs%data4d(i,Mesh%JMIN-Mesh%Jp1,k,l))
           Fluxes%byflux(k,i,2,l) = UpdateTimestep_modeuler(eta,dt,Fluxes%byfold(k,i,2,l), &
-               Fluxes%byflux(k,i,2,l),rhs(i,Mesh%JMAX+Mesh%Jp1,k,l))
+               Fluxes%byflux(k,i,2,l),rhs%data4d(i,Mesh%JMAX+Mesh%Jp1,k,l))
         END DO
       END DO
 
@@ -268,9 +262,9 @@ CONTAINS
 !NEC$ IVDEP
         DO i=Mesh%IMIN,Mesh%IMAX
           Fluxes%bzflux(i,j,1,l) = UpdateTimestep_modeuler(eta,dt,Fluxes%bzfold(i,j,1,l), &
-               Fluxes%bzflux(i,j,1,l),rhs(i,j,Mesh%KMIN-Mesh%Kp1,l))
+               Fluxes%bzflux(i,j,1,l),rhs%data4d(i,j,Mesh%KMIN-Mesh%Kp1,l))
           Fluxes%bzflux(i,j,2,l) = UpdateTimestep_modeuler(eta,dt,Fluxes%bzfold(i,j,2,l), &
-               Fluxes%bzflux(i,j,2,l),rhs(i,j,Mesh%KMAX+Mesh%Kp1,l))
+               Fluxes%bzflux(i,j,2,l),rhs%data4d(i,j,Mesh%KMAX+Mesh%Kp1,l))
         END DO
       END DO
     END DO

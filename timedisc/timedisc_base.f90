@@ -82,6 +82,7 @@ PRIVATE
      CLASS(marray_compound), POINTER  &
                       :: pvar,cvar,ptmp,ctmp,cold, &   !< prim/cons state vectors
                          src,geo_src, &                !< source terms
+                         rhs, &                        !< ODE right hand side
                          cerr,cerr_max, &              !< error control & output
                          solution                      !< analytical solution
      CLASS(selection_base), ALLOCATABLE :: selection   !< for masking part of comp. domain
@@ -121,7 +122,6 @@ PRIVATE
                                           newphi_s
      REAL, DIMENSION(:), POINTER       :: gamma
      INTEGER                           :: pc               !< = 1 predictor-corrector
-     REAL, DIMENSION(:,:,:,:), POINTER :: rhs              !< ODE right hand side
      !> numerical fluxes divided by dy or dx
      REAL, DIMENSION(:,:,:,:), POINTER :: xfluxdydz,yfluxdzdx,zfluxdxdy
      REAL, DIMENSION(:,:,:,:), POINTER :: amax            !< max. wave speeds
@@ -223,26 +223,18 @@ CONTAINS
     CLASS(mesh_base),     INTENT(INOUT) :: Mesh
     CLASS(physics_base),  INTENT(IN)    :: Physics
     TYPE(Dict_TYP),       POINTER       :: config,IO
-    INTEGER                             :: ttype
-    CHARACTER(LEN=32)                   :: tname
+    INTEGER,              INTENT(IN)    :: ttype
+    CHARACTER(LEN=32),    INTENT(IN)    :: tname
     !------------------------------------------------------------------------!
     INTEGER              :: err, d
     CHARACTER(LEN=32)    :: order_str,cfl_str,stoptime_str,dtmax_str,beta_str
     CHARACTER(LEN=32)    :: info_str,shear_direction
     INTEGER              :: method
     !------------------------------------------------------------------------!
-    INTENT(IN)           :: ttype, tname
-    !------------------------------------------------------------------------!
     CALL this%InitLogging(ttype,tname)
 
     IF (.NOT.Physics%Initialized().OR..NOT.Mesh%Initialized()) &
          CALL this%Error("InitTimedisc","physics and/or mesh module uninitialized")
-    ! For other methods the data is stored in this%coeff and rhs points to it. Therefore an allocation is
-    ! not necessary or rather leads to memory leaks.
-    IF(this%GetType().EQ.MODIFIED_EULER) THEN
-      ALLOCATE(this%rhs(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM))
-      this%rhs  = 0.
-    END IF
 
       ! allocate memory for data structures needed in all timedisc modules
     ALLOCATE( &
@@ -266,6 +258,7 @@ CONTAINS
     CALL Physics%new_statevector(this%cold,CONSERVATIVE)
     CALL Physics%new_statevector(this%geo_src,CONSERVATIVE)
     CALL Physics%new_statevector(this%src,CONSERVATIVE)
+    CALL Physics%new_statevector(this%rhs,CONSERVATIVE)
     NULLIFY(this%cerr,this%cerr_max)
 
     ! initialize all variables
@@ -276,6 +269,7 @@ CONTAINS
     this%cold%data1d(:)    = 0.
     this%geo_src%data1d(:) = 0.
     this%src%data1d(:)     = 0.
+    this%rhs%data1d(:)     = 0.
     this%xfluxdydz = 0.
     this%yfluxdzdx = 0.
     this%zfluxdxdy = 0.
@@ -583,7 +577,7 @@ CONTAINS
       CALL GetAttr(config, "output/" // "rhs", valwrite, 0)
       IF (valwrite.EQ.1) THEN
            CALL SetAttr(IO, TRIM(key)//"_rhs", &
-                        this%rhs(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,i))
+                        this%rhs%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,i))
       END IF
 
       ! write fluxes
@@ -971,9 +965,7 @@ CONTAINS
     CLASS(sources_base),  POINTER       :: Sources
     CLASS(fluxes_base),   INTENT(INOUT) :: Fluxes
     REAL,                 INTENT(IN)    :: time, dt
-    CLASS(marray_compound),INTENT(INOUT):: pvar,cvar
-    REAL,DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM+Physics%PNUM), &
-                          INTENT(OUT)   :: rhs
+    CLASS(marray_compound),INTENT(INOUT):: pvar,cvar,rhs
     INTEGER,              INTENT(IN)    :: checkdatabm
     !------------------------------------------------------------------------!
     INTEGER                             :: i,j,k,l
@@ -1075,22 +1067,22 @@ CONTAINS
       DO k=Mesh%KMIN,Mesh%KMAX
         DO j=Mesh%JMIN,Mesh%JMAX
           ! western and eastern boundary fluxes
-          rhs(Mesh%IMIN-Mesh%Ip1,j,k,l) = Mesh%dy*Mesh%dz * this%xfluxdydz(Mesh%IMIN-Mesh%Ip1,j,k,l)
-          rhs(Mesh%IMAX+Mesh%Ip1,j,k,l) = -Mesh%dy*Mesh%dz * this%xfluxdydz(Mesh%IMAX,j,k,l)
+          rhs%data4d(Mesh%IMIN-Mesh%Ip1,j,k,l) = Mesh%dy*Mesh%dz * this%xfluxdydz(Mesh%IMIN-Mesh%Ip1,j,k,l)
+          rhs%data4d(Mesh%IMAX+Mesh%Ip1,j,k,l) = -Mesh%dy*Mesh%dz * this%xfluxdydz(Mesh%IMAX,j,k,l)
         END DO
       END DO
       DO k=Mesh%KMIN,Mesh%KMAX
         DO i=Mesh%IMIN,Mesh%IMAX
           ! southern and northern boundary fluxes
-          rhs(i,Mesh%JMIN-Mesh%Jp1,k,l) = Mesh%dz*Mesh%dx * this%yfluxdzdx(i,Mesh%JMIN-Mesh%Jp1,k,l)
-          rhs(i,Mesh%JMAX+Mesh%Jp1,k,l) = -Mesh%dz*Mesh%dx * this%yfluxdzdx(i,Mesh%JMAX,k,l)
+          rhs%data4d(i,Mesh%JMIN-Mesh%Jp1,k,l) = Mesh%dz*Mesh%dx * this%yfluxdzdx(i,Mesh%JMIN-Mesh%Jp1,k,l)
+          rhs%data4d(i,Mesh%JMAX+Mesh%Jp1,k,l) = -Mesh%dz*Mesh%dx * this%yfluxdzdx(i,Mesh%JMAX,k,l)
         END DO
       END DO
       DO j=Mesh%JMIN,Mesh%JMAX
         DO i=Mesh%IMIN,Mesh%IMAX
           ! bottomer and upper boundary fluxes
-          rhs(i,j,Mesh%KMIN-Mesh%Kp1,l) = Mesh%dx*Mesh%dy * this%zfluxdxdy(i,j,Mesh%KMIN-Mesh%Kp1,l)
-          rhs(i,j,Mesh%KMAX+Mesh%Kp1,l) = -Mesh%dx*Mesh%dy * this%zfluxdxdy(i,j,Mesh%KMAX,l)
+          rhs%data4d(i,j,Mesh%KMIN-Mesh%Kp1,l) = Mesh%dx*Mesh%dy * this%zfluxdxdy(i,j,Mesh%KMIN-Mesh%Kp1,l)
+          rhs%data4d(i,j,Mesh%KMAX+Mesh%Kp1,l) = -Mesh%dx*Mesh%dy * this%zfluxdxdy(i,j,Mesh%KMAX,l)
         END DO
       END DO
     END DO
@@ -1108,7 +1100,7 @@ CONTAINS
           DO j=Mesh%JMIN,Mesh%JMAX
             DO i=Mesh%IMIN,Mesh%IMAX
               ! update right hand side of ODE
-              rhs(i,j,k,l) = &
+              rhs%data4d(i,j,k,l) = &
                     Mesh%dydzdV(i,j,k)*(this%xfluxdydz(i,j,k,l) - this%xfluxdydz(i-Mesh%Ip1,j,k,l)) &
                   + Mesh%dzdxdV(i,j,k)*(this%yfluxdzdx(i,j,k,l) - this%yfluxdzdx(i,j-Mesh%Jp1,k,l)) &
                   + Mesh%dxdydV(i,j,k)*(this%zfluxdxdy(i,j,k,l) - this%zfluxdxdy(i,j,k-Mesh%Kp1,l)) &
@@ -1231,13 +1223,13 @@ CONTAINS
             DO i=Mesh%IMIN,Mesh%IMAX
               ! update right hand side of ODE
               IF(l.EQ.Physics%YMOMENTUM) THEN
-                rhs(i,j,k,l) = Mesh%dydzdV(i,j,k)*(this%xfluxdydz(i,j,k,l) - this%xfluxdydz(i-1,j,k,l)) &
+                rhs%data4d(i,j,k,l) = Mesh%dydzdV(i,j,k)*(this%xfluxdydz(i,j,k,l) - this%xfluxdydz(i-1,j,k,l)) &
                              / Mesh%hy%center(i,j,k)
               ELSE
-                rhs(i,j,k,l) = Mesh%dydzdV(i,j,k)*(this%xfluxdydz(i,j,k,l) - this%xfluxdydz(i-1,j,k,l))
+                rhs%data4d(i,j,k,l) = Mesh%dydzdV(i,j,k)*(this%xfluxdydz(i,j,k,l) - this%xfluxdydz(i-1,j,k,l))
               END IF
               ! time step update
-              rhs(i,j,k,l) = rhs(i,j,k,l) &
+              rhs%data4d(i,j,k,l) = rhs%data4d(i,j,k,l) &
                            + Mesh%dzdxdV(i,j,k)*(this%yfluxdzdx(i,j,k,l) - this%yfluxdzdx(i,j-1,k,l))
             END DO
           END DO
@@ -1250,13 +1242,13 @@ CONTAINS
             IF(ASSOCIATED(pot)) &
               phi = pot(i,j,k,1)
             wp = this%w(i,k) + Mesh%radius%bcenter(i,j,k) * Mesh%OMEGA
-            rhs(i,j,k,Physics%YMOMENTUM) = rhs(i,j,k,Physics%YMOMENTUM) &
-              - wp * rhs(i,j,k,Physics%DENSITY)
+            rhs%data4d(i,j,k,Physics%YMOMENTUM) = rhs%data4d(i,j,k,Physics%YMOMENTUM) &
+              - wp * rhs%data4d(i,j,k,Physics%DENSITY)
             IF(Physics%PRESSURE.GT.0) &
-              rhs(i,j,k,Physics%ENERGY) = rhs(i,j,k,Physics%ENERGY) &
-                - wp*( rhs(i,j,k,Physics%YMOMENTUM) &
-                       + 0.5 * wp* rhs(i,j,k,Physics%DENSITY)) &
-                - phi * rhs(i,j,k,Physics%DENSITY)
+              rhs%data4d(i,j,k,Physics%ENERGY) = rhs%data4d(i,j,k,Physics%ENERGY) &
+                - wp*( rhs%data4d(i,j,k,Physics%YMOMENTUM) &
+                       + 0.5 * wp* rhs%data4d(i,j,k,Physics%DENSITY)) &
+                - phi * rhs%data4d(i,j,k,Physics%DENSITY)
           END DO
         END DO
       END DO
@@ -1269,7 +1261,7 @@ CONTAINS
 !NEC$ IVDEP
             DO i=Mesh%IMIN,Mesh%IMAX
               ! update right hand side of ODE
-              rhs(i,j,k,l) = rhs(i,j,k,l) - this%geo_src%data4d(i,j,k,l) - this%src%data4d(i,j,k,l)
+              rhs%data4d(i,j,k,l) = rhs%data4d(i,j,k,l) - this%geo_src%data4d(i,j,k,l) - this%src%data4d(i,j,k,l)
             END DO
           END DO
         END DO
@@ -1794,7 +1786,7 @@ CONTAINS
       CALL this%ComputeRHS(Mesh,Physics,Sources,Fluxes,this%time,0.0,this%pvar,this%cvar,this%checkdatabm,this%rhs)
       ! HERE DEPENDEND ON Physics
       DO k=Physics%XMOMENTUM,Physics%XMOMENTUM+Physics%VDIM-1
-        accel(:,:,:,k-Physics%XMOMENTUM+1) = -1. * this%rhs(:,:,:,k) &
+        accel(:,:,:,k-Physics%XMOMENTUM+1) = -1. * this%rhs%data4d(:,:,:,k) &
                                            / this%pvar%data4d(:,:,:,Physics%DENSITY)
       END DO
     END IF
@@ -1893,10 +1885,11 @@ CONTAINS
     CALL this%cold%Destroy()
     CALL this%geo_src%Destroy()
     CALL this%src%Destroy()
+    CALL this%rhs%Destroy()
 
     DEALLOCATE( &
       this%pvar,this%cvar,this%ptmp,this%ctmp, &
-      this%geo_src,this%src, &
+      this%geo_src,this%src,this%rhs, &
       this%xfluxdydz,this%yfluxdzdx,this%zfluxdxdy,this%amax,this%tol_abs,&
       this%dtmean,this%dtstddev,this%time)
 
