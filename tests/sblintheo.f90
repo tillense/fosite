@@ -1,9 +1,9 @@
 !#############################################################################
 !#                                                                           #
-!# fosite - 2D hydrodynamical simulation program                             #
-!# module: sblintheo.f90                                                     #
+!# fosite - 3D hydrodynamical simulation program                             #
+!# module: sblintheo.f03                                                     #
 !#                                                                           #
-!# Copyright (C) 2015                                                        #
+!# Copyright (C) 2015-2018                                                   #
 !# Jannes Klee <jklee@astrophysik.uni-kiel.de>                               #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
 !#                                                                           #
@@ -24,7 +24,7 @@
 !#                                                                           #
 !#############################################################################
 !----------------------------------------------------------------------------!
-!> \test Program and data initialization for the linear theory test in a SB.
+!> \test Program and data initialization for the linear theory test in a shearingsheet.
 !!
 !! \author Jannes Klee
 !!
@@ -45,13 +45,13 @@
 !!     pp. 3286-3299.
 !!
 !! The test can be either done thermal or isothermal and with or without
-!! gravity.
+!! gravity. The standard test implementation here solves the isothermal case
+!! with gravity until the first maximum in the amplitude is reached.
 !!
 !! Test for the following modules:
 !!    1. shearing boundaries (\link boundary_shearing \endlink)
 !!    2. fictious forces (\link sources_shearbox \endlink)
 !!    3. selfgravity (\link gravity_sboxspectral \endlink)
-!!
 !!
 !! Within the linear theory test the evolution of a shearing wave
 !! \f[
@@ -67,8 +67,7 @@
 !! \f]
 !! There are analytical solutions for the thermal and isothermal case
 !! \cite gammie2001 \cite paardekooper2012 \cite gammie1996 . A
-!! python script solving cases can be found in folder tools.
-!! \todo{upload python script!}
+!! python script solving these cases can be found in folder tools/scripts.
 !----------------------------------------------------------------------------!
 PROGRAM sblintheo
   USE fosite_mod
@@ -81,10 +80,10 @@ PROGRAM sblintheo
   REAL, PARAMETER    :: OMEGA      = 1.0            ! rotation at fid. point !
   REAL, PARAMETER    :: SIGMA0     = 1.0            ! mean surf.dens.        !
   REAL, PARAMETER    :: DELSIGMA   = SIGMA0*5.0e-4  ! disturbance            !
-  REAL, PARAMETER    :: TSIM       = 10.0/OMEGA     ! simulation time        !
+  REAL, PARAMETER    :: TSIM       = 4.54845485/OMEGA ! simulation time (first maximum) !
   REAL, PARAMETER    :: GAMMA      = 2.0            ! dep. on vert. struct.  !
   REAL, PARAMETER    :: Q          = 1.5            ! shearing parameter     !
-  ! set (initial) speed of sound using the Toomre criterion and 
+  ! set (initial) speed of sound using the Toomre criterion and
   ! assuming marginal stabily; in non-isothermal simulations this is
   ! used to set the initial pressure (see InitData) whereas in isothermal
   ! simulations this is constant throughout the simulation
@@ -100,7 +99,6 @@ PROGRAM sblintheo
   INTEGER, PARAMETER :: FARGO      = 3              ! 3 = Shearingbox        !
   ! number of output time steps
   INTEGER, PARAMETER :: ONUM       = 10
-!  INTEGER, PARAMETER :: ONUM       = 100
   ! output directory and output name
   CHARACTER(LEN=256), PARAMETER :: ODIR   = "./"
   CHARACTER(LEN=256), PARAMETER :: OFNAME = "sblintheo"
@@ -109,24 +107,24 @@ PROGRAM sblintheo
   REAL               :: maximum
   !--------------------------------------------------------------------------!
 
-!TAP_PLAN(1)
+  TAP_PLAN(1)
 
-ALLOCATE(Sim)
+  ALLOCATE(Sim)
 
-CALL Sim%InitFosite()
-CALL MakeConfig(Sim, Sim%config)
-CALL Sim%Setup()
-CALL InitData(Sim%Mesh, Sim%Physics, Sim%Timedisc%pvar, Sim%Timedisc%cvar)
-CALL Sim%Run()
+  CALL Sim%InitFosite()
+  CALL MakeConfig(Sim, Sim%config)
+  CALL Sim%Setup()
+  CALL InitData(Sim%Mesh, Sim%Physics, Sim%Timedisc%pvar, Sim%Timedisc%cvar)
+  CALL Sim%Run()
 
-! search for the amplitude
-!maximum = MAXVAL(Sim%Timedisc%pvar(:,:,:,Sim%Physics%DENSITY)) - SIGMA0
-!TAP_CHECK_CLOSE(maximum, 0.0316463969505, 0.005, "Last max. < 0.005 deviation")
+  ! check amplitude
+  maximum = MAXVAL(Sim%Timedisc%pvar%data4d(:,:,:,Sim%Physics%DENSITY)) - SIGMA0
 
-CALL Sim%Finalize()
-DEALLOCATE(Sim)
+  CALL Sim%Finalize()
+  DEALLOCATE(Sim)
 
-!TAP_DONE
+  TAP_CHECK_CLOSE(maximum, 0.02395931, 0.0001, "First max. < 1e-4 deviation")
+  TAP_DONE
 
 CONTAINS
 
@@ -217,7 +215,7 @@ CONTAINS
 
     ! sources settings (contains source terms)
     sources =>  Dict(&
-!                "grav"        / grav, &
+                "grav"        / grav, &
                 "shearing"    / shearingbox &
                 )
 
@@ -232,7 +230,7 @@ CONTAINS
 
     ! initialize data input/output
     datafile => Dict( &
-              "fileformat"    / XDMF, &
+              "fileformat"    / VTK, &
               "filename"      / (TRIM(ODIR) // TRIM(OFNAME)), &
               "count"         / ONUM)
 
