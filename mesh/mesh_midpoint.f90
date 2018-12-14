@@ -138,9 +138,9 @@ CONTAINS
     this%czyz%bcenter(:,:,:) = this%czyz%center(:,:,:)
 
     ! center line elements
-    this%dlx(:,:,:) = this%hx%center(:,:,:)*this%dx
-    this%dly(:,:,:) = this%hy%center(:,:,:)*this%dy
-    this%dlz(:,:,:) = this%hz%center(:,:,:)*this%dz
+    this%dlx%data3d(:,:,:) = this%hx%center(:,:,:)*this%dx
+    this%dly%data3d(:,:,:) = this%hy%center(:,:,:)*this%dy
+    this%dlz%data3d(:,:,:) = this%hz%center(:,:,:)*this%dz
   END SUBROUTINE InitMesh_midpoint
 
 

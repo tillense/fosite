@@ -370,9 +370,9 @@ MODULE gravity_sboxspectral_mod
           DO i = Mesh%IMIN,Mesh%IMAX
             ! second order approximation
             this%accel(i,j,k,1) = -1.0*(this%phi(i+1,j,k)-this%phi(i-1,j,k))/ &
-                                 (2*Mesh%dlx(i,j,k))
+                                 (2*Mesh%dlx%data3d(i,j,k))
             this%accel(i,j,k,2) = -1.0*(this%phi(i,j+1,k)-this%phi(i,j-1,k))/ &
-                                 (2*Mesh%dly(i,j,k))
+                                 (2*Mesh%dly%data3d(i,j,k))
          END DO
         END DO
       END DO
@@ -388,10 +388,10 @@ MODULE gravity_sboxspectral_mod
             ! fourth order
             this%accel(i,j,k,1) = -1.0*(w1*this%phi(i-2,j,k)-w2*this%phi(i-1,j,k)+ &
                                         w2*this%phi(i+1,j,k)-w1*this%phi(i+2,j,k))/ &
-                                       (Mesh%dlx(i,j,k))
+                                       (Mesh%dlx%data3d(i,j,k))
             this%accel(i,j,k,2) = -1.0*(w1*this%phi(i,j-2,k)-w2*this%phi(i,j-1,k)+ &
                                         w2*this%phi(i,j+1,k)-w1*this%phi(i,j+2,k)) / &
-                                       (Mesh%dly(i,j,k))
+                                       (Mesh%dly%data3d(i,j,k))
           END DO
         END DO
       END DO

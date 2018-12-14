@@ -141,10 +141,9 @@ MODULE mesh_base_mod
                          ccart           !< cartesian corner positions
     !> \name
     !! #### line, area and volume elements
-    TYPE(marray_base) :: volume, &             !< cell volumes
+    TYPE(marray_base) :: dlx,dly,dlz, &        !< cell centered line elements
+                         volume, &             !< cell volumes
                          dxdydV,dydzdV,dzdxdV  !< dx/volume and dy/volume
-    REAL, DIMENSION(:,:,:), POINTER :: &
-                         dlx,dly,dlz           !< cell centered line elements
     REAL, DIMENSION(:,:,:,:), POINTER :: &
                          dAx,dAy,dAz, &            !< cell surface area elements
                          dAxdydz,dAydzdx,dAzdxdy  !< dAx/dydz, dAy/dxdz and dAz/dxdy
@@ -528,16 +527,9 @@ CONTAINS
     this%dxdydV = marray_base()
     this%dydzdV = marray_base()
     this%dzdxdV = marray_base()
-
-    ! allocate memory for all pointers that are independent of fluxtype
-    ALLOCATE( &
-         this%dlx(this%IGMIN:this%IGMAX,this%JGMIN:this%JGMAX,this%KGMIN:this%KGMAX), &
-         this%dly(this%IGMIN:this%IGMAX,this%JGMIN:this%JGMAX,this%KGMIN:this%KGMAX), &
-         this%dlz(this%IGMIN:this%IGMAX,this%JGMIN:this%JGMAX,this%KGMIN:this%KGMAX), &
-        STAT=err)
-    IF (err.NE.0) THEN
-       CALL this%Error("mesh_base::InitMesh","Unable to allocate memory!")
-    END IF
+    this%dlx = marray_base()
+    this%dly = marray_base()
+    this%dlz = marray_base()
 
     ! nullify remaining mesh arrays
     NULLIFY(this%dAx,this%dAy,this%dAz, &
@@ -802,12 +794,12 @@ CONTAINS
 
     CALL GetAttr(config, "output/dl", writefields, 0)
     IF(writefields.EQ.1) THEN
-        IF (ASSOCIATED(this%dlx)) &
-           CALL SetAttr(IO,"dlx",this%dlx(this%IMIN:this%IMAX,this%JMIN:this%JMAX,this%KMIN:this%KMAX))
-        IF (ASSOCIATED(this%dly)) &
-           CALL SetAttr(IO,"dly",this%dly(this%IMIN:this%IMAX,this%JMIN:this%JMAX,this%KMIN:this%KMAX))
-        IF (ASSOCIATED(this%dlz)) &
-           CALL SetAttr(IO,"dlz",this%dlz(this%IMIN:this%IMAX,this%JMIN:this%JMAX,this%KMIN:this%KMAX))
+        IF (ASSOCIATED(this%dlx%data3d)) &
+           CALL SetAttr(IO,"dlx",this%dlx%data3d(this%IMIN:this%IMAX,this%JMIN:this%JMAX,this%KMIN:this%KMAX))
+        IF (ASSOCIATED(this%dly%data3d)) &
+           CALL SetAttr(IO,"dly",this%dly%data3d(this%IMIN:this%IMAX,this%JMIN:this%JMAX,this%KMIN:this%KMAX))
+        IF (ASSOCIATED(this%dlz%data3d)) &
+           CALL SetAttr(IO,"dlz",this%dlz%data3d(this%IMIN:this%IMAX,this%JMIN:this%JMAX,this%KMIN:this%KMAX))
     END IF
 
     CALL GetAttr(config, "output/bh", writefields, 0)
@@ -1504,12 +1496,16 @@ CONTAINS
     CALL this%cyzy%Destroy()
     CALL this%czxz%Destroy()
     CALL this%czyz%Destroy()
+
     CALL this%volume%Destroy()
     CALL this%dxdydV%Destroy()
     CALL this%dydzdV%Destroy()
     CALL this%dzdxdV%Destroy()
 
-    DEALLOCATE(this%dlx,this%dly,this%dlz)
+    CALL this%dlx%Destroy()
+    CALL this%dly%Destroy()
+    CALL this%dlz%Destroy()
+
     CALL this%cart%Destroy()
     CALL this%radius%Destroy()
     CALL this%posvec%Destroy()

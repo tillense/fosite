@@ -1330,7 +1330,7 @@ CONTAINS
 !          DO i=Mesh%IMIN-Mesh%IP1,Mesh%IMAX+Mesh%IP1
 !            ! compute the diagonal elements of the stress tensor
 !            btxx(i,j,k) = dynvis(i,j,k) * &
-!                ((pvar(i+1,j,k,this%XVELOCITY) - pvar(i-1,j,k,this%XVELOCITY)) / Mesh%dlx(i,j,k) &
+!                ((pvar(i+1,j,k,this%XVELOCITY) - pvar(i-1,j,k,this%XVELOCITY)) / Mesh%dlx%data3d(i,j,k) &
 !               + this%tmp(i,j,k)
 !          END DO
 !        END DO
@@ -1343,19 +1343,19 @@ CONTAINS
           DO i=Mesh%IMIN-Mesh%IP1,Mesh%IMAX+Mesh%IP1
             ! compute the diagonal elements of the stress tensor
             btxx(i,j,k) = dynvis(i,j,k) * &
-                ((pvar(i+1,j,k,this%XVELOCITY) - pvar(i-1,j,k,this%XVELOCITY)) / Mesh%dlx(i,j,k) &
+                ((pvar(i+1,j,k,this%XVELOCITY) - pvar(i-1,j,k,this%XVELOCITY)) / Mesh%dlx%data3d(i,j,k) &
                + 2.0 * Mesh%cxyx%bcenter(i,j,k) * pvar(i,j,k,this%YVELOCITY))  &
                + this%tmp(i,j,k)
 
             btyy(i,j,k) = dynvis(i,j,k) * &
-               ( (pvar(i,j+1,k,this%YVELOCITY) - pvar(i,j-1,k,this%YVELOCITY)) / Mesh%dly(i,j,k) &
+               ( (pvar(i,j+1,k,this%YVELOCITY) - pvar(i,j-1,k,this%YVELOCITY)) / Mesh%dly%data3d(i,j,k) &
                + 2.0 * Mesh%cyxy%bcenter(i,j,k) * pvar(i,j,k,this%XVELOCITY))  &
                + this%tmp(i,j,k)
 
             ! compute the off-diagonal elements (no bulk viscosity)
             btxy(i,j,k) = dynvis(i,j,k) * ( 0.5 * &
-               ( (pvar(i+1,j,k,this%YVELOCITY) - pvar(i-1,j,k,this%YVELOCITY)) / Mesh%dlx(i,j,k) &
-               + (pvar(i,j+1,k,this%XVELOCITY) - pvar(i,j-1,k,this%XVELOCITY)) / Mesh%dly(i,j,k) ) &
+               ( (pvar(i+1,j,k,this%YVELOCITY) - pvar(i-1,j,k,this%YVELOCITY)) / Mesh%dlx%data3d(i,j,k) &
+               + (pvar(i,j+1,k,this%XVELOCITY) - pvar(i,j-1,k,this%XVELOCITY)) / Mesh%dly%data3d(i,j,k) ) &
                - Mesh%cxyx%bcenter(i,j,k) * pvar(i,j,k,this%XVELOCITY) &
                - Mesh%cyxy%bcenter(i,j,k) * pvar(i,j,k,this%YVELOCITY) )
 
@@ -1370,39 +1370,39 @@ CONTAINS
           DO i=Mesh%IMIN-Mesh%IP1,Mesh%IMAX+Mesh%IP1
             ! compute the diagonal elements of the stress tensor
             btxx(i,j,k) = dynvis(i,j,k) * &
-                ((pvar(i+1,j,k,this%XVELOCITY) - pvar(i-1,j,k,this%XVELOCITY)) / Mesh%dlx(i,j,k) &
+                ((pvar(i+1,j,k,this%XVELOCITY) - pvar(i-1,j,k,this%XVELOCITY)) / Mesh%dlx%data3d(i,j,k) &
                + 2.0 * Mesh%cxyx%bcenter(i,j,k) * pvar(i,j,k,this%YVELOCITY)  &
                + 2.0 * Mesh%cxzx%bcenter(i,j,k) * pvar(i,j,k,this%ZVELOCITY) ) &
                + this%tmp(i,j,k)
 
             btyy(i,j,k) = dynvis(i,j,k) * &
-               ( (pvar(i,j+1,k,this%YVELOCITY) - pvar(i,j-1,k,this%YVELOCITY)) / Mesh%dly(i,j,k) &
+               ( (pvar(i,j+1,k,this%YVELOCITY) - pvar(i,j-1,k,this%YVELOCITY)) / Mesh%dly%data3d(i,j,k) &
                + 2.0 * Mesh%cyxy%bcenter(i,j,k) * pvar(i,j,k,this%XVELOCITY)  &
                + 2.0 * Mesh%cyzy%bcenter(i,j,k) * pvar(i,j,k,this%ZVELOCITY) ) &
                + this%tmp(i,j,k)
 
             btzz(i,j,k) = dynvis(i,j,k) * &
-               ( (pvar(i,j,k+1,this%ZVELOCITY) - pvar(i,j,k-1,this%ZVELOCITY)) / Mesh%dlz(i,j,k) &
+               ( (pvar(i,j,k+1,this%ZVELOCITY) - pvar(i,j,k-1,this%ZVELOCITY)) / Mesh%dlz%data3d(i,j,k) &
                + 2.0 * Mesh%czxz%bcenter(i,j,k) * pvar(i,j,k,this%XVELOCITY) &
                + 2.0 * Mesh%czyz%bcenter(i,j,k) * pvar(i,j,k,this%YVELOCITY) ) &
                + this%tmp(i,j,k)
 
             ! compute the off-diagonal elements (no bulk viscosity)
             btxy(i,j,k) = dynvis(i,j,k) * ( 0.5 * &
-               ( (pvar(i+1,j,k,this%YVELOCITY) - pvar(i-1,j,k,this%YVELOCITY)) / Mesh%dlx(i,j,k) &
-               + (pvar(i,j+1,k,this%XVELOCITY) - pvar(i,j-1,k,this%XVELOCITY)) / Mesh%dly(i,j,k) ) &
+               ( (pvar(i+1,j,k,this%YVELOCITY) - pvar(i-1,j,k,this%YVELOCITY)) / Mesh%dlx%data3d(i,j,k) &
+               + (pvar(i,j+1,k,this%XVELOCITY) - pvar(i,j-1,k,this%XVELOCITY)) / Mesh%dly%data3d(i,j,k) ) &
                - Mesh%cxyx%bcenter(i,j,k) * pvar(i,j,k,this%XVELOCITY) &
                - Mesh%cyxy%bcenter(i,j,k) * pvar(i,j,k,this%YVELOCITY) )
 
             btxz(i,j,k) = dynvis(i,j,k) * ( 0.5 * &
-               ( (pvar(i+1,j,k,this%ZVELOCITY) - pvar(i-1,j,k,this%ZVELOCITY)) / Mesh%dlx(i,j,k) &
-               + (pvar(i,j,k+1,this%XVELOCITY) - pvar(i,j,k-1,this%XVELOCITY)) / Mesh%dlz(i,j,k) ) &
+               ( (pvar(i+1,j,k,this%ZVELOCITY) - pvar(i-1,j,k,this%ZVELOCITY)) / Mesh%dlx%data3d(i,j,k) &
+               + (pvar(i,j,k+1,this%XVELOCITY) - pvar(i,j,k-1,this%XVELOCITY)) / Mesh%dlz%data3d(i,j,k) ) &
                - Mesh%czxz%bcenter(i,j,k) * pvar(i,j,k,this%ZVELOCITY) &
                - Mesh%cxzx%bcenter(i,j,k) * pvar(i,j,k,this%XVELOCITY) )
 
             btyz(i,j,k) = dynvis(i,j,k) * ( 0.5 * &
-               ( (pvar(i,j,k+1,this%YVELOCITY) - pvar(i,j,k-1,this%YVELOCITY)) / Mesh%dlz(i,j,k) &
-               + (pvar(i,j+1,k,this%ZVELOCITY) - pvar(i,j-1,k,this%ZVELOCITY)) / Mesh%dly(i,j,k) ) &
+               ( (pvar(i,j,k+1,this%YVELOCITY) - pvar(i,j,k-1,this%YVELOCITY)) / Mesh%dlz%data3d(i,j,k) &
+               + (pvar(i,j+1,k,this%ZVELOCITY) - pvar(i,j-1,k,this%ZVELOCITY)) / Mesh%dly%data3d(i,j,k) ) &
                - Mesh%czyz%bcenter(i,j,k) * pvar(i,j,k,this%ZVELOCITY) &
                - Mesh%cyzy%bcenter(i,j,k) * pvar(i,j,k,this%YVELOCITY) )
 

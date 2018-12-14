@@ -636,10 +636,10 @@ MODULE gravity_spectral_mod
     DO k = Mesh%KMIN,Mesh%KMAX
       DO j = Mesh%JMIN-Mesh%JP1,Mesh%JMAX+Mesh%JP1
         DO i = Mesh%IMIN-Mesh%IP1,Mesh%IMAX
-          this%accel(i,j,k,1) = -1.0*(this%phi2D(i+1,j)-this%phi2D(i,j))/Mesh%dlx(i,j,k)
+          this%accel(i,j,k,1) = -1.0*(this%phi2D(i+1,j)-this%phi2D(i,j))/Mesh%dlx%data3d(i,j,k)
           this%accel(i,j,k,2) = -1.0*(this%phi2D(i+1,j+1)+this%phi2D(i,j+1) &
                            -this%phi2D(i+1,j-1)-this%phi2D(i,j-1))&
-                            /(4.0*Mesh%dly(i,j,k))
+                            /(4.0*Mesh%dly%data3d(i,j,k))
           this%pot(i,j,k,1) = 0.5*(this%phi2D(i,j)+this%phi2D(i+1,j))
           this%pot(i,j,k,2) = this%phi2D(i+1,j)
           this%pot(i,j,k,3) = 0.25*(this%phi2D(i,j)+this%phi2D(i+1,j)+this%phi2D(i,j+1)+this%phi2D(i+1,j+1))
@@ -721,8 +721,8 @@ MODULE gravity_spectral_mod
       DO j=Mesh%JMIN,Mesh%JMAX
         DO i=Mesh%IMIN,Mesh%IMAX
           this%tmp2D(i,j) = - 1./Mesh%sqrtg%bcenter(i,j,k) &
-            * (  (phi(i,j,1) - phi(i-1,j,1)) / Mesh%dlx(i,j,k) &
-               + (phi(i,j,2) - phi(i,j-1,2)) / Mesh%dly(i,j,k))
+            * (  (phi(i,j,1) - phi(i-1,j,1)) / Mesh%dlx%data3d(i,j,k) &
+               + (phi(i,j,2) - phi(i,j-1,2)) / Mesh%dly%data3d(i,j,k))
         END DO
       END DO
     END DO

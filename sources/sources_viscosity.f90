@@ -478,24 +478,24 @@ CONTAINS
 
     ! x-direction
     IF (Mesh%INUM.GT.1) THEN
-       invdt_x = MAXVAL(this%kinvis(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX) &
-            / Mesh%dlx(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX)**2)
+       invdt_x = MAXVAL(this%kinvis(:,:,:) / Mesh%dlx%data3d(:,:,:)**2, &
+                        MASK=Mesh%without_ghost_zones%mask3d(:,:,:))
     ELSE
        ! set to zero, i.e. no limit in x-direction due to diffusion
        invdt_x = 0.0
     END IF
     ! y-direction
     IF (Mesh%JNUM.GT.1) THEN
-       invdt_y = MAXVAL(this%kinvis(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX) &
-            / Mesh%dly(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX)**2)
+       invdt_y = MAXVAL(this%kinvis(:,:,:)  / Mesh%dly%data3d(:,:,:)**2, &
+                        MASK=Mesh%without_ghost_zones%mask3d(:,:,:))
     ELSE
        ! set to zero, i.e. no limit in y-direction due to diffusion
        invdt_y = 0.0
     END IF
     ! z-direction
     IF (Mesh%INUM.GT.1) THEN
-       invdt_z = MAXVAL(this%kinvis(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX) &
-            / Mesh%dlz(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX)**2)
+       invdt_z = MAXVAL(this%kinvis(:,:,:)  / Mesh%dlz%data3d(:,:,:)**2, &
+                        MASK=Mesh%without_ghost_zones%mask3d(:,:,:))
     ELSE
        ! set to zero, i.e. no limit in z-direction due to diffusion
        invdt_z = 0.0
