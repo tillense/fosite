@@ -151,8 +151,8 @@ PROGRAM RTI
 
     ! boundary conditions
     boundary => Dict(&
-                "western"     / PERIODIC, &
-                "eastern"     / PERIODIC, &
+                "western"     / SHEARING, &
+                "eastern"     / SHEARING, &
                 "southern"    / PERIODIC, &
                 "northern"    / PERIODIC, &
                 "bottomer"    / REFLECTING, &

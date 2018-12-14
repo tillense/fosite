@@ -1618,7 +1618,7 @@ CONTAINS
         ELSEWHERE
           this%flux%data3d(:,j,:) = this%cvar%data4d(:,j+1,:,l) - .5*this%dql%data3d(:,j+1,:)*(1. + this%delxy(:,:))
         END WHERE
-        this%cvar%data4d(:,j,:,l) = this%cvar%data4d(:,j,:,l) - this%delxy(:,:)*(this%flux%data3d(:,j,:) - this%flux%data3d(:,i-1,:))
+        this%cvar%data4d(:,j,:,l) = this%cvar%data4d(:,j,:,l) - this%delxy(:,:)*(this%flux%data3d(:,j,:) - this%flux%data3d(:,j-1,:))
       END DO
     END DO
 
