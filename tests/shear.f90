@@ -27,7 +27,7 @@
 !> \test Test shear flow
 !! \author Jannes Klee
 !----------------------------------------------------------------------------!
-PROGRAM RTI
+PROGRAM shear
   USE fosite_mod
 #include "tap.h"
   IMPLICIT NONE
@@ -38,8 +38,8 @@ PROGRAM RTI
   ! simulation parameter
   REAL, PARAMETER    :: CSISO    = &
                                      0.0      ! non-isothermal simulation
-!                                      1.0      ! isothermal simulation
-                                              !   with CSISO as sound speed
+!                                     1.0      ! isothermal simulation
+                                               !   with CSISO as sound speed
   REAL, PARAMETER    :: OMEGA      = 1.0
   REAL, PARAMETER    :: SIGMA0     = 1.0
   REAL, PARAMETER    :: TSIM       = 10./OMEGA
@@ -54,28 +54,59 @@ PROGRAM RTI
   REAL               :: DOMAINY    = 320.0
   INTEGER, PARAMETER :: FARGO      = 3              ! 3 = Shearingbox        !
   ! number of output time steps
-  INTEGER, PARAMETER :: ONUM       = 100
+  INTEGER, PARAMETER :: ONUM       = 10
   ! output directory and output name
   CHARACTER(LEN=256), PARAMETER :: ODIR   = "./"
   CHARACTER(LEN=256), PARAMETER :: OFNAME = "sbox"
   !--------------------------------------------------------------------------!
   CLASS(fosite), ALLOCATABLE :: Sim
+  CLASS(marray_compound), POINTER :: pvar,pvar_init
+  REAL               :: sigma
   !--------------------------------------------------------------------------!
-!  TAP_PLAN(1)
+  TAP_PLAN(1)
 
+  ! with west-east shear
   ALLOCATE(Sim)
-
   CALL Sim%InitFosite()
   CALL MakeConfig(Sim, Sim%config)
   CALL Sim%Setup()
   CALL InitData(Sim%Mesh, Sim%Physics, Sim%Timedisc%pvar, Sim%Timedisc%cvar)
+  ! store transposed initial data
+  CALL Sim%Physics%new_statevector(pvar_init,PRIMITIVE)
+  CALL RotateData(Sim%Mesh,Sim%Timedisc%pvar,pvar_init,"xy")
   CALL Sim%Run()
-
+  ! store transposed result of the first run
+  CALL Sim%Physics%new_statevector(pvar,PRIMITIVE)
+  CALL RotateData(Sim%Mesh,Sim%Timedisc%pvar,pvar,"xy")
+  ! finish the simulation
   CALL Sim%Finalize()
   DEALLOCATE(Sim)
 
-!  TAP_CHECK(.TRUE.,"Simulation finished")
-!  TAP_DONE
+  ! simulate south-north shear
+  ALLOCATE(Sim)
+  CALL Sim%InitFosite()
+  CALL MakeConfig(Sim, Sim%config)
+  CALL SetAttr(Sim%config, "/datafile/filename", (TRIM(ODIR) // TRIM(OFNAME) // "_rotate"))
+  CALL SetAttr(Sim%config, "boundary/western", PERIODIC)
+  CALL SetAttr(Sim%config, "boundary/eastern", PERIODIC)
+  CALL SetAttr(Sim%config, "boundary/southern", SHEARING)
+  CALL SetAttr(Sim%config, "boundary/northern", SHEARING)
+  CALL SetAttr(Sim%config, "mesh/shift_dir", 1)
+  CALL Sim%Setup()
+  Sim%Timedisc%pvar%data1d(:) = pvar_init%data1d(:)
+  CALL Sim%Physics%Convert2Conservative(Sim%Timedisc%pvar,Sim%Timedisc%cvar)
+  CALL Sim%Run()
+
+  ! compare results
+  sigma = SQRT(SUM((Sim%Timedisc%pvar%data4d(:,:,:,:)-pvar%data4d(:,:,:,:))**2)/ &
+                    SIZE(pvar%data4d(:,:,:,:)))
+
+  CALL pvar%Destroy()
+  CALL Sim%Finalize()
+  DEALLOCATE(pvar,Sim)
+
+  TAP_CHECK_SMALL(sigma,1e-13,"Shear x-y symmetry test")
+  TAP_DONE
 
   CONTAINS
 
@@ -116,6 +147,7 @@ PROGRAM RTI
                 "zmax"        / ZMAX, &
                 "omega"       / OMEGA, &
                 "fargo"       / FARGO, &
+                "shift_dir"   / 2, &
                 "output/rotation" / 0, &
                 "output/volume"   / 0, &
                 "output/bh"   / 0, &
@@ -237,4 +269,39 @@ PROGRAM RTI
     CALL Mesh%Info(" DATA-----> initial condition: " // &
          "Shearing patch")
   END SUBROUTINE InitData
-END PROGRAM RTI
+
+  ! only for symmetric matrix
+  SUBROUTINE RotateData(Mesh,pvar_in,pvar_out,dir)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(mesh_base), INTENT(IN)            :: Mesh
+    CLASS(marray_compound), INTENT(INOUT)   :: pvar_in,pvar_out
+    CHARACTER(LEN=2), INTENT(IN)            :: dir
+    !------------------------------------------------------------------------!
+    INTEGER :: i,j,k
+    !------------------------------------------------------------------------!
+    SELECT TYPE(pin => pvar_in)
+    TYPE IS(statevector_euler) ! non-isothermal HD
+      SELECT TYPE(pout => pvar_out)
+      TYPE IS(statevector_euler) ! non-isothermal HD
+        SELECT CASE(dir)
+        CASE("xy")
+          ! rotate at middle of the field, because x' = -y in shearingsheet.
+          DO k = Mesh%KGMIN,Mesh%KGMAX
+            DO j = Mesh%JGMIN,Mesh%JGMAX
+              DO i = Mesh%IGMIN,Mesh%IGMAX
+                pout%density%data3d(i,j,k) = pin%density%data3d(Mesh%IGMAX-Mesh%IGMIN-j-2,i,k)
+                pout%pressure%data3d(i,j,k) = pin%pressure%data3d(Mesh%IGMAX-Mesh%IGMIN-j-2,i,k)
+                pout%velocity%data4d(i,j,k,1) = pin%velocity%data4d(Mesh%IGMAX-Mesh%IGMIN-j-2,i,k,2)
+                pout%velocity%data4d(i,j,k,2) = pin%velocity%data4d(Mesh%IGMAX-Mesh%IGMIN-j-2,i,k,1)
+              END DO
+            END DO
+          END DO
+        CASE DEFAULT
+          CALL Mesh%Error("shear::RotateData","directions must be one of 'xy','xz' or 'yz'")
+        END SELECT
+      END SELECT
+    END SELECT
+  END SUBROUTINE RotateData
+
+END PROGRAM shear
