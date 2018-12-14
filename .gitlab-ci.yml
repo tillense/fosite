@@ -96,6 +96,11 @@ ser_test_KHI2D:
     script:
        - ./ser_build/tests/KHI2D
 
+ser_test_KHI3D:
+    stage: test
+    script:
+       - ./ser_build/tests/KHI3D
+
 ser_test_rootstest:
     stage: test
     script:

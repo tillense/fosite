@@ -3,7 +3,7 @@ set (EXES
   gauss3d
   sedov2d
   sedov3d
-  KHI3
+  KHI3D
   KHI2D
   vortex3d
   bondi2d
