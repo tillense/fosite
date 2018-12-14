@@ -688,7 +688,7 @@ CONTAINS
            '<VTKFile type="PStructuredGrid" version="0.1" byte_order='&
                    //this%endianness//'>'//LF//&
            '  <PStructuredGrid WholeExtent="',&
-                   1,Mesh%INUM+1,1,Mesh%JNUM+1,1,Mesh%KNUM+1,'">'//LF//&
+                   1,Mesh%INUM+this%IP1,1,Mesh%JNUM+this%JP1,1,Mesh%KNUM+this%KP1,'">'//LF//&
            '    <PFieldData>'//LF// &
            '      <InformationKey type="String" Name="fosite version" format="ascii">'//LF// &
            '        '//TRIM(VERSION)//LF//&
