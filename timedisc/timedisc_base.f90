@@ -1085,17 +1085,13 @@ CONTAINS
       END DO
     END DO
 
-!    !fixme: Very hacky implementation of pluto style angular momentum
-!    !conservation. A better implementation is needed, but we would need to
-!    !restucture the timedisc module
-!    !also: use this with EULER2DISOTHM. EULER2D version is untested, may need
-!    !small fixes.
     SELECT CASE(this%rhstype)
     CASE(0)
-!NEC$ UNROLL(8)
-      DO l=1,Physics%VNUM ! to be deleted later
+!NEC$ SHORTLOOP
+      DO l=1,Physics%VNUM+Physics%PNUM
         DO k=Mesh%KMIN,Mesh%KMAX
           DO j=Mesh%JMIN,Mesh%JMAX
+!NEC$ IVDEP
             DO i=Mesh%IMIN,Mesh%IMAX
               ! update right hand side of ODE
               rhs%data4d(i,j,k,l) = &
@@ -1108,6 +1104,11 @@ CONTAINS
         END DO
       END DO
     CASE(1)
+      !> \todo Very hacky implementation of pluto style angular momentum
+      !! conservation. A better implementation is needed, but we would need to
+      !! restucture the timedisc module
+      !! also: use this with EULER2DISOTHM. EULER2D version is untested, may need
+      !! small fixes.
       sp => Sources
       DO
         IF (ASSOCIATED(sp).EQV..FALSE.) RETURN
