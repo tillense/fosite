@@ -98,7 +98,6 @@ MODULE physics_euler_mod
 !    PROCEDURE :: CalcRiemann2PrimZ        ! for farfield boundaries
     PROCEDURE :: AxisMasks                 ! for axis boundaries
     PROCEDURE :: ViscositySources
-    PROCEDURE :: ViscositySources_euler
     PROCEDURE :: CalcStresses_euler
 
 
@@ -1250,8 +1249,12 @@ CONTAINS
        DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM) &
                                           :: sterm
    !------------------------------------------------------------------------!
-   CALL this%ViscositySources_euler(Mesh,pvar,btxx,btxy,btxz,btyy,btyz,btzz,sterm)
+   CALL this%physics_eulerisotherm%ViscositySources(Mesh,pvar,btxx,btxy,btxz,btyy,btyz,btzz,sterm)
    SELECT CASE(this%VDIM)
+!   CASE(1)
+!     this%tmp(:,:,:) = pvar(:,:,:,this%XVELOCITY)*btxx(:,:,:)
+!
+!     CALL Mesh%Divergence(this%tmp(:,:,:),sterm(:,:,:,this%ENERGY))
    CASE(2)
      !compute scalar product of v and tau (x-component)
     this%tmp(:,:,:) = pvar(:,:,:,this%XVELOCITY)*btxx(:,:,:) &
@@ -1288,38 +1291,6 @@ CONTAINS
 
 
 
-  ! identical to isothermal case
-  PURE SUBROUTINE ViscositySources_euler(this,Mesh,pvar,btxx,btxy,btxz,btyy,btyz,btzz,sterm)
-    IMPLICIT NONE
-   !------------------------------------------------------------------------!
-    CLASS(Physics_euler),INTENT(IN)  :: this
-    CLASS(Mesh_base),INTENT(IN)        :: Mesh
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM) :: &
-          pvar,sterm
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX) :: &
-                    btxx,btxy,btxz,btyy,btyz,btzz
-   !------------------------------------------------------------------------!
-   !------------------------------------------------------------------------!
-    INTENT(IN)        :: pvar,btxx,btxy,btxz,btyy,btyz,btzz
-    INTENT(OUT)       :: sterm
-   !------------------------------------------------------------------------!
-   ! mean values of stress tensor components across the cell interfaces
-
-   ! viscosity source terms
-    sterm(:,:,:,this%DENSITY) = 0.0 
-
-   ! compute viscous momentum sources
-   ! divergence of stress tensor with symmetry btyx=btxy
-    SELECT CASE(this%VDIM)
-    CASE(2)
-      CALL Mesh%Divergence(btxx,btxy,btxy,btyy,sterm(:,:,:,this%XMOMENTUM), &
-                           sterm(:,:,:,this%YMOMENTUM))
-    CASE(3)
-      CALL Mesh%Divergence(btxx,btxy,btxz,btxy,btyy,btyz,btxz,btyz,btzz,sterm(:,:,:,this%XMOMENTUM), &
-                           sterm(:,:,:,this%YMOMENTUM),sterm(:,:,:,this%ZMOMENTUM))
-    END SELECT
-  END SUBROUTINE ViscositySources_euler
-
   ! identical to isothermal case. 
   PURE SUBROUTINE CalcStresses_euler(this,Mesh,pvar,dynvis,bulkvis, &
        btxx,btxy,btxz,btyy,btyz,btzz)
@@ -1341,6 +1312,8 @@ CONTAINS
 
     ! compute bulk viscosity first and store the result in this%tmp
     SELECT CASE (this%VDIM) 
+!    CASE(1)
+!      CALL Mesh%Divergence(pvar(:,:,:,this%XVELOCITY),this%tmp(:,:,:))
     CASE(2)
       CALL Mesh%Divergence(pvar(:,:,:,this%XVELOCITY),pvar(:,:,:,this%YVELOCITY),this%tmp(:,:,:))
     CASE(3)
@@ -1349,7 +1322,20 @@ CONTAINS
     this%tmp(:,:,:) = bulkvis(:,:,:)*this%tmp(:,:,:)
 
     SELECT CASE(this%VDIM)
-    CASE(2) 
+!    CASE(1)
+!      !NEC$ OUTERLOOP_UNROLL(8)
+!      DO k=Mesh%KMIN-Mesh%KP1,Mesh%KMAX+Mesh%KP1
+!        DO j=Mesh%JMIN-Mesh%JP1,Mesh%JMAX+Mesh%JP1
+!          !NEC$ IVDEP
+!          DO i=Mesh%IMIN-Mesh%IP1,Mesh%IMAX+Mesh%IP1
+!            ! compute the diagonal elements of the stress tensor
+!            btxx(i,j,k) = dynvis(i,j,k) * &
+!                ((pvar(i+1,j,k,this%XVELOCITY) - pvar(i-1,j,k,this%XVELOCITY)) / Mesh%dlx(i,j,k) &
+!               + this%tmp(i,j,k)
+!          END DO
+!        END DO
+!      END DO
+    CASE(2)
       !NEC$ OUTERLOOP_UNROLL(8)
       DO k=Mesh%KMIN-Mesh%KP1,Mesh%KMAX+Mesh%KP1
         DO j=Mesh%JMIN-Mesh%JP1,Mesh%JMAX+Mesh%JP1
@@ -1425,45 +1411,6 @@ CONTAINS
       END DO
     END SELECT
   END SUBROUTINE CalcStresses_euler
-
-
-
-!  !> Calculate viscous forces
-!  PURE SUBROUTINE ViscositySources(this,Mesh,pvar,btxx,btxy,btyy,btyz,btzz,btzx,sterm)
-!    IMPLICIT NONE
-!    !------------------------------------------------------------------------!
-!    CLASS(physics_euler), INTENT(INOUT) :: this
-!    CLASS(mesh_base),       INTENT(IN)    :: Mesh
-!    REAL,                   INTENT(IN), &
-!      DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM) &
-!                                          :: pvar
-!    REAL,                   INTENT(IN), &
-!      DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX) &
-!                                          :: btxx,btxy,btyy,btyz,btzz,btzx
-!    REAL,                   INTENT(OUT), &
-!      DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM) &
-!                                          :: sterm
-!    !------------------------------------------------------------------------!
-!    CALL ViscositySources_eulerit(this,Mesh,pvar,btxx,btxy,btyy,sterm)
-!
-!    !compute scalar product of v and tau (x-component)
-!    this%tmp(:,:,:) = pvar(:,:,:,this%XVELOCITY)*btxx(:,:,:) &
-!                    + pvar(:,:,:,this%YVELOCITY)*btxy(:,:,:) &
-!                    + pvar(:,:,:,this%ZVELOCITY)*btzx(:,:,:)
-!
-!    !compute scalar product of v and tau (y-component)
-!    this%tmp1(:,:,:) = pvar(:,:,:,this%XVELOCITY)*btxy(:,:,:) &
-!                     + pvar(:,:,:,this%YVELOCITY)*btyy(:,:,:) &
-!                     + pvar(:,:,:,this%ZVELOCITY)*btyz(:,:,:)
-!
-!    !compute scalar product of v and tau (z-component)
-!    this%tmp2(:,:,:) = pvar(:,:,:,this%XVELOCITY)*btzx(:,:,:) &
-!                     + pvar(:,:,:,this%YVELOCITY)*btyz(:,:,:) &
-!                     + pvar(:,:,:,this%ZVELOCITY)*btzz(:,:,:)
-!    ! compute vector divergence of scalar product v and tau
-!    CALL Divergence(Mesh,this%tmp(:,:,:),this%tmp1(:,:,:), &
-!      this%tmp2(:,:,:),sterm(:,:,:,this%ENERGY))
-!  END SUBROUTINE ViscositySources
 
 
   !> Convert to from conservative to primitive variables at cell-centers
