@@ -1386,39 +1386,54 @@ CONTAINS
   END SUBROUTINE FargoSources
 
   !> Maks for reflecting boundaries
-  PURE SUBROUTINE ReflectionMasks(this,reflX,reflY,reflZ)
+  PURE SUBROUTINE ReflectionMasks(this,Mesh,reflX,reflY,reflZ)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(physics_eulerisotherm),      INTENT(IN)  :: this
+    CLASS(physics_eulerisotherm),  INTENT(IN)  :: this
+    CLASS(mesh_base),              INTENT(IN)  :: Mesh       
     LOGICAL, DIMENSION(this%VNUM), INTENT(OUT) :: reflX,reflY,reflZ
     !------------------------------------------------------------------------!
-    ! western / eastern boundary
-    reflX(this%DENSITY)   = .FALSE.
-    reflX(this%XVELOCITY) = .TRUE.
-    reflX(this%YVELOCITY) = .FALSE.
-    ! southern / northern boundary
-    reflY(this%DENSITY)   = .FALSE.
-    reflY(this%XVELOCITY) = .FALSE.
-    reflY(this%YVELOCITY) = .TRUE.
+    reflX(:) = .FALSE.
+    reflY(:) = .FALSE.
+    reflZ(:) = .FALSE.
+    SELECT CASE(this%VDIM)
+    CASE(1)
+      ! 1D transport
+      IF (Mesh%INUM.GT.1) reflX(2) = .TRUE. ! reflect vx at east/west-boundaries
+      IF (Mesh%JNUM.GT.1) reflY(2) = .TRUE. ! reflect vy at south/north-boundaries
+      IF (Mesh%KNUM.GT.1) reflZ(2) = .TRUE. ! reflect vz at bottom/top-boundaries
+    CASE(2)
+      IF (Mesh%KNUM.EQ.1.AND..NOT.Mesh%ROTSYM.EQ.3) THEN
+        ! 2D transport in x-y-plane
+        reflX(2) = .TRUE. ! reflect vx at east/west-boundaries
+        reflY(3) = .TRUE. ! reflect vy at south/north-boundaries
+      ELSE IF (Mesh%JNUM.EQ.1.AND..NOT.Mesh%ROTSYM.EQ.2) THEN
+        ! 2D transport in x-z-plane
+        reflX(2) = .TRUE. ! reflect vx at east/west-boundaries
+        reflZ(3) = .TRUE. ! reflect vz at bottom/top-boundaries
+      ELSE IF (Mesh%INUM.EQ.1.AND..NOT.Mesh%ROTSYM.EQ.1) THEN
+        ! 2D transport in y-z-plane
+        reflY(2) = .TRUE. ! reflect vy at south/north-boundaries
+        reflZ(3) = .TRUE. ! reflect vz at bottom/top-boundaries
+      END IF
+    CASE(3)
+      ! 3D transport
+      reflX(2) = .TRUE. ! reflect vx at east/west-boundaries
+      reflY(3) = .TRUE. ! reflect vy at south/north-boundaries
+      reflZ(4) = .TRUE. ! reflect vz at bottom/top-boundaries
+    END SELECT
   END SUBROUTINE ReflectionMasks
 
-  ! TODO: \warning not clear since 2D version if this is correct. Most probably
-  ! axis boundaries can be applied always in two dimensions. Now only x-y plane
-  PURE SUBROUTINE AxisMasks(this,reflX,reflY,reflZ)
+  !> \todo test geometry for azimuthal angle and use this information
+  !! to set the masks for axis boundaries
+  PURE SUBROUTINE AxisMasks(this,Mesh,reflX,reflY,reflZ)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(physics_eulerisotherm), INTENT(IN) :: this
-    LOGICAL, DIMENSION(this%VNUM), &
-                            INTENT(OUT) :: reflX,reflY,reflZ
+    CLASS(physics_eulerisotherm),  INTENT(IN)  :: this
+    CLASS(mesh_base),              INTENT(IN)  :: Mesh       
+    LOGICAL, DIMENSION(this%VNUM), INTENT(OUT) :: reflX,reflY,reflZ
     !------------------------------------------------------------------------!
-    ! western / eastern boundary
-    reflX(this%DENSITY)   = .FALSE.
-    reflX(this%XVELOCITY) = .TRUE.
-    reflX(this%YVELOCITY) = .TRUE.
-    ! southern / northern boundary
-    reflY(this%DENSITY)   = .FALSE.
-    reflY(this%XVELOCITY) = .TRUE.
-    reflY(this%YVELOCITY) = .TRUE.
+    CALL this%ReflectionMasks(Mesh,reflX,reflY,reflZ)
   END SUBROUTINE AxisMasks
 
   PURE SUBROUTINE CalculateCharSystemX(this,Mesh,i,dir,pvar,lambda,xvar)

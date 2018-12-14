@@ -162,7 +162,8 @@ MODULE physics_base_mod
     PROCEDURE (FargoSources),                 DEFERRED :: FargoSources
     !------Geometry Routines-------!
     PROCEDURE (GeometricalSources),           DEFERRED :: GeometricalSources
-    PROCEDURE (ReflectionMasks),              DEFERRED :: ReflectionMasks
+    PROCEDURE (Masks),                        DEFERRED :: ReflectionMasks
+    PROCEDURE (Masks),                        DEFERRED :: AxisMasks
 
 ! these routines are only necessary for special boundaries, fluxes
    PROCEDURE   (CalculateCharSystemX), DEFERRED :: CalculateCharSystemX
@@ -185,7 +186,6 @@ MODULE physics_base_mod
    PROCEDURE (ViscositySources),             DEFERRED :: ViscositySources
 !   PROCEDURE ::  SGSSources
 !   PROCEDURE ::  CalculateSGSTensor
-   PROCEDURE (MASKS), DEFERRED :: AxisMasks
 !   PROCEDURE :: GetSoundSpeed_adiabatic
 
     PROCEDURE (Finalize), DEFERRED :: Finalize
@@ -300,11 +300,6 @@ MODULE physics_base_mod
       CLASS(marray_base),   INTENT(IN)      :: accel
       CLASS(marray_compound), INTENT(INOUT) :: pvar,cvar,sterm
     END SUBROUTINE
-    PURE SUBROUTINE Masks(this,reflX,reflY,reflZ)
-      IMPORT physics_base
-      CLASS(physics_base), INTENT(IN)            :: this
-      LOGICAL, DIMENSION(this%VNUM), INTENT(OUT) :: reflX,reflY,reflZ
-    END SUBROUTINE
     PURE SUBROUTINE CalcWaveSpeeds_center(this,Mesh,pvar,minwav,maxwav)
       IMPORT physics_base,mesh_base,marray_base,marray_compound
       CLASS(physics_base), INTENT(INOUT) :: this
@@ -394,13 +389,11 @@ MODULE physics_base_mod
       REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM+this%PNUM), &
                            INTENT(INOUT) :: sterm
     END SUBROUTINE FargoSources
-
-
-    PURE SUBROUTINE ReflectionMasks(this,reflX,reflY,reflZ)
-      IMPORT physics_base
-      CLASS(physics_base), INTENT(IN)  :: this
-      LOGICAL, DIMENSION(this%VNUM), &
-                           INTENT(OUT) :: reflX,reflY,reflZ
+    PURE SUBROUTINE Masks(this,Mesh,reflX,reflY,reflZ)
+      IMPORT physics_base, mesh_base
+      CLASS(physics_base),           INTENT(IN)  :: this
+      CLASS(mesh_base),              INTENT(IN)  :: Mesh       
+      LOGICAL, DIMENSION(this%VNUM), INTENT(OUT) :: reflX,reflY,reflZ
     END SUBROUTINE
     PURE SUBROUTINE CalcStresses_euler(this,Mesh,pvar,dynvis,bulkvis, &
          btxx,btxy,btxz,btyy,btyz,btzz)

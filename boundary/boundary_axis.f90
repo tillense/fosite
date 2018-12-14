@@ -3,7 +3,7 @@
 !# fosite - 3D hydrodynamical simulation program                             #
 !# module: boundary_axis.f90                                                 #
 !#                                                                           #
-!# Copyright (C) 2006-2014                                                   #
+!# Copyright (C) 2006-2018                                                   #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
 !#                                                                           #
 !# This program is free software; you can redistribute it and/or modify      #
@@ -84,7 +84,7 @@ CONTAINS
     ! along all coordinate directions;
     ! check the underlying physics/geometry  modules
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    CALL Physics%AxisMasks(this%reflX,this%reflY,this%reflZ)
+    CALL Physics%AxisMasks(Mesh,this%reflX,this%reflY,this%reflZ)
   END SUBROUTINE InitBoundary_axis
 
   !TODO: NOT VERIFIED

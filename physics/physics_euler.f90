@@ -81,7 +81,6 @@ MODULE physics_euler_mod
 
     PROCEDURE :: ExternalSources
     PROCEDURE :: GeometricalSources
-    PROCEDURE :: ReflectionMasks                ! for reflecting boundaries
 
     ! boundarie routines
     PROCEDURE :: CalculateCharSystemX          ! for absorbing boundaries
@@ -96,7 +95,6 @@ MODULE physics_euler_mod
 !    PROCEDURE :: CalcRiemann2PrimX        ! for farfield boundaries
 !    PROCEDURE :: CalcRiemann2PrimY        ! for farfield boundaries
 !    PROCEDURE :: CalcRiemann2PrimZ        ! for farfield boundaries
-    PROCEDURE :: AxisMasks                 ! for axis boundaries
     PROCEDURE :: ViscositySources
     PROCEDURE :: CalcStresses_euler
 
@@ -1750,56 +1748,6 @@ CONTAINS
     END IF
   END SUBROUTINE SubtractBackgroundVelocityX
 
-
-  PURE SUBROUTINE ReflectionMasks(this,reflX,reflY,reflZ)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(physics_euler), INTENT(IN)  :: this
-    LOGICAL, DIMENSION(this%VNUM+this%PNUM), &
-                            INTENT(OUT) :: reflX,reflY,reflZ
-    !------------------------------------------------------------------------!
-    ! western / eastern boundary
-    reflX(this%DENSITY)   = .FALSE.
-    reflX(this%XVELOCITY) = .TRUE.
-    reflX(this%YVELOCITY) = .FALSE.
-    reflX(this%PRESSURE)  = .FALSE.
-    ! southern / northern boundary
-    reflY(this%DENSITY)   = .FALSE.
-    reflY(this%XVELOCITY) = .FALSE.
-    reflY(this%YVELOCITY) = .TRUE.
-    reflY(this%PRESSURE)  = .FALSE.
-    ! bottomer / topper boundary
-    reflZ(this%DENSITY)   = .FALSE.
-    reflZ(this%XVELOCITY) = .FALSE.
-    reflZ(this%YVELOCITY) = .FALSE.
-    reflZ(this%PRESSURE)  = .FALSE.
-  END SUBROUTINE ReflectionMasks
-
-  ! \todo \warning not clear since 3D version if this is correct. Most probably
-  ! axis boundaries can be applied always in two dimensions. Now only x-y plane
-  PURE SUBROUTINE AxisMasks(this,reflX,reflY,reflZ)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(physics_euler), INTENT(IN) :: this
-    LOGICAL, DIMENSION(this%VNUM+this%PNUM), &
-                            INTENT(OUT) :: reflX,reflY,reflZ
-    !------------------------------------------------------------------------!
-    ! western / eastern boundary
-    reflX(this%DENSITY)   = .FALSE.
-    reflX(this%XVELOCITY) = .TRUE.
-    reflX(this%YVELOCITY) = .TRUE.
-    reflX(this%PRESSURE)  = .FALSE.
-    ! southern / northern boundary
-    reflY(this%DENSITY)   = .FALSE.
-    reflY(this%XVELOCITY) = .FALSE.        !old: .TRUE.
-    reflY(this%YVELOCITY) = .TRUE.
-    reflY(this%PRESSURE)  = .FALSE.
-    ! bottomer / topper boundary
-    reflZ(this%DENSITY)   = .FALSE.
-    reflZ(this%XVELOCITY) = .FALSE.
-    reflZ(this%YVELOCITY) = .FALSE.
-    reflZ(this%PRESSURE)  = .FALSE.
-  END SUBROUTINE AxisMasks
 
   PURE SUBROUTINE UpdateSoundSpeed(this,pvar)
     IMPLICIT NONE

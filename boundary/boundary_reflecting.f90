@@ -78,7 +78,7 @@ CONTAINS
     END IF
     ! this tells us which vars get the opposite sign/vanish at cell faces;
     ! e.g. vertical velocities (depends on the underlying physics)
-    CALL Physics%ReflectionMasks(this%reflX,this%reflY,this%reflZ)
+    CALL Physics%ReflectionMasks(Mesh,this%reflX,this%reflY,this%reflZ)
   END SUBROUTINE InitBoundary_reflecting
 
   !TODO: NOT VERIFIED
