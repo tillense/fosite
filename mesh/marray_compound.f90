@@ -180,7 +180,7 @@ CONTAINS
     TYPE(marray_base), POINTER :: ma
     !-------------------------------------------------------------------!
     INTEGER :: m,n
-    REAL, DIMENSION(:),POINTER :: data1d
+    REAL, DIMENSION(:),POINTER,CONTIGUOUS :: data1d
     !-------------------------------------------------------------------!
     IF (.NOT.(ASSOCIATED(ma%data1d).AND.ASSOCIATED(this%data1d))) THEN
       PRINT *,"ERROR in marray_compound::AppendMArray: at least one of this%data1d,ma%data1d is not associated"
