@@ -93,8 +93,10 @@ MODULE physics_eulerisotherm_mod
     !------Fargo Routines----------!
     PROCEDURE :: AddBackgroundVelocityX
     PROCEDURE :: AddBackgroundVelocityY
+    PROCEDURE :: AddBackgroundVelocityZ
     PROCEDURE :: SubtractBackgroundVelocityX
     PROCEDURE :: SubtractBackgroundVelocityY
+    PROCEDURE :: SubtractBackgroundVelocityZ
     PROCEDURE :: FargoSources
 
     PROCEDURE :: GeometricalSources
@@ -1239,34 +1241,6 @@ CONTAINS
   END SUBROUTINE ExternalSources
 
 
-  PURE SUBROUTINE AddBackgroundVelocityY(this,Mesh,w,pvar,cvar)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(physics_eulerisotherm), INTENT(INOUT) :: this
-    CLASS(mesh_base),         INTENT(IN)    :: Mesh
-    !------------------------------------------------------------------------!
-    REAL,DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%KGMIN:Mesh%KGMAX), &
-                              INTENT(IN)    :: w
-    REAL,DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM+this%PNUM), &
-                              INTENT(INOUT) :: pvar,cvar
-    !------------------------------------------------------------------------!
-    INTEGER              :: i,j,k
-    !------------------------------------------------------------------------!
-    IF (this%transformed_yvelocity) THEN
-      DO k=Mesh%KGMIN,Mesh%KGMAX
-        DO j=Mesh%JGMIN,Mesh%JGMAX
-          DO i=Mesh%IGMIN,Mesh%IGMAX
-             pvar(i,j,k,this%YVELOCITY) = pvar(i,j,k,this%YVELOCITY) + w(i,k)
-             cvar(i,j,k,this%YMOMENTUM) = cvar(i,j,k,this%YMOMENTUM) &
-                                      + cvar(i,j,k,this%DENSITY)*w(i,k)
-          END DO
-        END DO
-      END DO
-      this%transformed_yvelocity = .FALSE.
-    END IF
-  END SUBROUTINE AddBackgroundVelocityY
-
-
   PURE SUBROUTINE AddBackgroundVelocityX(this,Mesh,w,pvar,cvar)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
@@ -1294,6 +1268,86 @@ CONTAINS
     END IF
   END SUBROUTINE AddBackgroundVelocityX
 
+  PURE SUBROUTINE AddBackgroundVelocityY(this,Mesh,w,pvar,cvar)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(physics_eulerisotherm), INTENT(INOUT) :: this
+    CLASS(mesh_base),         INTENT(IN)    :: Mesh
+    !------------------------------------------------------------------------!
+    REAL,DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%KGMIN:Mesh%KGMAX), &
+                              INTENT(IN)    :: w
+    REAL,DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM+this%PNUM), &
+                              INTENT(INOUT) :: pvar,cvar
+    !------------------------------------------------------------------------!
+    INTEGER              :: i,j,k
+    !------------------------------------------------------------------------!
+    IF (this%transformed_yvelocity) THEN
+      DO k=Mesh%KGMIN,Mesh%KGMAX
+        DO j=Mesh%JGMIN,Mesh%JGMAX
+          DO i=Mesh%IGMIN,Mesh%IGMAX
+             pvar(i,j,k,this%YVELOCITY) = pvar(i,j,k,this%YVELOCITY) + w(i,k)
+             cvar(i,j,k,this%YMOMENTUM) = cvar(i,j,k,this%YMOMENTUM) &
+                                      + cvar(i,j,k,this%DENSITY)*w(i,k)
+          END DO
+        END DO
+      END DO
+      this%transformed_yvelocity = .FALSE.
+    END IF
+  END SUBROUTINE AddBackgroundVelocityY
+
+  PURE SUBROUTINE AddBackgroundVelocityZ(this,Mesh,w,pvar,cvar)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(physics_eulerisotherm), INTENT(INOUT) :: this
+    CLASS(mesh_base),         INTENT(IN)    :: Mesh
+    !------------------------------------------------------------------------!
+    REAL,DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX), &
+                              INTENT(IN)    :: w
+    REAL,DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM+this%PNUM), &
+                              INTENT(INOUT) :: pvar,cvar
+    !------------------------------------------------------------------------!
+    INTEGER              :: i,j,k
+    !------------------------------------------------------------------------!
+    IF (this%transformed_zvelocity) THEN
+      DO k=Mesh%KGMIN,Mesh%KGMAX
+        DO j=Mesh%JGMIN,Mesh%JGMAX
+          DO i=Mesh%IGMIN,Mesh%IGMAX
+             pvar(i,j,k,this%ZVELOCITY) = pvar(i,j,k,this%ZVELOCITY) + w(i,j)
+             cvar(i,j,k,this%ZMOMENTUM) = cvar(i,j,k,this%ZMOMENTUM) &
+                                      + cvar(i,j,k,this%DENSITY)*w(i,j)
+          END DO
+        END DO
+      END DO
+      this%transformed_zvelocity = .FALSE.
+    END IF
+  END SUBROUTINE AddBackgroundVelocityZ
+
+  PURE SUBROUTINE SubtractBackgroundVelocityX(this,Mesh,w,pvar,cvar)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(physics_eulerisotherm), INTENT(INOUT) :: this
+    CLASS(mesh_base),         INTENT(IN)    :: Mesh
+    !------------------------------------------------------------------------!
+    REAL,DIMENSION(Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
+                              INTENT(IN)    :: w
+    REAL,DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM+this%PNUM), &
+                              INTENT(INOUT) :: pvar,cvar
+    !------------------------------------------------------------------------!
+    INTEGER              :: i,j,k
+    !------------------------------------------------------------------------!
+    IF (.NOT.this%transformed_xvelocity) THEN
+      DO k=Mesh%KGMIN,Mesh%KGMAX
+        DO j=Mesh%JGMIN,Mesh%JGMAX
+          DO i=Mesh%IGMIN,Mesh%IGMAX
+            pvar(i,j,k,this%XVELOCITY) = pvar(i,j,k,this%XVELOCITY) - w(j,k)
+            cvar(i,j,k,this%XMOMENTUM) = cvar(i,j,k,this%XMOMENTUM) &
+                                     - cvar(i,j,k,this%DENSITY)*w(j,k)
+          END DO
+        END DO
+      END DO
+      this%transformed_xvelocity = .TRUE.
+    END IF
+  END SUBROUTINE SubtractBackgroundVelocityX
 
   PURE SUBROUTINE SubtractBackgroundVelocityY(this,Mesh,w,pvar,cvar)
     IMPLICIT NONE
@@ -1322,32 +1376,34 @@ CONTAINS
     END IF
   END SUBROUTINE SubtractBackgroundVelocityY
 
-  PURE SUBROUTINE SubtractBackgroundVelocityX(this,Mesh,w,pvar,cvar)
+  PURE SUBROUTINE SubtractBackgroundVelocityZ(this,Mesh,w,pvar,cvar)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(physics_eulerisotherm), INTENT(INOUT) :: this
     CLASS(mesh_base),         INTENT(IN)    :: Mesh
     !------------------------------------------------------------------------!
-    REAL,DIMENSION(Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
+    REAL,DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX), &
                               INTENT(IN)    :: w
     REAL,DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM+this%PNUM), &
                               INTENT(INOUT) :: pvar,cvar
     !------------------------------------------------------------------------!
     INTEGER              :: i,j,k
     !------------------------------------------------------------------------!
-    IF (.NOT.this%transformed_xvelocity) THEN
+    IF (.NOT.this%transformed_zvelocity) THEN
       DO k=Mesh%KGMIN,Mesh%KGMAX
         DO j=Mesh%JGMIN,Mesh%JGMAX
           DO i=Mesh%IGMIN,Mesh%IGMAX
-            pvar(i,j,k,this%XVELOCITY) = pvar(i,j,k,this%XVELOCITY) - w(j,k)
-            cvar(i,j,k,this%XMOMENTUM) = cvar(i,j,k,this%XMOMENTUM) &
+            pvar(i,j,k,this%ZVELOCITY) = pvar(i,j,k,this%ZVELOCITY) - w(j,k)
+            cvar(i,j,k,this%ZMOMENTUM) = cvar(i,j,k,this%ZMOMENTUM) &
                                      - cvar(i,j,k,this%DENSITY)*w(j,k)
           END DO
         END DO
       END DO
-      this%transformed_xvelocity = .TRUE.
+      this%transformed_zvelocity = .TRUE.
     END IF
-  END SUBROUTINE SubtractBackgroundVelocityX
+  END SUBROUTINE SubtractBackgroundVelocityZ
+
+
 
   !> \public sources terms for fargo advection
   !!

@@ -72,9 +72,11 @@ MODULE physics_euler_mod
     PROCEDURE :: CalcFluxesZ
     !------fargo routines----------!
     PROCEDURE :: AddBackgroundVelocityX
-    PROCEDURE :: SubtractBackgroundVelocityX
     PROCEDURE :: AddBackgroundVelocityY
+    PROCEDURE :: AddBackgroundVelocityZ
+    PROCEDURE :: SubtractBackgroundVelocityX
     PROCEDURE :: SubtractBackgroundVelocityY
+    PROCEDURE :: SubtractBackgroundVelocityZ
     !------HLLC routines-----------!
 !    PROCEDURE :: CalcIntermediateStateX
 !    PROCEDURE :: CalcIntermediateStateY
@@ -1587,6 +1589,47 @@ CONTAINS
   !!
   !! Calculates
   !! \f{eqnarray*}{
+  !!    E   &=& E' + m_x' w + \frac{1}{2}\varrho w^2 \\
+  !!    v_x &=& v_x' +  w \\
+  !!    m_x &=& m_x' +  \varrho w,
+  !! \f}
+  !! with \f$ E, v_y, m_y \f$ the total energy, velocity and momentum. The
+  !! \f$ ' \f$ denotes the residual part. \f$ w \f$ is the velocity shift.
+  PURE SUBROUTINE AddBackgroundVelocityX(this,Mesh,w,pvar,cvar)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(physics_euler), INTENT(INOUT) :: this
+    CLASS(mesh_base),       INTENT(IN)    :: Mesh
+    REAL, DIMENSION(Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
+                            INTENT(IN)    :: w
+    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM+this%PNUM), &
+                            INTENT(INOUT) ::  pvar,cvar
+    !------------------------------------------------------------------------!
+    INTEGER                               :: i,j,k
+    !------------------------------------------------------------------------!
+    IF (this%transformed_xvelocity) THEN
+      DO k=Mesh%KGMIN,Mesh%KGMAX
+        DO j=Mesh%JGMIN,Mesh%JGMAX
+          DO i=Mesh%IGMIN,Mesh%IGMAX
+             ! ATTENTION: don't change the order; on the RHS of the first
+             !            assignment there must be the old momentum
+             cvar(i,j,k,this%ENERGY) = cvar(i,j,k,this%ENERGY) &
+                                     + w(j,k)*(cvar(i,j,k,this%XMOMENTUM) &
+                                     + 0.5*cvar(i,j,k,this%DENSITY)*w(j,k))
+             pvar(i,j,k,this%XVELOCITY) = pvar(i,j,k,this%XVELOCITY) + w(j,k)
+             cvar(i,j,k,this%XMOMENTUM) = cvar(i,j,k,this%XMOMENTUM) &
+                                      + cvar(i,j,k,this%DENSITY)*w(j,k)
+          END DO
+        END DO
+      END DO
+      this%transformed_xvelocity = .FALSE.
+    END IF
+  END SUBROUTINE AddBackgroundVelocityX
+
+  !> Adds a background velocity field for fargo routines
+  !!
+  !! Calculates
+  !! \f{eqnarray*}{
   !!    E   &=& E' + m_y' w + \frac{1}{2}\varrho w^2 \\
   !!    v_y &=& v_y' +  w \\
   !!    m_y &=& m_y' +  \varrho w,
@@ -1628,43 +1671,83 @@ CONTAINS
   !!
   !! Calculates
   !! \f{eqnarray*}{
-  !!    E   &=& E' + m_x' w + \frac{1}{2}\varrho w^2 \\
-  !!    v_x &=& v_x' +  w \\
-  !!    m_x &=& m_x' +  \varrho w,
+  !!    E   &=& E' + m_z' w + \frac{1}{2}\varrho w^2 \\
+  !!    v_z &=& v_z' +  w \\
+  !!    m_z &=& m_z' +  \varrho w,
   !! \f}
-  !! with \f$ E, v_y, m_y \f$ the total energy, velocity and momentum. The
+  !! with \f$ E, v_z, m_z \f$ the total energy, velocity and momentum. The
   !! \f$ ' \f$ denotes the residual part. \f$ w \f$ is the velocity shift.
-  PURE SUBROUTINE AddBackgroundVelocityX(this,Mesh,w,pvar,cvar)
+  PURE SUBROUTINE AddBackgroundVelocityZ(this,Mesh,w,pvar,cvar)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(physics_euler), INTENT(INOUT) :: this
     CLASS(mesh_base),       INTENT(IN)    :: Mesh
-    REAL, DIMENSION(Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
+    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX), &
                             INTENT(IN)    :: w
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM+this%PNUM), &
                             INTENT(INOUT) ::  pvar,cvar
     !------------------------------------------------------------------------!
     INTEGER                               :: i,j,k
     !------------------------------------------------------------------------!
-    IF (this%transformed_xvelocity) THEN
+    IF (this%transformed_zvelocity) THEN
       DO k=Mesh%KGMIN,Mesh%KGMAX
         DO j=Mesh%JGMIN,Mesh%JGMAX
           DO i=Mesh%IGMIN,Mesh%IGMAX
-             ! ATTENTION: don't change the order; on the RHS of the first
-             !            assignment there must be the old momentum
-             cvar(i,j,k,this%ENERGY) = cvar(i,j,k,this%ENERGY) &
-                                     + w(j,k)*(cvar(i,j,k,this%XMOMENTUM) &
-                                     + 0.5*cvar(i,j,k,this%DENSITY)*w(j,k))
-             pvar(i,j,k,this%XVELOCITY) = pvar(i,j,k,this%XVELOCITY) + w(j,k)
-             cvar(i,j,k,this%XMOMENTUM) = cvar(i,j,k,this%XMOMENTUM) &
-                                      + cvar(i,j,k,this%DENSITY)*w(j,k)
+            ! ATTENTION: don't change the order; on the RHS of the first
+            !            assignment there must be the old momentum
+            cvar(i,j,k,this%ENERGY) = cvar(i,j,k,this%ENERGY) &
+                                  + w(i,j)*(cvar(i,j,k,this%ZMOMENTUM) &
+                                  + 0.5*cvar(i,j,k,this%DENSITY)*w(i,j))
+            pvar(i,j,k,this%ZVELOCITY) = pvar(i,j,k,this%ZVELOCITY) + w(i,j)
+            cvar(i,j,k,this%ZMOMENTUM) = cvar(i,j,k,this%ZMOMENTUM) &
+                                     + cvar(i,j,k,this%DENSITY)*w(i,j)
           END DO
         END DO
       END DO
-      this%transformed_xvelocity = .FALSE.
+      this%transformed_zvelocity = .FALSE.
     END IF
-  END SUBROUTINE AddBackgroundVelocityX
+  END SUBROUTINE AddBackgroundVelocityZ
 
+  !> Substracts a background velocity field for fargo routines
+  !!
+  !! Calculates
+  !! \f{eqnarray*}{
+  !!    E'   &=& E - m_x w + \frac{1}{2}\varrho w^2 \\
+  !!    v_x' &=& v_x -  w \\
+  !!    m_x' &=& m_x -  \varrho w,
+  !! \f}
+  !! with \f$ E, v_x, m_x \f$ the total energy, velocity and momentum. The
+  !! \f$ ' \f$ denotes the residual part. \f$ w \f$ is the velocity shift.
+  PURE SUBROUTINE SubtractBackgroundVelocityX(this,Mesh,w,pvar,cvar)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(physics_euler), INTENT(INOUT) :: this
+    CLASS(mesh_base),       INTENT(IN)    :: Mesh
+    REAL,DIMENSION(Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
+                            INTENT(IN)    :: w
+    REAL,DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM+this%PNUM), &
+                            INTENT(INOUT) :: pvar,cvar
+    !------------------------------------------------------------------------!
+    INTEGER :: i,j,k
+    !------------------------------------------------------------------------!
+    IF (.NOT.this%transformed_xvelocity) THEN
+      DO k=Mesh%KGMIN,Mesh%KGMAX
+        DO j=Mesh%JGMIN,Mesh%JGMAX
+          DO i=Mesh%IGMIN,Mesh%IGMAX
+            ! ATTENTION: don't change the order; on the RHS of the first
+            !            assignment there must be the old momentum
+            cvar(i,j,k,this%ENERGY) = cvar(i,j,k,this%ENERGY) &
+                                  - w(j,k)*(cvar(i,j,k,this%XMOMENTUM) &
+                                  - 0.5*cvar(i,j,k,this%DENSITY)*w(j,k))
+            pvar(i,j,k,this%XVELOCITY) = pvar(i,j,k,this%XVELOCITY) - w(j,k)
+            cvar(i,j,k,this%XMOMENTUM) = cvar(i,j,k,this%XMOMENTUM) &
+                                     - cvar(i,j,k,this%DENSITY)*w(j,k)
+          END DO
+        END DO
+      END DO
+      this%transformed_xvelocity = .TRUE.
+    END IF
+  END SUBROUTINE SubtractBackgroundVelocityX
 
   !> Substracts a background velocity field for fargo routines
   !!
@@ -1711,42 +1794,42 @@ CONTAINS
   !!
   !! Calculates
   !! \f{eqnarray*}{
-  !!    E'   &=& E - m_x w + \frac{1}{2}\varrho w^2 \\
-  !!    v_x' &=& v_x -  w \\
-  !!    m_x' &=& m_x -  \varrho w,
+  !!    E'   &=& E - m_z w + \frac{1}{2}\varrho w^2 \\
+  !!    v_z' &=& v_z -  w \\
+  !!    m_z' &=& m_z -  \varrho w,
   !! \f}
-  !! with \f$ E, v_x, m_x \f$ the total energy, velocity and momentum. The
+  !! with \f$ E, v_z, m_z \f$ the total energy, velocity and momentum. The
   !! \f$ ' \f$ denotes the residual part. \f$ w \f$ is the velocity shift.
-  PURE SUBROUTINE SubtractBackgroundVelocityX(this,Mesh,w,pvar,cvar)
+  PURE SUBROUTINE SubtractBackgroundVelocityZ(this,Mesh,w,pvar,cvar)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(physics_euler), INTENT(INOUT) :: this
     CLASS(mesh_base),       INTENT(IN)    :: Mesh
-    REAL,DIMENSION(Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
+    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX), &
                             INTENT(IN)    :: w
-    REAL,DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM+this%PNUM), &
+    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM+this%PNUM), &
                             INTENT(INOUT) :: pvar,cvar
     !------------------------------------------------------------------------!
-    INTEGER :: i,j,k
+    INTEGER                               :: i,j,k
     !------------------------------------------------------------------------!
-    IF (.NOT.this%transformed_xvelocity) THEN
+    IF (.NOT.this%transformed_zvelocity) THEN
       DO k=Mesh%KGMIN,Mesh%KGMAX
         DO j=Mesh%JGMIN,Mesh%JGMAX
           DO i=Mesh%IGMIN,Mesh%IGMAX
             ! ATTENTION: don't change the order; on the RHS of the first
             !            assignment there must be the old momentum
             cvar(i,j,k,this%ENERGY) = cvar(i,j,k,this%ENERGY) &
-                                  - w(j,k)*(cvar(i,j,k,this%XMOMENTUM) &
-                                  - 0.5*cvar(i,j,k,this%DENSITY)*w(j,k))
-            pvar(i,j,k,this%XVELOCITY) = pvar(i,j,k,this%XVELOCITY) - w(j,k)
-            cvar(i,j,k,this%XMOMENTUM) = cvar(i,j,k,this%XMOMENTUM) &
-                                     - cvar(i,j,k,this%DENSITY)*w(j,k)
+                                  - w(i,j)*(cvar(i,j,k,this%ZMOMENTUM) &
+                                  - 0.5*cvar(i,j,k,this%DENSITY)*w(i,j))
+            pvar(i,j,k,this%ZVELOCITY) = pvar(i,j,k,this%ZVELOCITY) - w(i,j)
+            cvar(i,j,k,this%ZMOMENTUM) = cvar(i,j,k,this%ZMOMENTUM) &
+                                     - cvar(i,j,k,this%DENSITY)*w(i,j)
           END DO
         END DO
       END DO
-      this%transformed_xvelocity = .TRUE.
+      this%transformed_zvelocity = .TRUE.
     END IF
-  END SUBROUTINE SubtractBackgroundVelocityX
+  END SUBROUTINE SubtractBackgroundVelocityZ
 
 
   PURE SUBROUTINE UpdateSoundSpeed(this,pvar)
