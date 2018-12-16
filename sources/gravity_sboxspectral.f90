@@ -103,6 +103,7 @@ MODULE gravity_sboxspectral_mod
     REAL                             :: shiftconst     !< constant for shift
     REAL, DIMENSION(:), POINTER      :: joff, jrem     !< shifting indices (in SB)
     INTEGER                          :: order
+    LOGICAL                          :: calc_Fmass2D
 #ifdef PARALLEL
     INTEGER(C_INTPTR_T)              :: C_INUM, C_JNUM
     INTEGER(C_INTPTR_T)              :: alloc_local, local_JNUM
@@ -326,10 +327,13 @@ MODULE gravity_sboxspectral_mod
       CALL SetAttr(IO, "accel_y", &
               this%accel(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,2))
     valwrite = 0
+    this%calc_Fmass2D = .FALSE.
     CALL GetAttr(config, "output/Fmass2D", valwrite, 0)
-    IF (valwrite .EQ. 1) &
+    IF (valwrite .EQ. 1) THEN
       CALL SetAttr(IO, "Fmass2D_real", &
               this%Fmass2D_real(Mesh%IMIN:Mesh%IMAX+2,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX))
+      this%calc_Fmass2D = .TRUE.
+    END IF
 
     CALL this%InitGravity(Mesh,Physics,config,IO)
 #endif
@@ -762,26 +766,23 @@ CALL ftrace_region_begin("forward FFT")
 
 #if !defined(PARALLEL)
     CALL fftw_execute_dft_r2c(this%plan_r2c, this%mass2D, this%Fmass2D)
-    ! turn complex array to real one for output
-    DO k = Mesh%KMIN,Mesh%KMAX
-      DO j = Mesh%JMIN,Mesh%JMAX
-        DO i = Mesh%IMIN,Mesh%IMAX/2+1
-          this%Fmass2D_real(2*i-1,j,k) = REAL(REAL(this%Fmass2D(i,j)))
-          this%Fmass2D_real(2*i,j,k)   = REAL(AIMAG(this%Fmass2D(i,j)))
-        END DO
-      END DO
-    END DO
 #else
     CALL fftw_mpi_execute_dft_r2c(this%plan_r2c,this%mass2D, this%Fmass2D)
-    DO k = Mesh%KMIN,Mesh%KMAX
-      DO j = Mesh%JMIN,Mesh%JMAX
-        DO i = Mesh%IMIN,Mesh%IMAX/2+1
-          this%Fmass2D_real(2*i-1,j,k) = REAL(REAL(this%Fmass2D(i,j-this%local_joff)))
-          this%Fmass2D_real(2*i,j,k)   = REAL(AIMAG(this%Fmass2D(i,j-this%local_joff)))
+#endif
+
+    IF (this%calc_Fmass2D) THEN
+!NEC$ IVDEP
+      DO k = Mesh%KMIN,Mesh%KMAX
+!NEC$ IVDEP
+        DO j = Mesh%JMIN,Mesh%JMAX
+!NEC$ IVDEP
+          DO i = Mesh%IMIN,Mesh%IMAX/2+1
+            this%Fmass2D_real(2*i-1,j,k) = REAL(REAL(this%Fmass2D(i,j-this%local_joff)))
+            this%Fmass2D_real(2*i,j,k)   = REAL(AIMAG(this%Fmass2D(i,j-this%local_joff)))
+          END DO
         END DO
       END DO
-    END DO
-#endif
+    END IF
 
 #ifdef _FTRACE
 CALL ftrace_region_end("foward FFT")
