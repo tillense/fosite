@@ -103,6 +103,7 @@ PROGRAM shearingsheet
   REAL, PARAMETER    :: Q          = 1.5            ! shearing parameter     !
   ! mesh settings
   INTEGER, PARAMETER :: MGEO       = CARTESIAN
+  INTEGER, PARAMETER :: SHEAR_DIRECTION = 1         ! enables shearingsheet with direcion !
   INTEGER, PARAMETER :: XRES       = 1024           ! cells in x-direction   !
   INTEGER, PARAMETER :: YRES       = 1024           ! cells in y-direction   !
   INTEGER, PARAMETER :: ZRES       = 1              ! cells in z-direction   !
@@ -165,8 +166,7 @@ CONTAINS
                 "meshtype"    / MIDPOINT, &
                 "geometry"    / MGEO, &
                 "omega"       / OMEGA, &
-                "fargo"       / FARGO, &
-                "shift_dir"   / 1, &
+                "shear_dir"   / SHEAR_DIRECTION, &
                 "inum"        / XRES, &
                 "jnum"        / YRES, &
                 "knum"        / ZRES, &
@@ -184,16 +184,6 @@ CONTAINS
                 "fluxtype"    / KT, &
                 "variables"   / PRIMITIVE, &
                 "limiter"     / VANLEER &
-                )
-
-    ! boundary conditions
-    boundary => Dict(&
-                "western"     / PERIODIC, &
-                "eastern"     / PERIODIC, &
-                "southern"    / SHEARING, &
-                "northern"    / SHEARING, &
-                "bottomer"    / REFLECTING, &
-                "topper"      / REFLECTING &
                 )
 
     ! gravity settings (source term)
@@ -250,7 +240,6 @@ CONTAINS
                 "mesh"        / mesh, &
                 "physics"     / physics, &
                 "fluxes"      / fluxes, &
-                "boundary"    / boundary, &
                 "sources"     / sources, &
                 "timedisc"    / timedisc, &
                 "datafile"    / datafile &
@@ -280,7 +269,7 @@ CONTAINS
 
       ! create random numbers for setup of initial velocities
       CALL InitRandSeed(Physics)
-      IF (Mesh%WE_shear) THEN
+      IF (Mesh%shear_dir.EQ.2) THEN
         CALL RANDOM_NUMBER(rands)
         rands = (rands-0.5)*0.1*SOUNDSPEED
         p%velocity%data4d(:,:,:,1) = rands(:,:,:)
@@ -288,7 +277,7 @@ CONTAINS
         CALL RANDOM_NUMBER(rands)
         rands = (rands-0.5)*0.1*SOUNDSPEED
         p%velocity%data4d(:,:,:,2)  = -Q*OMEGA*Mesh%bcenter(:,:,:,1) + rands(:,:,:)
-      ELSE IF (Mesh%SN_shear) THEN
+      ELSE IF (Mesh%shear_dir.EQ.1) THEN
         CALL RANDOM_NUMBER(rands)
         rands = (rands-0.5)*0.1*SOUNDSPEED
         p%velocity%data4d(:,:,:,1) = Q*OMEGA*Mesh%bcenter(:,:,:,2) + rands(:,:,:)

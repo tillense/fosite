@@ -154,6 +154,7 @@ CONTAINS
     !--------------------------------------------------------------------------!
     CLASS(fosite),  INTENT(INOUT) :: this
     TYPE(Dict_TYP), POINTER       :: dir, IOdir, config_copy
+    TYPE(Dict_TYP), POINTER       :: boundary
     !--------------------------------------------------------------------------!
     IF (.NOT.this%Initialized()) &
       CALL this%Error("Setup","Sim is uninitialized")
@@ -209,6 +210,11 @@ CONTAINS
     END IF
 
     CALL GetAttr(this%config, "boundary", dir)
+    IF(.NOT.ASSOCIATED(dir)) THEN
+      boundary => Dict("empty"/ 0)
+      CALL SetAttr(this%config, "boundary", boundary)
+      CALL GetAttr(this%config, "boundary", dir)
+    END IF
     IF(ASSOCIATED(dir)) THEN
       NULLIFY(IOdir)
       CALL new_boundary(this%Timedisc%Boundary, this%Mesh, this%Physics, dir,IOdir)

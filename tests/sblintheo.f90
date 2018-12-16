@@ -76,6 +76,9 @@ PROGRAM sblintheo
   !--------------------------------------------------------------------------!
   ! general constants
   REAL, PARAMETER    :: GN         = 1.0            ! grav. constant [GEOM]  !
+  ! make a shearingsheet simulation and denote the direction of shearing
+  ! (applies boundaries, ficitious forces and fargo automatically)
+  INTEGER, PARAMETER :: SHEARSHEET_DIRECTION = 1
   ! simulation parameter
   REAL, PARAMETER    :: OMEGA      = 1.0            ! rotation at fid. point !
   REAL, PARAMETER    :: SIGMA0     = 1.0            ! mean surf.dens.        !
@@ -95,8 +98,6 @@ PROGRAM sblintheo
   INTEGER, PARAMETER :: ZRES       = 1
   REAL               :: DOMAINX    = 40.0           ! domain size [GEOM]     !
   REAL               :: DOMAINY    = 40.0           ! domain size [GEOM]     !
-  ! fargo 0=off, 3=on (for SB)
-  INTEGER, PARAMETER :: FARGO      = 3              ! 3 = Shearingbox        !
   ! number of output time steps
   INTEGER, PARAMETER :: ONUM       = 10
   ! output directory and output name
@@ -135,8 +136,8 @@ CONTAINS
     CLASS(fosite)           :: Sim
     TYPE(Dict_TYP), POINTER :: config
     !--------------------------------------------------------------------------!
-    TYPE(Dict_TYP), POINTER :: mesh,physics,fluxes,boundary,&
-                               grav,shearingbox,sources,timedisc,&
+    TYPE(Dict_TYP), POINTER :: mesh,physics,fluxes,&
+                               grav,sources,timedisc,shearingbox,&
                                datafile
     REAL                    :: XMIN,XMAX,YMIN,YMAX,ZMIN,ZMAX
     !--------------------------------------------------------------------------!
@@ -160,6 +161,7 @@ CONTAINS
     mesh =>     Dict(&
                 "meshtype"    / MIDPOINT, &
                 "geometry"    / MGEO, &
+                "shear_dir"   / SHEARSHEET_DIRECTION, &
                 "inum"        / XRES, &
                 "jnum"        / YRES, &
                 "knum"        / ZRES, &
@@ -169,8 +171,6 @@ CONTAINS
                 "ymax"        / YMAX, &
                 "zmin"        / ZMIN, &
                 "zmax"        / ZMAX, &
-                "fargo"       / FARGO, &
-                "shift_dir"   / 1, &
                 "omega"       / OMEGA, &
                 "decomposition"/ (/ 1, -1, 1/), &
                 "output/rotation" / 0, &
@@ -186,16 +186,6 @@ CONTAINS
                 "fluxtype"    / KT, &
                 "variables"   / PRIMITIVE, &
                 "limiter"     / VANLEER &
-                )
-
-    ! boundary conditions
-    boundary => Dict(&
-                "western"     / PERIODIC, &
-                "eastern"     / PERIODIC, &
-                "southern"    / SHEARING, &
-                "northern"    / SHEARING, &
-                "bottomer"    / REFLECTING, &
-                "topper"      / REFLECTING &
                 )
 
     ! gravity settings (source term)
@@ -215,8 +205,8 @@ CONTAINS
 
     ! sources settings (contains source terms)
     sources =>  Dict(&
-                "grav"        / grav, &
-                "shearing"    / shearingbox &
+                "shearing"    / shearingbox, &
+                "grav"        / grav &
                 )
 
     ! time discretization settings
@@ -239,7 +229,6 @@ CONTAINS
                   "mesh"        / mesh, &
                   "physics"     / physics, &
                   "fluxes"      / fluxes, &
-                  "boundary"    / boundary, &
                   "sources"     / sources, &
                   "timedisc"    / timedisc, &
                   "datafile"    / datafile &
@@ -266,24 +255,24 @@ CONTAINS
     ! initial condition
     SELECT TYPE(p => pvar)
     TYPE IS(statevector_eulerisotherm)
-      IF(Mesh%WE_shear)THEN
+      IF(Mesh%shear_dir.EQ.2)THEN
         p%density%data3d(:,:,:) = SIGMA0 &
           + DELSIGMA*COS(kx*Mesh%bcenter(:,:,:,1) + ky*Mesh%bcenter(:,:,:,2))
         p%velocity%data2d(:,1) = 0.0
         p%velocity%data4d(:,:,:,2) = -Q*OMEGA*Mesh%bcenter(:,:,:,1)
-      ELSE
+      ELSE IF(Mesh%shear_dir.EQ.1)THEN
         p%density%data3d(:,:,:) = SIGMA0 &
           + DELSIGMA*COS(kx*Mesh%bcenter(:,:,:,2) - ky*Mesh%bcenter(:,:,:,1))
         p%velocity%data4d(:,:,:,1) = Q*OMEGA*Mesh%bcenter(:,:,:,2)
         p%velocity%data2d(:,2) = 0.0
       END IF
     TYPE IS(statevector_euler) ! non-isothermal HD
-      IF(Mesh%WE_shear)THEN
+      IF(Mesh%shear_dir.EQ.2)THEN
         p%density%data3d(:,:,:) = SIGMA0 &
           + DELSIGMA*COS(kx*Mesh%bcenter(:,:,:,1) + ky*Mesh%bcenter(:,:,:,2))
         p%velocity%data2d(:,1) = 0.0
         p%velocity%data4d(:,:,:,2) = -Q*OMEGA*Mesh%bcenter(:,:,:,1)
-      ELSE
+      ELSE IF(Mesh%shear_dir.EQ.1)THEN
         p%density%data3d(:,:,:) = SIGMA0 &
           + DELSIGMA*COS(kx*Mesh%bcenter(:,:,:,2) - ky*Mesh%bcenter(:,:,:,1))
         p%velocity%data4d(:,:,:,1) = Q*OMEGA*Mesh%bcenter(:,:,:,2)

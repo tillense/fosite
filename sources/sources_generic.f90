@@ -62,7 +62,7 @@ CONTAINS
     INTEGER                      :: stype
     !------------------------------------------------------------------------!
     IF (.NOT.Physics%Initialized().OR..NOT.Mesh%Initialized()) &
-         CALL this%Error("InitGravity","physics and/or mesh module uninitialized")
+         CALL this%Error("InitSources","physics and/or mesh module uninitialized")
 
     dir => config
     DO WHILE(ASSOCIATED(dir))

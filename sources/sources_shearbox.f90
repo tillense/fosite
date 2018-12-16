@@ -118,7 +118,7 @@ CONTAINS
     this%accel = marray_base(Physics%VDIM)
     this%accel%data1d(:) = 0.
 
-    IF(Mesh%WE_shear) THEN
+    IF(Mesh%shear_dir.EQ.2) THEN
       this%Vel1=Physics%YVELOCITY
       this%Vel2=Physics%XVELOCITY
       this%SIGN1 = 1.0
@@ -127,7 +127,7 @@ CONTAINS
       this%I2 = 2
       this%MOMENTUM1 = Physics%XMOMENTUM
       this%MOMENTUM2 = Physics%YMOMENTUM
-    ELSE IF(Mesh%SN_shear) THEN
+    ELSE IF(Mesh%shear_dir.EQ.1) THEN
       this%Vel1=Physics%XVELOCITY
       this%Vel2=Physics%YVELOCITY
       this%SIGN1 = -1.0

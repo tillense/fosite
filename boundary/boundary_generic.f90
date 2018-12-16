@@ -128,6 +128,8 @@ CONTAINS
     INTEGER         :: western, eastern, southern, northern, bottomer, topper
     !------------------------------------------------------------------------!
     INTEGER               :: new(6)
+    INTEGER               :: western_std, eastern_std, northern_std, southern_std, &
+                             topper_std, bottomer_std
     LOGICAL, DIMENSION(3) :: periods = .FALSE.
     INTEGER               :: dir
 #ifdef PARALLEL
@@ -139,12 +141,35 @@ CONTAINS
     IF (.NOT.Physics%Initialized().OR..NOT.Mesh%Initialized()) &
          CALL this%Error("InitBoundary","physics and/or mesh module uninitialized")
 
-    CALL GetAttr(config, "western",   western)
-    CALL GetAttr(config, "eastern",   eastern)
-    CALL GetAttr(config, "southern", southern)
-    CALL GetAttr(config, "northern", northern)
-    CALL GetAttr(config, "bottomer", bottomer)
-    CALL GetAttr(config, "topper",     topper)
+    ! check for shearingsheet standard boundaries
+    western_std = 0
+    eastern_std = 0
+    northern_std = 0
+    southern_std = 0
+    bottomer_std = 0
+    topper_std = 0
+    IF (Mesh%shear_dir.EQ.1) THEN
+      western_std = PERIODIC
+      eastern_std = PERIODIC
+      southern_std = SHEARING
+      northern_std = SHEARING
+      bottomer_std = PERIODIC
+      topper_std = PERIODIC
+    ELSE IF (Mesh%shear_dir.EQ.2) THEN
+      western_std = SHEARING
+      eastern_std = SHEARING
+      southern_std = PERIODIC
+      northern_std = PERIODIC
+      bottomer_std = PERIODIC
+      topper_std = PERIODIC
+    END IF
+
+    CALL GetAttr(config, "western",   western, western_std)
+    CALL GetAttr(config, "eastern",   eastern, eastern_std)
+    CALL GetAttr(config, "southern", southern, northern_std)
+    CALL GetAttr(config, "northern", northern, southern_std)
+    CALL GetAttr(config, "bottomer", bottomer, bottomer_std)
+    CALL GetAttr(config, "topper",     topper, topper_std)
 
     new(WEST)   = western
     new(EAST)   = eastern
@@ -164,18 +189,21 @@ CONTAINS
 #endif
 
     ! Check for correct shifting and boundaries
-    IF (Mesh%FARGO.EQ.3.AND.western.EQ.SHEARING.AND.eastern.EQ.SHEARING) THEN
-      IF (.NOT.Mesh%WE_shear) &
+    IF (western.EQ.SHEARING.AND.eastern.EQ.SHEARING) THEN
+      IF (.NOT.Mesh%shear_dir.EQ.2) &
         CALL this%Error("InitBoundary", &
           "Please apply shifting in second dimension, when applying shearing boundaries at western/eastern.")
 #ifdef PARALLEL
       CALL this%Error("InitBoundary", &
         "Parallel mode is not allowed with shearing in West-East direction.")
 #endif
-    ELSE IF (Mesh%FARGO.EQ.3.AND.southern.EQ.SHEARING.AND.northern.EQ.SHEARING) THEN
-      IF (.NOT.Mesh%SN_shear) &
+    ELSE IF (southern.EQ.SHEARING.AND.northern.EQ.SHEARING) THEN
+      IF (.NOT.Mesh%shear_dir.EQ.1) &
         CALL this%Error("InitBoundary", &
           "Please apply shifting in first dimension, when applying shearing boundaries at northern/southern.")
+    ELSE IF (bottomer.EQ.SHEARING.AND.topper.EQ.SHEARING) THEN
+        CALL this%Error("InitBoundary", &
+          "shifting in topper/bottomer direction not allowed.")
     END IF
 
     ! initialize every boundary

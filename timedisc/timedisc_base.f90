@@ -351,95 +351,95 @@ CONTAINS
     CALL this%SetOutput(Mesh,Physics,config,IO)
 
     ! check if fargo can be used
-    SELECT CASE (Mesh%FARGO)
-    CASE(0) ! fargo disabled
-       ! do nothing
-    CASE(1,2,3) ! fargo enabled
-       ! check physics
-       SELECT TYPE(phys => Physics)
-       CLASS IS(physics_eulerisotherm)
-          ! check geometry
-          SELECT CASE(Mesh%Geometry%GetType())
-          CASE(POLAR,TANPOLAR,LOGPOLAR,CYLINDRICAL,LOGCYLINDRICAL,SINHPOLAR)
-             ! allocate data arrays used for fargo
-             ALLOCATE( &
-                      this%w(Mesh%IGMIN:Mesh%IGMAX,Mesh%KGMIN:Mesh%KGMAX), &
-                      this%delxy(Mesh%IGMIN:Mesh%IGMAX,Mesh%KGMIN:Mesh%KGMAX), &
-                      this%shift(Mesh%IGMIN:Mesh%IGMAX,Mesh%KGMIN:Mesh%KGMAX), &
-                      this%fargo_src(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM+Physics%PNUM), &
+    IF(Mesh%use_fargo.EQ.1) THEN
+      ! check physics
+      SELECT TYPE(phys => Physics)
+      CLASS IS(physics_eulerisotherm)
+         ! check geometry
+         SELECT CASE(Mesh%Geometry%GetType())
+         CASE(POLAR,TANPOLAR,LOGPOLAR,CYLINDRICAL,LOGCYLINDRICAL,SINHPOLAR)
+            ! allocate data arrays used for fargo
+            ALLOCATE( &
+                     this%w(Mesh%IGMIN:Mesh%IGMAX,Mesh%KGMIN:Mesh%KGMAX), &
+                     this%delxy(Mesh%IGMIN:Mesh%IGMAX,Mesh%KGMIN:Mesh%KGMAX), &
+                     this%shift(Mesh%IGMIN:Mesh%IGMAX,Mesh%KGMIN:Mesh%KGMAX), &
+                     this%fargo_src(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM+Physics%PNUM), &
 #ifdef PARALLEL
-                      this%buf(Physics%VNUM+Physics%PNUM,1:Mesh%MINJNUM), & !!! NOT CHANGED, because not clear were used !
+                     this%buf(Physics%VNUM+Physics%PNUM,1:Mesh%MINJNUM), & !!! NOT CHANGED, because not clear were used !
 #endif
-                      STAT = err)
-             IF (err.NE.0) THEN
-                CALL this%Error("InitTimedisc", "Unable to allocate memory for fargo advection.")
-             END IF
-             this%fargo_src(:,:,:,:) = 0.0
-          CASE(CARTESIAN) ! in cartesian fargo shift can be chosen in either x- or y-direction
-             IF(Mesh%WE_shear) THEN
-                ALLOCATE( &
-                      this%w(Mesh%IGMIN:Mesh%IGMAX,Mesh%KGMIN:Mesh%KGMAX), &
-                      this%delxy(Mesh%IGMIN:Mesh%IGMAX,Mesh%KGMIN:Mesh%KGMAX), &
-                      this%shift(Mesh%IGMIN:Mesh%IGMAX,Mesh%KGMIN:Mesh%KGMAX), &
+                     STAT = err)
+            IF (err.NE.0) THEN
+               CALL this%Error("InitTimedisc", "Unable to allocate memory for fargo advection.")
+            END IF
+            this%fargo_src(:,:,:,:) = 0.0
+         CASE(CARTESIAN) ! in cartesian fargo shift can be chosen in either x- or y-direction
+            IF(Mesh%shear_dir.EQ.2) THEN
+               ALLOCATE( &
+                     this%w(Mesh%IGMIN:Mesh%IGMAX,Mesh%KGMIN:Mesh%KGMAX), &
+                     this%delxy(Mesh%IGMIN:Mesh%IGMAX,Mesh%KGMIN:Mesh%KGMAX), &
+                     this%shift(Mesh%IGMIN:Mesh%IGMAX,Mesh%KGMIN:Mesh%KGMAX), &
 #ifdef PARALLEL
-                      this%buf(Physics%VNUM+Physics%PNUM,1:Mesh%MINJNUM), &  !!! SEE ABOVE
+                     this%buf(Physics%VNUM+Physics%PNUM,1:Mesh%MINJNUM), &  !!! SEE ABOVE
 #endif
-                      STAT = err)
-                IF (err.NE.0) THEN
-                   CALL this%Error("InitTimedisc", "Unable to allocate memory for fargo advection.")
-                END IF
-             ELSE IF(Mesh%SN_shear) THEN
-                ALLOCATE( &
-                      this%w(Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
-                      this%delxy(Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
-                      this%shift(Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
+                     STAT = err)
+               IF (err.NE.0) THEN
+                  CALL this%Error("InitTimedisc", "Unable to allocate memory for fargo advection.")
+               END IF
+            ELSE IF(Mesh%shear_dir.EQ.1) THEN
+               ALLOCATE( &
+                     this%w(Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
+                     this%delxy(Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
+                     this%shift(Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
 #ifdef PARALLEL
-                      this%buf(Physics%VNUM+Physics%PNUM,1:Mesh%MININUM), & !!! SEE ABOVE
+                     this%buf(Physics%VNUM+Physics%PNUM,1:Mesh%MININUM), & !!! SEE ABOVE
 #endif
-                      STAT = err)
-                IF (err.NE.0) THEN
-                   CALL this%Error("InitTimedisc", "Unable to allocate memory for fargo advection.")
-                END IF
-             END IF
-          CASE DEFAULT
-             ! geometry not supported -> disable fargo
-             Mesh%FARGO = 0
-             CALL this%Warning("InitTimedisc", &
-                 "fargo has been disabled, because the geometry is not supported.")
-          END SELECT
-       CLASS DEFAULT
-          ! geometry not supported -> disable fargo
-          Mesh%FARGO = 0
-          CALL this%Warning("InitTimedisc","fargo has been disabled, because the physics is not supported.")
-       END SELECT
-       ! initialize background velocity field w
-       SELECT CASE(Mesh%FARGO)
-       CASE(1,2) ! set to 0;
-                 ! fargo advection type 1: w is computed in each time step (see FargoCalcVelocity)
-                 ! fargo advection type 2: w is provided by the user, e.g. in InitData
-          this%w(:,:) = 0.0
+                     STAT = err)
+               IF (err.NE.0) THEN
+                  CALL this%Error("InitTimedisc", "Unable to allocate memory for fargo advection.")
+               END IF
+            ELSE
+              CALL this%Error("InitTimedisc", "Unable to allocate memory for fargo advection.")
+            END IF
+         CASE DEFAULT
+            ! geometry not supported -> disable fargo
+            Mesh%FARGO = 0
+            CALL this%Warning("InitTimedisc", &
+                "fargo has been disabled, because the geometry is not supported.")
+         END SELECT
+      CLASS DEFAULT
+         ! geometry not supported -> disable fargo
+         Mesh%FARGO = 0
+         CALL this%Warning("InitTimedisc","fargo has been disabled, because the physics is not supported.")
+      END SELECT
+      ! initialize background velocity field w
+      SELECT CASE(Mesh%FARGO)
+      CASE(1,2) ! set to 0;
+                ! fargo advection type 1: w is computed in each time step (see FargoCalcVelocity)
+                ! fargo advection type 2: w is provided by the user, e.g. in InitData
+         this%w(:,:) = 0.0
+         this%shift(:,:) = 0.0
+      CASE(3) ! fixed background velocity in shearing box
+        IF(Mesh%shear_dir.EQ.2) THEN
+          this%w(:,:) = -Mesh%Q*Mesh%omega*Mesh%bcenter(:,Mesh%JMIN,:,1) !-Q*Omega*x
           this%shift(:,:) = 0.0
-       CASE(3) ! fixed background velocity in shearing box
-         IF(Mesh%WE_shear) THEN
-           this%w(:,:) = -Mesh%Q*Mesh%omega*Mesh%bcenter(:,Mesh%JMIN,:,1) !-Q*Omega*x
-           this%shift(:,:) = 0.0
-           shear_direction = "west<->east"
-         ELSE IF (Mesh%SN_shear) THEN
-           this%w(:,:) = Mesh%Q*Mesh%omega*Mesh%bcenter(Mesh%IMIN,:,:,2) !Q*Omega*y
-           this%shift(:,:) = 0.0
-           shear_direction = "south<->north"
-         END IF
-         this%dq = marray_base()
-         this%dq%data1d(:) = 0.0
-         this%dql = marray_base()
-         this%dql%data1d(:) = 0.0
-         this%flux = marray_base()
-         this%flux%data1d(:) = 0.0
-       END SELECT
-    CASE DEFAULT
-       CALL this%Error("InitTimedisc","unknown fargo advection scheme")
-    END SELECT
-
+          shear_direction = "west<->east"
+        ELSE IF(Mesh%shear_dir.EQ.1) THEN
+          this%w(:,:) = Mesh%Q*Mesh%omega*Mesh%bcenter(Mesh%IMIN,:,:,2) !Q*Omega*y
+          this%shift(:,:) = 0.0
+          shear_direction = "south<->north"
+        END IF
+        this%dq = marray_base()
+        this%dq%data1d(:) = 0.0
+        this%dql = marray_base()
+        this%dql%data1d(:) = 0.0
+        this%flux = marray_base()
+        this%flux%data1d(:) = 0.0
+      END SELECT
+    ELSE IF (Mesh%use_fargo.EQ.0) THEN
+      ! do nothing
+    ELSE
+      CALL this%Error("InitTimedisc","unknown fargo advection scheme")
+    END IF
 
     ! print some information
     WRITE (order_str, '(I0)') this%GetOrder()
@@ -618,7 +618,7 @@ CONTAINS
     !------------------------------------------------------------------------!
     ! transform to selenoidal velocities if fargo is enabled
     IF (Mesh%FARGO.GT.0) THEN
-       IF (Mesh%SN_shear.AND.Mesh%FARGO.EQ.3) THEN
+       IF (Mesh%shear_dir.EQ.1.AND.Mesh%FARGO.EQ.3) THEN
           CALL Physics%SubtractBackgroundVelocityX(Mesh,this%w,this%pvar%data4d,this%cvar%data4d)
        ELSE
           CALL Physics%SubtractBackgroundVelocityY(Mesh,this%w,this%pvar%data4d,this%cvar%data4d)
@@ -663,7 +663,7 @@ CONTAINS
 
      ! perform the fargo advection step if enabled
     IF (Mesh%FARGO.GT.0) THEN
-      IF (Mesh%SN_Shear) THEN
+      IF (Mesh%shear_dir.EQ.1) THEN
         CALL this%FargoAdvectionX(Fluxes,Mesh,Physics,Sources)
       ELSE
         CALL this%FargoAdvectionY(Fluxes,Mesh,Physics,Sources)
@@ -984,9 +984,9 @@ CONTAINS
         ! usually it's not necessary to subtract the background velocity here, but
         ! in case someone adds it before, we subtract it here; the  subroutine checks,
         ! if the velocities have already been transformed
-        IF (Mesh%SN_shear) THEN
+        IF (Mesh%shear_dir.EQ.1) THEN
           CALL Physics%SubtractBackgroundVelocityX(Mesh,this%w,pvar%data4d,cvar%data4d)
-        ELSE IF (Mesh%WE_shear) THEN
+        ELSE IF (Mesh%shear_dir.EQ.2) THEN
           CALL Physics%SubtractBackgroundVelocityY(Mesh,this%w,pvar%data4d,cvar%data4d)
         END IF
         ! ATTENTION: the time must be the initial time of the whole time step

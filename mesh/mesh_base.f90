@@ -123,10 +123,10 @@ MODULE mesh_base_mod
     REAL              :: invdx,invdy,invdz !< inverse of curvilinear spatial differences
     REAL              :: omega             !< speed of the rotating frame of ref.
     REAL              :: Q                 !< shearing parameter
-    INTEGER           :: FARGO             !< Fargo parameter (> 0 enabled)
+    INTEGER           :: use_fargo         !< Fargo parameter (0 disabled, 1 enabled)
+    INTEGER           :: shear_dir         !< Enables shearingbox with shear direction (0 disabled, 1 enabled)
+    INTEGER           :: fargo             !< Fargo parameter (0 disabled, 1,2,3 enabled)
     INTEGER           :: ROTSYM            !< assume rotational symmetry (> 0 enabled, contains index of azimuthal angle)
-    LOGICAL           :: WE_shear          !< shear in y-direction
-    LOGICAL           :: SN_shear          !< shear in x-direction
     REAL              :: rotcent(3)        !< center of the rotating frame of ref.
     !> \name
     !! #### cell coordinates
@@ -283,7 +283,7 @@ CONTAINS
     CHARACTER(LEN=32)       :: mname
     !------------------------------------------------------------------------!
     CHARACTER(LEN=32)       :: xres,yres,zres,somega
-    INTEGER                 :: meshtype,shift_direction
+    INTEGER                 :: meshtype,shear_direction,use_fargo,fargo
     INTEGER                 :: i,j,k,err
     REAL                    :: mesh_dx,mesh_dy,mesh_dz
 #ifdef PARALLEL
@@ -617,19 +617,24 @@ CONTAINS
     ! will be overwritten later
     CALL GetAttr(config, "meshtype", meshtype)
 
+    ! this%shear_dir sets the shearing direction in the shearinghsheet.
+    ! If this variable is enabled, boundaries and fargo will be set
+    ! automatically.
+    CALL GetAttr(config, "shear_dir", this%shear_dir, 0)
+
+    use_fargo = 0
+    IF(this%shear_dir.GT.0) use_fargo = 1
+    CALL GetAttr(config, "use_fargo", this%use_fargo, use_fargo)
     ! enable fargo timestepping for polar geometries
     ! 1 = calculated mean background velocity w
     ! 2 = fixed user set background velocity w
-    CALL GetAttr(config, "fargo", this%FARGO, 0)
-    this%WE_shear = .FALSE.
-    this%SN_shear = .FALSE.
-    CALL GetAttr(config, "shift_dir", shift_direction, 2)
-    IF(shift_direction.EQ.2) THEN
-      this%WE_shear = .TRUE.
-      this%SN_shear = .FALSE.
-    ELSE IF(shift_direction.EQ.1) THEN
-      this%WE_shear = .FALSE.
-      this%SN_shear = .TRUE.
+    ! 3 = shearingsheet fixed background velocity w
+    fargo = 0
+    IF (this%use_fargo.NE.0) THEN
+      IF(this%shear_dir.GT.0) fargo = 3
+      CALL GetAttr(config, "fargo", this%FARGO, fargo)
+    ELSE
+      this%fargo = fargo
     END IF
 
     ! basic mesh initialization

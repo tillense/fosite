@@ -208,7 +208,7 @@ MODULE gravity_sboxspectral_mod
     ! know how to allocate the local arrays
 #ifdef PARALLEL
     CALL MPI_Comm_size(MPI_COMM_WORLD, nprocs, err)
-    IF (nprocs.GT.1 .AND. Mesh%WE_shear) THEN
+    IF (nprocs.GT.1 .AND. Mesh%shear_dir.EQ.2) THEN
       CALL this%Error("InitGravity_sboxspectral", &
                  "Execution of the parallel Fourier solver is only possible with pencil "// &
                  "decomposition. The first dimension should be fully accessible by the "//&
@@ -216,7 +216,7 @@ MODULE gravity_sboxspectral_mod
                  "dimension. In order to achieve this set the boundaries accordingly. "// &
                  "Check InitBoundary where the shear direction is set.")
     END IF
-    IF (Mesh%dims(1).GT.1 .AND. Mesh%SN_shear) THEN
+    IF (Mesh%dims(1).GT.1 .AND. Mesh%shear_dir.EQ.1) THEN
       CALL this%Error("InitGravity_sboxspectral", &
                  "The first dimension needs to be fully accessible by each process. "// &
                  "Please change domain decomposition to pencil decompositon. " // &
@@ -300,9 +300,9 @@ MODULE gravity_sboxspectral_mod
                 +(Mesh%JNUM+1)/2)*2.*PI/(Mesh%YMAX-Mesh%YMIN)
 
     ! precompute shift constant
-    IF(Mesh%WE_shear) THEN
+    IF(Mesh%shear_dir.EQ.2) THEN
       this%shiftconst = Mesh%Q*Mesh%OMEGA*(Mesh%xmax-Mesh%xmin)/Mesh%dy
-    ELSE IF (Mesh%SN_shear) THEN
+    ELSE IF (Mesh%shear_dir.EQ.1) THEN
       this%shiftconst = Mesh%Q*Mesh%OMEGA*(Mesh%ymax-Mesh%ymin)/Mesh%dx
     ELSE
       CALL this%Error("InitGravity_sboxspectral", &
@@ -468,11 +468,11 @@ MODULE gravity_sboxspectral_mod
 
     IF (Mesh%OMEGA .EQ. 0) THEN
       time0 = 0.0
-    ELSE IF (Mesh%WE_shear) THEN
+    ELSE IF (Mesh%shear_dir.EQ.2) THEN
       time0 = NINT(time*Mesh%Q*Mesh%OMEGA*(Mesh%xmax-Mesh%xmin)/ &
           (Mesh%ymax-Mesh%ymin))*(Mesh%ymax-Mesh%ymin)/(Mesh%Q*Mesh%OMEGA &
           *(Mesh%xmax-Mesh%xmin))
-    ELSE IF (Mesh%SN_shear) THEN
+    ELSE IF (Mesh%shear_dir.EQ.1) THEN
       time0 = NINT(time*Mesh%Q*Mesh%OMEGA*(Mesh%ymax-Mesh%ymin)/ &
           (Mesh%xmax-Mesh%xmin))*(Mesh%xmax-Mesh%xmin)/(Mesh%Q*Mesh%OMEGA &
           *(Mesh%ymax-Mesh%ymin))
@@ -516,7 +516,7 @@ CALL ftrace_region_end("forward_fft")
       K2max = 0.5*PI**2/(Mesh%dy**2)
     END IF
 
-    IF (Mesh%WE_shear) THEN
+    IF (Mesh%shear_dir.EQ.2) THEN
 !NEC$ IVDEP
       DO j = Mesh%JMIN,Mesh%JMAX
 !NEC$ IVDEP
@@ -531,7 +531,7 @@ CALL ftrace_region_end("forward_fft")
           END IF
         END DO
       END DO
-    ELSE IF (Mesh%SN_shear) THEN
+    ELSE IF (Mesh%shear_dir.EQ.1) THEN
 !NEC$ IVDEP
       DO j = Mesh%JMIN,Mesh%JMAX
 !NEC$ IVDEP
@@ -592,7 +592,7 @@ CALL ftrace_region_end("backward_fft")
     END DO
 
     !----- copy values to boundaries in order to calculate acceleration -----!
-    IF(Mesh%WE_shear) THEN
+    IF(Mesh%shear_dir.EQ.2) THEN
 !NEC$ SHORTLOOP
       DO j = 1,Mesh%GJNUM
         ! southern northern (periodic)
@@ -638,7 +638,7 @@ CALL ftrace_region_end("backward_fft")
 ! Only north-south direction has parallelization allowed
 ! Attention: The order of the copies plays a role. First the non-shifted direction needs to be
 ! copied, afterwards the shifted.
-    ELSE IF(Mesh%SN_shear) THEN
+    ELSE IF(Mesh%shear_dir.EQ.1) THEN
 !NEC$ SHORTLOOP
       DO i = 1,Mesh%GINUM
         ! western and eastern (always periodic)
@@ -928,7 +928,7 @@ CALL ftrace_region_end("foward FFT")
     !------------------------------------------------------------------------!
     local_joff = this%local_joff
 
-    IF (Mesh%SN_shear) THEN
+    IF (Mesh%shear_dir.EQ.1) THEN
 !NEC$ IVDEP
       DO k = Mesh%KMIN,Mesh%KMAX
 !NEC$ IVDEP
@@ -945,7 +945,7 @@ CALL ftrace_region_end("foward FFT")
           END DO
         END DO
       END DO
-    ELSE IF (Mesh%WE_shear) THEN
+    ELSE IF (Mesh%shear_dir.EQ.2) THEN
 !NEC$ IVDEP
       DO k = Mesh%KMIN,Mesh%KMAX
 !NEC$ IVDEP

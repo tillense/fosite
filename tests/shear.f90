@@ -35,6 +35,9 @@ PROGRAM shear
   ! simulation parameters
   REAL, PARAMETER    :: GN         = 1.0            ! grav. constant [GEOM]  !
   INTEGER, PARAMETER :: UNITS      = GEOMETRICAL
+  ! make a shearingsheet simulation and denote the direction of shearing
+  ! (applies boundaries, ficitious forces and fargo automatically)
+  INTEGER, PARAMETER :: SHEARSHEET_DIRECTION = 2
   ! simulation parameter
   REAL, PARAMETER    :: CSISO    = &
                                      0.0      ! non-isothermal simulation
@@ -87,11 +90,7 @@ PROGRAM shear
   CALL Sim%InitFosite()
   CALL MakeConfig(Sim, Sim%config)
   CALL SetAttr(Sim%config, "/datafile/filename", (TRIM(ODIR) // TRIM(OFNAME) // "_rotate"))
-  CALL SetAttr(Sim%config, "boundary/western", PERIODIC)
-  CALL SetAttr(Sim%config, "boundary/eastern", PERIODIC)
-  CALL SetAttr(Sim%config, "boundary/southern", SHEARING)
-  CALL SetAttr(Sim%config, "boundary/northern", SHEARING)
-  CALL SetAttr(Sim%config, "mesh/shift_dir", 1)
+  CALL SetAttr(Sim%config, "mesh/shear_dir", 1)
   CALL Sim%Setup()
   Sim%Timedisc%pvar%data1d(:) = pvar_init%data1d(:)
   CALL Sim%Physics%Convert2Conservative(Sim%Timedisc%pvar,Sim%Timedisc%cvar)
@@ -118,7 +117,7 @@ PROGRAM shear
     TYPE(Dict_TYP), POINTER  :: config
     !------------------------------------------------------------------------!
     TYPE(Dict_TYP), POINTER  :: mesh, physics, boundary, datafile, &
-                                sources, timedisc, fluxes, shear
+                                sources, timedisc, fluxes, shear, empty_dict
     !------------------------------------------------------------------------!
     INTENT(INOUT)            :: Sim
     REAL                     :: XMIN,XMAX,YMIN,YMAX,ZMIN,ZMAX
@@ -136,6 +135,7 @@ PROGRAM shear
     mesh =>     Dict(&
                 "meshtype"    / MIDPOINT, &
                 "geometry"    / MGEO, &
+                "shear_dir"   / SHEARSHEET_DIRECTION, &
                 "inum"        / XRES, &
                 "jnum"        / YRES, &
                 "knum"        / ZRES, &
@@ -146,8 +146,6 @@ PROGRAM shear
                 "zmin"        / ZMIN, &
                 "zmax"        / ZMAX, &
                 "omega"       / OMEGA, &
-                "fargo"       / FARGO, &
-                "shift_dir"   / 2, &
                 "output/rotation" / 0, &
                 "output/volume"   / 0, &
                 "output/bh"   / 0, &
@@ -181,16 +179,6 @@ PROGRAM shear
                 "limiter"     / VANLEER &
                 )
 
-    ! boundary conditions
-    boundary => Dict(&
-                "western"     / SHEARING, &
-                "eastern"     / SHEARING, &
-                "southern"    / PERIODIC, &
-                "northern"    / PERIODIC, &
-                "bottomer"    / REFLECTING, &
-                "topper"      / REFLECTING &
-                )
-
     ! shearing box fictious forces
     shear => Dict( &
                 "stype"           / SHEARBOX, &
@@ -199,8 +187,7 @@ PROGRAM shear
                 )
 
     ! collect sources in dictionary
-    sources => Dict( &
-              "shearing"      / shear)
+    sources => Dict("shear"   / shear)
 
     ! time discretization settings
     timedisc => Dict( &
@@ -223,7 +210,6 @@ PROGRAM shear
     config => Dict( &
               "mesh"          / mesh, &
               "physics"       / physics, &
-              "boundary"      / boundary, &
               "fluxes"        / fluxes, &
               "sources"       / sources, &
               "timedisc"      / timedisc, &

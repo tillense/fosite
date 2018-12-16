@@ -792,7 +792,7 @@ CONTAINS
 !    END IF
 
     IF (ASSOCIATED(Timedisc%w)) THEN
-      IF (Mesh%FARGO.EQ.3.AND.Mesh%SN_shear) THEN
+      IF (Mesh%FARGO.EQ.3.AND.Mesh%shear_dir.EQ.1) THEN
         CALL Physics%AddBackgroundVelocityX(Mesh,Timedisc%w,Timedisc%pvar%data4d,Timedisc%cvar%data4d)
       ELSE
         CALL Physics%AddBackgroundVelocityY(Mesh,Timedisc%w,Timedisc%pvar%data4d,Timedisc%cvar%data4d)

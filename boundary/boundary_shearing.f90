@@ -113,7 +113,7 @@ CONTAINS
 
     DO l=1,Physics%VNUM + Physics%PNUM
       ! this part for WEST-EAST shear
-      IF (Mesh%WE_shear) THEN
+      IF (Mesh%shear_dir.EQ.2) THEN
         IF (l.EQ.Physics%YVELOCITY) THEN
           IF (Mesh%FARGO.EQ.0) THEN
             this%velocity_shift(l) = Mesh%Q*Mesh%OMEGA*(Mesh%xmax-Mesh%xmin)
@@ -127,7 +127,7 @@ CONTAINS
             this%velocity_shift(l) = 0.0
         END IF
       ! this part for SOUTH-NORTH shear
-      ELSE IF (Mesh%SN_shear) THEN
+      ELSE IF (Mesh%shear_dir.EQ.1) THEN
         IF (l.EQ.Physics%XVELOCITY) THEN
           IF (Mesh%FARGO.EQ.0) THEN
             this%velocity_shift(l) = Mesh%Q*Mesh%OMEGA*(Mesh%ymax-Mesh%ymin)
