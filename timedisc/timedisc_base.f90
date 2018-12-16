@@ -1061,22 +1061,29 @@ CONTAINS
 
     ! compute the right hand side for boundary flux computation;
     ! this is probably wrong for the special rhs (rhstype=1, see above)
+!NEC$ SHORTLOOP
     DO l=1,Physics%VNUM+Physics%PNUM
+!NEC$ IVDEP
       DO k=Mesh%KMIN,Mesh%KMAX
+!NEC$ IVDEP
         DO j=Mesh%JMIN,Mesh%JMAX
           ! western and eastern boundary fluxes
           rhs%data4d(Mesh%IMIN-Mesh%Ip1,j,k,l) = Mesh%dy*Mesh%dz * this%xfluxdydz(Mesh%IMIN-Mesh%Ip1,j,k,l)
           rhs%data4d(Mesh%IMAX+Mesh%Ip1,j,k,l) = -Mesh%dy*Mesh%dz * this%xfluxdydz(Mesh%IMAX,j,k,l)
         END DO
       END DO
+!NEC$ IVDEP
       DO k=Mesh%KMIN,Mesh%KMAX
+!NEC$ IVDEP
         DO i=Mesh%IMIN,Mesh%IMAX
           ! southern and northern boundary fluxes
           rhs%data4d(i,Mesh%JMIN-Mesh%Jp1,k,l) = Mesh%dz*Mesh%dx * this%yfluxdzdx(i,Mesh%JMIN-Mesh%Jp1,k,l)
           rhs%data4d(i,Mesh%JMAX+Mesh%Jp1,k,l) = -Mesh%dz*Mesh%dx * this%yfluxdzdx(i,Mesh%JMAX,k,l)
         END DO
       END DO
+!NEC$ IVDEP
       DO j=Mesh%JMIN,Mesh%JMAX
+!NEC$ IVDEP
         DO i=Mesh%IMIN,Mesh%IMAX
           ! bottomer and upper boundary fluxes
           rhs%data4d(i,j,Mesh%KMIN-Mesh%Kp1,l) = Mesh%dx*Mesh%dy * this%zfluxdxdy(i,j,Mesh%KMIN-Mesh%Kp1,l)
