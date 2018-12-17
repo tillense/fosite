@@ -620,9 +620,9 @@ CONTAINS
 #endif
 
 #ifdef PARALLEL
-   ! initiate bottomer/topper MPI communication
+    ! initiate bottom/top MPI communication
 #ifdef MPI_USE_SENDRECV
-   ! send boundary data to bottomer and receive from topper neighbor
+    ! send boundary data to bottom and receive from top neighbor
     IF (Mesh%neighbor(BOTTOM).NE.MPI_PROC_NULL) THEN
         this%Boundary(BOTTOM)%p%sendbuf(:,:,:,:) = pvar(Mesh%IGMIN:Mesh%IGMAX, &
            Mesh%JGMIN:Mesh%JGMAX,Mesh%KMIN:Mesh%KMIN+Mesh%GKNUM-1,1:Physics%VNUM)
@@ -637,7 +637,7 @@ CONTAINS
           this%Boundary(TOP)%p%recvbuf(:,:,:,:)
     END IF
 #else
-   ! receive boundary data from topper neighbor
+    ! receive boundary data from top neighbor
     CALL MPI_Irecv(this%Boundary(TOP)%p%recvbuf, &
          Mesh%GKNUM*(Mesh%IGMAX-Mesh%IGMIN+1)*(Mesh%JGMAX-Mesh%JGMIN+1)*Physics%VNUM, &
          DEFAULT_MPI_REAL,Mesh%neighbor(TOP),10+BOTTOM,Mesh%comm_cart,req(1),ierr)
@@ -646,7 +646,7 @@ CONTAINS
          this%Boundary(BOTTOM)%p%sendbuf(:,:,:,:) = pvar(Mesh%IGMIN:Mesh%IGMAX, &
            Mesh%JGMIN:Mesh%JGMAX,Mesh%KMIN:Mesh%KMIN+Mesh%GKNUM-1,1:Physics%VNUM)
     END IF
-    ! send boundary data to bottomer neighbor
+    ! send boundary data to bottom neighbor
     CALL MPI_Issend(this%Boundary(BOTTOM)%p%sendbuf, &
          Mesh%GKNUM*(Mesh%IGMAX-Mesh%IGMIN+1)*(Mesh%JGMAX-Mesh%JGMIN+1)*Physics%VNUM, &
          DEFAULT_MPI_REAL,Mesh%neighbor(BOTTOM),10+BOTTOM,Mesh%comm_cart,req(2),ierr)
@@ -654,7 +654,7 @@ CONTAINS
 #endif
 #ifdef PARALLEL
 #ifdef MPI_USE_SENDRECV
-   ! send boundary data to northern and receive from southern neighbor
+    ! send boundary data to top and receive from bottom neighbor
     IF (Mesh%neighbor(TOP).NE.MPI_PROC_NULL) THEN
          this%Boundary(TOP)%p%sendbuf(:,:,:,:) = pvar(Mesh%IGMIN:Mesh%IGMAX, &
            Mesh%JGMIN:Mesh%JGMAX,Mesh%KMAX-Mesh%GKNUM+1:Mesh%KMAX,1:Physics%VNUM)
@@ -669,7 +669,7 @@ CONTAINS
            this%Boundary(BOTTOM)%p%recvbuf(:,:,:,:)
     END IF
 #else
-    ! receive boundary data from southern neighbor
+    ! receive boundary data from bottom neighbor
     CALL MPI_Irecv(this%Boundary(BOTTOM)%p%recvbuf, &
          Mesh%GKNUM*(Mesh%IGMAX-Mesh%IGMIN+1)*(Mesh%JGMAX-Mesh%JGMIN+1)*Physics%VNUM, &
          DEFAULT_MPI_REAL,Mesh%neighbor(BOTTOM),10+TOP,Mesh%comm_cart,req(3),ierr)
@@ -678,7 +678,7 @@ CONTAINS
          this%Boundary(TOP)%p%sendbuf(:,:,:,:) = pvar(Mesh%IGMIN:Mesh%IGMAX, &
            Mesh%JGMIN:Mesh%JGMAX,Mesh%KMAX-Mesh%GKNUM+1:Mesh%KMAX,1:Physics%VNUM)
     END IF
-    ! send boundary data to northern neighbor
+    ! send boundary data to top neighbor
     CALL MPI_Issend(this%Boundary(TOP)%p%sendbuf, &
          Mesh%GKNUM*(Mesh%IGMAX-Mesh%IGMIN+1)*(Mesh%JGMAX-Mesh%JGMIN+1)*Physics%VNUM, &
          DEFAULT_MPI_REAL,Mesh%neighbor(TOP),10+TOP,Mesh%comm_cart,req(4),ierr)
