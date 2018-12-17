@@ -332,7 +332,7 @@ CONTAINS
       Timedisc%Boundary%boundary(EAST)%p%cbtype(:,:,Physics%XVELOCITY) = CUSTOM_NOGRAD
       DO k=Mesh%KMIN,Mesh%KMAX
         DO j=Mesh%JMIN,Mesh%JMAX
-          DO i=1,Mesh%GNUM
+          DO i=1,Mesh%GINUM
             ! get distance to the origin for each boundary cell
             r = Mesh%radius%bcenter(Mesh%IMAX+i,j,k)
             CALL bondi(r/RB,GAMMA,RHOINF,CSINF,rho,vr)
