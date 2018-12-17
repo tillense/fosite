@@ -45,10 +45,12 @@ MODULE boundary_absorbing_mod
   !--------------------------------------------------------------------------!
   PRIVATE
   TYPE, EXTENDS(boundary_base) :: boundary_absorbing
-    CONTAINS
-      PROCEDURE :: InitBoundary_absorbing
-      PROCEDURE :: SetBoundaryData
-      PROCEDURE :: Finalize
+    REAL, DIMENSION(:,:,:), ALLOCATABLE :: xvar, & !< characteristic variables for absorbing bc
+                                         lambda    !< eigenvalues for absorbing bc
+  CONTAINS
+    PROCEDURE :: InitBoundary_absorbing
+    PROCEDURE :: SetBoundaryData
+    PROCEDURE :: Finalize
   END TYPE boundary_absorbing
   CHARACTER(LEN=32), PARAMETER  :: boundcond_name = "absorbing"
   !--------------------------------------------------------------------------!

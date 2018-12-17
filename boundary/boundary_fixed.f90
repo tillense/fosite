@@ -43,10 +43,12 @@ MODULE boundary_fixed_mod
   !--------------------------------------------------------------------------!
   PRIVATE
   TYPE, EXTENDS(boundary_base)  :: boundary_fixed
-    CONTAINS
-        PROCEDURE :: InitBoundary_fixed
-        PROCEDURE :: SetBoundaryData
-        PROCEDURE :: Finalize
+    REAL, DIMENSION(:,:,:,:), ALLOCATABLE  :: data   !< boundary data array
+    LOGICAL, DIMENSION(:,:,:), ALLOCATABLE :: fixed  !< mask array for fixed bc
+  CONTAINS
+    PROCEDURE :: InitBoundary_fixed
+    PROCEDURE :: SetBoundaryData
+    PROCEDURE :: Finalize
   END TYPE boundary_fixed
   CHARACTER(LEN=32), PARAMETER  :: boundcond_name = "fixed in/outflow"
   !--------------------------------------------------------------------------!
@@ -107,7 +109,7 @@ CONTAINS
     REAL,INTENT(IN) :: time
     REAL,INTENT(INOUT) :: pvar(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%vnum)
     !------------------------------------------------------------------------!
-    INTEGER       :: i,j,k,l
+    INTEGER       :: i,j,k
     !------------------------------------------------------------------------!
     SELECT CASE(this%direction%GetType())
     CASE(WEST)

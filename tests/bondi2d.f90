@@ -326,10 +326,11 @@ CONTAINS
 
     ! boundary condition: subsonic inflow according to Bondi's solution
     ! calculate Bondi solution for y=ymin..ymax at xmax
-    IF ((Timedisc%Boundary%Boundary(EAST)%p%GetType()).EQ.CUSTOM) THEN
+    SELECT TYPE(beast => Timedisc%Boundary%boundary(EAST)%p)
+    CLASS IS (boundary_custom)
       ! this tells the boundary routine the actual boundary condition for each variable
-      Timedisc%Boundary%boundary(EAST)%p%cbtype(:,:,:)   = CUSTOM_FIXED
-      Timedisc%Boundary%boundary(EAST)%p%cbtype(:,:,Physics%XVELOCITY) = CUSTOM_NOGRAD
+      beast%cbtype(:,:,:)   = CUSTOM_FIXED
+      beast%cbtype(:,:,Physics%XVELOCITY) = CUSTOM_NOGRAD
       DO k=Mesh%KMIN,Mesh%KMAX
         DO j=Mesh%JMIN,Mesh%JMAX
           DO i=1,Mesh%GINUM
@@ -337,16 +338,16 @@ CONTAINS
             r = Mesh%radius%bcenter(Mesh%IMAX+i,j,k)
             CALL bondi(r/RB,GAMMA,RHOINF,CSINF,rho,vr)
             cs2 = CSINF**2 * (rho/RHOINF)**(GAMMA-1.0)
-            Timedisc%Boundary%Boundary(EAST)%p%data(i,j,k,Physics%DENSITY)   = rho
+            beast%data(i,j,k,Physics%DENSITY)   = rho
             DO l=1,Physics%VDIM
-              Timedisc%Boundary%Boundary(EAST)%p%data(i,j,k,Physics%XVELOCITY+l-1) &
+              beast%data(i,j,k,Physics%XVELOCITY+l-1) &
                 = vr*Mesh%posvec%bcenter(Mesh%IMAX+i,j,k,l)/r
             END DO
-            Timedisc%Boundary%Boundary(EAST)%p%data(i,j,k,Physics%PRESSURE)  = rho * cs2 / GAMMA
+            beast%data(i,j,k,Physics%PRESSURE)  = rho * cs2 / GAMMA
           END DO
         END DO
       END DO
-    END IF
+    END SELECT
 
     ! print some information
     CALL Mesh%Info(" DATA-----> initial condition: 2D Bondi accretion")

@@ -345,16 +345,18 @@ CONTAINS
 
     ! boundary conditions
     ! custom boundary conditions at western boundary if requested
-    IF ((Timedisc%Boundary%boundary(WEST)%p%GetType()).EQ.CUSTOM) THEN
-       Timedisc%Boundary%boundary(WEST)%p%cbtype(:,:,Physics%DENSITY) = CUSTOM_NOGRAD
-       Timedisc%Boundary%boundary(WEST)%p%cbtype(:,:,Physics%XVELOCITY) = CUSTOM_OUTFLOW
-       Timedisc%Boundary%boundary(WEST)%p%cbtype(:,:,Physics%YVELOCITY) = CUSTOM_KEPLER
-    END IF
-    IF ((Timedisc%Boundary%boundary(EAST)%p%GetType()).EQ.CUSTOM) THEN
-       Timedisc%Boundary%boundary(EAST)%p%cbtype(:,:,Physics%DENSITY) = CUSTOM_NOGRAD
-       Timedisc%Boundary%boundary(EAST)%p%cbtype(:,:,Physics%XVELOCITY) = CUSTOM_OUTFLOW
-       Timedisc%Boundary%boundary(EAST)%p%cbtype(:,:,Physics%YVELOCITY) = CUSTOM_KEPLER
-    END IF
+    SELECT TYPE(bwest => Timedisc%Boundary%boundary(WEST)%p)
+    CLASS IS (boundary_custom)
+       bwest%cbtype(:,:,Physics%DENSITY) = CUSTOM_NOGRAD
+       bwest%cbtype(:,:,Physics%XVELOCITY) = CUSTOM_OUTFLOW
+       bwest%cbtype(:,:,Physics%YVELOCITY) = CUSTOM_KEPLER
+    END SELECT
+    SELECT TYPE(beast => Timedisc%Boundary%boundary(EAST)%p)
+    CLASS IS (boundary_custom)
+       beast%cbtype(:,:,Physics%DENSITY) = CUSTOM_NOGRAD
+       beast%cbtype(:,:,Physics%XVELOCITY) = CUSTOM_OUTFLOW
+       beast%cbtype(:,:,Physics%YVELOCITY) = CUSTOM_KEPLER
+    END SELECT
 
     ! print some information on stdout
     CALL Mesh%Info(" DATA-----> initial condition:   " // "MMSN - Setup")

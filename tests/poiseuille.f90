@@ -211,35 +211,37 @@ CONTAINS
 
     ! fixed boundary conditions
     ! inflow
-    IF ((Timedisc%Boundary%Boundary(BOTTOM)%p%GetType()).EQ.FIXED) THEN
-       Timedisc%Boundary%Boundary(BOTTOM)%p%data(:,:,:,Physics%DENSITY)    = RHO0
-       Timedisc%Boundary%Boundary(BOTTOM)%p%data(:,:,:,Physics%XVELOCITY)  = 0.0
-       Timedisc%Boundary%Boundary(BOTTOM)%p%data(:,:,:,Physics%YVELOCITY)  = 0.0
-       Timedisc%Boundary%Boundary(BOTTOM)%p%data(:,:,:,Physics%ZVELOCITY)  = 0.0
-       Timedisc%Boundary%Boundary(BOTTOM)%p%data(:,:,:,Physics%PRESSURE)   = PIN
+    SELECT TYPE(bbottom => Timedisc%Boundary%boundary(BOTTOM)%p)
+    CLASS IS (boundary_fixed)
+       bbottom%data(:,:,:,Physics%DENSITY)    = RHO0
+       bbottom%data(:,:,:,Physics%XVELOCITY)  = 0.0
+       bbottom%data(:,:,:,Physics%YVELOCITY)  = 0.0
+       bbottom%data(:,:,:,Physics%ZVELOCITY)  = 0.0
+       bbottom%data(:,:,:,Physics%PRESSURE)   = PIN
        ! imposed density, pressure and tangential velocities;
        ! extrapolated normal velocity
-       Timedisc%Boundary%Boundary(BOTTOM)%p%fixed(:,:,Physics%DENSITY)   = .TRUE.
-       Timedisc%Boundary%Boundary(BOTTOM)%p%fixed(:,:,Physics%XVELOCITY) = .TRUE.
-       Timedisc%Boundary%Boundary(BOTTOM)%p%fixed(:,:,Physics%YVELOCITY) = .TRUE.
-       Timedisc%Boundary%Boundary(BOTTOM)%p%fixed(:,:,Physics%ZVELOCITY) = .FALSE.
-       Timedisc%Boundary%Boundary(BOTTOM)%p%fixed(:,:,Physics%PRESSURE)  = .TRUE.
-    END IF
+       bbottom%fixed(:,:,Physics%DENSITY)   = .TRUE.
+       bbottom%fixed(:,:,Physics%XVELOCITY) = .TRUE.
+       bbottom%fixed(:,:,Physics%YVELOCITY) = .TRUE.
+       bbottom%fixed(:,:,Physics%ZVELOCITY) = .FALSE.
+       bbottom%fixed(:,:,Physics%PRESSURE)  = .TRUE.
+    END SELECT
     ! outflow
-    IF ((Timedisc%Boundary%Boundary(TOP)%p%GetType()).EQ.FIXED) THEN
-       Timedisc%Boundary%Boundary(TOP)%p%data(:,:,:,Physics%DENSITY)    = RHO0
-       Timedisc%Boundary%Boundary(TOP)%p%data(:,:,:,Physics%XVELOCITY)  = 0.0
-       Timedisc%Boundary%Boundary(TOP)%p%data(:,:,:,Physics%YVELOCITY)  = 0.0
-       Timedisc%Boundary%Boundary(TOP)%p%data(:,:,:,Physics%ZVELOCITY)  = 0.0
-       Timedisc%Boundary%Boundary(TOP)%p%data(:,:,:,Physics%PRESSURE)   = POUT
+    SELECT TYPE(btop => Timedisc%Boundary%boundary(TOP)%p)
+    CLASS IS (boundary_fixed)
+       btop%data(:,:,:,Physics%DENSITY)    = RHO0
+       btop%data(:,:,:,Physics%XVELOCITY)  = 0.0
+       btop%data(:,:,:,Physics%YVELOCITY)  = 0.0
+       btop%data(:,:,:,Physics%ZVELOCITY)  = 0.0
+       btop%data(:,:,:,Physics%PRESSURE)   = POUT
        ! imposed pressure;
        ! extrapolated density, tangential and normal velocities
-       Timedisc%Boundary%Boundary(TOP)%p%fixed(:,:,Physics%DENSITY)   = .FALSE.
-       Timedisc%Boundary%Boundary(TOP)%p%fixed(:,:,Physics%XVELOCITY) = .FALSE.
-       Timedisc%Boundary%Boundary(TOP)%p%fixed(:,:,Physics%YVELOCITY) = .FALSE.
-       Timedisc%Boundary%Boundary(TOP)%p%fixed(:,:,Physics%ZVELOCITY) = .FALSE.
-       Timedisc%Boundary%Boundary(TOP)%p%fixed(:,:,Physics%PRESSURE)  = .TRUE.
-    END IF
+       btop%fixed(:,:,Physics%DENSITY)   = .FALSE.
+       btop%fixed(:,:,Physics%XVELOCITY) = .FALSE.
+       btop%fixed(:,:,Physics%YVELOCITY) = .FALSE.
+       btop%fixed(:,:,Physics%ZVELOCITY) = .FALSE.
+       btop%fixed(:,:,Physics%PRESSURE)  = .TRUE.
+    END SELECT
 
     CALL Physics%Convert2Conservative(Mesh,Timedisc%pvar%data4d,Timedisc%cvar%data4d)
     CALL Mesh%Info(" DATA-----> initial condition: " // &

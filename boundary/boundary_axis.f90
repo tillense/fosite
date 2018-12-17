@@ -35,16 +35,17 @@
 MODULE boundary_axis_mod
   USE mesh_base_mod
   USE boundary_base_mod
+  USE boundary_reflecting_mod
   USE physics_base_mod
   USE common_dict
   IMPLICIT NONE
   !--------------------------------------------------------------------------!
   PRIVATE
-  TYPE, EXTENDS(boundary_base) :: boundary_axis
-    CONTAINS
-      PROCEDURE                :: InitBoundary_axis
-      PROCEDURE                :: SetBoundaryData
-      PROCEDURE                :: Finalize
+  TYPE, EXTENDS(boundary_reflecting) :: boundary_axis
+  CONTAINS
+    PROCEDURE                :: InitBoundary_axis
+    PROCEDURE                :: SetBoundaryData
+    PROCEDURE                :: Finalize
   END TYPE
   CHARACTER(LEN=32), PARAMETER :: boundcond_name = "axis"
   !--------------------------------------------------------------------------!

@@ -40,10 +40,12 @@ MODULE boundary_reflecting_mod
   !--------------------------------------------------------------------------!
   PRIVATE
   TYPE, EXTENDS(boundary_base) :: boundary_reflecting
+    !> mask arrays to specify reflection, i.e. change of sign
+    LOGICAL, DIMENSION(:), ALLOCATABLE     :: reflX,reflY,reflZ
   CONTAINS
-      PROCEDURE :: InitBoundary_reflecting
-      PROCEDURE :: SetBoundaryData
-      PROCEDURE :: Finalize
+    PROCEDURE :: InitBoundary_reflecting
+    PROCEDURE :: SetBoundaryData
+    PROCEDURE :: Finalize
   END TYPE boundary_reflecting
   CHARACTER(LEN=32), PARAMETER  :: boundcond_name = "reflecting"
   !--------------------------------------------------------------------------!

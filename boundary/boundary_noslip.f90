@@ -38,11 +38,12 @@ MODULE boundary_noslip_mod
   USE mesh_base_mod
   USE physics_base_mod
   USE boundary_base_mod
+  USE boundary_fixed_mod
   USE common_dict
   IMPLICIT NONE
   !--------------------------------------------------------------------------!
   PRIVATE
-  TYPE, EXTENDS(boundary_base)  :: boundary_noslip
+  TYPE, EXTENDS(boundary_fixed)  :: boundary_noslip
   CONTAINS
     PROCEDURE :: InitBoundary_noslip
     PROCEDURE :: SetBoundaryData

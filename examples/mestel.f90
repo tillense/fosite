@@ -320,20 +320,22 @@ CONTAINS
           Timedisc%GetCentrifugalVelocity(Mesh,Physics,Fluxes,Sources,(/0.,0.,1./))
 
     ! setting for custom boundary conditions (western boundary)
-    IF(Timedisc%Boundary%boundary(WEST)%p%GetType().EQ.CUSTOM) THEN
-      Timedisc%Boundary%boundary(WEST)%p%cbtype(:,:,Physics%DENSITY)   = CUSTOM_LOGEXPOL
-      Timedisc%Boundary%boundary(WEST)%p%cbtype(:,:,Physics%XVELOCITY) = CUSTOM_OUTFLOW
-      Timedisc%Boundary%boundary(WEST)%p%cbtype(:,:,Physics%YVELOCITY) = CUSTOM_KEPLER
-      Timedisc%Boundary%boundary(WEST)%p%cbtype(:,:,Physics%PRESSURE)  = CUSTOM_LOGEXPOL
-    END IF
+    SELECT TYPE(bwest => Timedisc%Boundary%boundary(WEST)%p)
+    CLASS IS (boundary_custom)
+      bwest%cbtype(:,:,Physics%DENSITY)   = CUSTOM_LOGEXPOL
+      bwest%cbtype(:,:,Physics%XVELOCITY) = CUSTOM_OUTFLOW
+      bwest%cbtype(:,:,Physics%YVELOCITY) = CUSTOM_KEPLER
+      bwest%cbtype(:,:,Physics%PRESSURE)  = CUSTOM_LOGEXPOL
+    END SELECT
 
     ! setting for custom boundary conditions (eastern boundary)
-    IF(Timedisc%Boundary%boundary(EAST)%p%GetType().EQ.CUSTOM) THEN
-      Timedisc%Boundary%boundary(EAST)%p%cbtype(:,:,Physics%DENSITY)   = CUSTOM_REFLECT
-      Timedisc%Boundary%boundary(EAST)%p%cbtype(:,:,Physics%XVELOCITY) = CUSTOM_REFLECT
-      Timedisc%Boundary%boundary(EAST)%p%cbtype(:,:,Physics%YVELOCITY) = CUSTOM_LOGEXPOL
-      Timedisc%Boundary%boundary(EAST)%p%cbtype(:,:,Physics%PRESSURE)  = CUSTOM_REFLECT
-    END IF
+    SELECT TYPE(beast => Timedisc%Boundary%boundary(EAST)%p)
+    CLASS IS (boundary_custom)
+      beast%cbtype(:,:,Physics%DENSITY)   = CUSTOM_REFLECT
+      beast%cbtype(:,:,Physics%XVELOCITY) = CUSTOM_REFLECT
+      beast%cbtype(:,:,Physics%YVELOCITY) = CUSTOM_LOGEXPOL
+      beast%cbtype(:,:,Physics%PRESSURE)  = CUSTOM_REFLECT
+    END SELECT
 
     CALL Physics%Convert2Conservative(Mesh,pvar,cvar)
     ! print some information

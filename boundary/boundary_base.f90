@@ -58,33 +58,15 @@ MODULE boundary_base_mod
   TYPE, ABSTRACT, EXTENDS(logging_base) :: boundary_base
     !> boundary orientation: west, east, south, north
     CLASS(logging_base), ALLOCATABLE   :: direction
-    INTEGER                            :: IMID,        & !< i index of cell in the middle
-                                          JMID,        & !< j index of cell in the middle
-                                          KMID,        & !< j index of cell in the middle
-                                          nohdim         !< dimension of Noh problem
-    LOGICAL                            :: first_call     !< used in far-field bc
-    LOGICAL, DIMENSION(:), POINTER     ::              &
-                                          reflX,       & !< mask array for reflecting bc
-                                          reflY,       & !< mask array for reflecting bc
-                                          reflZ          !< mask array for reflecting bc
-    LOGICAL, DIMENSION(:,:,:), POINTER :: fixed          !< mask array for fixed bc
-    INTEGER, DIMENSION(:,:,:), POINTER :: cbtype         !< custom boundary condition type
-    REAL, DIMENSION(:,:,:), POINTER    :: invr,        & !< inverse distance to center
-                                          Rscale,      & !< radial scaling constants
-                                          invRscale,   & !< inverse radial scaling constants
-                                          xvar,        & !< characteristic variables for absorbing bc
-                                          lambda,      & !< eigenvalues for absorbing bc
-                                          Rinv,        & !< Riemann invariants at the boundary
-                                          RinvInf        !< far field Riemann invariants
-    REAL                               :: shearval       !< shear box parameter
+!     INTEGER                            :: IMID,        & !< i index of cell in the middle
+!                                           JMID,        & !< j index of cell in the middle
+!                                           KMID,        & !< j index of cell in the middle
+!                                           nohdim         !< dimension of Noh problem
+!     LOGICAL                            :: first_call     !< used in far-field bc
+!     REAL, DIMENSION(:,:,:), POINTER    :: invr,        & !< inverse distance to center
+!                                           Rinv,        & !< Riemann invariants at the boundary
+!                                           RinvInf        !< far field Riemann invariants
     LOGICAL                            :: PhysicalCorner !< Is the left corner physical?
-    !> boundary data array, e.g. for fixed,
-    !! custom and noslip and boundary conditions
-    REAL, DIMENSION(:,:,:,:), POINTER  :: &
-                         data
-    !> \todo Probably obsolte variable. Remove it!
-    REAL, DIMENSION(:,:,:,:), POINTER  :: &
-                         accel => NULL() !< pointer to gravitational accel
 #ifdef PARALLEL
     !> \name Variables in Parallel Mode
     REAL, DIMENSION(:,:,:,:), POINTER  :: sendbuf,     & !< send buffer for boundary data
@@ -243,10 +225,6 @@ CONTAINS
     !------------------------------------------------------------------------!
     IF (.NOT.this%Initialized()) &
         CALL this%Error("CloseBoundary_one","not initialized")
-#ifdef PARALLEL
-    ! deallocate MPI send/recv buffers
-    DEALLOCATE(this%sendbuf,this%recvbuf)
-#endif
     DEALLOCATE(this%direction)
   END SUBROUTINE Finalize_base
 

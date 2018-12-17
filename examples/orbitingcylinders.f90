@@ -445,7 +445,8 @@ CONTAINS
     END SELECT
 
     DO dir=WEST,EAST
-      IF((Timedisc%Boundary%Boundary(dir)%p%GetType()).EQ.NOSLIP) THEN
+      SELECT TYPE(bound => Timedisc%Boundary%boundary(dir)%p)
+      CLASS IS (boundary_noslip)
         DO k=Mesh%KMIN,Mesh%KMAX
           DO j=Mesh%JMIN,Mesh%JMAX
             DO ig=1,Mesh%GNUM
@@ -455,12 +456,12 @@ CONTAINS
               CASE(EAST)
                   i = Mesh%IMAX+ig
               END SELECT
-              Timedisc%Boundary%Boundary(dir)%p%data(ig,j,k,Physics%YVELOCITY) &
+              bound%data(ig,j,k,Physics%YVELOCITY) &
                 = Timedisc%pvar%data4d(i,j,k,Physics%YVELOCITY)
             END DO
           END DO
         END DO
-      END IF
+      END SELECT
     END DO
 
     CALL Physics%Convert2Conservative(Mesh,Timedisc%pvar%data4d,Timedisc%cvar%data4d)

@@ -42,12 +42,10 @@ MODULE boundary_custom_mod
   IMPLICIT NONE
   !--------------------------------------------------------------------------!
   PRIVATE
-  TYPE cbspec_typ
-    INTEGER, DIMENSION(:), ALLOCATABLE   :: bc
-    LOGICAL, DIMENSION(:,:), ALLOCATABLE :: region
-  END TYPE
   TYPE, EXTENDS(boundary_fixed) :: boundary_custom
-    TYPE(cbspec_typ), DIMENSION(:), ALLOCATABLE :: cbspec 
+    INTEGER, DIMENSION(:,:,:), ALLOCATABLE :: cbtype !< custom boundary condition type
+    REAL, DIMENSION(:,:,:), ALLOCATABLE :: Rscale, & !< radial scaling constants
+                                        invRscale    !< inverse radial scaling constants
   CONTAINS
     PROCEDURE :: InitBoundary_custom
     PROCEDURE :: Finalize
@@ -90,7 +88,6 @@ CONTAINS
     INTEGER            :: i,j,k,err = 0
     !------------------------------------------------------------------------!
     CALL this%InitBoundary(Mesh,Physics,CUSTOM,boundcond_name,dir,config)
-
 
     ! allocate memory for boundary data and mask
     SELECT CASE(this%GetDirection())
@@ -425,10 +422,10 @@ CONTAINS
     !------------------------------------------------------------------------!
     CLASS(boundary_custom), INTENT(INOUT) :: this
     !------------------------------------------------------------------------!
-    IF (ASSOCIATED(this%data)) DEALLOCATE(this%data)
-    IF (ASSOCIATED(this%cbtype)) DEALLOCATE(this%cbtype)
-    IF (ASSOCIATED(this%Rscale)) DEALLOCATE(this%Rscale)
-    IF (ASSOCIATED(this%invRscale)) DEALLOCATE(this%invRscale)
+    IF (ALLOCATED(this%data)) DEALLOCATE(this%data)
+    IF (ALLOCATED(this%cbtype)) DEALLOCATE(this%cbtype)
+    IF (ALLOCATED(this%Rscale)) DEALLOCATE(this%Rscale)
+    IF (ALLOCATED(this%invRscale)) DEALLOCATE(this%invRscale)
 
     CALL this%Finalize_base()
   END SUBROUTINE Finalize

@@ -71,22 +71,22 @@ MODULE boundary_generic_mod
   !--------------------------------------------------------------------------!
   TYPE, PRIVATE                       :: boundary_p
     CLASS(boundary_base), ALLOCATABLE :: p
-#ifdef PARALLEL
-    !> \name variables in parallel mode
-    REAL, DIMENSION(:,:,:,:), POINTER :: sendbuf, &     !< send buffer for boundary data
-                                         recvbuf        !< receive buffer for boundary data
-#endif
+! #ifdef PARALLEL
+!     !> \name variables in parallel mode
+!     REAL, DIMENSION(:,:,:,:), POINTER :: sendbuf, &     !< send buffer for boundary data
+!                                          recvbuf        !< receive buffer for boundary data
+! #endif
   END TYPE
 
   TYPE, EXTENDS(logging_base)         :: boundary_generic
     !> \name variables
     TYPE(boundary_p)                  :: Boundary(6)
     LOGICAL                           :: PhysicalCorner  !< Is the left corner physical?
-#ifdef PARALLEL
-    !> \name variables in parallel mode
-    REAL, DIMENSION(:,:,:,:), POINTER :: sendbuf, &     !< send buffer for boundary data
-                                         recvbuf        !< receive buffer for boundary data
-#endif
+! #ifdef PARALLEL
+!     !> \name variables in parallel mode
+!     REAL, DIMENSION(:,:,:,:), POINTER :: sendbuf, &     !< send buffer for boundary data
+!                                          recvbuf        !< receive buffer for boundary data
+! #endif
   CONTAINS
     PROCEDURE :: InitBoundary
     PROCEDURE :: CenterBoundary
@@ -99,7 +99,7 @@ MODULE boundary_generic_mod
   !--------------------------------------------------------------------------!
   PUBLIC :: &
        ! types
-       boundary_generic, new_boundary
+       boundary_base, boundary_generic, new_boundary
        ! constants
   PRIVATE :: InitBoundary, CenterBoundary, Finalize
   !--------------------------------------------------------------------------!
@@ -941,7 +941,10 @@ CONTAINS
     !------------------------------------------------------------------------!
     ! loop over all boundaries
     DO dir=1,6
-       CALL this%Boundary(dir)%p%Finalize()
+#ifdef PARALLEL
+      ! deallocate MPI send/recv buffers
+      DEALLOCATE(this%boundary(dir)%p%sendbuf,this%boundary(dir)%p%recvbuf)
+#endif
     END DO
   END SUBROUTINE Finalize
 
