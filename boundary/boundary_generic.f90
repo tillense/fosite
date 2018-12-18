@@ -81,7 +81,6 @@ MODULE boundary_generic_mod
   TYPE, EXTENDS(logging_base)         :: boundary_generic
     !> \name variables
     TYPE(boundary_p)                  :: Boundary(6)
-    LOGICAL                           :: PhysicalCorner  !< Is the left corner physical?
 ! #ifdef PARALLEL
 !     !> \name variables in parallel mode
 !     REAL, DIMENSION(:,:,:,:), POINTER :: sendbuf, &     !< send buffer for boundary data
@@ -291,46 +290,6 @@ CONTAINS
        CALL this%boundary(BOTTOM)%p%Error("InitBoundary", &
             "Opposite boundary should be shearing.")
     END IF
-
-
-    ! This sets this%Boundary(dir)%PhysicalCorner to .True., if
-    ! there are no periodic boundary conditions and if
-    ! is a corner without inner boundaries.
-    ! At physical corners the corner value have to be
-    ! interpolated in CenterBoundary.
-    ! e.g. this(1)%PhysicalCorner describes the Southwest corner.
-    !!
-    ! \todo BUG: THIS IS WRONG, WE HAVE NOW 8 CORNERS IN 3D
-!    DO dir=1,6
-!      this%Boundary(dir)%p%PhysicalCorner = .FALSE.
-!    END DO
-!    ! TODO Help needed for parallelisation
-!    ! TODO TODO TODO TODO TODO TODO TODO TODO TODO
-!    IF(.NOT.ANY(periods)) THEN
-!#ifdef PARALLEL
-!      IF(Mesh%mycoords(1).EQ.0) THEN
-!        IF(Mesh%mycoords(2).EQ.0) THEN
-!          IF(Mesh%mycoords(3).EQ.0) THEN
-!            this%Boundary(1)%p%PhysicalCorner = .TRUE.
-!          END IF
-!          IF(Mesh%mycoords(3).EQ.Mesh%dims(3)-1)
-!            this%Boundary(4)%PhysicalCorner = .TRUE.
-!      END IF
-!        IF(Mesh%mycoords(2).EQ.Mesh%dims(2)-1)
-!          this%Boundary(4)%PhysicalCorner = .TRUE.
-!      END IF
-!      IF(Mesh%mycoords(1).EQ.Mesh%dims(1)-1) THEN
-!        IF(Mesh%mycoords(2).EQ.0) &
-!          this%Boundary(3)%PhysicalCorner = .TRUE.
-!        IF(Mesh%mycoords(2).EQ.Mesh%dims(2)-1) &
-!          this%Boundary(2)%PhysicalCorner = .TRUE.
-!      END IF
-!#else
-!      DO dir=1,6
-!        this%Boundary(dir)%p%PhysicalCorner = .TRUE.
-!      END DO
-!#endif
-!    END IF
 
 
 #ifdef PARALLEL
@@ -721,200 +680,287 @@ CONTAINS
     END SELECT
 #endif
 
-
-    ! \todo This module should be not necessary anymore, since the
-    !       remaining region vanishes.
-    ! This is a interpolation of corners outside
-    ! the computational domain, if they are undefined (e.g. there are
-    ! no periodic or inner boundaries involved in the corner)
-    ! this is also necessary, because we need some of these values in the
-    ! viscosity module
-    ! For 1D we only copy the values:
-    IF (Mesh%JNUM.EQ.1 .AND. Mesh%KNUM.EQ.1) THEN
-      ! for 1D simulations along the x-direction copy internal data
-      ! into the ghost cells at the yz-faces
-      DO k=1,Mesh%GKNUM
-        DO j=1,Mesh%GJNUM
-          pvar(:,Mesh%JMIN-j,Mesh%KMIN-k,:) = pvar(:,Mesh%JMIN,Mesh%KMIN,:)
-          pvar(:,Mesh%JMAX+j,Mesh%KMAX+k,:) = pvar(:,Mesh%JMAX,Mesh%KMAX,:)
-        END DO
-      END DO
-    ELSE IF (Mesh%INUM.EQ.1 .AND. Mesh%KNUM.EQ.1) THEN
-      ! for 1D simulations along the y-direction copy internal data
-      ! into the ghost cells at the xz-faces
-      DO k=1,Mesh%GKNUM
-        DO i=1,Mesh%GINUM
-          pvar(Mesh%IMIN-i,:,Mesh%KMIN-k,:) = pvar(Mesh%IMIN,:,Mesh%KMIN,:)
-          pvar(Mesh%IMAX+i,:,Mesh%KMAX+k,:) = pvar(Mesh%IMAX,:,Mesh%KMAX,:)
-        END DO
-      END DO
-    ELSE IF (Mesh%INUM.EQ.1 .AND. Mesh%JNUM.EQ.1) THEN
-      ! for 1D simulations along the z-direction copy internal data
-      ! into the ghost cells at the xy-faces
-      DO j=1,Mesh%GJNUM
-        DO i=1,Mesh%GINUM
-          pvar(Mesh%IMIN-i,Mesh%JMIN-j,:,:) = pvar(Mesh%IMIN,Mesh%JMIN,:,:)
-          pvar(Mesh%IMAX+i,Mesh%JMAX+j,:,:) = pvar(Mesh%IMAX,Mesh%JMAX,:,:)
-        END DO
-      END DO
-    ELSE IF (Mesh%KNUM.EQ.1.AND.Mesh%INUM.NE.1.AND.Mesh%JNUM.NE.1) THEN ! 2D case
-        ! south west
-        IF(this%Boundary(1)%p%PhysicalCorner) THEN
+    !! This is a interpolation of corners & edges outside
+    !! the computational domain, if they are undefined (e.g. there are
+    !! no periodic or inner boundaries involved in the corner)
+    !! this is also necessary, because we need some of these values in the
+    !! viscosity module
+    !! This part calculates the corner in 2D and the corners + edges in 3D
+    !!
+    !! \attention The corner cells could be approximated better in the 3D case.
+    !!            This is not implemented, because they are also set when setting the
+    !!            edges.
+    !! \attention Not well tested, since seldomely necessary.
+    IF ((Mesh%INUM.NE.1.AND.Mesh%JNUM.NE.1.AND.Mesh%KNUM.EQ.1).OR. &
+        (Mesh%INUM.NE.1.AND.Mesh%JNUM.NE.1.AND.Mesh%KNUM.NE.1)) THEN
+      ! south-west
+#ifdef PARALLEL
+      IF(Mesh%mycoords(1).EQ.0.AND.Mesh%mycoords(2).EQ.0) THEN
+#endif
+!NEC$ IVDEP
+        DO k=Mesh%KGMIN,Mesh%KGMAX
+!NEC$ SHORTLOOP
           DO j=1,Mesh%GJNUM
+!NEC$ SHORTLOOP
             DO i=j+1,Mesh%GINUM
               ! copy data from adjacent ghost cells for off diagonal corner ghost cells
-              pvar(Mesh%IMIN-i,Mesh%JMIN-j,:,:) = pvar(Mesh%IMIN-i,Mesh%JMIN-j+1,:,:)
-              pvar(Mesh%IMIN-j,Mesh%JMIN-i,:,:) = pvar(Mesh%IMIN-j+1,Mesh%JMIN-i,:,:)
-            END DO
-            ! interpolate diagonal corner ghost cell values from adjacent cells in
-          ! both directions
-            pvar(Mesh%IMIN-j,Mesh%JMIN-j,:,:) = 0.5 * (pvar(Mesh%IMIN-j,Mesh%JMIN,:,:) &
-                 + pvar(Mesh%IMIN,Mesh%JMIN-j,:,:))
-          END DO
-        END IF
-
-        ! north west
-        IF(this%Boundary(4)%p%PhysicalCorner) THEN
-          DO j=1,Mesh%GJNUM
-            DO i=j+1,Mesh%GINUM
-              pvar(Mesh%IMIN-i,Mesh%JMAX+j,:,:) = pvar(Mesh%IMIN-i,Mesh%JMAX+j-1,:,:)
-              pvar(Mesh%IMIN-j,Mesh%JMAX+i,:,:) = pvar(Mesh%IMIN-j+1,Mesh%JMAX+i,:,:)
-            END DO
-            pvar(Mesh%IMIN-j,Mesh%JMAX+j,:,:) = 0.5 * (pvar(Mesh%IMIN-j,Mesh%JMAX,:,:) &
-                 + pvar(Mesh%IMIN,Mesh%JMAX+j,:,:))
-          END DO
-        END IF
-
-        ! north east
-        IF(this%Boundary(2)%p%PhysicalCorner) THEN
-          DO j=1,Mesh%GJNUM
-            DO i=j+1,Mesh%GINUM
-              pvar(Mesh%IMAX+i,Mesh%JMAX+j,:,:) = pvar(Mesh%IMAX+i,Mesh%JMAX+j-1,:,:)
-              pvar(Mesh%IMAX+j,Mesh%JMAX+i,:,:) = pvar(Mesh%IMAX+j-1,Mesh%JMAX+i,:,:)
-            END DO
-            pvar(Mesh%IMAX+j,Mesh%JMAX+j,:,:) = 0.5 * (pvar(Mesh%IMAX+j,Mesh%JMAX,:,:) &
-                 + pvar(Mesh%IMAX,Mesh%JMAX+j,:,:))
-          END DO
-        END IF
-
-        ! south east
-        IF(this%Boundary(3)%p%PhysicalCorner) THEN
-          DO j=1,Mesh%GJNUM
-            DO i=j+1,Mesh%GINUM
-              pvar(Mesh%IMAX+i,Mesh%JMIN-j,:,:) = pvar(Mesh%IMAX+i,Mesh%JMIN-j+1,:,:)
-              pvar(Mesh%IMAX+j,Mesh%JMIN-i,:,:) = pvar(Mesh%IMAX+j-1,Mesh%JMIN-i,:,:)
-            END DO
-            pvar(Mesh%IMAX+j,Mesh%JMIN-j,:,:) = 0.5 * (pvar(Mesh%IMAX+j,Mesh%JMIN,:,:) &
-                 + pvar(Mesh%IMAX,Mesh%JMIN-j,:,:))
-          END DO
-        END IF
-      ELSE IF (Mesh%INUM.EQ.1.AND.Mesh%JNUM.NE.1.AND.Mesh%KNUM.NE.1) THEN
-         ! bottom south
-        IF(this%Boundary(1)%p%PhysicalCorner) THEN
-          DO j=1,Mesh%GJNUM
-            DO k=j+1,Mesh%GKNUM
-              ! copy data from adjacent ghost cells for off diagonal corner ghost cells
-              pvar(:,Mesh%JMIN-j,Mesh%KMIN-k,:) = pvar(:,Mesh%JMIN-j+1,Mesh%KMIN-k,:)
-              pvar(:,Mesh%JMIN-k,Mesh%KMIN-j,:) = pvar(:,Mesh%JMIN-k,Mesh%KMIN-j+1,:)
+              pvar(Mesh%IMIN-i,Mesh%JMIN-j,k,:) = pvar(Mesh%IMIN-i,Mesh%JMIN-j+1,k,:)
+              pvar(Mesh%IMIN-j,Mesh%JMIN-i,k,:) = pvar(Mesh%IMIN-j+1,Mesh%JMIN-i,k,:)
             END DO
             ! interpolate diagonal corner ghost cell values from adjacent cells in
             ! both directions
-            pvar(:,Mesh%JMIN-j,Mesh%KMIN-k,:) = 0.5 * (pvar(:,Mesh%JMIN,Mesh%KMIN-j,:) &
-                 + pvar(:,Mesh%JMIN-j,Mesh%KMIN,:))  !hier habe ich was korrigiert! Ist das richtig?
+            pvar(Mesh%IMIN-j,Mesh%JMIN-j,k,:) = 0.5 * (pvar(Mesh%IMIN-j,Mesh%JMIN,k,:) &
+                 + pvar(Mesh%IMIN,Mesh%JMIN-j,k,:))
           END DO
-        END IF
-
-        ! bottom north
-        IF(this%Boundary(4)%p%PhysicalCorner) THEN
-          DO j=1,Mesh%GJNUM
-            DO k=j+1,Mesh%GKNUM
-              pvar(:,Mesh%JMAX+j,Mesh%KMIN-k,:) = pvar(:,Mesh%JMAX+j-1,Mesh%KMIN-k,:)
-              pvar(:,Mesh%JMAX+k,Mesh%KMIN-j,:) = pvar(:,Mesh%JMAX+k,Mesh%KMIN-j+1,:)
-            END DO
-            pvar(:,Mesh%JMAX+j,Mesh%KMIN-j,:) = 0.5 * (pvar(:,Mesh%JMAX,Mesh%KMIN-j,:) &
-                 + pvar(:,Mesh%JMAX+j,Mesh%KMIN,:))
-          END DO
-        END IF
-
-        ! top north
-        IF(this%Boundary(2)%p%PhysicalCorner) THEN
-          DO j=1,Mesh%GJNUM
-            DO k=j+1,Mesh%GKNUM
-              pvar(:,Mesh%JMAX+j,Mesh%KMAX+k,:) = pvar(:,Mesh%JMAX+j-1,Mesh%KMAX+k,:)
-              pvar(:,Mesh%JMAX+k,Mesh%KMAX+j,:) = pvar(:,Mesh%JMAX+k,Mesh%KMAX+j-1,:)
-            END DO
-            pvar(:,Mesh%JMAX+j,Mesh%KMAX+j,:) = 0.5 * (pvar(:,Mesh%JMAX,Mesh%KMAX+j,:) &
-                 + pvar(:,Mesh%JMAX+j,Mesh%KMAX,:))
-          END DO
-        END IF
-
-        ! top south
-        IF(this%Boundary(3)%p%PhysicalCorner) THEN
-          DO j=1,Mesh%GJNUM
-            DO k=j+1,Mesh%GKNUM
-              pvar(:,Mesh%JMIN-j,Mesh%KMAX+k,:) = pvar(:,Mesh%JMIN-j+1,Mesh%KMAX+k,:)
-              pvar(:,Mesh%JMIN-k,Mesh%KMAX+j,:) = pvar(:,Mesh%JMIN-k,Mesh%KMAX+j-1,:)
-            END DO
-            pvar(:,Mesh%JMIN-j,Mesh%KMAX+j,:) = 0.5 * (pvar(:,Mesh%JMIN,Mesh%KMAX+j,:) &
-                 + pvar(:,Mesh%JMIN-j,Mesh%KMAX,:))
-          END DO
-        END IF
-      ELSE IF (Mesh%JNUM.EQ.1.AND.Mesh%INUM.NE.1.AND.Mesh%KNUM.NE.1) THEN
-         ! bottom west
-        IF(this%Boundary(1)%p%PhysicalCorner) THEN
-          DO i=1,Mesh%GINUM
-            DO k=i+1,Mesh%GKNUM
-              ! copy data from adjacent ghost cells for off diagonal corner ghost cells
-              pvar(Mesh%IMIN-i,:,Mesh%KMIN-k,:) = pvar(Mesh%IMIN-i+1,:,Mesh%KMIN-k,:)
-              pvar(Mesh%IMIN-k,:,Mesh%KMIN-i,:) = pvar(Mesh%IMIN-k,:,Mesh%KMIN-i+1,:)
-            END DO
-            ! interpolate diagonal corner ghost cell values from adjacent cells in
-          ! both directions
-            pvar(Mesh%IMIN-i,:,Mesh%KMIN-i,:) = 0.5 * (pvar(Mesh%IMIN-i,:,Mesh%KMIN,:) &
-                 + pvar(Mesh%IMIN,:,Mesh%KMIN-i,:))
-          END DO
-        END IF
-
-        ! bottom east
-        IF(this%Boundary(4)%p%PhysicalCorner) THEN
-          DO i=1,Mesh%GINUM
-            DO k=i+1,Mesh%GKNUM
-              pvar(Mesh%IMAX+i,:,Mesh%KMIN-k,:) = pvar(Mesh%IMAX+i-1,:,Mesh%KMIN-k,:)
-              pvar(Mesh%IMAX+k,:,Mesh%KMIN-i,:) = pvar(Mesh%IMAX+k,:,Mesh%KMIN-i+1,:)
-            END DO
-            pvar(Mesh%IMAX+i,:,Mesh%KMIN-i,:) = 0.5 * (pvar(Mesh%IMAX,:,Mesh%KMIN-i,:) &
-                 + pvar(Mesh%IMAX+i,:,Mesh%KMIN,:))
-          END DO
-        END IF
-
-        ! top east
-        IF(this%Boundary(2)%p%PhysicalCorner) THEN
-          DO i=1,Mesh%GINUM
-            DO k=i+1,Mesh%GKNUM
-              pvar(Mesh%IMAX+i,:,Mesh%KMAX+k,:) = pvar(Mesh%IMAX+i-1,:,Mesh%KMAX+k,:)
-              pvar(Mesh%IMAX+k,:,Mesh%KMAX+i,:) = pvar(Mesh%IMAX+k,:,Mesh%KMAX+i-1,:)
-            END DO
-            pvar(Mesh%IMAX+i,:,Mesh%KMAX+i,:) = 0.5 * (pvar(Mesh%IMAX,:,Mesh%KMAX+i,:) &
-                 + pvar(Mesh%IMAX+i,:,Mesh%KMAX,:))
-          END DO
-        END IF
-
-        ! top west
-        IF(this%Boundary(3)%p%PhysicalCorner) THEN
-          DO i=1,Mesh%GINUM
-            DO k=i+1,Mesh%GKNUM
-              pvar(Mesh%IMIN-i,:,Mesh%KMAX+k,:) = pvar(Mesh%IMIN-i+1,:,Mesh%KMAX+k,:)
-              pvar(Mesh%IMIN-k,:,Mesh%KMAX+i,:) = pvar(Mesh%IMIN-k,:,Mesh%KMAX+i-1,:)
-            END DO
-            pvar(Mesh%IMIN-i,:,Mesh%KMAX+i,:) = 0.5 * (pvar(Mesh%IMIN,:,Mesh%KMAX+i,:) &
-                 + pvar(Mesh%IMIN-i,:,Mesh%KMAX,:))
-          END DO
-        END IF
-      !ELSE
-      !  CALL this%warning('CenterBoundary', 'No Setting for corner-GC found! Only for 2D implemented!')
+        END DO
+#ifdef PARALLEL
       END IF
-      ! TODO Ghost cells have to to set for 3D
+#endif
+      ! south-east
+#ifdef PARALLEL
+      IF(Mesh%mycoords(1).EQ.Mesh%dims(1)-1.AND.Mesh%mycoords(2).EQ.0) THEN
+#endif
+!NEC$ IVDEP
+        DO k=Mesh%KGMIN,Mesh%KGMAX
+!NEC$ SHORTLOOP
+          DO j=1,Mesh%GJNUM
+!NEC$ SHORTLOOP
+            DO i=j+1,Mesh%GINUM
+              pvar(Mesh%IMAX+i,Mesh%JMIN-j,k,:) = pvar(Mesh%IMAX+i,Mesh%JMIN-j+1,k,:)
+              pvar(Mesh%IMAX+j,Mesh%JMIN-i,k,:) = pvar(Mesh%IMAX+j-1,Mesh%JMIN-i,k,:)
+            END DO
+            pvar(Mesh%IMAX+j,Mesh%JMIN-j,k,:) = 0.5 * (pvar(Mesh%IMAX+j,Mesh%JMIN,k,:) &
+                 + pvar(Mesh%IMAX,Mesh%JMIN-j,k,:))
+          END DO
+        END DO
+#ifdef PARALLEL
+      END IF
+#endif
+      ! north-west
+#ifdef PARALLEL
+      IF(Mesh%mycoords(1).EQ.Mesh%dims(1)-1.AND.Mesh%mycoords(2).EQ.0) THEN
+#endif
+!NEC$ IVDEP
+        DO k=Mesh%KGMIN,Mesh%KGMAX
+!NEC$ SHORTLOOP
+          DO j=1,Mesh%GJNUM
+!NEC$ SHORTLOOP
+            DO i=j+1,Mesh%GINUM
+              pvar(Mesh%IMIN-i,Mesh%JMAX+j,k,:) = pvar(Mesh%IMIN-i,Mesh%JMAX+j-1,k,:)
+              pvar(Mesh%IMIN-j,Mesh%JMAX+i,k,:) = pvar(Mesh%IMIN-j+1,Mesh%JMAX+i,k,:)
+            END DO
+            pvar(Mesh%IMIN-j,Mesh%JMAX+j,k,:) = 0.5 * (pvar(Mesh%IMIN-j,Mesh%JMAX,k,:) &
+                 + pvar(Mesh%IMIN,Mesh%JMAX+j,k,:))
+          END DO
+        END DO
+#ifdef PARALLEL
+      END IF
+#endif
+      ! north-east
+#ifdef PARALLEL
+      IF(Mesh%mycoords(1).EQ.Mesh%dims(1)-1.AND.Mesh%mycoords(2).EQ.Mesh%dims(2)-1) THEN
+#endif
+!NEC$ IVDEP
+        DO k=Mesh%KGMIN,Mesh%KGMAX
+!NEC$ SHORTLOOP
+          DO j=1,Mesh%GJNUM
+!NEC$ SHORTLOOP
+            DO i=j+1,Mesh%GINUM
+              pvar(Mesh%IMAX+i,Mesh%JMAX+j,k,:) = pvar(Mesh%IMAX+i,Mesh%JMAX+j-1,k,:)
+              pvar(Mesh%IMAX+j,Mesh%JMAX+i,k,:) = pvar(Mesh%IMAX+j-1,Mesh%JMAX+i,k,:)
+            END DO
+            pvar(Mesh%IMAX+j,Mesh%JMAX+j,k,:) = 0.5 * (pvar(Mesh%IMAX+j,Mesh%JMAX,k,:) &
+                 + pvar(Mesh%IMAX,Mesh%JMAX+j,k,:))
+          END DO
+        END DO
+#ifdef PARALLEL
+      END IF
+#endif
 
+    ELSE IF ((Mesh%INUM.NE.1.AND.Mesh%JNUM.EQ.1.AND.Mesh%KNUM.NE.1).OR. &
+             (Mesh%INUM.NE.1.AND.Mesh%JNUM.NE.1.AND.Mesh%KNUM.NE.1)) THEN
+
+      ! bottom-west
+#ifdef PARALLEL
+      IF(Mesh%mycoords(1).EQ.0.AND.Mesh%mycoords(3).EQ.0) THEN
+#endif
+!NEC$ IVDEP
+        DO j=Mesh%JGMIN,Mesh%JGMAX
+!NEC$ SHORTLOOP
+          DO i=1,Mesh%GINUM
+!NEC$ SHORTLOOP
+            DO k=i+1,Mesh%GKNUM
+              pvar(Mesh%IMIN-i,j,Mesh%KMIN-k,:) = pvar(Mesh%IMIN-i+1,j,Mesh%KMIN-k,:)
+              pvar(Mesh%IMIN-k,j,Mesh%KMIN-i,:) = pvar(Mesh%IMIN-k,j,Mesh%KMIN-i+1,:)
+            END DO
+            pvar(Mesh%IMIN-i,j,Mesh%KMIN-k,:) = 0.5 * (pvar(Mesh%IMIN-i,j,Mesh%JMIN,:) &
+                 + pvar(Mesh%IMIN,j,Mesh%JMIN-i,:))
+          END DO
+        END DO
+#ifdef PARALLEL
+      END IF
+#endif
+      ! bottom-east
+#ifdef PARALLEL
+      IF(Mesh%mycoords(1).EQ.Mesh%dims(1)-1.AND.Mesh%mycoords(3).EQ.0) THEN
+#endif
+!NEC$ IVDEP
+      DO j=Mesh%JGMIN,Mesh%JGMAX
+!NEC$ SHORTLOOP
+        DO i=1,Mesh%GINUM
+!NEC$ SHORTLOOP
+          DO k=i+1,Mesh%GKNUM
+            pvar(Mesh%IMAX+i,j,Mesh%KMIN-k,:) = pvar(Mesh%IMAX+i-1,j,Mesh%KMIN-k,:)
+            pvar(Mesh%IMAX+k,j,Mesh%KMIN-i,:) = pvar(Mesh%IMAX+k,j,Mesh%KMIN-i+1,:)
+          END DO
+          pvar(Mesh%IMAX+i,j,Mesh%KMIN-i,:) = 0.5 * (pvar(Mesh%IMAX,j,Mesh%KMIN-i,:) &
+               + pvar(Mesh%IMAX+i,j,Mesh%KMIN,:))
+        END DO
+      END DO
+#ifdef PARALLEL
+      END IF
+#endif
+
+      ! top-west
+#ifdef PARALLEL
+      IF(Mesh%mycoords(1).EQ.0.AND.Mesh%mycoords(3).EQ.Mesh%dims(3)-1) THEN
+#endif
+!NEC$ IVDEP
+      DO j=Mesh%JGMIN,Mesh%JGMAX
+!NEC$ SHORTLOOP
+        DO i=1,Mesh%GINUM
+!NEC$ SHORTLOOP
+          DO k=i+1,Mesh%GKNUM
+            pvar(Mesh%IMIN-i,j,Mesh%KMAX+k,:) = pvar(Mesh%IMIN-i+1,j,Mesh%KMAX+k,:)
+            pvar(Mesh%IMIN-k,j,Mesh%KMAX+i,:) = pvar(Mesh%IMIN-k,j,Mesh%KMAX+i-1,:)
+          END DO
+          pvar(Mesh%IMIN-i,j,Mesh%KMAX+i,:) = 0.5 * (pvar(Mesh%IMIN,j,Mesh%KMAX+i,:) &
+               + pvar(Mesh%IMIN-i,j,Mesh%KMAX,:))
+        END DO
+      END DO
+#ifdef PARALLEL
+      END IF
+#endif
+
+      ! top-east
+#ifdef PARALLEL
+      IF(Mesh%mycoords(1).EQ.Mesh%dims(1)-1.AND.Mesh%mycoords(3).EQ.Mesh%dims(3)-1) THEN
+#endif
+!NEC$ IVDEP
+      DO j=Mesh%JGMIN,Mesh%JGMAX
+!NEC$ SHORTLOOP
+        DO i=1,Mesh%GINUM
+!NEC$ SHORTLOOP
+          DO k=i+1,Mesh%GKNUM
+            pvar(Mesh%IMAX+i,j,Mesh%KMAX+k,:) = pvar(Mesh%IMAX+i-1,j,Mesh%KMAX+k,:)
+            pvar(Mesh%IMAX+k,j,Mesh%KMAX+i,:) = pvar(Mesh%IMAX+k,j,Mesh%KMAX+i-1,:)
+          END DO
+          pvar(Mesh%IMAX+i,j,Mesh%KMAX+i,:) = 0.5 * (pvar(Mesh%IMAX,j,Mesh%KMAX+i,:) &
+               + pvar(Mesh%IMAX+i,j,Mesh%KMAX,:))
+        END DO
+      END DO
+#ifdef PARALLEL
+      END IF
+#endif
+
+    ELSE IF ((Mesh%INUM.EQ.1.AND.Mesh%JNUM.NE.1.AND.Mesh%KNUM.NE.1).OR. &
+             (Mesh%INUM.NE.1.AND.Mesh%JNUM.NE.1.AND.Mesh%KNUM.NE.1)) THEN
+
+      ! bottom-south
+#ifdef PARALLEL
+      IF(Mesh%mycoords(2).EQ.0.AND.Mesh%mycoords(3).EQ.0) THEN
+#endif
+!NEC$ SHORTLOOP
+      DO j=1,Mesh%GJNUM
+!NEC$ SHORTLOOP
+        DO k=j+1,Mesh%GKNUM
+!NEC$ IVDEP
+          DO i=Mesh%IGMIN,Mesh%IGMAX
+            pvar(i,Mesh%JMIN-j,Mesh%KMIN-k,:) = pvar(i,Mesh%JMIN-j+1,Mesh%KMIN-k,:)
+            pvar(i,Mesh%JMIN-k,Mesh%KMIN-j,:) = pvar(i,Mesh%JMIN-k,Mesh%KMIN-j+1,:)
+          END DO
+        END DO
+        DO i=Mesh%IGMIN,Mesh%IGMAX
+          pvar(i,Mesh%JMIN-j,Mesh%KMIN-k,:) = 0.5 * (pvar(i,Mesh%JMIN,Mesh%KMIN-j,:) &
+               + pvar(i,Mesh%JMIN-j,Mesh%KMIN,:))
+        END DO
+      END DO
+#ifdef PARALLEL
+      END IF
+#endif
+
+      ! bottom-north
+#ifdef PARALLEL
+      IF(Mesh%mycoords(2).EQ.Mesh%dims(2)-1.AND.Mesh%mycoords(3).EQ.0) THEN
+#endif
+!NEC$ SHORTLOOP
+      DO j=1,Mesh%GJNUM
+!NEC$ SHORTLOOP
+        DO k=j+1,Mesh%GKNUM
+!NEC$ IVDEP
+          DO i=Mesh%IGMIN,Mesh%IGMAX
+            pvar(i,Mesh%JMAX+j,Mesh%KMIN-k,:) = pvar(i,Mesh%JMAX+j-1,Mesh%KMIN-k,:)
+            pvar(i,Mesh%JMAX+k,Mesh%KMIN-j,:) = pvar(i,Mesh%JMAX+k,Mesh%KMIN-j+1,:)
+          END DO
+        END DO
+!NEC$ IVDEP
+        DO i=Mesh%IGMIN,Mesh%IGMAX
+          pvar(i,Mesh%JMAX+j,Mesh%KMIN-j,:) = 0.5 * (pvar(i,Mesh%JMAX,Mesh%KMIN-j,:) &
+               + pvar(i,Mesh%JMAX+j,Mesh%KMIN,:))
+        END DO
+      END DO
+#ifdef PARALLEL
+      END IF
+#endif
+
+      ! top-south
+#ifdef PARALLEL
+      IF(Mesh%mycoords(2).EQ.0.AND.Mesh%mycoords(3).EQ.Mesh%dims(3)-1) THEN
+#endif
+!NEC$ SHORTLOOP
+      DO j=1,Mesh%GJNUM
+!NEC$ SHORTLOOP
+        DO k=j+1,Mesh%GKNUM
+!NEC$ IVDEP
+          DO i=Mesh%IGMIN,Mesh%IGMAX
+            pvar(i,Mesh%JMIN-j,Mesh%KMAX+k,:) = pvar(i,Mesh%JMIN-j+1,Mesh%KMAX+k,:)
+            pvar(i,Mesh%JMIN-k,Mesh%KMAX+j,:) = pvar(i,Mesh%JMIN-k,Mesh%KMAX+j-1,:)
+          END DO
+        END DO
+!NEC$ IVDEP
+        DO i=Mesh%IGMIN,Mesh%IGMAX
+          pvar(i,Mesh%JMIN-j,Mesh%KMAX+j,:) = 0.5 * (pvar(i,Mesh%JMIN,Mesh%KMAX+j,:) &
+               + pvar(i,Mesh%JMIN-j,Mesh%KMAX,:))
+        END DO
+      END DO
+#ifdef PARALLEL
+      END IF
+#endif
+
+      ! top-north
+#ifdef PARALLEL
+      IF(Mesh%mycoords(2).EQ.Mesh%dims(1)-1.AND.Mesh%mycoords(3).EQ.Mesh%dims(3)-1) THEN
+#endif
+!NEC$ SHORTLOOP
+      DO j=1,Mesh%GJNUM
+!NEC$ SHORTLOOP
+        DO k=j+1,Mesh%GKNUM
+!NEC$ IVDEP
+          DO i=Mesh%IGMIN,Mesh%IGMAX
+            pvar(i,Mesh%JMAX+j,Mesh%KMAX+k,:) = pvar(i,Mesh%JMAX+j-1,Mesh%KMAX+k,:)
+            pvar(i,Mesh%JMAX+k,Mesh%KMAX+j,:) = pvar(i,Mesh%JMAX+k,Mesh%KMAX+j-1,:)
+          END DO
+        END DO
+!NEC$ IVDEP
+        DO i=Mesh%IGMIN,Mesh%IGMAX
+          pvar(i,Mesh%JMAX+j,Mesh%KMAX+j,:) = 0.5 * (pvar(i,Mesh%JMAX,Mesh%KMAX+j,:) &
+               + pvar(i,Mesh%JMAX+j,Mesh%KMAX,:))
+        END DO
+      END DO
+#ifdef PARALLEL
+      END IF
+#endif
+    END IF
 
     ! convert primitive variables in ghost cells
     CALL Physics%Convert2Conservative(Mesh,Mesh%IGMIN,Mesh%IMIN-1, &
