@@ -154,6 +154,8 @@ CONTAINS
     boundary => Dict( &
               "western"         / CUSTOM,&
               "eastern"         / CUSTOM,&
+!               "western"         / NO_GRADIENTS,&
+!               "eastern"         / NO_GRADIENTS,&
               "southern"        / PERIODIC, &
               "northern"        / PERIODIC, &
               "bottomer"        / REFLECTING,&
@@ -347,15 +349,13 @@ CONTAINS
     ! custom boundary conditions at western boundary if requested
     SELECT TYPE(bwest => Timedisc%Boundary%boundary(WEST)%p)
     CLASS IS (boundary_custom)
-       bwest%cbtype(:,:,Physics%DENSITY) = CUSTOM_NOGRAD
-       bwest%cbtype(:,:,Physics%XVELOCITY) = CUSTOM_OUTFLOW
-       bwest%cbtype(:,:,Physics%YVELOCITY) = CUSTOM_KEPLER
+      CALL bwest%SetCustomBoundaries(Mesh,Physics, &
+        (/CUSTOM_NOGRAD,CUSTOM_OUTFLOW,CUSTOM_KEPLER/))
     END SELECT
     SELECT TYPE(beast => Timedisc%Boundary%boundary(EAST)%p)
     CLASS IS (boundary_custom)
-       beast%cbtype(:,:,Physics%DENSITY) = CUSTOM_NOGRAD
-       beast%cbtype(:,:,Physics%XVELOCITY) = CUSTOM_OUTFLOW
-       beast%cbtype(:,:,Physics%YVELOCITY) = CUSTOM_KEPLER
+      CALL beast%SetCustomBoundaries(Mesh,Physics, &
+        (/CUSTOM_NOGRAD,CUSTOM_OUTFLOW,CUSTOM_KEPLER/))
     END SELECT
 
     ! print some information on stdout

@@ -329,8 +329,8 @@ CONTAINS
     SELECT TYPE(beast => Timedisc%Boundary%boundary(EAST)%p)
     CLASS IS (boundary_custom)
       ! this tells the boundary routine the actual boundary condition for each variable
-      beast%cbtype(:,:,:)   = CUSTOM_FIXED
-      beast%cbtype(:,:,Physics%XVELOCITY) = CUSTOM_NOGRAD
+      CALL beast%SetCustomBoundaries(Mesh,Physics, &
+        (/CUSTOM_FIXED,CUSTOM_NOGRAD,CUSTOM_FIXED,CUSTOM_FIXED/))
       DO k=Mesh%KMIN,Mesh%KMAX
         DO j=Mesh%JMIN,Mesh%JMAX
           DO i=1,Mesh%GINUM
