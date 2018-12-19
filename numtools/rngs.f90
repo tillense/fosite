@@ -157,10 +157,10 @@ CONTAINS
   END FUNCTION SuperKiss64
 
   !> Convert integer I8 random numbers to double precision real values in [0,1]
-  FUNCTION I8toD(x) RESULT(res)
+  ELEMENTAL FUNCTION I8toD(x) RESULT(res)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    INTEGER(KIND=I8) :: x
+    INTEGER(KIND=I8), INTENT(IN) :: x
     REAL             :: res
 #if defined(NECSXAURORA)
     INTEGER(KIND=8)  :: long
@@ -177,13 +177,17 @@ CONTAINS
   END FUNCTION I8toD
 
 
-  FUNCTION DKiss64() RESULT(res)
+  SUBROUTINE DKiss64(random_numbers)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    REAL             :: res
+    REAL, DIMENSION(:), INTENT(OUT) :: random_numbers
     !------------------------------------------------------------------------!
-    res = I8toD(Kiss64())
-  END FUNCTION DKiss64
+    INTEGER :: i
+    !------------------------------------------------------------------------!
+    DO i=1,SIZE(random_numbers)
+      random_numbers(i) = I8toD(Kiss64())
+    END DO
+  END SUBROUTINE DKiss64
 
 
 END MODULE rngs
