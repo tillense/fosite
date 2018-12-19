@@ -66,14 +66,12 @@ MODULE boundary_base_mod
 !     REAL, DIMENSION(:,:,:), POINTER    :: invr,        & !< inverse distance to center
 !                                           Rinv,        & !< Riemann invariants at the boundary
 !                                           RinvInf        !< far field Riemann invariants
-    LOGICAL                            :: PhysicalCorner !< Is the left corner physical?
 #ifdef PARALLEL
     !> \name Variables in Parallel Mode
     REAL, DIMENSION(:,:,:,:), POINTER  :: sendbuf,     & !< send buffer for boundary data
                                           recvbuf        !< receive buffer for boundary data
 #endif
   CONTAINS
-
     PROCEDURE :: InitBoundary
     PROCEDURE (SetBoundaryData), DEFERRED :: SetBoundaryData
     PROCEDURE :: Finalize_base
@@ -109,34 +107,41 @@ MODULE boundary_base_mod
 #ifdef PARALLEL
   INTEGER, PARAMETER :: NONE            = 0
 #endif
-  INTEGER, PARAMETER :: NO_GRADIENTS    = 1
-  INTEGER, PARAMETER :: PERIODIC        = 2
-  INTEGER, PARAMETER :: REFLECTING      = 3
-  INTEGER, PARAMETER :: AXIS            = 4
-  INTEGER, PARAMETER :: FOLDED          = 5
-  INTEGER, PARAMETER :: FIXED           = 6
-  INTEGER, PARAMETER :: EXTRAPOLATION   = 7
-  INTEGER, PARAMETER :: NOH2D           = 8
-  INTEGER, PARAMETER :: NOH3D           = 9
-  INTEGER, PARAMETER :: NOSLIP          = 10
-  INTEGER, PARAMETER :: CUSTOM          = 11
-  INTEGER, PARAMETER :: FARFIELD        = 12
-  INTEGER, PARAMETER :: ABSORBING       = 13
-  INTEGER, PARAMETER :: DMR             = 14
-  INTEGER, PARAMETER :: SHEARING        = 15
+  ENUM, BIND(C)
+    ENUMERATOR :: NO_GRADIENTS  = Z'01', & !< copy data from last cell in comp. domain in ghost zones
+                  PERIODIC      = Z'02', & !< connects opposite boundaries
+                  REFLECTING    = Z'03', & !< reflecting, i.e. wall
+                  AXIS          = Z'04', & !< axis
+!                   FOLDED        = Z'05', & !< cuts boundary in half and connects
+!                                        !<   the two parts (not supported in parallel mode)
+                  FIXED         = Z'06', & !< set fixed boundary data
+                  EXTRAPOLATION = Z'07', & !< linear extrapolation
+!                   NOH2D         = Z'08', & !< time-dependent inflow for 2D Noh problem
+!                   NOH3D         = Z'09', & !< time-dependent inflow for 3D Noh problem
+                  NOSLIP        = Z'0A', & !< reflecting, but with moving wall
+                  CUSTOM        = Z'0B', & !< user defined
+!                   FARFIELD      = Z'0C', & !< uses far-field data and Riemann invariants
+                  ABSORBING     = Z'0D', & !< vanishing characteristic pseudo-variables for incomming waves
+!                   DMR           = Z'0E', & !< ???
+                  SHEARING      = Z'0F'    !< periodic with shear for shearing sheet/box
+  END ENUM
   !--------------------------------------------------------------------------!
   PUBLIC :: &
-       ! types
-       boundary_base, &
-       ! constants
+    ! types
+    boundary_base, &
+    ! constants
 #ifdef PARALLEL
-       NONE,&
+    NONE, &
 #endif
-       NO_GRADIENTS, PERIODIC, REFLECTING, AXIS, FOLDED, FIXED, EXTRAPOLATION, &
-       NOH2D, NOH3D, NOSLIP, CUSTOM, FARFIELD, ABSORBING, DMR, SHEARING!, &
-!       CUSTOM_NOGRAD, CUSTOM_PERIOD, CUSTOM_REFLECT, CUSTOM_REFLNEG, &
-!       CUSTOM_EXTRAPOL, CUSTOM_FIXED, CUSTOM_LOGEXPOL, &
-!       CUSTOM_OUTFLOW, CUSTOM_KEPLER, CUSTOM_ANGKEPLER, CUSTOM_POISSON
+    NO_GRADIENTS, PERIODIC, REFLECTING, AXIS, &
+!     FOLDED, &
+    FIXED, EXTRAPOLATION, &
+!     NOH2D, NOH3D, &
+    NOSLIP, CUSTOM, &
+!     FARFIELD, &
+    ABSORBING, &
+!     DMR, &
+    SHEARING
   !--------------------------------------------------------------------------!
 
 CONTAINS

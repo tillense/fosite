@@ -71,30 +71,16 @@ MODULE boundary_generic_mod
   !--------------------------------------------------------------------------!
   TYPE, PRIVATE                       :: boundary_p
     CLASS(boundary_base), ALLOCATABLE :: p
-! #ifdef PARALLEL
-!     !> \name variables in parallel mode
-!     REAL, DIMENSION(:,:,:,:), POINTER :: sendbuf, &     !< send buffer for boundary data
-!                                          recvbuf        !< receive buffer for boundary data
-! #endif
   END TYPE
 
   TYPE, EXTENDS(logging_base)         :: boundary_generic
     !> \name variables
     TYPE(boundary_p)                  :: Boundary(6)
-! #ifdef PARALLEL
-!     !> \name variables in parallel mode
-!     REAL, DIMENSION(:,:,:,:), POINTER :: sendbuf, &     !< send buffer for boundary data
-!                                          recvbuf        !< receive buffer for boundary data
-! #endif
   CONTAINS
     PROCEDURE :: InitBoundary
     PROCEDURE :: CenterBoundary
     PROCEDURE :: Finalize
   END TYPE boundary_generic
-  !--------------------------------------------------------------------------!
-  !> \name Public Attributes
-  CHARACTER(LEN=32), DIMENSION(6), PARAMETER :: &
-  direction_name = (/'  west', '  east', ' south', ' north', 'bottom', '   top' /)
   !--------------------------------------------------------------------------!
   PUBLIC :: &
        ! types
@@ -367,10 +353,15 @@ CONTAINS
     CALL Physics%Convert2Primitive(Mesh,Mesh%IMIN,Mesh%IMAX,Mesh%JMIN, &
              Mesh%JMAX,Mesh%KMIN,Mesh%KMAX,cvar,pvar)
 
+    this%err = 0
     ! set physical boundary conditions at western and eastern boundaries
     IF (Mesh%INUM.GT.1) THEN
       CALL this%Boundary(WEST)%p%SetBoundaryData(Mesh,Physics,time,pvar)
+      IF (this%err.GT.0) CALL this%Error("boundary_generic::CenterBoundary", &
+                                    "western boundary condition failed")
       CALL this%Boundary(EAST)%p%SetBoundaryData(Mesh,Physics,time,pvar)
+      IF (this%err.GT.0) CALL this%Error("boundary_generic::CenterBoundary", &
+                                    "eastern boundary condition failed")
     END IF
 
     ! set physical boundary conditions at southern and northern boundaries
@@ -388,6 +379,8 @@ CONTAINS
     CLASS DEFAULT
       IF (Mesh%JNUM.GT.1) THEN
         CALL this%Boundary(SOUTH)%p%SetBoundaryData(Mesh,Physics,time,pvar)
+        IF (this%err.GT.0) CALL this%Error("boundary_generic::CenterBoundary", &
+                                      "southern boundary condition failed")
       END IF
     END SELECT
 
@@ -398,19 +391,29 @@ CONTAINS
     CLASS DEFAULT
       IF (Mesh%JNUM.GT.1) THEN
         CALL this%Boundary(NORTH)%p%SetBoundaryData(Mesh,Physics,time,pvar)
+        IF (this%err.GT.0) CALL this%Error("boundary_generic::CenterBoundary", &
+                                      "northern boundary condition failed")
       END IF
     END SELECT
 #else
     IF (Mesh%JNUM.GT.1) THEN
       CALL this%Boundary(SOUTH)%p%SetBoundaryData(Mesh,Physics,time,pvar)
+        IF (this%err.GT.0) CALL this%Error("boundary_generic::CenterBoundary", &
+                                      "southern boundary condition failed")
       CALL this%Boundary(NORTH)%p%SetBoundaryData(Mesh,Physics,time,pvar)
+        IF (this%err.GT.0) CALL this%Error("boundary_generic::CenterBoundary", &
+                                      "northern boundary condition failed")
     END IF
 #endif
 
     ! set physical boundary conditions at top and bottom boundaries
     IF (Mesh%KNUM.GT.1) THEN
       CALL this%Boundary(BOTTOM)%p%SetBoundaryData(Mesh,Physics,time,pvar)
+        IF (this%err.GT.0) CALL this%Error("boundary_generic::CenterBoundary", &
+                                      "bottom boundary condition failed")
       CALL this%Boundary(TOP)%p%SetBoundaryData(Mesh,Physics,time,pvar)
+        IF (this%err.GT.0) CALL this%Error("boundary_generic::CenterBoundary", &
+                                      "top boundary condition failed")
     END IF
 
 #ifdef PARALLEL

@@ -57,7 +57,7 @@ MODULE logging_base_mod
     PRIVATE
     INTEGER           :: mod_type                !< module type number
     CHARACTER(LEN=32) :: mod_name                !< module type name
-    INTEGER           :: err                     !< error code
+    INTEGER, PUBLIC   :: err                     !< error code
     LOGICAL           :: isinitialized = .FALSE. !< init status
     INTEGER, POINTER  :: myrank => null()        !< rank of parallel process
     INTEGER, POINTER  :: ppnum => null()         !< number of parallel processes

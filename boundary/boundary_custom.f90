@@ -107,7 +107,7 @@ CONTAINS
 
 
   !> \public Applies the custom boundary conditions
-  SUBROUTINE SetBoundaryData(this,Mesh,Physics,time,pvar)
+  PURE SUBROUTINE SetBoundaryData(this,Mesh,Physics,time,pvar)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(boundary_custom), INTENT(INOUT) :: this
@@ -210,7 +210,7 @@ CONTAINS
               - this%radius(Mesh%IMIN-i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX)**2*Mesh%OMEGA
           END DO
         CASE DEFAULT
-          CALL this%Error("boundary_custom::SetBoundaryData","western boundary: undefined conditions")
+          this%err = IOR(CUSTOM,Z'0100')
         END SELECT
       END DO
     CASE(EAST)
@@ -303,7 +303,7 @@ CONTAINS
               - this%radius(Mesh%IMAX+i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX)**2*Mesh%OMEGA
           END DO
         CASE DEFAULT
-          CALL this%Error("boundary_custom::SetBoundaryData","eastern boundary: undefined conditions")
+          this%err = IOR(CUSTOM,Z'0200')
         END SELECT
       END DO
     CASE(SOUTH)
@@ -395,8 +395,8 @@ CONTAINS
             * this%Rscale(Mesh%IMIN:Mesh%IMAX,j,Mesh%KMIN:Mesh%KMAX) &
             - this%radius(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN-j,Mesh%KMIN:Mesh%KMAX)**2*Mesh%OMEGA
           END DO
-        CASE DEFAULT ! defaults to NO_GRADIENTS
-          CALL this%Error("boundary_custom::SetBoundaryData","southern boundary: undefined conditions")
+        CASE DEFAULT
+          this%err = IOR(CUSTOM,Z'0300')
         END SELECT
       END DO
     CASE(NORTH)
@@ -489,7 +489,7 @@ CONTAINS
               - this%radius(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX+j,Mesh%KMIN:Mesh%KMAX)**2*Mesh%OMEGA
           END DO
         CASE DEFAULT
-          CALL this%Error("boundary_custom::SetBoundaryData","northern boundary: undefined conditions")
+          this%err = IOR(CUSTOM,Z'0400')
         END SELECT
       END DO
     CASE(BOTTOM)
@@ -585,7 +585,7 @@ CONTAINS
               - this%radius(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN-k)**2*Mesh%OMEGA
           END DO
         CASE DEFAULT
-          CALL this%Error("boundary_custom::SetBoundaryData","bottom boundary: undefined conditions")
+          this%err = IOR(CUSTOM,Z'0500')
         END SELECT
       END DO
     CASE(TOP)
@@ -680,7 +680,7 @@ CONTAINS
               - this%radius(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMAX+k)**2*Mesh%OMEGA
           END DO
         CASE DEFAULT
-          CALL this%Error("boundary_custom::SetBoundaryData","top boundary: undefined conditions")
+          this%err = IOR(CUSTOM,Z'0600')
         END SELECT
       END DO
     END SELECT

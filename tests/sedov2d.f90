@@ -222,33 +222,33 @@ CONTAINS
        bc(NORTH) = PERIODIC
        bc(BOTTOM)= NO_GRADIENTS
        bc(TOP)   = NO_GRADIENTS
-    CASE(OBLATE_SPHEROIDAL)
-       x1 = 0.0
-       x2 = Acosh(RMAX/GPAR)
-       y1 = -0.5*PI
-       y2 = 0.5*PI
-       bc(WEST)  = FOLDED
-       bc(EAST)  = ABSORBING
-       bc(SOUTH) = AXIS
-       bc(NORTH) = AXIS
-    CASE(TANCYLINDRICAL)
-       x1 = ATAN(-RMAX/GPAR)
-       x2 = ATAN(RMAX/GPAR)
-       y1 = 0.0
-       y2 = RMAX
-       bc(WEST)  = ABSORBING
-       bc(EAST)  = ABSORBING
-       bc(SOUTH) = AXIS
-       bc(NORTH) = ABSORBING
-    CASE(SINHSPHERICAL)
-       x1 = 0.0
-       x2 = Asinh(RMAX/GPAR)
-       y1 = 0.0
-       y2 = PI
-       bc(WEST)  = REFLECTING
-       bc(EAST)  = ABSORBING
-       bc(SOUTH) = AXIS
-       bc(NORTH) = AXIS
+!     CASE(OBLATE_SPHEROIDAL)
+!        x1 = 0.0
+!        x2 = Acosh(RMAX/GPAR)
+!        y1 = -0.5*PI
+!        y2 = 0.5*PI
+!        bc(WEST)  = FOLDED
+!        bc(EAST)  = ABSORBING
+!        bc(SOUTH) = AXIS
+!        bc(NORTH) = AXIS
+!     CASE(TANCYLINDRICAL)
+!        x1 = ATAN(-RMAX/GPAR)
+!        x2 = ATAN(RMAX/GPAR)
+!        y1 = 0.0
+!        y2 = RMAX
+!        bc(WEST)  = ABSORBING
+!        bc(EAST)  = ABSORBING
+!        bc(SOUTH) = AXIS
+!        bc(NORTH) = ABSORBING
+!     CASE(SINHSPHERICAL)
+!        x1 = 0.0
+!        x2 = Asinh(RMAX/GPAR)
+!        y1 = 0.0
+!        y2 = PI
+!        bc(WEST)  = REFLECTING
+!        bc(EAST)  = ABSORBING
+!        bc(SOUTH) = AXIS
+!        bc(NORTH) = AXIS
     CASE DEFAULT
        CALL Sim%Physics%Error("InitProgram","geometry not supported for 3D Sedov explosion")
     END SELECT
