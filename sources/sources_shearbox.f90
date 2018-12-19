@@ -95,7 +95,7 @@ CONTAINS
     CLASS(fluxes_base),   INTENT(IN) :: Fluxes
     TYPE(Dict_TYP),          POINTER :: config, IO
     !------------------------------------------------------------------------!
-    INTEGER                          :: err, valwrite, stype
+    INTEGER                          :: stype
     !------------------------------------------------------------------------!
     CALL GetAttr(config,"stype",stype)
     CALL this%InitLogging(stype,source_name)
@@ -173,8 +173,6 @@ CONTAINS
     CLASS(sources_base),     INTENT(INOUT) :: Sources
     REAL,                    INTENT(IN)    :: time, dt
     CLASS(marray_compound),INTENT(INOUT)   :: pvar,cvar,sterm
-    !------------------------------------------------------------------------!
-    INTEGER       :: i,j,k
     !------------------------------------------------------------------------!
     SELECT CASE(Mesh%FARGO)
     CASE(0)

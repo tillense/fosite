@@ -283,11 +283,11 @@ CONTAINS
     CHARACTER(LEN=32)       :: mname
     !------------------------------------------------------------------------!
     CHARACTER(LEN=32)       :: xres,yres,zres,somega
-    INTEGER                 :: meshtype,shear_direction,use_fargo,fargo
-    INTEGER                 :: i,j,k,err
+    INTEGER                 :: meshtype,use_fargo,fargo
+    INTEGER                 :: i,j,k
     REAL                    :: mesh_dx,mesh_dy,mesh_dz
 #ifdef PARALLEL
-    INTEGER                 :: inum, jnum, knum
+    INTEGER                 :: inum,jnum,knum,err
 #endif
     REAL, DIMENSION(6,3)    :: cfaces
     REAL, DIMENSION(8,3)    :: ccorners

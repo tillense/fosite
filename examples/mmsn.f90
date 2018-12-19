@@ -111,10 +111,6 @@ CONTAINS
                                     sources, binary, vis, timedisc, datafile, &
                                     pmass
     !------------------------------------------------------------------------!
-    ! Local variable declaration
-    CHARACTER(LEN=9)  :: geo_str,r1_str,r2_str,d_str
-    INTEGER           :: i,j,k
-    !------------------------------------------------------------------------!
     ! some derived simulation parameters
     OMEGA  = SQRT(GN*(MBH1+MBH2)/SEMMA)/SEMMA
     PERIOD = 2.*PI / OMEGA
@@ -257,26 +253,21 @@ CONTAINS
     CLASS(timedisc_base), INTENT(INOUT)  :: Timedisc
     CLASS(fluxes_base),   INTENT(INOUT)  :: Fluxes
     CLASS(sources_base),  POINTER        :: Sources
-    TYPE(Dict_TYP), POINTER              :: config
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
                           INTENT(OUT)    :: pvar,cvar
     !------------------------------------------------------------------------!
     ! Local variable declaration
     CLASS(sources_base), POINTER :: sp
     CLASS(sources_gravity), POINTER :: gp
-    INTEGER           :: i,j,dir,ig,im
+    INTEGER           :: i
 #ifdef PARALLEL
     INTEGER           :: ierror
 #endif
-    REAL              :: mdisk_temp
-    REAL              :: s,q, BINMASS, Sigma0
+    REAL              :: Sigma0
     REAL, DIMENSION(:,:,:), POINTER :: r, Sigma
     REAL, DIMENSION(:,:,:,:), POINTER :: r_faces
-    LOGICAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX) :: sum_mask
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX)    :: bccsound
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,6)  :: fcsound
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX)    :: Temp
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,6)  :: Temp_faces
     CHARACTER(LEN=32) :: info_str
     !------------------------------------------------------------------------!
     ! set some pointers for convenience

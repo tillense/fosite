@@ -135,8 +135,7 @@ CONTAINS
     !------------------------------------------------------------------------!
     INTEGER :: potential_number, valwrite, gtype
     INTEGER :: err,i,j,k,l
-    REAL    :: r,r_schwarzschild=0.0,eps
-    REAL    :: invdt_x, invdt_y
+    REAL    :: r_schwarzschild=0.0,eps
     !------------------------------------------------------------------------!
     CALL GetAttr(config, "gtype", gtype)
     ! allocate memory for new gravity term

@@ -244,9 +244,6 @@ CONTAINS
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,3) &
                                 :: posvec
     !------------------------------------------------------------------------!
-    ! Local variable declaration
-    INTEGER                     :: i,j,k
-    !------------------------------------------------------------------------!
     INTENT(IN)                  :: Mesh,Physics
     INTENT(INOUT)               :: Timedisc
     !------------------------------------------------------------------------!

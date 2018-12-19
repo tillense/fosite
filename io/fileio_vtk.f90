@@ -127,8 +127,10 @@ CONTAINS
     TYPE(Dict_TYP),      INTENT(IN), POINTER :: IO       !< \param [in] IO Dictionary for I/O
     !------------------------------------------------------------------------!
     TYPE(Dict_TYP), POINTER             :: node
-    INTEGER                             :: k,n,i,j,err
+    INTEGER                             :: k,i,j,err
+#ifdef PARALLEL
     INTEGER, DIMENSION(:), POINTER      :: sendbuf,recvbuf
+#endif
     REAL, DIMENSION(:,:,:,:,:), POINTER :: corners
     !------------------------------------------------------------------------!
 #ifdef PARALLEL
@@ -299,7 +301,7 @@ CONTAINS
     !------------------------------------------------------------------------!
     CLASS(fileio_vtk), INTENT(INOUT) :: this
     !------------------------------------------------------------------------!
-    INTEGER                          :: i,k
+    INTEGER                          :: k
     REAL                             :: ftime
     CHARACTER(LEN=256)               :: basename
     !------------------------------------------------------------------------!
@@ -774,9 +776,8 @@ CONTAINS
     TYPE(Dict_TYP),       POINTER       :: Header   !< \param [in,out] IO I/O dictionary
     TYPE(Dict_TYP),       POINTER       :: IO       !< \param [in,out] IO I/O dictionary
     !------------------------------------------------------------------------!
-    INTEGER                             :: i,k,m
+    INTEGER                             :: k,m
     INTEGER                             :: n, offset
-    CHARACTER(LEN=256)                  :: basename
     !------------------------------------------------------------------------!
     ! this part is formerly from fileio_generic.f90
     ! calculate boundary fluxes, if they were requested for write

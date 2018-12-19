@@ -100,7 +100,7 @@ CONTAINS
     TYPE(Dict_TYP), POINTER                 :: config
     INTEGER,                  INTENT(IN)    :: dir
     !------------------------------------------------------------------------!
-    INTEGER            :: btype, err, l
+    INTEGER            :: err, l
     !------------------------------------------------------------------------!
     CALL this%InitBoundary(Mesh,Physics,SHEARING,boundcond_name,dir,config)
 
@@ -196,8 +196,7 @@ CONTAINS
                               INTENT(INOUT) :: pvar
     !------------------------------------------------------------------------!
     INTEGER            :: i,j,k,l,intshift
-    REAL               :: velocity_shift,offremain,offset,offset_tmp
-    REAL               :: pvar_old,pvar_old2
+    REAL               :: offremain,offset,offset_tmp
 #ifdef PARALLEL
     INTEGER            :: status(MPI_STATUS_SIZE)
     INTEGER            :: ierror,req(4)

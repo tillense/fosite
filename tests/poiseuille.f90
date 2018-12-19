@@ -194,10 +194,6 @@ CONTAINS
     CLASS(Mesh_base)    :: Mesh
     CLASS(Timedisc_base):: Timedisc
     !------------------------------------------------------------------------!
-    ! Local variable declaration
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX, &
-                    Mesh%KGMIN:Mesh%KGMAX,3) :: dv
-    !------------------------------------------------------------------------!
     INTENT(IN)        :: Mesh,Physics
     INTENT(INOUT)     :: Timedisc
     !------------------------------------------------------------------------!

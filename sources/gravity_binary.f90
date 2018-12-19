@@ -123,7 +123,6 @@ CONTAINS
     !------------------------------------------------------------------------!
     INTEGER           :: gtype, mesh_rot
     INTEGER           :: err
-    REAL              :: omega_min
     !------------------------------------------------------------------------!
     CALL GetAttr(config, "gtype", gtype)
     CALL this%InitLogging(gtype,gravity_name)

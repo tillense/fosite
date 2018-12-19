@@ -69,8 +69,10 @@ PROGRAM Restart
   TYPE(Dict_TYP), POINTER :: input
   REAL                    :: time,time0
   INTEGER                 :: i, step
-  CHARACTER(LEN=100)      :: filename, filename_tmp, res
-  INTEGER, DIMENSION(2)   :: decomposition
+  CHARACTER(LEN=100)      :: filename, filename_tmp
+#ifdef PARALLEL
+  INTEGER, DIMENSION(3)   :: decomposition
+#endif
   LOGICAL                 :: file_exists
   !--------------------------------------------------------------------------!
 
@@ -95,9 +97,12 @@ PROGRAM Restart
   CALL SetAttr(Sim%config,"/timedisc/starttime", time)
   CALL GetAttr(Sim%config, "/timedisc/starttime", time0)
 
-!  decomposition(1) = 1
-!  decomposition(2) = -1
-!  CALL SetAttr(Sim%config, "/mesh/decomposition", decomposition)
+#ifdef PARALLEL
+  decomposition(1) = 1
+  decomposition(2) = -1
+  decomposition(3) = 1
+  CALL SetAttr(Sim%config, "/mesh/decomposition", decomposition)
+#endif
 
   ! get step number by stripping from filename
   filename_tmp = filename
@@ -145,7 +150,6 @@ FUNCTION LoadConfig(filename) RESULT(res)
   CHARACTER(LEN=*)        :: filename
   TYPE(Dict_TYP),POINTER  :: res
   !--------------------------------------------------------------------------!
-  TYPE(Dict_TYP),POINTER  :: node
   INTEGER                 :: file, error, offset, keylen, intsize, realsize,  &
                              type, bytes, l, dims(5)
   CHARACTER(LEN=6)        :: magic
@@ -154,10 +158,7 @@ FUNCTION LoadConfig(filename) RESULT(res)
   CHARACTER(LEN=4)        :: sizestr
   CHARACTER(LEN=1),DIMENSION(:),POINTER :: keybuf
   CHARACTER(LEN=MAX_CHAR_LEN)           :: key,kf
-  REAL,DIMENSION(:,:),          POINTER :: ptr2 => null()
   REAL,DIMENSION(:,:,:),        POINTER :: ptr3 => null()
-  REAL,DIMENSION(:,:,:,:),      POINTER :: ptr4 => null()
-  REAL,DIMENSION(:,:,:,:,:),    POINTER :: ptr5 => null()
   CHARACTER(LEN=1),DIMENSION(:),POINTER :: val
 
   !--------------------------------------------------------------------------!
@@ -250,12 +251,10 @@ SUBROUTINE LoadData(this,filename)
   CLASS(fosite)                         :: this
   CHARACTER(LEN=*)                      :: filename
   !--------------------------------------------------------------------------!
-  TYPE(Dict_TYP),               POINTER :: node
   INTEGER                               :: unit, error, keylen, &
                                            intsize, realsize, type, bytes, &
                                            l, dims(5)
 !  CHARACTER(LEN=64)                     :: keybufsize
-  CHARACTER(LEN=13)                     :: header
   CHARACTER(LEN=6)                      :: magic
   CHARACTER(LEN=2)                      :: endian
   CHARACTER(LEN=1),DIMENSION(50)        :: buffer
@@ -263,6 +262,7 @@ SUBROUTINE LoadData(this,filename)
   INTEGER                               :: offset
   CHARACTER(LEN=1)                      :: version
 #else
+  CHARACTER(LEN=13)                     :: header
   INTEGER(KIND=MPI_OFFSET_KIND)         :: offset, offset_0, filesize
   INTEGER                               :: version
 #endif

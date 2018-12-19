@@ -305,8 +305,7 @@ CONTAINS
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM) &
                       :: pvar,cvar
     !------------------------------------------------------------------------!
-    INTEGER           :: i,j,k,kv=0
-    REAL              :: Omega,rotOmega
+    INTEGER           :: kv=0
     !------------------------------------------------------------------------!
     INTENT(IN)        :: pvar,cvar
     !------------------------------------------------------------------------!

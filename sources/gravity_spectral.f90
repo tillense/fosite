@@ -118,7 +118,7 @@ MODULE gravity_spectral_mod
     CLASS(physics_base),         INTENT(IN) :: Physics
     TYPE(Dict_TYP),              POINTER    :: config,IO
     !------------------------------------------------------------------------!
-    INTEGER           :: err, valwrite, i, solver
+    INTEGER           :: err, valwrite, solver
     CHARACTER(LEN=32) :: info_str
     !------------------------------------------------------------------------!
     CALL GetAttr(config, "gtype", solver)
@@ -299,7 +299,10 @@ MODULE gravity_spectral_mod
     CLASS(mesh_base), INTENT(IN) :: Mesh
     INTEGER                      :: res
     !------------------------------------------------------------------------!
-    INTEGER           :: m,i,ier
+    INTEGER           :: m,i
+#ifdef PARALLEL
+    INTEGER           :: ier
+#endif
     REAL              :: cumsum(this%MNUM)
     INTEGER           :: mcut(Mesh%IMIN:Mesh%IMAX)
     !------------------------------------------------------------------------!
@@ -344,7 +347,7 @@ MODULE gravity_spectral_mod
                          INTENT(IN) :: pvar
     REAL, INTENT(IN)                :: time
     !------------------------------------------------------------------------!
-    INTEGER           :: i,j,k,m,i0,ier,oldmcut
+    INTEGER           :: i,k,m,i0,oldmcut
 #ifdef PARALLEL
     INTEGER           :: status(MPI_STATUS_SIZE)
 #endif
@@ -511,16 +514,13 @@ MODULE gravity_spectral_mod
    CLASS(physics_base)                 :: Physics
    !------------------------------------------------------------------------!
    TYPE(C_PTR)        :: plan_r2c
-   INTEGER            :: i0, i1, i, j, k, m
+   INTEGER            :: i1, i, j, k
    REAL               :: r0, notzero
    CHARACTER(LEN=128) :: str
    REAL, DIMENSION(Mesh%JMIN:Mesh%JMAX) &
                       :: phi
    REAL, DIMENSION(1:Mesh%INUM+1) :: r,hx,hy
    REAL, DIMENSION(Mesh%JMIN:Mesh%JMAX,Mesh%IMIN:this%IMAX) :: dr2
-   TYPE(C_PTR)        :: p
-   COMPLEX(C_DOUBLE_COMPLEX), DIMENSION(:,:,:), POINTER &
-                      :: cFI
    INTEGER            :: rank, howmany, istride, idist, ostride, odist
    INTEGER, DIMENSION(1) &
                       :: n

@@ -70,9 +70,9 @@ PROGRAM sedov3d
   !-------------------------------------------------------------------------!
   REAL, DIMENSION(:),ALLOCATABLE  :: pvar_diff
 #ifdef PARALLEL
-  REAL, DIMENSION(:), POINTER     :: pvar,pvar_all,radius, radius_all
+  REAL, DIMENSION(:), POINTER     :: pvar,pvar_all,radius,radius_all,err
 #endif
-  INTEGER :: i,err
+  INTEGER :: i
   REAL    :: Rt,rshock
   !-------------------------------------------------------------------------!
   ALLOCATE(Sim,pvar_diff(1:XRES))

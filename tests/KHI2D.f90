@@ -63,7 +63,7 @@ PROGRAM KHI
   !--------------------------------------------------------------------------!
   CLASS(fosite), ALLOCATABLE   :: Sim
   CLASS(marray_compound), POINTER :: pvar,pvar_init
-  INTEGER            :: i,n
+  INTEGER            :: n
   REAL               :: sigma
   INTEGER, DIMENSION(:), ALLOCATABLE    :: seed
   !--------------------------------------------------------------------------!
@@ -117,7 +117,7 @@ CONTAINS
     !------------------------------------------------------------------------!
     ! Local variable declaration
     TYPE(Dict_TYP), POINTER :: mesh, physics, boundary, datafile, &
-                               sources, timedisc, fluxes, vis
+                               sources, timedisc, fluxes
     REAL                    :: dynvis
     !------------------------------------------------------------------------!
     ! mesh settings
@@ -278,7 +278,7 @@ CONTAINS
     CLASS(marray_compound), INTENT(INOUT)   :: pvar_in,pvar_out
     CHARACTER(LEN=2), INTENT(IN)            :: dir
     !------------------------------------------------------------------------!
-    INTEGER :: i,j,k
+    INTEGER :: k
     !------------------------------------------------------------------------!
     SELECT TYPE(pin => pvar_in)
     TYPE IS(statevector_euler) ! non-isothermal HD

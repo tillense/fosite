@@ -268,10 +268,6 @@ CONTAINS
     CLASS(physics_base), INTENT(IN)    :: Physics
     TYPE(Dict_TYP), POINTER            :: config, IO
     !------------------------------------------------------------------------!
-    CLASS(sources_base), POINTER :: sp
-    INTEGER :: stype
-    INTEGER :: update_disk_height = 0
-    !------------------------------------------------------------------------!
     CALL Physics%new_statevector(temp_sterm,CONSERVATIVE)
 
     CALL this%Info(" SOURCES--> source term:       " // this%GetName())

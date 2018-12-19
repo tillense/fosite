@@ -153,7 +153,6 @@ MODULE gravity_sboxspectral_mod
     !------------------------------------------------------------------------!
     INTEGER             :: gravity_number
     INTEGER             :: err, valwrite, i
-    CHARACTER(LEN=32)   :: info_str
 #if defined(HAVE_FFTW) && defined(PARALLEL)
     INTEGER(C_INTPTR_T) :: C_INUM,C_JNUM
     INTEGER(C_INTPTR_T) :: alloc_local, local_JNUM, local_joff
@@ -453,12 +452,11 @@ MODULE gravity_sboxspectral_mod
                          INTENT(IN) :: pvar
     !------------------------------------------------------------------------!
     INTEGER :: i,j,k
-    REAL    :: kxp,kyp,K2max,K2,KO,kx,kern,ky
-    REAL    :: joff2,jrem2,delt,time0,phi_old,phi_tmp,joff3
-    INTEGER :: nx,ny,nprocs
-    INTEGER :: iopt,ier
+    REAL    :: K2max,K2,KO
+    REAL    :: joff2,jrem2,delt,time0
+    INTEGER :: nprocs
 #ifdef PARALLEL
-    INTEGER :: status(MPI_STATUS_SIZE), ierror
+    INTEGER :: status(MPI_STATUS_SIZE),ierror,ier
     REAL    :: mpi_buf(Mesh%IMIN:Mesh%IMAX,Mesh%GJNUM,Mesh%KMIN:Mesh%KMAX) !TODO: ONLY 2D
 #endif
     !------------------------------------------------------------------------!
@@ -750,10 +748,9 @@ CALL ftrace_region_end("backward_fft")
     CLASS(physics_base), INTENT(IN) :: Physics
     !------------------------------------------------------------------------!
     INTEGER :: i,j,k
-    INTEGER :: ier,iopt
 #ifdef PARALLEL
-    INTEGER :: nprocs
-    INTEGER :: status(MPI_STATUS_SIZE)
+    INTEGER :: nprocs,status(MPI_STATUS_SIZE)
+    INTEGER :: ier
 #endif
     !------------------------------------------------------------------------!
 #ifdef PARALLEL
@@ -799,11 +796,9 @@ CALL ftrace_region_end("foward FFT")
     CLASS(mesh_base),    INTENT(IN) :: Mesh
     CLASS(physics_base), INTENT(IN) :: Physics
     !------------------------------------------------------------------------!
-    INTEGER           :: i,j
-    INTEGER           :: ier,iopt
 #ifdef PARALLEL
-    INTEGER           :: nprocs
-    INTEGER           :: status(MPI_STATUS_SIZE)
+    INTEGER           :: nprocs,status(MPI_STATUS_SIZE)
+    INTEGER           :: ier
 #endif
     !------------------------------------------------------------------------!
 #ifdef PARALLEL
@@ -924,8 +919,7 @@ CALL ftrace_region_end("foward FFT")
 #endif
     !------------------------------------------------------------------------!
     INTEGER           :: i,j,k,local_joff
-    REAL              :: cs2,p,q,delt
-    REAL              :: mass2D_old, mass2D_tmp
+    REAL              :: delt
     !------------------------------------------------------------------------!
     local_joff = this%local_joff
 

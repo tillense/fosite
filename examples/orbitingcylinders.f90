@@ -191,12 +191,8 @@ PROGRAM orbitingcylinders
   !--------------------------------------------------------------------------!
   CLASS(fosite), ALLOCATABLE :: Sim
   INTEGER :: green
-  LOGICAL :: break
   REAL, DIMENSION(:,:,:), POINTER :: numpot, anapot
-  REAL :: a,b
   !--------------------------------------------------------------------------!
-
-
 
   ALLOCATE(Sim)
   DO green=3,3
@@ -348,8 +344,7 @@ CONTAINS
     !------------------------------------------------------------------------!
     ! Local variable declaration
     INTEGER           :: i,j,k,dir,ig
-    REAL              :: cs,s
-    REAL,DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX) :: r,r1,r2,r3,y
+    REAL,DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX) :: r,r1,r2,r3
     CLASS(sources_base), POINTER :: sp
     CLASS(sources_gravity), POINTER :: gp
     !------------------------------------------------------------------------!

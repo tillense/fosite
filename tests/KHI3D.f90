@@ -36,15 +36,6 @@
 !----------------------------------------------------------------------------!
 PROGRAM KHI
   USE fosite_mod
-!  USE physics_generic
-!  USE fluxes_generic
-!  USE mesh_generic
-!  USE reconstruction_generic
-!  USE boundary_generic
-!  USE sources_generic
-!  USE fileio_generic
-!  USE timedisc_generic
-!  USE common_dict
 #include "tap.h"
   IMPLICIT NONE
   !--------------------------------------------------------------------------!
@@ -130,8 +121,6 @@ PROGRAM KHI
   CALL Sim%Finalize(.FALSE.)
   DEALLOCATE(Sim)
 
-
-
   ALLOCATE(Sim)
   CALL Sim%InitFosite()
   CALL MakeConfig(Sim, Sim%config)
@@ -143,7 +132,6 @@ PROGRAM KHI
   CALL Sim%Finalize(.FALSE.)
   DEALLOCATE(Sim)
 
-
   ALLOCATE(Sim)
   CALL Sim%InitFosite()
   CALL MakeConfig(Sim, Sim%config)
@@ -154,7 +142,6 @@ PROGRAM KHI
   pvar_zy(:,:,:,:) = Sim%Timedisc%pvar%data4d(:,:,:,:)
   CALL Sim%Finalize(.FALSE.)
   DEALLOCATE(Sim)
-
 
   ALLOCATE(Sim)
   CALL Sim%InitFosite()
@@ -241,7 +228,7 @@ CONTAINS
     !------------------------------------------------------------------------!
     ! Local variable declaration
     TYPE(Dict_TYP), POINTER :: mesh, physics, boundary, datafile, &
-                               sources, timedisc, fluxes, vis
+                               sources, timedisc, fluxes
     REAL                    :: dynvis
     !------------------------------------------------------------------------!
     ! mesh settings

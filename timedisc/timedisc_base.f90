@@ -495,7 +495,7 @@ CONTAINS
     CLASS(physics_base),  INTENT(IN)    :: Physics
     TYPE(Dict_TYP),       POINTER       :: config,IO
     !------------------------------------------------------------------------!
-    INTEGER                             :: valwrite,i,err
+    INTEGER                             :: valwrite,i
     CHARACTER(LEN=128)                  :: key,pvar_key
     LOGICAL                             :: writeSolution
     !------------------------------------------------------------------------!
@@ -905,11 +905,11 @@ CONTAINS
     CLASS(marray_compound),INTENT(INOUT):: cvar_high,cvar_low
     REAL               :: maxerr
     !------------------------------------------------------------------------!
-    INTEGER            :: i,j,k,l
+    INTEGER            :: l
 #ifdef PARALLEL
     INTEGER            :: ierror
 #endif
-    REAL               :: rel_err(Physics%VNUM),err
+    REAL               :: rel_err(Physics%VNUM)
     !------------------------------------------------------------------------!
 !NEC$ SHORTLOOP
     DO l=1,Physics%VNUM

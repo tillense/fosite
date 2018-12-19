@@ -331,7 +331,6 @@ CONTAINS
     END INTERFACE
     !------------------------------------------------------------------------!
     TYPE(Roots_TYP) :: this
-    REAL            :: f1,f2
     !------------------------------------------------------------------------!
     CALL GetRoot_generic(this,Step_RegulaFalsi,func,x1,x2, &
         DEFAULT_ACCURACY,DEFAULT_MAX_ITERATIONS,plist,xm)
@@ -366,7 +365,6 @@ CONTAINS
     END INTERFACE
     !------------------------------------------------------------------------!
     TYPE(Roots_TYP) :: this
-    REAL            :: f1,f2
     !------------------------------------------------------------------------!
     CALL GetRoot_generic(this,Step_Pegasus,func,x1,x2, &
         DEFAULT_ACCURACY,DEFAULT_MAX_ITERATIONS,plist,xm)
@@ -401,7 +399,6 @@ CONTAINS
     END INTERFACE
     !------------------------------------------------------------------------!
     TYPE(Roots_TYP) :: this
-    REAL            :: f1,f2
     !------------------------------------------------------------------------!
     CALL GetRoot_generic(this,Step_King,func,x1,x2, &
         DEFAULT_ACCURACY,DEFAULT_MAX_ITERATIONS,plist,xm)
@@ -436,7 +433,6 @@ CONTAINS
     END INTERFACE
     !------------------------------------------------------------------------!
     TYPE(Roots_TYP) :: this
-    REAL            :: f1,f2
     !------------------------------------------------------------------------!
     CALL GetRoot_generic(this,Step_AndersonBjoerk,func,x1,x2, &
         DEFAULT_ACCURACY,DEFAULT_MAX_ITERATIONS,plist,xm)
@@ -471,7 +467,6 @@ CONTAINS
     END INTERFACE
     !------------------------------------------------------------------------!
     TYPE(Roots_TYP) :: this
-    REAL            :: f1,f2
     !------------------------------------------------------------------------!
     CALL GetRoot_generic(this,Step_Ridder,func,x1,x2, &
         DEFAULT_ACCURACY,DEFAULT_MAX_ITERATIONS,plist,xm)
@@ -506,7 +501,6 @@ CONTAINS
     END INTERFACE
     !------------------------------------------------------------------------!
     TYPE(Roots_TYP) :: this
-    REAL            :: f1,f2
     !------------------------------------------------------------------------!
     CALL GetRoot_generic(this,Step_BrentDekker,func,x1,x2, &
         DEFAULT_ACCURACY,DEFAULT_MAX_ITERATIONS,plist,xm)
@@ -541,7 +535,6 @@ CONTAINS
     END INTERFACE
     !------------------------------------------------------------------------!
     TYPE(Roots_TYP) :: this
-    REAL            :: f1,f2
     !------------------------------------------------------------------------!
     CALL GetRoot_generic(this,Step_Bisection,func,x1,x2, &
         DEFAULT_ACCURACY,DEFAULT_MAX_ITERATIONS,plist,xm)

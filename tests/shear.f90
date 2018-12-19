@@ -116,8 +116,8 @@ PROGRAM shear
     CLASS(fosite)            :: Sim
     TYPE(Dict_TYP), POINTER  :: config
     !------------------------------------------------------------------------!
-    TYPE(Dict_TYP), POINTER  :: mesh, physics, boundary, datafile, &
-                                sources, timedisc, fluxes, shear, empty_dict
+    TYPE(Dict_TYP), POINTER  :: mesh, physics, datafile, &
+                                sources, timedisc, fluxes, shear
     !------------------------------------------------------------------------!
     INTENT(INOUT)            :: Sim
     REAL                     :: XMIN,XMAX,YMIN,YMAX,ZMIN,ZMAX

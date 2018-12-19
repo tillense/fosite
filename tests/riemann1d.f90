@@ -178,7 +178,7 @@ CONTAINS
     ! Local variable declaration
     TYPE(Dict_TYP), POINTER :: mesh, physics, boundary, datafile, &
                                timedisc, fluxes
-    INTEGER           :: xres,yres,zres,output_solution
+    INTEGER           :: xres,yres,zres
     REAL              :: xmax,ymax,zmax
     !------------------------------------------------------------------------!
     INTENT(INOUT)     :: Sim
@@ -324,7 +324,6 @@ CONTAINS
     INTEGER, INTENT(IN)          :: ic,dir
     !------------------------------------------------------------------------!
     ! Local variable declaration
-    INTEGER :: i,j,k
     REAL    :: x0, rho_l, rho_r, u_l, u_r, p_l, p_r
     REAL, DIMENSION(:), ALLOCATABLE :: x
     !------------------------------------------------------------------------!

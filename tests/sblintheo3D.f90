@@ -108,7 +108,6 @@ PROGRAM sblintheo
   CHARACTER(LEN=256), PARAMETER :: OFNAME = "sblintheo"
   !--------------------------------------------------------------------------!
   CLASS(fosite), ALLOCATABLE :: Sim
-  REAL               :: maximum
   !--------------------------------------------------------------------------!
 
 !TAP_PLAN(1)
@@ -139,7 +138,7 @@ CONTAINS
     CLASS(fosite)           :: Sim
     TYPE(Dict_TYP), POINTER :: config
     !--------------------------------------------------------------------------!
-    TYPE(Dict_TYP), POINTER :: mesh,physics,fluxes,boundary,&
+    TYPE(Dict_TYP), POINTER :: mesh,physics,fluxes,&
                                grav,sources,timedisc,shearingbox,&
                                datafile
     REAL                    :: XMIN,XMAX,YMIN,YMAX,ZMIN,ZMAX

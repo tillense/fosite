@@ -72,7 +72,7 @@ CONTAINS
     CLASS(physics_base),    INTENT(IN)    :: Physics
     TYPE(Dict_TYP),           POINTER     :: config, IO
     !------------------------------------------------------------------------!
-    INTEGER :: k,err,stype
+    INTEGER :: k,stype
     REAL    :: accel(3)
     !------------------------------------------------------------------------!
     CALL GetAttr(config,"stype",stype)
@@ -128,14 +128,6 @@ CONTAINS
     CLASS(sources_c_accel), INTENT(IN) :: this
     CLASS(mesh_base),       INTENT(IN) :: Mesh
     !------------------------------------------------------------------------!
-    CHARACTER(LEN=32) :: accel_str
-    !------------------------------------------------------------------------!
-!    WRITE (accel_str,'(ES9.2)') MAXVAL(this%accel(:,:,:,1))
-!    CALL this%Info("         x-acceleration:   " // TRIM(accel_str))
-!    WRITE (accel_str,'(ES9.2)') MAXVAL(this%accel(:,:,:,2))
-!    CALL this%Info("         y-acceleration:   " // TRIM(accel_str))
-!    WRITE (accel_str,'(ES9.2)') MAXVAL(this%accel(:,:,:,3))
-!    CALL this%Info("         z-acceleration:   " // TRIM(accel_str))
   END SUBROUTINE InfoSources
 
   SUBROUTINE Finalize(this)

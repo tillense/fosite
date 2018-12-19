@@ -148,7 +148,7 @@ CONTAINS
     TYPE(Dict_TYP),       POINTER    :: config,IO
     !------------------------------------------------------------------------!
     INTEGER :: stype
-    INTEGER :: cooling_func,err
+    INTEGER :: cooling_func
     !------------------------------------------------------------------------!
     CALL GetAttr(config, "stype", stype)
     CALL this%InitLogging(stype,this%source_name)

@@ -259,9 +259,7 @@ CONTAINS
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX) &
                       :: radius,dist_axis,domega
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,3) &
-                      :: posvec,ephi,v0
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM) &
-                      :: pvar0
+                      :: posvec,ephi
     REAL              :: csinf
     !------------------------------------------------------------------------!
     IF (ABS(X0).LE.TINY(X0).AND.ABS(Y0).LE.TINY(Y0).AND.ABS(Z0).LE.TINY(Z0)) THEN

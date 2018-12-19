@@ -83,7 +83,9 @@ MODULE fileio_base_mod
   INTEGER, PARAMETER :: FPATLEN = 1024               !< file path length (without file name)
   !> \name
   !!#### handling multiple files in parallel mode
+#ifdef PARALLEL
   CHARACTER(LEN=FMLTLEN), SAVE :: fmextstr = ""      !< multi process string, overwritten below
+#endif
   INTEGER, PARAMETER           :: MAXMLTFILES = 1000 !< max. number files per time step (parallel
                                                      !! mode with one file per node)
   !> \name
@@ -447,8 +449,10 @@ CONTAINS
     INTEGER, OPTIONAL,  INTENT(IN) :: fn       !< \param [in] fn number of file
     CHARACTER(LEN=FMLTLEN)         :: multstr
     !------------------------------------------------------------------------!
+#ifdef PARALLEL
     INTEGER                        :: fn_l
     CHARACTER(LEN=32)              :: mextfmt
+#endif
     !------------------------------------------------------------------------!
 #ifdef PARALLEL
     IF (PRESENT(fn)) THEN

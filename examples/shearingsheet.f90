@@ -139,9 +139,8 @@ CONTAINS
     TYPE(Dict_TYP), POINTER :: config
     !--------------------------------------------------------------------------!
     ! local variable declaration
-    TYPE(Dict_TYP), POINTER :: mesh,physics,fluxes,boundary,&
-                               grav,cooling,shearingbox,sources,timedisc,&
-                               datafile
+    TYPE(Dict_TYP), POINTER :: mesh,physics,fluxes,grav,cooling, &
+                               shearingbox,sources,timedisc,datafile
     REAL :: XMIN,XMAX,YMIN,YMAX,ZMIN,ZMAX, SOUNDSPEED
     !--------------------------------------------------------------------------!
     DOMAINX    = DOMAINX*GN*SIGMA0/(OMEGA*OMEGA)

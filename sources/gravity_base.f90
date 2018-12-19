@@ -179,12 +179,7 @@ CONTAINS
     CLASS(gravity_base),  INTENT(INOUT) :: this
     CLASS(mesh_base),     INTENT(IN)    :: Mesh
     CLASS(physics_base),  INTENT(IN)    :: Physics
-    INTEGER                             :: stype
     TYPE(Dict_TYP),POINTER              :: config,IO
-    !------------------------------------------------------------------------!
-    TYPE(Dict_TYP),POINTER :: dir,src,IOsrc
-    INTEGER                :: gtype,err,i
-    LOGICAL                :: external_potential = .FALSE.
     !------------------------------------------------------------------------!
     ! reset start value for time variable
     this%time = -1.0
@@ -203,7 +198,7 @@ CONTAINS
     TYPE(Dict_TYP),      POINTER       :: config,IO
     !------------------------------------------------------------------------!
     CHARACTER(LEN=1) :: xyz(3) = (/"x","y","z"/)
-    INTEGER          :: valwrite,err,k
+    INTEGER          :: valwrite,k
     !------------------------------------------------------------------------!
     CALL GetAttr(config, "output/accel", valwrite, 1)
     IF (valwrite .EQ. 1) THEN
@@ -241,9 +236,7 @@ CONTAINS
     !------------------------------------------------------------------------!
     CLASS(gravity_base) :: this
     !------------------------------------------------------------------------!
-    CLASS(gravity_base), POINTER :: gravptr,ptemp
-    !------------------------------------------------------------------------!
-    ! release temporary/global storage
+    ! nothing intializaed
 
   END SUBROUTINE Finalize_base
 

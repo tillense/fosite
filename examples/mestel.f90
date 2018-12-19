@@ -137,7 +137,7 @@ CONTAINS
     !------------------------------------------------------------------------!
     ! Local variable declaration
     TYPE(Dict_TYP),POINTER :: mesh,boundary,timedisc,datafile,&
-                              sources,fluxes,grav,physics,rotframe,&
+                              sources,fluxes,grav,physics,&
                               vis,cooling
     !------------------------------------------------------------------------!
     physics => Dict( &
@@ -270,17 +270,12 @@ CONTAINS
                           INTENT(OUT)   :: pvar,cvar
     !------------------------------------------------------------------------!
     ! Local variable declaration
-    CLASS(sources_base), POINTER :: sp
-    CLASS(sources_gravity), POINTER :: gp
-    INTEGER :: i,j,k
 #ifdef PARALLEL
     INTEGER :: ierror
 #endif
-    REAL    :: mass,ephi(2),cs,vphi
+    REAL    :: mass
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX) &
             :: rands
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,3) &
-            :: accel
     REAL, DIMENSION(:,:,:),   POINTER :: r,Sigma
     REAL, DIMENSION(:,:,:,:), POINTER :: r_vec
     CHARACTER(LEN=20) :: mdisk_str

@@ -85,7 +85,6 @@ PROGRAM rootstest
       1.0000000000000000000D-00 &
      /)
   !--------------------------------------------------------------------------!
-  TYPE(Roots_TYP)   :: rt(NUM_TESTS)
   REAL              :: root, xm, dx_rel, dx_acc, plist(1)
   INTEGER           :: i,k, iter, error
   CHARACTER(LEN=64) :: tap_message
