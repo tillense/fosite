@@ -1441,7 +1441,9 @@ CONTAINS
     END DO
   END SUBROUTINE FargoSources
 
-  !> Maks for reflecting boundaries
+  !> return masks for reflecting boundaries
+  !!
+  !! At axis boundaries we change the sign of normal velocities at each boundary.
   PURE SUBROUTINE ReflectionMasks(this,Mesh,reflX,reflY,reflZ)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
@@ -1453,35 +1455,37 @@ CONTAINS
     reflY(:) = .FALSE.
     reflZ(:) = .FALSE.
     SELECT CASE(this%VDIM)
-    CASE(1)
-      ! 1D transport
+    CASE(1) ! 1D velocity
       IF (Mesh%INUM.GT.1) reflX(2) = .TRUE. ! reflect vx at east/west-boundaries
       IF (Mesh%JNUM.GT.1) reflY(2) = .TRUE. ! reflect vy at south/north-boundaries
       IF (Mesh%KNUM.GT.1) reflZ(2) = .TRUE. ! reflect vz at bottom/top-boundaries
-    CASE(2)
+    CASE(2) ! 2D velocity
       IF (Mesh%KNUM.EQ.1.AND..NOT.Mesh%ROTSYM.EQ.3) THEN
-        ! 2D transport in x-y-plane
+        ! transport in x-y-plane
         reflX(2) = .TRUE. ! reflect vx at east/west-boundaries
         reflY(3) = .TRUE. ! reflect vy at south/north-boundaries
       ELSE IF (Mesh%JNUM.EQ.1.AND..NOT.Mesh%ROTSYM.EQ.2) THEN
-        ! 2D transport in x-z-plane
+        ! transport in x-z-plane
         reflX(2) = .TRUE. ! reflect vx at east/west-boundaries
         reflZ(3) = .TRUE. ! reflect vz at bottom/top-boundaries
       ELSE IF (Mesh%INUM.EQ.1.AND..NOT.Mesh%ROTSYM.EQ.1) THEN
-        ! 2D transport in y-z-plane
+        ! transport in y-z-plane
         reflY(2) = .TRUE. ! reflect vy at south/north-boundaries
         reflZ(3) = .TRUE. ! reflect vz at bottom/top-boundaries
       END IF
-    CASE(3)
-      ! 3D transport
+    CASE(3) ! 3D velocity
       reflX(2) = .TRUE. ! reflect vx at east/west-boundaries
       reflY(3) = .TRUE. ! reflect vy at south/north-boundaries
       reflZ(4) = .TRUE. ! reflect vz at bottom/top-boundaries
     END SELECT
   END SUBROUTINE ReflectionMasks
 
-  !> \todo test geometry for azimuthal angle and use this information
-  !! to set the masks for axis boundaries
+  !> return masks for axis boundaries
+  !! \warning Not rigorously tested!
+  !!
+  !! At axis boundaries we change the sign of normal velocities as in reflecting
+  !! boundary conditions and in addition the sign of the tangential velocity in
+  !! the plane perpendicular to the axis is changed.
   PURE SUBROUTINE AxisMasks(this,Mesh,reflX,reflY,reflZ)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
@@ -1489,7 +1493,60 @@ CONTAINS
     CLASS(mesh_base),              INTENT(IN)  :: Mesh       
     LOGICAL, DIMENSION(this%VNUM), INTENT(OUT) :: reflX,reflY,reflZ
     !------------------------------------------------------------------------!
+    INTEGER :: aidx
+    !------------------------------------------------------------------------!
+    ! set masks according to reflecting boundaries, i. e. change sign
+    ! of normal velocities
     CALL this%ReflectionMasks(Mesh,reflX,reflY,reflZ)
+    ! get coordinate index of azimuthal angle (=0 if there is no azimuthal angle)
+    aidx = Mesh%geometry%GetAzimuthIndex()
+    IF (aidx.GT.0) THEN
+      ! geometry has azimuthal angle -> determine which velocity changes sign
+      SELECT CASE(this%VDIM)
+      CASE(1) ! 1D velocity -> do nothing
+      CASE(2) ! 2D velocity
+      IF (Mesh%KNUM.EQ.1.AND..NOT.Mesh%ROTSYM.EQ.3) THEN
+        ! transport in x-y-plane
+        SELECT CASE(aidx)
+        CASE(1) ! 1st coordinate is the azimuthal angle
+          reflY(2) = .TRUE. ! vx is tangential at south/north-boundaries
+        CASE(2) ! 2nd coordinate is the azimuthal angle
+          reflX(3) = .TRUE. ! vy is tangential at east/west-boundaries
+        CASE(3) ! 3rd coordinate is the azimuthal angle
+          ! do nothing
+        END SELECT
+      ELSE IF (Mesh%JNUM.EQ.1.AND..NOT.Mesh%ROTSYM.EQ.2) THEN
+        ! transport in x-z-plane
+        SELECT CASE(aidx)
+        CASE(1) ! 1st coordinate is the azimuthal angle
+          reflZ(2) = .TRUE. ! vx is tangential at bottom/top-boundaries
+        CASE(2) ! 2nd coordinate is the azimuthal angle
+          ! do nothing
+        CASE(3) ! 3rd coordinate is the azimuthal angle
+          reflX(3) = .TRUE. ! vz is tangential at east/west-boundaries
+        END SELECT
+      ELSE IF (Mesh%INUM.EQ.1.AND..NOT.Mesh%ROTSYM.EQ.1) THEN
+        ! transport in y-z-plane
+        SELECT CASE(aidx)
+        CASE(1) ! 1st coordinate is the azimuthal angle
+          ! do nothing
+        CASE(2) ! 2nd coordinate is the azimuthal angle
+          reflZ(2) = .TRUE. ! vy is tangential at bottom/top-boundaries
+        CASE(3) ! 3rd coordinate is the azimuthal angle
+          reflY(3) = .TRUE. ! vz is tangential at south/north-boundaries
+        END SELECT
+      END IF
+      CASE(3) ! 3D velocity
+        SELECT CASE(aidx)
+        CASE(1) ! 1st coordinate is the azimuthal angle
+          reflZ(2) = .TRUE. ! vx is tangential at bottom/top-boundaries
+        CASE(2) ! 2nd coordinate is the azimuthal angle
+          reflX(3) = .TRUE. ! vy is tangential at east/west-boundaries
+        CASE(3) ! 3rd coordinate is the azimuthal angle
+          reflY(4) = .TRUE. ! vz is tangential at south/north-boundaries
+        END SELECT
+      END SELECT
+    END IF
   END SUBROUTINE AxisMasks
 
   PURE SUBROUTINE CalculateCharSystemX(this,Mesh,i,dir,pvar,lambda,xvar)

@@ -44,14 +44,11 @@ MODULE boundary_axis_mod
   TYPE, EXTENDS(boundary_reflecting) :: boundary_axis
   CONTAINS
     PROCEDURE                :: InitBoundary_axis
-    PROCEDURE                :: SetBoundaryData
-    PROCEDURE                :: Finalize
   END TYPE
   CHARACTER(LEN=32), PARAMETER :: boundcond_name = "axis"
   !--------------------------------------------------------------------------!
   PUBLIC :: &
-       boundary_axis, &
-       WEST, EAST, SOUTH, NORTH, BOTTOM, TOP
+       boundary_axis
   !--------------------------------------------------------------------------!
 
 CONTAINS
@@ -87,121 +84,5 @@ CONTAINS
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     CALL Physics%AxisMasks(Mesh,this%reflX,this%reflY,this%reflZ)
   END SUBROUTINE InitBoundary_axis
-
-  !TODO: NOT VERIFIED
-  !> \public Applies the axis/reflecting boundary condition
- PURE SUBROUTINE SetBoundaryData(this,Mesh,Physics,time,pvar)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(boundary_axis),       INTENT(INOUT) :: this
-    CLASS(mesh_base),           INTENT(IN)    :: Mesh
-    CLASS(physics_base),        INTENT(IN)    :: Physics
-    REAL,                       INTENT(IN)    :: time
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
-                                INTENT(INOUT) :: pvar
-    !------------------------------------------------------------------------!
-    INTEGER                                   :: i,j,k
-    !------------------------------------------------------------------------!
-    SELECT CASE(this%direction%GetType())
-    CASE(WEST)
-!NEC$ UNROLL(8)
-       DO k=Mesh%KMIN,Mesh%KMAX
-         DO j=Mesh%JMIN, Mesh%JMAX
-!NEC$ IVDEP
-          DO i=1,Mesh%GINUM
-             WHERE (this%reflX)
-                pvar(Mesh%IMIN-i,j,k,:) = -pvar(Mesh%IMIN+i-1,j,k,:)
-             ELSEWHERE
-                pvar(Mesh%IMIN-i,j,k,:) = pvar(Mesh%IMIN+i-1,j,k,:)
-             END WHERE
-          END DO
-        END DO
-       END DO
-    CASE(EAST)
-!NEC$ UNROLL(8)
-       DO k=Mesh%KMIN,Mesh%KMAX
-         DO j=Mesh%JMIN,Mesh%JMAX
-!NEC$ IVDEP
-          DO i=1,Mesh%GINUM
-             WHERE (this%reflX)
-                pvar(Mesh%IMAX+i,j,k,:) = -pvar(Mesh%IMAX-i+1,j,k,:)
-             ELSEWHERE
-                pvar(Mesh%IMAX+i,j,k,:) = pvar(Mesh%IMAX-i+1,j,k,:)
-             END WHERE
-          END DO
-        END DO
-       END DO
-    CASE(SOUTH)
-!NEC$ UNROLL(4)
-      DO k=Mesh%KMIN,Mesh%KMAX
-       DO j=1,Mesh%GJNUM
-!NEC$ IVDEP
-          DO i=Mesh%IMIN,Mesh%IMAX
-             WHERE (this%reflY)
-                pvar(i,Mesh%JMIN-j,k,:) = -pvar(i,Mesh%JMIN+j-1,k,:)
-             ELSEWHERE
-                pvar(i,Mesh%JMIN-j,k,:) = pvar(i,Mesh%JMIN+j-1,k,:)
-             END WHERE
-          END DO
-       END DO
-     END DO
-    CASE(NORTH)
-!NEC$ UNROLL(4)
-      DO k=Mesh%KMIN,Mesh%KMAX
-       DO j=1,Mesh%GJNUM
-!NEC$ IVDEP
-          DO i=Mesh%IMIN,Mesh%IMAX
-             WHERE (this%reflY)
-                pvar(i,Mesh%JMAX+j,k,:) = -pvar(i,Mesh%JMAX-j+1,k,:)
-             ELSEWHERE
-                pvar(i,Mesh%JMAX+j,k,:) = pvar(i,Mesh%JMAX-j+1,k,:)
-             END WHERE
-          END DO
-       END DO
-     END DO
-
-    CASE(BOTTOM)
-!NEC$ UNROLL(4)
-      DO k=1,Mesh%GKNUM
-       DO j=Mesh%JMIN,Mesh%JMAX
-!NEC$ IVDEP
-          DO i=Mesh%IMIN,Mesh%IMAX
-             WHERE (this%reflZ)
-                pvar(i,j,Mesh%KMIN-k,:) = -pvar(i,j,Mesh%KMIN+k-1,:)
-             ELSEWHERE
-                pvar(i,j,Mesh%KMIN-k,:) = pvar(i,j,Mesh%KMIN+k-1,:)
-             END WHERE
-          END DO
-       END DO
-     END DO
-    CASE(TOP)
-!NEC$ UNROLL(4)
-      DO k=1,Mesh%GKNUM
-       DO j=Mesh%JMIN,Mesh%JMAX
-!NEC$ IVDEP
-          DO i=Mesh%IMIN,Mesh%IMAX
-             WHERE (this%reflZ)
-                pvar(i,j,Mesh%KMAX+k,:) = -pvar(i,j,Mesh%KMAX-k+1,:)
-             ELSEWHERE
-                pvar(i,j,Mesh%KMAX+k,:) = pvar(i,j,Mesh%KMAX-k+1,:)
-             END WHERE
-          END DO
-       END DO
-     END DO
-
-    END SELECT
-  END SUBROUTINE SetBoundaryData
-
-  !> \public Destructor for axis boundary conditions
-  SUBROUTINE Finalize(this)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(boundary_axis), INTENT(INOUT) :: this
-    !------------------------------------------------------------------------!
-    DEALLOCATE(this%reflX,this%reflY,this%reflZ)
-    CALL this%Finalize_base()
-  END SUBROUTINE Finalize
-
-
 
 END MODULE boundary_axis_mod

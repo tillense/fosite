@@ -50,8 +50,7 @@ MODULE boundary_reflecting_mod
   CHARACTER(LEN=32), PARAMETER  :: boundcond_name = "reflecting"
   !--------------------------------------------------------------------------!
   PUBLIC :: &
-      boundary_reflecting, &
-      West, East, South, North, Bottom, Top
+      boundary_reflecting
   !--------------------------------------------------------------------------!
 
 CONTAINS
@@ -83,9 +82,10 @@ CONTAINS
     CALL Physics%ReflectionMasks(Mesh,this%reflX,this%reflY,this%reflZ)
   END SUBROUTINE InitBoundary_reflecting
 
-  !TODO: NOT VERIFIED
   !> \public Applies the reflecting boundary condition
- PURE SUBROUTINE SetBoundaryData(this,Mesh,Physics,time,pvar)
+  !!
+  !! \warning Not rigorously tested!
+  PURE SUBROUTINE SetBoundaryData(this,Mesh,Physics,time,pvar)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(boundary_reflecting), INTENT(INOUT)    :: this
@@ -95,95 +95,111 @@ CONTAINS
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
                                 INTENT(INOUT) :: pvar
     !------------------------------------------------------------------------!
-    INTEGER                                   :: i,j,k
+    INTEGER                                   :: i,j,k,m
     !------------------------------------------------------------------------!
     SELECT CASE(this%direction%GetType())
     CASE(WEST)
-!NEC$ UNROLL(8)
-       DO k=Mesh%KMIN,Mesh%KMAX
-         DO j=Mesh%JMIN, Mesh%JMAX
-!NEC$ IVDEP
+!NEC$ SHORTLOOP
+      DO m=1,Physics%VNUM
+        IF (this%reflX(m)) THEN
+!NEC$ SHORTLOOP
           DO i=1,Mesh%GINUM
-             WHERE (this%reflX)
-                pvar(Mesh%IMIN-i,j,k,:) = -pvar(Mesh%IMIN+i-1,j,k,:)
-             ELSEWHERE
-                pvar(Mesh%IMIN-i,j,k,:) = pvar(Mesh%IMIN+i-1,j,k,:)
-             END WHERE
+            pvar(Mesh%IMIN-i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m) &
+              = -pvar(Mesh%IMIN+i-1,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m)
           END DO
-        END DO
-       END DO
+        ELSE
+!NEC$ SHORTLOOP
+          DO i=1,Mesh%GINUM
+            pvar(Mesh%IMIN-i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m) &
+              = pvar(Mesh%IMIN+i-1,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m)
+          END DO
+        END IF
+      END DO
     CASE(EAST)
-!NEC$ UNROLL(8)
-       DO k=Mesh%KMIN,Mesh%KMAX
-         DO j=Mesh%JMIN,Mesh%JMAX
-!NEC$ IVDEP
+!NEC$ SHORTLOOP
+      DO m=1,Physics%VNUM
+        IF (this%reflX(m)) THEN
+!NEC$ SHORTLOOP
           DO i=1,Mesh%GINUM
-             WHERE (this%reflX)
-                pvar(Mesh%IMAX+i,j,k,:) = -pvar(Mesh%IMAX-i+1,j,k,:)
-             ELSEWHERE
-                pvar(Mesh%IMAX+i,j,k,:) = pvar(Mesh%IMAX-i+1,j,k,:)
-             END WHERE
+            pvar(Mesh%IMAX+i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m) &
+              = -pvar(Mesh%IMAX-i+1,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m)
           END DO
-        END DO
-       END DO
+        ELSE
+!NEC$ SHORTLOOP
+          DO i=1,Mesh%GINUM
+            pvar(Mesh%IMAX+i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m) &
+              = pvar(Mesh%IMAX-i+1,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m)
+          END DO
+        END IF
+      END DO
     CASE(SOUTH)
-!NEC$ UNROLL(4)
-      DO k=Mesh%KMIN,Mesh%KMAX
-       DO j=1,Mesh%GJNUM
-!NEC$ IVDEP
-          DO i=Mesh%IMIN,Mesh%IMAX
-             WHERE (this%reflY)
-                pvar(i,Mesh%JMIN-j,k,:) = -pvar(i,Mesh%JMIN+j-1,k,:)
-             ELSEWHERE
-                pvar(i,Mesh%JMIN-j,k,:) = pvar(i,Mesh%JMIN+j-1,k,:)
-             END WHERE
+!NEC$ SHORTLOOP
+      DO m=1,Physics%VNUM
+        IF (this%reflY(m)) THEN
+!NEC$ SHORTLOOP
+          DO j=1,Mesh%GJNUM
+            pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN-j,Mesh%KMIN:Mesh%KMAX,m) &
+              = -pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN+j-1,Mesh%KMIN:Mesh%KMAX,m)
           END DO
-       END DO
-     END DO
+        ELSE
+!NEC$ SHORTLOOP
+          DO j=1,Mesh%GJNUM
+            pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN-j,Mesh%KMIN:Mesh%KMAX,m) &
+              = pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN+j-1,Mesh%KMIN:Mesh%KMAX,m)
+          END DO
+        END IF
+      END DO
     CASE(NORTH)
-!NEC$ UNROLL(4)
-      DO k=Mesh%KMIN,Mesh%KMAX
-       DO j=1,Mesh%GJNUM
-!NEC$ IVDEP
-          DO i=Mesh%IMIN,Mesh%IMAX
-             WHERE (this%reflY)
-                pvar(i,Mesh%JMAX+j,k,:) = -pvar(i,Mesh%JMAX-j+1,k,:)
-             ELSEWHERE
-                pvar(i,Mesh%JMAX+j,k,:) = pvar(i,Mesh%JMAX-j+1,k,:)
-             END WHERE
+!NEC$ SHORTLOOP
+      DO m=1,Physics%VNUM
+        IF (this%reflY(m)) THEN
+!NEC$ SHORTLOOP
+          DO j=1,Mesh%GJNUM
+            pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX+j,Mesh%KMIN:Mesh%KMAX,m) &
+              = -pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX-j+1,Mesh%KMIN:Mesh%KMAX,m)
           END DO
-       END DO
-     END DO
-
+        ELSE
+!NEC$ SHORTLOOP
+          DO j=1,Mesh%GJNUM
+            pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX+j,Mesh%KMIN:Mesh%KMAX,m) &
+              = pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX-j+1,Mesh%KMIN:Mesh%KMAX,m)
+          END DO
+        END IF
+      END DO
     CASE(BOTTOM)
-!NEC$ UNROLL(4)
-      DO k=1,Mesh%GKNUM
-       DO j=Mesh%JMIN,Mesh%JMAX
-!NEC$ IVDEP
-          DO i=Mesh%IMIN,Mesh%IMAX
-             WHERE (this%reflZ)
-                pvar(i,j,Mesh%KMIN-k,:) = -pvar(i,j,Mesh%KMIN+k-1,:)
-             ELSEWHERE
-                pvar(i,j,Mesh%KMIN-k,:) = pvar(i,j,Mesh%KMIN+k-1,:)
-             END WHERE
+!NEC$ SHORTLOOP
+      DO m=1,Physics%VNUM
+        IF (this%reflZ(m)) THEN
+!NEC$ SHORTLOOP
+          DO j=1,Mesh%GKNUM
+            pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN-k,m) &
+              = -pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN+k-1,m)
           END DO
-       END DO
-     END DO
+        ELSE
+!NEC$ SHORTLOOP
+          DO j=1,Mesh%GKNUM
+            pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN-k,m) &
+              = pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN+k-1,m)
+          END DO
+        END IF
+      END DO
     CASE(TOP)
-!NEC$ UNROLL(4)
-      DO k=1,Mesh%GKNUM
-       DO j=Mesh%JMIN,Mesh%JMAX
-!NEC$ IVDEP
-          DO i=Mesh%IMIN,Mesh%IMAX
-             WHERE (this%reflZ)
-                pvar(i,j,Mesh%KMAX+k,:) = -pvar(i,j,Mesh%KMAX-k+1,:)
-             ELSEWHERE
-                pvar(i,j,Mesh%KMAX+k,:) = pvar(i,j,Mesh%KMAX-k+1,:)
-             END WHERE
+!NEC$ SHORTLOOP
+      DO m=1,Physics%VNUM
+        IF (this%reflZ(m)) THEN
+!NEC$ SHORTLOOP
+          DO j=1,Mesh%GKNUM
+            pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMAX+k,m) &
+              = -pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMAX-k+1,m)
           END DO
-       END DO
-     END DO
-
+        ELSE
+!NEC$ SHORTLOOP
+          DO j=1,Mesh%GKNUM
+            pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMAX+k,m) &
+              = pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMAX-k+1,m)
+          END DO
+        END IF
+      END DO
     END SELECT
   END SUBROUTINE SetBoundaryData
 
