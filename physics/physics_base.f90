@@ -519,33 +519,30 @@ MODULE physics_base_mod
  END INTERFACE
   !--------------------------------------------------------------------------!
   ! flags for advection problems
-  INTEGER, PARAMETER :: EULER2D             = 1
+!  INTEGER, PARAMETER :: EULER2D             = 1
   INTEGER, PARAMETER :: EULER_ISOTHERM      = 16 !> \todo should become 1 in the future,
                                                  !! if all isothermal modules are merged
   INTEGER, PARAMETER :: EULER               = 17 !> \todo should become 2 in the future,
                                                  !! if euler2D/euler3D modules are merged
-  INTEGER, PARAMETER :: EULER2D_ISOTHERM    = 2
-  INTEGER, PARAMETER :: EULER3D_ROTSYM      = 3
-  INTEGER, PARAMETER :: EULER3D_ROTAMT      = 4
-  INTEGER, PARAMETER :: EULER3D_ROTSYMSGS   = 5
-  INTEGER, PARAMETER :: EULER2D_SGS         = 7
-  INTEGER, PARAMETER :: EULER3D_ROTAMTSGS   = 8
-  INTEGER, PARAMETER :: EULER2D_ISOIAMT     = 9
-  INTEGER, PARAMETER :: EULER2D_IAMT        = 11
-  INTEGER, PARAMETER :: EULER2D_IAMROT      = 12
-  INTEGER, PARAMETER :: EULER2D_ISOIAMROT   = 13
-  INTEGER, PARAMETER :: EULER3D_ISOTHERM    = 14
-  INTEGER, PARAMETER :: EULER3D             = 15
+!  INTEGER, PARAMETER :: EULER2D_ISOTHERM    = 2
+!  INTEGER, PARAMETER :: EULER3D_ROTSYM      = 3
+!  INTEGER, PARAMETER :: EULER3D_ROTAMT      = 4
+!  INTEGER, PARAMETER :: EULER3D_ROTSYMSGS   = 5
+!  INTEGER, PARAMETER :: EULER2D_SGS         = 7
+!  INTEGER, PARAMETER :: EULER3D_ROTAMTSGS   = 8
+!  INTEGER, PARAMETER :: EULER2D_ISOIAMT     = 9
+!  INTEGER, PARAMETER :: EULER2D_IAMT        = 11
+!  INTEGER, PARAMETER :: EULER2D_IAMROT      = 12
+!  INTEGER, PARAMETER :: EULER2D_ISOIAMROT   = 13
+!  INTEGER, PARAMETER :: EULER3D_ISOTHERM    = 14
+!  INTEGER, PARAMETER :: EULER3D             = 15
   !--------------------------------------------------------------------------!
   PUBLIC :: &
        ! types
        physics_base, &
        ! constants - flags for  identification in dictionary by an integer
-       EULER2D, EULER_ISOTHERM, EULER, EULER2D_ISOTHERM, EULER3D_ROTSYM, EULER3D_ROTAMT, &
-       EULER2D_SGS, EULER3D_ROTSYMSGS, EULER3D_ROTAMTSGS, &
-       SI, CGS, GEOMETRICAL, EULER2D_ISOIAMT, &
-       EULER2D_IAMT, EULER2D_IAMROT, EULER2D_ISOIAMROT, &
-       EULER3D_ISOTHERM, EULER3D, &
+       EULER_ISOTHERM, EULER, &
+       SI, CGS, GEOMETRICAL,  &
        UNDEFINED, PRIMITIVE, CONSERVATIVE
   !--------------------------------------------------------------------------!
 
@@ -639,18 +636,14 @@ CONTAINS
    ! enable/disable absorbing and farfield boundary conditions
    ! TODO Not yet tested for 3D
    SELECT CASE(problem)
-    CASE(EULER2D,EULER2D_ISOTHERM,&
-         EULER3D,EULER3D_ISOTHERM, &
-         EULER2D_ISOIAMT,EULER2D_IAMT,EULER2D_SGS, &
-         EULER3D_ROTSYM,EULER3D_ROTSYMSGS,EULER3D_ROTAMT,EULER3D_ROTAMTSGS)
-       this%supports_absorbing = .TRUE.
+!    CASE()
+!       this%supports_absorbing = .TRUE.
     CASE DEFAULT
        this%supports_absorbing = .FALSE.
     END SELECT
     SELECT CASE(problem)
-    CASE(EULER2D,EULER2D_ISOTHERM,EULER2D_SGS, &
-         EULER3D_ROTSYM,EULER3D_ROTSYMSGS,EULER3D_ROTAMT,EULER3D_ROTAMTSGS)
-       this%supports_farfield  = .TRUE.
+!    CASE()
+!       this%supports_farfield  = .TRUE.
     CASE DEFAULT
        this%supports_farfield  = .FALSE.
     END SELECT

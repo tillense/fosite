@@ -263,8 +263,8 @@ MODULE fileio_base_mod
   INTEGER, PARAMETER :: BINARY  = 1
   INTEGER, PARAMETER :: GNUPLOT = 2
   INTEGER, PARAMETER :: VTK     = 4
-  INTEGER, PARAMETER :: NPY     = 5
-  INTEGER, PARAMETER :: HDF     = 6
+!  INTEGER, PARAMETER :: NPY     = 5
+!  INTEGER, PARAMETER :: HDF     = 6
   INTEGER, PARAMETER :: XDMF    = 7
   !--------------------------------------------------------------------------!
   INTEGER, SAVE :: lastunit = 10
@@ -274,7 +274,7 @@ MODULE fileio_base_mod
        ! types
        fileio_base, Output_TYP, TSOutput_TYP, ValPtr_TYP, &
        ! constants
-       BINARY, GNUPLOT, VTK, NPY, HDF, XDMF, &
+       BINARY, GNUPLOT, VTK, XDMF, &
        READONLY, READEND, REPLACE, APPEND, &
 #ifdef PARALLEL
        DEFAULT_MPI_REAL,&

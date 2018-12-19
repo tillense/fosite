@@ -101,15 +101,15 @@ MODULE fluxes_base_mod
     END SUBROUTINE
   END INTERFACE
   INTEGER, PARAMETER :: KT       = 1
-  INTEGER, PARAMETER :: HLL      = 2
-  INTEGER, PARAMETER :: HLLC     = 3
-  INTEGER, PARAMETER :: EXACT    = 4
+!  INTEGER, PARAMETER :: HLL      = 2
+!  INTEGER, PARAMETER :: HLLC     = 3
+!  INTEGER, PARAMETER :: EXACT    = 4
   !--------------------------------------------------------------------------!
   PUBLIC :: &
        ! types
        fluxes_base, &
        ! constants
-       KT, HLL, HLLC, EXACT
+       KT!, HLL, HLLC, EXACT
   !--------------------------------------------------------------------------!
 
 CONTAINS

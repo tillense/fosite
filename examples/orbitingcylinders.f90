@@ -240,7 +240,7 @@ CONTAINS
     CHARACTER(LEN=1)  :: str
     !------------------------------------------------------------------------!
     physics => Dict( &
-        "problem" / EULER2D,&
+        "problem" / EULER,&
         "mu" / MU, &
         "gamma" / GAMMA, &
         "units" / GEOMETRICAL)

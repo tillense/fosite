@@ -577,26 +577,26 @@ CONTAINS
        bc(EAST)  = NO_GRADIENTS
        bc(SOUTH) = PERIODIC
        bc(NORTH) = PERIODIC
-    CASE(TANPOLAR)
-       sc = 0.3
-       x1 = ATAN(RMIN/sc)
-       x2 = ATAN(0.5*SQRT(2.0)/sc)
-       y1 = 0.0
-       y2 = 2*PI
-       bc(WEST)  = NO_GRADIENTS
-       bc(EAST)  = NO_GRADIENTS
-       bc(SOUTH) = PERIODIC
-       bc(NORTH) = PERIODIC
-    CASE(SINHPOLAR)
-       sc = 0.3
-       x1 = Asinh(RMIN/sc)
-       x2 = Asinh(0.5*SQRT(2.0)/sc)
-       y1 = 0.0
-       y2 = 2*PI
-       bc(WEST)  = NO_GRADIENTS
-       bc(EAST)  = NO_GRADIENTS
-       bc(SOUTH) = PERIODIC
-       bc(NORTH) = PERIODIC
+!    CASE(TANPOLAR)
+!       sc = 0.3
+!       x1 = ATAN(RMIN/sc)
+!       x2 = ATAN(0.5*SQRT(2.0)/sc)
+!       y1 = 0.0
+!       y2 = 2*PI
+!       bc(WEST)  = NO_GRADIENTS
+!       bc(EAST)  = NO_GRADIENTS
+!       bc(SOUTH) = PERIODIC
+!       bc(NORTH) = PERIODIC
+!    CASE(SINHPOLAR)
+!       sc = 0.3
+!       x1 = Asinh(RMIN/sc)
+!       x2 = Asinh(0.5*SQRT(2.0)/sc)
+!       y1 = 0.0
+!       y2 = 2*PI
+!       bc(WEST)  = NO_GRADIENTS
+!       bc(EAST)  = NO_GRADIENTS
+!       bc(SOUTH) = PERIODIC
+!       bc(NORTH) = PERIODIC
     CASE DEFAULT
        CALL Sim%Physics%Error("riemann2d::MakeConfig", &
             " geometry should be one of cartesian,polar,logpolar,tanpolar,sinhpolar")

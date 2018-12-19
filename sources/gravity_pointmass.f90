@@ -274,10 +274,10 @@ CONTAINS
     ! enable mass accretion by setting "outbound" to one of the four boundaries
     ! of the computational domain (depends on mesh geometry)
     SELECT CASE(Mesh%geometry%GetType())
-    CASE(CYLINDRICAL,LOGCYLINDRICAL,TANPOLAR,SINHPOLAR,SPHERICAL,OBLATE_SPHEROIDAL,SINHSPHERICAL)
+    CASE(CYLINDRICAL,LOGCYLINDRICAL,SPHERICAL)
        CALL GetAttr(config, "outbound", this%outbound, WEST)
-    CASE(TANCYLINDRICAL,BIPOLAR)
-       CALL GetAttr(config, "outbound", this%outbound, SOUTH)
+!    CASE(TANCYLINDRICAL,BIPOLAR)
+!       CALL GetAttr(config, "outbound", this%outbound, SOUTH)
     CASE DEFAULT
        CALL GetAttr(config, "outbound", this%outbound, 0)
        CALL this%WARNING("GravitySources_pointmass","geometry does not support accretion")

@@ -181,19 +181,19 @@ CONTAINS
        physics => Dict("problem" / EULER_ISOTHERM, &
                  "cs"      / CSISO)                      ! isothermal sound speed  !
     ELSE
-       IF (WITH_IAR) THEN
-          ! REMARK: the optimal softening parameter depends on mesh geometry, limiter and
-          ! possibly other settings; modify this starting with the default of 1.0, if the
-          ! results show odd behaviour near the center of rotation; larger values increase
-          ! softening; 0.5 give reasonable results for PP limiter on cartesian mesh
-          physics => Dict("problem" / EULER2D_IAMT,        &
-                     "centrot_x"    / X0,"centrot_y" / Y0, & ! center of rotation      !
-                     "softening"    / 0.5,                 & ! softening parameter     !
-                     "gamma"        / GAMMA                ) ! ratio of specific heats !
-       ELSE
+!       IF (WITH_IAR) THEN
+!          ! REMARK: the optimal softening parameter depends on mesh geometry, limiter and
+!          ! possibly other settings; modify this starting with the default of 1.0, if the
+!          ! results show odd behaviour near the center of rotation; larger values increase
+!          ! softening; 0.5 give reasonable results for PP limiter on cartesian mesh
+!          physics => Dict("problem" / EULER2D_IAMT,        &
+!                     "centrot_x"    / X0,"centrot_y" / Y0, & ! center of rotation      !
+!                     "softening"    / 0.5,                 & ! softening parameter     !
+!                     "gamma"        / GAMMA                ) ! ratio of specific heats !
+!       ELSE
           physics => Dict("problem"   / EULER, &
                     "gamma"     / GAMMA)
-       END IF
+!       END IF
     END IF
 
     ! flux calculation and reconstruction method

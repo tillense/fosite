@@ -161,18 +161,18 @@ CONTAINS
        x2 = LOG(RMAX/GPAR)
        y1 = 0.0 
        y2 = 2*PI       
-    CASE(TANPOLAR)
-       x1 = ATAN(RMIN/GPAR)
-       x2 = ATAN(RMAX/GPAR)
-       y1 = 0.0 
-       y2 = 2*PI       
-    CASE(SINHPOLAR)
-       x1 = RMIN/GPAR
-       x1 = LOG(x1+SQRT(1.0+x1*x1))  ! = ASINH(RMIN/GPAR))
-       x2 = RMAX/GPAR
-       x2 = LOG(x2+SQRT(1.0+x2*x2))  ! = ASINH(RMAX/GPAR))
-       y1 = 0.0 
-       y2 = 2*PI       
+!    CASE(TANPOLAR)
+!       x1 = ATAN(RMIN/GPAR)
+!       x2 = ATAN(RMAX/GPAR)
+!       y1 = 0.0 
+!       y2 = 2*PI       
+!    CASE(SINHPOLAR)
+!       x1 = RMIN/GPAR
+!       x1 = LOG(x1+SQRT(1.0+x1*x1))  ! = ASINH(RMIN/GPAR))
+!       x2 = RMAX/GPAR
+!       x2 = LOG(x2+SQRT(1.0+x2*x2))  ! = ASINH(RMAX/GPAR))
+!       y1 = 0.0 
+!       y2 = 2*PI       
     CASE DEFAULT
        CALL Sim%Error("InitProgram","mesh geometry not supported for 2D Sedov explosion")
     END SELECT
@@ -216,16 +216,16 @@ CONTAINS
        bc(EAST)  = NO_GRADIENTS
        bc(SOUTH) = PERIODIC
        bc(NORTH) = PERIODIC
-    CASE(TANPOLAR)
-       bc(WEST)  = NO_GRADIENTS
-       bc(EAST)  = NO_GRADIENTS
-       bc(SOUTH) = PERIODIC
-       bc(NORTH) = PERIODIC
-    CASE(SINHPOLAR)
-       bc(WEST)  = NO_GRADIENTS
-       bc(EAST)  = NO_GRADIENTS
-       bc(SOUTH) = PERIODIC
-       bc(NORTH) = PERIODIC
+!    CASE(TANPOLAR)
+!       bc(WEST)  = NO_GRADIENTS
+!       bc(EAST)  = NO_GRADIENTS
+!       bc(SOUTH) = PERIODIC
+!       bc(NORTH) = PERIODIC
+!    CASE(SINHPOLAR)
+!       bc(WEST)  = NO_GRADIENTS
+!       bc(EAST)  = NO_GRADIENTS
+!       bc(SOUTH) = PERIODIC
+!       bc(NORTH) = PERIODIC
     CASE DEFAULT
        CALL Sim%Error("InitProgram","mesh geometry not supported for 2D Sedov explosion")
     END SELECT

@@ -290,35 +290,34 @@ MODULE geometry_base_mod
   !! #### geometries
   !--------------------------------------------------------------------------!
   INTEGER, PARAMETER :: CARTESIAN         = 1
-  INTEGER, PARAMETER :: SINHCARTESIAN     = 2
+!  INTEGER, PARAMETER :: SINHCARTESIAN     = 2
   INTEGER, PARAMETER :: POLAR             = 20
   INTEGER, PARAMETER :: LOGPOLAR          = 21
-  INTEGER, PARAMETER :: TANPOLAR          = 22
-  INTEGER, PARAMETER :: SINHPOLAR         = 23
-  INTEGER, PARAMETER :: SINHTANHPOLAR     = 24
-  INTEGER, PARAMETER :: POLYPOLAR         = 25
-  INTEGER, PARAMETER :: ELLIPTIC          = 27
-  INTEGER, PARAMETER :: BIPOLAR           = 29
+!  INTEGER, PARAMETER :: TANPOLAR          = 22
+!  INTEGER, PARAMETER :: SINHPOLAR         = 23
+!  INTEGER, PARAMETER :: SINHTANHPOLAR     = 24
+!  INTEGER, PARAMETER :: POLYPOLAR         = 25
+!  INTEGER, PARAMETER :: ELLIPTIC          = 27
+!  INTEGER, PARAMETER :: BIPOLAR           = 29
   INTEGER, PARAMETER :: CYLINDRICAL       = 30
   INTEGER, PARAMETER :: LOGCYLINDRICAL    = 31
-  INTEGER, PARAMETER :: TANCYLINDRICAL    = 32
-  INTEGER, PARAMETER :: LNCOSHCYLINDRICAL = 33
+!  INTEGER, PARAMETER :: TANCYLINDRICAL    = 32
+!  INTEGER, PARAMETER :: LNCOSHCYLINDRICAL = 33
   INTEGER, PARAMETER :: SPHERICAL         = 40
   INTEGER, PARAMETER :: LOGSPHERICAL      = 41
-  INTEGER, PARAMETER :: SINHSPHERICAL     = 42
-  INTEGER, PARAMETER :: BIANGLESPHERICAL  = 43
-  INTEGER, PARAMETER :: OBLATE_SPHEROIDAL = 50
-  INTEGER, PARAMETER :: CHANNEL           = 60
+!  INTEGER, PARAMETER :: SINHSPHERICAL     = 42
+!  INTEGER, PARAMETER :: BIANGLESPHERICAL  = 43
+!  INTEGER, PARAMETER :: OBLATE_SPHEROIDAL = 50
+!  INTEGER, PARAMETER :: CHANNEL           = 60
   !> \}
   !--------------------------------------------------------------------------!
   PUBLIC :: &
        ! types
        geometry_base, &
        PI, &
-       CARTESIAN, POLAR, LOGPOLAR, TANPOLAR, SINHPOLAR, SINHTANHPOLAR, BIPOLAR, &
-       CYLINDRICAL, LOGCYLINDRICAL, TANCYLINDRICAL, LNCOSHCYLINDRICAL, &
-       SPHERICAL, LOGSPHERICAL, SINHSPHERICAL, BIANGLESPHERICAL, OBLATE_SPHEROIDAL, &
-       CHANNEL, POLYPOLAR, ELLIPTIC, SINHCARTESIAN
+       CARTESIAN, POLAR, LOGPOLAR, &
+       CYLINDRICAL, LOGCYLINDRICAL, &
+       SPHERICAL, LOGSPHERICAL 
   !--------------------------------------------------------------------------!
 
 CONTAINS
@@ -349,39 +348,37 @@ CONTAINS
     CASE DEFAULT
        ! geometries with at least one parameter
        ! gparam defaults to 1 except for CHANNEL
-       IF (gt.EQ.CHANNEL) THEN
-          CALL GetAttr(config, "gparam", gs_def, 0.5)
-       ELSE
+!       IF (gt.EQ.CHANNEL) THEN
+!          CALL GetAttr(config, "gparam", gs_def, 0.5)
+!       ELSE
           CALL GetAttr(config, "gparam", gs_def, 1.0)
-       END IF
+!       END IF
        ! geometries with three parameters
-       SELECT CASE(gt)
-       CASE(SINHPOLAR)
-          ! gp2,gp3 defaults to 0
-          CALL GetAttr(config, "gparam2", gs_def2, 0.0)
-          CALL GetAttr(config, "gparam3", gs_def3, 0.0)
-       CASE(SINHTANHPOLAR,LNCOSHCYLINDRICAL)
-          ! gp2,gp3 defaults to 1
-          CALL GetAttr(config, "gparam2", gs_def2, 1.0)
-          CALL GetAttr(config, "gparam3", gs_def3, 1.0)
-       END SELECT
+!       SELECT CASE(gt)
+!       CASE(SINHPOLAR)
+!          ! gp2,gp3 defaults to 0
+!          CALL GetAttr(config, "gparam2", gs_def2, 0.0)
+!          CALL GetAttr(config, "gparam3", gs_def3, 0.0)
+!       CASE(SINHTANHPOLAR,LNCOSHCYLINDRICAL)
+!          ! gp2,gp3 defaults to 1
+!          CALL GetAttr(config, "gparam2", gs_def2, 1.0)
+!          CALL GetAttr(config, "gparam3", gs_def3, 1.0)
+!       END SELECT
     END SELECT
 
     ! print some information
     CALL this%Info(" GEOMETRY-> coordinates:       " // TRIM(this%GetName()))
     SELECT CASE(gt)
-    CASE(LOGPOLAR,TANPOLAR,SINHPOLAR,TANCYLINDRICAL,SINHSPHERICAL,&
-         BIANGLESPHERICAL,OBLATE_SPHEROIDAL,CHANNEL,POLYPOLAR,ELLIPTIC,&
-         SINHCARTESIAN,LOGCYLINDRICAL,LOGSPHERICAL)
+    CASE(LOGPOLAR,LOGCYLINDRICAL,LOGSPHERICAL)
        WRITE (gs_str,'(ES8.1)') this%GetScale()
        CALL this%Info( "            geometry scale:   " // TRIM(gs_str))
-    CASE(LNCOSHCYLINDRICAL,SINHTANHPOLAR)
-       WRITE (gs_str,'(ES8.1)') this%GetScale()
-       CALL this%Info( "            geometry scale:    " // TRIM(gs_str))
-       WRITE (gs_str,'(ES8.1)') this%GetScale(2)
-       CALL this%Info("            geometry scale:    " // TRIM(gs_str))
-       WRITE (gs_str,'(ES8.1)') this%GetScale(3)
-       CALL this%Info("            geometry scale:    " // TRIM(gs_str))
+!    CASE(LNCOSHCYLINDRICAL,SINHTANHPOLAR)
+!       WRITE (gs_str,'(ES8.1)') this%GetScale()
+!       CALL this%Info( "            geometry scale:    " // TRIM(gs_str))
+!       WRITE (gs_str,'(ES8.1)') this%GetScale(2)
+!       CALL this%Info("            geometry scale:    " // TRIM(gs_str))
+!       WRITE (gs_str,'(ES8.1)') this%GetScale(3)
+!       CALL this%Info("            geometry scale:    " // TRIM(gs_str))
 
     END SELECT
   END SUBROUTINE InitGeometry

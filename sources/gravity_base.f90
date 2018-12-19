@@ -157,18 +157,18 @@ MODULE gravity_base_mod
   ! flags for source terms
   INTEGER, PARAMETER :: POINTMASS        = 1
   INTEGER, PARAMETER :: POINTMASS_BINARY = 2
-  INTEGER, PARAMETER :: MONOPOL          = 3
-  INTEGER, PARAMETER :: MULTIGRID        = 4
+!  INTEGER, PARAMETER :: MONOPOL          = 3
+!  INTEGER, PARAMETER :: MULTIGRID        = 4
   INTEGER, PARAMETER :: SPECTRAL         = 5
-  INTEGER, PARAMETER :: POTENTIAL        = 6
+!  INTEGER, PARAMETER :: POTENTIAL        = 6
   INTEGER, PARAMETER :: SBOXSPECTRAL     = 7
   !--------------------------------------------------------------------------!
   PUBLIC :: &
        ! types
        gravity_base, &
        ! constants
-       POINTMASS, POINTMASS_BINARY, MONOPOL, &
-       MULTIGRID, SPECTRAL, POTENTIAL, SBOXSPECTRAL
+       POINTMASS, POINTMASS_BINARY, &
+       SPECTRAL, SBOXSPECTRAL
   !--------------------------------------------------------------------------!
 
 CONTAINS

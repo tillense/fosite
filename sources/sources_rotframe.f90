@@ -85,7 +85,7 @@ CONTAINS
     CALL this%InitSources(Mesh,Fluxes,Physics,config,IO)
 
     SELECT CASE(Physics%GetType())
-    CASE(EULER2D,EULER2D_ISOTHERM,EULER2D_IAMT,EULER3D,EULER3D_ISOTHERM)
+    CASE(EULER,EULER_ISOTHERM)
        ! do nothing
     CASE DEFAULT
        CALL this%Error("ExternalSources_rotframe","physics not supported")
@@ -105,14 +105,14 @@ CONTAINS
     ! define position vectors
     ! for bianglespherical no shift of axis possible
     ! (for a planet reasonable)
-    IF ((Mesh%Geometry%GetType()).EQ.BIANGLESPHERICAL) THEN
-
-      this%centproj%data4d(:,:,:,1) = this%gparam*SIN(Mesh%bcenter(:,:,:,1))*&
-                              COS(Mesh%bcenter(:,:,:,1))
-      ! for better performance
-      this%cos1%data4d(:,:,:,1)  = COS(Mesh%bcenter(:,:,:,1))
-      this%cos1%data4d(:,:,:,2)  = COS(Mesh%bcenter(:,:,:,2))
-    ELSE
+!    IF ((Mesh%Geometry%GetType()).EQ.BIANGLESPHERICAL) THEN
+!
+!      this%centproj%data4d(:,:,:,1) = this%gparam*SIN(Mesh%bcenter(:,:,:,1))*&
+!                              COS(Mesh%bcenter(:,:,:,1))
+!      ! for better performance
+!      this%cos1%data4d(:,:,:,1)  = COS(Mesh%bcenter(:,:,:,1))
+!      this%cos1%data4d(:,:,:,2)  = COS(Mesh%bcenter(:,:,:,2))
+!    ELSE
       IF (ABS(Mesh%rotcent(1)).LE.TINY(Mesh%rotcent(1)) &
        .AND.ABS(Mesh%rotcent(2)).LE.TINY(Mesh%rotcent(2))) THEN
         ! no shift of point mass: set position vector to Mesh defaults
@@ -129,7 +129,7 @@ CONTAINS
         ! from the center of rotation to the bary center of any cell on the mesh
         this%cent%data4d(:,:,:,:) = Mesh%posvec%bcenter(:,:,:,:) - this%cent%data4d(:,:,:,:)
       END IF
-    END IF
+!    END IF
   END SUBROUTINE InitSources_rotframe
 
 
@@ -161,22 +161,22 @@ CONTAINS
     !------------------------------------------------------------------------!
     ! Two cases due to different angles between angular velocity to mesh
     ! 1. only a projected part plays role for bianglespherical geometry
-    IF ((Mesh%Geometry%GetType()).EQ.BIANGLESPHERICAL) THEN
-!NEC$ outerloop_unroll(8)
-      DO k=Mesh%KMIN,Mesh%KMAX
-        DO j=Mesh%JMIN,Mesh%JMAX
-!NEC$ ivdep
-          DO i=Mesh%IMIN,Mesh%IMAX
-            this%accel%data4d(i,j,k,1) = Mesh%OMEGA*(Mesh%OMEGA*&
-                   this%centproj%data4d(i,j,k,1) + 2.0*this%cos1%data4d(i,j,k,1)*&
-                   pvar%data4d(i,j,k,Physics%YVELOCITY))
-            this%accel%data4d(i,j,k,2) = -Mesh%OMEGA*2.0*this%cos1%data4d(i,j,k,1)*&
-                   pvar%data4d(i,j,k,Physics%XVELOCITY)
-          END DO
-        END DO
-      END DO
-    ! 2. OMEGA is always perpendicular to other curvilinear coordinates
-    ELSE
+!    IF ((Mesh%Geometry%GetType()).EQ.BIANGLESPHERICAL) THEN
+!!NEC$ outerloop_unroll(8)
+!      DO k=Mesh%KMIN,Mesh%KMAX
+!        DO j=Mesh%JMIN,Mesh%JMAX
+!!NEC$ ivdep
+!          DO i=Mesh%IMIN,Mesh%IMAX
+!            this%accel%data4d(i,j,k,1) = Mesh%OMEGA*(Mesh%OMEGA*&
+!                   this%centproj%data4d(i,j,k,1) + 2.0*this%cos1%data4d(i,j,k,1)*&
+!                   pvar%data4d(i,j,k,Physics%YVELOCITY))
+!            this%accel%data4d(i,j,k,2) = -Mesh%OMEGA*2.0*this%cos1%data4d(i,j,k,1)*&
+!                   pvar%data4d(i,j,k,Physics%XVELOCITY)
+!          END DO
+!        END DO
+!      END DO
+!    ! 2. OMEGA is always perpendicular to other curvilinear coordinates
+!    ELSE
 !NEC$ outerloop_unroll(8)
       DO k=Mesh%KMIN,Mesh%KMAX
         DO j=Mesh%JMIN,Mesh%JMAX
@@ -190,7 +190,7 @@ CONTAINS
           END DO
         END DO
       END DO
-    END IF
+!    END IF
 
     ! inertial forces source terms
     CALL Physics%ExternalSources(this%accel,pvar,cvar,sterm)
@@ -206,16 +206,16 @@ CONTAINS
                              INTENT(INOUT) :: pvar
     !------------------------------------------------------------------------!
     ! Convert velocities to the rotating frame
-    IF ((Mesh%Geometry%GetType()).EQ.BIANGLESPHERICAL) THEN
-      pvar(:,:,:,Physics%XVELOCITY) = pvar(:,:,:,Physics%XVELOCITY)
-      pvar(:,:,:,Physics%YVELOCITY) = pvar(:,:,:,Physics%YVELOCITY) - &
-                            Mesh%OMEGA*SIN(Mesh%bcenter(:,:,:,1))*this%gparam
-    ELSE
+!    IF ((Mesh%Geometry%GetType()).EQ.BIANGLESPHERICAL) THEN
+!      pvar(:,:,:,Physics%XVELOCITY) = pvar(:,:,:,Physics%XVELOCITY)
+!      pvar(:,:,:,Physics%YVELOCITY) = pvar(:,:,:,Physics%YVELOCITY) - &
+!                            Mesh%OMEGA*SIN(Mesh%bcenter(:,:,:,1))*this%gparam
+!    ELSE
       pvar(:,:,:,Physics%XVELOCITY) = pvar(:,:,:,Physics%XVELOCITY) + &
                                       Mesh%OMEGA * this%cent%data4d(:,:,:,2)
       pvar(:,:,:,Physics%YVELOCITY) = pvar(:,:,:,Physics%YVELOCITY) - &
                                       Mesh%OMEGA * this%cent%data4d(:,:,:,1)
-    END IF
+!    END IF
   END SUBROUTINE Convert2RotatingFrame
 
   SUBROUTINE Finalize(this)

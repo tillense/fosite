@@ -357,7 +357,7 @@ CONTAINS
       CLASS IS(physics_eulerisotherm)
          ! check geometry
          SELECT CASE(Mesh%Geometry%GetType())
-         CASE(POLAR,TANPOLAR,LOGPOLAR,CYLINDRICAL,LOGCYLINDRICAL,SINHPOLAR)
+         CASE(POLAR,LOGPOLAR,CYLINDRICAL,LOGCYLINDRICAL)
             ! allocate data arrays used for fargo
             ALLOCATE( &
                      this%w(Mesh%IGMIN:Mesh%IGMAX,Mesh%KGMIN:Mesh%KGMAX), &

@@ -164,26 +164,26 @@ CONTAINS
                "Unable to allocate memory.")
        ! check geometry
        SELECT CASE(Mesh%geometry%GetType())
-       CASE(CYLINDRICAL,LOGCYLINDRICAL,LOGPOLAR,TANPOLAR,SINHPOLAR)
+       CASE(CYLINDRICAL,LOGCYLINDRICAL,LOGPOLAR)
           ! compute inverse of distance to origin
           this%invr(:,:,:) = 1./(TINY(1.0)+Mesh%radius%bcenter(:,:,:))
-       CASE(TANCYLINDRICAL,SPHERICAL,OBLATE_SPHEROIDAL)
-          ! compute inverse of distance to axis
-          this%invr(:,:,:) = 1./(TINY(1.0)+Mesh%hz%bcenter(:,:,:))
+!       CASE(TANCYLINDRICAL,SPHERICAL,OBLATE_SPHEROIDAL)
+!          ! compute inverse of distance to axis
+!          this%invr(:,:,:) = 1./(TINY(1.0)+Mesh%hz%bcenter(:,:,:))
        CASE DEFAULT
           CALL this%Error("InitSources_viscosity",&
                "Geometry not supported for alpha-viscosity")
        END SELECT
     CASE(BETA)
-       SELECT CASE(Physics%GetType())
-       CASE (EULER2D,EULER2D_ISOTHERM,&
-             EULER2D_IAMT,EULER2D_ISOIAMT,&
-             EULER3D_ROTSYM,EULER3D_ROTAMT,EULER3D_ROTSYMSGS,EULER3D,EULER3D_ISOTHERM)
-          ! do nothing
-       CASE DEFAULT
+!       SELECT CASE(Physics%GetType())
+!       CASE (EULER2D,EULER2D_ISOTHERM,&
+!             EULER2D_IAMT,EULER2D_ISOIAMT,&
+!             EULER3D_ROTSYM,EULER3D_ROTAMT,EULER3D_ROTSYMSGS,EULER3D,EULER3D_ISOTHERM)
+!          ! do nothing
+!       CASE DEFAULT
           CALL this%Error("InitSources_viscosity",&
                "Physics not supported for beta-viscosity")
-       END SELECT
+!       END SELECT
     CASE(ALPHA_ALT)
        !> \todo check if this is really sufficient
        IF (Physics%VDIM.NE.2) &
@@ -352,22 +352,23 @@ CONTAINS
           ! Duschl type beta viscosity
           !TODO Beta-viscosity is NOT converted to 3D!!!!!
           !an usage of beta-viscosity with a cartesian grid will be wrong!!!!!
-          SELECT CASE(Physics%GetType())
-          CASE (EULER2D,EULER2D_ISOTHERM)
-             this%dynvis(:,:,:) = etafkt_beta(this%dynconst, &
-                  Mesh%hy%bcenter(:,:,:) &
-                    * (cvar(:,:,:,Physics%YMOMENTUM) &
-                       +cvar(:,:,:,Physics%DENSITY)*Mesh%hy%bcenter(:,:,:)*Mesh%omega))
-          CASE (EULER2D_IAMT,EULER2D_ISOIAMT)
-             this%dynvis(:,:,:) = etafkt_beta(this%dynconst, &
-                  cvar(:,:,:,Physics%YMOMENTUM))
-          CASE (EULER3D_ROTSYM,EULER3D_ROTSYMSGS)
-             this%dynvis(:,:,:) = etafkt_beta(this%dynconst, &
-                  Mesh%hz%bcenter(:,:,:)*cvar(:,:,:,Physics%ZMOMENTUM))
-          CASE (EULER3D_ROTAMT)
-             this%dynvis(:,:,:) = etafkt_beta(this%dynconst, &
-                  cvar(:,:,:,Physics%ZMOMENTUM))
-          END SELECT
+          CALL this%ERROR("UpdateViscosity","Beta viscosity not supported at the moment")
+!          SELECT CASE(Physics%GetType())
+!          CASE (EULER2D,EULER2D_ISOTHERM)
+!             this%dynvis(:,:,:) = etafkt_beta(this%dynconst, &
+!                  Mesh%hy%bcenter(:,:,:) &
+!                    * (cvar(:,:,:,Physics%YMOMENTUM) &
+!                       +cvar(:,:,:,Physics%DENSITY)*Mesh%hy%bcenter(:,:,:)*Mesh%omega))
+!          CASE (EULER2D_IAMT,EULER2D_ISOIAMT)
+!             this%dynvis(:,:,:) = etafkt_beta(this%dynconst, &
+!                  cvar(:,:,:,Physics%YMOMENTUM))
+!          CASE (EULER3D_ROTSYM,EULER3D_ROTSYMSGS)
+!             this%dynvis(:,:,:) = etafkt_beta(this%dynconst, &
+!                  Mesh%hz%bcenter(:,:,:)*cvar(:,:,:,Physics%ZMOMENTUM))
+!          CASE (EULER3D_ROTAMT)
+!             this%dynvis(:,:,:) = etafkt_beta(this%dynconst, &
+!                  cvar(:,:,:,Physics%ZMOMENTUM))
+!          END SELECT
        CASE(PRINGLE) ! constant kinematic viscosity
           this%dynvis(:,:,:) = etafkt_pringle(this%dynconst,pvar(:,:,:,Physics%DENSITY))
 ! TODO: height of the disk is calculated in another source module, which is not translated yet. Therefore, ALPHA_ALT is not

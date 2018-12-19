@@ -176,16 +176,16 @@ CONTAINS
        CALL this%Error("InitBoundary_common", "Unknown direction")
     END SELECT
 
-    IF(((Physics%GetType().EQ.EULER2D_ISOIAMT).OR.&
-        (Physics%GetType().EQ.EULER2D_IAMT)).AND. &
-       ((dir.EQ.NORTH).OR.(dir.EQ.SOUTH)).AND.    &
-       (.NOT.((bctype.EQ.PERIODIC)                &
-#ifdef PARALLEL
-              .OR.(bctype.EQ.NONE)                &
-#endif
-              )))                                 &
-      CALL this%Error("InitBoundary_one", "All IAMT Physics need periodic" &
-        // " boundary conditions in NORTH/SOUTH direction")
+!    IF(((Physics%GetType().EQ.EULER2D_ISOIAMT).OR.&
+!        (Physics%GetType().EQ.EULER2D_IAMT)).AND. &
+!       ((dir.EQ.NORTH).OR.(dir.EQ.SOUTH)).AND.    &
+!       (.NOT.((bctype.EQ.PERIODIC)                &
+!#ifdef PARALLEL
+!              .OR.(bctype.EQ.NONE)                &
+!#endif
+!              )))                                 &
+!      CALL this%Error("InitBoundary_one", "All IAMT Physics need periodic" &
+!        // " boundary conditions in NORTH/SOUTH direction")
 
     ! print some information
 #ifdef PARALLEL

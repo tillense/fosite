@@ -128,8 +128,7 @@ CONTAINS
     CALL this%InitLogging(gtype,gravity_name)
 
     SELECT CASE(Physics%GetType())
-    CASE(EULER2D, EULER2D_ISOTHERM, EULER2D_SGS, &
-        EULER2D_ISOIAMT, EULER2D_IAMT, EULER2D_IAMROT, EULER2D_ISOIAMROT)
+    CASE(EULER_ISOTHERM, EULER)
        ! do nothing
     CASE DEFAULT
        CALL this%Error("InitGravity_binary", &
