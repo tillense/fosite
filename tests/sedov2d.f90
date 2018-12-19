@@ -72,7 +72,8 @@ PROGRAM sedov2d
   !-------------------------------------------------------------------------!
   REAL, DIMENSION(:),ALLOCATABLE  :: pvar_diff
 #ifdef PARALLEL
-  REAL, DIMENSION(:), POINTER     :: pvar,pvar_all,radius,radius_all,err
+  REAL, DIMENSION(:), POINTER     :: pvar,pvar_all,radius,radius_all
+  INTEGER                         :: err
 #endif
   INTEGER :: i
   REAL    :: Rt,Rshock

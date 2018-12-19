@@ -130,6 +130,7 @@ CONTAINS
     INTEGER                             :: k,i,j,err
 #ifdef PARALLEL
     INTEGER, DIMENSION(:), POINTER      :: sendbuf,recvbuf
+    INTEGER                             :: n
 #endif
     REAL, DIMENSION(:,:,:,:,:), POINTER :: corners
     !------------------------------------------------------------------------!
@@ -304,6 +305,9 @@ CONTAINS
     INTEGER                          :: k
     REAL                             :: ftime
     CHARACTER(LEN=256)               :: basename
+#ifdef PARALLEL
+    INTEGER                          :: i
+#endif
     !------------------------------------------------------------------------!
     ! write a pvd-file: this is a "master" file of all timesteps of all ranks
     CALL this%OpenFile(REPLACE,'pvd')
@@ -778,6 +782,10 @@ CONTAINS
     !------------------------------------------------------------------------!
     INTEGER                             :: k,m
     INTEGER                             :: n, offset
+#ifdef PARALLEL
+    CHARACTER(LEN=256)                  :: basename
+    INTEGER                             :: i
+#endif
     !------------------------------------------------------------------------!
     ! this part is formerly from fileio_generic.f90
     ! calculate boundary fluxes, if they were requested for write
