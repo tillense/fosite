@@ -36,8 +36,7 @@ PROGRAM rngtest
   IMPLICIT NONE
   !--------------------------------------------------------------------------!
   INTEGER(KIND=I8)   :: i,x,x0,imax
-  REAL               :: rmax,rmin,rmean
-  REAL, DIMENSION(:), ALLOCATABLE :: r
+  REAL               :: r,rmax,rmin,rnew
   !--------------------------------------------------------------------------!
 
   TAP_PLAN(6)
@@ -51,17 +50,19 @@ PROGRAM rngtest
   TAP_CHECK(x.EQ.x0,"Kiss64")
 
   imax = 100000000_I8
-  ALLOCATE(r(imax))
   r = 0.
-  CALL DKiss64(r)
-  rmin = MINVAL(r)
-  rmax = MAXVAL(r)
-  rmean = SUM(r)/imax
-  DEALLOCATE(r)
+  rmin = 1.
+  rmax = 0.
+  DO i=1, imax
+   rnew = DKiss64()
+   r = r + rnew
+   rmin = MIN(rmin,rnew)
+   rmax = MAX(rmax,rnew)
+  END DO
 
   ! Check if the random numbers are in (0,1)
   ! and if the average is near 0.5
-  TAP_CHECK_CLOSE(rmean,0.5,1.E-4,"Average close to 0.5.")
+  TAP_CHECK_CLOSE(r/imax,0.5,1.E-4,"Average close to 0.5.")
   TAP_CHECK_GE(rmin,0.,"All are bigger (or equal) than 0.")
   TAP_CHECK_LE(rmax,1.,"All are smaller (or equal) than 1.")
   TAP_CHECK_CLOSE(rmin,0.,1.E-4,"Lower limit is close to 0.")
