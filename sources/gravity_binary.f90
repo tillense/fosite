@@ -112,6 +112,8 @@ CONTAINS
   !! It initializes the gravity type and various mesh data arrays. Some of those
   !! are marked for output.
   SUBROUTINE InitGravity_binary(this,Mesh,Physics,config,IO)
+    USE physics_euler_mod, ONLY: physics_euler
+    USE physics_eulerisotherm_mod, ONLY: physics_eulerisotherm
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(gravity_binary), INTENT(INOUT) :: this  !< \param [in,out] this all gravity data
@@ -127,10 +129,12 @@ CONTAINS
     CALL GetAttr(config, "gtype", gtype)
     CALL this%InitLogging(gtype,gravity_name)
 
-    SELECT CASE(Physics%GetType())
-    CASE(EULER_ISOTHERM, EULER)
+    SELECT TYPE(Physics)
+    TYPE IS(physics_euler)
        ! do nothing
-    CASE DEFAULT
+    TYPE IS(physics_eulerisotherm)
+      ! do nothing
+    CLASS DEFAULT
        CALL this%Error("InitGravity_binary", &
             "Physics not supported for binary gravity term")
     END SELECT

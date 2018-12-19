@@ -557,26 +557,26 @@ CONTAINS
        bc(NORTH) = NO_GRADIENTS
        bc(BOTTOM)= NO_GRADIENTS
        bc(TOP)   = NO_GRADIENTS
-    CASE(POLAR)
-       sc = 1.0
-       x1 = RMIN
-       x2 = 0.5*SQRT(2.0)
-       y1 = 0.0
-       y2 = 2*PI
-       bc(WEST)  = NO_GRADIENTS
-       bc(EAST)  = NO_GRADIENTS
-       bc(SOUTH) = PERIODIC
-       bc(NORTH) = PERIODIC
-    CASE(LOGPOLAR)
-       sc = 0.3
-       x1 = LOG(RMIN/sc)
-       x2 = LOG(0.5*SQRT(2.0)/sc)
-       y1 = 0.0
-       y2 = 2*PI
-       bc(WEST)  = NO_GRADIENTS
-       bc(EAST)  = NO_GRADIENTS
-       bc(SOUTH) = PERIODIC
-       bc(NORTH) = PERIODIC
+!    CASE(POLAR)
+!       sc = 1.0
+!       x1 = RMIN
+!       x2 = 0.5*SQRT(2.0)
+!       y1 = 0.0
+!       y2 = 2*PI
+!       bc(WEST)  = NO_GRADIENTS
+!       bc(EAST)  = NO_GRADIENTS
+!       bc(SOUTH) = PERIODIC
+!       bc(NORTH) = PERIODIC
+!    CASE(LOGPOLAR)
+!       sc = 0.3
+!       x1 = LOG(RMIN/sc)
+!       x2 = LOG(0.5*SQRT(2.0)/sc)
+!       y1 = 0.0
+!       y2 = 2*PI
+!       bc(WEST)  = NO_GRADIENTS
+!       bc(EAST)  = NO_GRADIENTS
+!       bc(SOUTH) = PERIODIC
+!       bc(NORTH) = PERIODIC
 !    CASE(TANPOLAR)
 !       sc = 0.3
 !       x1 = ATAN(RMIN/sc)

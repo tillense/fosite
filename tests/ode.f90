@@ -144,11 +144,11 @@ CONTAINS
        y2 = RMAX
        z1 = 0.0
        z2 = 0.0
-     CASE(POLAR)
-       x1 = RMIN
-       x2 = RMAX
-       y1 = 0.0
-       y2 = 2*PI   
+!     CASE(POLAR)
+!       x1 = RMIN
+!       x2 = RMAX
+!       y1 = 0.0
+!       y2 = 2*PI   
      CASE(CYLINDRICAL)
        x1 = RMIN
        x2 = RMAX
@@ -156,11 +156,11 @@ CONTAINS
        y2 = 2*PI
        z1 = 0.0
        z2 = 0.0
-    CASE(LOGPOLAR)
-       x1 = LOG(RMIN/GPAR)
-       x2 = LOG(RMAX/GPAR)
-       y1 = 0.0 
-       y2 = 2*PI       
+!    CASE(LOGPOLAR)
+!       x1 = LOG(RMIN/GPAR)
+!       x2 = LOG(RMAX/GPAR)
+!       y1 = 0.0 
+!       y2 = 2*PI       
 !    CASE(TANPOLAR)
 !       x1 = ATAN(RMIN/GPAR)
 !       x2 = ATAN(RMAX/GPAR)
@@ -206,16 +206,16 @@ CONTAINS
        bc(NORTH) = PERIODIC
        bc(BOTTOM)= NO_GRADIENTS
        bc(TOP)   = NO_GRADIENTS
-     CASE(POLAR)
-       bc(WEST)  = NO_GRADIENTS
-       bc(EAST)  = NO_GRADIENTS
-       bc(SOUTH) = PERIODIC
-       bc(NORTH) = PERIODIC
-    CASE(LOGPOLAR)
-       bc(WEST)  = NO_GRADIENTS
-       bc(EAST)  = NO_GRADIENTS
-       bc(SOUTH) = PERIODIC
-       bc(NORTH) = PERIODIC
+!     CASE(POLAR)
+!       bc(WEST)  = NO_GRADIENTS
+!       bc(EAST)  = NO_GRADIENTS
+!       bc(SOUTH) = PERIODIC
+!       bc(NORTH) = PERIODIC
+!    CASE(LOGPOLAR)
+!       bc(WEST)  = NO_GRADIENTS
+!       bc(EAST)  = NO_GRADIENTS
+!       bc(SOUTH) = PERIODIC
+!       bc(NORTH) = PERIODIC
 !    CASE(TANPOLAR)
 !       bc(WEST)  = NO_GRADIENTS
 !       bc(EAST)  = NO_GRADIENTS

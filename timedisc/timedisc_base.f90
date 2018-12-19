@@ -216,6 +216,9 @@ CONTAINS
   SUBROUTINE InitTimedisc(this,Mesh,Physics,config,IO,ttype,tname)
     USE physics_eulerisotherm_mod, ONLY : physics_eulerisotherm
     USE physics_euler_mod, ONLY : physics_euler
+    USE geometry_cylindrical_mod, ONLY: geometry_cylindrical
+    USE geometry_logcylindrical_mod, ONLY: geometry_logcylindrical
+    USE geometry_cartesian_mod, ONLY: geometry_cartesian
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(timedisc_base), INTENT(INOUT) :: this
@@ -356,8 +359,8 @@ CONTAINS
       SELECT TYPE(phys => Physics)
       CLASS IS(physics_eulerisotherm)
          ! check geometry
-         SELECT CASE(Mesh%Geometry%GetType())
-         CASE(POLAR,LOGPOLAR,CYLINDRICAL,LOGCYLINDRICAL)
+         SELECT TYPE(geo=>Mesh%Geometry)
+         TYPE IS(geometry_cylindrical)
             ! allocate data arrays used for fargo
             ALLOCATE( &
                      this%w(Mesh%IGMIN:Mesh%IGMAX,Mesh%KGMIN:Mesh%KGMAX), &
@@ -372,7 +375,23 @@ CONTAINS
                CALL this%Error("InitTimedisc", "Unable to allocate memory for fargo advection.")
             END IF
             this%fargo_src(:,:,:,:) = 0.0
-         CASE(CARTESIAN) ! in cartesian fargo shift can be chosen in either x- or y-direction
+
+         TYPE IS(geometry_logcylindrical)
+            ! allocate data arrays used for fargo
+            ALLOCATE( &
+                     this%w(Mesh%IGMIN:Mesh%IGMAX,Mesh%KGMIN:Mesh%KGMAX), &
+                     this%delxy(Mesh%IGMIN:Mesh%IGMAX,Mesh%KGMIN:Mesh%KGMAX), &
+                     this%shift(Mesh%IGMIN:Mesh%IGMAX,Mesh%KGMIN:Mesh%KGMAX), &
+                     this%fargo_src(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM+Physics%PNUM), &
+#ifdef PARALLEL
+                     this%buf(Physics%VNUM+Physics%PNUM,1:Mesh%MINJNUM), & !!! NOT CHANGED, because not clear were used !
+#endif
+                     STAT = err)
+            IF (err.NE.0) THEN
+               CALL this%Error("InitTimedisc", "Unable to allocate memory for fargo advection.")
+            END IF
+            this%fargo_src(:,:,:,:) = 0.0
+         TYPE IS(geometry_cartesian) ! in cartesian fargo shift can be chosen in either x- or y-direction
             IF(Mesh%shear_dir.EQ.2) THEN
                ALLOCATE( &
                      this%w(Mesh%IGMIN:Mesh%IGMAX,Mesh%KGMIN:Mesh%KGMAX), &
@@ -400,7 +419,7 @@ CONTAINS
             ELSE
               CALL this%Error("InitTimedisc", "Unable to allocate memory for fargo advection.")
             END IF
-         CASE DEFAULT
+         CLASS DEFAULT
             ! geometry not supported -> disable fargo
             Mesh%FARGO = 0
             CALL this%Warning("InitTimedisc", &
@@ -1744,6 +1763,8 @@ CONTAINS
 
   FUNCTION GetCentrifugalVelocity(this,Mesh,Physics,Fluxes,Sources,&
                        dir_omega_,accel_,centrot) RESULT(velo)
+    USE physics_euler_mod, ONLY: physics_euler
+    USE physics_eulerisotherm_mod, ONLY: physics_eulerisotherm
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(timedisc_base), INTENT(INOUT) :: this
@@ -1782,10 +1803,12 @@ CONTAINS
       !   conservative momentum = density * velocity
       ! This is not true for the second component of physics with
       ! angular momentum transport, but that component should be zero.
-      SELECT CASE(Physics%GetType())
-      CASE(EULER,EULER_ISOTHERM)
+      SELECT TYPE(Physics)
+      TYPE IS(physics_euler)
         ! do nothing
-      CASE DEFAULT
+      TYPE IS(physics_eulerisotherm)
+        ! do nothing
+      CLASS DEFAULT
         CALL this%Error("GetCentrifugalVelocity","It is unknown, if the "&
           //"selected physics module works with this routine.")
       END SELECT

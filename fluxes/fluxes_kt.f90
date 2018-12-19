@@ -75,6 +75,7 @@ MODULE fluxes_kt_mod
 CONTAINS
 
   SUBROUTINE InitFluxes_kt(this,Mesh,Physics,config,IO)
+    USE mesh_midpoint_mod, ONLY: mesh_midpoint
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(fluxes_kt),    INTENT(INOUT)       :: this
@@ -85,12 +86,12 @@ CONTAINS
     CALL this%InitFluxes(Mesh,Physics,config,IO,KT,"KT")
 
     !> \todo remove this in future version, no longer needed
-    SELECT CASE(Mesh%GetType())
-    CASE(MIDPOINT)
+    SELECT TYPE(Mesh)
+    TYPE IS(mesh_midpoint)
       ! do nothing
-    CASE(TRAPEZOIDAL)
-      CALL this%Error("InitFluxes_kt", "Trapezoidal not supported from > 0.6")
-    CASE DEFAULT
+!    CASE(TRAPEZOIDAL)
+!      CALL this%Error("InitFluxes_kt", "Trapezoidal not supported from > 0.6")
+    CLASS DEFAULT
       CALL this%Error("InitFluxes_kt", "Unknown mesh type.")
     END SELECT
   END SUBROUTINE InitFluxes_kt

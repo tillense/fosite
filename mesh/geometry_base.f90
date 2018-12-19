@@ -291,8 +291,8 @@ MODULE geometry_base_mod
   !--------------------------------------------------------------------------!
   INTEGER, PARAMETER :: CARTESIAN         = 1
 !  INTEGER, PARAMETER :: SINHCARTESIAN     = 2
-  INTEGER, PARAMETER :: POLAR             = 20
-  INTEGER, PARAMETER :: LOGPOLAR          = 21
+!  INTEGER, PARAMETER :: POLAR             = 20
+!  INTEGER, PARAMETER :: LOGPOLAR          = 21
 !  INTEGER, PARAMETER :: TANPOLAR          = 22
 !  INTEGER, PARAMETER :: SINHPOLAR         = 23
 !  INTEGER, PARAMETER :: SINHTANHPOLAR     = 24
@@ -315,9 +315,9 @@ MODULE geometry_base_mod
        ! types
        geometry_base, &
        PI, &
-       CARTESIAN, POLAR, LOGPOLAR, &
+       CARTESIAN, &
        CYLINDRICAL, LOGCYLINDRICAL, &
-       SPHERICAL, LOGSPHERICAL 
+       SPHERICAL, LOGSPHERICAL
   !--------------------------------------------------------------------------!
 
 CONTAINS
@@ -343,7 +343,7 @@ CONTAINS
     ! check if geometry parameters were given
     ! and set to defaults if not
     SELECT CASE(gnum)
-    CASE(CARTESIAN,POLAR,CYLINDRICAL,SPHERICAL)
+    CASE(CARTESIAN,CYLINDRICAL,SPHERICAL)
        ! do nothing (no parameters needed)
     CASE DEFAULT
        ! geometries with at least one parameter
@@ -369,7 +369,7 @@ CONTAINS
     ! print some information
     CALL this%Info(" GEOMETRY-> coordinates:       " // TRIM(this%GetName()))
     SELECT CASE(gt)
-    CASE(LOGPOLAR,LOGCYLINDRICAL,LOGSPHERICAL)
+    CASE(LOGCYLINDRICAL,LOGSPHERICAL)
        WRITE (gs_str,'(ES8.1)') this%GetScale()
        CALL this%Info( "            geometry scale:   " // TRIM(gs_str))
 !    CASE(LNCOSHCYLINDRICAL,SINHTANHPOLAR)

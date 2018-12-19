@@ -82,7 +82,7 @@ MODULE mesh_base_mod
   !> \name Public Attributes
   !! #### mesh types
   INTEGER, PARAMETER :: MIDPOINT     = 1 !< use midpoint rule to approximate flux integrals
-  INTEGER, PARAMETER :: TRAPEZOIDAL  = 2 !< use trapezoidal rule to approximate flux integrals
+!  INTEGER, PARAMETER :: TRAPEZOIDAL  = 2 !< use trapezoidal rule to approximate flux integrals
   !> \}
   !! #### parameters depending on dimensionality
   INTEGER, PARAMETER :: NFACES(3)    = (/ 2, 4, 6 /)  !< number of faces
@@ -256,8 +256,8 @@ MODULE mesh_base_mod
 #ifdef PARALLEL
        DEFAULT_MPI_REAL, &
 #endif
-       MIDPOINT, TRAPEZOIDAL, &
-       CARTESIAN, POLAR, LOGPOLAR, &
+       MIDPOINT, &
+       CARTESIAN, &
        CYLINDRICAL, LOGCYLINDRICAL, &
        SPHERICAL, LOGSPHERICAL, &
        WEST, EAST, SOUTH, NORTH, BOTTOM, TOP

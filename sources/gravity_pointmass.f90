@@ -126,6 +126,9 @@ CONTAINS
   !!             = -\Omega^2 \vec{r}
   !! \f]
   SUBROUTINE InitGravity_pointmass(this,Mesh,Physics,config,IO)
+    USE geometry_logcylindrical_mod, ONLY: geometry_logcylindrical
+    USE geometry_spherical_mod, ONLY: geometry_spherical
+    USE geometry_cylindrical_mod, ONLY: geometry_cylindrical
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(gravity_pointmass), INTENT(INOUT) :: this
@@ -273,12 +276,16 @@ CONTAINS
 
     ! enable mass accretion by setting "outbound" to one of the four boundaries
     ! of the computational domain (depends on mesh geometry)
-    SELECT CASE(Mesh%geometry%GetType())
-    CASE(CYLINDRICAL,LOGCYLINDRICAL,SPHERICAL)
+    SELECT TYPE(geo=>Mesh%geometry)
+    TYPE IS(geometry_cylindrical)
+       CALL GetAttr(config, "outbound", this%outbound, WEST)
+    TYPE IS(geometry_logcylindrical)
+       CALL GetAttr(config, "outbound", this%outbound, WEST)
+    TYPE IS(geometry_spherical)
        CALL GetAttr(config, "outbound", this%outbound, WEST)
 !    CASE(TANCYLINDRICAL,BIPOLAR)
 !       CALL GetAttr(config, "outbound", this%outbound, SOUTH)
-    CASE DEFAULT
+    CLASS DEFAULT
        CALL GetAttr(config, "outbound", this%outbound, 0)
        CALL this%WARNING("GravitySources_pointmass","geometry does not support accretion")
     END SELECT

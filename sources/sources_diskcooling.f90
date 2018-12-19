@@ -495,7 +495,7 @@ CONTAINS
     !------------------------------------------------------------------------!
     CLASS(sources_diskcooling), INTENT(INOUT) :: this
     !------------------------------------------------------------------------!
-    SELECT CASE(this%GetType())
+    SELECT CASE(this%cooling%GetType())
     CASE(GRAY)
       CALL this%Qcool%Destroy()
     CASE(GAMMIE)

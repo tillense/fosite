@@ -87,6 +87,9 @@ CONTAINS
   !! for a shearingsheet. It initializes the sources type and the
   !! accelerations array.
   SUBROUTINE InitSources_shearbox(this,Mesh,Physics,Fluxes,config,IO)
+    USE physics_euler_mod, ONLY: physics_euler
+    USE physics_eulerisotherm_mod, ONLY: physics_eulerisotherm
+    USE geometry_cartesian_mod, ONLY: geometry_cartesian
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(sources_shearbox)          :: this
@@ -101,17 +104,19 @@ CONTAINS
     CALL this%InitLogging(stype,source_name)
     CALL this%InitSources(Mesh,Fluxes,Physics,config,IO)
 
-    SELECT CASE(Physics%GetType())
-    CASE(EULER,EULER_ISOTHERM)
+    SELECT TYPE(Physics)
+    TYPE IS(physics_euler)
       ! do nothing
-    CASE DEFAULT
+    TYPE IS(physics_eulerisotherm)
+      ! do nothing
+    CLASS DEFAULT
       CALL this%Error("InitSources_shearbox","physics not supported")
     END SELECT
 
-    SELECT CASE(Mesh%Geometry%GetType())
-    CASE(CARTESIAN)
+    SELECT TYPE(geo=>Mesh%Geometry)
+    TYPE IS(geometry_cartesian)
       ! do nothing
-    CASE DEFAULT
+    CLASS DEFAULT
       CALL this%Error("InitSources_shearbox","mesh not supported")
     END SELECT
 

@@ -97,6 +97,8 @@ MODULE sources_viscosity_mod
 CONTAINS
 
   SUBROUTINE InitSources_viscosity(this,Mesh,Physics,Fluxes,config,IO)
+    USE geometry_cylindrical_mod, ONLY: geometry_cylindrical
+    USE geometry_logcylindrical_mod, ONLY: geometry_logcylindrical
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(Sources_viscosity) :: this
@@ -163,14 +165,16 @@ CONTAINS
        IF (err.NE.0) CALL this%Error("InitSources_viscosity",&
                "Unable to allocate memory.")
        ! check geometry
-       SELECT CASE(Mesh%geometry%GetType())
-       CASE(CYLINDRICAL,LOGCYLINDRICAL,LOGPOLAR)
+       SELECT TYPE(geo=>Mesh%geometry)
+       TYPE IS(geometry_cylindrical)
           ! compute inverse of distance to origin
           this%invr(:,:,:) = 1./(TINY(1.0)+Mesh%radius%bcenter(:,:,:))
-!       CASE(TANCYLINDRICAL,SPHERICAL,OBLATE_SPHEROIDAL)
+       TYPE IS(geometry_logcylindrical)
+          this%invr(:,:,:) = 1./(TINY(1.0)+Mesh%radius%bcenter(:,:,:))
+!      TYPE IS(TANCYLINDRICAL,SPHERICAL,OBLATE_SPHEROIDAL)
 !          ! compute inverse of distance to axis
 !          this%invr(:,:,:) = 1./(TINY(1.0)+Mesh%hz%bcenter(:,:,:))
-       CASE DEFAULT
+       CLASS DEFAULT
           CALL this%Error("InitSources_viscosity",&
                "Geometry not supported for alpha-viscosity")
        END SELECT

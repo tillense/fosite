@@ -499,8 +499,10 @@ CONTAINS
 ! !NEC$ SHORTLOOP
 !         DO l=1,Physics%VNUM
 !          DO k=Mesh%KGMIN,Mesh%KGMAX
-!            DO j=Mesh%JGMIN+Mesh%JP1,Mesh%JGMAX+Mesh%JM1!!NEC$ IVDEP
-!              DO i=Mesh%IGMIN+Mesh%IP1,Mesh%IGMAX+Mesh%IM1!                 CALL pp_limiter(this%slopes%data5d(i,j,k,m,l),&
+!            DO j=Mesh%JGMIN+Mesh%JP1,Mesh%JGMAX+Mesh%JM1
+!!NEC$ IVDEP
+!              DO i=Mesh%IGMIN+Mesh%IP1,Mesh%IGMAX+Mesh%IM1
+!                 CALL pp_limiter(this%slopes%data5d(i,j,k,m,l),&
 !                                 this%slopes%data5d(i,j,k,m,l),&
 !                    rvar%data4d(i-1,j+1,k)-rvar%data4d(i,j,k),&
 !                    rvar%data4d(i  ,j+1,k)-rvar%data4d(i,j,k),&

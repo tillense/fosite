@@ -70,6 +70,8 @@ CONTAINS
 
   !> \public Constructor of the rotating reference frame module
   SUBROUTINE InitSources_rotframe(this,Mesh,Physics,Fluxes,config,IO)
+    USE physics_euler_mod, ONLY: physics_euler
+    USE physics_eulerisotherm_mod, ONLY: physics_eulerisotherm
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(sources_rotframe)          :: this
@@ -84,10 +86,12 @@ CONTAINS
     CALL this%InitLogging(stype,source_name)
     CALL this%InitSources(Mesh,Fluxes,Physics,config,IO)
 
-    SELECT CASE(Physics%GetType())
-    CASE(EULER,EULER_ISOTHERM)
-       ! do nothing
-    CASE DEFAULT
+    SELECT TYPE(Physics)
+    TYPE IS(physics_euler)
+      ! do nothing
+    TYPE IS(physics_eulerisotherm)
+      ! do nothing
+    CLASS DEFAULT
        CALL this%Error("ExternalSources_rotframe","physics not supported")
     END SELECT
 
