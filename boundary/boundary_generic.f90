@@ -523,7 +523,7 @@ CONTAINS
 #endif
       ! north-west
 #ifdef PARALLEL
-      IF(Mesh%mycoords(1).EQ.0.AND.Mesh%mycoords(2).EQ.Mesh%dims(1)-1) THEN
+      IF(Mesh%mycoords(1).EQ.0.AND.Mesh%mycoords(2).EQ.Mesh%dims(2)-1) THEN
 #endif
 !NEC$ IVDEP
         DO k=Mesh%KGMIN,Mesh%KGMAX
@@ -720,7 +720,7 @@ CONTAINS
 
       ! top-north
 #ifdef PARALLEL
-      IF(Mesh%mycoords(2).EQ.Mesh%dims(1)-1.AND.Mesh%mycoords(3).EQ.Mesh%dims(3)-1) THEN
+      IF(Mesh%mycoords(2).EQ.Mesh%dims(2)-1.AND.Mesh%mycoords(3).EQ.Mesh%dims(3)-1) THEN
 #endif
 !NEC$ IVDEP
       DO i=Mesh%IGMIN,Mesh%IGMAX
@@ -743,7 +743,7 @@ CONTAINS
     ! Set corner cells (only 3D)
     IF (Mesh%INUM.NE.1.AND.Mesh%JNUM.NE.1.AND.Mesh%KNUM.NE.1) THEN
 #ifdef PARALLEL
-      IF(Mesh%mycoords(1).EQ.0.AND.Mesh%mycoords(2).EQ.0.AND.Mesh%mycoords(0).EQ.0) THEN
+      IF(Mesh%mycoords(1).EQ.0.AND.Mesh%mycoords(2).EQ.0.AND.Mesh%mycoords(3).EQ.0) THEN
 #endif
 !NEC$ SHORTLOOP
       DO i=1,Mesh%GINUM
@@ -754,7 +754,7 @@ CONTAINS
       END IF
 #endif
 #ifdef PARALLEL
-      IF(Mesh%mycoords(1).EQ.Mesh%dims(1)-1.AND.Mesh%mycoords(2).EQ.0.AND.Mesh%mycoords(0).EQ.0) THEN
+      IF(Mesh%mycoords(1).EQ.Mesh%dims(1)-1.AND.Mesh%mycoords(2).EQ.0.AND.Mesh%mycoords(3).EQ.0) THEN
 #endif
 !NEC$ SHORTLOOP
       DO i=1,Mesh%GINUM
@@ -765,7 +765,7 @@ CONTAINS
       END IF
 #endif
 #ifdef PARALLEL
-      IF(Mesh%mycoords(1).EQ.0.AND.Mesh%mycoords(2).EQ.Mesh%dims(2)-1.AND.Mesh%mycoords(0).EQ.0) THEN
+      IF(Mesh%mycoords(1).EQ.0.AND.Mesh%mycoords(2).EQ.Mesh%dims(2)-1.AND.Mesh%mycoords(3).EQ.0) THEN
 #endif
 !NEC$ SHORTLOOP
       DO i=1,Mesh%GINUM
@@ -776,7 +776,7 @@ CONTAINS
       END IF
 #endif
 #ifdef PARALLEL
-      IF(Mesh%mycoords(1).EQ.Mesh%dims(1)-1.AND.Mesh%mycoords(2).EQ.Mesh%dims(2)-1.AND.Mesh%mycoords(0).EQ.0) THEN
+      IF(Mesh%mycoords(1).EQ.Mesh%dims(1)-1.AND.Mesh%mycoords(2).EQ.Mesh%dims(2)-1.AND.Mesh%mycoords(3).EQ.0) THEN
 #endif
 !NEC$ SHORTLOOP
       DO i=1,Mesh%GINUM
@@ -787,7 +787,7 @@ CONTAINS
       END IF
 #endif
 #ifdef PARALLEL
-      IF(Mesh%mycoords(1).EQ.0.AND.Mesh%mycoords(2).EQ.0.AND.Mesh%mycoords(0).EQ.Mesh%dims(3)-1) THEN
+      IF(Mesh%mycoords(1).EQ.0.AND.Mesh%mycoords(2).EQ.0.AND.Mesh%mycoords(3).EQ.Mesh%dims(3)-1) THEN
 #endif
 !NEC$ SHORTLOOP
       DO i=1,Mesh%GINUM
@@ -798,7 +798,7 @@ CONTAINS
       END IF
 #endif
 #ifdef PARALLEL
-      IF(Mesh%mycoords(1).EQ.Mesh%dims(1)-1.AND.Mesh%mycoords(2).EQ.0.AND.Mesh%mycoords(0).EQ.Mesh%dims(3)-1) THEN
+      IF(Mesh%mycoords(1).EQ.Mesh%dims(1)-1.AND.Mesh%mycoords(2).EQ.0.AND.Mesh%mycoords(3).EQ.Mesh%dims(3)-1) THEN
 #endif
 !NEC$ SHORTLOOP
       DO i=1,Mesh%GINUM
@@ -809,7 +809,7 @@ CONTAINS
       END IF
 #endif
 #ifdef PARALLEL
-      IF(Mesh%mycoords(1).EQ.0.AND.Mesh%mycoords(2).EQ.Mesh%dims(2)-1.AND.Mesh%mycoords(0).EQ.Mesh%dims(3)-1) THEN
+      IF(Mesh%mycoords(1).EQ.0.AND.Mesh%mycoords(2).EQ.Mesh%dims(2)-1.AND.Mesh%mycoords(3).EQ.Mesh%dims(3)-1) THEN
 #endif
 !NEC$ SHORTLOOP
       DO i=1,Mesh%GINUM
@@ -820,7 +820,7 @@ CONTAINS
       END IF
 #endif
 #ifdef PARALLEL
-      IF(Mesh%mycoords(1).EQ.Mesh%dims(1)-1.AND.Mesh%mycoords(2).EQ.Mesh%dims(2)-1.AND.Mesh%mycoords(0).EQ.Mesh%dims(3)-1) THEN
+      IF(Mesh%mycoords(1).EQ.Mesh%dims(1)-1.AND.Mesh%mycoords(2).EQ.Mesh%dims(2)-1.AND.Mesh%mycoords(3).EQ.Mesh%dims(3)-1) THEN
 #endif
 !NEC$ SHORTLOOP
       DO i=1,Mesh%GINUM
