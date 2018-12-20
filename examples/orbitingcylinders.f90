@@ -319,7 +319,6 @@ CONTAINS
     datafile => Dict( &
         "fileformat" / VTK, &
         "filename" / ("orbitingcylinders_" // str), &
-        "unit" / 5555, &
         "count" / ONUM)
 
     config => Dict( &

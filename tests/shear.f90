@@ -55,7 +55,6 @@ PROGRAM shear
   INTEGER, PARAMETER :: ZRES       = 1
   REAL               :: DOMAINX    = 320.0
   REAL               :: DOMAINY    = 320.0
-  INTEGER, PARAMETER :: FARGO      = 3              ! 3 = Shearingbox        !
   ! number of output time steps
   INTEGER, PARAMETER :: ONUM       = 10
   ! output directory and output name
