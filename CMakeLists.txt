@@ -61,23 +61,6 @@ if (PARALLEL MATCHES "ON")
   endif()
 endif()
 
-#set(MPI_DETERMINE_LIBRARY_VERSION TRUE)
-#message(STATUS ${MPI_DETERMINE_LIBRARY_VERSION})
-#find_package(
-#  MPI
-#  )
-#
-#message(STATUS ${MPI_Fortran_FOUND})
-#message(STATUS ${MPI_Fortran_COMPILER})
-#message(STATUS ${MPI_Fortran_VERSION_MAJOR})
-#message(STATUS ${MPI_Fortran_VERSION})
-#message(STATUS ${MPI_EXECUTABLE_SUFFIX})
-#message(STATUS ${MPI_Fortran_LIBRARIES})
-#message(STATUS ${MPI_Fortran_LIB_NAMES})
-#
-#message(STATUS ${MPI_Fortran_LIBRARY_VERSION})
-
-
 set (X86_VECTOR_EXTENSION NONE CACHE STRING "Enable x86 vector extensions, possible values are: NONE AVX AVX2 AVX-512")
 
 #-------------------- choose compiler & set flags ---------------------#
@@ -274,9 +257,3 @@ if(DOXYGEN_FOUND)
 
     VERBATIM)
 endif(DOXYGEN_FOUND)
-
-# install executables and scripts
-#install (TARGETS ${EXECUTABLES}
-#         RUNTIME DESTINATION "bin")
-#install (PROGRAMS ${SCRIPTS}
-#         DESTINATION "bin")
