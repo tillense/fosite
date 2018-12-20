@@ -427,19 +427,16 @@ CONTAINS
 #ifdef PARALLEL
       IF(Mesh%mycoords(1).EQ.0.AND.Mesh%mycoords(2).EQ.0) THEN
 #endif
-!NEC$ IVDEP
-        DO k=Mesh%KGMIN,Mesh%KGMAX
 !NEC$ SHORTLOOP
           DO j=1,Mesh%GNUM
 !NEC$ SHORTLOOP
             DO i=j+1,Mesh%GNUM
-              pvar(Mesh%IMIN-i,Mesh%JMIN-j,k,:) = pvar(Mesh%IMIN-i,Mesh%JMIN-j+1,k,:)
-              pvar(Mesh%IMIN-j,Mesh%JMIN-i,k,:) = pvar(Mesh%IMIN-j+1,Mesh%JMIN-i,k,:)
+              pvar(Mesh%IMIN-i,Mesh%JMIN-j,:,:) = pvar(Mesh%IMIN-i,Mesh%JMIN-j+1,:,:)
+              pvar(Mesh%IMIN-j,Mesh%JMIN-i,:,:) = pvar(Mesh%IMIN-j+1,Mesh%JMIN-i,:,:)
             END DO
-            pvar(Mesh%IMIN-j,Mesh%JMIN-j,k,:) = 0.5 * (pvar(Mesh%IMIN-j,Mesh%JMIN,k,:) &
-                 + pvar(Mesh%IMIN,Mesh%JMIN-j,k,:))
+            pvar(Mesh%IMIN-j,Mesh%JMIN-j,:,:) = 0.5 * (pvar(Mesh%IMIN-j,Mesh%JMIN,:,:) &
+                 + pvar(Mesh%IMIN,Mesh%JMIN-j,:,:))
           END DO
-        END DO
 #ifdef PARALLEL
       END IF
 #endif
@@ -447,19 +444,16 @@ CONTAINS
 #ifdef PARALLEL
       IF(Mesh%mycoords(1).EQ.Mesh%dims(1)-1.AND.Mesh%mycoords(2).EQ.0) THEN
 #endif
-!NEC$ IVDEP
-        DO k=Mesh%KGMIN,Mesh%KGMAX
 !NEC$ SHORTLOOP
           DO j=1,Mesh%GNUM
 !NEC$ SHORTLOOP
             DO i=j+1,Mesh%GNUM
-              pvar(Mesh%IMAX+i,Mesh%JMIN-j,k,:) = pvar(Mesh%IMAX+i,Mesh%JMIN-j+1,k,:)
-              pvar(Mesh%IMAX+j,Mesh%JMIN-i,k,:) = pvar(Mesh%IMAX+j-1,Mesh%JMIN-i,k,:)
+              pvar(Mesh%IMAX+i,Mesh%JMIN-j,:,:) = pvar(Mesh%IMAX+i,Mesh%JMIN-j+1,:,:)
+              pvar(Mesh%IMAX+j,Mesh%JMIN-i,:,:) = pvar(Mesh%IMAX+j-1,Mesh%JMIN-i,:,:)
             END DO
-            pvar(Mesh%IMAX+j,Mesh%JMIN-j,k,:) = 0.5 * (pvar(Mesh%IMAX+j,Mesh%JMIN,k,:) &
-                 + pvar(Mesh%IMAX,Mesh%JMIN-j,k,:))
+            pvar(Mesh%IMAX+j,Mesh%JMIN-j,:,:) = 0.5 * (pvar(Mesh%IMAX+j,Mesh%JMIN,:,:) &
+                 + pvar(Mesh%IMAX,Mesh%JMIN-j,:,:))
           END DO
-        END DO
 #ifdef PARALLEL
       END IF
 #endif
@@ -467,19 +461,16 @@ CONTAINS
 #ifdef PARALLEL
       IF(Mesh%mycoords(1).EQ.0.AND.Mesh%mycoords(2).EQ.Mesh%dims(2)-1) THEN
 #endif
-!NEC$ IVDEP
-        DO k=Mesh%KGMIN,Mesh%KGMAX
 !NEC$ SHORTLOOP
           DO j=1,Mesh%GNUM
 !NEC$ SHORTLOOP
             DO i=j+1,Mesh%GNUM
-              pvar(Mesh%IMIN-i,Mesh%JMAX+j,k,:) = pvar(Mesh%IMIN-i,Mesh%JMAX+j-1,k,:)
-              pvar(Mesh%IMIN-j,Mesh%JMAX+i,k,:) = pvar(Mesh%IMIN-j+1,Mesh%JMAX+i,k,:)
+              pvar(Mesh%IMIN-i,Mesh%JMAX+j,:,:) = pvar(Mesh%IMIN-i,Mesh%JMAX+j-1,:,:)
+              pvar(Mesh%IMIN-j,Mesh%JMAX+i,:,:) = pvar(Mesh%IMIN-j+1,Mesh%JMAX+i,:,:)
             END DO
-            pvar(Mesh%IMIN-j,Mesh%JMAX+j,k,:) = 0.5 * (pvar(Mesh%IMIN-j,Mesh%JMAX,k,:) &
-                 + pvar(Mesh%IMIN,Mesh%JMAX+j,k,:))
+            pvar(Mesh%IMIN-j,Mesh%JMAX+j,:,:) = 0.5 * (pvar(Mesh%IMIN-j,Mesh%JMAX,:,:) &
+                 + pvar(Mesh%IMIN,Mesh%JMAX+j,:,:))
           END DO
-        END DO
 #ifdef PARALLEL
       END IF
 #endif
@@ -488,19 +479,16 @@ CONTAINS
 #ifdef PARALLEL
       IF(Mesh%mycoords(1).EQ.Mesh%dims(1)-1.AND.Mesh%mycoords(2).EQ.Mesh%dims(2)-1) THEN
 #endif
-!NEC$ IVDEP
-        DO k=Mesh%KGMIN,Mesh%KGMAX
 !NEC$ SHORTLOOP
           DO j=1,Mesh%GNUM
 !NEC$ SHORTLOOP
             DO i=j+1,Mesh%GNUM
-              pvar(Mesh%IMAX+i,Mesh%JMAX+j,k,:) = pvar(Mesh%IMAX+i,Mesh%JMAX+j-1,k,:)
-              pvar(Mesh%IMAX+j,Mesh%JMAX+i,k,:) = pvar(Mesh%IMAX+j-1,Mesh%JMAX+i,k,:)
+              pvar(Mesh%IMAX+i,Mesh%JMAX+j,:,:) = pvar(Mesh%IMAX+i,Mesh%JMAX+j-1,:,:)
+              pvar(Mesh%IMAX+j,Mesh%JMAX+i,:,:) = pvar(Mesh%IMAX+j-1,Mesh%JMAX+i,:,:)
             END DO
-            pvar(Mesh%IMAX+j,Mesh%JMAX+j,k,:) = 0.5 * (pvar(Mesh%IMAX+j,Mesh%JMAX,k,:) &
-                 + pvar(Mesh%IMAX,Mesh%JMAX+j,k,:))
+            pvar(Mesh%IMAX+j,Mesh%JMAX+j,:,:) = 0.5 * (pvar(Mesh%IMAX+j,Mesh%JMAX,:,:) &
+                 + pvar(Mesh%IMAX,Mesh%JMAX+j,:,:))
           END DO
-        END DO
 #ifdef PARALLEL
       END IF
 #endif
@@ -513,19 +501,16 @@ CONTAINS
 #ifdef PARALLEL
       IF(Mesh%mycoords(1).EQ.0.AND.Mesh%mycoords(3).EQ.0) THEN
 #endif
-!NEC$ IVDEP
-        DO j=Mesh%JGMIN,Mesh%JGMAX
 !NEC$ SHORTLOOP
           DO i=1,Mesh%GNUM
 !NEC$ SHORTLOOP
             DO k=i+1,Mesh%GNUM
-              pvar(Mesh%IMIN-i,j,Mesh%KMIN-k,:) = pvar(Mesh%IMIN-i+1,j,Mesh%KMIN-k,:)
-              pvar(Mesh%IMIN-k,j,Mesh%KMIN-i,:) = pvar(Mesh%IMIN-k,j,Mesh%KMIN-i+1,:)
+              pvar(Mesh%IMIN-i,:,Mesh%KMIN-k,:) = pvar(Mesh%IMIN-i+1,:,Mesh%KMIN-k,:)
+              pvar(Mesh%IMIN-k,:,Mesh%KMIN-i,:) = pvar(Mesh%IMIN-k,:,Mesh%KMIN-i+1,:)
             END DO
-            pvar(Mesh%IMIN-i,j,Mesh%KMIN-i,:) = 0.5 * (pvar(Mesh%IMIN-i,j,Mesh%KMIN,:) &
-                 + pvar(Mesh%IMIN,j,Mesh%KMIN-i,:))
+            pvar(Mesh%IMIN-i,:,Mesh%KMIN-i,:) = 0.5 * (pvar(Mesh%IMIN-i,:,Mesh%KMIN,:) &
+                 + pvar(Mesh%IMIN,:,Mesh%KMIN-i,:))
           END DO
-        END DO
 #ifdef PARALLEL
       END IF
 #endif
@@ -533,19 +518,16 @@ CONTAINS
 #ifdef PARALLEL
       IF(Mesh%mycoords(1).EQ.Mesh%dims(1)-1.AND.Mesh%mycoords(3).EQ.0) THEN
 #endif
-!NEC$ IVDEP
-      DO j=Mesh%JGMIN,Mesh%JGMAX
 !NEC$ SHORTLOOP
         DO i=1,Mesh%GNUM
 !NEC$ SHORTLOOP
           DO k=i+1,Mesh%GNUM
-            pvar(Mesh%IMAX+i,j,Mesh%KMIN-k,:) = pvar(Mesh%IMAX+i-1,j,Mesh%KMIN-k,:)
-            pvar(Mesh%IMAX+k,j,Mesh%KMIN-i,:) = pvar(Mesh%IMAX+k,j,Mesh%KMIN-i+1,:)
+            pvar(Mesh%IMAX+i,:,Mesh%KMIN-k,:) = pvar(Mesh%IMAX+i-1,:,Mesh%KMIN-k,:)
+            pvar(Mesh%IMAX+k,:,Mesh%KMIN-i,:) = pvar(Mesh%IMAX+k,:,Mesh%KMIN-i+1,:)
           END DO
-          pvar(Mesh%IMAX+i,j,Mesh%KMIN-i,:) = 0.5 * (pvar(Mesh%IMAX,j,Mesh%KMIN-i,:) &
-               + pvar(Mesh%IMAX+i,j,Mesh%KMIN,:))
+          pvar(Mesh%IMAX+i,:,Mesh%KMIN-i,:) = 0.5 * (pvar(Mesh%IMAX,:,Mesh%KMIN-i,:) &
+               + pvar(Mesh%IMAX+i,:,Mesh%KMIN,:))
         END DO
-      END DO
 #ifdef PARALLEL
       END IF
 #endif
@@ -554,19 +536,16 @@ CONTAINS
 #ifdef PARALLEL
       IF(Mesh%mycoords(1).EQ.0.AND.Mesh%mycoords(3).EQ.Mesh%dims(3)-1) THEN
 #endif
-!NEC$ IVDEP
-      DO j=Mesh%JGMIN,Mesh%JGMAX
 !NEC$ SHORTLOOP
         DO i=1,Mesh%GNUM
 !NEC$ SHORTLOOP
           DO k=i+1,Mesh%GNUM
-            pvar(Mesh%IMIN-i,j,Mesh%KMAX+k,:) = pvar(Mesh%IMIN-i+1,j,Mesh%KMAX+k,:)
-            pvar(Mesh%IMIN-k,j,Mesh%KMAX+i,:) = pvar(Mesh%IMIN-k,j,Mesh%KMAX+i-1,:)
+            pvar(Mesh%IMIN-i,:,Mesh%KMAX+k,:) = pvar(Mesh%IMIN-i+1,:,Mesh%KMAX+k,:)
+            pvar(Mesh%IMIN-k,:,Mesh%KMAX+i,:) = pvar(Mesh%IMIN-k,:,Mesh%KMAX+i-1,:)
           END DO
-          pvar(Mesh%IMIN-i,j,Mesh%KMAX+i,:) = 0.5 * (pvar(Mesh%IMIN,j,Mesh%KMAX+i,:) &
-               + pvar(Mesh%IMIN-i,j,Mesh%KMAX,:))
+          pvar(Mesh%IMIN-i,:,Mesh%KMAX+i,:) = 0.5 * (pvar(Mesh%IMIN,:,Mesh%KMAX+i,:) &
+               + pvar(Mesh%IMIN-i,:,Mesh%KMAX,:))
         END DO
-      END DO
 #ifdef PARALLEL
       END IF
 #endif
@@ -575,19 +554,16 @@ CONTAINS
 #ifdef PARALLEL
       IF(Mesh%mycoords(1).EQ.Mesh%dims(1)-1.AND.Mesh%mycoords(3).EQ.Mesh%dims(3)-1) THEN
 #endif
-!NEC$ IVDEP
-      DO j=Mesh%JGMIN,Mesh%JGMAX
 !NEC$ SHORTLOOP
         DO i=1,Mesh%GNUM
 !NEC$ SHORTLOOP
           DO k=i+1,Mesh%GNUM
-            pvar(Mesh%IMAX+i,j,Mesh%KMAX+k,:) = pvar(Mesh%IMAX+i-1,j,Mesh%KMAX+k,:)
-            pvar(Mesh%IMAX+k,j,Mesh%KMAX+i,:) = pvar(Mesh%IMAX+k,j,Mesh%KMAX+i-1,:)
+            pvar(Mesh%IMAX+i,:,Mesh%KMAX+k,:) = pvar(Mesh%IMAX+i-1,:,Mesh%KMAX+k,:)
+            pvar(Mesh%IMAX+k,:,Mesh%KMAX+i,:) = pvar(Mesh%IMAX+k,:,Mesh%KMAX+i-1,:)
           END DO
-          pvar(Mesh%IMAX+i,j,Mesh%KMAX+i,:) = 0.5 * (pvar(Mesh%IMAX,j,Mesh%KMAX+i,:) &
-               + pvar(Mesh%IMAX+i,j,Mesh%KMAX,:))
+          pvar(Mesh%IMAX+i,:,Mesh%KMAX+i,:) = 0.5 * (pvar(Mesh%IMAX,:,Mesh%KMAX+i,:) &
+               + pvar(Mesh%IMAX+i,:,Mesh%KMAX,:))
         END DO
-      END DO
 #ifdef PARALLEL
       END IF
 #endif
@@ -600,19 +576,16 @@ CONTAINS
 #ifdef PARALLEL
       IF(Mesh%mycoords(2).EQ.0.AND.Mesh%mycoords(3).EQ.0) THEN
 #endif
-!NEC$ IVDEP
-      DO i=Mesh%IGMIN,Mesh%IGMAX
 !NEC$ SHORTLOOP
-      DO j=1,Mesh%GNUM
+        DO j=1,Mesh%GNUM
 !NEC$ SHORTLOOP
           DO k=j+1,Mesh%GNUM
-            pvar(i,Mesh%JMIN-j,Mesh%KMIN-k,:) = pvar(i,Mesh%JMIN-j+1,Mesh%KMIN-k,:)
-            pvar(i,Mesh%JMIN-k,Mesh%KMIN-j,:) = pvar(i,Mesh%JMIN-k,Mesh%KMIN-j+1,:)
+            pvar(:,Mesh%JMIN-j,Mesh%KMIN-k,:) = pvar(:,Mesh%JMIN-j+1,Mesh%KMIN-k,:)
+            pvar(:,Mesh%JMIN-k,Mesh%KMIN-j,:) = pvar(:,Mesh%JMIN-k,Mesh%KMIN-j+1,:)
           END DO
-          pvar(i,Mesh%JMIN-j,Mesh%KMIN-j,:) = 0.5 * (pvar(i,Mesh%JMIN,Mesh%KMIN-j,:) &
-               + pvar(i,Mesh%JMIN-j,Mesh%KMIN,:))
+          pvar(:,Mesh%JMIN-j,Mesh%KMIN-j,:) = 0.5 * (pvar(:,Mesh%JMIN,Mesh%KMIN-j,:) &
+               + pvar(:,Mesh%JMIN-j,Mesh%KMIN,:))
         END DO
-      END DO
 #ifdef PARALLEL
       END IF
 #endif
@@ -621,20 +594,17 @@ CONTAINS
 #ifdef PARALLEL
       IF(Mesh%mycoords(2).EQ.Mesh%dims(2)-1.AND.Mesh%mycoords(3).EQ.0) THEN
 #endif
-!NEC$ IVDEP
-      DO i=Mesh%IGMIN,Mesh%IGMAX
 !NEC$ SHORTLOOP
-      DO j=1,Mesh%GNUM
+        DO j=1,Mesh%GNUM
 !NEC$ SHORTLOOP
-        DO k=j+1,Mesh%GNUM
-            pvar(i,Mesh%JMAX+j,Mesh%KMIN-k,:) = pvar(i,Mesh%JMAX+j-1,Mesh%KMIN-k,:)
-            pvar(i,Mesh%JMAX+k,Mesh%KMIN-j,:) = pvar(i,Mesh%JMAX+k,Mesh%KMIN-j+1,:)
+          DO k=j+1,Mesh%GNUM
+            pvar(:,Mesh%JMAX+j,Mesh%KMIN-k,:) = pvar(:,Mesh%JMAX+j-1,Mesh%KMIN-k,:)
+            pvar(:,Mesh%JMAX+k,Mesh%KMIN-j,:) = pvar(:,Mesh%JMAX+k,Mesh%KMIN-j+1,:)
           END DO
 !NEC$ IVDEP
-          pvar(i,Mesh%JMAX+j,Mesh%KMIN-j,:) = 0.5 * (pvar(i,Mesh%JMAX,Mesh%KMIN-j,:) &
-               + pvar(i,Mesh%JMAX+j,Mesh%KMIN,:))
+          pvar(:,Mesh%JMAX+j,Mesh%KMIN-j,:) = 0.5 * (pvar(:,Mesh%JMAX,Mesh%KMIN-j,:) &
+               + pvar(:,Mesh%JMAX+j,Mesh%KMIN,:))
         END DO
-      END DO
 #ifdef PARALLEL
       END IF
 #endif
@@ -643,19 +613,16 @@ CONTAINS
 #ifdef PARALLEL
       IF(Mesh%mycoords(2).EQ.0.AND.Mesh%mycoords(3).EQ.Mesh%dims(3)-1) THEN
 #endif
-!NEC$ IVDEP
-      DO i=Mesh%IGMIN,Mesh%IGMAX
 !NEC$ SHORTLOOP
-      DO j=1,Mesh%GNUM
+        DO j=1,Mesh%GNUM
 !NEC$ SHORTLOOP
-        DO k=j+1,Mesh%GNUM
-            pvar(i,Mesh%JMIN-j,Mesh%KMAX+k,:) = pvar(i,Mesh%JMIN-j+1,Mesh%KMAX+k,:)
-            pvar(i,Mesh%JMIN-k,Mesh%KMAX+j,:) = pvar(i,Mesh%JMIN-k,Mesh%KMAX+j-1,:)
+          DO k=j+1,Mesh%GNUM
+            pvar(:,Mesh%JMIN-j,Mesh%KMAX+k,:) = pvar(:,Mesh%JMIN-j+1,Mesh%KMAX+k,:)
+            pvar(:,Mesh%JMIN-k,Mesh%KMAX+j,:) = pvar(:,Mesh%JMIN-k,Mesh%KMAX+j-1,:)
           END DO
-          pvar(i,Mesh%JMIN-j,Mesh%KMAX+j,:) = 0.5 * (pvar(i,Mesh%JMIN,Mesh%KMAX+j,:) &
-               + pvar(i,Mesh%JMIN-j,Mesh%KMAX,:))
+          pvar(:,Mesh%JMIN-j,Mesh%KMAX+j,:) = 0.5 * (pvar(:,Mesh%JMIN,Mesh%KMAX+j,:) &
+               + pvar(:,Mesh%JMIN-j,Mesh%KMAX,:))
         END DO
-      END DO
 #ifdef PARALLEL
       END IF
 #endif
@@ -664,18 +631,15 @@ CONTAINS
 #ifdef PARALLEL
       IF(Mesh%mycoords(2).EQ.Mesh%dims(2)-1.AND.Mesh%mycoords(3).EQ.Mesh%dims(3)-1) THEN
 #endif
-!NEC$ IVDEP
-      DO i=Mesh%IGMIN,Mesh%IGMAX
 !NEC$ SHORTLOOP
       DO j=1,Mesh%GNUM
 !NEC$ SHORTLOOP
         DO k=j+1,Mesh%GNUM
-            pvar(i,Mesh%JMAX+j,Mesh%KMAX+k,:) = pvar(i,Mesh%JMAX+j-1,Mesh%KMAX+k,:)
-            pvar(i,Mesh%JMAX+k,Mesh%KMAX+j,:) = pvar(i,Mesh%JMAX+k,Mesh%KMAX+j-1,:)
+            pvar(:,Mesh%JMAX+j,Mesh%KMAX+k,:) = pvar(:,Mesh%JMAX+j-1,Mesh%KMAX+k,:)
+            pvar(:,Mesh%JMAX+k,Mesh%KMAX+j,:) = pvar(:,Mesh%JMAX+k,Mesh%KMAX+j-1,:)
         END DO
-          pvar(i,Mesh%JMAX+j,Mesh%KMAX+j,:) = 0.5 * (pvar(i,Mesh%JMAX,Mesh%KMAX+j,:) &
-               + pvar(i,Mesh%JMAX+j,Mesh%KMAX,:))
-        END DO
+          pvar(:,Mesh%JMAX+j,Mesh%KMAX+j,:) = 0.5 * (pvar(:,Mesh%JMAX,Mesh%KMAX+j,:) &
+               + pvar(:,Mesh%JMAX+j,Mesh%KMAX,:))
       END DO
 #ifdef PARALLEL
       END IF
@@ -688,7 +652,7 @@ CONTAINS
       IF(Mesh%mycoords(1).EQ.0.AND.Mesh%mycoords(2).EQ.0.AND.Mesh%mycoords(3).EQ.0) THEN
 #endif
 !NEC$ SHORTLOOP
-      DO i=1,Mesh%GINUM
+      DO i=1,Mesh%GNUM
         pvar(Mesh%IMIN-i,Mesh%JMIN-i,Mesh%KMIN-i,:) = (pvar(Mesh%IMIN-i,Mesh%JMIN,Mesh%KMIN,:) &
           + pvar(Mesh%IMIN,Mesh%JMIN-i,Mesh%KMIN,:) + pvar(Mesh%IMIN,Mesh%JMIN,Mesh%KMIN-i,:))/3.0
       END DO
@@ -699,7 +663,7 @@ CONTAINS
       IF(Mesh%mycoords(1).EQ.Mesh%dims(1)-1.AND.Mesh%mycoords(2).EQ.0.AND.Mesh%mycoords(3).EQ.0) THEN
 #endif
 !NEC$ SHORTLOOP
-      DO i=1,Mesh%GINUM
+      DO i=1,Mesh%GNUM
         pvar(Mesh%IMAX+i,Mesh%JMIN-i,Mesh%KMIN-i,:) = (pvar(Mesh%IMAX+i,Mesh%JMIN,Mesh%KMIN,:) &
           + pvar(Mesh%IMAX,Mesh%JMIN-i,Mesh%KMIN,:) + pvar(Mesh%IMAX,Mesh%JMIN,Mesh%KMIN-i,:))/3.0
       END DO
@@ -710,7 +674,7 @@ CONTAINS
       IF(Mesh%mycoords(1).EQ.0.AND.Mesh%mycoords(2).EQ.Mesh%dims(2)-1.AND.Mesh%mycoords(3).EQ.0) THEN
 #endif
 !NEC$ SHORTLOOP
-      DO i=1,Mesh%GINUM
+      DO i=1,Mesh%GNUM
         pvar(Mesh%IMIN-i,Mesh%JMAX+i,Mesh%KMIN-i,:) = (pvar(Mesh%IMIN-i,Mesh%JMAX,Mesh%KMIN,:) &
           + pvar(Mesh%IMIN,Mesh%JMAX+i,Mesh%KMIN,:) + pvar(Mesh%IMIN,Mesh%JMAX,Mesh%KMIN-i,:))/3.0
       END DO
@@ -721,7 +685,7 @@ CONTAINS
       IF(Mesh%mycoords(1).EQ.Mesh%dims(1)-1.AND.Mesh%mycoords(2).EQ.Mesh%dims(2)-1.AND.Mesh%mycoords(3).EQ.0) THEN
 #endif
 !NEC$ SHORTLOOP
-      DO i=1,Mesh%GINUM
+      DO i=1,Mesh%GNUM
         pvar(Mesh%IMAX+i,Mesh%JMAX+i,Mesh%KMIN-i,:) = (pvar(Mesh%IMAX+i,Mesh%JMAX,Mesh%KMIN,:) &
           + pvar(Mesh%IMAX,Mesh%JMAX+i,Mesh%KMIN,:) + pvar(Mesh%IMAX,Mesh%JMAX,Mesh%KMIN-i,:))/3.0
       END DO
@@ -732,7 +696,7 @@ CONTAINS
       IF(Mesh%mycoords(1).EQ.0.AND.Mesh%mycoords(2).EQ.0.AND.Mesh%mycoords(3).EQ.Mesh%dims(3)-1) THEN
 #endif
 !NEC$ SHORTLOOP
-      DO i=1,Mesh%GINUM
+      DO i=1,Mesh%GNUM
         pvar(Mesh%IMIN-i,Mesh%JMIN-i,Mesh%KMAX+i,:) = (pvar(Mesh%IMIN-i,Mesh%JMIN,Mesh%KMAX,:) &
           + pvar(Mesh%IMIN,Mesh%JMIN-i,Mesh%KMAX,:) + pvar(Mesh%IMIN,Mesh%JMIN,Mesh%KMAX+i,:))/3.0
       END DO
@@ -743,7 +707,7 @@ CONTAINS
       IF(Mesh%mycoords(1).EQ.Mesh%dims(1)-1.AND.Mesh%mycoords(2).EQ.0.AND.Mesh%mycoords(3).EQ.Mesh%dims(3)-1) THEN
 #endif
 !NEC$ SHORTLOOP
-      DO i=1,Mesh%GINUM
+      DO i=1,Mesh%GNUM
         pvar(Mesh%IMAX+i,Mesh%JMIN-i,Mesh%KMAX+i,:) = (pvar(Mesh%IMAX+i,Mesh%JMIN,Mesh%KMAX,:) &
           + pvar(Mesh%IMAX,Mesh%JMIN-i,Mesh%KMAX,:) + pvar(Mesh%IMAX,Mesh%JMIN,Mesh%KMAX+i,:))/3.0
       END DO
@@ -754,7 +718,7 @@ CONTAINS
       IF(Mesh%mycoords(1).EQ.0.AND.Mesh%mycoords(2).EQ.Mesh%dims(2)-1.AND.Mesh%mycoords(3).EQ.Mesh%dims(3)-1) THEN
 #endif
 !NEC$ SHORTLOOP
-      DO i=1,Mesh%GINUM
+      DO i=1,Mesh%GNUM
         pvar(Mesh%IMIN-i,Mesh%JMAX+i,Mesh%KMAX+i,:) = (pvar(Mesh%IMIN-i,Mesh%JMAX,Mesh%KMAX,:) &
           + pvar(Mesh%IMIN,Mesh%JMAX+i,Mesh%KMAX,:) + pvar(Mesh%IMIN,Mesh%JMAX,Mesh%KMAX+i,:))/3.0
       END DO
@@ -765,7 +729,7 @@ CONTAINS
       IF(Mesh%mycoords(1).EQ.Mesh%dims(1)-1.AND.Mesh%mycoords(2).EQ.Mesh%dims(2)-1.AND.Mesh%mycoords(3).EQ.Mesh%dims(3)-1) THEN
 #endif
 !NEC$ SHORTLOOP
-      DO i=1,Mesh%GINUM
+      DO i=1,Mesh%GNUM
         pvar(Mesh%IMAX+i,Mesh%JMAX+i,Mesh%KMAX+i,:) = (pvar(Mesh%IMAX+i,Mesh%JMAX,Mesh%KMAX,:) &
           + pvar(Mesh%IMAX,Mesh%JMAX+i,Mesh%KMAX,:) + pvar(Mesh%IMAX,Mesh%JMAX,Mesh%KMAX+i,:))/3.0
       END DO
