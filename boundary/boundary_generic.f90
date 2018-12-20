@@ -753,7 +753,7 @@ CONTAINS
 #endif
     !------------------------------------------------------------------------!
     CLASS(boundary_generic),INTENT(INOUT) :: this
-    CLASS(mesh_base),       INTENT(IN)    :: Mesh
+    CLASS(mesh_base),       INTENT(INOUT) :: Mesh
     CLASS(physics_base),    INTENT(IN)    :: Physics
     LOGICAL, DIMENSION(3),  INTENT(IN)    :: periods
     !------------------------------------------------------------------------!
