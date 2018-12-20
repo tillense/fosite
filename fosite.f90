@@ -560,6 +560,72 @@ CONTAINS
     IF (this%GetRank().EQ.0) THEN
        CALL this%Info("-------------------------------------------------------------------")
        CALL this%Info("total boundary fluxes:")
+      SELECT CASE(this%Physics%VDIM)
+      CASE(1)
+        IF(this%Mesh%INUM.GT.1) THEN
+          CALL this%Info("                      west        east")
+          DO k=1,this%Physics%VNUM
+              WRITE(this%buffer,"(T2,A,T21,2(ES12.3))")TRIM(this%Physics%cvarname(k)), &
+                  bflux(k,WEST), bflux(k,EAST)
+              CALL this%Info(this%buffer)
+          END DO
+        ELSEIF(this%Mesh%JNUM.GT.1) THEN
+          CALL this%Info("                      south        north")
+          DO k=1,this%Physics%VNUM
+              WRITE(this%buffer,"(T2,A,T21,2(ES12.3))")TRIM(this%Physics%cvarname(k)), &
+                  bflux(k,SOUTH), bflux(k,NORTH)
+              CALL this%Info(this%buffer)
+          END DO
+        ELSEIF(this%Mesh%KNUM.GT.1) THEN
+          CALL this%Info("                      bottom        top")
+          DO k=1,this%Physics%VNUM
+              WRITE(this%buffer,"(T2,A,T21,2(ES12.3))")TRIM(this%Physics%cvarname(k)), &
+                  bflux(k,BOTTOM), bflux(k,TOP)
+              CALL this%Info(this%buffer)
+          END DO
+        END IF
+      CASE(2)
+        IF(this%Mesh%INUM.EQ.1) THEN
+          CALL this%Info("                      south        north")
+          DO k=1,this%Physics%VNUM
+              WRITE(this%buffer,"(T2,A,T21,2(ES12.3))")TRIM(this%Physics%cvarname(k)), &
+                  bflux(k,SOUTH), bflux(k,NORTH)
+              CALL this%Info(this%buffer)
+          END DO
+          CALL this%Info("                      bottom        top")
+          DO k=1,this%Physics%VNUM
+              WRITE(this%buffer,"(T2,A,T21,2(ES12.3))")TRIM(this%Physics%cvarname(k)), &
+                  bflux(k,BOTTOM), bflux(k,TOP)
+              CALL this%Info(this%buffer)
+          END DO
+        ELSEIF(this%Mesh%JNUM.EQ.1) THEN
+          CALL this%Info("                      west        east")
+           DO k=1,this%Physics%VNUM
+              WRITE(this%buffer,"(T2,A,T21,2(ES12.3))")TRIM(this%Physics%cvarname(k)), &
+                  bflux(k,WEST), bflux(k,EAST)
+              CALL this%Info(this%buffer)
+          END DO
+          CALL this%Info("                      bottom        top")
+          DO k=1,this%Physics%VNUM
+              WRITE(this%buffer,"(T2,A,T21,2(ES12.3))")TRIM(this%Physics%cvarname(k)), &
+                  bflux(k,BOTTOM), bflux(k,TOP)
+              CALL this%Info(this%buffer)
+          END DO
+        ELSEIF(this%Mesh%KNUM.EQ.1) THEN
+           CALL this%Info("                      west        east")
+           DO k=1,this%Physics%VNUM
+              WRITE(this%buffer,"(T2,A,T21,2(ES12.3))")TRIM(this%Physics%cvarname(k)), &
+                  bflux(k,WEST), bflux(k,EAST)
+              CALL this%Info(this%buffer)
+          END DO
+          CALL this%Info("                      south        north")
+          DO k=1,this%Physics%VNUM
+              WRITE(this%buffer,"(T2,A,T21,2(ES12.3))")TRIM(this%Physics%cvarname(k)), &
+                  bflux(k,SOUTH), bflux(k,NORTH)
+              CALL this%Info(this%buffer)
+          END DO
+        END IF
+     CASE(3)
        CALL this%Info("                      west        east        south")
        DO k=1,this%Physics%VNUM
           WRITE(this%buffer,"(T2,A,T21,3(ES12.3))")TRIM(this%Physics%cvarname(k)), &
@@ -572,6 +638,7 @@ CONTAINS
                bflux(k,NORTH), bflux(k,BOTTOM), bflux(k,TOP)
           CALL this%Info(this%buffer)
        END DO
+      END SELECT
     END IF
   END SUBROUTINE PrintBoundaryFluxes
 

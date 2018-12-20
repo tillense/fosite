@@ -214,6 +214,7 @@ CONTAINS
     DO m=1,this%m
 !NEC$ SHORTLOOP
       DO l=1,Physics%VNUM
+      IF(Mesh%INUM.GT.1) THEN
         ! western and eastern
 !NEC$ IVDEP
         DO k=Mesh%KMIN,Mesh%KMAX
@@ -224,7 +225,12 @@ CONTAINS
              Fluxes%bxflux(j,k,2,l) = Fluxes%bxflux(j,k,2,l) &
                                - dt*this%b_high(m)*this%coeff(m)%p%data4d(Mesh%IMAX+Mesh%IP1,j,k,l)
           END DO
+        END DO
+      END IF
         ! southern and northern
+      IF(Mesh%JNUM.GT.1) THEN
+!NEC$ IVDEP
+        DO k=Mesh%KMIN,Mesh%KMAX
 !NEC$ IVDEP
           DO i=Mesh%IMIN,Mesh%IMAX
             Fluxes%byflux(k,i,1,l) = Fluxes%byflux(k,i,1,l) &
@@ -233,6 +239,9 @@ CONTAINS
                               - dt*this%b_high(m)*this%coeff(m)%p%data4d(i,Mesh%JMAX+Mesh%JP1,k,l)
           END DO
         END DO
+      END IF
+        ! bottom and top
+      IF(Mesh%KNUM.GT.1) THEN
 !NEC$ IVDEP
         DO j=Mesh%JMIN,Mesh%JMAX
 !NEC$ IVDEP
@@ -243,6 +252,7 @@ CONTAINS
                               - dt*this%b_high(m)*this%coeff(m)%p%data4d(i,j,Mesh%KMAX+Mesh%KP1,l)
           END DO
         END DO
+      END IF
       END DO
     END DO
 

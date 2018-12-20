@@ -229,6 +229,7 @@ CONTAINS
         END DO
       END DO
 
+    IF(Mesh%INUM.GT.1) THEN
       ! western and eastern boundary fluxes
 !NEC$ IVDEP
       DO k=Mesh%KMIN,Mesh%KMAX
@@ -241,7 +242,8 @@ CONTAINS
                Fluxes%bxflux(j,k,2,l),rhs%data4d(Mesh%IMAX+Mesh%IP1,j,k,l))
         END DO
       END DO
-
+    END IF
+    IF(Mesh%JNUM.GT.1) THEN
       ! southern and northern boundary fluxes
 !NEC$ IVDEP
       DO i=Mesh%IMIN,Mesh%IMAX
@@ -254,7 +256,9 @@ CONTAINS
                Fluxes%byflux(k,i,2,l),rhs%data4d(i,Mesh%JMAX+Mesh%Jp1,k,l))
         END DO
       END DO
-
+    END IF
+    
+    IF(Mesh%KNUM.GT.1) THEN
       ! bottom and top boundary fluxes
 !NEC$ IVDEP
       DO j=Mesh%JMIN,Mesh%JMAX
@@ -267,6 +271,7 @@ CONTAINS
                Fluxes%bzflux(i,j,2,l),rhs%data4d(i,j,Mesh%KMAX+Mesh%Kp1,l))
         END DO
       END DO
+    END IF
     END DO
   END SUBROUTINE ComputeCVar_modeuler
 
