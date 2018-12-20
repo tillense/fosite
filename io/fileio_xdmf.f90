@@ -32,22 +32,6 @@
 !! The xdmf file format [1] carries light data in a xml file and can store
 !! heavy data in binary or hdf5 files. This implementation stores heavy data
 !! in binary files (See fileio_binary.f90).
-!! \todo check if fortran streams are not possible at nec aurora
-!! XDMF file I/O needs Fortran Stream IO (F2003 standard). The exception are
-!! NEC SX Vector machines. Here can the unformatted output be used, if the
-!! record control parts are switched off. To switch it off, choose a high
-!! unit number, e.g. 5555, and export the following variable in the batch
-!! script:
-!!
-!! export F_NORCW=5555
-!!
-!! If it is a MPI calculation, you have addionally to define
-!!
-!! export MPIEXPORT="F_NORCW"
-!!
-!! Otherwise the variable will not be exported to the eviornment of the
-!! fosite runtime. Now choose this unit number for the XDMF output. Set the
-!! key "/datafile/unit" to 5555.
 !!
 !! [1]: http://www.xdmf.org/index.php/XDMF_Model_and_Format
 !!
@@ -114,8 +98,6 @@ CONTAINS
     !------------------------------------------------------------------------!
     !\attention interface changed, however "xdmf" is not passed anymore
     CALL this%InitFileIO_binary(Mesh,Physics,Timedisc,Sources,config,IO)
-!    CALL InitFileIO_binary(this,Mesh,Physics,IO,fmt,fpath,filename,stoptime,dtwall,&
-!       count,fcycles,unit,"xdmf")
 
     CALL this%GetEndianness(this%endian_xdmf, '"Little"', '"Big"')
     IF(this%realsize.GT.8) &
@@ -123,16 +105,6 @@ CONTAINS
 
     WRITE(this%realfmt,'(A,I1,A)',IOSTAT=err) '"',this%realsize,'"'
 
-#ifndef PARALLEL
-#if defined(NECSXAURORA)
-    CALL this%Warning("InitFileIO_xdmf","On NEC SX the Environment variable " &
-      // "'F_NORCW' and")
-    CALL this%Warning("InitFileIO_xdmf","the key 'datafile/unit' have to " &
-      // "be set to the same (high) unit number (e.g. 5555).")
-    CALL this%Warning("InitFileIO_xdmf","Otherwise there will be record " &
-      // "format indentifier in the xmf file.")
-#endif
-#endif
     CALL this%WriteXMF(Mesh,IO)
 
   END SUBROUTINE InitFileIO_xdmf
