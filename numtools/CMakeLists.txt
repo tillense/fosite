@@ -1,0 +1,9 @@
+add_library(numtools 
+  factors.f90
+  functions.f90
+  roots.f90
+  fftw.f90
+  integration.f90
+  solutions.f90
+  rngs.f90
+)

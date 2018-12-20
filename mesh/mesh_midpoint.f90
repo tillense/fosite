@@ -1,0 +1,430 @@
+!#############################################################################
+!#                                                                           #
+!# fosite - 2D hydrodynamical simulation program                             #
+!# module: mesh_midpoint.f90                                                 #
+!#                                                                           #
+!# Copyright (C) 2006-2012                                                   #
+!# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
+!#                                                                           #
+!# This program is free software; you can redistribute it and/or modify      #
+!# it under the terms of the GNU General Public License as published by      #
+!# the Free Software Foundation; either version 2 of the License, or (at     #
+!# your option) any later version.                                           #
+!#                                                                           #
+!# This program is distributed in the hope that it will be useful, but       #
+!# WITHOUT ANY WARRANTY; without even the implied warranty of                #
+!# MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE, GOOD TITLE or        #
+!# NON INFRINGEMENT.  See the GNU General Public License for more            #
+!# details.                                                                  #
+!#                                                                           #
+!# You should have received a copy of the GNU General Public License         #
+!# along with this program; if not, write to the Free Software               #
+!# Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.                 #
+!#                                                                           #
+!#############################################################################
+
+!----------------------------------------------------------------------------!
+!> \author Tobias Illenseer
+!! \author Manuel Jung
+!!
+!! \brief mesh module for midpoint quadrature rule
+!!
+!! \extends mesh_common
+!! \ingroup mesh
+!----------------------------------------------------------------------------!
+MODULE mesh_midpoint_mod
+!  USE mesh_common, InitMesh_common => InitMesh
+!  USE boundary_common, ONLY : EAST,WEST,NORTH,SOUTH
+  USE mesh_base_mod
+  USE common_dict
+  IMPLICIT NONE
+  !--------------------------------------------------------------------------!
+  TYPE, EXTENDS(mesh_base) :: mesh_midpoint
+    PRIVATE
+  CONTAINS
+    PRIVATE
+!      PROCEDURE :: VectorDivergence2D_1
+!      PROCEDURE :: VectorDivergence2D_2
+!      PROCEDURE :: TensorDivergence2D_1
+!      PROCEDURE :: TensorDivergence2D_2
+!      PROCEDURE :: TensorDivergence3D
+      PROCEDURE, PUBLIC :: InitMesh_midpoint
+      PROCEDURE, PUBLIC :: Finalize
+  END TYPE mesh_midpoint
+  ! exclude interface block from doxygen processing
+  !> \cond InterfaceBlock
+  !> \endcond
+  !--------------------------------------------------------------------------!
+  PRIVATE
+  CHARACTER(LEN=32), PARAMETER :: mesh_name = "midpoint"
+  !--------------------------------------------------------------------------!
+  PUBLIC :: &
+       ! constants
+#ifdef PARALLEL
+       DEFAULT_MPI_REAL, &
+#endif
+       ! types
+       mesh_midpoint
+  !--------------------------------------------------------------------------!
+
+CONTAINS
+
+  SUBROUTINE InitMesh_midpoint(this,config,IO)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(mesh_midpoint),INTENT(INOUT) :: this
+    TYPE(Dict_TYP),POINTER             :: config,IO
+    !------------------------------------------------------------------------!
+    INTEGER                                       :: err
+    !------------------------------------------------------------------------!
+
+    ! basic mesh and geometry initialization
+    CALL this%InitMesh(config, IO, MIDPOINT, mesh_name)
+
+    ! allocate memory for pointers that are specific for midpoint fluxes
+    ALLOCATE( &
+           this%dAx(this%IGMIN:this%IGMAX,this%JGMIN:this%JGMAX,this%KGMIN:this%KGMAX,2), &
+           this%dAy(this%IGMIN:this%IGMAX,this%JGMIN:this%JGMAX,this%KGMIN:this%KGMAX,2), &
+           this%dAz(this%IGMIN:this%IGMAX,this%JGMIN:this%JGMAX,this%KGMIN:this%KGMAX,2), &
+           this%dAxdydz(this%IGMIN:this%IGMAX,this%JGMIN:this%JGMAX,this%KGMIN:this%KGMAX,2), &
+           this%dAydzdx(this%IGMIN:this%IGMAX,this%JGMIN:this%JGMAX,this%KGMIN:this%KGMAX,2), &
+           this%dAzdxdy(this%IGMIN:this%IGMAX,this%JGMIN:this%JGMAX,this%KGMIN:this%KGMAX,2), &
+             STAT=err)
+    IF (err.NE.0) THEN
+       CALL this%Error("InitMesh_midpoint", "Unable to allocate memory.")
+    END IF
+
+    ! surface elements divided by dxdy or dydz or dzdx
+    ! perpendicular to x-direction
+    this%dAxdydz(:,:,:,1:2) = this%hy%faces(:,:,:,1:2)*this%hz%faces(:,:,:,1:2)
+    ! perpendicular to y-direction
+    this%dAydzdx(:,:,:,1:2) = this%hz%faces(:,:,:,3:4)*this%hx%faces(:,:,:,3:4)
+    ! perpendicular to z-direction
+    this%dAzdxdy(:,:,:,1:2) = this%hx%faces(:,:,:,5:6)*this%hy%faces(:,:,:,5:6)
+
+    ! surface elements
+    this%dAx(:,:,:,:) = this%dAxdydz(:,:,:,:)*this%dy*this%dz    ! perpendicular to x-direction
+    this%dAy(:,:,:,:) = this%dAydzdx(:,:,:,:)*this%dz*this%dx    ! perpendicular to y-direction
+    this%dAz(:,:,:,:) = this%dAzdxdy(:,:,:,:)*this%dx*this%dy    ! perpendicular to z-direction
+
+    ! volume elements = hx*hy*hz*dx*dy*dz
+    this%volume(:,:,:) = this%sqrtg%center(:,:,:)*this%dx*this%dy*this%dz
+
+    ! inverse volume elements multiplied by dxdy or dydz or dzdx
+    this%dxdydV(:,:,:) = this%dx*this%dy/(this%volume(:,:,:)+TINY(this%dx))
+    this%dydzdV(:,:,:) = this%dy*this%dz/(this%volume(:,:,:)+TINY(this%dy))
+    this%dzdxdV(:,:,:) = this%dz*this%dx/(this%volume(:,:,:)+TINY(this%dz))
+
+    ! commutator coefficients (geometric center values)
+    this%cyxy%center(:,:,:) = 0.5*(this%hz%faces(:,:,:,2)+this%hz%faces(:,:,:,1)) &
+         * (this%hy%faces(:,:,:,2)-this%hy%faces(:,:,:,1)) * this%dydzdV(:,:,:)
+    this%cyzy%center(:,:,:) = 0.5*(this%hx%faces(:,:,:,6)+this%hx%faces(:,:,:,5)) &
+         * (this%hy%faces(:,:,:,6)-this%hy%faces(:,:,:,5)) * this%dxdydV(:,:,:)
+    this%cxyx%center(:,:,:) = 0.5*(this%hz%faces(:,:,:,4)+this%hz%faces(:,:,:,3)) &
+         * (this%hx%faces(:,:,:,4)-this%hx%faces(:,:,:,3)) * this%dzdxdV(:,:,:)
+    this%cxzx%center(:,:,:) = 0.5*(this%hy%faces(:,:,:,6)+this%hy%faces(:,:,:,5)) &
+         * (this%hx%faces(:,:,:,6)-this%hx%faces(:,:,:,5)) * this%dxdydV(:,:,:)
+    this%czxz%center(:,:,:) = 0.5*(this%hy%faces(:,:,:,2)+this%hy%faces(:,:,:,1)) &
+         * (this%hz%faces(:,:,:,2)-this%hz%faces(:,:,:,1)) * this%dydzdV(:,:,:)
+    this%czyz%center(:,:,:) = 0.5*(this%hx%faces(:,:,:,4)+this%hx%faces(:,:,:,3)) &
+         * (this%hz%faces(:,:,:,4)-this%hz%faces(:,:,:,3)) * this%dzdxdV(:,:,:)
+
+    ! set bary center values to geometric center values
+    this%cyxy%bcenter(:,:,:) = this%cyxy%center(:,:,:)
+    this%cyzy%bcenter(:,:,:) = this%cyzy%center(:,:,:)
+    this%cxyx%bcenter(:,:,:) = this%cxyx%center(:,:,:)
+    this%cxzx%bcenter(:,:,:) = this%cxzx%center(:,:,:)
+    this%czxz%bcenter(:,:,:) = this%czxz%center(:,:,:)
+    this%czyz%bcenter(:,:,:) = this%czyz%center(:,:,:)
+
+    ! center line elements
+    this%dlx(:,:,:) = this%hx%center(:,:,:)*this%dx
+    this%dly(:,:,:) = this%hy%center(:,:,:)*this%dy
+    this%dlz(:,:,:) = this%hz%center(:,:,:)*this%dz
+  END SUBROUTINE InitMesh_midpoint
+
+
+  ! computes the cell centered curvilinear vector divergence
+  ! for cell centered 2D vector components vx,vy on the whole mesh
+  ! except for the outermost boundary cells
+!  PURE SUBROUTINE VectorDivergence2D_1(this,vx,vy,divv)
+!    IMPLICIT NONE
+!    !------------------------------------------------------------------------!
+!    CLASS(mesh_midpoint),INTENT(IN) :: this
+!    REAL, DIMENSION(this%IGMIN:this%IGMAX,this%JGMIN:this%JGMAX) &
+!                      :: vx,vy,divv
+!    !------------------------------------------------------------------------!
+!    INTEGER           :: i,j
+!    !------------------------------------------------------------------------!
+!    INTENT(IN)        :: vx,vy
+!    INTENT(OUT)       :: divv
+!    !------------------------------------------------------------------------!
+!    ! we simply use the 3D tensor divergence and set the commutator coefficients
+!    ! and the off-diagonal tensor components to 0
+!!CDIR NODEP
+!    DO j=this%JGMIN+1,this%JGMAX-1
+!!CDIR NODEP
+!      DO i=this%IGMIN+1,this%IGMAX-1
+!!CDIR IEXPAND
+!         divv(i,j) = Divergence3D(this%dAxdy(i,j,1),this%dAxdy(i,j,2), &
+!                                 this%dAydx(i,j,1),this%dAydx(i,j,2), &
+!                                 this%dxdV(i,j),this%dydV(i,j), &
+!                                 0.0,0.0,0.0, & ! no commutator coefficients
+!                                 0.5*(vx(i-1,j)+vx(i,j)),0.5*(vx(i+1,j)+vx(i,j)), &
+!                                 0.5*(vy(i,j-1)+vy(i,j)),0.5*(vy(i,j+1)+vy(i,j)), &
+!                                 0.0,0.0,0.0)   ! no off-diagonal tensor components
+!      END DO
+!    END DO
+!  END SUBROUTINE VectorDivergence2D_1
+!
+!
+!  ! computes the cell centered curvilinear vector divergence
+!  ! for 2D vector v given on the 4 face centered positions
+!  PURE SUBROUTINE VectorDivergence2D_2(this,v,divv)
+!    IMPLICIT NONE
+!    !------------------------------------------------------------------------!
+!    CLASS(mesh_midpoint),INTENT(IN) :: this
+!    REAL, DIMENSION(this%IGMIN:this%IGMAX,this%JGMIN:this%JGMAX,4,2) &
+!                      :: v
+!    REAL, DIMENSION(this%IGMIN:this%IGMAX,this%JGMIN:this%JGMAX) &
+!                      :: divv
+!    !------------------------------------------------------------------------!
+!    INTEGER           :: i,j
+!    !------------------------------------------------------------------------!
+!    INTENT(IN)        :: v
+!    INTENT(OUT)       :: divv
+!    !------------------------------------------------------------------------!
+!    ! we simply use the 3D tensor divergence and set all commutator coefficients
+!    ! and the tensor components Tyx, Tyy, Tzz to zero
+!!CDIR NODEP
+!    DO j=this%JGMIN,this%JGMAX
+!!CDIR NODEP
+!      DO i=this%IGMIN,this%IGMAX
+!!CDIR IEXPAND
+!         divv(i,j) = Divergence3D(this%dAxdy(i,j,1),this%dAxdy(i,j,2), &
+!                                 this%dAydx(i,j,1),this%dAydx(i,j,2), &
+!                                 this%dxdV(i,j),this%dydV(i,j), &
+!                                 0.0,0.0,0.0, & ! vanishing commutator coefficients
+!                                 v(i,j,WEST,1),v(i,j,EAST,1), &
+!                                 v(i,j,SOUTH,2),v(i,j,NORTH,2), &
+!                                 0.0,0.0,0.0)   ! vanishing tensor components
+!      END DO
+!    END DO
+!  END SUBROUTINE VectorDivergence2D_2
+!
+!
+!  ! computes the cell centered curvilinear tensor divergence on the whole mesh
+!  ! except for the outermost boundary cells
+!  ! input: 2D rank 2 tensor T with components Txx,Txy,Tyx,Tyy given at cell centers
+!  ! output: 2D vector vector components divTx,divTy
+!  PURE SUBROUTINE TensorDivergence2D_1(this,Txx,Txy,Tyx,Tyy,divTx,divTy)
+!    IMPLICIT NONE
+!    !------------------------------------------------------------------------!
+!    CLASS(mesh_midpoint),INTENT(IN)   :: this
+!    REAL, DIMENSION(this%IGMIN:this%IGMAX,this%JGMIN:this%JGMAX) &
+!                      :: Txx,Txy,Tyx,Tyy,divTx,divTy
+!    !------------------------------------------------------------------------!
+!    INTEGER           :: i,j
+!    !------------------------------------------------------------------------!
+!    INTENT(IN)        :: Txx,Txy,Tyx,Tyy
+!    INTENT(OUT)       :: divTx,divTy
+!    !------------------------------------------------------------------------!
+!    ! we simply use the 3D tensor divergence and set the commutator coefficient
+!    ! and the tensor component related to the z-direction to zero
+!!CDIR NODEP
+!    DO j=this%JGMIN+1,this%JGMAX-1
+!!CDIR NODEP
+!      DO i=this%IGMIN+1,this%IGMAX-1
+!         ! x component of tensor divergence
+!!CDIR IEXPAND
+!         divTx(i,j) = Divergence3D(this%dAxdy(i,j,1),this%dAxdy(i,j,2), &
+!                                 this%dAydx(i,j,1),this%dAydx(i,j,2), &
+!                                 this%dxdV(i,j),this%dydV(i,j), &
+!                                 this%cxyx%center(i,j),this%cyxy%center(i,j), &
+!                                 0.0, & ! czxz = 0 because of 2D
+!                                 0.5*(Txx(i-1,j)+Txx(i,j)),0.5*(Txx(i+1,j)+Txx(i,j)), &
+!                                 0.5*(Txy(i,j-1)+Txy(i,j)),0.5*(Txy(i,j+1)+Txy(i,j)), &
+!                                 Tyx(i,j),Tyy(i,j),0.0) ! Tzz = 0 because of 2D
+!         ! y component of tensor divergence
+!!CDIR IEXPAND
+!         divTy(i,j) = Divergence3D(this%dAxdy(i,j,1),this%dAxdy(i,j,2), &
+!                                 this%dAydx(i,j,1),this%dAydx(i,j,2), &
+!                                 this%dxdV(i,j),this%dydV(i,j), &
+!                                 -this%cxyx%center(i,j),-this%cyxy%center(i,j), &
+!                                 0.0, & ! czyz = 0 because of 2D
+!                                 0.5*(Tyx(i-1,j)+Tyx(i,j)),0.5*(Tyx(i+1,j)+Tyx(i,j)), &
+!                                 0.5*(Tyy(i,j-1)+Tyy(i,j)),0.5*(Tyy(i,j+1)+Tyy(i,j)), &
+!                                 Txx(i,j),Txy(i,j),0.0) ! Tzz = 0 because of 2D
+!      END DO
+!    END DO
+!  END SUBROUTINE TensorDivergence2D_1
+!
+!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!! ATTENTION: TensorDivergence2D_2 is untested, use with care
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!  ! computes the cell centered curvilinear tensor divergence
+!  ! input: 2D rank 2 tensor T given on the 4 face centered positions
+!  ! output: 2D vector divT
+!  PURE SUBROUTINE TensorDivergence2D_2(this,T,divT)
+!    IMPLICIT NONE
+!    !------------------------------------------------------------------------!
+!    CLASS(mesh_midpoint),INTENT(IN) :: this
+!    REAL, DIMENSION(this%IGMIN:this%IGMAX,this%JGMIN:this%JGMAX,4,2,2) :: T
+!    REAL, DIMENSION(this%IGMIN:this%IGMAX,this%JGMIN:this%JGMAX,2)   :: divT
+!    !------------------------------------------------------------------------!
+!    REAL              :: Txx,Txy,Tyx,Tyy
+!    INTEGER           :: i,j
+!    !------------------------------------------------------------------------!
+!    INTENT(IN)        :: T
+!    INTENT(OUT)       :: divT
+!    !------------------------------------------------------------------------!
+!    ! we simply use the 3D tensor divergence and set the commutator coefficient
+!    ! and the tensor component related to the z-direction to zero
+!!CDIR NODEP
+!    DO j=this%JGMIN,this%JGMAX
+!!CDIR NODEP
+!      DO i=this%IGMIN,this%IGMAX
+!         ! compute mean value of all four face values to obtain cell centered values
+!         Txx = 0.25*SUM(T(i,j,:,1,1))
+!         Txy = 0.25*SUM(T(i,j,:,1,2))
+!         Tyx = 0.25*SUM(T(i,j,:,2,1))
+!         Tyy = 0.25*SUM(T(i,j,:,2,2))
+!         ! x component of tensor divergence
+!!CDIR IEXPAND
+!         divT(i,j,1) = Divergence3D(this%dAxdy(i,j,1),this%dAxdy(i,j,2), &
+!                                 this%dAydx(i,j,1),this%dAydx(i,j,2), &
+!                                 this%dxdV(i,j),this%dydV(i,j), &
+!                                 this%cxyx%center(i,j),this%cyxy%center(i,j), &
+!                                 0.0, & ! czxz = 0 because of 2D
+!                                 T(i,j,WEST,1,1),T(i,j,EAST,1,1), &
+!                                 T(i,j,SOUTH,1,2),T(i,j,NORTH,1,2), &
+!                                 Tyx,Tyy,0.0) ! Tzz = 0 because of 2D
+!         ! y component of tensor divergence
+!!CDIR IEXPAND
+!         divT(i,j,2) = Divergence3D(this%dAxdy(i,j,1),this%dAxdy(i,j,2), &
+!                                 this%dAydx(i,j,1),this%dAydx(i,j,2), &
+!                                 this%dxdV(i,j),this%dydV(i,j), &
+!                                 -this%cxyx%center(i,j),-this%cyxy%center(i,j), &
+!                                 0.0, & ! czyz = 0 because of 2D
+!                                 T(i,j,WEST,2,1),T(i,j,EAST,2,1), &
+!                                 T(i,j,SOUTH,2,2),T(i,j,NORTH,2,2), &
+!                                 Txx,Txy,0.0) ! Tzz = 0 because of 2D
+!      END DO
+!    END DO
+!  END SUBROUTINE TensorDivergence2D_2
+
+
+  ! computes the cell centered tensor divergence in curvilinear coordinates with
+  ! symmetry along the z-direction on the whole mesh except for the outermost
+  ! boundary cells
+  ! input: 3D rank 2 tensor T with components Txx,Txy,Txz,Tyx,Tyy,Tyz,Tzx,Tzy,Tzz
+  !        given at cell centers
+  ! output: 3D vector vector components divTx,divTy,divTz
+!  PURE SUBROUTINE TensorDivergence3D(this,Txx,Txy,Txz,Tyx,Tyy,Tyz,Tzx,Tzy,Tzz, &
+!                                     divTx,divTy,divTz)
+!    IMPLICIT NONE
+!    !------------------------------------------------------------------------!
+!    CLASS(mesh_midpoint), INTENT(IN) :: this
+!    REAL, DIMENSION(this%IGMIN:this%IGMAX,this%JGMIN:this%JGMAX,this%KGMIN:this%KGMAX) &
+!                      :: Txx,Txy,Txz,Tyx,Tyy,Tyz,Tzx,Tzy,Tzz,divTx,divTy,divTz
+!    !------------------------------------------------------------------------!
+!    INTEGER           :: i,j,k
+!    !------------------------------------------------------------------------!
+!    INTENT(IN)        :: Txx,Txy,Txz,Tyx,Tyy,Tyz,Tzx,Tzy,Tzz
+!    INTENT(OUT)       :: divTx,divTy,divTz
+!    !------------------------------------------------------------------------!
+!!CDIR NODEP
+!    DO k=this%KGMIN+1,this%KGMAX-1
+!!CDIR NODEP
+!       DO j=this%JGMIN+1,this%JGMAX-1
+!!CDIR NODEP
+!          DO i=this%IGMIN+1,this%IGMAX-1
+!             ! x component of tensor divergence
+!!CDIR IEXPAND
+!             divTx(i,j,k) = Divergence3D(this%dAxdy(i,j,k,1),this%dAxdy(i,j,k,2),                                 &
+!                                         this%dAydx(i,j,k,1),this%dAydx(i,j,k,2),                                 &
+!                                         this%dxdV(i,j,k),this%dydV(i,j,k),                                       &
+!                                         this%cxyx%center(i,j,k),this%cyxy%center(i,j,k),this%czxz%center(i,j,k), &
+!                                         0.5*(Txx(i-1,j,k)+Txx(i,j,k)),0.5*(Txx(i+1,j,k)+Txx(i,j,k)),             &
+!                                         0.5*(Txy(i,j-1,k)+Txy(i,j,k)),0.5*(Txy(i,j+1,k)+Txy(i,j,k)),             &
+!                                         Tyx(i,j,k),Tyy(i,j,k),Tzz(i,j,k))
+!             ! y component of tensor divergence
+!!CDIR IEXPAND
+!             divTy(i,j,k) = Divergence3D(this%dAxdy(i,j,k,1),this%dAxdy(i,j,k,2),                                  &
+!                                         this%dAydx(i,j,k,1),this%dAydx(i,j,k,2),                                  &
+!                                         this%dxdV(i,j,k),this%dydV(i,j,k),                                        &
+!                                        -this%cxyx%center(i,j,k),-this%cyxy%center(i,j,k),this%czyz%center(i,j,k), &
+!                                         0.5*(Tyx(i-1,j,k)+Tyx(i,j,k)),0.5*(Tyx(i+1,j,k)+Tyx(i,j,k)),              &
+!                                         0.5*(Tyy(i,j-1,k)+Tyy(i,j,k)),0.5*(Tyy(i,j+1,k)+Tyy(i,j,k)),              &
+!                                         Txx(i,j,k),Txy(i,j,k),Tzz(i,j,k))
+!             ! z component of tensor divergence
+!!CDIR IEXPAND
+!             divTz(i,j,k) = Divergence3D(this%dAxdy(i,j,k,1),this%dAxdy(i,j,k,2),                     &
+!                                         this%dAydx(i,j,k,1),this%dAydx(i,j,k,2),                     &
+!                                         this%dxdV(i,j,k),this%dydV(i,j,k),                           &
+!                                         this%czyz%center(i,j,k),0.0,this%czxz%center(i,j,k),         &
+!                                         0.5*(Tzx(i-1,j)+Tzx(i,j,k)),0.5*(Tzx(i+1,j,k)+Tzx(i,j,k)),   &
+!                                         0.5*(Tzy(i,j-1,k)+Tzy(i,j,k)),0.5*(Tzy(i,j+1,k)+Tzy(i,j,k)), &
+!                                         Tyz(i,j,k),0.0,-Txz(i,j,k))
+!          END DO
+!       END DO
+!    END DO
+!  END SUBROUTINE TensorDivergence3D
+!
+!
+!  ! the elemental workhorse: basic function for computing 2D/3D vector or tensor divergences
+!  ! works with planar geometry as well (czxz = 0)
+!  ! input: area and volume elements (multiplied and devided by dx or dy,
+!  !        commutator coefficients, tensor components
+!  ! output: vector divergence (scalar) or x-component of the tensor divergence
+!  !         call this function with different input to obtain other components
+!  ELEMENTAL FUNCTION Divergence3D(dAxdyWest,dAxdyEast,dAydxSouth,dAydxNorth, &
+!                                  dxdV,dydV,cxyx,cyxy,czxz, &
+!                                  TxxWest,TxxEast,TxySouth,TxyNorth, &
+!                                  TyxCent,TyyCent,TzzCent) RESULT(div)
+!    IMPLICIT NONE
+!    !------------------------------------------------------------------------!
+!    REAL,INTENT(IN) :: dAxdyWest,dAxdyEast, &           ! surface elements
+!                       dAydxSouth,dAydxNorth, &         !   dAx/dy, dAy/dx
+!                       dxdV,dydV, &                     ! dx/dV and dy/dV
+!                       cxyx,cyxy,czxz, &                ! commutator coeffs
+!                       TxxEast,TxxWest, &               ! tensor components
+!                       TxyNorth,TxySouth, &             !   on cell faces
+!                       TyxCent,TyyCent,TzzCent          !   central
+!                       ! to compute the y-component of the tensor divergence,
+!                       ! one has to modify the input according to
+!                       !   Txx   <->   Tyx
+!                       !   Txy   <->   Tyy
+!                       !   cxyx   ->   -cxyx
+!                       !   cyxy   ->   -cyxy
+!                       !   czxz   ->    czyz
+!                       ! to compute the z-component of the tensor divergence,
+!                       ! one has to modify the input according to
+!                       !   Txx    ->   Tzx
+!                       !   Txy    ->   Tzy
+!                       !   Tyx    ->   Tyz
+!                       !   Tyy    ->   0
+!                       !   Tzz    ->  -Txz
+!                       !   cxyx   ->   czyz
+!                       !   cyxy   ->   0
+!    !------------------------------------------------------------------------!
+!    REAL            :: div
+!    !------------------------------------------------------------------------!
+!    div = dydV*(dAxdyEast*TxxEast-dAxdyWest*TxxWest) &
+!        + dxdV*(dAydxNorth*TxyNorth-dAydxSouth*TxySouth) &
+!        + cxyx*TyxCent - cyxy*TyyCent - czxz*TzzCent
+!  END FUNCTION Divergence3D
+
+
+  SUBROUTINE Finalize(this)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(mesh_midpoint),INTENT(INOUT) :: this
+    !------------------------------------------------------------------------!
+    DEALLOCATE(this%dAx,this%dAy,this%dAz,this%dAxdydz,this%dAydzdx,this%dAzdxdy)
+    ! call basic mesh deconstructor
+    CALL this%mesh_base%Finalize()
+  END SUBROUTINE Finalize
+
+END MODULE mesh_midpoint_mod

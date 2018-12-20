@@ -1,0 +1,50 @@
+CONFIGURATION & COMPILATION
+
+Although all source files have the extension .f90 the code uses some
+FORTRAN 95 extensions and therefore only compiles with a Fortran 95
+compiler.
+To customize the build process enter the directory with the source code
+and run
+
+   ./configure
+
+For a list of command line arguments of the configure script type
+
+   ./configure --help
+
+The configure-script should find and set the variables FC, FCFLAGS and LDFLAGS.
+FC should point to your Fortran 95 compiler and FCFLAGS should contain some
+appropriate command line arguments for the compile command.
+These variables can be manually set by typing
+
+   ./configure FC=<your compiler>
+
+<your compiler> can be sxf90, ifort, g95, mpif90, gfortran, etc.
+Then type
+
+   make
+
+at the command line to build the fosite library and all example simulations
+in the examples subdirectory. These are just executable programs linked against
+the fosite library.
+If one enters
+
+   make check
+
+an automatic test suite is run, which can take quite a while.
+More information about fosite, e.g. parallel builds, customizations and much more
+can be found in the
+
+   doc/
+
+directory. A good starting point is the mainpage.dox text file. If doxygen is
+installed, a full fledged source documentation can be generated with the help
+of the doc/Makefile.
+
+The code is distributed under the GNU General Public License - see the
+accompanying LICENSE file for more details. So feel free to experiment
+with this.
+
+Copyright (C) 2006-2014
+Tobias Illenseer <tillense@astrophysik.uni-kiel.de>
+Manuel Jung <mjung@astrophysik.uni-kiel.de>

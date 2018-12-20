@@ -1,0 +1,258 @@
+/*! \page coding_guidelines Fosite Coding Guidelines
+Fosite Coding Guidelines
+========================
+version 1.0, 2011-01-14 
+
+Contents
+
+	1. General advices
+	2. Directory structure, module and program files
+	3. Data types, variables and constants
+	4. Predefined module functions and subroutines
+	5. User defined module functions and subroutines
+	6. Exceptions and deviations from the guidelines
+	7. References
+
+
+1. General advices
+
+The Fosite code follows the guidelines of Decyk and Gardner for object
+oriented programming in Fortran 90/95 described in [1]. It is strongly
+recommended to avoid any language features defined in the newer Fortran
+2003 standard, because most of the compilers which are currently available
+do not support all these features. On the other hand Fosite makes full
+use of the capabilities of Fortran 90/95 including modules, pointers,
+function overloading, pure and elemental functions and subroutines.
+Thus any compiler with limited support for these language features will
+fail compiling Fosite.
+
+
+2. Directory structure, module and program files
+
+There is one Fortran source code file (f90-file) in the root directory
+of the code called 'fosite.f90' which contains the API and provides the
+user with the binary library 'fosite.a' (or the dynamic library 'fosite.so')
+and the module file 'fosite.mod'. It depends on Fortran modules in the
+subdirectories. Since each simulation is an executable program by its own
+the user has to write a Fortran program similar to those given in the
+'examples' subdirectory and link it against the fosite library. So far all
+examples follow the naming scheme 'init_XXXX.f90' where 'XXXX' should be
+a short unambiguous name.
+
+In addition to the 'examples' directory there are several other subdirectories 
+containing a bunch of modules each of them addressed to a MAJOR task of the
+numerical simulation. There are currently 9 source code subdirectories:
+
+common:   basic data types and initialization methods (see Section 3.)
+numtools: some small numerical tools like root finding, numerical integration
+          and mathematical functions (see Section 6.)
+mesh:     geometry selection and mesh setup
+physics:  advection problems, physical constants and units
+fluxes:   numerical fluxes and reconstruction process
+boundary: boundary conditions of the advection problem
+sources:  viscous, gravitational and other source terms
+timedisc: ODE solvers to advance the solution in time
+io:       data in- and output
+
+All module files should be lower case. There are few exceptions which will
+probably be removed in future versions of Fosite (see Section 6.). The
+modules are grouped into module families with relations to one another. To
+highlight these relations it is necessary to follow a rather strict naming
+scheme:
+  (a) The name of every module (the string after the MODULE statement) must
+      be identical to the file name of the f90-file (without the .f90);
+      e.g. if the file name is 'geometry_polar.f90' the module is called
+      'geometry_polar'.
+  (b) All modules in the 'common' subdirectory (see Section 3.) are labeled
+      'XXXX_common' with 'XXXX' being a short unambiguous name;
+      e.g. the basic module for all geometry modules is called
+      'geometry_common'. The only exception to this naming convention is the
+      module 'common_types' which is the basic module for all other modules
+      in the 'common' subdirectory.
+  (c) In the other subdirectories (except for 'numtools', see Section 6.)
+      there are basically two classes of modules: generic modules labeled
+      'XXXX_generic' and specific modules labeled 'XXXX_YYYY'. The string
+      'XXXX' must be identical to the related basic module in the 'common'
+      subdirectory whereas 'YYYY' should be a short unambiguous name for
+      the specific task;
+      e.g. the generic geometry module is called 'geometry_generic' and the
+      specific module for polar coordinates is labeled 'geometry_polar'.
+
+Thus a typical module family (e.g. the mesh family) has at least the following
+dependencies:
+
+common/mesh_common.f90
+	|
+	+-- mesh/mesh_midpoint.f90
+            mesh/mesh_trapezoidal.f90
+	    mesh/mesh_...
+		|
+	    	+-- mesh/mesh_generic.f90 
+
+Since there are a lot more module families than subdirectories, there is not
+necessarily one subdirectory with a name similar to the name of the modules
+family. E.g. the generic and specific geometry modules can also be found in
+the 'mesh' subdirectory.
+
+
+3. Data types, variables and constants
+
+There is essentially one user defined Fortran data type for each module
+family, which should be labeled 'XXXX_TYP' where 'XXXX' is the name of the
+module family. E.g. for the mesh modules the basic data structure is called
+'Mesh_TYP' (upper case in the first letter!). This type must be defined in
+the related 'XXXX_common' module in the 'common' subdirectory. The basic
+data type should contain all variables and data fields which are modified
+by members of the related module family, i.e. by the common module as well
+as the generic and specific modules. The basic data type should be made
+public by the common module in order to allow the generic and specific
+modules to modify the data fields.
+
+One should avoid the definition of any other local as well as global variables
+within the modules, except for subroutine and function arguments which are
+local within the scope of these subroutines and functions. Constants, i.e.
+variables defined with the 'parameter' argument, may be defined as a private
+or public member of any module. They should be named with upper case letters.
+
+
+4. Module functions and subroutines
+
+Each module must have at least one subroutine called 'InitXXXX' or
+'InitXXXX_YYYY' depending on whether the module is a common, generic
+or specific module of the module family denoted by 'XXXX'. In case of the
+common and generic modules one should omit the '_YYYY' part of the name
+whereas in case of the specific module 'YYYY' should be identical to
+the specifics module name extension. E.g. the geometry module family defines
+'InitGeometry' in 'geometry_common' and 'geometry_generic' and
+'InitGeometry_cartesian', 'InitGeometry_polar', etc. in the specific
+modules 'geometry_cartesian', 'geometry_polar', etc. It is sometimes
+necessary to define the subroutine 'InitXXXX' in one of the specific
+modules as well, if there are some initializations common to all specific
+modules which cannot be implemented in the common module.
+Similar to the common initialization subroutines there is a module
+destructor called 'CloseXXXX' for common and generic modules
+and perhaps a special destructor 'CloseXXXX_YYYY' for the specific module
+'XXXX_YYYY'.
+
+Apart from the 'InitXXXX' subroutine there is a bunch of basic subroutines
+and functions which should be defined by all modules in the common directory:
+    (a) Once a module has been initialized the functions 
+        'GetType' and 'GetName' return an integer and a string denoting
+        the specific task the module is meant for.
+    (b) 'Initialized' returns a logical value depending on whether the
+        module has been initialized or not. This is the single function
+        which returns a defined value before the module has been initialized
+        by calling its init-subroutine.
+    (c) 'Info', 'Warning', 'Error' should be used for printing information,
+        warning and error messages to standard output and standard error.
+        It is strongly recommended to use these subroutines for generating
+        output on the screen. Calling 'Error' aborts the program execution.
+    (d) 'GetRank' and 'GetNumProcs' are only useful for parallel execution
+        and return the MPI rank and the number of MPI processes of the current
+        run. In case of serial execution they return 0 and 1, respectively.
+Theses modules must be made public in the common module, in one of the
+specific modules and in the generic module of every module family.
+
+The generic modules and most of the specific modules define a 'CloseXXXX'
+resp. 'CloseXXXX_YYYY' destructor (with 'XXXX' being the name of the module
+family and 'YYYY' that of the specific module as usual) which has to be
+called only once for each initialized module. It must not be executed if the
+module hasn't been initialized before by calling 'InitXXXX'. After calling
+'CloseXXXX' the module returns to an uninitialized state.
+
+
+5. User defined module functions and subroutines
+
+Once a module family has been initialized, its specific behavior is controlled
+via "GetType". This function allows the functions and subroutines in the
+generic module to distinguish between the specific modules associated
+with it. There should be basically one "SELECT CASE(GetType(this))
+.. END SELECT" instruction in every function and subroutine within the
+generic module to create branchs and call the corresponding module function
+or subroutine of the specific modules. If the subroutine is called "XXXX" in
+the generic module it must be called "XXXX_YYYY" in the specific module where
+"YYYY" is the specifics module extension string.
+E.g. the module "fileio_generic" in the subdirectory "io" defines the
+subroutine "WriteHeader" and the corresponding subroutine in the specific
+module "fileio_binary" is called "WriteHeader_binary".
+
+Apart from this the naming of module subroutines and functions should follow
+these guidelines:
+       (a) the name should be put together using English words (no German or
+           other languages)
+       (b) avoid abbreviations which only you understand
+       (c) it should be as clear as possible, to allow others to guess the
+           purpose of the function/subroutine; e.g. combine a verb with a noun
+	   like "CalculateFluxes"
+       (d) don't use more the 32 characters, because some compilers
+           (especially NEC SX) doesn't allow longer subroutine or function
+           names. Keep in mind, that you have to add the specific modules
+           extension!
+
+A typical subroutine in fosite takes the data stored in some input arrays,
+computes something and saves the results in some output arrays. Thereby
+it uses control parameters which are usually stored in a variable which
+is of the basic type associated with the module family the subroutine is
+defined for. This local parameter is allways called "this" and should be
+the first argument in the list of local parameters. Sometimes it's necessary
+to pass control parameters to the subroutine which are stored in the basic
+types of other module families. These should follow immediately after "this"
+in the list of arguments. The last arguments in the list of local parameters
+should allways be the output fields.
+E.g. the subroutine "CalculateFluxes" defined in "fluxes_generic" uses the
+control parameters "this", "Mesh" and "Physics" which are of types
+"Fluxes_TYP", "Mesh_TYP" and "Physics_TYP", respectively. The input arrays
+are called "pvar" and "cvar" and the output is stored in the arrays
+"xflux" and "yflux". Hence the calling sequence within the scope of
+the module "fluxes_generic" is as follows:
+
+	CalculateFluxes(this,Mesh,Physics,pvar,cvar,xflux,yflux)
+
+If the subroutine is called from a module subroutine defined in a module of a
+different family then the argument "this" becomes "Fluxes".
+
+Whenever possible it is recommended to define module functions/subroutines
+as "PURE" to allow for compiler optimizations. If the computations may
+be carried out on scalars one should consider defining some "ELEMENTAL"
+functions/subroutines. In this case all arguments must be of the same basic
+Fortran data type. Thus the first arguments which are usually of derived
+type (e.g. "Fluxes_TYP", "Mesh_TYP" and "Physics_TYP" in the above mentioned
+calling sequence) are allways missing. As an example consider the subroutine
+"CalculateFluxesX_euler2D" defined in "physics_euler2D" which takes the
+arrays "prim" and "cons" computes the physical fluxes along one spatial
+direction and stores the results in the output array "xfluxes". The arithmetic
+operations are essentially scalar, hence there is an elemental subroutine
+called "CalculateFlux" which is called by "CalculateFluxesX_euler2D" to
+carry out the computations.
+
+
+6. Exceptions and deviations from the guidelines
+
+There are some deviations from the naming scheme mentioned in Section 2.
+First of all, there is one exceptional module called "common_types" in the
+directory "common" which is the basic module for all other modules in this
+directory. This module isn't the basic module of some other module family.
+Hence it is NOT labeled "types_common" which would be in accordance to the
+usual convention. Second, there is the subdirectory "numtools" providing
+very general numerical functionality. In order to allow the inclusion of
+these modules in other programs as well, the linkage to the fosite code is
+kept as small as possible.
+
+Some modules use uppercase letters in their file names (e.g. constants_SI,
+physics_euler2D). This would probably be modified in a future release.
+
+In general all variables are labeled with lower case letters, except for those
+which are of one of the derived data types defined in the "common" modules
+(e.g. "Mesh" has usually an upper case "M" as the leading character). Apart
+from that there are some members of the basic types which are completely
+upper case. These variables are usually of type INTEGER and are constant
+throughout the whole simulation. There should be at most one assignment of
+a value in one of the "InitXXXX" subroutines (e.g. the number of grid points
+along the first spatial dimension is stored in Mesh%INUM and the assignment
+operation is in "InitMesh" which could be found in the "mesh_common" module).
+
+
+7. References
+
+[1] Decyk, V. K., Gardner, H. J.: Comput. Phys. Comm., vol. 178(6), pp. 611, 2008
+*/

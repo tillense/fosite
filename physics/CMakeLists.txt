@@ -1,0 +1,21 @@
+add_library(physics
+  #physics_euler3Drotamt.f90
+  physics_base.f90
+  physics_generic.f90
+  constants_base.f90
+  #physics_euler2Diamt.f90
+  constants_SI.f90
+  #physics_euler2Disoiamt.f90
+#  physics_euler2Disothm.f90
+  physics_euler3Disothm.f90
+  #physics_euler3Drotsym.f90
+  #physics_euler2D.f90
+  constants_geometrical.f90
+  #physics_euler3Drotsymsgs.f90
+  #physics_euler2Dsgs.f90
+  #physics_euler3Drotamtsgs.f90
+  #physics_euler2Diamrot.f90
+  #physics_euler2Disoiamrot.f90
+  constants_generic.f90
+)
+target_link_libraries(physics mesh)
