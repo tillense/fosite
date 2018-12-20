@@ -76,6 +76,11 @@ ser_test_bondi2d:
     script:
         - ./ser_build/tests/bondi2d
 
+ser_test_riemann3d:
+    stage: test
+    script:
+        - ./ser_build/tests/riemann3d
+
 par_test_bondi2d:
     stage: test
     script:

@@ -23,7 +23,7 @@ set (EXES
 #  collapse
 #  noh2d
 #  noh3d
-#  riemann3d
+  riemann3d
 #  vortex2d
 )
 foreach (p ${EXES})
