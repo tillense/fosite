@@ -77,7 +77,7 @@ if (CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
   set (CMAKE_Fortran_FLAGS_PROFILING "-funroll-all-loops -fno-f2c -O3 -pg -no-pie")
   set (CMAKE_Fortran_FLAGS_DEBUG   "-fno-f2c -O2 -g -fcheck=all -Wunused")
   if(CMAKE_Fortran_COMPILER_VERSION VERSION_LESS 6.4)
-    message(FATAL_ERROR "gfortran must be at least version 6.4")
+    message(FATAL_ERROR "gfortran must be at least version 6.3")
   endif()
 elseif (CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
   # intel Fortran compiler, i.e. ifort
