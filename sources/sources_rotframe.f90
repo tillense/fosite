@@ -95,6 +95,12 @@ CONTAINS
        CALL this%Error("ExternalSources_rotframe","physics not supported")
     END SELECT
 
+
+    IF (Physics%VDIM.NE.2) THEN
+      CALL this%Error("ExternalSources_rotframe", &
+      "Only 2D simulations working with rotating frame at the moment." )
+    END IF
+
     this%accel = marray_base(Physics%VDIM)
     this%accel%data1d(:) = 0.
     this%cent = marray_base(3)
