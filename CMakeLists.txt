@@ -37,6 +37,7 @@ option(PARALLEL "PARALLEL" OFF)
 option(MPI_USE_SENDRECV "MPI_USE_SENDRECV" ON)
 option(USE_MPI_MOD "USE_MPI_MOD" ON)
 if (PARALLEL MATCHES "ON")
+  message(STATUS "Configuring parallel build using MPI")
   add_compile_options(-DPARALLEL)
   if(USE_MPI_MOD MATCHES "ON")
     add_compile_options(-DHAVE_MPI_MOD)
@@ -51,9 +52,31 @@ if (PARALLEL MATCHES "ON")
     set(CMAKE_Fortran_COMPILER mpinfort)
   else()
     set(CMAKE_Fortran_COMPILER_NAMES mpifort)
+    set(CMAKE_Fortran_COMPILER mpifort)
+    message(WARNING
+      "There is a known problem causing segfaults with OpenMPI \
+      (experienced with version 3.1.3), depending on the amount of processes \
+      used. If you experience any problems with OpenMPI \
+      please consider to try another version or the MPICH implementation.")
   endif()
-  message(STATUS "Configuring parallel build using MPI")
 endif()
+
+#set(MPI_DETERMINE_LIBRARY_VERSION TRUE)
+#message(STATUS ${MPI_DETERMINE_LIBRARY_VERSION})
+#find_package(
+#  MPI
+#  )
+#
+#message(STATUS ${MPI_Fortran_FOUND})
+#message(STATUS ${MPI_Fortran_COMPILER})
+#message(STATUS ${MPI_Fortran_VERSION_MAJOR})
+#message(STATUS ${MPI_Fortran_VERSION})
+#message(STATUS ${MPI_EXECUTABLE_SUFFIX})
+#message(STATUS ${MPI_Fortran_LIBRARIES})
+#message(STATUS ${MPI_Fortran_LIB_NAMES})
+#
+#message(STATUS ${MPI_Fortran_LIBRARY_VERSION})
+
 
 set (X86_VECTOR_EXTENSION NONE CACHE STRING "Enable x86 vector extensions, possible values are: NONE AVX AVX2 AVX-512")
 
@@ -119,6 +142,8 @@ endif ()#(CMAKE_SYSTEM_NAME MATCHES "(.*)SX-AURORA")
 
 MARK_AS_ADVANCED(CMAKE_Fortran_FLAGS_PROFILING
     CMAKE_EXE_LINKER_FLAGS_PROFILING)
+
+
 
 #----------------------- search FFTW -----------------------------------------#
 set(CMAKE_FIND_ROOT_PATH ${FFTW_DIR})
