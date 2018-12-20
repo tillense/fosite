@@ -7,6 +7,7 @@ set (EXES
   KHI2D
   ode
   poiseuille
+  pringle
   riemann1d
   riemann2d
   rngtest
@@ -22,7 +23,6 @@ set (EXES
 #  collapse
 #  noh2d
 #  noh3d
-#  pringle
 #  riemann3d
 #  vortex2d
 )
