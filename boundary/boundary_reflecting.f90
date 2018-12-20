@@ -171,13 +171,13 @@ CONTAINS
       DO m=1,Physics%VNUM
         IF (this%reflZ(m)) THEN
 !NEC$ SHORTLOOP
-          DO j=1,Mesh%GKNUM
+          DO k=1,Mesh%GKNUM
             pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN-k,m) &
               = -pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN+k-1,m)
           END DO
         ELSE
 !NEC$ SHORTLOOP
-          DO j=1,Mesh%GKNUM
+          DO k=1,Mesh%GKNUM
             pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN-k,m) &
               = pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN+k-1,m)
           END DO
@@ -188,13 +188,13 @@ CONTAINS
       DO m=1,Physics%VNUM
         IF (this%reflZ(m)) THEN
 !NEC$ SHORTLOOP
-          DO j=1,Mesh%GKNUM
+          DO k=1,Mesh%GKNUM
             pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMAX+k,m) &
               = -pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMAX-k+1,m)
           END DO
         ELSE
 !NEC$ SHORTLOOP
-          DO j=1,Mesh%GKNUM
+          DO k=1,Mesh%GKNUM
             pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMAX+k,m) &
               = pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMAX-k+1,m)
           END DO
