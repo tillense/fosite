@@ -1,7 +1,7 @@
 !#############################################################################
 !#                                                                           #
 !# fosite - 3D hydrodynamical simulation program                             #
-!# module: boundary_custom.f03                                               #
+!# module: boundary_custom.f90                                               #
 !#                                                                           #
 !# Copyright (C) 2006-2018                                                   #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #

@@ -1,7 +1,7 @@
 !#############################################################################
 !#                                                                           #
 !# fosite - 3D hydrodynamical simulation program                             #
-!# module: pringle.f03                                                       #
+!# module: pringle.f90                                                       #
 !#                                                                           #
 !# Copyright (C) 2008-2018                                                   #
 !# Bjoern Sperling  <sperling@astrophysik.uni-kiel.de>                       #

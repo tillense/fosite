@@ -1,6 +1,6 @@
 !#############################################################################
 !#                                                                           #
-!# fosite - 2D hydrodynamical simulation program                             #
+!# fosite - 3D hydrodynamical simulation program                             #
 !# module: timedisc_ssprk.f90                                                #
 !#                                                                           #
 !# Copyright (C) 2013                                                        #

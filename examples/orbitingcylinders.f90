@@ -1,7 +1,7 @@
 !#############################################################################
 !#                                                                           #
 !# fosite - 3D hydrodynamical simulation program                             #
-!# module: orbitingcylinders.f03                                             #
+!# module: orbitingcylinders.f90                                             #
 !#                                                                           #
 !# Copyright (C) 2013-2018                                                   #
 !# Manuel Jung <mjung@astrophysik.uni-kiel.de>                               #
@@ -29,7 +29,7 @@
 !!
 !! \author Manuel Jung
 !!
-!! \example orbitingcylinders.f03
+!! \example orbitingcylinders.f90
 !!
 !! This part is adapted (and translated) from the PhD-thesis from Jung (2016,
 !! \cite jung2016 ). It contains two different types of tests with cylinders.

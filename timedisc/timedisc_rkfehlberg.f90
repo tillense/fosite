@@ -1,7 +1,7 @@
 !#############################################################################
 !#                                                                           #
 !# fosite - 3D hydrodynamical simulation program                             #
-!# module: timedisc_rkfehlberg .f03                                          #
+!# module: timedisc_rkfehlberg .f90                                          #
 !#                                                                           #
 !# Copyright (C) 2011,2014                                                   #
 !# Björn Sperling   <sperling@astrophysik.uni-kiel.de>                       #

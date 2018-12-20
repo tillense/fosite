@@ -1,6 +1,6 @@
 !#############################################################################
 !#                                                                           #
-!# fosite - 2D hydrodynamical simulation program                             #
+!# fosite - 3D hydrodynamical simulation program                             #
 !# module: sblintheo.f90                                                     #
 !#                                                                           #
 !# Copyright (C) 2015                                                        #

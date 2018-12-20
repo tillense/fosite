@@ -1,7 +1,7 @@
 !#############################################################################
 !#                                                                           #
 !# fosite - 3D hydrodynamical simulation program                             #
-!# module: sblintheo.f03                                                     #
+!# module: sblintheo.f90                                                     #
 !#                                                                           #
 !# Copyright (C) 2015-2018                                                   #
 !# Jannes Klee <jklee@astrophysik.uni-kiel.de>                               #

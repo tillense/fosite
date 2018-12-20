@@ -1,6 +1,6 @@
 !#############################################################################
 !#                                                                           #
-!# fosite - 2D hydrodynamical simulation program                             #
+!# fosite - 3D hydrodynamical simulation program                             #
 !# module: riemann3d.f90                                                     #
 !#                                                                           #
 !# Copyright (C) 2006-2018                                                   #

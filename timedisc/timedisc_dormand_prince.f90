@@ -1,7 +1,7 @@
 !#############################################################################
 !#                                                                           #
 !# fosite - 3D hydrodynamical simulation program                             #
-!# module: timedisc_dormand_prince.f03                                       #
+!# module: timedisc_dormand_prince.f90                                       #
 !#                                                                           #
 !# Copyright (C) 2013                                                        #
 !# Björn Sperling   <sperling@astrophysik.uni-kiel.de>                       #

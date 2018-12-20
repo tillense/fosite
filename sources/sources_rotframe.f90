@@ -1,7 +1,7 @@
 !#############################################################################
 !#                                                                           #
 !# fosite - 3D hydrodynamical simulation program                             #
-!# module: sources_rotframe.f03                                              #
+!# module: sources_rotframe.f90                                              #
 !#                                                                           #
 !# Copyright (C) 2010-2018                                                   #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #

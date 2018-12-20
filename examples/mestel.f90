@@ -1,7 +1,7 @@
 !#############################################################################
 !#                                                                           #
 !# fosite - 3D hydrodynamical simulation program                             #
-!# module: mestel.f03                                                        #
+!# module: mestel.f90                                                        #
 !#                                                                           #
 !# Copyright (C) 2012-2018                                                   #
 !# Manuel Jung    <mjung@astrophysik.uni-kiel.de>                            #

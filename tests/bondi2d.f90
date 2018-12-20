@@ -1,7 +1,7 @@
 !#############################################################################
 !#                                                                           #
 !# fosite - 3D hydrodynamical simulation program                             #
-!# module: bondi2d.f03                                                       #
+!# module: bondi2d.f90                                                       #
 !#                                                                           #
 !# Copyright (C) 2006-2018                                                   #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #

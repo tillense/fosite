@@ -1,7 +1,7 @@
 !#############################################################################
 !#                                                                           #
 !# fosite - 3D hydrodynamical simulation program                             #
-!# module: shear.f03                                                         #
+!# module: shear.f90                                                         #
 !#                                                                           #
 !# Copyright (C) 2008-2018                                                   #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #

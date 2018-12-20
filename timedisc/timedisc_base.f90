@@ -1,7 +1,7 @@
 !r#############################################################################
 !#                                                                           #
 !# fosite - 3D hydrodynamical simulation program                             #
-!# module: timedisc_base.f03                                                 #
+!# module: timedisc_base.f90                                                 #
 !#                                                                           #
 !# Copyright (C) 2007-2018                                                   #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #

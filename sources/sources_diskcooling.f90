@@ -1,7 +1,7 @@
 !#############################################################################
 !#                                                                           #
 !# fosite - 3D hydrodynamical simulation program                             #
-!# module: sources_diskcooling.f03                                           #
+!# module: sources_diskcooling.f90                                           #
 !#                                                                           #
 !# Copyright (C) 2011-2018                                                   #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #

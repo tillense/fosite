@@ -1,7 +1,7 @@
 !#############################################################################
 !#                                                                           #
 !# fosite - 3D hydrodynamical simulation program                             #
-!# module: boundary_noslip.f03                                               #
+!# module: boundary_noslip.f90                                               #
 !#                                                                           #
 !# Copyright (C) 2010-2018                                                   #
 !# Bjoern Sperling  <sperling@astrophysik.uni-kiel.de>                       #

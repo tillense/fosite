@@ -1,6 +1,6 @@
 !#############################################################################
 !#                                                                           #
-!# fosite - 2D hydrodynamical simulation program                             #
+!# fosite - 3D hydrodynamical simulation program                             #
 !# module: boundary_absorbing.f90                                            #
 !#                                                                           #
 !# Copyright (C) 2009-2014                                                   #

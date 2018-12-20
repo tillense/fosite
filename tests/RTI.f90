@@ -1,7 +1,7 @@
 !#############################################################################
 !#                                                                           #
 !# fosite - 3D hydrodynamical simulation program                             #
-!# module: RTI.f03                                                           #
+!# module: RTI.f90                                                           #
 !#                                                                           #
 !# Copyright (C) 2008-2018                                                   #
 !# Björn Sperling   <sperling@astrophysik.uni-kiel.de>                       #

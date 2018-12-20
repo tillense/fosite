@@ -30,15 +30,15 @@ MODULE fftw
   USE, INTRINSIC :: iso_c_binding
 #if defined(HAVE_FFTW) && !defined(PARALLEL)
 #ifdef NECSXAURORA
-  INCLUDE 'aslfftw3.f03'
+  INCLUDE 'aslfftw3.f90'
 #else
-  INCLUDE 'fftw3.f03'
+  INCLUDE 'fftw3.f90'
 #endif
 #elif defined(HAVE_FFTW) && defined(PARALLEL)
 #ifdef NECSXAURORA
-  INCLUDE 'aslfftw3-mpi.f03'
+  INCLUDE 'aslfftw3-mpi.f90'
 #else
-  INCLUDE 'fftw3-mpi.f03'
+  INCLUDE 'fftw3-mpi.f90'
 #endif
 #endif
 END MODULE fftw

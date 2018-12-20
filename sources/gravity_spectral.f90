@@ -1,7 +1,7 @@
 !#############################################################################
 !#                                                                           #
 !# fosite - 3D hydrodynamical simulation program                             #
-!# module: gravity_spectral.f03                                              #
+!# module: gravity_spectral.f90                                              #
 !#                                                                           #
 !# Copyright (C) 2011-2018                                                   #
 !# Manuel Jung <mjung@astrophysik.uni-kiel.de>                               #

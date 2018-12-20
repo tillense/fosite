@@ -1,7 +1,7 @@
 !#############################################################################
 !#                                                                           #
 !# fosite - 3D hydrodynamical simulation program                             #
-!# module: sources_gravity.f03                                               #
+!# module: sources_gravity.f90                                               #
 !#                                                                           #
 !# Copyright (C) 2014-2018                                                   #
 !# Björn Sperling   <sperling@astrophysik.uni-kiel.de>                       #

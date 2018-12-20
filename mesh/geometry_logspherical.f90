@@ -1,7 +1,7 @@
 !#############################################################################
 !#                                                                           #
 !# fosite - 3D hydrodynamical simulation program                             #
-!# module: geometry_logspherical.f03                                         #
+!# module: geometry_logspherical.f90                                         #
 !#                                                                           #
 !# Copyright (C) 2007-2018                                                   #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #

@@ -1,7 +1,7 @@
   !#############################################################################
   !#                                                                           #
   !# fosite - 3D hydrodynamical simulation program                             #
-  !# module: boundary_shearing.f03                                             #
+  !# module: boundary_shearing.f90                                             #
   !#                                                                           #
   !# Copyright (C) 2006-2018                                                   #
   !# Jannes Klee      <jklee@astrophysik.uni-kiel.de>                          #

@@ -1,7 +1,7 @@
 !#############################################################################
 !#                                                                           #
 !# fosite - 3D hydrodynamical simulation program                             #
-!# module: shearingsheet.f03                                                 #
+!# module: shearingsheet.f90                                                 #
 !#                                                                           #
 !# Copyright (C) 2015-2018                                                   #
 !# Jannes Klee      <jklee@astrophysik.uni-kiel.de>                          #
@@ -30,7 +30,7 @@
 !!
 !! \author Jannes Klee
 !!
-!! \example shearingsheet.f03
+!! \example shearingsheet.f90
 !!
 !! This program runs the self-gravitating shearingsheet simulation first
 !! done by Gammie (2001) \cite gammie2001 . For initialization a constant

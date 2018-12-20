@@ -1,7 +1,7 @@
 !#############################################################################
 !#                                                                           #
 !# fosite - 3D hydrodynamical simulation program                             #
-!# module: rngtest.f03                                                       #
+!# module: rngtest.f90                                                       #
 !#                                                                           #
 !# Copyright (C) 2015-2018                                                   #
 !# Manuel Jung <mjung@astrophysik.uni-kiel.de>                               #

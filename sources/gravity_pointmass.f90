@@ -1,7 +1,7 @@
 !#############################################################################
 !#                                                                           #
 !# fosite - 3D hydrodynamical simulation program                             #
-!# module: gravity_pointmass.f03                                             #
+!# module: gravity_pointmass.f90                                             #
 !#                                                                           #
 !# Copyright (C) 2007-2018                                                   #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #

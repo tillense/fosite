@@ -1,7 +1,7 @@
 !#############################################################################
 !#                                                                           #
 !# fosite - 3D hydrodynamical simulation program                             #
-!# module: gravity_sboxspectral.f03                                          #
+!# module: gravity_sboxspectral.f90                                          #
 !#                                                                           #
 !# Copyright (C) 2015-2018                                                   #
 !# Jannes Klee <jklee@astrophysik.uni-kiel.de>                               #
