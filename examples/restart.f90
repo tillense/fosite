@@ -49,17 +49,6 @@
 PROGRAM Restart
   USE fosite_mod
 #ifdef PARALLEL
-#ifdef HAVE_MPI_MOD
-  USE mpi
-#endif
-#endif
-  IMPLICIT NONE
-#ifdef PARALLEL
-#ifdef HAVE_MPIF_H
-  include 'mpif.h'
-#endif
-#endif
-#ifdef PARALLEL
 #define OFFSET_TYPE INTEGER(KIND=MPI_OFFSET_KIND)
 #else
 #define OFFSET_TYPE INTEGER

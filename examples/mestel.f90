@@ -71,17 +71,7 @@
 !----------------------------------------------------------------------------!
 PROGRAM mestel
   USE fosite_mod
-#ifdef PARALLEL
-#ifdef HAVE_MPI_MOD
-  USE mpi
-#endif
-#endif
   IMPLICIT NONE
-#ifdef PARALLEL
-#ifdef HAVE_MPIF_H
-  include 'mpif.h'
-#endif
-#endif
   !--------------------------------------------------------------------------!
   ! general constants
   REAL, PARAMETER :: GN = 6.67384E-11       ! Newtons grav. constant [m^3/kg/s^2]

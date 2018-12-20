@@ -37,18 +37,6 @@
 !----------------------------------------------------------------------------!
 PROGRAM Init
   USE fosite_mod
-#ifdef PARALLEL
-#ifdef HAVE_MPI_MOD
-  USE mpi
-#endif
-#endif
-  IMPLICIT NONE
-#ifdef PARALLEL
-#ifdef HAVE_MPIF_H
-  include 'mpif.h'
-#endif
-#endif
-
   !--------------------------------------------------------------------------!
   ! general constants
   REAL, PARAMETER    :: GN      = 1.0             ! Newtons grav. constant    !

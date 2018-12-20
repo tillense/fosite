@@ -710,17 +710,7 @@ CONTAINS
 
   !> Set initial conditions
   SUBROUTINE InitData(Mesh,Physics,Timedisc,ic)
-#ifdef PARALLEL
-#ifdef HAVE_MPI_MOD
-  USE mpi
-#endif
-#endif
   IMPLICIT NONE
-#ifdef PARALLEL
-#ifdef HAVE_MPIF_H
-  include 'mpif.h'
-#endif
-#endif
     !------------------------------------------------------------------------!
     CLASS(Physics_base) :: Physics
     CLASS(Mesh_base)    :: Mesh

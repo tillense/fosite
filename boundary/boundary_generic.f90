@@ -57,17 +57,6 @@ MODULE boundary_generic_mod
   USE boundary_shearing_mod
   USE physics_base_mod
   USE common_dict
-#ifdef PARALLEL
-#ifdef HAVE_MPI_MOD
-  USE mpi
-#endif
-#endif
-  IMPLICIT NONE
-#ifdef PARALLEL
-#ifdef HAVE_MPIF_H
-  include 'mpif.h'
-#endif
-#endif
   !--------------------------------------------------------------------------!
   TYPE, PRIVATE                       :: boundary_p
     CLASS(boundary_base), ALLOCATABLE :: p
@@ -81,7 +70,8 @@ MODULE boundary_generic_mod
     PROCEDURE :: CenterBoundary
     PROCEDURE :: SetCornerEdges
 #ifdef PARALLEL
-    PROCEDURE :: MPIBoudaryCommunication
+    PROCEDURE :: MPIBoundaryCommunication
+    PROCEDURE :: InitBoundary_MPI
 #endif
     PROCEDURE :: Finalize
   END TYPE boundary_generic
@@ -121,11 +111,6 @@ CONTAINS
                              topper_std, bottomer_std
     LOGICAL, DIMENSION(3) :: periods = .FALSE.
     INTEGER               :: dir
-#ifdef PARALLEL
-    INTEGER               :: comm_old
-    INTEGER               :: ierr
-    LOGICAL, DIMENSION(SIZE(Mesh%dims)) :: remain_dims = .FALSE.
-#endif
     !------------------------------------------------------------------------!
     IF (.NOT.Physics%Initialized().OR..NOT.Mesh%Initialized()) &
          CALL this%Error("InitBoundary","physics and/or mesh module uninitialized")
@@ -281,51 +266,8 @@ CONTAINS
             "Opposite boundary should be shearing.")
     END IF
 
-
 #ifdef PARALLEL
-    ! create new cartesian communicator using Mesh%comm_cart
-    ! and account for the periodicity
-    ! IMPORTANT: disable reordering of nodes
-    comm_old = Mesh%comm_cart
-    CALL MPI_Cart_create(comm_old,SIZE(Mesh%dims),Mesh%dims,periods,.FALSE.,Mesh%comm_cart,ierr)
-
-    ! save ranks of neighbor processes
-    CALL MPI_Cart_shift(Mesh%comm_cart,0,1,Mesh%neighbor(WEST),Mesh%neighbor(EAST),ierr)
-    CALL MPI_Cart_shift(Mesh%comm_cart,1,1,Mesh%neighbor(SOUTH),Mesh%neighbor(NORTH),ierr)
-    CALL MPI_Cart_shift(Mesh%comm_cart,2,1,Mesh%neighbor(BOTTOM),Mesh%neighbor(TOP),ierr)
-
-    ! create communicators for every column and row of the cartesian
-    !	topology (used eg. for fargo shifts)
-    remain_dims = (/ .FALSE., .TRUE., .TRUE. /)
-    CALL MPI_Cart_Sub(Mesh%comm_cart,remain_dims,Mesh%Icomm,ierr)
-    remain_dims = (/ .TRUE., .FALSE., .TRUE. /)
-    CALL MPI_Cart_Sub(Mesh%comm_cart,remain_dims,Mesh%Jcomm,ierr)
-    remain_dims = (/ .TRUE., .TRUE., .FALSE. /)
-    CALL MPI_Cart_Sub(Mesh%comm_cart,remain_dims,Mesh%Kcomm,ierr)
-
-    ! allocate memory for boundary data buffers
-    ALLOCATE(                                                                                                  &
-         this%boundary(WEST)%p%sendbuf(Mesh%GINUM,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM),   &
-         this%boundary(WEST)%p%recvbuf(Mesh%GINUM,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM),   &
-         this%boundary(EAST)%p%sendbuf(Mesh%GINUM,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM),   &
-         this%boundary(EAST)%p%recvbuf(Mesh%GINUM,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM),   &
-         this%boundary(SOUTH)%p%sendbuf(Mesh%IGMIN:Mesh%IGMAX,Mesh%GJNUM,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM),  &
-         this%boundary(SOUTH)%p%recvbuf(Mesh%IGMIN:Mesh%IGMAX,Mesh%GJNUM,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM),  &
-         this%boundary(NORTH)%p%sendbuf(Mesh%IGMIN:Mesh%IGMAX,Mesh%GJNUM,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM),  &
-         this%boundary(NORTH)%p%recvbuf(Mesh%IGMIN:Mesh%IGMAX,Mesh%GJNUM,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM),  &
-         this%boundary(BOTTOM)%p%sendbuf(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%GKNUM,Physics%VNUM), &
-         this%boundary(BOTTOM)%p%recvbuf(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%GKNUM,Physics%VNUM), &
-         this%boundary(TOP)%p%sendbuf(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%GKNUM,Physics%VNUM),    &
-         this%boundary(TOP)%p%recvbuf(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%GKNUM,Physics%VNUM),    &
-         STAT=ierr)
-    IF (ierr.NE.0) THEN
-       CALL this%boundary(WEST)%p%Error("InitBoundary", &
-            "Unable to allocate memory for data buffers.")
-    END IF
-    DO dir=WEST,TOP
-      this%boundary(dir)%p%recvbuf = 0.
-      this%boundary(dir)%p%sendbuf = 0.
-    END DO
+    CALL this%InitBoundary_MPI(Mesh,Physics,periods)
 #endif
 
   END SUBROUTINE InitBoundary
@@ -411,7 +353,7 @@ CONTAINS
     END IF
 
 #ifdef PARALLEL
-    CALL MPIBoudaryCommunication(this,Mesh,Physics,pvar)
+    CALL MPIBoundaryCommunication(this,Mesh,Physics,pvar)
 #endif
 
 #ifdef PARALLEL
@@ -836,9 +778,81 @@ CONTAINS
 
 
 #ifdef PARALLEL
-  !> Handles the MPI communication of the inner (and physical periodic) boundaries
-  SUBROUTINE MPIBoudaryCommunication(this,Mesh,Physics,pvar)
+  !> \public initializes the MPI communication
+  SUBROUTINE InitBoundary_MPI(this,Mesh,Physics,periods)
+#ifdef HAVE_MPI_MOD
+    USE mpi
+#endif
     IMPLICIT NONE
+#ifdef HAVE_MPIF_H
+    include 'mpif.h'
+#endif
+    !------------------------------------------------------------------------!
+    CLASS(boundary_generic),INTENT(INOUT) :: this
+    CLASS(mesh_base),       INTENT(IN)    :: Mesh
+    CLASS(physics_base),    INTENT(IN)    :: Physics
+    LOGICAL, DIMENSION(3),  INTENT(IN)    :: periods
+    !------------------------------------------------------------------------!
+    INTEGER               :: comm_old
+    INTEGER               :: ierr, dir
+    LOGICAL, DIMENSION(SIZE(Mesh%dims)) :: remain_dims = .FALSE.
+    !------------------------------------------------------------------------!
+    ! create new cartesian communicator using Mesh%comm_cart
+    ! and account for the periodicity
+    ! IMPORTANT: disable reordering of nodes
+    comm_old = Mesh%comm_cart
+    CALL MPI_Cart_create(comm_old,SIZE(Mesh%dims),Mesh%dims,periods,.FALSE.,Mesh%comm_cart,ierr)
+
+    ! save ranks of neighbor processes
+    CALL MPI_Cart_shift(Mesh%comm_cart,0,1,Mesh%neighbor(WEST),Mesh%neighbor(EAST),ierr)
+    CALL MPI_Cart_shift(Mesh%comm_cart,1,1,Mesh%neighbor(SOUTH),Mesh%neighbor(NORTH),ierr)
+    CALL MPI_Cart_shift(Mesh%comm_cart,2,1,Mesh%neighbor(BOTTOM),Mesh%neighbor(TOP),ierr)
+
+    ! create communicators for every column and row of the cartesian
+    !	topology (used eg. for fargo shifts)
+    remain_dims = (/ .FALSE., .TRUE., .TRUE. /)
+    CALL MPI_Cart_Sub(Mesh%comm_cart,remain_dims,Mesh%Icomm,ierr)
+    remain_dims = (/ .TRUE., .FALSE., .TRUE. /)
+    CALL MPI_Cart_Sub(Mesh%comm_cart,remain_dims,Mesh%Jcomm,ierr)
+    remain_dims = (/ .TRUE., .TRUE., .FALSE. /)
+    CALL MPI_Cart_Sub(Mesh%comm_cart,remain_dims,Mesh%Kcomm,ierr)
+
+    ! allocate memory for boundary data buffers
+    ALLOCATE(&
+      this%boundary(WEST)%p%sendbuf(Mesh%GINUM,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM),   &
+      this%boundary(WEST)%p%recvbuf(Mesh%GINUM,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM),   &
+      this%boundary(EAST)%p%sendbuf(Mesh%GINUM,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM),   &
+      this%boundary(EAST)%p%recvbuf(Mesh%GINUM,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM),   &
+      this%boundary(SOUTH)%p%sendbuf(Mesh%IGMIN:Mesh%IGMAX,Mesh%GJNUM,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM),  &
+      this%boundary(SOUTH)%p%recvbuf(Mesh%IGMIN:Mesh%IGMAX,Mesh%GJNUM,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM),  &
+      this%boundary(NORTH)%p%sendbuf(Mesh%IGMIN:Mesh%IGMAX,Mesh%GJNUM,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM),  &
+      this%boundary(NORTH)%p%recvbuf(Mesh%IGMIN:Mesh%IGMAX,Mesh%GJNUM,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM),  &
+      this%boundary(BOTTOM)%p%sendbuf(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%GKNUM,Physics%VNUM), &
+      this%boundary(BOTTOM)%p%recvbuf(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%GKNUM,Physics%VNUM), &
+      this%boundary(TOP)%p%sendbuf(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%GKNUM,Physics%VNUM),    &
+      this%boundary(TOP)%p%recvbuf(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%GKNUM,Physics%VNUM),    &
+      STAT=ierr)
+    IF (ierr.NE.0) THEN
+       CALL this%boundary(WEST)%p%Error("boundary_generic::InitBoundary_MPI", &
+            "Unable to allocate memory for data buffers.")
+    END IF
+
+    ! initialize all buffers with 0
+    DO dir=WEST,TOP
+      this%boundary(dir)%p%recvbuf = 0.
+      this%boundary(dir)%p%sendbuf = 0.
+    END DO
+  END SUBROUTINE InitBoundary_MPI
+
+  !> Handles the MPI communication of the inner (and physical periodic) boundaries
+  SUBROUTINE MPIBoundaryCommunication(this,Mesh,Physics,pvar)
+#ifdef HAVE_MPI_MOD
+    USE mpi
+#endif
+    IMPLICIT NONE
+#ifdef HAVE_MPIF_H
+    include 'mpif.h'
+#endif
     !------------------------------------------------------------------------!
     CLASS(boundary_generic),INTENT(INOUT) :: this
     CLASS(mesh_base),       INTENT(IN)    :: Mesh
@@ -1081,7 +1095,7 @@ CONTAINS
     END IF
 #endif
 
-  END SUBROUTINE
+  END SUBROUTINE MPIBoundaryCommunication
 #endif
 
   SUBROUTINE Finalize(this)

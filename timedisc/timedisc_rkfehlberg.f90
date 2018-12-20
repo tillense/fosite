@@ -55,12 +55,12 @@ MODULE timedisc_rkfehlberg_mod
   USE mpi
 #endif
 #endif
+  IMPLICIT NONE
 #ifdef PARALLEL
 #ifdef HAVE_MPIF_H
   include 'mpif.h'
 #endif
 #endif
-  IMPLICIT NONE
   !--------------------------------------------------------------------------!
   PRIVATE
   TYPE coeff_type
