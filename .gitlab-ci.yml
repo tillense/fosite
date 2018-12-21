@@ -111,3 +111,13 @@ ser_test_rootstest:
     script:
        - ./ser_build/tests/rootstest
 
+deploy_github:
+    stage: deploy
+    script:
+        - git remote set-url origin_github git@github.com:fositeteam/fosite.git
+        - git push origin_github master --tags
+    environment:
+      name: deploy_github
+    when: manual
+    only:
+        - tags
