@@ -1,8 +1,5 @@
 # Fosite
 
-**Website**: www.astrophysik.uni-kiel.de/fosite/
-**IRC-Chat**: #fosite on freenode (http://webchat.freenode.net?channels=%23fosite)
-
 Fosite is a generic framework for the numerical solution of hyperbolic conservation
 laws in generalized orthogonal coordinates. Its main purpose is the simulation of
 compressible flows in accretion disks. The underlying numerical solution method
@@ -17,6 +14,11 @@ operating on generic field datatypes. This allows for high performance on
 modern architectures ([SIMD](https://en.wikipedia.org/wiki/SIMD)). It is parallelized
 and vectorized. The software is thereby optimized for the [NEC SX-Aurora
 TSUBASA Vector Engine](https://www.nec.com/en/global/solutions/hpc/sx/vector_engine.html).
+
+Additional information and help:  
+**Website**: www.astrophysik.uni-kiel.de/fosite/  
+**IRC-Chat**: #fosite on freenode (http://webchat.freenode.net?channels=%23fosite)
+
 
 ## Compiling the Serial Version
 To customize the build process enter the directory with the source code
