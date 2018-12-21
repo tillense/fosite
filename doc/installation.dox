@@ -13,6 +13,7 @@
 - *Optional*: MPI is needed for the parallel build. See, e.g.,
     <a href="https://www.open-mpi.org/" target="_blank">Open MPI</a> or
     <a href="https://www.mpich.org/" target="_blank">MPICH</a>.
+    We recommend using MPICH, because of known problems with OpenMPI (version 3.1.3), causing segfaults for certain partitioning.
 - *Optional*: <a href="http://www.fftw.org/" target="_blank">FFTW</a> (>=3.3.6) for all spectral methods
   (especially self-gravitation). Please be aware that you need an MPI implementation of FFTW,
   which is necessary, if you want to run in parallel.

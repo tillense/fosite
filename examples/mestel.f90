@@ -67,7 +67,7 @@
 !! - \cite britsch2006 M. Britsch, "Gravitational instability and fragmentation of self-gravitating accretion disks",
 !!      PhD thesis, 2006
 !!
-!! \example markward.f90
+!! \example mestel.f90
 !----------------------------------------------------------------------------!
 PROGRAM mestel
   USE fosite_mod
