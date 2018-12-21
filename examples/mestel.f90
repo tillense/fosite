@@ -157,7 +157,7 @@ CONTAINS
         "zmin"            / 0.0, &
         "zmax"            / 0.0, &
         "gparam"          / RGEO, &
-        "decomposition"   / (/-1,1/), &
+        "decomposition"   / (/-1,1,1/), &
         "output/volume"   / 1 )
 
     boundary => Dict( &

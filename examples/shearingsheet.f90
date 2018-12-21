@@ -164,6 +164,7 @@ CONTAINS
                 "geometry"    / MGEO, &
                 "omega"       / OMEGA, &
                 "shear_dir"   / SHEAR_DIRECTION, &
+                "decomposition" / (/ 1, -1, 1/), &
                 "inum"        / XRES, &
                 "jnum"        / YRES, &
                 "knum"        / ZRES, &

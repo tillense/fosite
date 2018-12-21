@@ -122,7 +122,7 @@ CONTAINS
               "zmax"            / 0.0, &
               "omega"           / OMEGA, &
               "fargo"           / 0, &
-              "decomposition"   / (/ -1, 1/), &
+              "decomposition"   / (/ -1, 1, 1/), &
               "gparam"          / GPAR)
 
 
