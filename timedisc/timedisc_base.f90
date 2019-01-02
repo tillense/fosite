@@ -435,8 +435,14 @@ CONTAINS
       CASE(1,2) ! set to 0;
                 ! fargo advection type 1: w is computed in each time step (see FargoCalcVelocity)
                 ! fargo advection type 2: w is provided by the user, e.g. in InitData
-         this%w(:,:) = 0.0
-         this%shift(:,:) = 0.0
+        this%w(:,:) = 0.0
+        this%shift(:,:) = 0.0
+        this%dq = marray_base()
+        this%dq%data1d(:) = 0.0
+        this%dql = marray_base()
+        this%dql%data1d(:) = 0.0
+        this%flux = marray_base()
+        this%flux%data1d(:) = 0.0
       CASE(3) ! fixed background velocity in shearing box
         IF(Mesh%shear_dir.EQ.2) THEN
           this%w(:,:) = -Mesh%Q*Mesh%omega*Mesh%bcenter(:,Mesh%JMIN,:,1) !-Q*Omega*x
@@ -1467,7 +1473,7 @@ CONTAINS
 
 !NEC$ SHORTLOOP
     DO l=1,Physics%VNUM+Physics%PNUM
-      this%dq%data3d(Mesh%IGMAX,:,:) = this%cvar%data4d(Mesh%IGMIN+1,:,:,l) - this%cvar%data4d(Mesh%IGMIN,:,:,l)
+      this%dq%data3d(Mesh%IGMIN,:,:) = this%cvar%data4d(Mesh%IGMIN+1,:,:,l) - this%cvar%data4d(Mesh%IGMIN,:,:,l)
 !NEC$ IVDEP
       DO i=Mesh%IGMIN+1,Mesh%IGMAX-1
         this%dq%data3d(i,:,:) = this%cvar%data4d(i+1,:,:,l)-this%cvar%data4d(i,:,:,l)
@@ -1630,7 +1636,7 @@ CONTAINS
 
 !NEC$ SHORTLOOP
     DO l=1,Physics%VNUM+Physics%PNUM
-      this%dq%data3d(:,Mesh%JGMAX,:) = this%cvar%data4d(:,Mesh%JGMIN+1,:,l) - this%cvar%data4d(:,Mesh%JGMIN,:,l)
+      this%dq%data3d(:,Mesh%JGMIN,:) = this%cvar%data4d(:,Mesh%JGMIN+1,:,l) - this%cvar%data4d(:,Mesh%JGMIN,:,l)
 !NEC$ IVDEP
       DO j=Mesh%JGMIN+1,Mesh%JGMAX-1
         this%dq%data3d(:,j,:) = this%cvar%data4d(:,j+1,:,l)-this%cvar%data4d(:,j,:,l)
