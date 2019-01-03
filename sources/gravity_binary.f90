@@ -207,21 +207,21 @@ CONTAINS
     this%accel  = 0.0
 
     ! reset omega and omega**2
-    this%OMEGA  = 0.0
-    this%OMEGA2 = 0.0
-
+    this%omega  = 0.0
+    this%omega2 = 0.0
+    
     ! reset potentials
     this%pot = 0.0
     this%pot_prim = 0.0
     this%pot_sec = 0.0
 
     ! set ghost cell data to one to avoid zero division
-    this%OMEGA(Mesh%IGMIN:Mesh%IMIN-1,:,:) = 1.0
-    this%OMEGA(Mesh%IMAX+1:Mesh%IGMAX,:,:) = 1.0
-    this%OMEGA(:,Mesh%JGMIN:Mesh%JMIN-1,:) = 1.0
-    this%OMEGA(:,Mesh%JMAX+1:Mesh%JGMAX,:) = 1.0
-    this%OMEGA(:,:,Mesh%KGMIN:Mesh%KMIN-1) = 1.0
-    this%OMEGA(:,:,Mesh%KMAX+1:Mesh%KGMAX) = 1.0
+    this%omega(Mesh%IGMIN:Mesh%IMIN+Mesh%IM1,:,:) = 1.0
+    this%omega(Mesh%IMAX+Mesh%IP1:Mesh%IGMAX,:,:) = 1.0
+    this%omega(:,Mesh%JGMIN:Mesh%JMIN+Mesh%JM1,:) = 1.0
+    this%omega(:,Mesh%JMAX+Mesh%JP1:Mesh%JGMAX,:) = 1.0
+    this%omega(:,:,Mesh%KGMIN:Mesh%KMIN+Mesh%KM1) = 1.0
+    this%omega(:,:,Mesh%KMAX+Mesh%KP1:Mesh%KGMAX) = 1.0
 
     ! reset start value for time variable, to guarantee omega^2 and
     ! disk height will be set to new values when the calculation starts
@@ -299,6 +299,7 @@ CONTAINS
                            INTENT(IN)    :: pvar
     REAL,                  INTENT(IN)    :: time,dt
     !------------------------------------------------------------------------!
+    REAL              :: GM1, GM2
     INTEGER           :: i,j,k
     !------------------------------------------------------------------------!
     ! update the positions of the binary system
@@ -349,13 +350,12 @@ CONTAINS
 
     ! compute square of Keplerian velocities for updated time value
     ! with respect to PRIMARY star
-!CDIR IEXPAND
-    this%omega2(:,:,:,1) = Physics%Constants%GN*this%GetMass_primary(time) &
-                          / (this%r_prim(:,:,:)**3 + this%eps1**3)
+    GM1 = Physics%Constants%GN*this%GetMass_primary(time) 
+    this%omega2(:,:,:,1) = GM1 / (this%r_prim(:,:,:)**3 + this%eps1**3)
 
     ! and SECONDARY star
-    this%omega2(:,:,:,2) = Physics%Constants%GN*this%GetMass_secondary(time) &
-                          / (this%r_sec(:,:,:)**3 + this%eps2**3)
+    GM2 = Physics%Constants%GN*this%GetMass_secondary(time)
+    this%omega2(:,:,:,2) = GM2 / (this%r_sec(:,:,:)**3 + this%eps2**3)
 
     ! potential calculation for binary and use pointmassroutine for it
     CALL this%gravity_pointmass%CalcPotential(Mesh,Physics,this%mass,this%r_prim,this%fr_prim,this%pot_prim)
