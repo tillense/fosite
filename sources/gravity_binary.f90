@@ -87,6 +87,7 @@ MODULE gravity_binary_mod
     REAL                                :: period       !< period of binaries
     REAL                                :: eps1,eps2    !< softening parameter
     REAL                                :: switchon2    !< same for secondary in binary systems
+    REAL                                :: omega_rot    !< angular velocity of rotating reference frame
     REAL, DIMENSION(:,:,:,:), POINTER   :: pot_sec      !< potential second component
   CONTAINS
     PROCEDURE :: InitGravity_binary
@@ -222,10 +223,6 @@ CONTAINS
     this%omega(:,Mesh%JMAX+Mesh%JP1:Mesh%JGMAX,:) = 1.0
     this%omega(:,:,Mesh%KGMIN:Mesh%KMIN+Mesh%KM1) = 1.0
     this%omega(:,:,Mesh%KMAX+Mesh%KP1:Mesh%KGMAX) = 1.0
-
-    ! reset start value for time variable, to guarantee omega^2 and
-    ! disk height will be set to new values when the calculation starts
-    this%time = -1.0
 
     !initialise output
     CALL this%SetOutput(Mesh,Physics,config,IO)

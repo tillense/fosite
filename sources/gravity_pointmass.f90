@@ -76,19 +76,22 @@ MODULE gravity_pointmass_mod
 
   TYPE, EXTENDS(gravity_base) :: gravity_pointmass
     CLASS(logging_base), ALLOCATABLE    :: potential    !< newton or wiita
+    INTEGER                             :: outbound     !< outflow boundary
     REAL, POINTER                       :: mass         !< mass of pointmass
     REAL, POINTER                       :: accrate      !< true (limited) accretion rate
     REAL, POINTER                       :: massloss     !< mass loss due to acc. limit
     REAL                                :: mdot         !< mass flux at the boundary
     REAL                                :: acclimit     !< accretion limit
+    REAL                                :: switchon     !< duration of soft switch-on phase
     REAL, DIMENSION(:,:),       POINTER :: pos          !< 3D cart. positions
     REAL, DIMENSION(:),         POINTER :: r0           !< center of mass
     REAL, DIMENSION(:,:,:),     POINTER :: r_prim       !< distance to primary point mass
     REAL, DIMENSION(:,:,:,:),   POINTER :: fr_prim
     REAL, DIMENSION(:,:,:,:),   POINTER :: posvec_prim  !< pos. vectors from primary
     REAL, DIMENSION(:,:,:,:,:), POINTER :: fposvec_prim !< face pos.
-    REAL                                :: switchon
-    REAL, DIMENSION(:,:,:,:), POINTER   :: pot_prim      !< potential second component
+    REAL, DIMENSION(:,:,:,:), POINTER   :: pot_prim     !< potential second component
+    REAL, DIMENSION(:,:,:),   POINTER   :: omega        !< angular velocity
+    REAL, DIMENSION(:,:,:,:), POINTER   :: omega2       !< Omega Kepler squared
   CONTAINS
     PROCEDURE :: InitGravity_pointmass
     PROCEDURE :: CalcPotential
@@ -191,7 +194,6 @@ CONTAINS
 
     ! soft switch on
     CALL GetAttr(config, "switchon", this%switchon, -1.0)
-    IF (this%switchon.GT.0.0) this%scaling = 1.0
 
     ! accretion limit (e.g. eddington limit) divided by central mass
     ! the units are therefore (e.g. SI): kg/s / central_mass = 1 / s
@@ -356,7 +358,7 @@ CONTAINS
     !------------------------------------------------------------------------!
     INTEGER                       :: l
     REAL, DIMENSION(Physics%VNUM) :: bflux
-    REAL                          :: oldmass,massfac,sqrmassfac,dmass,dmasslim
+    REAL                          :: scaling,oldmass,massfac,sqrmassfac,dmass,dmasslim
     !------------------------------------------------------------------------!
     ! update accel and omega only in case of accretion
     IF (this%outbound.NE.0) THEN
@@ -394,12 +396,12 @@ CONTAINS
     ! modify acceleration during switchon phase
     IF (time.GE.0.0.AND.time.LE.this%switchon) THEN
       ! compute new scaling
-      this%scaling = SIN(0.5*PI*time/this%switchon)**2
+      scaling = SIN(0.5*PI*time/this%switchon)**2
       ! compute acceleration and scale it;
       ! during the switchon phase accretion is disabled
 !NEC$ UNROLL(3)
       DO l=1,Physics%VDIM
-        this%accel(:,:,:,l) = -this%scaling * this%omega2(:,:,:,1) * this%posvec_prim(:,:,:,l)
+        this%accel(:,:,:,l) = -scaling * this%omega2(:,:,:,1) * this%posvec_prim(:,:,:,l)
       END DO
     END IF
 

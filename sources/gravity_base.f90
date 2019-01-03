@@ -47,68 +47,16 @@ MODULE gravity_base_mod
   USE marray_base_mod
   USE marray_compound_mod
   USE common_dict
-#if defined(HAVE_FFTW)
-  USE fftw
-#endif
   IMPLICIT NONE
   !--------------------------------------------------------------------------!
   PRIVATE
   TYPE, ABSTRACT, EXTENDS(logging_base) :: gravity_base
-     !> \name Variables
-     CLASS(logging_base), ALLOCATABLE   :: gravitytype  !< type of gravity term
-     CLASS(gravity_base), POINTER       :: next => null() !< next gravity in list
-     REAL                               :: time         !< last update
-     REAL                               :: alphag,alphah!< viscosity parameter
-     LOGICAL                            :: CALCALPHA    !< true if alpha output is on
-     !> time when the pointmass is fully switched on
-     REAL                               :: scaling      !< scaling for switchon procedure
-     !> angular velocity of rotating reference frame
-     REAL                               :: omega_rot
-     !> time of a orbital period at the inner and outer boundaries
-     REAL, DIMENSION(2)                 :: tau
-     INTEGER                            :: outbound     !< outflow boundary
-     REAL, DIMENSION(:,:,:,:), POINTER  :: accel        !< acceleration
-     REAL, DIMENSION(:,:,:),   POINTER  :: radius,radius3!< distance to origin
-     REAL, DIMENSION(:,:,:),   POINTER  :: den_ip       !< interpolated density
-     REAL, DIMENSION(:,:,:),   POINTER  :: omega        !< angular velocity
-     REAL, DIMENSION(:,:,:,:), POINTER  :: omega2       !< Omega Kepler squared
-     REAL, DIMENSION(:,:,:,:), POINTER  :: gposvecr3    !< = GN*x/radius**3
-     REAL, DIMENSION(:,:,:),   POINTER  :: cellmass     !< rho*dV
-     REAL, DIMENSION(:,:,:),   POINTER  :: enclmass     !< enclosed mass
-     REAL, DIMENSION(:,:,:),   POINTER  :: rho_c        !< disk density in equatorial plane
-     REAL, DIMENSION(:,:,:),   POINTER  :: inv2PIr2     !< = 1/ (2*PI*r**2)
-     REAL, DIMENSION(:,:,:),   POINTER  :: tmp,tmp2,tmp3!< temp arrays
-     REAL, DIMENSION(:,:,:),   POINTER  :: dVpart       !< partial cell volumes (monopole approx.)
-     INTEGER                            :: timeid       !<    update of this id?
-     REAL, DIMENSION(:,:,:), POINTER    :: phi          !< potential
-     REAL, DIMENSION(:,:,:,:), POINTER  :: pot          !< general potential
-     REAL, DIMENSION(:,:,:,:,:), POINTER :: mpot        !< multiple potentials
-     REAL, DIMENSION(:,:,:), POINTER    :: rho_ext      !< disk density in equatorial plane
-                                                        !< of the external potentials
-     REAL, DIMENSION(:,:,:,:,:), POINTER :: mrho_ext    !< multiple rho_ext
-     INTEGER                            :: n            !< number of potentials
-     REAL,DIMENSION(:,:),POINTER        :: s0, sdelta   !< ramp fn: s0 + sdelta*t
-     REAL,DIMENSION(:),POINTER          :: lastfac      !< last switchon factors
-     INTEGER, DIMENSION(4)              :: Boundary     !< boundary condition
-     LOGICAL                            :: DIRICHLET    !< true if min ONE bound.
-                                                        !< boundary cond. is
-    !> local IMAX, INUM
-    INTEGER                             :: IMAX, KMAX
-    !> plan for real to complex fourier transforms
-#ifdef HAVE_FFTW
-    TYPE(C_PTR)                         :: plan_r2c
-    !> plan for complex to real fourier transforms
-    TYPE(C_PTR)                         :: plan_c2r
-#endif
-    !> \name Variables in Parallel Mode
-#ifdef PARALLEL
-    INTEGER                             :: mpierr       !< MPI error flag
-    REAL,DIMENSION(:,:),POINTER         :: sbuf1,sbuf2,rbuf1,rbuf2
-#endif
-    INTEGER, DIMENSION(:),POINTER       :: relaxcount
-
+    !> \name Variables
+    CLASS(logging_base), ALLOCATABLE   :: gravitytype  !< type of gravity term
+    CLASS(gravity_base), POINTER       :: next => null() !< next gravity in list
+    REAL, DIMENSION(:,:,:,:), POINTER  :: accel        !< acceleration
+    REAL, DIMENSION(:,:,:,:), POINTER  :: pot          !< general potential
   CONTAINS
-
     PROCEDURE :: InitGravity
     PROCEDURE :: SetOutput
     PROCEDURE (InfoGravity),     DEFERRED :: InfoGravity
@@ -118,6 +66,7 @@ MODULE gravity_base_mod
     PROCEDURE :: Finalize_base
     PROCEDURE (Finalize), DEFERRED :: Finalize
   END TYPE gravity_base
+
   ABSTRACT INTERFACE
     SUBROUTINE InfoGravity(this,Mesh)
       IMPORT gravity_base, mesh_base
@@ -181,10 +130,6 @@ CONTAINS
     CLASS(physics_base),  INTENT(IN)    :: Physics
     TYPE(Dict_TYP),POINTER              :: config,IO
     !------------------------------------------------------------------------!
-    ! reset start value for time variable
-    this%time = -1.0
-    this%timeid = 0
-
     CALL this%Info(" GRAVITY--> gravity term:      " // this%GetName())
     CALL this%InfoGravity(Mesh)
   END SUBROUTINE InitGravity
@@ -203,7 +148,7 @@ CONTAINS
     CALL GetAttr(config, "output/accel", valwrite, 1)
     IF (valwrite .EQ. 1) THEN
        DO k=1,SIZE(this%accel,4)
-          CALL SetAttr(IO, (xyz(k) // "accel"),&
+          CALL SetAttr(IO, ("accel_" // xyz(k)),&
              this%accel(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,k))
        END DO
     END IF

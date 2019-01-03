@@ -66,6 +66,8 @@ MODULE gravity_spectral_mod
     !> \name
     !!#### spectral poisson solver
     TYPE(C_PTR)                      :: pFdensity, pFphi
+    TYPE(C_PTR)                      :: plan_r2c !> plan for real to complex FT
+    TYPE(C_PTR)                      :: plan_c2r !> plan for complex to real FT
     REAL(C_DOUBLE), DIMENSION(:,:), POINTER &
                                      :: Fdensity,Fphi,block
     COMPLEX(C_DOUBLE_COMPLEX), DIMENSION(:,:), POINTER &
@@ -76,6 +78,8 @@ MODULE gravity_spectral_mod
     COMPLEX(C_DOUBLE_COMPLEX), DIMENSION(:,:,:), POINTER &
                                      :: cFI
     TYPE(C_PTR)                      :: p_FI
+    REAL, DIMENSION(:,:,:), POINTER  :: den_ip       !< interpolated density
+    REAL, DIMENSION(:,:,:), POINTER  :: phi          !< potential
     REAL, DIMENSION(:,:), POINTER    :: tmp2D
     REAL, DIMENSION(:,:), POINTER    :: phi2D
     REAL, DIMENSION(:), POINTER      :: height1D
@@ -85,10 +89,14 @@ MODULE gravity_spectral_mod
     INTEGER, POINTER                 :: mcut
     INTEGER                          :: INUM,KNUM
     INTEGER                          :: MNUM          !< number of modes
+    INTEGER                          :: IMAX, KMAX    !< local IMAX, INUM
+    !> \name Variables in Parallel Mode
 #if defined(PARALLEL)
     !> displacment and length of domain
-    INTEGER,DIMENSION(:),POINTER     :: displ, num
-    INTEGER                          :: mpi_error
+    INTEGER,DIMENSION(:), POINTER    :: displ, num
+    INTEGER                          :: mpi_error     !< MPI error
+    REAL,DIMENSION(:,:), POINTER     :: sbuf1,sbuf2,& !< send buffers
+                                        rbuf1,rbuf2   !< receive buffers
 #endif
 #endif
   CONTAINS
