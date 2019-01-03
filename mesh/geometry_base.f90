@@ -79,14 +79,16 @@ MODULE geometry_base_mod
     PROCEDURE (Convert2Curvilinear_coords_2), DEFERRED :: Convert2Curvilinear_coords_2
     PROCEDURE (Convert2Curvilinear_coords_3), DEFERRED :: Convert2Curvilinear_coords_3
     PROCEDURE (Convert2Curvilinear_coords_4), DEFERRED :: Convert2Curvilinear_coords_4
-    PROCEDURE (Convert2Cartesian_vectors_0), DEFERRED :: Convert2Cartesian_vectors_0
-    PROCEDURE :: Convert2Cartesian_vectors_1
-    PROCEDURE :: Convert2Cartesian_vectors_2
-    PROCEDURE :: Convert2Cartesian_vectors_3
-    PROCEDURE (Convert2Curvilinear_vectors_0), DEFERRED :: Convert2Curvilinear_vectors_0
-    PROCEDURE :: Convert2Curvilinear_vectors_1
-    PROCEDURE :: Convert2Curvilinear_vectors_2
-    PROCEDURE :: Convert2Curvilinear_vectors_3
+    PROCEDURE :: Convert2Cartesian_vectors
+    PROCEDURE (Convert2Cartesian_vectors_1), DEFERRED :: Convert2Cartesian_vectors_1
+    PROCEDURE (Convert2Cartesian_vectors_2), DEFERRED :: Convert2Cartesian_vectors_2
+    PROCEDURE (Convert2Cartesian_vectors_3), DEFERRED :: Convert2Cartesian_vectors_3
+    PROCEDURE (Convert2Cartesian_vectors_4), DEFERRED :: Convert2Cartesian_vectors_4
+    PROCEDURE :: Convert2Curvilinear_vectors
+    PROCEDURE (Convert2Curvilinear_vectors_1), DEFERRED :: Convert2Curvilinear_vectors_1
+    PROCEDURE (Convert2Curvilinear_vectors_2), DEFERRED :: Convert2Curvilinear_vectors_2
+    PROCEDURE (Convert2Curvilinear_vectors_3), DEFERRED :: Convert2Curvilinear_vectors_3
+    PROCEDURE (Convert2Curvilinear_vectors_4), DEFERRED :: Convert2Curvilinear_vectors_4
     PROCEDURE :: SetScale1
     PROCEDURE :: SetScale2
     PROCEDURE :: SetScale3
@@ -109,17 +111,17 @@ MODULE geometry_base_mod
     GENERIC, PUBLIC :: PositionVector => PositionVector_0, PositionVector_1, PositionVector_2, &
                                          PositionVector_3, PositionVector_4
     !> \public Convert curvilinear to cartesian coordinates
-    GENERIC, PUBLIC :: Convert2Cartesian => Convert2Cartesian_coords, &
+    GENERIC, PUBLIC :: Convert2Cartesian => Convert2Cartesian_coords, Convert2Cartesian_vectors, &
                                             Convert2Cartesian_coords_1, Convert2Cartesian_coords_2,&
                                             Convert2Cartesian_coords_3, Convert2Cartesian_coords_4, &
-                                            Convert2Cartesian_vectors_0, Convert2Cartesian_vectors_1,&
-                                            Convert2Cartesian_vectors_2, Convert2Cartesian_vectors_3
+                                            Convert2Cartesian_vectors_1, Convert2Cartesian_vectors_2,&
+                                            Convert2Cartesian_vectors_3, Convert2Cartesian_vectors_4
     !> \public Convert curvilinear to cartesian coordinates
-    GENERIC, PUBLIC :: Convert2Curvilinear => Convert2Curvilinear_coords, &
+    GENERIC, PUBLIC :: Convert2Curvilinear => Convert2Curvilinear_coords, Convert2Curvilinear_vectors, &
                                               Convert2Curvilinear_coords_1, Convert2Curvilinear_coords_2,&
                                               Convert2Curvilinear_coords_3, Convert2Curvilinear_coords_4,&
-                                              Convert2Curvilinear_vectors_0, Convert2Curvilinear_vectors_1,&
-                                              Convert2Curvilinear_vectors_2, Convert2Curvilinear_vectors_3
+                                              Convert2Curvilinear_vectors_1, Convert2Curvilinear_vectors_2,&
+                                              Convert2Curvilinear_vectors_3, Convert2Curvilinear_vectors_4
     GENERIC         :: SetScale => SetScale1, SetScale2, SetScale3
     GENERIC         :: GetScale => GetScale1, GetScale2
   END TYPE geometry_base
@@ -265,19 +267,69 @@ MODULE geometry_base_mod
       REAL, DIMENSION(:,:,:,:,:), INTENT(IN)  :: cart
       REAL, DIMENSION(:,:,:,:,:), INTENT(OUT) :: curv
     END SUBROUTINE
-    PURE ELEMENTAL SUBROUTINE Convert2Cartesian_vectors_0(this,xi,eta,phi,vxi,veta,vphi,vx,vy,vz)
+    PURE SUBROUTINE Convert2Cartesian_vectors_1(this,curv,v_curv,v_cart)
       IMPORT geometry_base
       IMPLICIT NONE
-      CLASS(geometry_base), INTENT(IN) :: this
-      REAL, INTENT(IN)                 :: xi,eta,phi,vxi,veta,vphi
-      REAL, INTENT(OUT)                :: vx,vy,vz
+      CLASS(geometry_base), INTENT(IN)  :: this
+      REAL, DIMENSION(:,:), INTENT(IN)  :: curv
+      REAL, DIMENSION(:,:), INTENT(IN)  :: v_curv
+      REAL, DIMENSION(:,:), INTENT(OUT) :: v_cart
     END SUBROUTINE
-    PURE ELEMENTAL SUBROUTINE Convert2Curvilinear_vectors_0(this,xi,eta,phi,vx,vy,vz,vxi,veta,vphi)
+    PURE SUBROUTINE Convert2Cartesian_vectors_2(this,curv,v_curv,v_cart)
       IMPORT geometry_base
       IMPLICIT NONE
-      CLASS(geometry_base), INTENT(IN) :: this
-      REAL, INTENT(IN)                 :: xi,eta,phi,vx,vy,vz
-      REAL, INTENT(OUT)                :: vxi,veta,vphi
+      CLASS(geometry_base), INTENT(IN)  :: this
+      REAL, DIMENSION(:,:,:), INTENT(IN)  :: curv
+      REAL, DIMENSION(:,:,:), INTENT(IN)  :: v_curv
+      REAL, DIMENSION(:,:,:), INTENT(OUT) :: v_cart
+    END SUBROUTINE
+    PURE SUBROUTINE Convert2Cartesian_vectors_3(this,curv,v_curv,v_cart)
+      IMPORT geometry_base
+      IMPLICIT NONE
+      CLASS(geometry_base), INTENT(IN)  :: this
+      REAL, DIMENSION(:,:,:,:), INTENT(IN)  :: curv
+      REAL, DIMENSION(:,:,:,:), INTENT(IN)  :: v_curv
+      REAL, DIMENSION(:,:,:,:), INTENT(OUT) :: v_cart
+    END SUBROUTINE
+    PURE SUBROUTINE Convert2Cartesian_vectors_4(this,curv,v_curv,v_cart)
+      IMPORT geometry_base
+      IMPLICIT NONE
+      CLASS(geometry_base), INTENT(IN)  :: this
+      REAL, DIMENSION(:,:,:,:,:), INTENT(IN)  :: curv
+      REAL, DIMENSION(:,:,:,:,:), INTENT(IN)  :: v_curv
+      REAL, DIMENSION(:,:,:,:,:), INTENT(OUT) :: v_cart
+    END SUBROUTINE
+    PURE SUBROUTINE Convert2Curvilinear_vectors_1(this,curv,v_cart,v_curv)
+      IMPORT geometry_base
+      IMPLICIT NONE
+      CLASS(geometry_base), INTENT(IN)  :: this
+      REAL, DIMENSION(:,:), INTENT(IN)  :: curv
+      REAL, DIMENSION(:,:), INTENT(IN)  :: v_cart
+      REAL, DIMENSION(:,:), INTENT(OUT) :: v_curv
+    END SUBROUTINE
+    PURE SUBROUTINE Convert2Curvilinear_vectors_2(this,curv,v_cart,v_curv)
+      IMPORT geometry_base
+      IMPLICIT NONE
+      CLASS(geometry_base), INTENT(IN)  :: this
+      REAL, DIMENSION(:,:,:), INTENT(IN)  :: curv
+      REAL, DIMENSION(:,:,:), INTENT(IN)  :: v_cart
+      REAL, DIMENSION(:,:,:), INTENT(OUT) :: v_curv
+    END SUBROUTINE
+    PURE SUBROUTINE Convert2Curvilinear_vectors_3(this,curv,v_cart,v_curv)
+      IMPORT geometry_base
+      IMPLICIT NONE
+      CLASS(geometry_base), INTENT(IN)  :: this
+      REAL, DIMENSION(:,:,:,:), INTENT(IN)  :: curv
+      REAL, DIMENSION(:,:,:,:), INTENT(IN)  :: v_cart
+      REAL, DIMENSION(:,:,:,:), INTENT(OUT) :: v_curv
+    END SUBROUTINE
+    PURE SUBROUTINE Convert2Curvilinear_vectors_4(this,curv,v_cart,v_curv)
+      IMPORT geometry_base
+      IMPLICIT NONE
+      CLASS(geometry_base), INTENT(IN)  :: this
+      REAL, DIMENSION(:,:,:,:,:), INTENT(IN)  :: curv
+      REAL, DIMENSION(:,:,:,:,:), INTENT(IN)  :: v_cart
+      REAL, DIMENSION(:,:,:,:,:), INTENT(OUT) :: v_curv
     END SUBROUTINE
     SUBROUTINE Finalize(this)
       IMPORT geometry_base
@@ -514,94 +566,32 @@ CONTAINS
   END SUBROUTINE Convert2Curvilinear_coords
 
   !> \public Convert curvilinear vector components to cartesian vector components
-  PURE SUBROUTINE Convert2Cartesian_vectors_1(this,curv,v_curv,v_cart)
+  !!
+  !! ATTENTION: v_cart should actually be intent(out), but this breaks the
+  !!            pointer assignment to v_cart%data1d in the mesh array
+  PURE SUBROUTINE Convert2Cartesian_vectors(this,curv,v_curv,v_cart)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(geometry_base),INTENT(IN) :: this
-    REAL, DIMENSION(:,:,:,:)        :: curv, v_curv, v_cart
+    CLASS(geometry_base), INTENT(IN)       :: this   !> \param [in] this geometry class
+    TYPE(marray_cellvector), INTENT(IN)    :: curv   !> \param [in] curv curvilinear coordinates
+    TYPE(marray_cellvector), INTENT(IN)    :: v_curv !> \param [in] v_curv curvilinear vector comp.
+    TYPE(marray_cellvector), INTENT(INOUT) :: v_cart !> \param [out] v_cart cartesian vector comp.
     !------------------------------------------------------------------------!
-    INTENT(IN)                      :: curv,v_curv
-    INTENT(OUT)                     :: v_cart
-    !------------------------------------------------------------------------!
-    CALL this%Convert2Cartesian(  curv(:,:,:,1),  curv(:,:,:,2),  curv(:,:,:,3), &
-                                v_curv(:,:,:,1),v_curv(:,:,:,2),v_curv(:,:,:,3), &
-                                v_cart(:,:,:,1),v_cart(:,:,:,2),v_cart(:,:,:,3))
-  END SUBROUTINE Convert2Cartesian_vectors_1
+    CALL this%Convert2Cartesian(curv%data2d(:,:),v_curv%data2d(:,:),v_cart%data2d(:,:))
+  END SUBROUTINE Convert2Cartesian_vectors
 
-  !> \public Convert curvilinear vector components to cartesian vector components
-  PURE SUBROUTINE Convert2Cartesian_vectors_2(this,curv,v_curv,v_cart)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(geometry_base),INTENT(IN) :: this
-    REAL, DIMENSION(:,:,:,:,:)      :: curv, v_curv, v_cart
-    !------------------------------------------------------------------------!
-    INTENT(IN)                      :: curv,v_curv
-    INTENT(OUT)                     :: v_cart
-    !------------------------------------------------------------------------!
-    CALL this%Convert2Cartesian(  curv(:,:,:,:,1),  curv(:,:,:,:,2),  curv(:,:,:,:,3), &
-                                v_curv(:,:,:,:,1),v_curv(:,:,:,:,2),v_curv(:,:,:,:,3), &
-                                v_cart(:,:,:,:,1),v_cart(:,:,:,:,2),v_cart(:,:,:,:,3))
-  END SUBROUTINE Convert2Cartesian_vectors_2
-
-  !> \public Convert curvilinear vector components to cartesian vector components
-  PURE SUBROUTINE Convert2Cartesian_vectors_3(this,curv,v_curv,v_cart)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(geometry_base),INTENT(IN) :: this
-    REAL, DIMENSION(:)              :: curv, v_curv, v_cart
-    !------------------------------------------------------------------------!
-    INTENT(IN)                      :: curv,v_curv
-    INTENT(OUT)                     :: v_cart
-    !------------------------------------------------------------------------!
-    CALL this%Convert2Cartesian(  curv(1),  curv(2),  curv(3), &
-                                v_curv(1),v_curv(2),v_curv(3), &
-                                v_cart(1),v_cart(2),v_cart(3))
-  END SUBROUTINE Convert2Cartesian_vectors_3
 
   !> \public Convert cartesian vector components to curvilinear vector components
-  PURE SUBROUTINE Convert2Curvilinear_vectors_1(this,curv,v_cart,v_curv)
+  PURE SUBROUTINE Convert2Curvilinear_vectors(this,curv,v_cart,v_curv)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(geometry_base),INTENT(IN) :: this
-    REAL, DIMENSION(:,:,:,:)        :: curv, v_curv, v_cart
+    CLASS(geometry_base), INTENT(IN)       :: this   !> \param [in] this geometry class
+    TYPE(marray_cellvector), INTENT(IN)    :: curv   !> \param [in] curv curvilinear coordinates
+    TYPE(marray_cellvector), INTENT(IN)    :: v_cart !> \param [in] v_cart cartesian vector comp.
+    TYPE(marray_cellvector), INTENT(INOUT) :: v_curv !> \param [out] v_curv curvilinear vector comp.
     !------------------------------------------------------------------------!
-    INTENT(IN)                      :: curv,v_cart
-    INTENT(OUT)                     :: v_curv
-    !------------------------------------------------------------------------!
-    CALL this%Convert2Curvilinear(  curv(:,:,:,1),  curv(:,:,:,2),  curv(:,:,:,3), &
-                                  v_cart(:,:,:,1),v_cart(:,:,:,2),v_cart(:,:,:,3), &
-                                  v_curv(:,:,:,1),v_curv(:,:,:,2),v_curv(:,:,:,3))
-  END SUBROUTINE Convert2Curvilinear_vectors_1
-
-  !> \public Convert cartesian vector components to curvilinear vector components
-  PURE SUBROUTINE Convert2Curvilinear_vectors_2(this,curv,v_cart,v_curv)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(geometry_base),INTENT(IN) :: this
-    REAL, DIMENSION(:,:,:,:,:)      :: curv, v_curv, v_cart
-    !------------------------------------------------------------------------!
-    INTENT(IN)                      :: curv,v_cart
-    INTENT(OUT)                     :: v_curv
-    !------------------------------------------------------------------------!
-    CALL this%Convert2Curvilinear(  curv(:,:,:,:,1),  curv(:,:,:,:,2),  curv(:,:,:,:,3), &
-                                  v_cart(:,:,:,:,1),v_cart(:,:,:,:,2),v_cart(:,:,:,:,3), &
-                                  v_curv(:,:,:,:,1),v_curv(:,:,:,:,2),v_curv(:,:,:,:,3))
-  END SUBROUTINE Convert2Curvilinear_vectors_2
-
-  !> \public Convert cartesian vector components to curvilinear vector components
-  PURE SUBROUTINE Convert2Curvilinear_vectors_3(this,curv,v_cart,v_curv)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(geometry_base),INTENT(IN) :: this
-    REAL, DIMENSION(:)              :: curv, v_curv, v_cart
-    !------------------------------------------------------------------------!
-    INTENT(IN)                      :: curv,v_cart
-    INTENT(OUT)                     :: v_curv
-    !------------------------------------------------------------------------!
-    CALL this%Convert2Curvilinear(  curv(1),  curv(2),  curv(3),   &
-                                  v_cart(1),v_cart(2),v_cart(3), &
-                                  v_curv(1),v_curv(2),v_curv(3))
-  END SUBROUTINE Convert2Curvilinear_vectors_3
+    CALL this%Convert2Curvilinear(curv%data2d(:,:),v_cart%data2d(:,:),v_curv%data2d(:,:))
+  END SUBROUTINE Convert2Curvilinear_vectors
 
   !> \public sets the coordinate index of the azimuthal angle
   !!

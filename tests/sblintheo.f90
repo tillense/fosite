@@ -124,7 +124,7 @@ PROGRAM sblintheo
   CALL Sim%Finalize()
   DEALLOCATE(Sim)
 
-  TAP_CHECK_CLOSE(maximum, 0.02395931, 0.0001, "First max. < 1e-4 deviation")
+  TAP_CHECK_CLOSE(maximum, 0.02395931, 0.0003, "First max. < 3e-4 deviation")
   TAP_DONE
 
 CONTAINS

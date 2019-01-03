@@ -59,8 +59,6 @@ MODULE geometry_logcylindrical_mod
     PROCEDURE :: Convert2Curvilinear_coords_2
     PROCEDURE :: Convert2Curvilinear_coords_3
     PROCEDURE :: Convert2Curvilinear_coords_4
-    PROCEDURE :: Convert2Cartesian_vectors_0
-    PROCEDURE :: Convert2Curvilinear_vectors_0
     PROCEDURE :: Finalize
   END TYPE
   PRIVATE
@@ -300,33 +298,6 @@ CONTAINS
     CALL Convert2Curvilinear_coords(this%geoparam(1),cart(:,:,:,:,1),cart(:,:,:,:,2),cart(:,:,:,:,3), &
                                     curv(:,:,:,:,1),curv(:,:,:,:,2),curv(:,:,:,:,3))
   END SUBROUTINE Convert2Curvilinear_coords_4
-
-  !> Reference: \cite bronstein2008 , Tabelle 13.1
-  ELEMENTAL SUBROUTINE Convert2Cartesian_vectors_0(this,xi,eta,phi,vxi,veta,vphi,vx,vy,vz)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(geometry_logcylindrical), INTENT(IN) :: this
-    REAL, INTENT(IN)                        :: xi,eta,phi,vxi,veta,vphi
-    REAL, INTENT(OUT)                       :: vx,vy,vz
-    !------------------------------------------------------------------------!
-    vx = vxi*COS(eta) - veta*SIN(eta)
-    vy = vxi*SIN(eta) + veta*COS(eta)
-    vz = vphi
-  END SUBROUTINE Convert2Cartesian_vectors_0
-
-
-  !> Reference: \cite bronstein2008 , Tabelle 13.1
-  ELEMENTAL SUBROUTINE Convert2Curvilinear_vectors_0(this,xi,eta,phi,vx,vy,vz,vxi,veta,vphi)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(geometry_logcylindrical), INTENT(IN) :: this
-    REAL, INTENT(IN)                        :: xi,eta,phi,vx,vy,vz
-    REAL, INTENT(OUT)                       :: vxi,veta,vphi
-    !------------------------------------------------------------------------!
-    vxi  = vx*COS(eta) + vy*SIN(eta)
-    veta = -vx*SIN(eta) + vy*COS(eta)
-    vphi = vz
-  END SUBROUTINE Convert2Curvilinear_vectors_0
 
   SUBROUTINE Finalize(this)
     IMPLICIT NONE

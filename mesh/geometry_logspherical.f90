@@ -59,8 +59,6 @@ MODULE geometry_logspherical_mod
     PROCEDURE :: Convert2Curvilinear_coords_2
     PROCEDURE :: Convert2Curvilinear_coords_3
     PROCEDURE :: Convert2Curvilinear_coords_4
-    PROCEDURE :: Convert2Cartesian_vectors_0
-    PROCEDURE :: Convert2Curvilinear_vectors_0
     PROCEDURE :: Finalize
   END TYPE
   PRIVATE

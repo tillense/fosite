@@ -69,8 +69,14 @@ MODULE geometry_spherical_mod
     PROCEDURE :: Convert2Curvilinear_coords_2
     PROCEDURE :: Convert2Curvilinear_coords_3
     PROCEDURE :: Convert2Curvilinear_coords_4
-    PROCEDURE :: Convert2Cartesian_vectors_0
-    PROCEDURE :: Convert2Curvilinear_vectors_0
+    PROCEDURE :: Convert2Cartesian_vectors_1
+    PROCEDURE :: Convert2Cartesian_vectors_2
+    PROCEDURE :: Convert2Cartesian_vectors_3
+    PROCEDURE :: Convert2Cartesian_vectors_4
+    PROCEDURE :: Convert2Curvilinear_vectors_1
+    PROCEDURE :: Convert2Curvilinear_vectors_2
+    PROCEDURE :: Convert2Curvilinear_vectors_3
+    PROCEDURE :: Convert2Curvilinear_vectors_4
     PROCEDURE :: Finalize
   END TYPE
   PRIVATE
@@ -303,31 +309,109 @@ CONTAINS
                                     curv(:,:,:,:,1),curv(:,:,:,:,2),curv(:,:,:,:,3))
   END SUBROUTINE Convert2Curvilinear_coords_4
 
-  !> Reference: \cite bronstein2008 , Tabelle 13.1
-  ELEMENTAL SUBROUTINE Convert2Cartesian_vectors_0(this,xi,eta,phi,vxi,veta,vphi,vx,vy,vz)
+  PURE SUBROUTINE Convert2Cartesian_vectors_1(this,curv,v_curv,v_cart)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(geometry_spherical), INTENT(IN) :: this
-    REAL, INTENT(IN)                      :: xi,eta,phi,vxi,veta,vphi
-    REAL, INTENT(OUT)                     :: vx,vy,vz
+    REAL, DIMENSION(:,:), INTENT(IN)  :: curv
+    REAL, DIMENSION(:,:), INTENT(IN)  :: v_curv
+    REAL, DIMENSION(:,:), INTENT(OUT) :: v_cart
     !------------------------------------------------------------------------!
-    vx = vxi*SIN(eta)*COS(phi) + veta*COS(eta)*COS(phi) - vphi*SIN(phi)
-    vy = vxi*SIN(eta)*SIN(phi) + veta*COS(eta)*SIN(phi) + vphi*COS(phi)
-    vz = vxi*COS(eta) - veta*SIN(eta)
-  END SUBROUTINE Convert2Cartesian_vectors_0
+    CALL Convert2Cartesian_vectors(curv(:,1),curv(:,2),curv(:,3), &
+                                  v_curv(:,1),v_curv(:,2),v_curv(:,3), &
+                                  v_cart(:,1),v_cart(:,2),v_cart(:,3))
+  END SUBROUTINE Convert2Cartesian_vectors_1
 
-  !> Reference: \cite bronstein2008 , Tabelle 13.1
-  ELEMENTAL SUBROUTINE Convert2Curvilinear_vectors_0(this,xi,eta,phi,vx,vy,vz,vxi,veta,vphi)
+  PURE SUBROUTINE Convert2Cartesian_vectors_2(this,curv,v_curv,v_cart)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(geometry_spherical), INTENT(IN) :: this
-    REAL, INTENT(IN)                      :: xi,eta,phi,vx,vy,vz
-    REAL, INTENT(OUT)                     :: vxi,veta,vphi
+    REAL, DIMENSION(:,:,:), INTENT(IN)  :: curv
+    REAL, DIMENSION(:,:,:), INTENT(IN)  :: v_curv
+    REAL, DIMENSION(:,:,:), INTENT(OUT) :: v_cart
     !------------------------------------------------------------------------!
-    vxi  = vx*SIN(eta)*COS(phi) + vy*SIN(eta)*SIN(phi) + vz*COS(eta)
-    veta = vx*COS(eta)*COS(phi) + vy*COS(eta)*SIN(phi) - vz*SIN(eta)
-    vphi = -vx*SIN(phi) + vy*COS(phi)
-  END SUBROUTINE Convert2Curvilinear_vectors_0
+    CALL Convert2Cartesian_vectors(curv(:,:,1),curv(:,:,2),curv(:,:,3), &
+                                  v_curv(:,:,1),v_curv(:,:,2),v_curv(:,:,3), &
+                                  v_cart(:,:,1),v_cart(:,:,2),v_cart(:,:,3))
+  END SUBROUTINE Convert2Cartesian_vectors_2
+
+  PURE SUBROUTINE Convert2Cartesian_vectors_3(this,curv,v_curv,v_cart)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(geometry_spherical), INTENT(IN) :: this
+    REAL, DIMENSION(:,:,:,:), INTENT(IN)  :: curv
+    REAL, DIMENSION(:,:,:,:), INTENT(IN)  :: v_curv
+    REAL, DIMENSION(:,:,:,:), INTENT(OUT) :: v_cart
+    !------------------------------------------------------------------------!
+    CALL Convert2Cartesian_vectors(curv(:,:,:,1),curv(:,:,:,2),curv(:,:,:,3), &
+                                  v_curv(:,:,:,1),v_curv(:,:,:,2),v_curv(:,:,:,3), &
+                                  v_cart(:,:,:,1),v_cart(:,:,:,2),v_cart(:,:,:,3))
+  END SUBROUTINE Convert2Cartesian_vectors_3
+
+  PURE SUBROUTINE Convert2Cartesian_vectors_4(this,curv,v_curv,v_cart)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(geometry_spherical), INTENT(IN) :: this
+    REAL, DIMENSION(:,:,:,:,:), INTENT(IN)  :: curv
+    REAL, DIMENSION(:,:,:,:,:), INTENT(IN)  :: v_curv
+    REAL, DIMENSION(:,:,:,:,:), INTENT(OUT) :: v_cart
+    !------------------------------------------------------------------------!
+    CALL Convert2Cartesian_vectors(curv(:,:,:,:,1),curv(:,:,:,:,2),curv(:,:,:,:,3), &
+                                  v_curv(:,:,:,:,1),v_curv(:,:,:,:,2),v_curv(:,:,:,:,3), &
+                                  v_cart(:,:,:,:,1),v_cart(:,:,:,:,2),v_cart(:,:,:,:,3))
+  END SUBROUTINE Convert2Cartesian_vectors_4
+
+  PURE SUBROUTINE Convert2Curvilinear_vectors_1(this,curv,v_cart,v_curv)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(geometry_spherical), INTENT(IN) :: this
+    REAL, DIMENSION(:,:), INTENT(IN)  :: curv
+    REAL, DIMENSION(:,:), INTENT(IN)  :: v_cart
+    REAL, DIMENSION(:,:), INTENT(OUT) :: v_curv
+    !------------------------------------------------------------------------!
+    CALL Convert2Curvilinear_vectors(curv(:,1),curv(:,2),curv(:,3), &
+                                  v_cart(:,1),v_cart(:,2),v_cart(:,3), &
+                                  v_curv(:,1),v_curv(:,2),v_curv(:,3))
+  END SUBROUTINE Convert2Curvilinear_vectors_1
+
+  PURE SUBROUTINE Convert2Curvilinear_vectors_2(this,curv,v_cart,v_curv)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(geometry_spherical), INTENT(IN) :: this
+    REAL, DIMENSION(:,:,:), INTENT(IN)  :: curv
+    REAL, DIMENSION(:,:,:), INTENT(IN)  :: v_cart
+    REAL, DIMENSION(:,:,:), INTENT(OUT) :: v_curv
+    !------------------------------------------------------------------------!
+    CALL Convert2Curvilinear_vectors(curv(:,:,1),curv(:,:,2),curv(:,:,3), &
+                                  v_cart(:,:,1),v_cart(:,:,2),v_cart(:,:,3), &
+                                  v_curv(:,:,1),v_curv(:,:,2),v_curv(:,:,3))
+  END SUBROUTINE Convert2Curvilinear_vectors_2
+
+  PURE SUBROUTINE Convert2Curvilinear_vectors_3(this,curv,v_cart,v_curv)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(geometry_spherical), INTENT(IN) :: this
+    REAL, DIMENSION(:,:,:,:), INTENT(IN)  :: curv
+    REAL, DIMENSION(:,:,:,:), INTENT(IN)  :: v_cart
+    REAL, DIMENSION(:,:,:,:), INTENT(OUT) :: v_curv
+    !------------------------------------------------------------------------!
+    CALL Convert2Curvilinear_vectors(curv(:,:,:,1),curv(:,:,:,2),curv(:,:,:,3), &
+                                  v_cart(:,:,:,1),v_cart(:,:,:,2),v_cart(:,:,:,3), &
+                                  v_curv(:,:,:,1),v_curv(:,:,:,2),v_curv(:,:,:,3))
+  END SUBROUTINE Convert2Curvilinear_vectors_3
+
+  PURE SUBROUTINE Convert2Curvilinear_vectors_4(this,curv,v_cart,v_curv)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(geometry_spherical), INTENT(IN) :: this
+    REAL, DIMENSION(:,:,:,:,:), INTENT(IN)  :: curv
+    REAL, DIMENSION(:,:,:,:,:), INTENT(IN)  :: v_cart
+    REAL, DIMENSION(:,:,:,:,:), INTENT(OUT) :: v_curv
+    !------------------------------------------------------------------------!
+    CALL Convert2Curvilinear_vectors(curv(:,:,:,:,1),curv(:,:,:,:,2),curv(:,:,:,:,3), &
+                                  v_cart(:,:,:,:,1),v_cart(:,:,:,:,2),v_cart(:,:,:,:,3), &
+                                  v_curv(:,:,:,:,1),v_curv(:,:,:,:,2),v_curv(:,:,:,:,3))
+  END SUBROUTINE Convert2Curvilinear_vectors_4
 
   SUBROUTINE Finalize(this)
     IMPLICIT NONE
@@ -392,5 +476,29 @@ CONTAINS
       phi = phi + 2.0*PI
     END IF
   END SUBROUTINE Convert2Curvilinear_coords
+
+  !> Reference: \cite bronstein2008 , Tabelle 13.1
+  ELEMENTAL SUBROUTINE Convert2Cartesian_vectors(r,theta,phi,vr,vtheta,vphi,vx,vy,vz)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    REAL, INTENT(IN)                      :: r,theta,phi,vr,vtheta,vphi
+    REAL, INTENT(OUT)                     :: vx,vy,vz
+    !------------------------------------------------------------------------!
+    vx = vr*SIN(theta)*COS(phi) + vtheta*COS(theta)*COS(phi) - vphi*SIN(phi)
+    vy = vr*SIN(theta)*SIN(phi) + vtheta*COS(theta)*SIN(phi) + vphi*COS(phi)
+    vz = vr*COS(theta) - vtheta*SIN(theta)
+  END SUBROUTINE Convert2Cartesian_vectors
+
+  !> Reference: \cite bronstein2008 , Tabelle 13.1
+  ELEMENTAL SUBROUTINE Convert2Curvilinear_vectors(r,theta,phi,vx,vy,vz,vr,vtheta,vphi)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    REAL, INTENT(IN)                      :: r,theta,phi,vx,vy,vz
+    REAL, INTENT(OUT)                     :: vr,vtheta,vphi
+    !------------------------------------------------------------------------!
+    vr     = vx*SIN(theta)*COS(phi) + vy*SIN(theta)*SIN(phi) + vz*COS(theta)
+    vtheta = vx*COS(theta)*COS(phi) + vy*COS(theta)*SIN(phi) - vz*SIN(theta)
+    vphi   = -vx*SIN(phi) + vy*COS(phi)
+  END SUBROUTINE Convert2Curvilinear_vectors
 
 END MODULE geometry_spherical_mod

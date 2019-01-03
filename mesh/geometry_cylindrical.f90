@@ -61,8 +61,14 @@ MODULE geometry_cylindrical_mod
     PROCEDURE :: Convert2Curvilinear_coords_2
     PROCEDURE :: Convert2Curvilinear_coords_3
     PROCEDURE :: Convert2Curvilinear_coords_4
-    PROCEDURE :: Convert2Cartesian_vectors_0
-    PROCEDURE :: Convert2Curvilinear_vectors_0
+    PROCEDURE :: Convert2Cartesian_vectors_1
+    PROCEDURE :: Convert2Cartesian_vectors_2
+    PROCEDURE :: Convert2Cartesian_vectors_3
+    PROCEDURE :: Convert2Cartesian_vectors_4
+    PROCEDURE :: Convert2Curvilinear_vectors_1
+    PROCEDURE :: Convert2Curvilinear_vectors_2
+    PROCEDURE :: Convert2Curvilinear_vectors_3
+    PROCEDURE :: Convert2Curvilinear_vectors_4
     PROCEDURE :: Finalize
   END TYPE
   PRIVATE
@@ -294,32 +300,109 @@ CONTAINS
                                     curv(:,:,:,:,1),curv(:,:,:,:,2),curv(:,:,:,:,3))
   END SUBROUTINE Convert2Curvilinear_coords_4
 
-  !> Reference: \cite bronstein2008 , Tabelle 13.1
-  ELEMENTAL SUBROUTINE Convert2Cartesian_vectors_0(this,xi,eta,phi,vxi,veta,vphi,vx,vy,vz)
+  PURE SUBROUTINE Convert2Cartesian_vectors_1(this,curv,v_curv,v_cart)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(geometry_cylindrical), INTENT(IN) :: this
-    REAL, INTENT(IN)                        :: xi,eta,phi,vxi,veta,vphi
-    REAL, INTENT(OUT)                       :: vx,vy,vz
+    REAL, DIMENSION(:,:), INTENT(IN)  :: curv
+    REAL, DIMENSION(:,:), INTENT(IN)  :: v_curv
+    REAL, DIMENSION(:,:), INTENT(OUT) :: v_cart
     !------------------------------------------------------------------------!
-    vx = vxi*COS(eta) - veta*SIN(eta)
-    vy = vxi*SIN(eta) + veta*COS(eta)
-    vz = vphi
-  END SUBROUTINE Convert2Cartesian_vectors_0
+    CALL Convert2Cartesian_vectors(curv(:,1),curv(:,2),curv(:,3), &
+                                  v_curv(:,1),v_curv(:,2),v_curv(:,3), &
+                                  v_cart(:,1),v_cart(:,2),v_cart(:,3))
+  END SUBROUTINE Convert2Cartesian_vectors_1
 
-
-  !> Reference: \cite bronstein2008 , Tabelle 13.1
-  ELEMENTAL SUBROUTINE Convert2Curvilinear_vectors_0(this,xi,eta,phi,vx,vy,vz,vxi,veta,vphi)
+  PURE SUBROUTINE Convert2Cartesian_vectors_2(this,curv,v_curv,v_cart)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(geometry_cylindrical), INTENT(IN) :: this
-    REAL, INTENT(IN)                        :: xi,eta,phi,vx,vy,vz
-    REAL, INTENT(OUT)                       :: vxi,veta,vphi
+    REAL, DIMENSION(:,:,:), INTENT(IN)  :: curv
+    REAL, DIMENSION(:,:,:), INTENT(IN)  :: v_curv
+    REAL, DIMENSION(:,:,:), INTENT(OUT) :: v_cart
     !------------------------------------------------------------------------!
-    vxi  = vx*COS(eta) + vy*SIN(eta)
-    veta = -vx*SIN(eta) + vy*COS(eta)
-    vphi = vz
-  END SUBROUTINE Convert2Curvilinear_vectors_0
+    CALL Convert2Cartesian_vectors(curv(:,:,1),curv(:,:,2),curv(:,:,3), &
+                                  v_curv(:,:,1),v_curv(:,:,2),v_curv(:,:,3), &
+                                  v_cart(:,:,1),v_cart(:,:,2),v_cart(:,:,3))
+  END SUBROUTINE Convert2Cartesian_vectors_2
+
+  PURE SUBROUTINE Convert2Cartesian_vectors_3(this,curv,v_curv,v_cart)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(geometry_cylindrical), INTENT(IN) :: this
+    REAL, DIMENSION(:,:,:,:), INTENT(IN)  :: curv
+    REAL, DIMENSION(:,:,:,:), INTENT(IN)  :: v_curv
+    REAL, DIMENSION(:,:,:,:), INTENT(OUT) :: v_cart
+    !------------------------------------------------------------------------!
+    CALL Convert2Cartesian_vectors(curv(:,:,:,1),curv(:,:,:,2),curv(:,:,:,3), &
+                                  v_curv(:,:,:,1),v_curv(:,:,:,2),v_curv(:,:,:,3), &
+                                  v_cart(:,:,:,1),v_cart(:,:,:,2),v_cart(:,:,:,3))
+  END SUBROUTINE Convert2Cartesian_vectors_3
+
+  PURE SUBROUTINE Convert2Cartesian_vectors_4(this,curv,v_curv,v_cart)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(geometry_cylindrical), INTENT(IN) :: this
+    REAL, DIMENSION(:,:,:,:,:), INTENT(IN)  :: curv
+    REAL, DIMENSION(:,:,:,:,:), INTENT(IN)  :: v_curv
+    REAL, DIMENSION(:,:,:,:,:), INTENT(OUT) :: v_cart
+    !------------------------------------------------------------------------!
+    CALL Convert2Cartesian_vectors(curv(:,:,:,:,1),curv(:,:,:,:,2),curv(:,:,:,:,3), &
+                                  v_curv(:,:,:,:,1),v_curv(:,:,:,:,2),v_curv(:,:,:,:,3), &
+                                  v_cart(:,:,:,:,1),v_cart(:,:,:,:,2),v_cart(:,:,:,:,3))
+  END SUBROUTINE Convert2Cartesian_vectors_4
+
+  PURE SUBROUTINE Convert2Curvilinear_vectors_1(this,curv,v_cart,v_curv)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(geometry_cylindrical), INTENT(IN) :: this
+    REAL, DIMENSION(:,:), INTENT(IN)  :: curv
+    REAL, DIMENSION(:,:), INTENT(IN)  :: v_cart
+    REAL, DIMENSION(:,:), INTENT(OUT) :: v_curv
+    !------------------------------------------------------------------------!
+    CALL Convert2Curvilinear_vectors(curv(:,1),curv(:,2),curv(:,3), &
+                                  v_cart(:,1),v_cart(:,2),v_cart(:,3), &
+                                  v_curv(:,1),v_curv(:,2),v_curv(:,3))
+  END SUBROUTINE Convert2Curvilinear_vectors_1
+
+  PURE SUBROUTINE Convert2Curvilinear_vectors_2(this,curv,v_cart,v_curv)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(geometry_cylindrical), INTENT(IN) :: this
+    REAL, DIMENSION(:,:,:), INTENT(IN)  :: curv
+    REAL, DIMENSION(:,:,:), INTENT(IN)  :: v_cart
+    REAL, DIMENSION(:,:,:), INTENT(OUT) :: v_curv
+    !------------------------------------------------------------------------!
+    CALL Convert2Curvilinear_vectors(curv(:,:,1),curv(:,:,2),curv(:,:,3), &
+                                  v_cart(:,:,1),v_cart(:,:,2),v_cart(:,:,3), &
+                                  v_curv(:,:,1),v_curv(:,:,2),v_curv(:,:,3))
+  END SUBROUTINE Convert2Curvilinear_vectors_2
+
+  PURE SUBROUTINE Convert2Curvilinear_vectors_3(this,curv,v_cart,v_curv)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(geometry_cylindrical), INTENT(IN) :: this
+    REAL, DIMENSION(:,:,:,:), INTENT(IN)  :: curv
+    REAL, DIMENSION(:,:,:,:), INTENT(IN)  :: v_cart
+    REAL, DIMENSION(:,:,:,:), INTENT(OUT) :: v_curv
+    !------------------------------------------------------------------------!
+    CALL Convert2Curvilinear_vectors(curv(:,:,:,1),curv(:,:,:,2),curv(:,:,:,3), &
+                                  v_cart(:,:,:,1),v_cart(:,:,:,2),v_cart(:,:,:,3), &
+                                  v_curv(:,:,:,1),v_curv(:,:,:,2),v_curv(:,:,:,3))
+  END SUBROUTINE Convert2Curvilinear_vectors_3
+
+  PURE SUBROUTINE Convert2Curvilinear_vectors_4(this,curv,v_cart,v_curv)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(geometry_cylindrical), INTENT(IN) :: this
+    REAL, DIMENSION(:,:,:,:,:), INTENT(IN)  :: curv
+    REAL, DIMENSION(:,:,:,:,:), INTENT(IN)  :: v_cart
+    REAL, DIMENSION(:,:,:,:,:), INTENT(OUT) :: v_curv
+    !------------------------------------------------------------------------!
+    CALL Convert2Curvilinear_vectors(curv(:,:,:,:,1),curv(:,:,:,:,2),curv(:,:,:,:,3), &
+                                  v_cart(:,:,:,:,1),v_cart(:,:,:,:,2),v_cart(:,:,:,:,3), &
+                                  v_curv(:,:,:,:,1),v_curv(:,:,:,:,2),v_curv(:,:,:,:,3))
+  END SUBROUTINE Convert2Curvilinear_vectors_4
 
   SUBROUTINE Finalize(this)
     IMPLICIT NONE
@@ -384,5 +467,31 @@ CONTAINS
     END IF
     zz = z
   END SUBROUTINE Convert2Curvilinear_coords
+
+  !> Reference: \cite bronstein2008 , Tabelle 13.1
+  ELEMENTAL SUBROUTINE Convert2Cartesian_vectors(r,phi,z,vr,vphi,vzz,vx,vy,vz)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    REAL, INTENT(IN)                        :: r,phi,z,vr,vphi,vzz
+    REAL, INTENT(OUT)                       :: vx,vy,vz
+    !------------------------------------------------------------------------!
+    vx = vr*COS(phi) - vphi*SIN(phi)
+    vy = vr*SIN(phi) + vphi*COS(phi)
+    vz = vzz
+  END SUBROUTINE Convert2Cartesian_vectors
+
+
+  !> Reference: \cite bronstein2008 , Tabelle 13.1
+  ELEMENTAL SUBROUTINE Convert2Curvilinear_vectors(r,phi,z,vx,vy,vz,vr,vphi,vzz)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    REAL, INTENT(IN)                        :: r,phi,z,vx,vy,vz
+    REAL, INTENT(OUT)                       :: vr,vphi,vzz
+    !------------------------------------------------------------------------!
+    vr   = vx*COS(phi) + vy*SIN(phi)
+    vphi = -vx*SIN(phi) + vy*COS(phi)
+    vzz  = vz
+  END SUBROUTINE Convert2Curvilinear_vectors
+
 
 END MODULE geometry_cylindrical_mod

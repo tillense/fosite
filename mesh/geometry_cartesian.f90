@@ -61,8 +61,14 @@ MODULE geometry_cartesian_mod
     PROCEDURE :: Convert2Curvilinear_coords_2
     PROCEDURE :: Convert2Curvilinear_coords_3
     PROCEDURE :: Convert2Curvilinear_coords_4
-    PROCEDURE :: Convert2Cartesian_vectors_0
-    PROCEDURE :: Convert2Curvilinear_vectors_0
+    PROCEDURE :: Convert2Cartesian_vectors_1
+    PROCEDURE :: Convert2Cartesian_vectors_2
+    PROCEDURE :: Convert2Cartesian_vectors_3
+    PROCEDURE :: Convert2Cartesian_vectors_4
+    PROCEDURE :: Convert2Curvilinear_vectors_1
+    PROCEDURE :: Convert2Curvilinear_vectors_2
+    PROCEDURE :: Convert2Curvilinear_vectors_3
+    PROCEDURE :: Convert2Curvilinear_vectors_4
     PROCEDURE :: Finalize
   END TYPE
   PRIVATE
@@ -289,29 +295,93 @@ CONTAINS
   END SUBROUTINE Convert2Curvilinear_coords_4
 
   ! vector transformations
-  ELEMENTAL SUBROUTINE Convert2Cartesian_vectors_0(this,xi,eta,phi,vxi,veta,vphi,vx,vy,vz)
+  PURE SUBROUTINE Convert2Cartesian_vectors_1(this,curv,v_curv,v_cart)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(geometry_cartesian), INTENT(IN) :: this
-    REAL, INTENT(IN)                      :: xi,eta,phi,vxi,veta,vphi
-    REAL, INTENT(OUT)                     :: vx,vy,vz
+    REAL, DIMENSION(:,:), INTENT(IN)  :: curv
+    REAL, DIMENSION(:,:), INTENT(IN)  :: v_curv
+    REAL, DIMENSION(:,:), INTENT(OUT) :: v_cart
     !------------------------------------------------------------------------!
-    vx = vxi  * xi
-    vy = veta * eta
-    vz = vphi * phi
-  END SUBROUTINE Convert2Cartesian_vectors_0
+    v_cart = v_curv
+  END SUBROUTINE Convert2Cartesian_vectors_1
 
-  ELEMENTAL SUBROUTINE Convert2Curvilinear_vectors_0(this,xi,eta,phi,vx,vy,vz,vxi,veta,vphi)
+  PURE SUBROUTINE Convert2Cartesian_vectors_2(this,curv,v_curv,v_cart)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(geometry_cartesian), INTENT(IN) :: this
-    REAL, INTENT(IN)                      :: xi,eta,phi,vx,vy,vz
-    REAL, INTENT(OUT)                     :: vxi,veta,vphi
+    REAL, DIMENSION(:,:,:), INTENT(IN)  :: curv
+    REAL, DIMENSION(:,:,:), INTENT(IN)  :: v_curv
+    REAL, DIMENSION(:,:,:), INTENT(OUT) :: v_cart
     !------------------------------------------------------------------------!
-    vxi  = vx * xi
-    veta = vy * eta
-    vphi = vz * phi
-  END SUBROUTINE Convert2Curvilinear_vectors_0
+    v_cart = v_curv
+  END SUBROUTINE Convert2Cartesian_vectors_2
+
+  PURE SUBROUTINE Convert2Cartesian_vectors_3(this,curv,v_curv,v_cart)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(geometry_cartesian), INTENT(IN) :: this
+    REAL, DIMENSION(:,:,:,:), INTENT(IN)  :: curv
+    REAL, DIMENSION(:,:,:,:), INTENT(IN)  :: v_curv
+    REAL, DIMENSION(:,:,:,:), INTENT(OUT) :: v_cart
+    !------------------------------------------------------------------------!
+    v_cart = v_curv
+  END SUBROUTINE Convert2Cartesian_vectors_3
+
+  PURE SUBROUTINE Convert2Cartesian_vectors_4(this,curv,v_curv,v_cart)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(geometry_cartesian), INTENT(IN) :: this
+    REAL, DIMENSION(:,:,:,:,:), INTENT(IN)  :: curv
+    REAL, DIMENSION(:,:,:,:,:), INTENT(IN)  :: v_curv
+    REAL, DIMENSION(:,:,:,:,:), INTENT(OUT) :: v_cart
+    !------------------------------------------------------------------------!
+    v_cart = v_curv
+  END SUBROUTINE Convert2Cartesian_vectors_4
+
+  PURE SUBROUTINE Convert2Curvilinear_vectors_1(this,curv,v_cart,v_curv)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(geometry_cartesian), INTENT(IN) :: this
+    REAL, DIMENSION(:,:), INTENT(IN)  :: curv
+    REAL, DIMENSION(:,:), INTENT(IN)  :: v_cart
+    REAL, DIMENSION(:,:), INTENT(OUT) :: v_curv
+    !------------------------------------------------------------------------!
+    v_curv = v_cart
+  END SUBROUTINE Convert2Curvilinear_vectors_1
+
+  PURE SUBROUTINE Convert2Curvilinear_vectors_2(this,curv,v_cart,v_curv)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(geometry_cartesian), INTENT(IN) :: this
+    REAL, DIMENSION(:,:,:), INTENT(IN)  :: curv
+    REAL, DIMENSION(:,:,:), INTENT(IN)  :: v_cart
+    REAL, DIMENSION(:,:,:), INTENT(OUT) :: v_curv
+    !------------------------------------------------------------------------!
+    v_curv = v_cart
+  END SUBROUTINE Convert2Curvilinear_vectors_2
+
+  PURE SUBROUTINE Convert2Curvilinear_vectors_3(this,curv,v_cart,v_curv)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(geometry_cartesian), INTENT(IN) :: this
+    REAL, DIMENSION(:,:,:,:), INTENT(IN)  :: curv
+    REAL, DIMENSION(:,:,:,:), INTENT(IN)  :: v_cart
+    REAL, DIMENSION(:,:,:,:), INTENT(OUT) :: v_curv
+    !------------------------------------------------------------------------!
+    v_curv = v_cart
+  END SUBROUTINE Convert2Curvilinear_vectors_3
+
+  PURE SUBROUTINE Convert2Curvilinear_vectors_4(this,curv,v_cart,v_curv)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(geometry_cartesian), INTENT(IN) :: this
+    REAL, DIMENSION(:,:,:,:,:), INTENT(IN)  :: curv
+    REAL, DIMENSION(:,:,:,:,:), INTENT(IN)  :: v_cart
+    REAL, DIMENSION(:,:,:,:,:), INTENT(OUT) :: v_curv
+    !------------------------------------------------------------------------!
+    v_curv = v_cart
+  END SUBROUTINE Convert2Curvilinear_vectors_4
 
   SUBROUTINE Finalize(this)
     IMPLICIT NONE
