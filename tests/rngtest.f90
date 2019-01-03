@@ -39,6 +39,10 @@ PROGRAM rngtest
   REAL               :: r,rmax,rmin,rnew
   !--------------------------------------------------------------------------!
 
+#ifdef NECSXAURORA
+  TAP_PLAN(1)
+  TAP_CHECK(.TRUE.,"test disabled on NEC SX Aurora because it takes to long")
+#else
   TAP_PLAN(6)
 
   ! Check Kiss64
@@ -67,6 +71,7 @@ PROGRAM rngtest
   TAP_CHECK_LE(rmax,1.,"All are smaller (or equal) than 1.")
   TAP_CHECK_CLOSE(rmin,0.,1.E-4,"Lower limit is close to 0.")
   TAP_CHECK_CLOSE(rmax,1.,1.E-4,"Upper limit is close to 1.")
+#endif
 
   ! Check SuperKiss64
   TAP_DONE
