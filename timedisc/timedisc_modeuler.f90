@@ -216,18 +216,11 @@ CONTAINS
     !------------------------------------------------------------------------!
 !NEC$ NOVECTOR
     DO l=1,Physics%VNUM
-!NEC$ OUTERLOOP_UNROLL(8)
-      DO k=Mesh%KMIN,Mesh%KMAX
-!NEC$ IVDEP
-        DO j=Mesh%JMIN,Mesh%JMAX
-!NEC$ IVDEP
-          DO i=Mesh%IMIN,Mesh%IMAX
-            ! time step update of conservative variables
-            cnew%data4d(i,j,k,l) = UpdateTimestep_modeuler(eta,dt, &
-               cold%data4d(i,j,k,l),cvar%data4d(i,j,k,l),rhs%data4d(i,j,k,l))
-          END DO
-        END DO
-      END DO
+      ! use collapsed arrays for better vector performance
+      ! ATTENTION: yields garbage in ghost zones
+      !            -> overwritten in CenterBoundary called in timedisc_base::ComputeRHS
+      cnew%data2d(:,l) = UpdateTimestep_modeuler(eta,dt, &
+                           cold%data2d(:,l),cvar%data2d(:,l),rhs%data2d(:,l))
 
     IF(Mesh%INUM.GT.1) THEN
       ! western and eastern boundary fluxes
