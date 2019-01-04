@@ -160,13 +160,8 @@ CONTAINS
     REAL,                   INTENT(IN)    :: time, dt
     CLASS(marray_compound), INTENT(INOUT) :: pvar,cvar,sterm
     !------------------------------------------------------------------------!
-    ! update acceleration of all gravity sources
-    ! reset gterm
-    this%pot%data1d(:) = 0.
-    this%accel%data1d(:) = 0.
-
     ! go through all gravity terms in the list
-    CALL this%UpdateGravity(Mesh,Physics,Fluxes,pvar%data4d,time,dt)
+    CALL this%UpdateGravity(Mesh,Physics,Fluxes,pvar,time,dt)
 
     ! update disk scale height if requested
     IF (this%update_disk_height) THEN
@@ -198,21 +193,25 @@ CONTAINS
     CLASS(mesh_base),    INTENT(IN)    :: Mesh
     CLASS(physics_base), INTENT(INOUT) :: Physics
     CLASS(fluxes_base),  INTENT(IN)    :: Fluxes
+    CLASS(marray_compound), INTENT(INOUT) :: pvar
     REAL,                INTENT(IN)    :: time, dt
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
-                         INTENT(IN)    :: pvar
     !------------------------------------------------------------------------!
     CLASS(gravity_base), POINTER       :: gravptr
     !------------------------------------------------------------------------!
+    ! update acceleration of all gravity sources
+    ! reset gterm
+    this%pot%data1d(:) = 0.
+    this%accel%data1d(:) = 0.
 
     gravptr => this%glist
     DO WHILE (ASSOCIATED(gravptr))
-      ! call specific subroutine
-!CDIR IEXPAND
+      ! get gravitational acceleration of each gravity module
       CALL gravptr%UpdateGravity_single(Mesh,Physics,Fluxes,pvar,time,dt)
 
-      ! add to the sources
-      this%accel%data4d(:,:,:,:) = this%accel%data4d(:,:,:,:) + gravptr%accel(:,:,:,:)
+      ! add contribution to the overall gravitational acceleration
+      this%accel = this%accel + gravptr%accel
+
+      ! add potential if available
       IF(ASSOCIATED(gravptr%pot)) &
         this%pot%data4d(:,:,:,:) = this%pot%data4d(:,:,:,:) + gravptr%pot(:,:,:,:)
 

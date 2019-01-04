@@ -54,7 +54,7 @@ MODULE gravity_base_mod
     !> \name Variables
     CLASS(logging_base), ALLOCATABLE   :: gravitytype  !< type of gravity term
     CLASS(gravity_base), POINTER       :: next => null() !< next gravity in list
-    REAL, DIMENSION(:,:,:,:), POINTER  :: accel        !< acceleration
+    CLASS(marray_base), ALLOCATABLE    :: accel        !< acceleration
     REAL, DIMENSION(:,:,:,:), POINTER  :: pot          !< general potential
   CONTAINS
     PROCEDURE :: InitGravity
@@ -76,16 +76,15 @@ MODULE gravity_base_mod
       CLASS(mesh_base),    INTENT(IN)    :: Mesh
     END SUBROUTINE
     SUBROUTINE UpdateGravity_single(this,Mesh,Physics,Fluxes,pvar,time,dt)
-      IMPORT gravity_base, mesh_base, physics_base, fluxes_base
+      IMPORT gravity_base, mesh_base, physics_base, fluxes_base, marray_compound
       IMPLICIT NONE
       !------------------------------------------------------------------------!
       CLASS(gravity_base), INTENT(INOUT) :: this
       CLASS(mesh_base),    INTENT(IN)    :: Mesh
       CLASS(physics_base), INTENT(IN)    :: Physics
       CLASS(fluxes_base),  INTENT(IN)    :: Fluxes
-      REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
-                           INTENT(IN)    :: pvar
       REAL,                INTENT(IN)    :: time,dt
+      CLASS(marray_compound), INTENT(INOUT) :: pvar
     END SUBROUTINE
     SUBROUTINE CalcDiskHeight_single(this,Mesh,Physics,pvar,bccsound,h_ext,height)
       IMPORT gravity_base, mesh_base, physics_base, marray_compound, marray_base
@@ -122,16 +121,25 @@ MODULE gravity_base_mod
 
 CONTAINS
 
-  SUBROUTINE InitGravity(this,Mesh,Physics,config,IO)
+  SUBROUTINE InitGravity(this,Mesh,Physics,gravity_name,config,IO)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(gravity_base),  INTENT(INOUT) :: this
     CLASS(mesh_base),     INTENT(IN)    :: Mesh
     CLASS(physics_base),  INTENT(IN)    :: Physics
+    CHARACTER(LEN=*),     INTENT(IN)    :: gravity_name
     TYPE(Dict_TYP),POINTER              :: config,IO
     !------------------------------------------------------------------------!
-    CALL this%Info(" GRAVITY--> gravity term:      " // this%GetName())
-    CALL this%InfoGravity(Mesh)
+    INTEGER :: gtype
+    !------------------------------------------------------------------------!
+    ! basic initialization of gravity module
+    CALL GetAttr(config, "gtype", gtype)
+    ! allocate memory for new gravity term
+    CALL this%InitLogging(gtype,gravity_name)
+    ALLOCATE(this%accel)
+    this%accel = marray_base(Physics%VDIM)
+    ! reset acceleration
+    this%accel%data1d(:) = 0.0
   END SUBROUTINE InitGravity
 
   SUBROUTINE SetOutput(this,Mesh,Physics,config,IO)
@@ -147,9 +155,9 @@ CONTAINS
     !------------------------------------------------------------------------!
     CALL GetAttr(config, "output/accel", valwrite, 1)
     IF (valwrite .EQ. 1) THEN
-       DO k=1,SIZE(this%accel,4)
+       DO k=1,SIZE(this%accel%data4d,4)
           CALL SetAttr(IO, ("accel_" // xyz(k)),&
-             this%accel(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,k))
+             this%accel%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,k))
        END DO
     END IF
 
@@ -182,7 +190,8 @@ CONTAINS
     CLASS(gravity_base) :: this
     !------------------------------------------------------------------------!
     ! nothing intializaed
-
+    CALL this%accel%Destroy()
+    DEALLOCATE(this%accel)
   END SUBROUTINE Finalize_base
 
 END MODULE gravity_base_mod

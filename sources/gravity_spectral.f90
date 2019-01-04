@@ -57,7 +57,6 @@ MODULE gravity_spectral_mod
   IMPLICIT NONE
   !--------------------------------------------------------------------------!
   PRIVATE
-  CHARACTER(LEN=32), PARAMETER :: solver_name  = "spectral"
   REAL, PARAMETER              :: SQRTTWOPI &
     = 2.50662827463100050241576528481104525300698674
 
@@ -126,13 +125,10 @@ MODULE gravity_spectral_mod
     CLASS(physics_base),         INTENT(IN) :: Physics
     TYPE(Dict_TYP),              POINTER    :: config,IO
     !------------------------------------------------------------------------!
-    INTEGER           :: err, valwrite, solver
+    INTEGER           :: err, valwrite
     CHARACTER(LEN=32) :: info_str
     !------------------------------------------------------------------------!
-    CALL GetAttr(config, "gtype", solver)
-    CALL this%InitLogging(solver,solver_name)
-
-    CALL this%InitGravity(Mesh,Physics,config,IO)
+    CALL this%InitGravity(Mesh,Physics,"spectral",config,IO)
 
 #if !defined(HAVE_FFTW)
     CALL this%Error("InitGravity_spectral", &
@@ -183,7 +179,6 @@ MODULE gravity_spectral_mod
     this%MNUM = Mesh%JNUM/2+1
 
     ALLOCATE(this%phi2D(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX), &
-             this%accel(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VDIM), &
              this%tmp2D(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX), &
              this%pot(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,4), &
              this%height1D(1:Mesh%INUM), &
@@ -251,7 +246,6 @@ MODULE gravity_spectral_mod
     this%cblock => this%cFdensity(:,Mesh%IMIN:Mesh%IMAX)
 
     this%phi2D(:,:) = 0.
-    this%accel(:,:,:,:) = 0.
     this%pot(:,:,:,:) = 0.
     this%tmp2D(:,:) = 0.
 
@@ -341,18 +335,19 @@ MODULE gravity_spectral_mod
     CLASS(gravity_spectral), INTENT(IN) :: this
     CLASS(mesh_base),            INTENT(IN) :: Mesh
     !------------------------------------------------------------------------!
+    CALL this%Info(" GRAVITY--> gravity term:      " // this%GetName())
   END SUBROUTINE InfoGravity
 
 
 #if defined(HAVE_FFTW)
   SUBROUTINE CalcPotential(this,Mesh,Physics,time,pvar)
+    USE physics_eulerisotherm_mod, ONLY : statevector_eulerisotherm
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(gravity_spectral), INTENT(INOUT):: this
     CLASS(mesh_base),    INTENT(IN) :: Mesh
     CLASS(physics_base), INTENT(IN) :: Physics
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
-                         INTENT(IN) :: pvar
+    CLASS(marray_compound),   INTENT(INOUT) :: pvar
     REAL, INTENT(IN)                :: time
     !------------------------------------------------------------------------!
     INTEGER           :: i,k,m,i0,oldmcut
@@ -361,11 +356,16 @@ MODULE gravity_spectral_mod
 #endif
     !------------------------------------------------------------------------!
     ! Fourier transform the density with respect to Phi
-    DO k=Mesh%KMIN, Mesh%KMAX
-      DO i=Mesh%IMIN, Mesh%IMAX
-        this%Fdensity(1:Mesh%JNUM,i) = pvar(i,Mesh%JMIN:Mesh%JMAX,k,Physics%DENSITY)
+    SELECT TYPE(p => pvar)
+    CLASS IS(statevector_eulerisotherm)
+      DO k=Mesh%KMIN, Mesh%KMAX
+        DO i=Mesh%IMIN, Mesh%IMAX
+          this%Fdensity(1:Mesh%JNUM,i) = p%density%data3d(i,Mesh%JMIN:Mesh%JMAX,k)
+        END DO
       END DO
-    END DO
+    CLASS DEFAULT
+      CALL this%Error("gravity_spectral::CalcPotential","unsupported state vector")
+    END SELECT
 
     CALL fftw_execute_dft_r2c(this%plan_r2c, this%block, this%cblock)
 
@@ -622,12 +622,11 @@ MODULE gravity_spectral_mod
   SUBROUTINE UpdateGravity_single(this,Mesh,Physics,Fluxes,pvar,time,dt)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(gravity_spectral), INTENT(INOUT) :: this
+    CLASS(gravity_spectral),  INTENT(INOUT) :: this
     CLASS(mesh_base),            INTENT(IN) :: Mesh
     CLASS(physics_base),         INTENT(IN) :: Physics
     CLASS(fluxes_base),          INTENT(IN) :: Fluxes
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
-                                 INTENT(IN) :: pvar
+    CLASS(marray_compound),   INTENT(INOUT) :: pvar
     REAL,                        INTENT(IN) :: time,dt
     !------------------------------------------------------------------------!
     INTEGER              :: i, j, k
@@ -644,8 +643,8 @@ MODULE gravity_spectral_mod
     DO k = Mesh%KMIN,Mesh%KMAX
       DO j = Mesh%JMIN-Mesh%JP1,Mesh%JMAX+Mesh%JP1
         DO i = Mesh%IMIN-Mesh%IP1,Mesh%IMAX
-          this%accel(i,j,k,1) = -1.0*(this%phi2D(i+1,j)-this%phi2D(i,j))/Mesh%dlx%data3d(i,j,k)
-          this%accel(i,j,k,2) = -1.0*(this%phi2D(i+1,j+1)+this%phi2D(i,j+1) &
+          this%accel%data4d(i,j,k,1) = -1.0*(this%phi2D(i+1,j)-this%phi2D(i,j))/Mesh%dlx%data3d(i,j,k)
+          this%accel%data4d(i,j,k,2) = -1.0*(this%phi2D(i+1,j+1)+this%phi2D(i,j+1) &
                            -this%phi2D(i+1,j-1)-this%phi2D(i,j-1))&
                             /(4.0*Mesh%dly%data3d(i,j,k))
           this%pot(i,j,k,1) = 0.5*(this%phi2D(i,j)+this%phi2D(i+1,j))
@@ -787,7 +786,6 @@ MODULE gravity_spectral_mod
 #endif
                this%phi2D, &
                this%pot, &
-               this%accel, &
                this%tmp2D, &
                this%sizes, &
                this%mcut &

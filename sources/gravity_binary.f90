@@ -73,9 +73,6 @@ MODULE gravity_binary_mod
 #endif
   !--------------------------------------------------------------------------!
   PRIVATE
-  CHARACTER(LEN=32)         :: gravity_name = "binary point masses"
-  !--------------------------------------------------------------------------!
-
   TYPE, EXTENDS(gravity_pointmass) :: gravity_binary
     REAL, DIMENSION(:,:,:), POINTER     :: r_sec        !<    and to secondary point mass
     REAL, DIMENSION(:,:,:,:), POINTER   :: posvec_sec   !<   secondary to all cell bary centers
@@ -124,11 +121,11 @@ CONTAINS
                                                   !! with binary configuration data
     TYPE(Dict_TYP),POINTER            :: IO       !< \param [in,out] IO output sub-dictionary
     !------------------------------------------------------------------------!
-    INTEGER           :: gtype, mesh_rot
+    INTEGER           :: mesh_rot
     INTEGER           :: err
     !------------------------------------------------------------------------!
-    CALL GetAttr(config, "gtype", gtype)
-    CALL this%InitLogging(gtype,gravity_name)
+    ! init base class
+    CALL this%InitGravity(Mesh,Physics,"binary point masses",config,IO)
 
     SELECT TYPE(Physics)
     TYPE IS(physics_euler)
@@ -142,7 +139,6 @@ CONTAINS
 
     ALLOCATE(&
          this%mass,this%mass2,this%pos(3,2),this%r0(3), &
-         this%accel(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VDIM), &
          this%omega2(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,2), &
          this%omega(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
          this%r_prim(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX),&
@@ -204,9 +200,6 @@ CONTAINS
     ! set period
     this%period = 2.*PI*SQRT(this%semaaxis/(this%mass+this%mass2)/Physics%constants%GN)*this%semaaxis
 
-    ! initialize acceleration
-    this%accel  = 0.0
-
     ! reset omega and omega**2
     this%omega  = 0.0
     this%omega2 = 0.0
@@ -227,9 +220,6 @@ CONTAINS
     !initialise output
     CALL this%SetOutput(Mesh,Physics,config,IO)
 
-    ! init base class
-    CALL this%InitGravity(Mesh,Physics,config,IO)
-
   END SUBROUTINE InitGravity_binary
 
 
@@ -242,6 +232,7 @@ CONTAINS
     !------------------------------------------------------------------------!
     CHARACTER(LEN=32) :: mass1_str,mass2_str,excent_str,sema_str,omega_str
     !------------------------------------------------------------------------!
+    CALL this%Info(" GRAVITY--> gravity term:      " // this%GetName())
     WRITE (mass1_str,'(ES8.2)')   this%mass
     WRITE (mass2_str,'(ES8.2)')   this%mass2
     WRITE (excent_str,'(ES8.2)')  this%excent
@@ -292,8 +283,7 @@ CONTAINS
     CLASS(mesh_base),      INTENT(IN)    :: Mesh
     CLASS(physics_base),   INTENT(IN)    :: Physics
     CLASS(fluxes_base),    INTENT(IN)    :: Fluxes
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
-                           INTENT(IN)    :: pvar
+    CLASS(marray_compound),INTENT(INOUT) :: pvar
     REAL,                  INTENT(IN)    :: time,dt
     !------------------------------------------------------------------------!
     REAL              :: GM1, GM2
@@ -366,7 +356,7 @@ CONTAINS
       DO j=Mesh%JGMIN,Mesh%JGMAX
 !NEC$ ivdep
         DO i=Mesh%IGMIN,Mesh%IGMAX
-          this%accel(i,j,k,1:Physics%VDIM) = -this%omega2(i,j,k,1) * this%posvec_prim(i,j,k,1:Physics%VDIM)&
+          this%accel%data4d(i,j,k,1:Physics%VDIM) = -this%omega2(i,j,k,1) * this%posvec_prim(i,j,k,1:Physics%VDIM)&
                            -this%omega2(i,j,k,2) * this%posvec_sec(i,j,k,1:Physics%VDIM)
         END DO
       END DO
@@ -568,7 +558,7 @@ CONTAINS
     !------------------------------------------------------------------------!
     CLASS(gravity_binary), INTENT(INOUT) :: this
     !------------------------------------------------------------------------!
-    DEALLOCATE(this%mass,this%mass2,this%pos,this%r0,this%accel,this%omega2,this%omega,&
+    DEALLOCATE(this%mass,this%mass2,this%pos,this%r0,this%omega2,this%omega,&
                this%r_prim,this%r_sec,this%posvec_prim,this%posvec_sec,this%pot,&
                this%pot_prim,this%pot_sec,this%fr_prim,this%fr_sec,this%fposvec_prim, &
                this%fposvec_sec)

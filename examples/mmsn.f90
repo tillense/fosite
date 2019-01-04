@@ -82,8 +82,7 @@ ALLOCATE(Sim)
 CALL Sim%InitFosite()
 CALL MakeConfig(Sim, Sim%config)
 CALL Sim%Setup()
-CALL InitData(Sim%Mesh, Sim%Physics, Sim%Timedisc, Sim%Fluxes, Sim%Sources, &
-              Sim%Timedisc%pvar%data4d, Sim%Timedisc%cvar%data4d)
+CALL InitData(Sim%Mesh, Sim%Physics, Sim%Timedisc, Sim%Fluxes, Sim%Sources)
 CALL Sim%Run()
 CALL Sim%Finalize()
 DEALLOCATE(Sim)
@@ -231,7 +230,7 @@ CONTAINS
   END SUBROUTINE MakeConfig
 
 
-  SUBROUTINE InitData(Mesh,Physics,Timedisc,Fluxes,Sources,pvar,cvar)
+  SUBROUTINE InitData(Mesh,Physics,Timedisc,Fluxes,Sources)
     USE physics_eulerisotherm_mod, ONLY : physics_eulerisotherm
     IMPLICIT NONE
     !------------------------------------------------------------------------!
@@ -240,8 +239,6 @@ CONTAINS
     CLASS(timedisc_base), INTENT(INOUT)  :: Timedisc
     CLASS(fluxes_base),   INTENT(INOUT)  :: Fluxes
     CLASS(sources_base),  POINTER        :: Sources
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
-                          INTENT(OUT)    :: pvar,cvar
     !------------------------------------------------------------------------!
     ! Local variable declaration
     CLASS(sources_base), POINTER :: sp
@@ -260,15 +257,6 @@ CONTAINS
     ! set some pointers for convenience
     r => Mesh%RemapBounds(Mesh%radius%bcenter)
     r_faces => Mesh%RemapBounds(Mesh%radius%faces)
-    ! pointer to density array
-    Sigma => Mesh%RemapBounds(pvar(:,:,:,Physics%DENSITY))
-
-    ! chose Sigma0 in a way that 2% of the mass of the binary is contained in 30 au
-!    Sigma0     = 0.0008*(MBH1+MBH2)*SQRT(30.0/AU)/(4.*PI)
-!    Sigma0     = 0.02*(MBH1+MBH2)/(4.*PI*(-(30.0/GPAR)**(-0.5)+(RMIN/GPAR)**(-0.5)))
-!    Sigma0     = 0.02*(MBH1+MBH2)*SQRT(30.0/AU)/(4.*PI)
-    Sigma0 = 0.00311
-    Sigma = Fgap(r(:,:,:),Rgap)*Sigma0*0.1*XSCALE*r(:,:,:)**(-1.5)
 
     ! Set sound speed
     bccsound = HRATIO*SQRT((MBH1+MBH2)*Physics%constants%GN/r(:,:,:))
@@ -286,7 +274,6 @@ CONTAINS
       CALL phys%Error("InitData","physics not supported")
     END SELECT
 
-    ! 2. azimuthal velocity: balance initial radial acceleration with centrifugal acceleration
     ! get gravitational acceleration
     sp => Sources
     DO
@@ -298,27 +285,34 @@ CONTAINS
       END SELECT
       sp => sp%next
     END DO
+    IF (.NOT.ASSOCIATED(sp)) CALL Physics%Error("mmsn::InitData","no gravity term initialized")
 
-    IF (ASSOCIATED(sp)) THEN
-       CALL gp%UpdateGravity(Mesh,Physics,Fluxes,pvar,0.0,0.0)
-    ELSE
-       CALL Sim%Error("InitData","no gravity term initialized")
-    END IF
-
-    ! ATTENTION: Don't use GetCentrifugalVelocity without the optional acceleration array!
-    ! This would yield undefined data, because GetCentrifugalVelocity calls ComputeRHS
-    ! which calls CenterBoundary. Since the FARFIELD boundary conditions are not
-    ! initialized at this stage (see below), the result is undefined.
-    pvar(:,:,:,Physics%XVELOCITY:Physics%XVELOCITY+Physics%VDIM-1) = &
+    ! choose Sigma0 in a way that 2% of the mass of the binary is contained in 30 au
+!    Sigma0     = 0.0008*(MBH1+MBH2)*SQRT(30.0/AU)/(4.*PI)
+!    Sigma0     = 0.02*(MBH1+MBH2)/(4.*PI*(-(30.0/GPAR)**(-0.5)+(RMIN/GPAR)**(-0.5)))
+!    Sigma0     = 0.02*(MBH1+MBH2)*SQRT(30.0/AU)/(4.*PI)
+    Sigma0 = 0.00311
+    SELECT TYPE (pvar => Timedisc%pvar)
+    CLASS IS(statevector_eulerisotherm)
+      ! 1. set surface density and initialize gravitational acceleration
+      pvar%density%data3d(:,:,:) = Fgap(r(:,:,:),Rgap)*Sigma0*0.1*XSCALE*r(:,:,:)**(-1.5)
+      CALL gp%UpdateGravity(Mesh,Physics,Fluxes,pvar,0.0,0.0)
+      ! 2. azimuthal velocity: balance initial radial acceleration with centrifugal acceleration
+      ! ATTENTION: Don't use GetCentrifugalVelocity without the optional acceleration array!
+      ! This would yield undefined data, because GetCentrifugalVelocity calls ComputeRHS
+      ! which calls CenterBoundary. Since the FARFIELD boundary conditions are not
+      ! initialized at this stage (see below), the result is undefined.
+      pvar%velocity%data4d(:,:,:,1:Physics%VDIM) = &
         Timedisc%GetCentrifugalVelocity(Mesh,Physics,Fluxes,Sources,(/0.,0.,1./),gp%accel%data4d)
-
-
-    ! transform velocities to rotating frame
-    Timedisc%pvar%data4d(:,:,:,Physics%YVELOCITY) = Timedisc%pvar%data4d(:,:,:,Physics%YVELOCITY) &
-        - Mesh%OMEGA*r(:,:,:)
+      ! transform velocities to rotating frame
+      ! ATTENTION: this works only if the second velocity is the azimuthal velocity
+      pvar%velocity%data4d(:,:,:,2) = pvar%velocity%data4d(:,:,:,2) - Mesh%OMEGA*r(:,:,:)
+    CLASS DEFAULT
+      CALL Physics%Error("mmsn::InitData","unsupported state vector")
+    END SELECT
 
     ! get conservative variables
-    CALL Physics%Convert2Conservative(Mesh,Timedisc%pvar%data4d,Timedisc%cvar%data4d)
+    CALL Physics%Convert2Conservative(Timedisc%pvar,Timedisc%cvar)
 
     IF (Mesh%FARGO.EQ.2) &
        Timedisc%w(:,:) = SQRT(Physics%constants%GN*(MBH1+MBH2)/r(:,Mesh%JMIN,:))

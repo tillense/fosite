@@ -67,7 +67,6 @@ MODULE gravity_pointmass_mod
 #endif
   !--------------------------------------------------------------------------!
   PRIVATE
-  CHARACTER(LEN=32) :: gravity_name = "central point mass"
   CHARACTER(LEN=16), PARAMETER :: potential_name(2) = (/ &
                                   "Newton          ", &
                                   "Paczynski-Wiita " /)
@@ -143,27 +142,9 @@ CONTAINS
     INTEGER :: err,i,j,k,l
     REAL    :: r_schwarzschild=0.0,eps
     !------------------------------------------------------------------------!
-    CALL GetAttr(config, "gtype", gtype)
-    ! allocate memory for new gravity term
-    CALL this%InitLogging(gtype,gravity_name)
-    ! type of the potential
-    CALL GetAttr(config, "potential", potential_number, NEWTON)
-    ALLOCATE(logging_base::this%potential)
-    CALL this%potential%InitLogging(potential_number,potential_name(potential_number))
-
-    SELECT CASE(potential_number)
-    CASE(NEWTON)
-       r_schwarzschild = 0.0
-    CASE(WIITA)
-       ! Schwarzschild radius
-       r_schwarzschild = 2.*Physics%constants%GN * this%mass / Physics%constants%C**2
-    CASE DEFAULT
-       CALL this%Error("InitGravity_pointmass", "potential must be either NEWTON or WIITA")
-    END SELECT
-
-
+    CALL this%InitGravity(Mesh,Physics,"central point mass",config,IO)
     !\todo last dimensions are absolutely not clear if right.. What are the standing for?
-    ALLOCATE(this%accel(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VDIM), &
+    ALLOCATE(this%potential, &
              this%pot(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,4), &
              this%omega(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
              this%omega2(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,1), &
@@ -175,7 +156,11 @@ CONTAINS
          STAT = err)
     IF (err.NE.0) CALL this%Error("InitGravity_pointmass", "Unable allocate memory!")
 
-    ! set mass
+    ! type of the potential
+    CALL GetAttr(config, "potential", potential_number, NEWTON)
+    CALL this%potential%InitLogging(potential_number,potential_name(potential_number))
+
+    ! set (initial) mass
     CALL GetAttr(config, "mass", this%mass, 1.0)
     CALL SetAttr(IO, "mass", Ref(this%mass))
 
@@ -183,11 +168,6 @@ CONTAINS
     CALL GetAttr(config, "x", this%pos(1,1), 0.0)
     CALL GetAttr(config, "y", this%pos(1,2), 0.0)
     CALL GetAttr(config, "z", this%pos(1,3), 0.0)
-
-    ! output cartesian positions of the point mass
-    CALL GetAttr(config, "output/position", valwrite, 0)
-    IF (valwrite .EQ. 1) &
-       CALL SetAttr(IO, "position", this%pos)
 
     ! Softening (e.g. for planets inside the computational domain)
     CALL GetAttr(config, "softening", eps, 0.0)
@@ -200,13 +180,29 @@ CONTAINS
     ! -1.0 == off
     CALL GetAttr(config, "acclimit", this%acclimit, -1.0)
 
+    CALL SetAttr(IO, "accrate", Ref(this%accrate))
+    IF (this%acclimit.GT.0.0) &
+       CALL SetAttr(IO, "massloss", Ref(this%massloss))
+
+    SELECT CASE(potential_number)
+    CASE(NEWTON)
+       r_schwarzschild = 0.0
+    CASE(WIITA)
+       ! Schwarzschild radius
+       r_schwarzschild = 2.*Physics%constants%GN * this%mass / Physics%constants%C**2
+    CASE DEFAULT
+       CALL this%Error("InitGravity_pointmass", "potential must be either NEWTON or WIITA")
+    END SELECT
+
+    ! output cartesian positions of the point mass
+    CALL GetAttr(config, "output/position", valwrite, 0)
+    IF (valwrite .EQ. 1) &
+       CALL SetAttr(IO, "position", this%pos)
+
     ! reset mass flux and massloss and register for output
     this%mdot = 0.0
     this%massloss = 0.0
     this%accrate = 0.0
-    CALL SetAttr(IO, "accrate", Ref(this%accrate))
-    IF (this%acclimit.GT.0.0) &
-       CALL SetAttr(IO, "massloss", Ref(this%massloss))
 
     ! define position vector from the central object to all cell bary centers
     ! and the corresponding distances
@@ -267,7 +263,7 @@ CONTAINS
           ! curvilinear components of the gravitational acceleration
 !NEC$ UNROLL(3)
           DO l=1,Physics%VDIM
-            this%accel(i,j,k,l) = -this%omega2(i,j,k,1) * this%posvec_prim(i,j,k,l)
+            this%accel%data4d(i,j,k,l) = -this%omega2(i,j,k,1) * this%posvec_prim(i,j,k,l)
           END DO
         END DO
       END DO
@@ -279,20 +275,14 @@ CONTAINS
     ! enable mass accretion by setting "outbound" to one of the four boundaries
     ! of the computational domain (depends on mesh geometry)
     SELECT TYPE(geo=>Mesh%geometry)
-    TYPE IS(geometry_cylindrical)
+    CLASS IS(geometry_cylindrical)
        CALL GetAttr(config, "outbound", this%outbound, WEST)
-    TYPE IS(geometry_logcylindrical)
+    CLASS IS(geometry_spherical)
        CALL GetAttr(config, "outbound", this%outbound, WEST)
-    TYPE IS(geometry_spherical)
-       CALL GetAttr(config, "outbound", this%outbound, WEST)
-!    CASE(TANCYLINDRICAL,BIPOLAR)
-!       CALL GetAttr(config, "outbound", this%outbound, SOUTH)
     CLASS DEFAULT
        CALL GetAttr(config, "outbound", this%outbound, 0)
        CALL this%WARNING("GravitySources_pointmass","geometry does not support accretion")
     END SELECT
-
-    CALL this%InitGravity(Mesh,Physics,config,IO)
   END SUBROUTINE InitGravity_pointmass
 
   SUBROUTINE CalcPotential(this,Mesh,Physics,mass,dist,dist_faces,pot)
@@ -325,13 +315,20 @@ CONTAINS
     !------------------------------------------------------------------------!
     CHARACTER(LEN=32) :: param_str
     !------------------------------------------------------------------------!
+    CALL this%Info(" GRAVITY--> gravity term:      " // this%GetName())
     WRITE (param_str,'(ES8.2)') this%mass
     CALL this%Info("            potential:         " // &
          TRIM(this%potential%GetName()))
-    CALL this%Info("            mass:              " // TRIM(param_str))
-    IF (this%acclimit.GT.0.0) THEN
-       WRITE (param_str,'(ES8.2)') this%acclimit
-       CALL this%Info("            accretion limit:   " // TRIM(param_str))
+    CALL this%Info("            initial mass:      " // TRIM(param_str))
+    IF (this%outbound.GT.0) THEN
+      param_str = "enabled"
+    ELSE
+      param_str = "disabled"
+    END IF
+    CALL this%Info("            accretion:         " // TRIM(param_str))
+    IF (this%outbound.GT.0.AND.this%acclimit.GT.0.0) THEN
+      WRITE (param_str,'(ES8.2)') this%acclimit
+      CALL this%Info("            accretion limit:   " // TRIM(param_str))
     END IF
     IF (this%switchon.GT.0.0) THEN
        WRITE (param_str,'(ES8.2)') this%switchon
@@ -352,8 +349,7 @@ CONTAINS
     CLASS(mesh_base),         INTENT(IN)    :: Mesh
     CLASS(physics_base),      INTENT(IN)    :: Physics
     CLASS(fluxes_base),       INTENT(IN)    :: Fluxes
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
-                              INTENT(IN)    :: pvar
+    CLASS(marray_compound),   INTENT(INOUT) :: pvar
     REAL,                     INTENT(IN)    :: time,dt
     !------------------------------------------------------------------------!
     INTEGER                       :: l
@@ -387,7 +383,7 @@ CONTAINS
        ! with newmass/oldmass to account for accretion
        massfac = this%mass/oldmass
        sqrmassfac = SQRT(massfac)
-       this%accel(:,:,:,:) = this%accel(:,:,:,:) * massfac
+       this%accel%data4d(:,:,:,:) = this%accel%data4d(:,:,:,:) * massfac
        this%pot(:,:,:,:) = this%pot(:,:,:,:) * massfac
        this%omega(:,:,:) = this%omega(:,:,:) * sqrmassfac
        this%mdot = bflux(Physics%DENSITY)
@@ -401,7 +397,7 @@ CONTAINS
       ! during the switchon phase accretion is disabled
 !NEC$ UNROLL(3)
       DO l=1,Physics%VDIM
-        this%accel(:,:,:,l) = -scaling * this%omega2(:,:,:,1) * this%posvec_prim(:,:,:,l)
+        this%accel%data4d(:,:,:,l) = -scaling * this%omega2(:,:,:,1) * this%posvec_prim(:,:,:,l)
       END DO
     END IF
 
@@ -441,7 +437,7 @@ CONTAINS
        END IF
     END IF
 
-    DEALLOCATE(this%accel,this%pot,this%omega,this%omega2,this%r_prim,this%fr_prim, &
+    DEALLOCATE(this%pot,this%omega,this%omega2,this%r_prim,this%fr_prim, &
                this%posvec_prim,this%fposvec_prim,this%mass,this%accrate,this%massloss,this%pos)
 
     DEALLOCATE(this%potential)

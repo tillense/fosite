@@ -85,7 +85,6 @@ MODULE gravity_sboxspectral_mod
 #endif
   !--------------------------------------------------------------------------!
   PRIVATE
-  CHARACTER(LEN=32), PARAMETER :: solver_name  = "shearingbox spectral solver"
   REAL, PARAMETER              :: SQRTTWOPI &
     = 2.50662827463100050241576528481104525300698674
 
@@ -159,9 +158,7 @@ MODULE gravity_sboxspectral_mod
     INTEGER             :: nprocs
 #endif
     !------------------------------------------------------------------------!
-    CALL GetAttr(config, "gtype", gravity_number)
-
-    CALL this%InitLogging(gravity_number,solver_name)
+    CALL this%InitGravity(Mesh,Physics,"shearingbox spectral solver",config,IO)
 
     !-------------- checks & warnings for initial conditions ----------------!
 #if !defined(HAVE_FFTW)
@@ -227,7 +224,6 @@ MODULE gravity_sboxspectral_mod
 #endif
     ALLOCATE( &
              this%phi(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
-             this%accel(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VDIM), &
 #if !defined(PARALLEL)
              this%mass2D(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX), &
              this%Fmass2D(Mesh%IMIN:Mesh%IMAX/2+1,Mesh%JMIN:Mesh%JMAX), &
@@ -282,7 +278,6 @@ MODULE gravity_sboxspectral_mod
     !------------------------------------------------------------------------!
     ! set potential and acceleration to zero
     this%phi(:,:,:) = 0.
-    this%accel(:,:,:,:) = 0.
     this%mass2D(:,:) = 0.
     this%Fmass2D(:,:) = CMPLX(0.,0)
     this%Fmass2D_real(:,:,:) = 0.
@@ -316,16 +311,6 @@ MODULE gravity_sboxspectral_mod
       CALL SetAttr(IO, "phi", &
               this%phi(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX))
     valwrite = 0
-    CALL GetAttr(config, "output/accel_x", valwrite, 0)
-    IF (valwrite .EQ. 1) &
-      CALL SetAttr(IO, "accel_x", &
-              this%accel(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,1))
-    valwrite = 0
-    CALL GetAttr(config, "output/accel_y", valwrite, 0)
-    IF (valwrite .EQ. 1) &
-      CALL SetAttr(IO, "accel_y", &
-              this%accel(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,2))
-    valwrite = 0
     this%calc_Fmass2D = .FALSE.
     CALL GetAttr(config, "output/Fmass2D", valwrite, 0)
     IF (valwrite .EQ. 1) THEN
@@ -334,7 +319,6 @@ MODULE gravity_sboxspectral_mod
       this%calc_Fmass2D = .TRUE.
     END IF
 
-    CALL this%InitGravity(Mesh,Physics,config,IO)
 #endif
   END SUBROUTINE InitGravity_sboxspectral
 
@@ -352,8 +336,7 @@ MODULE gravity_sboxspectral_mod
     CLASS(mesh_base),            INTENT(IN) :: Mesh
     CLASS(physics_base),         INTENT(IN) :: Physics
     CLASS(fluxes_base),          INTENT(IN) :: Fluxes
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
-                                 INTENT(IN) :: pvar
+    CLASS(marray_compound),   INTENT(INOUT) :: pvar
     REAL,                        INTENT(IN) :: time,dt
     !------------------------------------------------------------------------!
     INTEGER :: i,j,k
@@ -363,7 +346,6 @@ MODULE gravity_sboxspectral_mod
     ! calc potential first
     CALL this%CalcPotential(Mesh,Physics,time,pvar)
 
-    this%accel(:,:,:,:) = 0.
     IF (this%order.EQ.2) THEN
 !NEC$ ivdep
       DO k = Mesh%KMIN,Mesh%KMAX
@@ -372,9 +354,9 @@ MODULE gravity_sboxspectral_mod
 !NEC$ ivdep
           DO i = Mesh%IMIN,Mesh%IMAX
             ! second order approximation
-            this%accel(i,j,k,1) = -1.0*(this%phi(i+1,j,k)-this%phi(i-1,j,k))/ &
+            this%accel%data4d(i,j,k,1) = -1.0*(this%phi(i+1,j,k)-this%phi(i-1,j,k))/ &
                                  (2*Mesh%dlx%data3d(i,j,k))
-            this%accel(i,j,k,2) = -1.0*(this%phi(i,j+1,k)-this%phi(i,j-1,k))/ &
+            this%accel%data4d(i,j,k,2) = -1.0*(this%phi(i,j+1,k)-this%phi(i,j-1,k))/ &
                                  (2*Mesh%dly%data3d(i,j,k))
          END DO
         END DO
@@ -389,10 +371,10 @@ MODULE gravity_sboxspectral_mod
 !NEC$ ivdep
           DO i = Mesh%IMIN,Mesh%IMAX
             ! fourth order
-            this%accel(i,j,k,1) = -1.0*(w1*this%phi(i-2,j,k)-w2*this%phi(i-1,j,k)+ &
+            this%accel%data4d(i,j,k,1) = -1.0*(w1*this%phi(i-2,j,k)-w2*this%phi(i-1,j,k)+ &
                                         w2*this%phi(i+1,j,k)-w1*this%phi(i+2,j,k))/ &
                                        (Mesh%dlx%data3d(i,j,k))
-            this%accel(i,j,k,2) = -1.0*(w1*this%phi(i,j-2,k)-w2*this%phi(i,j-1,k)+ &
+            this%accel%data4d(i,j,k,2) = -1.0*(w1*this%phi(i,j-2,k)-w2*this%phi(i,j-1,k)+ &
                                         w2*this%phi(i,j+1,k)-w1*this%phi(i,j+2,k)) / &
                                        (Mesh%dly%data3d(i,j,k))
           END DO
@@ -442,14 +424,14 @@ MODULE gravity_sboxspectral_mod
   !! gravity_sboxspectral::updategravity_sboxspectral \endlink.
 #ifdef HAVE_FFTW
   SUBROUTINE CalcPotential(this,Mesh,Physics,time,pvar)
+    USE physics_eulerisotherm_mod, ONLY : statevector_eulerisotherm
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(gravity_sboxspectral), INTENT(INOUT) :: this
     CLASS(mesh_base),    INTENT(IN) :: Mesh
     CLASS(physics_base), INTENT(IN) :: Physics
     REAL,                INTENT(IN) :: time
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
-                         INTENT(IN) :: pvar
+    CLASS(marray_compound),   INTENT(INOUT) :: pvar
     !------------------------------------------------------------------------!
     INTEGER :: i,j,k
     REAL    :: K2max,K2,KO
@@ -482,10 +464,15 @@ MODULE gravity_sboxspectral_mod
     delt = time - time0
 
     !----------------- shift field to periodic point ------------------------!
-!!NEC$ IEXPAND
-    CALL this%FieldShift(Mesh,Physics,delt, &
-              pvar(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%DENSITY), &
-              this%den_ip(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX))
+    SELECT TYPE(p => pvar)
+    CLASS IS(statevector_eulerisotherm)
+      CALL this%FieldShift(Mesh,Physics,delt, &
+                p%density%data3d(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
+                this%den_ip(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX))
+    CLASS DEFAULT
+      CALL this%Error("gravity_sboxspectral::CalcPotential","unsupported state vector")
+    END SELECT
+
 
 #if defined(PARALLEL)
     this%mass2D(1:Mesh%INUM,1:this%local_JNUM) = &
@@ -981,7 +968,6 @@ CALL ftrace_region_end("foward FFT")
     ! Free memory
     DEALLOCATE(&
                this%phi, &
-               this%accel, &
                this%Fmass2D_real, &
                this%kx, this%ky, &
                this%joff, &
