@@ -3,7 +3,7 @@
 !# fosite - 3D hydrodynamical simulation program                             #
 !# module: gravity_binary.f90                                                #
 !#                                                                           #
-!# Copyright (C) 2010-2018                                                   #
+!# Copyright (C) 2010-2019                                                   #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
 !# Björn Sperling   <sperling@astrophysik.uni-kiel.de>                       #
 !# Anna Feiler      <afeiler@astrophysik.uni-kiel.de>                        #
@@ -219,16 +219,16 @@ CONTAINS
 
     !initialise output
     CALL this%SetOutput(Mesh,Physics,config,IO)
+    CALL this%InfoGravity()
 
   END SUBROUTINE InitGravity_binary
 
 
   !> \public write binary parameters to screen
-  SUBROUTINE InfoGravity(this,Mesh)
+  SUBROUTINE InfoGravity(this)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(gravity_binary), INTENT(IN) :: this
-    CLASS(mesh_base),      INTENT(IN) :: Mesh
     !------------------------------------------------------------------------!
     CHARACTER(LEN=32) :: mass1_str,mass2_str,excent_str,sema_str,omega_str
     !------------------------------------------------------------------------!

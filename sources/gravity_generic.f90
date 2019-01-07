@@ -101,7 +101,6 @@ CONTAINS
            ! self-gravitation in flat geometries periodic in both dimensions
            CALL obj%InitGravity_spectral(Mesh,Physics,grav,IOgrav)
         END SELECT
-        CALL this%InfoGravity(Mesh)
         IF(ASSOCIATED(IOgrav)) CALL SetAttr(IO, GetKey(dir), IOgrav)
       END IF
       dir => GetNext(dir)

@@ -3,7 +3,7 @@
 !# fosite - 3D hydrodynamical simulation program                             #
 !# module: gravity_base.f90                                                  #
 !#                                                                           #
-!# Copyright (C) 2014-2018                                                   #
+!# Copyright (C) 2014-2019                                                   #
 !# Björn Sperling   <sperling@astrophysik.uni-kiel.de>                       #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
 !# Jannes Klee      <jklee@astrophysik.uni-kiel.de>                          #
@@ -58,7 +58,6 @@ MODULE gravity_base_mod
   CONTAINS
     PROCEDURE :: InitGravity
     PROCEDURE :: SetOutput
-    PROCEDURE (InfoGravity),     DEFERRED :: InfoGravity
     PROCEDURE (UpdateGravity_single), DEFERRED :: UpdateGravity_single
     PROCEDURE (CalcDiskHeight_single), DEFERRED :: CalcDiskHeight_single
     PROCEDURE :: GetGravityPointer
@@ -67,13 +66,6 @@ MODULE gravity_base_mod
   END TYPE gravity_base
 
   ABSTRACT INTERFACE
-    SUBROUTINE InfoGravity(this,Mesh)
-      IMPORT gravity_base, mesh_base
-      IMPLICIT NONE
-      !------------------------------------------------------------------------!
-      CLASS(gravity_base), INTENT(IN)    :: this
-      CLASS(mesh_base),    INTENT(IN)    :: Mesh
-    END SUBROUTINE
     SUBROUTINE UpdateGravity_single(this,Mesh,Physics,Fluxes,pvar,time,dt)
       IMPORT gravity_base, mesh_base, physics_base, fluxes_base, marray_compound
       IMPLICIT NONE
@@ -139,6 +131,7 @@ CONTAINS
     this%accel = marray_base(Physics%VDIM)
     ! reset acceleration
     this%accel%data1d(:) = 0.0
+    CALL this%Info(" GRAVITY--> gravity term:      " // this%GetName())
   END SUBROUTINE InitGravity
 
   SUBROUTINE SetOutput(this,Mesh,Physics,config,IO)

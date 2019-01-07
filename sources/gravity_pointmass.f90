@@ -3,7 +3,7 @@
 !# fosite - 3D hydrodynamical simulation program                             #
 !# module: gravity_pointmass.f90                                             #
 !#                                                                           #
-!# Copyright (C) 2007-2018                                                   #
+!# Copyright (C) 2007-2019                                                   #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
 !# Björn Sperling   <sperling@astrophysik.uni-kiel.de>                       #
 !# Jannes Klee      <jklee@astrophysik.uni-kiel.de>                          #
@@ -283,6 +283,7 @@ CONTAINS
        CALL GetAttr(config, "outbound", this%outbound, 0)
        CALL this%WARNING("GravitySources_pointmass","geometry does not support accretion")
     END SELECT
+    CALL this%InfoGravity()
   END SUBROUTINE InitGravity_pointmass
 
   SUBROUTINE CalcPotential(this,Mesh,Physics,mass,dist,dist_faces,pot)
@@ -307,15 +308,13 @@ CONTAINS
     pot(:,:,:,4) = - Physics%constants%GN * mass / dist_faces(:,:,:,3) ! direction TOP !Mesh%radius%faces(:,:,:,TOP)
   END SUBROUTINE
 
-  SUBROUTINE InfoGravity(this,Mesh)
+  SUBROUTINE InfoGravity(this)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(gravity_pointmass), INTENT(IN) :: this
-    CLASS(mesh_base),         INTENT(IN) :: Mesh
     !------------------------------------------------------------------------!
     CHARACTER(LEN=32) :: param_str
     !------------------------------------------------------------------------!
-    CALL this%Info(" GRAVITY--> gravity term:      " // this%GetName())
     WRITE (param_str,'(ES8.2)') this%mass
     CALL this%Info("            potential:         " // &
          TRIM(this%potential%GetName()))

@@ -3,7 +3,7 @@
 !# fosite - 3D hydrodynamical simulation program                             #
 !# module: gravity_spectral.f90                                              #
 !#                                                                           #
-!# Copyright (C) 2011-2018                                                   #
+!# Copyright (C) 2011-2019                                                   #
 !# Manuel Jung <mjung@astrophysik.uni-kiel.de>                               #
 !# Jannes Klee <jklee@astrophysik.uni-kiel.de>                               #
 !#                                                                           #
@@ -101,7 +101,6 @@ MODULE gravity_spectral_mod
   CONTAINS
     PROCEDURE :: InitGravity_spectral
     PROCEDURE :: UpdateGravity_single
-    PROCEDURE :: InfoGravity
     PROCEDURE :: CalcDiskHeight_single
     PROCEDURE :: Finalize
 #ifdef HAVE_FFTW
@@ -327,17 +326,6 @@ MODULE gravity_spectral_mod
 #endif
   END FUNCTION CalcMcut
 #endif
-
-  !> Prints out information
-  SUBROUTINE InfoGravity(this,Mesh)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(gravity_spectral), INTENT(IN) :: this
-    CLASS(mesh_base),            INTENT(IN) :: Mesh
-    !------------------------------------------------------------------------!
-    CALL this%Info(" GRAVITY--> gravity term:      " // this%GetName())
-  END SUBROUTINE InfoGravity
-
 
 #if defined(HAVE_FFTW)
   SUBROUTINE CalcPotential(this,Mesh,Physics,time,pvar)

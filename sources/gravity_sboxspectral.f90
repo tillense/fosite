@@ -3,7 +3,7 @@
 !# fosite - 3D hydrodynamical simulation program                             #
 !# module: gravity_sboxspectral.f90                                          #
 !#                                                                           #
-!# Copyright (C) 2015-2018                                                   #
+!# Copyright (C) 2015-2019                                                   #
 !# Jannes Klee <jklee@astrophysik.uni-kiel.de>                               #
 !#                                                                           #
 !# This program is free software; you can redistribute it and/or modify      #
