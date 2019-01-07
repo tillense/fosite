@@ -607,9 +607,9 @@ CONTAINS
     INTENT(IN)                          :: dims
     !------------------------------------------------------------------------!
     IF(SIZE(dims).GE.3) THEN
-      res = (dims(1).EQ.(Mesh%IMAX-Mesh%IMIN+1)) &
-            .AND.(dims(2).EQ.(Mesh%JMAX-Mesh%JMIN+1)) &
-            .AND.(dims(3).EQ.(Mesh%KMAX-Mesh%KMIN+1))
+      res = (dims(1).EQ.(Mesh%IMAX-Mesh%IMIN+Mesh%ip1).OR.Mesh%INUM.EQ.1) &
+            .AND.(dims(2).EQ.(Mesh%JMAX-Mesh%JMIN+Mesh%jp1).OR.Mesh%JNUM.EQ.1) &
+            .AND.(dims(3).EQ.(Mesh%KMAX-Mesh%KMIN+Mesh%kp1).OR.Mesh%KNUM.EQ.1)
     ELSE
       res = .FALSE.
     END IF
@@ -627,9 +627,9 @@ CONTAINS
     INTENT(IN)                          :: dims
     !------------------------------------------------------------------------!
     IF(SIZE(dims).GE.3) THEN
-      res = (dims(1).EQ.(Mesh%IMAX-Mesh%IMIN+2)) &
-            .AND.(dims(2).EQ.(Mesh%JMAX-Mesh%JMIN+2)) &
-            .AND.(dims(3).EQ.(Mesh%KMAX-Mesh%KMIN+2))
+      res = (dims(1).EQ.(Mesh%IMAX-Mesh%IMIN+Mesh%ip2).OR.Mesh%INUM.EQ.1) &
+            .AND.(dims(2).EQ.(Mesh%JMAX-Mesh%JMIN+Mesh%jp2).OR.Mesh%JNUM.EQ.1) &
+            .AND.(dims(3).EQ.(Mesh%KMAX-Mesh%KMIN+Mesh%kp2).OR.Mesh%KNUM.EQ.1)
     ELSE
       res = .FALSE.
     END IF
@@ -650,9 +650,9 @@ CONTAINS
       dims(2) = Mesh%JNUM
       dims(3) = Mesh%KNUM
     ELSE IF(this%HasCornerDims(Mesh,dims)) THEN
-      dims(1) = Mesh%INUM+1
-      dims(2) = Mesh%JNUM+1
-      dims(3) = Mesh%KNUM+1
+      dims(1) = Mesh%INUM+Mesh%ip1
+      dims(2) = Mesh%JNUM+Mesh%jp1
+      dims(3) = Mesh%KNUM+Mesh%kp1
     END IF
   END SUBROUTINE SetMeshDims
 
