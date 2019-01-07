@@ -645,6 +645,10 @@ def pcolormesh(send,cmap=stdcmap,clim=None,xlabel='x',ylabel='y',aspect='equal',
         Y=f['/mesh/grid_y']/scale
       else:
         Y=Y(f)
+      # Squeeze any additional dimensions with extent=1 from the grid,
+      # e.g. in case of 3D->2D data:
+      X = np.squeeze(X)
+      Y = np.squeeze(Y)
       p = sub.pcolormesh(X,Y,
              d,cmap=cmap,
              edgecolors=edgecolors,
