@@ -58,9 +58,6 @@ MODULE sources_base_mod
      !> \name Variables
      CLASS(sources_base), POINTER    :: next => null() !< next source in list
      REAL                            :: time         !< simulation time
-     !> 0: no src term in energy equation
-     !! 1: src term in energy equation
-     LOGICAL                         :: addtoenergy
 !FIXME
      REAL                            :: mass         !< mass for diskthomson
      REAL                            :: mdot         !< disk accretion rate

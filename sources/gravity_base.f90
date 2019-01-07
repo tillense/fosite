@@ -27,7 +27,6 @@
 !> \addtogroup gravity
 !! - general parameters of gravity group as key-values
 !! \key{gtype,INTEGER,Type of gravity source}
-!! \key{energy,INTEGER,Add source terms to energy equation?}
 !! \key{output/accel,INTEGER,enable(=1) output of acceleration}
 !! \key{output/height,INTEGER,enable(=1) output of disc height}
 !----------------------------------------------------------------------------!

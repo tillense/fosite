@@ -26,10 +26,7 @@
 !#############################################################################
 !> \addtogroup sources
 !! - general parameters of gravity group as key-values
-!! \key{gtype,INTEGER,Type of gravity source}
 !! \key{energy,INTEGER,Add source terms to energy equation?}
-!! \key{output/accel,INTEGER,enable(=1) output of acceleration}
-!! \key{output/height,INTEGER,enable(=1) output of disc height}
 !----------------------------------------------------------------------------!
 !> \author Björn Sperling
 !! \author Tobias Illenseer
@@ -57,6 +54,9 @@ MODULE sources_gravity_mod
   CHARACTER(LEN=32), PARAMETER :: source_name = "gravity"
   TYPE, EXTENDS(sources_c_accel) :: sources_gravity
     CLASS(gravity_base),    POINTER :: glist => null() !< list of gravity terms
+     !> 0: no src term in energy equation
+     !! 1: src term in energy equation
+     LOGICAL                        :: addtoenergy
   CONTAINS
     PROCEDURE :: InitSources_gravity
     PROCEDURE :: InfoSources
