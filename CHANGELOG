@@ -3,6 +3,8 @@ This is the changelog for the fosite project.
 
 ## 0.8.0 - 2018-01-08
 ### Initial version
-- introduces 3D hydrodynamics
-- Fortran 2003 object-oriented patterns
+- 3D hydrodynamics with isothermal/ideal-gas EOS
+- new object-oriented design using Fortran 2008 language features
 - generic field data types to operate on (marrays)
+- support for NEC SX-Aurora Tsubasa vector engine
+- new build system using cmake

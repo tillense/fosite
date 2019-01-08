@@ -4,16 +4,17 @@ Fosite is a generic framework for the numerical solution of hyperbolic conservat
 laws in generalized orthogonal coordinates. Its main purpose is the simulation of
 compressible flows in accretion disks. The underlying numerical solution method
 belongs to the family of unsplit conservative finite volume TVD schemes. The method
-is 2nd order accurate in space and uses high order Runge-Kutta and multistep schemes
-for time evolution. In addition to the pure advection code several source terms have
-been implemented including viscous diffusion and gravitational acceleration.
+is 2nd order accurate in space and uses high order Runge-Kutta schemes for time evolution.
+In addition to the pure advection code several source terms have been implemented to
+account for, e.g., shear stresses and gravitational forces.
 
-Fosite is written with object-oriented patterns in Fortran 2003 and follows the
-Structure of Arrays ([SoA](https://en.wikipedia.org/wiki/AOS_and_SOA)) layout,
-operating on generic field datatypes. This allows for high performance on
-modern architectures ([SIMD](https://en.wikipedia.org/wiki/SIMD)). It is parallelized
-and vectorized. The software is thereby optimized for the [NEC SX-Aurora
-TSUBASA Vector Engine](https://www.nec.com/en/global/solutions/hpc/sx/vector_engine.html).
+Fosite is written in Fortran 2008 using an object-oriented design. It follows the
+Structure of Arrays ([SoA](https://en.wikipedia.org/wiki/AOS_and_SOA)) programming paradigm
+to allow for high data throughput on modern high performances architectures
+([SIMD](https://en.wikipedia.org/wiki/SIMD)). The code has been vectorized and optimized for
+intel x86_64 and the [NEC SX-Aurora TSUBASA Vector Engine](https://www.nec.com/en/global/solutions/hpc/sx/vector_engine.html).
+Parallelization is implemented using domain decomposition with MPI communication. It has
+been verified to run with at least MPICH and NECs MPI libraries. OpenMPI is currently not supported.
 
 Additional information and help:  
 **Website**: www.astrophysik.uni-kiel.de/fosite/  
@@ -68,7 +69,7 @@ The code is distributed under the GNU General Public License - see the
 accompanying LICENSE file for more details. So feel free to experiment
 with this.
 
-Copyright (C) 2006-2018  
+Copyright (C) 2006-2019
 Tobias Illenseer <tillense@astrophysik.uni-kiel.de>  
 Manuel Jung <mjung@astrophysik.uni-kiel.de>  
 Jannes Klee <jklee@astrophysik.uni-kiel.de>  
