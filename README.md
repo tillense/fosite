@@ -24,16 +24,16 @@ Additional information and help:
 To customize the build process enter the directory with the source code
 and run
 
-    cmake
+    cmake <path_to_source>
 
 In order to get information about available options type
 
-    cmake -L
+    cmake -L <path_to_source>
 
 Setting up an alternative compiler in a different folder (here a build-
 folder within the source) is possible with
 
-    FC=gfortran cmake ..
+    FC=gfortran cmake <path_to_source>
 
 Compilation is done by
 
@@ -42,7 +42,7 @@ Compilation is done by
 ## Compiling the Parallel Version
 In order to build the parallel version type
 
-    cmake -DPARALLEL=ON
+    cmake -DPARALLEL=ON <path_to_source>
 
 Compilation is done by
 
@@ -60,9 +60,7 @@ X1*X2*X3 should be equal to X.
 ## Compile on NEC-SX Aurora
 On NEC-SX Aurora vector machines there is a toolchain provided. Run
 
-    cmake -DCMAKE_TOOLCHAIN_FILE=../Toolchain-SX-Aurora.cmake ..
-
-(from a build folder).
+    cmake -DCMAKE_TOOLCHAIN_FILE=../Toolchain-SX-Aurora.cmake <path_to_source>
 
 ## Legal
 
