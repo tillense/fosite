@@ -453,7 +453,7 @@ CONTAINS
     !------------------------------------------------------------------------!
     TYPE(real_t)                            :: ptr0
     TYPE(int_t)                             :: ptrint
-    REAL, DIMENSION(:,:), POINTER           :: ptr2
+    REAL, DIMENSION(:,:), POINTER, CONTIGUOUS :: ptr2
     REAL, DIMENSION(:,:,:), POINTER         :: ptr3
     REAL, DIMENSION(:,:,:,:), POINTER       :: ptr4
     REAL, DIMENSION(:,:,:,:,:), POINTER     :: ptr5
@@ -470,6 +470,9 @@ CONTAINS
     NULLIFY(ptr2,ptr3,ptr4,ptr5)
 
     SELECT CASE(GetDataType(node))
+    CASE(DICT_REAL_TWOD)
+      CALL GetAttr(node,key,ptr2)
+      dims(1:2) = SHAPE(ptr2)
     CASE(DICT_REAL_THREED)
       CALL GetAttr(node,key,ptr3)
       dims(1:3) = SHAPE(ptr3)
@@ -492,6 +495,8 @@ CONTAINS
             ptr3 => ptr4(:,:,:,k)
           ELSE IF(ASSOCIATED(ptr5)) THEN
             ptr3 => ptr5(:,:,:,k,l)
+          ELSE IF(ASSOCIATED(ptr2)) THEN
+            ptr3(1:dims(1),1:dims(2),1:1) => ptr2
           END IF
 #ifdef PARALLEL
           IF(this%HasMeshDims(Mesh,SHAPE(ptr3))) THEN
@@ -506,7 +511,6 @@ CONTAINS
             CALL MPI_File_write_all(this%handle,ptr3(1:this%inum,1:this%jnum,1:this%knum),&
                    this%cbufsize,DEFAULT_MPI_REAL,this%status,this%error_io)
           ELSE
-
             CALL MPI_File_set_view(this%handle,this%offset,MPI_BYTE,&
                  MPI_BYTE, 'native', MPI_INFO_NULL, this%error_io)
             IF(this%GetRank().EQ.0) THEN
