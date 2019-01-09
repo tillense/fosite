@@ -8,3 +8,4 @@ This is the changelog for the fosite project.
 - generic field data types to operate on (marrays)
 - support for NEC SX-Aurora Tsubasa vector engine
 - new build system using cmake
+- for features check [about-page](www.astrophysik.uni-kiel.de/fosite/about.html) 
