@@ -16,7 +16,7 @@ serial_build:
         - make -j
     artifacts:
         paths:
-        - ./*
+        - ./ser_build
         expire_in: 1 week
 
 parallel_build:
@@ -28,7 +28,7 @@ parallel_build:
         - make -j
     artifacts:
         paths:
-        - ./*
+        - ./par_build
         expire_in: 1 week
 
 ser_test_gauss3d:
