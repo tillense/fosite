@@ -114,7 +114,7 @@ ser_test_rootstest:
 deploy_github:
     stage: deploy
     script:
-        - git remote set-url origin_github git@github.com:fositeteam/fosite.git
+        - git remote add origin_github git@github.com:tillense/fosite.git
         - git push origin_github master --tags
     environment:
       name: deploy_github
