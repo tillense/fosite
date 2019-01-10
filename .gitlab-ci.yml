@@ -121,3 +121,14 @@ deploy_github:
     when: manual
     only:
         - tags
+
+deploy_website:
+    stage: deploy
+    script:
+        - git remote add origin_website webadmin@portia:/home/webadmin/src/fosite/git
+        - git push origin_website master --tags
+    environment:
+      name: deploy_website
+    when: manual
+    only:
+        - tags
