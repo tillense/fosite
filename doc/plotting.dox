@@ -67,7 +67,7 @@ plt.show()
 To access the right data, the according keys need to be known.
 A full list of available keys can be printed out (for the above example) with
 
-    f.printkeys()
+    print(f.keys())
 
 Which keys and thus which output is available needs to set in the
 initialization file.
