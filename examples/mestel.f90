@@ -58,7 +58,7 @@
 !!  centrifugal balance                            | \f$ v_\varphi^2 = -r \partial_r \Phi \f$
 !!
 !! </div> <div class="col-md-6">
-!! \image html http://www.astrophysik.uni-kiel.de/fosite/sgagndisk_mbh1e7_md1e6_0960.png "column density"
+!! <img src="http://www.astrophysik.uni-kiel.de/fosite/sgagndisk_mbh1e7_md1e6_0960.png" class="img-fluid img-thumbnail" alt="column density">
 !! You can find a [time-lapse movie] (agndisk.html) showing the temporal evolution of the
 !! column density in the [gallery] (gallery.html).
 !! </div> </div>

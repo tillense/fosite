@@ -61,8 +61,8 @@
 !!  velocity \f$ v_y \f$ | \f$ \delta v_y \f$
 !!  random velocities \f$ \delta v_x, \delta v_y \f$ | \f$ < c_{\mathrm{s}} \f$
 !! </div> <div class="col-md-6">
-!!   \image html http://www.astrophysik.uni-kiel.de/fosite/1024_beta10_vanleer_gamma2.png "slow cooling"
-!!   \image html http://www.astrophysik.uni-kiel.de/fosite/1024_beta2_vanleer_gamma2.png "fast cooling"
+!!   <img src="http://www.astrophysik.uni-kiel.de/fosite/1024_beta10_vanleer_gamma2.png" class="img-fluid img-thumbnail" alt="slow cooling">
+!!   <img src="http://www.astrophysik.uni-kiel.de/fosite/1024_beta2_vanleer_gamma2.png" class="img-fluid img-thumbnail" alt="fastcooling">
 !! </div> </div>
 !! You can find some [movies] (shearingsheet.html) showing the temporal evolution of the
 !! column density in the [gallery] (gallery.html).

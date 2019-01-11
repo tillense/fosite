@@ -77,8 +77,6 @@
 !!      (r,\varphi).
 !! \f]
 !!
-!! \todo Make distinction between these two tests clear. What is with
-!! \f$ \sigma \f$.
 !!
 !! Additionally, the implementation is tested for a vertical gaussian
 !! distribution, with a scale height similar to \f$ \sigma =0.1 \f$. with the
@@ -93,9 +91,7 @@
 !! (right). For the first case we see a maximum error of \f$ 10^{-3} \f$
 !! at steep gradients and \f$ 10^{-5} \f$ for the second case.
 !!
-!! \image html http://www.astrophysik.uni-kiel.de/fosite/orbitingcylinders_relativeerror.png "relative error of numerical to potential" \n
-!!
-!!
+!! <img src="http://www.astrophysik.uni-kiel.de/fosite/orbitingcylinders_relativeerror.png" class="img-fluid img-thumbnail" alt="Relative error">
 !!
 !! \section rotating_cylinders Self-Gravitating Rotating Cylinders
 !!
@@ -140,10 +136,9 @@
 !! momentum. Compared with \cite chan2006, we have a \f$ 200 \times \f$ better
 !! angular momentum conservation in one time step.
 !!
-!! \image html http://www.astrophysik.uni-kiel.de/fosite/orbitingcylinders.png "colormesh of density" \n
-!! \image html http://www.astrophysik.uni-kiel.de/fosite/orbitingcylinders_cut.png "azimuthal cut through density field" \n
-!! \image html http://www.astrophysik.uni-kiel.de/fosite/orbitingcylinders_pressure.png "colormesh of the pressure" \n
-!!
+!! <img src="http://www.astrophysik.uni-kiel.de/fosite/orbitingcylinders.png" class="img-fluid img-thumbnail" alt="colormesh of density">
+!! <img src="http://www.astrophysik.uni-kiel.de/fosite/orbitingcylinders_cut.png" class="img-fluid img-thumbnail" alt="azimuthal cut through density field">
+!! <img src="http://www.astrophysik.uni-kiel.de/fosite/orbitingcylinders_pressure.png" class="img-fluid img-thumbnail" alt="colormesh of pressure">
 !!
 !! References:
 !! - \cite chan2006 Chan, Chi-kwan; Psaltis, Dimitrios; Özel, Feryal, 2006
