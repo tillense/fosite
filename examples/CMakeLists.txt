@@ -17,6 +17,7 @@ set (EXES
   mmsn
   orbitingcylinders
   restart
+  sgdisk
   shearingsheet
   #  planet2d
   #  planeteu
