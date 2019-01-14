@@ -238,7 +238,7 @@ CONTAINS
     IF (.NOT.Physics%Initialized().OR..NOT.Mesh%Initialized()) &
          CALL this%Error("InitTimedisc","physics and/or mesh module uninitialized")
 
-      ! allocate memory for data structures needed in all timedisc modules
+    ! allocate memory for data structures needed in all timedisc modules
     ALLOCATE( &
       this%xfluxdydz(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
       this%yfluxdzdx(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
@@ -1005,6 +1005,7 @@ CONTAINS
     INTEGER,              INTENT(IN)    :: checkdatabm
     !------------------------------------------------------------------------!
     INTEGER                             :: i,j,k,l
+    LOGICAL                             :: have_potential
     REAL                                :: t
     REAL                                :: phi,wp
     REAL, DIMENSION(:,:,:,:), POINTER   :: pot
@@ -1152,8 +1153,6 @@ CONTAINS
       !> \todo Very hacky implementation of pluto style angular momentum
       !! conservation. A better implementation is needed, but we would need to
       !! restucture the timedisc module
-      !! also: use this with EULER2DISOTHM. EULER2D version is untested, may need
-      !! small fixes.
       sp => Sources
       DO
         IF (ASSOCIATED(sp).EQV..FALSE.) RETURN
@@ -1166,44 +1165,49 @@ CONTAINS
       END DO
 
       NULLIFY(pot)
+      have_potential = .FALSE.
       IF(ASSOCIATED(grav)) THEN
         IF(.NOT.grav%addtoenergy) THEN
           pot => Mesh%RemapBounds(grav%pot%data4d(:,:,:,:))
+          have_potential=.TRUE.
         END IF
       END IF
 
       phi = 0.
 
       DO k=Mesh%KMIN-Mesh%KP1,Mesh%KMAX
-        DO j=Mesh%JMIN-1,Mesh%JMAX
-          DO i=Mesh%IMIN-1,Mesh%IMAX
+        DO j=Mesh%JMIN-Mesh%JP1,Mesh%JMAX
+!NEC$ IVDEP
+          DO i=Mesh%IMIN-Mesh%IP1,Mesh%IMAX
             wp = 0.5*(this%w(i,k)+this%w(i+1,k)) + Mesh%hy%faces(i+1,j,k,1)*Mesh%OMEGA
-            IF(ASSOCIATED(pot)) &
-              phi = pot(i,j,k,2)
-            IF(Physics%PRESSURE.GT.0) &
+            IF(Physics%PRESSURE.GT.0) THEN
               this%xfluxdydz(i,j,k,Physics%ENERGY) &
                 = this%xfluxdydz(i,j,k,Physics%ENERGY) &
                   + wp * (0.5 * wp * this%xfluxdydz(i,j,k,Physics%DENSITY) &
-                  + this%xfluxdydz(i,j,k,Physics%YMOMENTUM)) &
-                  + phi*this%xfluxdydz(i,j,k,Physics%DENSITY)
+                  + this%xfluxdydz(i,j,k,Physics%YMOMENTUM))
+              IF (have_potential) THEN
+                this%xfluxdydz(i,j,k,Physics%ENERGY) = this%xfluxdydz(i,j,k,Physics%ENERGY) + pot(i,j,k,2)*this%xfluxdydz(i,j,k,Physics%DENSITY)
+              END IF
+            END IF
 
             this%xfluxdydz(i,j,k,Physics%YMOMENTUM) &
               = (this%xfluxdydz(i,j,k,Physics%YMOMENTUM) &
                 + wp * this%xfluxdydz(i,j,k,Physics%DENSITY)) * Mesh%hy%faces(i+1,j,k,1)
 
             wp = this%w(i,k) + Mesh%radius%bcenter(i,j,k)*Mesh%OMEGA
-            IF(ASSOCIATED(pot)) &
-              phi = pot(i,j,k,3)
-            IF(Physics%PRESSURE.GT.0) &
+            IF(Physics%PRESSURE.GT.0) THEN
               this%yfluxdzdx(i,j,k,Physics%ENERGY) &
                 = this%yfluxdzdx(i,j,k,Physics%ENERGY) &
                  + wp * ( 0.5 * wp * this%yfluxdzdx(i,j,k,Physics%DENSITY) &
-                 + this%yfluxdzdx(i,j,k,Physics%YMOMENTUM)) &
-                 + phi*this%yfluxdzdx(i,j,k,Physics%DENSITY)
+                 + this%yfluxdzdx(i,j,k,Physics%YMOMENTUM))
+              IF (have_potential) THEN
+                this%yfluxdzdx(i,j,k,Physics%ENERGY) = this%yfluxdzdx(i,j,k,Physics%ENERGY) + pot(i,j,k,3)*this%yfluxdzdx(i,j,k,Physics%DENSITY)
+              END IF
+            END IF
 
             this%yfluxdzdx(i,j,k,Physics%YMOMENTUM) &
               = this%yfluxdzdx(i,j,k,Physics%YMOMENTUM) &
-                + wp * this%yfluxdzdx(i,j,k,Physics%DENSITY) !* Mesh%hy%bcenter(i,j)
+                + wp * this%yfluxdzdx(i,j,k,Physics%DENSITY)
           END DO
         END DO
       END DO
@@ -1213,6 +1217,7 @@ CONTAINS
       CLASS IS (physics_eulerisotherm)
         DO k=Mesh%KMIN,Mesh%KMAX
           DO j=Mesh%JMIN,Mesh%JMAX
+!NEC$ IVDEP
             DO i=Mesh%IMIN,Mesh%IMAX
               wp = pvar%data4d(i,j,k,Physics%YVELOCITY) + this%w(i,k) + Mesh%radius%bcenter(i,j,k)*Mesh%OMEGA
               this%geo_src%data4d(i,j,k,Physics%XMOMENTUM) &
@@ -1232,12 +1237,6 @@ CONTAINS
                   = this%geo_src%data4d(i,j,k,Physics%YMOMENTUM) &
                     + pvar%data4d(i,j,k,Physics%PRESSURE) &
                       *( Mesh%cxyx%center(i,j,k) + Mesh%czyz%center(i,j,k) )
-!                this%geo_src%data4d(i,j,Physics%XMOMENTUM) &
-!                  = this%geo_src%data4d(i,j,Physics%XMOMENTUM) &
-!                    - 0.5*(pvar%data4d(i+1,j,Physics%PRESSURE) - pvar%data4d(i-1,j,Physics%PRESSURE))/Mesh%dlx(i,j)
-!                this%geo_src%data4d(i,j,Physics%YMOMENTUM) &
-!                  = this%geo_src%data4d(i,j,Physics%YMOMENTUM) &
-!                    - 0.5*(pvar%data4d(i,j+1,Physics%PRESSURE) - pvar%data4d(i,j-1,Physics%PRESSURE))/Mesh%dly(i,j)
                 this%geo_src%data4d(i,j,k,Physics%ENERGY) = 0.
               ELSE
 
@@ -1282,17 +1281,20 @@ CONTAINS
 
       DO k=Mesh%KMIN,Mesh%KMAX
         DO j=Mesh%JMIN,Mesh%JMAX
+!NEC$ IVDEP
           DO i=Mesh%IMIN,Mesh%IMAX
-            IF(ASSOCIATED(pot)) &
-              phi = pot(i,j,k,1)
             wp = this%w(i,k) + Mesh%radius%bcenter(i,j,k) * Mesh%OMEGA
             rhs%data4d(i,j,k,Physics%YMOMENTUM) = rhs%data4d(i,j,k,Physics%YMOMENTUM) &
               - wp * rhs%data4d(i,j,k,Physics%DENSITY)
-            IF(Physics%PRESSURE.GT.0) &
+            IF(Physics%PRESSURE.GT.0) THEN
               rhs%data4d(i,j,k,Physics%ENERGY) = rhs%data4d(i,j,k,Physics%ENERGY) &
                 - wp*( rhs%data4d(i,j,k,Physics%YMOMENTUM) &
-                       + 0.5 * wp* rhs%data4d(i,j,k,Physics%DENSITY)) &
-                - phi * rhs%data4d(i,j,k,Physics%DENSITY)
+                       + 0.5 * wp* rhs%data4d(i,j,k,Physics%DENSITY))
+              IF (have_potential) THEN
+                rhs%data4d(i,j,k,Physics%ENERGY) = &
+                rhs%data4d(i,j,k,Physics%ENERGY) - pot(i,j,k,1) * rhs%data4d(i,j,k,Physics%DENSITY)
+              END IF
+            END IF
           END DO
         END DO
       END DO
