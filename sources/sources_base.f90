@@ -178,7 +178,6 @@ CONTAINS
 
 
   SUBROUTINE ExternalSources(this,Mesh,Fluxes,Physics,time,dt,pvar,cvar,sterm)
-    USE physics_euler_mod, ONLY : statevector_euler
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(sources_base), TARGET, INTENT(INOUT) :: this
@@ -197,11 +196,6 @@ CONTAINS
     DO WHILE (ASSOCIATED(srcptr))
 
       CALL srcptr%ExternalSources_single(Mesh,Physics,Fluxes,this,time,dt,pvar,cvar,temp_sterm)
-
-      SELECT TYPE(s => temp_sterm)
-      TYPE IS (statevector_euler)
-        print *, MAXVAL(s%energy%data1d(:)), MINVAL(s%energy%data1d(:))
-      END SELECT
 
       ! add to the sources
       sterm%data1d(:) = sterm%data1d(:) + temp_sterm%data1d(:)
