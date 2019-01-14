@@ -3,7 +3,7 @@
 !# fosite - 3D hydrodynamical simulation program                             #
 !# module: sources_generic.f90                                               #
 !#                                                                           #
-!# Copyright (C) 2007-2013                                                   #
+!# Copyright (C) 2007-2019                                                   #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
 !# Björn Sperling   <sperling@astrophysik.uni-kiel.de>                       #
 !#                                                                           #
@@ -57,110 +57,16 @@ MODULE sources_base_mod
   TYPE, ABSTRACT, EXTENDS(logging_base) :: sources_base
      !> \name Variables
      CLASS(sources_base), POINTER    :: next => null() !< next source in list
-     REAL                            :: time         !< simulation time
-!FIXME
-     REAL                            :: mass         !< mass for diskthomson
-     REAL                            :: mdot         !< disk accretion rate
-     REAL                            :: eps1,eps2    !< softening parameter
-     REAL                            :: gparam       !< geometry parameter
-     !> effective surface of the dust grains
-     REAL                            :: a_eff
-     !> optical properties of the disk surface
-     REAL                            :: kappa
-     REAL                            :: T_star       !< temperature star
-     REAL                            :: R_star       !< radius star
-     REAL                            :: Qabs         !< dust absorption efficiency
-     REAL                            :: T_sublim_min !< dust starts to sublimate
-     REAL                            :: cvis         !< viscous Courant no.
-     !> dust density = 0.0 due to sublimation
-     REAL                            :: T_sublim_max
-     !> \name
-     !!#### wave_damping
-     !> inner and outer wave damping boundaries
-     REAL, DIMENSION(2)              :: r
-     !> time of a orbital period at the inner and outer boundaries
-     REAL, DIMENSION(2)              :: tau
-     !> \name
-     !!####
-     INTEGER                         :: dust_type    !< select mc3d dust catalogue
-     !> 1: binary primary component or single star heating
-     !! 2: secondary
-     INTEGER                         :: star
+     REAL                            :: time           !< simulation time
+     REAL                            :: cvis
+     REAL                            :: gparam         !< geometry parameter
      LOGICAL                         :: update_disk_height !< enable/disable computation of disk scale height
      TYPE(marray_base)               :: invheight2   !< energy sink due to cooling
      TYPE(marray_base)               :: height       !< energy sink due to cooling
      TYPE(marray_base)               :: h_ext        !< energy sink due to cooling
-     REAL, DIMENSION(:,:,:,:), POINTER :: accart        !< acceleration
-     REAL, DIMENSION(:,:,:,:), POINTER :: bcposvec,bccart !< position vector
-     REAL, DIMENSION(:,:,:), POINTER   :: radius       !< distance to origin
-     REAL, DIMENSION(:,:,:), POINTER   :: invr         !< 1./radius
-     REAL, DIMENSION(:,:,:), POINTER   :: cs           !< speed of sound
-     REAL, DIMENSION(:,:,:), POINTER   :: omega        !< angular velocity
-     REAL, DIMENSION(:,:,:,:), POINTER :: omega2       !< Omega Kepler squared
-     REAL, DIMENSION(:,:,:), POINTER :: gxr3         !< = GN*x/radius**3
-     REAL, DIMENSION(:,:,:), POINTER   :: cellmass     !< rho*dV
-     ! --------------------------------------------------------------------- !
-     !> \name
-     !!#### planet_heating/cooling
-     REAL, DIMENSION(:,:), POINTER   :: Energy       !< energy
-     REAL, DIMENSION(:,:), POINTER   :: RHO_s        !< surface density
-     REAL, DIMENSION(:,:), POINTER   :: P_s          !< surface pressure
-     REAL, DIMENSION(:,:), POINTER   :: T_s          !< temperatur
-     REAL                            :: tau_inf      !< optical depth
-!     REAL                            :: T_0          !< equilibrium temp (also used in diskcooling)
-!     REAL                            :: rho_0        !< minimum density
-     REAL, DIMENSION(:,:), POINTER   :: T_init       !< initial temperatur
-     REAL                            :: intensity
-     REAL                            :: albedo
-     REAL                            :: distance     !< distance planet<->star
-     REAL                            :: R_planet     !< radius planet
-     REAL                            :: mu           !< molar mass
-     REAL                            :: theta0       !< shifting theta-angle
-     REAL                            :: phi0         !< shifting phi-angle
-     REAL                            :: omegasun     !< day-night omega
-     REAL                            :: year         !< trop. year of a planet
-     REAL, DIMENSION(:,:,:), POINTER :: sin1
-     REAL                            :: c_p          !< spec. heat cap.
-     REAL                            :: gacc         !< grav. acceleration
-     REAL                            :: gamma        !< rat. spec. heats
-     INTEGER                         :: use_envelope !< enable vicosity envelope
-     ! --------------------------------------------------------------------- !
-     REAL                            :: Q            !> shearing parameter
-     REAL, DIMENSION(:,:), POINTER   :: Sigma_dust   !< dust surface desnity
-     REAL, DIMENSION(:,:), POINTER   :: Qstar        !< stellar heating source
-     REAL, DIMENSION(:,:), POINTER   :: H_tau1       !< z(tau=1)
-     REAL                            :: tau_c        !< cooling time
-     REAL, DIMENSION(:,:), POINTER   :: rescale      !< convert tau_z to tau_s
-     !> angle between disk surface and line of sight to the star
-     REAL, DIMENSION(:,:), POINTER   :: flaring_angle
-     !> inverse 3d distance to heating central object
-     REAL, DIMENSION(:,:), POINTER   :: invdr_3d
-     !> vector from heating central object to mesh points, 3dim
-     REAL, DIMENSION(:,:,:), POINTER :: Distance_3d
-     REAL, DIMENSION(:,:,:), POINTER :: D_3d_norm    !< nornmalized Distance_3d
-     !> normal vector of the disk surface in curvilinear coordinates
-     REAL, DIMENSION(:,:,:), POINTER :: n
-     REAL, DIMENSION(:,:,:), POINTER :: n_cart       !< cartesian n
      TYPE(marray_base)               :: pot          !< gravitational potential
-     !> source terms of sgs module
-     REAL, DIMENSION(:,:), POINTER   :: diff,rhoeps,&
-                                        sigma
-     REAL, DIMENSION(:,:,:), POINTER :: ftxx,ftyy,&
-          ftzz,ftxy,ftxz,ftyz
-     REAL, DIMENSION(:,:), POINTER   :: delta        !< half-width of the filter
-     REAL, DIMENSION(:,:,:), POINTER :: init_pvar    !< pvar state from init
-     REAL, DIMENSION(:,:,:), POINTER  :: ptr3        !< 3d pointer
-#ifdef HAVE_FFTW
-     REAL, DIMENSION(:,:,:), POINTER :: fk, rand     !< forcing (fourier)
-     !> \name
-     !!#### forcing
-     REAL                            :: L,K0,F0,CHI,&
-                                        T,invsqrtN,&
-                                        stoptime
-     TYPE(C_PTR)                     :: plan_r2r     !< fftw plan (real to real)
-     REAL(C_DOUBLE), POINTER         :: temp_c(:,:)  !< fftw temp storage
-     REAL(C_DOUBLE), POINTER         :: Ftemp_c(:,:)
-#endif
+     REAL, DIMENSION(:,:,:), POINTER :: invr         !< 1./radius
+     INTEGER                         :: use_envelope !< enable vicosity envelope
 
   CONTAINS
 
@@ -171,7 +77,6 @@ MODULE sources_base_mod
     PROCEDURE (ExternalSources_single), DEFERRED :: ExternalSources_single
     PROCEDURE :: CalcTimestep
     PROCEDURE (CalcTimestep_single),    DEFERRED :: CalcTimestep_single
-!    PROCEDURE (SetName),         DEFERRED :: SetName
     PROCEDURE :: GetSourcesPointer
 
     PROCEDURE :: Finalize_base
@@ -273,6 +178,7 @@ CONTAINS
 
 
   SUBROUTINE ExternalSources(this,Mesh,Fluxes,Physics,time,dt,pvar,cvar,sterm)
+    USE physics_euler_mod, ONLY : statevector_euler
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(sources_base), TARGET, INTENT(INOUT) :: this
@@ -292,8 +198,14 @@ CONTAINS
 
       CALL srcptr%ExternalSources_single(Mesh,Physics,Fluxes,this,time,dt,pvar,cvar,temp_sterm)
 
+      SELECT TYPE(s => temp_sterm)
+      TYPE IS (statevector_euler)
+        print *, MAXVAL(s%energy%data1d(:)), MINVAL(s%energy%data1d(:))
+      END SELECT
+
       ! add to the sources
       sterm%data1d(:) = sterm%data1d(:) + temp_sterm%data1d(:)
+
       ! next source term
       srcptr => srcptr%next
 
@@ -340,6 +252,7 @@ CONTAINS
     DO WHILE(ASSOCIATED(srcptr))
 
        CALL srcptr%CalcTimestep_single(Mesh,Physics,Fluxes,time,pvar,cvar,dt_new)
+
 
        IF (dt_new .LT. dt) dtcause=srcptr%GetType()
        dt = MIN(dt,dt_new)
