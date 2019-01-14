@@ -210,16 +210,16 @@ MODULE gravity_spectral_mod
     ! >0 : automatic setting of mcut
     CALL GetAttr(config, "ecut", this%ecut, 0.)
 
-    CALL this%Info("        --> Initializing")
+    CALL this%Info("            Initializing")
 
     WRITE (info_str, '(I8)') this%green
-    CALL this%Info("        --> green-fn type:     " // TRIM(info_str))
+    CALL this%Info("            green-fn type:     " // TRIM(info_str))
     WRITE (info_str, '(ES8.2)') this%sigma
-    CALL this%Info("        --> sigma:             " // TRIM(info_str))
+    CALL this%Info("            sigma:             " // TRIM(info_str))
 
 
     !\todo only 2D variables
-    this%p_FI = fftw_alloc_real(INT(2*this%MNUM * (this%INUM)*(Mesh%INUM), C_SIZE_T))
+    This%p_FI = fftw_alloc_real(INT(2*this%MNUM * (this%INUM)*(Mesh%INUM), C_SIZE_T))
     CALL C_F_POINTER(this%p_FI, this%FI, &
                      [2*this%MNUM,this%INUM,Mesh%INUM])
     CALL C_F_POINTER(this%p_FI, this%cFI, &
@@ -282,11 +282,12 @@ MODULE gravity_spectral_mod
                        this%displ, 1, MPI_INTEGER, MPI_COMM_WORLD, this%mpi_error)
     CALL MPI_AllGather(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL, &
                        this%num, 1, MPI_INTEGER, MPI_COMM_WORLD, this%mpi_error)
+
 #endif
 
     CALL this%PrecomputeI(Mesh, Physics)
 
-    CALL this%Info("        --> .. done initializing")
+    CALL this%Info("            .. done initializing")
 #endif
 
   END SUBROUTINE InitGravity_spectral
@@ -390,8 +391,11 @@ MODULE gravity_spectral_mod
 
     ! or with real numbers, real and imaginary part seperate:
     this%FPhi(:,:) = 0.
+!NEC$ IVDEP
     DO i0=1,Mesh%INUM
+!NEC$ IVDEP
       DO i=1,this%INUM
+!NEC$ IVDEP
         DO m=1,this%mcut
            ! real part
            this%FPhi(2*m-1,i) = this%FPhi(2*m-1,i) &
@@ -565,13 +569,14 @@ MODULE gravity_spectral_mod
 
     DO k=Mesh%KMIN,Mesh%KMAX
       DO i1=1,Mesh%INUM
+!NEC$ IVDEP
         DO i=Mesh%IMIN,this%IMAX
           DO j=Mesh%JMIN,Mesh%JMAX
             r0 = Mesh%radius%faces(i,j,k,1)
             dr2(j,i) = r(i1)**2 + r0**2 - 2.*r(i1)*r0*COS(phi(j))
           END DO
         END DO
-!CDIR IEXPAND
+
         this%FI(1:Mesh%JNUM,1:this%INUM,i1) &
           = 2.0 * PI * hx(i1) * hy(i1) * Mesh%dx &
           * Physics%Constants%GN &
@@ -628,8 +633,11 @@ MODULE gravity_spectral_mod
     !            acceleration are set to zero in InitGravity_spectral
     ! \todo This difference quotient is still 2D and only the third component is
     !       added. It will not work in 3D.
+!NEC$ IVDEP
     DO k = Mesh%KMIN,Mesh%KMAX
+!NEC$ IVDEP
       DO j = Mesh%JMIN-Mesh%JP1,Mesh%JMAX+Mesh%JP1
+!NEC$ IVDEP
         DO i = Mesh%IMIN-Mesh%IP1,Mesh%IMAX
           this%accel%data4d(i,j,k,1) = -1.0*(this%phi2D(i+1,j)-this%phi2D(i,j))/Mesh%dlx%data3d(i,j,k)
           this%accel%data4d(i,j,k,2) = -1.0*(this%phi2D(i+1,j+1)+this%phi2D(i,j+1) &

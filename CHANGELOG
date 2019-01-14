@@ -1,6 +1,15 @@
 # Changelog
 This is the changelog for the fosite project.
 
+## [Unreleased]
+#### Added
+- better performance of gravity_spectral on SX-Aurora
+#### Changed
+#### Deprecated
+#### Removed
+#### Fixes
+- key printing feature in read.py repaired
+
 ## 0.8.0 - 2018-01-08
 ### Initial version
 - 3D hydrodynamics with isothermal/ideal-gas EOS
