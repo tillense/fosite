@@ -179,7 +179,7 @@ CONTAINS
     CLASS(marray_compound), INTENT(INOUT) :: this
     TYPE(marray_base), POINTER :: ma
     !-------------------------------------------------------------------!
-    INTEGER :: m,n
+    INTEGER :: m,n,err
     REAL, DIMENSION(:),POINTER,CONTIGUOUS :: data1d
     !-------------------------------------------------------------------!
     IF (.NOT.(ASSOCIATED(ma%data1d).AND.ASSOCIATED(this%data1d))) THEN
@@ -216,7 +216,11 @@ CONTAINS
       IF (m.GT.0) THEN
         n = SIZE(ma%data1d(:))
         ! allocate new contiguous data block for old+new data and for meta data
-        ALLOCATE(data1d(m+n))
+        ALLOCATE(data1d(m+n),STAT=err)
+        IF (err.NE.0) THEN
+          PRINT *,"ERROR in marray_compound::AppendMArray: memory allocation failed"
+          STOP 1
+        END IF
         ! copy the data, new data is appended to the old compound
         data1d(1:m) = this%data1d(1:m)
         data1d(m+1:m+n) = ma%data1d(1:n)
@@ -306,17 +310,20 @@ CONTAINS
     TYPE(marray_base), POINTER :: ma
     !-------------------------------------------------------------------!
     TYPE(compound_item), POINTER :: p
+    INTEGER :: err
     !-------------------------------------------------------------------!
     IF (ASSOCIATED(ma).AND.ASSOCIATED(ma%data1d).AND.SIZE(ma%data1d).GT.0) THEN
       p => this%LastItem()
       IF (.NOT.ASSOCIATED(p)) THEN
         ! list is empty => create it
-        ALLOCATE(this%list)
+        ALLOCATE(this%list,STAT=err)
+        CALL AbortOnError()
         p => this%list
         this%num_entries = 1 ! first entry in the list
       ELSE
         ! list exists => create a new entry at the end
-        ALLOCATE(p%next)
+        ALLOCATE(p%next,STAT=err)
+        CALL AbortOnError()
         p => p%next
         this%num_entries = this%num_entries + 1 ! one entry added
       END IF
@@ -326,6 +333,14 @@ CONTAINS
       p%entry_num = this%num_entries
       NULLIFY(p%next)
     END IF
+    
+    CONTAINS
+      SUBROUTINE AbortOnError()
+        IF (err.NE.0) THEN
+          PRINT *,"ERROR in marray_compound::AppendItem: memory allocation failed"
+          STOP 1
+        END IF              
+      END SUBROUTINE
   END SUBROUTINE AppendItem
 
   !> deconstructor of the compound
