@@ -6,18 +6,21 @@ SET(CMAKE_SYSTEM_PROCESSOR tsubasa)
 #this one not so much
 SET(CMAKE_SYSTEM_VERSION 1)
 
-set(ve /opt/nec/ve)
+set(DEFAULT_NEC_TOOL_PATH /opt/nec/ve)
 
-# specify the cross compiler
-SET(CMAKE_C_COMPILER ${ve}/bin/ncc)
-SET(CMAKE_CXX_COMPILER ${ve}/bin/nc++)
-SET(CMAKE_Fortran_COMPILER ${ve}/bin/nfort)
+# specify the cross compilers
+SET(CMAKE_C_COMPILER ${DEFAULT_NEC_TOOL_PATH}/bin/ncc)
+SET(CMAKE_CXX_COMPILER ${DEFAULT_NEC_TOOL_PATH}/bin/nc++)
+SET(CMAKE_Fortran_COMPILER ${DEFAULT_NEC_TOOL_PATH}/bin/nfort)
+SET(MPI_C_COMPILER $ENV{NMPI_ROOT}/bin/mpincc)
+SET(MPI_CXX_COMPILER $ENV{NMPI_ROOT}/bin/mpinc++)
+SET(MPI_Fortran_COMPILER $ENV{NMPI_ROOT}/bin/mpinfort)
 
 # Sollten eigentlich automatisch gefunden/gesetzt werden wenn man die Compiler definiert hat.
-SET(CMAKE_AR ${ve}/bin/nar)
-SET(CMAKE_NM ${ve}/bin/nnm)
-SET(CMAKE_LD ${ve}/bin/nld)
-SET(CMAKE_RANLIB ${ve}/bin/nranlib)
+SET(CMAKE_AR ${DEFAULT_NEC_TOOL_PATH}/bin/nar)
+SET(CMAKE_NM ${DEFAULT_NEC_TOOL_PATH}/bin/nnm)
+SET(CMAKE_LD ${DEFAULT_NEC_TOOL_PATH}/bin/nld)
+SET(CMAKE_RANLIB ${DEFAULT_NEC_TOOL_PATH}/bin/nranlib)
 
 # Modifiziere das LINK commmando, da <FLAGS> auch die compile flags enthält und dann der c-preprocessor auf die obj files angewendet wird.
 # Original:

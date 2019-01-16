@@ -26,13 +26,6 @@ set (CMAKE_INSTALL_PREFIX ${default_prefix} CACHE STRING
       FORCE)
 
 #------------------------ command line options -------------------------#
-enable_language (Fortran)
-# workaround for unknown compiler ID NEC
-if (CMAKE_Fortran_COMPILER MATCHES ".*nfort")
-  set(CMAKE_Fortran_COMPILER_ID "NEC")
-endif()
-enable_testing()
-
 option(PARALLEL "PARALLEL" OFF)
 option(MPI_USE_SENDRECV "MPI_USE_SENDRECV" ON)
 option(USE_MPI_MOD "USE_MPI_MOD" ON)
@@ -47,11 +40,9 @@ if (PARALLEL MATCHES "ON")
   if(MPI_USE_SENDRECV MATCHES "ON")
     add_compile_options(-DMPI_USE_SENDRECV)
   endif()
-  if (CMAKE_Fortran_COMPILER_ID MATCHES "NEC")
-    set(CMAKE_Fortran_COMPILER_NAMES mpinfort)
-    set(CMAKE_Fortran_COMPILER mpinfort)
+  if (CMAKE_SYSTEM_NAME MATCHES "SX-Aurora")
+    set(CMAKE_Fortran_COMPILER ${MPI_Fortran_COMPILER})
   else()
-    set(CMAKE_Fortran_COMPILER_NAMES mpifort)
     set(CMAKE_Fortran_COMPILER mpifort)
     message(WARNING
       "There is a known problem causing segfaults with OpenMPI \
@@ -60,6 +51,14 @@ if (PARALLEL MATCHES "ON")
       please consider to try another version or the MPICH implementation.")
   endif()
 endif()
+
+enable_language (Fortran)
+# workaround for unknown compiler ID NEC
+if (CMAKE_Fortran_COMPILER MATCHES "(.*)nfort")
+  message(STATUS "Fortran compiler ID set to NEC")
+  set(CMAKE_Fortran_COMPILER_ID "NEC")
+endif()
+enable_testing()
 
 set (X86_VECTOR_EXTENSION NONE CACHE STRING "Enable x86 vector extensions, possible values are: NONE AVX AVX2 AVX-512")
 
