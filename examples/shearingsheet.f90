@@ -98,19 +98,21 @@ PROGRAM shearingsheet
   REAL, PARAMETER    :: SIGMA0     = 1.0            ! mean surf.dens.        !
   REAL, PARAMETER    :: TSIM       = 100./OMEGA       ! simulation time        !
   REAL, PARAMETER    :: GAMMA      = 2.0            ! dep. on vert. struct.  !
-  REAL, PARAMETER    :: BETA_C     = 10.0           ! cooling parameter      !
+  REAL, PARAMETER    :: BETA_C     = 20.0           ! cooling parameter      !
 !  REAL, PARAMETER    :: BETA_C     = 2.0           ! 2 -> collapse          !
   REAL, PARAMETER    :: Q          = 1.5            ! shearing parameter     !
   ! mesh settings
   INTEGER, PARAMETER :: MGEO       = CARTESIAN
   INTEGER, PARAMETER :: SHEAR_DIRECTION = 1         ! enables shearingsheet with direcion !
+!  INTEGER, PARAMETER :: XRES       = 8192           ! cells in x-direction   !
+!  INTEGER, PARAMETER :: YRES       = 8192           ! cells in y-direction   !
   INTEGER, PARAMETER :: XRES       = 1024           ! cells in x-direction   !
   INTEGER, PARAMETER :: YRES       = 1024           ! cells in y-direction   !
   INTEGER, PARAMETER :: ZRES       = 1              ! cells in z-direction   !
   REAL               :: DOMAINX    = 320.0          ! domain size [GEOM]     !
   REAL               :: DOMAINY    = 320.0          ! domain size [GEOM]     !
   ! number of output time steps
-  INTEGER, PARAMETER :: ONUM       = 10
+  INTEGER, PARAMETER :: ONUM       = 4
   ! output directory and output name
   CHARACTER(LEN=256), PARAMETER :: ODIR   = "./"
   CHARACTER(LEN=256), PARAMETER :: OFNAME = "shearingsheet"
@@ -244,6 +246,9 @@ CONTAINS
   END SUBROUTINE MakeConfig
 
   SUBROUTINE InitData(Mesh,Physics, pvar, cvar)
+#ifdef NECSXAURORA
+    USE asl_unified
+#endif
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(mesh_base),    INTENT(IN)  :: Mesh
@@ -253,6 +258,9 @@ CONTAINS
     REAL              :: SOUNDSPEED
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX) &
                       :: rands
+#ifdef NECSXAURORA
+    INTEGER :: rng, n
+#endif
     !------------------------ standard run ----------------------------------!
     SELECT TYPE(p => pvar)
     TYPE IS(statevector_euler)
@@ -265,27 +273,54 @@ CONTAINS
                           Physics%Constants%GN**2.*SIGMA0**3./(GAMMA*OMEGA**2)
 
       ! create random numbers for setup of initial velocities
-      CALL InitRandSeed(Physics)
+#ifndef NECSXAURORA
+    CALL InitRandSeed(Physics)
+#else
+    CALL asl_library_initialize()
+    CALL asl_random_create(rng, ASL_RANDOMMETHOD_MT19937_64)
+    CALL asl_random_distribute_uniform(rng)
+    n = (Mesh%IGMAX-Mesh%IGMIN+1)*(Mesh%JGMAX-Mesh%JGMIN+1)*(Mesh%KGMAX-Mesh%KGMIN+1)
+#endif
       IF (Mesh%shear_dir.EQ.2) THEN
+#ifndef NECSXAURORA
         CALL RANDOM_NUMBER(rands)
+#else
+        CALL asl_random_generate_d(rng, n, rands)
+#endif
         rands = (rands-0.5)*0.1*SOUNDSPEED
         p%velocity%data4d(:,:,:,1) = rands(:,:,:)
 
+#ifndef NECSXAURORA
         CALL RANDOM_NUMBER(rands)
+#else
+        CALL asl_random_generate_d(rng, n, rands)
+#endif
         rands = (rands-0.5)*0.1*SOUNDSPEED
         p%velocity%data4d(:,:,:,2)  = -Q*OMEGA*Mesh%bcenter(:,:,:,1) + rands(:,:,:)
       ELSE IF (Mesh%shear_dir.EQ.1) THEN
+#ifndef NECSXAURORA
         CALL RANDOM_NUMBER(rands)
+#else
+        CALL asl_random_generate_d(rng, n, rands)
+#endif
         rands = (rands-0.5)*0.1*SOUNDSPEED
         p%velocity%data4d(:,:,:,1) = Q*OMEGA*Mesh%bcenter(:,:,:,2) + rands(:,:,:)
 
+#ifndef NECSXAURORA
         CALL RANDOM_NUMBER(rands)
+#else
+        CALL asl_random_generate_d(rng, n, rands)
+#endif
         rands = (rands-0.5)*0.1*SOUNDSPEED
         p%velocity%data4d(:,:,:,2)  = rands(:,:,:)
       END IF
     CLASS DEFAULT
       CALL Physics%Error("shear::InitData","only non-isothermal HD supported")
     END SELECT
+#ifdef NECSXAURORA
+    CALL asl_random_destroy(rng)
+    CALL asl_library_finalize()
+#endif
     !------------------------------------------------------------------------!
     CALL Physics%Convert2Conservative(pvar,cvar)
     CALL Mesh%Info(" DATA-----> initial condition: " // &

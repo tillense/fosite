@@ -97,11 +97,11 @@ PROGRAM mestel
   REAL, PARAMETER :: RMAX = 1.E+0 * PARSEC  ! outer radius [m]
   REAL, PARAMETER :: RGEO = 1.0 * PARSEC    ! geometry scaling constant
   INTEGER, PARAMETER :: MGEO = LOGCYLINDRICAL ! mesh geometry
-  INTEGER, PARAMETER :: XRES = 64          ! mesh resolution (radial)
-  INTEGER, PARAMETER :: YRES = 128          ! mesh resolution (azimuthal)
+  INTEGER, PARAMETER :: XRES = 1024         ! mesh resolution (radial)
+  INTEGER, PARAMETER :: YRES = 2048         ! mesh resolution (azimuthal)
   INTEGER, PARAMETER :: ZRES = 1            ! mesh resolution (z)
   ! output settings
-  INTEGER, PARAMETER :: ONUM = 1000         ! number of output time steps
+  INTEGER, PARAMETER :: ONUM = 10         ! number of output time steps
   CHARACTER(LEN=256), PARAMETER :: &
   OFNAME = 'markward', &                    ! data file name
   ODIR   = "./"                             ! output directory
@@ -157,6 +157,8 @@ CONTAINS
         "zmin"            / 0.0, &
         "zmax"            / 0.0, &
         "gparam"          / RGEO, &
+        "use_fargo"       / 1, &
+        "fargo"           / 2, &
         "decomposition"   / (/-1,1,1/), &
         "output/volume"   / 1 )
 
@@ -208,8 +210,6 @@ CONTAINS
     ! time discretization settings
     timedisc => Dict( &
         "method"          / SSPRK, &
-!        "fargo"           / 0, &
-!        "rhstype"         / 1, &
         "tol_rel"         / 1.0E-2, &
         "cfl"             / 0.3, &
         "stoptime"        / SIMTIME, &
@@ -231,7 +231,7 @@ CONTAINS
 
     ! data file settings
     datafile => Dict( &
-        "fileformat"      / VTK, &
+        "fileformat"      / XDMF, &
         "filename"        / "mestel", &
         "count"           / ONUM)
 
@@ -249,6 +249,9 @@ CONTAINS
 
 
   SUBROUTINE InitData(Timedisc,Mesh,Physics,Fluxes,Sources,pvar,cvar)
+#ifdef NECSXAURORA
+    USE asl_unified
+#endif
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(timedisc_base), INTENT(INOUT) :: Timedisc
@@ -269,6 +272,9 @@ CONTAINS
     REAL, DIMENSION(:,:,:),   POINTER :: r,Sigma
     REAL, DIMENSION(:,:,:,:), POINTER :: r_vec
     CHARACTER(LEN=20) :: mdisk_str
+#ifdef NECSXAURORA
+    INTEGER :: rng, n
+#endif
     !------------------------------------------------------------------------!
     ! distance from origin to cell bary centers and position vector
     r => Mesh%RemapBounds(Mesh%radius%bcenter(:,:,:))
@@ -277,10 +283,24 @@ CONTAINS
     Sigma => Mesh%RemapBounds(pvar(:,:,:,Physics%DENSITY))
 
     ! set surface density using radial power law (1/r) with a little noise
-    CALL InitRandSeed(Physics)
+#ifndef NECSXAURORA
+    CALL InitRandSeed(Timedisc)
     CALL RANDOM_NUMBER(rands)
+#else
+    CALL asl_library_initialize()
+    CALL asl_random_create(rng, ASL_RANDOMMETHOD_MT19937_64)
+    CALL asl_random_distribute_uniform(rng)
+    n = (Mesh%IGMAX-Mesh%IGMIN+1)*(Mesh%JGMAX-Mesh%JGMIN+1)*(Mesh%KGMAX-Mesh%KGMIN+1)
+    CALL asl_random_generate_d(rng, n, rands)
+#endif
+
     rands = rands * NOISE * 2.0 + (1.0 - NOISE)
     Sigma = rands*(RMIN/r(:,:,:))
+
+#ifdef NECSXAURORA
+    CALL asl_random_destroy(rng)
+    CALL asl_library_finalize()
+#endif
 
     ! determine disk mass
     mass = SUM(Mesh%volume%data3d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX) * &

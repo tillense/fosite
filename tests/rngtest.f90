@@ -32,16 +32,42 @@
 !----------------------------------------------------------------------------!
 PROGRAM rngtest
   USE rngs
+#ifdef NECSXAURORA
+  USE asl_unified
+#endif
 #include "tap.h"
   IMPLICIT NONE
   !--------------------------------------------------------------------------!
+  REAL               :: rave,rmax,rmin,rnew
+#ifdef NECSXAURORA
+  REAL, DIMENSION(:), POINTER :: r
+  INTEGER :: rng, imax
+#else
+  REAL               :: r
   INTEGER(KIND=I8)   :: i,x,x0,imax
-  REAL               :: r,rmax,rmin,rnew
+#endif
   !--------------------------------------------------------------------------!
 
 #ifdef NECSXAURORA
   TAP_PLAN(1)
-  TAP_CHECK(.TRUE.,"test disabled on NEC SX Aurora because it takes to long")
+
+  CALL asl_library_initialize()
+  CALL asl_random_create(rng, ASL_RANDOMMETHOD_MT19937_64)
+  CALL asl_random_distribute_uniform(rng)
+
+  imax = 100000000_I8
+
+  ALLOCATE(r(imax))
+
+  CALL asl_random_generate_d(rng, imax, r)
+
+  rave = SUM(r)/imax
+  rmin = MINVAL(r)
+  rmax = MAXVAL(r)
+
+  CALL asl_random_destroy(rng)
+  CALL asl_library_finalize()
+
 #else
   TAP_PLAN(6)
 
@@ -64,15 +90,21 @@ PROGRAM rngtest
    rmax = MAX(rmax,rnew)
   END DO
 
+  rave = r/imax
+#endif
+
+
   ! Check if the random numbers are in (0,1)
   ! and if the average is near 0.5
-  TAP_CHECK_CLOSE(r/imax,0.5,1.E-4,"Average close to 0.5.")
+  TAP_CHECK_CLOSE(rave,0.5,1.E-4,"Average close to 0.5.")
   TAP_CHECK_GE(rmin,0.,"All are bigger (or equal) than 0.")
   TAP_CHECK_LE(rmax,1.,"All are smaller (or equal) than 1.")
   TAP_CHECK_CLOSE(rmin,0.,1.E-4,"Lower limit is close to 0.")
   TAP_CHECK_CLOSE(rmax,1.,1.E-4,"Upper limit is close to 1.")
-#endif
 
+#ifdef NECSXAURORA
+  DEALLOCATE(r)
+#endif
   ! Check SuperKiss64
   TAP_DONE
 

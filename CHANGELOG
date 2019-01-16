@@ -3,12 +3,13 @@ This is the changelog for the fosite project.
 
 ## [Unreleased]
 #### Added
-- better performance of gravity_spectral on SX-Aurora
+- better vector performance in gravity_spectral, alternative rhs
 #### Changed
 #### Deprecated
 #### Removed
 #### Fixes
 - key printing feature in read.py repaired
+- parallel usage of restart.f90 repaired (missing unit number)
 
 ## 0.8.0 - 2018-01-08
 ### Initial version
