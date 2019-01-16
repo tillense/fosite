@@ -284,7 +284,7 @@ CONTAINS
 
     ! set surface density using radial power law (1/r) with a little noise
 #ifndef NECSXAURORA
-    CALL InitRandSeed(Timedisc)
+    CALL InitRandSeed(Physics)
     CALL RANDOM_NUMBER(rands)
 #else
     CALL asl_library_initialize()
