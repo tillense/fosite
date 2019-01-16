@@ -3,7 +3,7 @@
 !# fosite - 3D hydrodynamical simulation program                             #
 !# module: restart.f90                                                       #
 !#                                                                           #
-!# Copyright (C) 2015                                                        #
+!# Copyright (C) 2015-2019                                                   #
 !# Manuel Jung <mjung@astrophysik.uni-kiel.de>                               #
 !# Jannes Klee <jklee@astrophysik.uni-kiel.de>                               #
 !#                                                                           #
@@ -49,6 +49,17 @@
 PROGRAM Restart
   USE fosite_mod
 #ifdef PARALLEL
+#ifdef HAVE_MPI_MOD
+  USE mpi
+#endif
+#endif
+  IMPLICIT NONE
+#ifdef PARALLEL
+#ifdef HAVE_MPIF_H
+  include 'mpif.h'
+#endif
+#endif
+#ifdef PARALLEL
 #define OFFSET_TYPE INTEGER(KIND=MPI_OFFSET_KIND)
 #else
 #define OFFSET_TYPE INTEGER
@@ -56,7 +67,7 @@ PROGRAM Restart
   !--------------------------------------------------------------------------!
   CLASS(fosite), ALLOCATABLE :: Sim
   TYPE(Dict_TYP), POINTER :: input
-  REAL                    :: time,time0
+  REAL                    :: time
   INTEGER                 :: i, step
   CHARACTER(LEN=100)      :: filename, filename_tmp
 #ifdef PARALLEL
@@ -83,8 +94,8 @@ PROGRAM Restart
 
   ! set starting time in fosite
   CALL GetAttr(input, '/timedisc/time', time)
+  time = 0.0
   CALL SetAttr(Sim%config,"/timedisc/starttime", time)
-  CALL GetAttr(Sim%config, "/timedisc/starttime", time0)
 
 #ifdef PARALLEL
   decomposition(1) = 1
@@ -155,6 +166,7 @@ FUNCTION LoadConfig(filename) RESULT(res)
   !--------------------------------------------------------------------------!
   NULLIFY(res)
   offset = 1
+  file = 5555
   OPEN(file, &
        FILE       =TRIM(filename), &
        STATUS     = 'OLD',      &
@@ -244,6 +256,7 @@ SUBROUTINE LoadData(this,filename)
                                            intsize, realsize, type, bytes, &
                                            l, dims(5)
 !  CHARACTER(LEN=64)                     :: keybufsize
+  CHARACTER(LEN=13)                     :: header
   CHARACTER(LEN=6)                      :: magic
   CHARACTER(LEN=2)                      :: endian
   CHARACTER(LEN=1),DIMENSION(50)        :: buffer
@@ -251,7 +264,6 @@ SUBROUTINE LoadData(this,filename)
   INTEGER                               :: offset
   CHARACTER(LEN=1)                      :: version
 #else
-  CHARACTER(LEN=13)                     :: header
   INTEGER(KIND=MPI_OFFSET_KIND)         :: offset, offset_0, filesize
   INTEGER                               :: version
 #endif
@@ -281,6 +293,7 @@ SUBROUTINE LoadData(this,filename)
   counter = 0 !temporary
 
 #ifndef PARALLEL
+  unit = 5555
   OPEN(unit, &
        FILE       = TRIM(filename), &
        STATUS     = 'OLD', &
@@ -390,18 +403,6 @@ SUBROUTINE LoadData(this,filename)
       offset_0 = 0
       CALL MPI_File_set_view(handle,offset_0,MPI_BYTE,MPI_BYTE,'native',MPI_INFO_NULL,ierror)
 #endif
-!#if defined(NECSXACE) || defined(NECSX9) || defined(NECSX8)
-!            ! Collective MPI i/o using MPI_File_write_all
-!            ! fails on NEC SX computers with a SIGBUS error.
-!            ! This is probably due to a bug in the MPI library
-!            ! (their was a similar issue with pvfs2 & ROMIO on
-!            ! x86 hardware a few years ago)
-!            CALL MPI_File_iread(this%handle,ptr2(1:Mesh%IMAX-Mesh%IMIN+1,1:Mesh%JMAX-Mesh%JMIN+1),&
-!                                 this%bufsize,DEFAULT_MPI_REAL,request,this%error)
-!            CALL MPI_Wait(request,this%status,this%error)
-!#else
-!            CALL MPI_File_read_all(this%handle,Sim%Timedisc%pvar%data4d(1:Mesh%IMAX-Mesh%IMIN+1,1:Mesh%JMAX-Mesh%JMIN+1,Physics%DENSITY),&
-!                   this%bufsize,DEFAULT_MPI_REAL,this%status,this%error)
     CASE('/timedisc/xvelocity')
       Sim%Timedisc%pvar%data4d(Sim%Mesh%IGMIN:Sim%Mesh%IGMAX,Sim%Mesh%JGMIN:Sim%Mesh%JGMAX, &
         Sim%Mesh%KGMIN:Sim%Mesh%KGMAX,Sim%Physics%XVELOCITY) = 0.0
