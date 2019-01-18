@@ -123,7 +123,9 @@ PROGRAM shearingsheet
 
 ALLOCATE(Sim)
 
+#ifdef NECSXAURORA
 CALL asl_library_initialize()
+#endif
 
 CALL Sim%InitFosite()
 CALL MakeConfig(Sim, Sim%config)
@@ -133,7 +135,9 @@ CALL Sim%Run()
 CALL Sim%Finalize()
 
 
+#ifdef NECSXAURORA
 CALL asl_library_finalize()
+#endif
 
 DEALLOCATE(Sim)
 
