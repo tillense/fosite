@@ -267,6 +267,9 @@ MODULE gravity_sboxspectral_mod
     this%plan_c2r = fftw_plan_dft_c2r_2d(Mesh%JMAX-Mesh%JMIN+1, &
                                          Mesh%IMAX-Mesh%IMIN+1, this%Fmass2D, &
                                          this%mass2D, FFTW_MEASURE)
+    IF ((.NOT. C_ASSOCIATED(this%plan_r2c)) .OR. (.NOT. c_associated(this%plan_c2r))) THEN
+       CALL this%Error("InitGravity_sboxspectral","FFT plan could not be created.")
+    END IF
 #elif defined(PARALLEL)
     this%plan_r2c = fftw_mpi_plan_dft_r2c_2d(C_JNUM,C_INUM, &
                                              this%mass2D,this%Fmass2D, &
@@ -936,7 +939,6 @@ CALL ftrace_region_end("foward FFT")
                       delt/Mesh%dy
           this%jrem(i)  = this%joff(i) - FLOOR(this%joff(i))
         END DO
-!NEC$ COLLAPSE
         DO j = Mesh%JMIN,Mesh%JMAX
 !NEC$ IVDEP
           DO i = Mesh%IMIN,Mesh%IMAX

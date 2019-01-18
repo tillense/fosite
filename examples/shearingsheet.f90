@@ -78,6 +78,9 @@
 !----------------------------------------------------------------------------!
 PROGRAM shearingsheet
   USE fosite_mod
+#ifdef NECSXAURORA
+  USE asl_unified
+#endif
 #ifdef PARALLEL
 #ifdef HAVE_MPI_MOD
   USE mpi
@@ -96,23 +99,21 @@ PROGRAM shearingsheet
   ! simulation parameter
   REAL, PARAMETER    :: OMEGA      = 1.0            ! rotation at fid. point !
   REAL, PARAMETER    :: SIGMA0     = 1.0            ! mean surf.dens.        !
-  REAL, PARAMETER    :: TSIM       = 100./OMEGA       ! simulation time        !
+  REAL, PARAMETER    :: TSIM       = 100./OMEGA     ! simulation time        !
   REAL, PARAMETER    :: GAMMA      = 2.0            ! dep. on vert. struct.  !
-  REAL, PARAMETER    :: BETA_C     = 20.0           ! cooling parameter      !
+  REAL, PARAMETER    :: BETA_C     = 10.0           ! cooling parameter      !
 !  REAL, PARAMETER    :: BETA_C     = 2.0           ! 2 -> collapse          !
   REAL, PARAMETER    :: Q          = 1.5            ! shearing parameter     !
   ! mesh settings
   INTEGER, PARAMETER :: MGEO       = CARTESIAN
   INTEGER, PARAMETER :: SHEAR_DIRECTION = 1         ! enables shearingsheet with direcion !
-!  INTEGER, PARAMETER :: XRES       = 8192           ! cells in x-direction   !
-!  INTEGER, PARAMETER :: YRES       = 8192           ! cells in y-direction   !
   INTEGER, PARAMETER :: XRES       = 1024           ! cells in x-direction   !
   INTEGER, PARAMETER :: YRES       = 1024           ! cells in y-direction   !
   INTEGER, PARAMETER :: ZRES       = 1              ! cells in z-direction   !
   REAL               :: DOMAINX    = 320.0          ! domain size [GEOM]     !
   REAL               :: DOMAINY    = 320.0          ! domain size [GEOM]     !
   ! number of output time steps
-  INTEGER, PARAMETER :: ONUM       = 4
+  INTEGER, PARAMETER :: ONUM       = 100
   ! output directory and output name
   CHARACTER(LEN=256), PARAMETER :: ODIR   = "./"
   CHARACTER(LEN=256), PARAMETER :: OFNAME = "shearingsheet"
@@ -122,12 +123,17 @@ PROGRAM shearingsheet
 
 ALLOCATE(Sim)
 
+CALL asl_library_initialize()
+
 CALL Sim%InitFosite()
 CALL MakeConfig(Sim, Sim%config)
 CALL Sim%Setup()
 CALL InitData(Sim%Mesh, Sim%Physics, Sim%Timedisc%pvar, Sim%Timedisc%cvar)
 CALL Sim%Run()
 CALL Sim%Finalize()
+
+
+CALL asl_library_finalize()
 
 DEALLOCATE(Sim)
 
@@ -175,7 +181,8 @@ CONTAINS
                 "ymin"        / YMIN, &
                 "ymax"        / YMAX, &
                 "zmin"        / ZMIN, &
-                "zmax"        / ZMAX &
+                "zmax"        / ZMAX, &
+                "Q"           / Q &
                 )
 
     ! fluxes settings
@@ -190,17 +197,17 @@ CONTAINS
     grav =>     Dict(&
                 "stype"               / GRAVITY, &
                 "self/gtype"          / SBOXSPECTRAL, &
-                "output/accel"        / 0, &
-                "self/output/phi"     / 1, &
+                "self/output/phi"     / 0, &
                 "self/output/accel_x" / 0, &
-                "self/output/accel_y" / 0, &
-                "self/Q"              / Q &
+                "self/output/Fmass2D" / 0, &
+                "self/output/accel_y" / 0 &
                 )
 
     ! parametrized cooling from Gammie (2001)
     cooling =>  Dict(&
                 "stype"        / DISK_COOLING, &
                 "method"       / GAMMIE_SB, &
+                "output/Qcool" / 1, &
                 "b_cool"       / BETA_C &
                 )
 
@@ -222,6 +229,13 @@ CONTAINS
                 "cfl"         / 0.4, &
                 "stoptime"    / TSIM, &
                 "dtlimit"     / 1e-40, &
+                "output/external_sources" / 0, &
+                "output/density_cvar" / 0, &
+                "output/energy" / 0, &
+                "output/xmomentum" / 0, &
+                "output/ymomentum" / 0, &
+                "output/rhs" / 0, &
+                "output/geometrical_sources" / 0, &
                 "maxiter"     / 100000000, &
                 "tol_rel"     / 1.0E-3 &
                 )
@@ -246,9 +260,6 @@ CONTAINS
   END SUBROUTINE MakeConfig
 
   SUBROUTINE InitData(Mesh,Physics, pvar, cvar)
-#ifdef NECSXAURORA
-    USE asl_unified
-#endif
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(mesh_base),    INTENT(IN)  :: Mesh
@@ -276,7 +287,6 @@ CONTAINS
 #ifndef NECSXAURORA
     CALL InitRandSeed(Physics)
 #else
-    CALL asl_library_initialize()
     CALL asl_random_create(rng, ASL_RANDOMMETHOD_MT19937_64)
     CALL asl_random_distribute_uniform(rng)
     n = (Mesh%IGMAX-Mesh%IGMIN+1)*(Mesh%JGMAX-Mesh%JGMIN+1)*(Mesh%KGMAX-Mesh%KGMIN+1)
@@ -319,7 +329,6 @@ CONTAINS
     END SELECT
 #ifdef NECSXAURORA
     CALL asl_random_destroy(rng)
-    CALL asl_library_finalize()
 #endif
     !------------------------------------------------------------------------!
     CALL Physics%Convert2Conservative(pvar,cvar)

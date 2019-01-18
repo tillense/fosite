@@ -71,6 +71,9 @@
 !----------------------------------------------------------------------------!
 PROGRAM mestel
   USE fosite_mod
+#ifdef NECSXAURORA
+    USE asl_unified
+#endif
   IMPLICIT NONE
   !--------------------------------------------------------------------------!
   ! general constants
@@ -110,6 +113,11 @@ PROGRAM mestel
   !--------------------------------------------------------------------------!
 
 ALLOCATE(Sim)
+
+#ifdef NECSXAURORA
+CALL asl_library_initialize()
+#endif
+
 CALL Sim%InitFosite()
 CALL MakeConfig(Sim%config)
 CALL Sim%Setup()
@@ -117,6 +125,11 @@ CALL InitData(Sim%Timedisc,Sim%Mesh,Sim%Physics,Sim%Fluxes,Sim%Sources, &
               Sim%Timedisc%pvar%data4d,Sim%Timedisc%cvar%data4d)
 CALL Sim%Run()
 CALL Sim%Finalize()
+
+#ifdef NECSXAURORA
+CALL asl_library_finalize()
+#endif
+
 DEALLOCATE(Sim)
 
 CONTAINS
@@ -249,9 +262,6 @@ CONTAINS
 
 
   SUBROUTINE InitData(Timedisc,Mesh,Physics,Fluxes,Sources,pvar,cvar)
-#ifdef NECSXAURORA
-    USE asl_unified
-#endif
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(timedisc_base), INTENT(INOUT) :: Timedisc
@@ -287,7 +297,6 @@ CONTAINS
     CALL InitRandSeed(Physics)
     CALL RANDOM_NUMBER(rands)
 #else
-    CALL asl_library_initialize()
     CALL asl_random_create(rng, ASL_RANDOMMETHOD_MT19937_64)
     CALL asl_random_distribute_uniform(rng)
     n = (Mesh%IGMAX-Mesh%IGMIN+1)*(Mesh%JGMAX-Mesh%JGMIN+1)*(Mesh%KGMAX-Mesh%KGMIN+1)
@@ -299,7 +308,6 @@ CONTAINS
 
 #ifdef NECSXAURORA
     CALL asl_random_destroy(rng)
-    CALL asl_library_finalize()
 #endif
 
     ! determine disk mass

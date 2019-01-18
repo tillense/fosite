@@ -61,14 +61,14 @@ PROGRAM sgdisk
   REAL,     PARAMETER :: YEAR    = 3.15576E+7     ! Julian year [s]          !
   REAL,     PARAMETER :: MSCALE  = MSUN           ! mass scaling param.      !
   ! simulation parameters
-  REAL,     PARAMETER :: TSIM    = 0.1            ! simulation time [ORP]    !
+  REAL,     PARAMETER :: TSIM    = 6.0            ! simulation time [ORP]    !
   REAL,     PARAMETER :: MU      = 2.35D+0        ! mean mol. mass [g/mol]  !
   REAL,     PARAMETER :: VALPHA  = 0.05           ! alpha visc. parameter    !
   ! disk & central object
   REAL,     PARAMETER :: MBH     = 1.0*MSCALE     ! central mass             !
   REAL,     PARAMETER :: MDISK   = 0.1*MSCALE     ! initial disk mass        !
   REAL,     PARAMETER :: T_INIT  = 120.0          ! initial temperatur       !
-  REAL,     PARAMETER :: T_MIN   = 3.0            ! minimal temperatur       !
+  REAL,     PARAMETER :: T_MIN   = 10.0            ! minimal temperatur       !
   ! cooling parameters
   REAL,     PARAMETER :: BETA_C  = 10.0           ! cooling parameter        !
   REAL,     PARAMETER :: GAMMA   = 1.6            ! adiabatic index          !
@@ -77,7 +77,7 @@ PROGRAM sgdisk
   REAL,     PARAMETER :: GPAR    = AU             ! geom. scal. parameter    !
   REAL,     PARAMETER :: RMIN    = 1.0*GPAR       ! inner radius of the disk !
   REAL,     PARAMETER :: RMAX    = 25.0*GPAR      ! outer radius of the grid !
-  INTEGER,  PARAMETER :: XRES    = 64            ! x-resolution             !
+  INTEGER,  PARAMETER :: XRES    = 256            ! x-resolution             !
   INTEGER,  PARAMETER :: YRES    = XRES*3          ! y-resolution             !
   INTEGER,  PARAMETER :: ZRES    = 1              ! z-resolution             !
   ! mestel
@@ -94,6 +94,11 @@ PROGRAM sgdisk
   !--------------------------------------------------------------------------!
 
 ALLOCATE(Sim)
+
+#ifdef NECSXAURORA
+CALL asl_library_initialize()
+#endif
+
 CALL Sim%InitFosite()
 CALL MakeConfig(Sim, Sim%config)
 CALL Sim%Setup()
@@ -101,6 +106,11 @@ CALL InitData(Sim%Mesh, Sim%Physics, Sim%Timedisc, Sim%Fluxes, Sim%Sources, &
               Sim%Timedisc%pvar, Sim%Timedisc%cvar)
 CALL Sim%Run()
 CALL Sim%Finalize()
+
+#ifdef NECSXAURORA
+    CALL asl_library_finalize()
+#endif
+
 DEALLOCATE(Sim)
 
 CONTAINS
@@ -193,6 +203,7 @@ CONTAINS
     ! self-gravity
     self => Dict(&
                 "gtype"           / SPECTRAL, &
+                "output/potential" / 1, &
                 "self/green"      / 1)
 
     ! collect all gravity-source terms
@@ -201,7 +212,7 @@ CONTAINS
                 "pmass"             / pmass, &
                 "self"              / self, &
                 "output/potential"  / 1, &
-!                "energy"            / 0, &
+                "energy"            / 0, &
                 "output/height"     / 1, &
                 "output/accel"      / 1)
 
@@ -220,7 +231,7 @@ CONTAINS
                 "cfl"               / 0.3, &
                 "dtlimit"           / 1.0E-50, &
                 "tol_rel"           / 1.0E-3, &
-                "rhstype"           / 0, &
+                "rhstype"           / 1, &
                 "tol_abs"           / (/ 1.0E-16, 1.0, 1.0E-16, 1.0 /), &
                 "output/energy"     / 1, &
                 "output/rhs"        / 1, &
@@ -287,9 +298,7 @@ CONTAINS
 #ifndef NECSXAURORA
     CALL InitRandSeed(Timedisc)
     CALL RANDOM_NUMBER(rands)
-    CALL RANDOM_NUMBER(rands)
 #else
-    CALL asl_library_initialize()
     CALL asl_random_create(rng, ASL_RANDOMMETHOD_MT19937_64)
     CALL asl_random_distribute_uniform(rng)
     n = (Mesh%IGMAX-Mesh%IGMIN+1)*(Mesh%JGMAX-Mesh%JGMIN+1)*(Mesh%KGMAX-Mesh%KGMIN+1)
@@ -300,7 +309,6 @@ CONTAINS
 
 #ifdef NECSXAURORA
     CALL asl_random_destroy(rng)
-    CALL asl_library_finalize()
 #endif
 
     ! determine disk mass
