@@ -236,7 +236,7 @@ CONTAINS
        this%posvec_prim(:,:,:,:) = Mesh%posvec%bcenter(:,:,:,:) - this%posvec_prim(:,:,:,:)
        this%fposvec_prim(:,:,:,1,:) = Mesh%posvec%faces(:,:,:,EAST,:) - this%fposvec_prim(:,:,:,1,:)  ! EAST
        this%fposvec_prim(:,:,:,2,:) = Mesh%posvec%faces(:,:,:,NORTH,:) - this%fposvec_prim(:,:,:,2,:) ! NORTH
-       this%fposvec_prim(:,:,:,2,:) = Mesh%posvec%faces(:,:,:,TOP,:) - this%fposvec_prim(:,:,:,3,:)   ! TOP
+       this%fposvec_prim(:,:,:,3,:) = Mesh%posvec%faces(:,:,:,TOP,:) - this%fposvec_prim(:,:,:,3,:)   ! TOP
 
        this%r_prim(:,:,:) = SQRT(this%posvec_prim(:,:,:,1)**2+this%posvec_prim(:,:,:,2)**2+this%posvec_prim(:,:,:,3)**2)
        this%fr_prim(:,:,:,1) = SQRT(this%fposvec_prim(:,:,:,1,1)**2+this%fposvec_prim(:,:,:,1,2)**2+this%fposvec_prim(:,:,:,1,3)**2) ! shifted EAST-faces
