@@ -58,8 +58,10 @@ CONTAINS
     !-------------------------------------------------------------------!
     TYPE(marray_cellvector) :: new_cv
     !-------------------------------------------------------------------!
-    ! create new rank 1 mesh array
-    new_cv = marray_base(1+1+6+8,3)
+    ! only set rank & dims - allocation is done, when cellvector is assigned (with =)
+    new_cv%DIMS(1) = 1+1+6+8
+    new_cv%DIMS(2) = 3
+    new_cv%RANK = 2
   END FUNCTION CreateMArray_cellvector
   
   SUBROUTINE AssignPointers(this)

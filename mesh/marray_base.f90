@@ -59,7 +59,7 @@ MODULE marray_base_mod
   END TYPE selection_base
   !> basic mesh array class
   TYPE :: marray_base
-    INTEGER       :: RANK = 0,DIMS(2) = 0
+    INTEGER       :: RANK = -1,DIMS(2) = 0
     REAL, POINTER, CONTIGUOUS :: data1d(:) => null()
     REAL, POINTER, CONTIGUOUS :: data2d(:,:) => null()
     REAL, POINTER, CONTIGUOUS :: data3d(:,:,:) => null()
@@ -134,12 +134,6 @@ MODULE marray_base_mod
         new_ma%DIMS(:) = 1
         new_ma%RANK = 0
       END IF
-      ALLOCATE(new_ma%data1d(INUM*JNUM*KNUM*new_ma%DIMS(1)*new_ma%DIMS(2)),STAT=err)
-      IF (err.NE.0) THEN
-        PRINT *,"ERROR in marray_base::CreateMArray: memory allocation failed"
-        STOP 1
-      END IF
-      CALL new_ma%AssignPointers()
     END IF
   END FUNCTION CreateMArray
   
@@ -284,12 +278,22 @@ MODULE marray_base_mod
           STOP 1
         END IF
       ELSE
-        ! allocate and assign data
+        ! allocate and copy data
         ALLOCATE(this%data1d(SIZE(ma%data1d,1)),SOURCE=ma%data1d,STAT=err)
         IF (err.NE.0) THEN
           PRINT *,"ERROR in marray_base::AssignMArray_0: memory allocation failed"
           STOP 1
         END IF
+      END IF
+      CALL this%AssignPointers()
+    ELSE IF ((.NOT.ASSOCIATED(ma%data1d)).AND.(ma%RANK.GE.0)) THEN
+      this%RANK    = ma%RANK
+      this%DIMS(:) = ma%DIMS(:)
+      ! just allocate data of newly created marray without copying
+      ALLOCATE(this%data1d(INUM*JNUM*KNUM*this%DIMS(1)*this%DIMS(2)),STAT=err)
+      IF (err.NE.0) THEN
+        PRINT *,"ERROR in marray_base::AssignMArray_0: memory allocation failed"
+        STOP 1
       END IF
       CALL this%AssignPointers()
     ELSE IF (ASSOCIATED(this%data1d)) THEN
