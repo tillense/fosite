@@ -49,7 +49,7 @@ PROGRAM rngtest
   !--------------------------------------------------------------------------!
 
 #ifdef NECSXAURORA
-  TAP_PLAN(1)
+  TAP_PLAN(5)
 
   CALL asl_library_initialize()
   CALL asl_random_create(rng, ASL_RANDOMMETHOD_MT19937_64)
