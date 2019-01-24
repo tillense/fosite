@@ -1,7 +1,7 @@
 # Changelog
 This is the changelog for the fosite project.
 
-## 0.8.1 - 2018-01-??
+## 0.8.1 - 2018-01-24
 #### Added
 - better vector performance in gravity_spectral, alternative rhs
 #### Changed
