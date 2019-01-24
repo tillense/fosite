@@ -1,10 +1,11 @@
 # Changelog
 This is the changelog for the fosite project.
 
-## [Unreleased]
+## 0.8.1 - 2018-01-??
 #### Added
 - better vector performance in gravity_spectral, alternative rhs
 #### Changed
+- setup of MPI build environment on SX-Aurora
 #### Deprecated
 #### Removed
 - variables/arrays in sources_base
