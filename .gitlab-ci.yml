@@ -114,6 +114,8 @@ ser_test_rootstest:
 deploy_github:
     stage: deploy
     script:
+        - git checkout master
+        - git merge origin/master
         - git remote add origin_github git@github.com:tillense/fosite.git
         - git push origin_github master --tags
     environment:
@@ -125,8 +127,10 @@ deploy_github:
 deploy_website:
     stage: deploy
     script:
+        - git checkout master
+        - git merge origin/master
         - git remote add origin_website webadmin@portia:/home/webadmin/src/fosite/git
-        - git push origin_website master --tags
+        - git push origin_website master -f --tags
     environment:
       name: deploy_website
     when: manual
