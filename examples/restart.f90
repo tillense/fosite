@@ -449,20 +449,59 @@ SUBROUTINE LoadData(this,filename)
       CALL MPI_File_set_view(handle,offset_0,MPI_BYTE,MPI_BYTE,'native',MPI_INFO_NULL,ierror)
 #endif
     CASE('/timedisc/pressure')
+      SELECT TYPE (phys => Sim%Physics)
+      TYPE IS(physics_euler)
       Sim%Timedisc%pvar%data4d(Sim%Mesh%IGMIN:Sim%Mesh%IGMAX,Sim%Mesh%JGMIN:Sim%Mesh%JGMAX, &
-        Sim%Mesh%KGMIN:Sim%Mesh%KGMAX,Sim%Physics%PRESSURE) = 0.0
+        Sim%Mesh%KGMIN:Sim%Mesh%KGMAX,phys%PRESSURE) = 0.0
 #ifndef PARALLEL
       READ(unit) Sim%Timedisc%pvar%data4d(Sim%Mesh%IMIN:Sim%Mesh%IMAX,Sim%Mesh%JMIN:Sim%Mesh%JMAX, &
-        Sim%Mesh%KMIN:Sim%Mesh%KMAX,Sim%Physics%PRESSURE)
+        Sim%Mesh%KMIN:Sim%Mesh%KMAX,phys%PRESSURE)
 #else
       CALL MPI_File_set_view(handle, offset-1,DEFAULT_MPI_REAL,filetype, 'native', MPI_INFO_NULL, ierror)
       CALL MPI_File_read_all(handle, &
         Sim%Timedisc%pvar%data4d(Sim%Mesh%IMIN:Sim%Mesh%IMAX,Sim%Mesh%JMIN:Sim%Mesh%JMAX, &
-        Sim%Mesh%KMIN:Sim%Mesh%KMAX,Sim%Physics%PRESSURE),&
+        Sim%Mesh%KMIN:Sim%Mesh%KMAX,phys%PRESSURE),&
         bufsize, DEFAULT_MPI_REAL, status, ierror)
       offset_0 = 0
       CALL MPI_File_set_view(handle,offset_0,MPI_BYTE,MPI_BYTE,'native',MPI_INFO_NULL,ierror)
+      END SELECT
 #endif
+    CASE('/physics/bccsound')
+      SELECT TYPE (phys => Sim%Physics)
+      TYPE IS(physics_eulerisotherm)
+        phys%bccsound%data3d(Sim%Mesh%IGMIN:Sim%Mesh%IGMAX,Sim%Mesh%JGMIN:Sim%Mesh%JGMAX, &
+          Sim%Mesh%KGMIN:Sim%Mesh%KGMAX) = 0.0
+#ifndef PARALLEL
+        READ(unit) phys%bccsound%data3d(Sim%Mesh%IMIN:Sim%Mesh%IMAX,Sim%Mesh%JMIN:Sim%Mesh%JMAX, &
+          Sim%Mesh%KMIN:Sim%Mesh%KMAX)
+#else
+        CALL MPI_File_set_view(handle, offset-1,DEFAULT_MPI_REAL,filetype, 'native', MPI_INFO_NULL, ierror)
+        CALL MPI_File_read_all(handle, &
+          phys%bccsound%data3d(Sim%Mesh%IMIN:Sim%Mesh%IMAX,Sim%Mesh%JMIN:Sim%Mesh%JMAX, &
+          Sim%Mesh%KMIN:Sim%Mesh%KMAX),&
+          bufsize, DEFAULT_MPI_REAL, status, ierror)
+        offset_0 = 0
+        CALL MPI_File_set_view(handle,offset_0,MPI_BYTE,MPI_BYTE,'native',MPI_INFO_NULL,ierror)
+#endif
+      END SELECT
+    CASE('/physics/fccsound')
+      SELECT TYPE (phys => Sim%Physics)
+      TYPE IS(physics_eulerisotherm)
+        phys%fcsound%data4d(Sim%Mesh%IGMIN:Sim%Mesh%IGMAX,Sim%Mesh%JGMIN:Sim%Mesh%JGMAX, &
+          Sim%Mesh%KGMIN:Sim%Mesh%KGMAX,1:Sim%Mesh%NFACES) = 0.0
+#ifndef PARALLEL
+        READ(unit) phys%fcsound%data4d(Sim%Mesh%IMIN:Sim%Mesh%IMAX,Sim%Mesh%JMIN:Sim%Mesh%JMAX, &
+          Sim%Mesh%KMIN:Sim%Mesh%KMAX,1:Sim%Mesh%NFACES)
+#else
+        CALL MPI_File_set_view(handle, offset-1,DEFAULT_MPI_REAL,filetype, 'native', MPI_INFO_NULL, ierror)
+        CALL MPI_File_read_all(handle, &
+          phys%fcsound%data4d(Sim%Mesh%IMIN:Sim%Mesh%IMAX,Sim%Mesh%JMIN:Sim%Mesh%JMAX, &
+          Sim%Mesh%KMIN:Sim%Mesh%KMAX,1:Sim%Mesh%NFACES),&
+          bufsize, DEFAULT_MPI_REAL, status, ierror)
+        offset_0 = 0
+        CALL MPI_File_set_view(handle,offset_0,MPI_BYTE,MPI_BYTE,'native',MPI_INFO_NULL,ierror)
+#endif
+      END SELECT
     CASE DEFAULT
       SELECT CASE(l)
       CASE(2)
