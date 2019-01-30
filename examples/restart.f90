@@ -464,8 +464,8 @@ SUBROUTINE LoadData(this,filename)
         bufsize, DEFAULT_MPI_REAL, status, ierror)
       offset_0 = 0
       CALL MPI_File_set_view(handle,offset_0,MPI_BYTE,MPI_BYTE,'native',MPI_INFO_NULL,ierror)
-      END SELECT
 #endif
+      END SELECT
     CASE('/physics/bccsound')
       SELECT TYPE (phys => Sim%Physics)
       TYPE IS(physics_eulerisotherm)
