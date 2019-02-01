@@ -76,6 +76,7 @@ MODULE gravity_binary_mod
   TYPE, EXTENDS(gravity_pointmass) :: gravity_binary
     REAL, DIMENSION(:,:,:), POINTER     :: r_sec        !<    and to secondary point mass
     REAL, DIMENSION(:,:,:,:), POINTER   :: posvec_sec   !<   secondary to all cell bary centers
+    REAL, DIMENSION(:,:,:,:), POINTER   :: posvec_sec_tmp !<  tmp. secondary to all cell bary centers
     REAL, DIMENSION(:,:,:,:), POINTER   :: fr_sec
     REAL, DIMENSION(:,:,:,:,:), POINTER :: fposvec_sec
     REAL, POINTER                       :: mass2        !< 2nd mass for binaries
@@ -144,7 +145,9 @@ CONTAINS
          this%r_prim(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX),&
          this%r_sec(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX),&
          this%posvec_prim(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,3),&
+         this%posvec_prim_tmp(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,3),&
          this%posvec_sec(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,3),&
+         this%posvec_sec_tmp(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,3),&
          this%pot(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,4), &
          this%pot_prim(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,4), &
          this%pot_sec(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,4), &
@@ -295,21 +298,21 @@ CONTAINS
 
     ! compute curvilinear components of the position vectors
     ! 1. primary component
-    this%posvec_prim(:,:,:,1) = this%pos(1,1)
-    this%posvec_prim(:,:,:,2) = this%pos(2,1)
-    this%posvec_prim(:,:,:,3) = this%pos(3,1)
-    CALL Mesh%Geometry%Convert2Curvilinear(Mesh%curv%faces(:,:,:,EAST,:),this%posvec_prim(:,:,:,:),this%fposvec_prim(:,:,:,1,:))
-    CALL Mesh%Geometry%Convert2Curvilinear(Mesh%curv%faces(:,:,:,NORTH,:),this%posvec_prim(:,:,:,:),this%fposvec_prim(:,:,:,2,:))
-    CALL Mesh%Geometry%Convert2Curvilinear(Mesh%curv%faces(:,:,:,TOP,:),this%posvec_prim(:,:,:,:),this%fposvec_prim(:,:,:,3,:))
-    CALL Mesh%Geometry%Convert2Curvilinear(Mesh%bcenter,this%posvec_prim,this%posvec_prim)
+    this%posvec_prim_tmp(:,:,:,1) = this%pos(1,1)
+    this%posvec_prim_tmp(:,:,:,2) = this%pos(2,1)
+    this%posvec_prim_tmp(:,:,:,3) = this%pos(3,1)
+    CALL Mesh%Geometry%Convert2Curvilinear(Mesh%curv%faces(:,:,:,EAST,:),this%posvec_prim_tmp(:,:,:,:),this%fposvec_prim(:,:,:,1,:))
+    CALL Mesh%Geometry%Convert2Curvilinear(Mesh%curv%faces(:,:,:,NORTH,:),this%posvec_prim_tmp(:,:,:,:),this%fposvec_prim(:,:,:,2,:))
+    CALL Mesh%Geometry%Convert2Curvilinear(Mesh%curv%faces(:,:,:,TOP,:),this%posvec_prim_tmp(:,:,:,:),this%fposvec_prim(:,:,:,3,:))
+    CALL Mesh%Geometry%Convert2Curvilinear(Mesh%bcenter,this%posvec_prim_tmp,this%posvec_prim)
     ! 2. secondary component
-    this%posvec_sec(:,:,:,1) = this%pos(1,2)
-    this%posvec_sec(:,:,:,2) = this%pos(2,2)
-    this%posvec_sec(:,:,:,3) = this%pos(3,2)
-    CALL Mesh%Geometry%Convert2Curvilinear(Mesh%curv%faces(:,:,:,EAST,:),this%posvec_sec(:,:,:,:),this%fposvec_sec(:,:,:,1,:))
-    CALL Mesh%Geometry%Convert2Curvilinear(Mesh%curv%faces(:,:,:,NORTH,:),this%posvec_sec(:,:,:,:),this%fposvec_sec(:,:,:,2,:))
-    CALL Mesh%Geometry%Convert2Curvilinear(Mesh%curv%faces(:,:,:,TOP,:),this%posvec_sec(:,:,:,:),this%fposvec_sec(:,:,:,3,:))
-    CALL Mesh%Geometry%Convert2Curvilinear(Mesh%bcenter,this%posvec_sec,this%posvec_sec)
+    this%posvec_sec_tmp(:,:,:,1) = this%pos(1,2)
+    this%posvec_sec_tmp(:,:,:,2) = this%pos(2,2)
+    this%posvec_sec_tmp(:,:,:,3) = this%pos(3,2)
+    CALL Mesh%Geometry%Convert2Curvilinear(Mesh%curv%faces(:,:,:,EAST,:),this%posvec_sec_tmp(:,:,:,:),this%fposvec_sec(:,:,:,1,:))
+    CALL Mesh%Geometry%Convert2Curvilinear(Mesh%curv%faces(:,:,:,NORTH,:),this%posvec_sec_tmp(:,:,:,:),this%fposvec_sec(:,:,:,2,:))
+    CALL Mesh%Geometry%Convert2Curvilinear(Mesh%curv%faces(:,:,:,TOP,:),this%posvec_sec_tmp(:,:,:,:),this%fposvec_sec(:,:,:,3,:))
+    CALL Mesh%Geometry%Convert2Curvilinear(Mesh%bcenter,this%posvec_sec_tmp,this%posvec_sec)
 
     ! subtract the result from the position vectors of all cell bary centers
     ! this gives you the curvilinear components of all vectors pointing
@@ -559,7 +562,8 @@ CONTAINS
     CLASS(gravity_binary), INTENT(INOUT) :: this
     !------------------------------------------------------------------------!
     DEALLOCATE(this%mass,this%mass2,this%pos,this%r0,this%omega2,this%omega,&
-               this%r_prim,this%r_sec,this%posvec_prim,this%posvec_sec,this%pot,&
+               this%r_prim,this%r_sec,this%posvec_prim,this%posvec_prim_tmp, &
+               this%posvec_sec,this%posvec_sec_tmp,this%pot,&
                this%pot_prim,this%pot_sec,this%fr_prim,this%fr_sec,this%fposvec_prim, &
                this%fposvec_sec)
 
