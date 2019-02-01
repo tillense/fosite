@@ -43,20 +43,20 @@ PROGRAM Init
   REAL, PARAMETER    :: AU      = 1.0             ! astronomical unit         !
   REAL, PARAMETER    :: MSUN    = 1.0             ! solar mass [kg]              !
   ! simulation parameters
-  REAL, PARAMETER    :: TSIM    = 100            ! simulation time [binary orbits]
+  REAL, PARAMETER    :: TSIM    = 10             ! simulation time [binary orbits]
   REAL, PARAMETER    :: VALPHA  = 1e-3           ! alpha viscosity parameter !
   ! 1. binary system
-  REAL, PARAMETER    :: MBH1    = 0.690*MSUN
-  REAL, PARAMETER    :: MBH2    = 0.203*MSUN
-!  REAL, PARAMETER    :: MBH1    = 0.4465*MSUN
-!  REAL, PARAMETER    :: MBH2    = 0.4465*MSUN
-  REAL, PARAMETER    :: EXCENT  = 0.159          ! excentricity              !
-!  REAL, PARAMETER    :: EXCENT  = 0.0           ! excentricity              !
+!  REAL, PARAMETER    :: MBH1    = 0.690*MSUN
+!  REAL, PARAMETER    :: MBH2    = 0.203*MSUN
+  REAL, PARAMETER    :: MBH1    = 0.4465*MSUN
+  REAL, PARAMETER    :: MBH2    = 0.4465*MSUN
+!  REAL, PARAMETER    :: EXCENT  = 0.159          ! excentricity              !
+  REAL, PARAMETER    :: EXCENT  = 0.0            ! excentricity              !
   REAL, PARAMETER    :: SEMMA   = 0.224*AU       ! semi mayor axis           !
   ! 2. disk
   REAL, PARAMETER    :: Rgap    = 2.5*SEMMA      ! estimated gap size        !
   REAL               :: XSCALE  = 1.0            ! scaling factor
-  REAL               :: HRATIO  = 0.02           ! scaling factor
+  REAL               :: HRATIO  = 0.05           ! scaling factor
   ! gas paramter
   REAL, PARAMETER    :: MU      = 2.35e-3        ! mean molecular mass [kg/mol] !
   REAL, PARAMETER    :: RG      = 8.31447        ! molar gas constant        !
@@ -64,8 +64,8 @@ PROGRAM Init
   REAL, PARAMETER    :: GPAR = AU                ! geometry scaling paramete !
   REAL, PARAMETER    :: RMIN = 1.5*SEMMA         ! inner radius of the disk  !
   REAL, PARAMETER    :: RMAX = 5.0*AU            ! outer radius of the grid  !
-  INTEGER, PARAMETER :: XRES = 64               ! x-resolution              !
-  INTEGER, PARAMETER :: YRES = 64               ! y-resolution              !
+  INTEGER, PARAMETER :: XRES = 512               ! x-resolution              !
+  INTEGER, PARAMETER :: YRES = 512               ! y-resolution              !
   INTEGER, PARAMETER :: ZRES = 1                 ! y-resolution              !
   ! output file parameter
   INTEGER, PARAMETER :: ONUM = 100               ! number of output time st  !
@@ -75,7 +75,7 @@ PROGRAM Init
                      :: OFNAME = 'mmsn'
   !--------------------------------------------------------------------------!
   CLASS(fosite), ALLOCATABLE :: Sim
-  REAL               :: CSISO,OMEGA,PERIOD
+  REAL               :: OMEGA,PERIOD
   !--------------------------------------------------------------------------!
 
 ALLOCATE(Sim)
@@ -96,12 +96,11 @@ CONTAINS
     TYPE(Dict_TYP),POINTER       :: config
     TYPE(Dict_TYP),POINTER       :: mesh, physics, fluxes, boundary,grav, &
                                     sources, binary, vis, timedisc, datafile, &
-                                    pmass
+                                    rotframe
     !------------------------------------------------------------------------!
     ! some derived simulation parameters
     OMEGA  = SQRT(GN*(MBH1+MBH2)/SEMMA)/SEMMA
     PERIOD = 2.*PI / OMEGA
-    CSISO = HRATIO*SQRT((MBH1+MBH2)*GN/1.0)        ! r(:,:,:)
     OMEGA  = 0.0
 
     ! mesh settings
@@ -115,12 +114,14 @@ CONTAINS
               "knum"            / ZRES, &
               "xmin"            / LOG(RMIN/GPAR), &
               "xmax"            / LOG(RMAX/GPAR), &
+!              "xmin"            / (RMIN/GPAR), &
+!              "xmax"            / (RMAX/GPAR), &
               "ymin"            / 0.0, &
               "ymax"            / (2.0*PI), &
               "zmin"            / 0.0, &
               "zmax"            / 0.0, &
-              "omega"           / OMEGA, &
-              "fargo"           / 0, &
+!              "omega"           / OMEGA, &
+              "fargo"           / 2, &
               "decomposition"   / (/ -1, 1, 1/), &
               "gparam"          / GPAR)
 
@@ -128,8 +129,8 @@ CONTAINS
     ! physics settings
     physics => Dict( &
               "problem"         / EULER_ISOTHERM, &
-!              "cs"              / CSISO, &
               "units"           / GEOMETRICAL,&
+              "output/fcsound"  / 1, &
               "output/bccsound" / 1)
 
 
@@ -137,8 +138,6 @@ CONTAINS
     boundary => Dict( &
               "western"         / CUSTOM,&
               "eastern"         / CUSTOM,&
-!               "western"         / NO_GRADIENTS,&
-!               "eastern"         / NO_GRADIENTS,&
               "southern"        / PERIODIC, &
               "northern"        / PERIODIC, &
               "bottomer"        / REFLECTING,&
@@ -163,39 +162,35 @@ CONTAINS
               "dynconst"        / VALPHA, &
               "output/dynvis"   / 1)
 
+    rotframe => Dict( &
+              "stype"           / ROTATING_FRAME)
 
     ! gravitational acceleration due to binary system
     binary => Dict( &
               "gtype"           / POINTMASS_BINARY, &
               "mass1"           / MBH1, &
               "mass2"           / MBH2, &
-              "mesh_rot"        / 1, &
-              "excentricity"    / EXCENT, &
+!              "mesh_rot"        / 1, &
+!              "excentricity"    / EXCENT, &
               "output/binpos"   / 1, &
               "output/omega"    / 1, &
               "semimayoraxis"   / SEMMA)
 
-    pmass => Dict( &
-              "gtype"           / POINTMASS, &
-              "mass"            / MBH1)
-
-
     ! source term due to all gravity terms
     grav => Dict( &
               "stype"           / GRAVITY, &
-!              "binary"         / binary,&
-              "pointmass"       / pmass,&
+              "binary"          / binary,&
 !              "self/gtype"      / SPECTRAL, &
 !              "self/green"      / 1, &
-!              "energy"          / 0, &
-              "output/height"   / 0, &
-              "output/potential" / 1, &
+              "output/height"   / 1, &
+              "output/potential"/ 1, &
               "output/accel"    / 1)
 
 
     sources => Dict( &
-              "grav"            / grav,&
-              "vis"             / vis )
+              "vis"             / vis, &
+              "rotframe"        / rotframe, &
+              "grav"            / grav)
 
 
     ! time discretization settings
@@ -206,16 +201,12 @@ CONTAINS
               "dtlimit"         / 1.0E-40,&
               "tol_rel"         / 1.0E-3, &
               "tol_abs"         / (/ 1.0E-16, 1., 1.0E-16 /), &
-              "rhstype"         / 1, &
-!              "output/bflux"    / 1,&
-!              "output/rhs"      / 1,&
-!              "output/xmomentum"/ 1,&
-!              "output/ymomentum"/ 1,&
+              "rhstype"         / 0, &
               "maxiter"         / 100000000)
 
     ! initialize data input/output
     datafile => Dict( &
-              "fileformat"      / VTK, &
+              "fileformat"      / XDMF, &
               "filename"        / (TRIM(ODIR) // TRIM(OFNAME)), &
               "count"           / ONUM)
 
