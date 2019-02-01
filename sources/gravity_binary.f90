@@ -232,7 +232,6 @@ CONTAINS
     !------------------------------------------------------------------------!
     CHARACTER(LEN=32) :: mass1_str,mass2_str,excent_str,sema_str,omega_str
     !------------------------------------------------------------------------!
-    CALL this%Info(" GRAVITY--> gravity term:      " // this%GetName())
     WRITE (mass1_str,'(ES8.2)')   this%mass
     WRITE (mass2_str,'(ES8.2)')   this%mass2
     WRITE (excent_str,'(ES8.2)')  this%excent
@@ -258,6 +257,8 @@ CONTAINS
     !------------------------------------------------------------------------!
     INTEGER :: valwrite
     !------------------------------------------------------------------------!
+
+    CALL this%gravity_pointmass%SetOutput(Mesh,Physics,config,IO)
 
     ! output cartesian positions of both components of the binary system
     CALL GetAttr(config, "output/binpos", valwrite, 0)
@@ -337,7 +338,7 @@ CONTAINS
 
     ! compute square of Keplerian velocities for updated time value
     ! with respect to PRIMARY star
-    GM1 = Physics%Constants%GN*this%GetMass_primary(time) 
+    GM1 = Physics%Constants%GN*this%GetMass_primary(time)
     this%omega2(:,:,:,1) = GM1 / (this%r_prim(:,:,:)**3 + this%eps1**3)
 
     ! and SECONDARY star
@@ -479,7 +480,7 @@ CONTAINS
     phi = phi - this%omega_rot * time
 
     ! cartesian coordinates of SECONDARY component (right at t=0)
-    ! TODO TODO TODO HERE IS A PROBLEM 2D movement in 3D space
+    ! \todo This implementation only works in 2D
     r1               = this%mass/(this%mass+this%mass2)*r
     this%pos(1,2) = r1*COS(phi)
     this%pos(2,2) = r1*SIN(phi)
@@ -489,7 +490,6 @@ CONTAINS
     ! shift with respect to center of rotation
     this%pos(:,1) = this%pos(:,1) + this%r0(:)
     this%pos(:,2) = this%pos(:,2) + this%r0(:)
-    ! TODO TODO TODO How to implement
 
   END SUBROUTINE UpdatePositions
 

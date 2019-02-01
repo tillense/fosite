@@ -607,11 +607,11 @@ CONTAINS
       ! ATTENTION: this are the numerical fluxes devided by dy or dx respectively
       CALL GetAttr(config, "output/" // "fluxes", valwrite, 0)
       IF (valwrite.EQ.1) THEN
-           CALL SetAttr(IO, TRIM(key)//"_xfluxdy", &
+           CALL SetAttr(IO, TRIM(key)//"_xfluxdydz", &
                         this%xfluxdydz(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,i))
-           CALL SetAttr(IO, TRIM(key)//"_yfluxdx", &
+           CALL SetAttr(IO, TRIM(key)//"_yfluxdzdx", &
                         this%yfluxdzdx(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,i))
-           CALL SetAttr(IO, TRIM(key)//"_zfluxdx", &
+           CALL SetAttr(IO, TRIM(key)//"_zfluxdxdy", &
                         this%zfluxdxdy(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,i))
       END IF
 

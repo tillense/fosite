@@ -272,6 +272,9 @@ CONTAINS
     !! \todo implement computation for pseudo-Newton Paczynski-Wiita potential
     CALL this%CalcPotential(Mesh,Physics,this%mass,this%r_prim,this%fr_prim,this%pot)
 
+
+    CALL this%SetOutput(Mesh,Physics,config,IO)
+
     ! enable mass accretion by setting "outbound" to one of the four boundaries
     ! of the computational domain (depends on mesh geometry)
     SELECT TYPE(geo=>Mesh%geometry)
