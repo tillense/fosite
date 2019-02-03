@@ -382,15 +382,14 @@ CONTAINS
     this%unit      = unit
     this%stoptime  = stoptime_def
     this%dtwall    = dtwall_def
-    this%time      = 0.
     this%count     = count_def
-    this%step      = 0
     this%offset    = 0
     this%error_io  = 0
 
+    CALL Getattr(config, "step", this%step, 0)
+
     ! compute the (actual) output time
-    time = ABS(this%stoptime) / this%count
-    this%time = time*FLOOR(Timedisc%time/time)
+    this%time = Timedisc%time
 
     ! print some information
     CALL this%Info(" FILEIO---> file name:         " // TRIM(this%GetFilename()))

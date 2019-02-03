@@ -94,7 +94,7 @@ PROGRAM Restart
 
   ! set starting time in fosite
   CALL GetAttr(input, '/timedisc/time', time)
-  time = 0.0
+!time = 0.0
   CALL SetAttr(Sim%config,"/timedisc/starttime", time)
 
 #ifdef PARALLEL
@@ -285,6 +285,8 @@ SUBROUTINE LoadData(this,filename)
   INTEGER, DIMENSION(2)                 :: gsizes,lsizes,indices,memsizes
   INTEGER, DIMENSION(MPI_STATUS_SIZE)   :: status      !< MPI i/o status record
 #endif
+  CLASS(sources_base), POINTER    :: srcptr
+  CLASS(gravity_base), POINTER    :: gravptr
   !--------------------------------------------------------------------------!
   INTENT(IN)                            :: filename
   INTENT(INOUT)                         :: this
@@ -339,7 +341,6 @@ SUBROUTINE LoadData(this,filename)
   buffer = ''
   CALL MPI_File_read_all(handle, buffer, intsize, MPI_BYTE, status,ierror)
   keylen = TRANSFER(buffer(1:intsize),keylen)
-!  print *, keylen, magic, endian, version, sizestr
 #endif
   offset = offset + intsize
 
@@ -365,7 +366,7 @@ SUBROUTINE LoadData(this,filename)
     dims(:) = 1
     SELECT CASE(type)
     CASE(DICT_REAL_TWOD)
-      l = 2
+      l = 3
     CASE(DICT_REAL_THREED)
       l = 3
     CASE(DICT_REAL_FOURD)
@@ -484,7 +485,7 @@ SUBROUTINE LoadData(this,filename)
         CALL MPI_File_set_view(handle,offset_0,MPI_BYTE,MPI_BYTE,'native',MPI_INFO_NULL,ierror)
 #endif
       END SELECT
-    CASE('/physics/fccsound')
+    CASE('/physics/fcsound')
       SELECT TYPE (phys => Sim%Physics)
       TYPE IS(physics_eulerisotherm)
         phys%fcsound%data4d(Sim%Mesh%IGMIN:Sim%Mesh%IGMAX,Sim%Mesh%JGMIN:Sim%Mesh%JGMAX, &
@@ -502,6 +503,27 @@ SUBROUTINE LoadData(this,filename)
         CALL MPI_File_set_view(handle,offset_0,MPI_BYTE,MPI_BYTE,'native',MPI_INFO_NULL,ierror)
 #endif
       END SELECT
+    CASE('/sources/grav/binary/binpos')
+      srcptr => this%Sources
+      DO WHILE (ASSOCIATED(srcptr))
+        SELECT TYPE (gravity => srcptr)
+        TYPE IS (sources_gravity)
+          gravptr => gravity%glist
+          DO WHILE (ASSOCIATED(gravptr))
+            SELECT TYPE (binary => gravptr)
+            TYPE IS (gravity_binary)
+              READ(unit) binary%pos(1:3,1:2)
+            CLASS DEFAULT
+              ! do nothing or add fields/values in gravities
+            END SELECT
+            gravptr => gravptr%next
+          END DO
+        CLASS DEFAULT
+          ! do nothing or add fields/values in sources
+        END SELECT
+
+        srcptr => srcptr%next
+      END DO
     CASE DEFAULT
       SELECT CASE(l)
       CASE(2)

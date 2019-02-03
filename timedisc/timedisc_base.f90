@@ -279,12 +279,12 @@ CONTAINS
     this%tol_abs   = 0.
     this%dtmean    = 0.
     this%dtstddev  = 0.
-    this%time      = 0.
     this%break     = .FALSE.
     this%n_adj     = 0
     this%maxerrold = 0.
     this%dtaccept  = 0
 
+    CALL GetAttr(config, "starttime", this%time, 0.0)
     CALL GetAttr(config, "method", method)
     CALL GetAttr(config, "stoptime", this%stoptime)
     this%dt    = this%stoptime
