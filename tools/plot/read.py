@@ -197,7 +197,7 @@ class read(object):
                 if datalen > 0:
                     dims = datalen
                     if t in [6, 7, 8, 12]:
-                        translate = {6: 2, 7: 3, 8: 4, 12: 5}
+                        translate = {6: 3, 7: 3, 8: 4, 12: 5}
                         d = translate[t]
                         datalen -= d * self.intsize
                         dims = tuple(
