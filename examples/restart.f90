@@ -74,6 +74,13 @@ PROGRAM Restart
   INTEGER, DIMENSION(3)   :: decomposition
 #endif
   LOGICAL                 :: file_exists
+  REAL :: HRATIO = 0.5
+  REAL, DIMENSION(:,:,:),   POINTER :: r, Sigma
+  REAL, DIMENSION(:,:,:,:), POINTER :: r_faces
+  REAL, DIMENSION(:,:,:),   POINTER :: bccsound
+  REAL, DIMENSION(:,:,:,:), POINTER :: fcsound
+  REAL, PARAMETER    :: MBH1    = 0.4465*1.0
+  REAL, PARAMETER    :: MBH2    = 0.4465*1.0
   !--------------------------------------------------------------------------!
 
   ! load file
@@ -124,14 +131,45 @@ PROGRAM Restart
 
   CALL LoadData(Sim,TRIM(filename))
 
+  !--------------------------------------------------------------------------!
+  SELECT TYPE (phys => Sim%Physics)
+  TYPE IS(physics_eulerisotherm)
+    ! Set sound speed
+    ALLOCATE( &
+      bccsound(Sim%Mesh%IGMIN:Sim%Mesh%IGMAX,Sim%Mesh%JGMIN:Sim%Mesh%JGMAX,Sim%Mesh%KGMIN:Sim%Mesh%KGMAX), &
+      fcsound(Sim%Mesh%IGMIN:Sim%Mesh%IGMAX,Sim%Mesh%JGMIN:Sim%Mesh%JGMAX,Sim%Mesh%KGMIN:Sim%Mesh%KGMAX,6))
+
+    r => Sim%Mesh%RemapBounds(Sim%Mesh%radius%bcenter)
+    r_faces => Sim%Mesh%RemapBounds(Sim%Mesh%radius%faces)
+    bccsound = HRATIO*SQRT((MBH1+MBH2)*phys%Constants%GN/r(:,:,:))
+    DO i =1,6
+      fcsound(:,:,:,i) = HRATIO*SQRT((MBH1+MBH2)*phys%constants%GN/r_faces(:,:,:,i))
+    END DO
+    ! set isothermal sound speeds
+    CALL phys%SetSoundSpeeds(Sim%Mesh,bccsound)
+    CALL phys%SetSoundSpeeds(Sim%Mesh,fcsound)
+
+    ! boundary conditions
+    ! custom boundary conditions at western boundary if requested
+    SELECT TYPE(bwest => Sim%Timedisc%Boundary%boundary(WEST)%p)
+    CLASS IS (boundary_custom)
+      CALL bwest%SetCustomBoundaries(Sim%Mesh,Sim%Physics, &
+        (/CUSTOM_NOGRAD,CUSTOM_OUTFLOW,CUSTOM_KEPLER/))
+    END SELECT
+    SELECT TYPE(beast => Sim%Timedisc%Boundary%boundary(EAST)%p)
+    CLASS IS (boundary_custom)
+      CALL beast%SetCustomBoundaries(Sim%Mesh,Sim%Physics, &
+        (/CUSTOM_NOGRAD,CUSTOM_OUTFLOW,CUSTOM_KEPLER/))
+    END SELECT
+  END SELECT
+  !--------------------------------------------------------------------------!
+
+
   CALL Sim%Info(" DATA-----> initial condition: restarted from data file - " // &
   TRIM(filename))
 
-  IF(HasKey(input,"/timedisc/xmomentum")) THEN
-    CALL Sim%Physics%Convert2Primitive(Sim%Timedisc%cvar,Sim%Timedisc%pvar)
-  ELSE
-    CALL Sim%Physics%Convert2Conservative(Sim%Timedisc%pvar,Sim%Timedisc%cvar)
-  END IF
+  CALL Sim%Physics%Convert2Conservative(Sim%Timedisc%pvar,Sim%Timedisc%cvar)
+!  CALL Sim%FirstStep()
 
   CALL Sim%Run()
   CALL Sim%Finalize()
@@ -521,7 +559,46 @@ SUBROUTINE LoadData(this,filename)
         CLASS DEFAULT
           ! do nothing or add fields/values in sources
         END SELECT
-
+        srcptr => srcptr%next
+      END DO
+    CASE('/sources/grav/binary/mass')
+      srcptr => this%Sources
+      DO WHILE (ASSOCIATED(srcptr))
+        SELECT TYPE (gravity => srcptr)
+        TYPE IS (sources_gravity)
+          gravptr => gravity%glist
+          DO WHILE (ASSOCIATED(gravptr))
+            SELECT TYPE (binary => gravptr)
+            TYPE IS (gravity_binary)
+              READ(unit) binary%mass
+            CLASS DEFAULT
+              ! do nothing or add fields/values in gravities
+            END SELECT
+            gravptr => gravptr%next
+          END DO
+        CLASS DEFAULT
+          ! do nothing or add fields/values in sources
+        END SELECT
+        srcptr => srcptr%next
+      END DO
+    CASE('/sources/grav/binary/mass2')
+      srcptr => this%Sources
+      DO WHILE (ASSOCIATED(srcptr))
+        SELECT TYPE (gravity => srcptr)
+        TYPE IS (sources_gravity)
+          gravptr => gravity%glist
+          DO WHILE (ASSOCIATED(gravptr))
+            SELECT TYPE (binary => gravptr)
+            TYPE IS (gravity_binary)
+              READ(unit) binary%mass2
+            CLASS DEFAULT
+              ! do nothing or add fields/values in gravities
+            END SELECT
+            gravptr => gravptr%next
+          END DO
+        CLASS DEFAULT
+          ! do nothing or add fields/values in sources
+        END SELECT
         srcptr => srcptr%next
       END DO
     CASE DEFAULT
