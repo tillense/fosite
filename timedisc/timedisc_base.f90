@@ -479,7 +479,7 @@ CONTAINS
     CALL this%Info("            stoptime:          " //TRIM(stoptime_str))
     CALL this%Info("            beta:              " //TRIM(beta_str))
     ! adaptive step size control
-    IF (this%tol_rel.LT.1.0) THEN
+    IF (this%tol_rel.LT.1.0.AND.this%order.GT.1) THEN
       ! create state vector to store the error
       CALL Physics%new_statevector(this%cerr,CONSERVATIVE)
       this%cerr%data1d(:)    = 0.
