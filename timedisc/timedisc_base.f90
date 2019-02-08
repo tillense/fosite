@@ -1052,6 +1052,22 @@ CONTAINS
       END SELECT
     END IF
 
+    IF(IAND(checkdatabm,CHECK_PMIN).NE.CHECK_NOTHING.AND.&
+       Physics%PRESSURE.GT.0) THEN
+      ! Check if the pressure is below pmin. If it is, increase the pressure
+      ! to reach pmin
+      SELECT TYPE(p => pvar)
+      CLASS IS(statevector_euler)
+        SELECT TYPE(c => cvar)
+        CLASS IS(statevector_euler)
+          ! If temperature is below TMIN limit pressure to density*RG/MU*TMIN.
+          p%pressure%data1d(:) &
+            = MAX(p%pressure%data1d(:),this%pmin)
+          CALL Physics%Convert2Conservative(p,c)
+        END SELECT
+      END SELECT
+    END IF
+
     ! update the speed of sound (non-isotherml physics only)
     IF (this%always_update_bccsound) THEN
       SELECT TYPE(phys => Physics)
