@@ -232,11 +232,9 @@ CONTAINS
 
         pvar%pressure%data3d(:,:,:) = 1./(GAMMA*M**2)
 
-!        CALL gp%UpdateGravity(Mesh,Physics,Fluxes,pvar,0.0,0.0)
-
         pvar%velocity%data4d(:,:,:,1:Physics%VDIM) = &
           pvar%velocity%data4d(:,:,:,1:Physics%VDIM) &
-          + Timedisc%GetCentrifugalVelocity(Mesh,Physics,Sim%Fluxes,Sim%Sources,(/0.,0.,1./))!,gp%accel%data4d)
+          + Timedisc%GetCentrifugalVelocity(Mesh,Physics,Sim%Fluxes,Sim%Sources,(/0.,0.,1./))
 
       END SELECT
     END SELECT

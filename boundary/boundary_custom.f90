@@ -98,11 +98,30 @@ CONTAINS
     ALLOCATE(this%cbtype(Physics%VNUM),STAT=err)
     IF (err.NE.0) &
        CALL this%Error("InitBoundary_custom", "Unable to allocate memory.")
+
+    ! allocate memory for boundary data and mask
+    SELECT CASE(this%direction%GetType())
+    CASE(WEST,EAST)
+       ALLOCATE(this%data(Mesh%GINUM,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
+            this%fixed(Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
+            STAT=err)
+     CASE(SOUTH,NORTH)
+       ALLOCATE(this%data(Mesh%IGMIN:Mesh%IGMAX,Mesh%GJNUM,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
+            this%fixed(Mesh%KGMIN:Mesh%KGMAX,Mesh%IGMIN:Mesh%IGMAX,Physics%VNUM), &
+            STAT=err)
+     CASE(Bottom,Top)
+       ALLOCATE(this%data(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%GKNUM,Physics%VNUM), &
+            this%fixed(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Physics%VNUM), &
+            STAT=err)
+    END SELECT
+    this%fixed(:,:,:) = .FALSE.
+    this%data(:,:,:,:) = 0.0
+
     ! this array contains the boundary condition for each primitive variable;
     ! the user must call SetCustomBoundaries() after initialization to specifiy
     ! the actual boundary condition for each variable and supply user defined
     ! data arrays if necessary
-    this%cbtype(:) = CUSTOM_UNDEFINED
+    this%cbtype(:) = CUSTOM_NOGRAD
   END SUBROUTINE InitBoundary_custom
 
 
