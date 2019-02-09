@@ -40,9 +40,6 @@
 PROGRAM keplerianvortex
   USE fosite_mod
   IMPLICIT NONE
-#ifdef PARALLEL
-  include 'mpif.h'
-#endif
   !--------------------------------------------------------------------------!
   ! general constants
   REAL, PARAMETER :: GN          = 1.0
