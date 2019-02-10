@@ -91,6 +91,7 @@ CONTAINS
     INTEGER,              INTENT(IN)    :: dir
     !------------------------------------------------------------------------!
     INTEGER            :: err = 0
+    INTEGER            :: i,j,k
     !------------------------------------------------------------------------!
     CALL this%InitBoundary(Mesh,Physics,CUSTOM,boundcond_name,dir,config)
 
@@ -100,23 +101,6 @@ CONTAINS
        CALL this%Error("InitBoundary_custom", "Unable to allocate memory.")
 
     ! allocate memory for boundary data and mask
-    SELECT CASE(this%direction%GetType())
-    CASE(WEST,EAST)
-       ALLOCATE(this%data(Mesh%GINUM,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
-            this%fixed(Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
-            STAT=err)
-     CASE(SOUTH,NORTH)
-       ALLOCATE(this%data(Mesh%IGMIN:Mesh%IGMAX,Mesh%GJNUM,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
-            this%fixed(Mesh%KGMIN:Mesh%KGMAX,Mesh%IGMIN:Mesh%IGMAX,Physics%VNUM), &
-            STAT=err)
-     CASE(Bottom,Top)
-       ALLOCATE(this%data(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%GKNUM,Physics%VNUM), &
-            this%fixed(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Physics%VNUM), &
-            STAT=err)
-    END SELECT
-    this%fixed(:,:,:) = .FALSE.
-    this%data(:,:,:,:) = 0.0
-
     ! this array contains the boundary condition for each primitive variable;
     ! the user must call SetCustomBoundaries() after initialization to specifiy
     ! the actual boundary condition for each variable and supply user defined
@@ -215,18 +199,18 @@ CONTAINS
           DO i=1,Mesh%GINUM
             pvar(Mesh%IMIN-i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m) &
               = (pvar(Mesh%IMIN,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m) &
-              + this%radius(Mesh%IMIN,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX)*Mesh%OMEGA) &
+              + Mesh%radius%bcenter(Mesh%IMIN,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX)*Mesh%OMEGA) &
               * this%invRscale(i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX) &
-              - this%radius(Mesh%IMIN-i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX)*Mesh%OMEGA
+              - Mesh%radius%bcenter(Mesh%IMIN-i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX)*Mesh%OMEGA
           END DO
         CASE(CUSTOM_ANGKEPLER)
 !NEC$ SHORTLOOP
           DO i=1,Mesh%GINUM
             pvar(Mesh%IMIN-i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m) &
               = (pvar(Mesh%IMIN,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m) &
-              + this%radius(Mesh%IMIN,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX)**2*Mesh%OMEGA) &
+              + Mesh%radius%bcenter(Mesh%IMIN,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX)**2*Mesh%OMEGA) &
               * this%Rscale(i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX) &
-              - this%radius(Mesh%IMIN-i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX)**2*Mesh%OMEGA
+              - Mesh%radius%bcenter(Mesh%IMIN-i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX)**2*Mesh%OMEGA
           END DO
         CASE DEFAULT
           this%err = IOR(CUSTOM,Z'0100')
@@ -308,18 +292,18 @@ CONTAINS
           DO i=1,Mesh%GINUM
             pvar(Mesh%IMAX+i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m) &
               = (pvar(Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m) &
-              + this%radius(Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX)*Mesh%OMEGA)&
+              + Mesh%radius%bcenter(Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX)*Mesh%OMEGA)&
               * this%invRscale(i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX) &
-              - this%radius(Mesh%IMAX+i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX)*Mesh%OMEGA
+              - Mesh%radius%bcenter(Mesh%IMAX+i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX)*Mesh%OMEGA
           END DO
         CASE(CUSTOM_ANGKEPLER)
 !NEC$ SHORTLOOP
           DO i=1,Mesh%GINUM
             pvar(Mesh%IMAX+i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m) &
               = (pvar(Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m) &
-              + this%radius(Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX)**2*Mesh%OMEGA)&
+              + Mesh%radius%bcenter(Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX)**2*Mesh%OMEGA)&
               * this%Rscale(i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX) &
-              - this%radius(Mesh%IMAX+i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX)**2*Mesh%OMEGA
+              - Mesh%radius%bcenter(Mesh%IMAX+i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX)**2*Mesh%OMEGA
           END DO
         CASE DEFAULT
           this%err = IOR(CUSTOM,Z'0200')
@@ -401,18 +385,18 @@ CONTAINS
           DO j=1,Mesh%GJNUM
             pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN-j,Mesh%KMIN:Mesh%KMAX,m) &
             = (pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN,Mesh%KMIN:Mesh%KMAX,m) &
-            + this%radius(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN,Mesh%KMIN:Mesh%KMAX)*Mesh%OMEGA)&
+            + Mesh%radius%bcenter(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN,Mesh%KMIN:Mesh%KMAX)*Mesh%OMEGA)&
             * this%invRscale(Mesh%IMIN:Mesh%IMAX,j,Mesh%KMIN:Mesh%KMAX) &
-            - this%radius(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN-j,Mesh%KMIN:Mesh%KMAX)*Mesh%OMEGA
+            - Mesh%radius%bcenter(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN-j,Mesh%KMIN:Mesh%KMAX)*Mesh%OMEGA
           END DO
         CASE(CUSTOM_ANGKEPLER)
 !NEC$ SHORTLOOP
           DO j=1,Mesh%GJNUM
             pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN-j,Mesh%KMIN:Mesh%KMAX,m) &
             = (pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN,Mesh%KMIN:Mesh%KMAX,m) &
-            + this%radius(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN,Mesh%KMIN:Mesh%KMAX)**2*Mesh%OMEGA)&
+            + Mesh%radius%bcenter(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN,Mesh%KMIN:Mesh%KMAX)**2*Mesh%OMEGA)&
             * this%Rscale(Mesh%IMIN:Mesh%IMAX,j,Mesh%KMIN:Mesh%KMAX) &
-            - this%radius(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN-j,Mesh%KMIN:Mesh%KMAX)**2*Mesh%OMEGA
+            - Mesh%radius%bcenter(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN-j,Mesh%KMIN:Mesh%KMAX)**2*Mesh%OMEGA
           END DO
         CASE DEFAULT
           this%err = IOR(CUSTOM,Z'0300')
@@ -494,18 +478,18 @@ CONTAINS
           DO j=1,Mesh%GJNUM
             pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX+j,Mesh%KMIN:Mesh%KMAX,m) &
               = (pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m) &
-              + this%radius(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX,Mesh%KMIN:Mesh%KMAX)*Mesh%OMEGA)&
+              + Mesh%radius%bcenter(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX,Mesh%KMIN:Mesh%KMAX)*Mesh%OMEGA)&
               * this%invRscale(Mesh%IMIN:Mesh%IMAX,j,Mesh%KMIN:Mesh%KMAX) &
-              - this%radius(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX+j,Mesh%KMIN:Mesh%KMAX)*Mesh%OMEGA
+              - Mesh%radius%bcenter(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX+j,Mesh%KMIN:Mesh%KMAX)*Mesh%OMEGA
           END DO
         CASE(CUSTOM_ANGKEPLER)
 !NEC$ SHORTLOOP
           DO j=1,Mesh%GJNUM
             pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX+j,Mesh%KMIN:Mesh%KMAX,m) &
               = (pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m) &
-              + this%radius(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX,Mesh%KMIN:Mesh%KMAX)**2*Mesh%OMEGA)&
+              + Mesh%radius%bcenter(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX,Mesh%KMIN:Mesh%KMAX)**2*Mesh%OMEGA)&
               * this%Rscale(Mesh%IMIN:Mesh%IMAX,j,Mesh%KMIN:Mesh%KMAX) &
-              - this%radius(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX+j,Mesh%KMIN:Mesh%KMAX)**2*Mesh%OMEGA
+              - Mesh%radius%bcenter(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX+j,Mesh%KMIN:Mesh%KMAX)**2*Mesh%OMEGA
           END DO
         CASE DEFAULT
           this%err = IOR(CUSTOM,Z'0400')
@@ -590,18 +574,18 @@ CONTAINS
           DO k=1,Mesh%GKNUM
             pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN-k,m) &
               = (pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN,m) &
-              + this%radius(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN)*Mesh%OMEGA)&
+              + Mesh%radius%bcenter(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN)*Mesh%OMEGA)&
               * this%invRscale(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k) &
-              - this%radius(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN-k)*Mesh%OMEGA
+              - Mesh%radius%bcenter(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN-k)*Mesh%OMEGA
           END DO
         CASE(CUSTOM_ANGKEPLER)
 !NEC$ SHORTLOOP
           DO k=1,Mesh%GKNUM
             pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN-k,m) &
               = (pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN,m) &
-              + this%radius(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN)**2*Mesh%OMEGA)&
+              + Mesh%radius%bcenter(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN)**2*Mesh%OMEGA)&
               * this%invRscale(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k) &
-              - this%radius(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN-k)**2*Mesh%OMEGA
+              - Mesh%radius%bcenter(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN-k)**2*Mesh%OMEGA
           END DO
         CASE DEFAULT
           this%err = IOR(CUSTOM,Z'0500')
@@ -685,18 +669,18 @@ CONTAINS
           DO k=1,Mesh%GKNUM
             pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMAX+k,m) &
               = (pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMAX,m) &
-              + this%radius(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMAX)*Mesh%OMEGA)&
+              + Mesh%radius%bcenter(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMAX)*Mesh%OMEGA)&
               * this%invRscale(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k) &
-              - this%radius(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMAX+k)*Mesh%OMEGA
+              - Mesh%radius%bcenter(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMAX+k)*Mesh%OMEGA
           END DO
         CASE(CUSTOM_ANGKEPLER)
 !NEC$ SHORTLOOP
           DO k=1,Mesh%GKNUM
             pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMAX+k,m) &
               = (pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMAX,m) &
-              + this%radius(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMAX)**2*Mesh%OMEGA)&
+              + Mesh%radius%bcenter(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMAX)**2*Mesh%OMEGA)&
               * this%invRscale(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k) &
-              - this%radius(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMAX+k)**2*Mesh%OMEGA
+              - Mesh%radius%bcenter(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMAX+k)**2*Mesh%OMEGA
           END DO
         CASE DEFAULT
           this%err = IOR(CUSTOM,Z'0600')
