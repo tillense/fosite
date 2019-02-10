@@ -89,7 +89,7 @@ MODULE physics_eulerisotherm_mod
     !------Flux Routines-----------!
     PROCEDURE :: CalcFluxesX
     PROCEDURE :: CalcFluxesY
-    PROCEDURE :: CalcFluxesZ       ! empty (fulfill deferred)
+    PROCEDURE :: CalcFluxesZ
     !------Fargo Routines----------!
     PROCEDURE :: AddBackgroundVelocityX
     PROCEDURE :: AddBackgroundVelocityY

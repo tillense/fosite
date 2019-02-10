@@ -122,7 +122,7 @@ CONTAINS
     ! execute generic tasks common to all flux types
     CALL this%CalculateFaceData(Mesh,Physics,pvar,cvar)
 
-    ! compute numerical fluxes along x-direction (west and east) devided by dy
+    ! compute numerical fluxes along x-direction (west and east) devided by dydz
     IF (Mesh%INUM.GT.1) THEN
       m = 1 ! index counting the number of spatial directions for which transport is enabled
       ! physical fluxes
@@ -150,7 +150,7 @@ CONTAINS
         xfluxdydz(:,:,:,:) = 0.0
     END IF
 
-    ! compute numerical fluxes along y-direction (south and north) devided by dx
+    ! compute numerical fluxes along y-direction (south and north) devided by dzdx
     IF (Mesh%JNUM.GT.1) THEN
       m = m + 1 ! increase wave speed index, may be 1 or 2 now depending
                 ! on whether there was transport in x-direction or not
@@ -178,6 +178,7 @@ CONTAINS
         yfluxdzdx(:,:,:,:) = 0.0
     END IF
 
+    ! compute numerical fluxes along z-direction (bottom and top) devided by dxdy
     IF (Mesh%KNUM.GT.1) THEN
       m = m + 1 ! increase wave speed index, may be 1, 2 or 3 now depending
                 ! on whether there was transport in x- and/or y-direction or not

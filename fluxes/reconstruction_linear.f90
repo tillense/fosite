@@ -124,7 +124,10 @@ CONTAINS
     SELECT CASE(limiter)
     CASE(MINMOD,MONOCENT,SWEBY,SUPERBEE,OSPRE,PP,VANLEER,NOLIMIT)
        CALL this%InitLogging(limiter,limitertype_name(limiter))
-       this%limiter_param= theta
+       SELECT CASE(limiter)
+       CASE(SWEBY,MONOCENT)
+         this%limiter_param = theta
+       END SELECT
     CASE DEFAULT
        CALL this%Error("InitReconstruction_linear", "Unknown limiter")
     END SELECT
@@ -373,8 +376,8 @@ CONTAINS
 !NEC$ IVDEP
             DO j=i+1,SIZE(rvar%data3d,1)-i
               this%slopes%data4d(j,k,m,l) = Mesh%invdy * sweby_limiter(&
-                  this%limiter_param*(rvar%data3d(j,k,l) - rvar%data3d(j-i,k,l)),&
-                  this%limiter_param*(rvar%data3d(j+i,k,l) - rvar%data3d(j,k,l)),&
+                  rvar%data3d(j,k,l) - rvar%data3d(j-i,k,l),&
+                  rvar%data3d(j+i,k,l) - rvar%data3d(j,k,l),&
                   this%limiter_param)
             END DO
           END DO
@@ -390,8 +393,8 @@ CONTAINS
 !NEC$ IVDEP
           DO j=i+1,SIZE(rvar%data2d,1)-i
             this%slopes%data3d(j,m,l) = Mesh%invdz * sweby_limiter(&
-                this%limiter_param*(rvar%data2d(j,l) - rvar%data2d(j-i,l)),&
-                this%limiter_param*(rvar%data2d(j+i,l) - rvar%data2d(j,l)),&
+                rvar%data2d(j,l) - rvar%data2d(j-i,l),&
+                rvar%data2d(j+i,l) - rvar%data2d(j,l),&
                 this%limiter_param)
           END DO
         END DO
@@ -424,8 +427,8 @@ CONTAINS
 !NEC$ IVDEP
             DO j=i+1,SIZE(rvar%data3d,1)-i
               this%slopes%data4d(j,k,m,l) = Mesh%invdy * sweby_limiter(&
-                  this%limiter_param*(rvar%data3d(j,k,l) - rvar%data3d(j-i,k,l)),&
-                  this%limiter_param*(rvar%data3d(j+i,k,l) - rvar%data3d(j,k,l)), 2.0)
+                  rvar%data3d(j,k,l) - rvar%data3d(j-i,k,l),&
+                  rvar%data3d(j+i,k,l) - rvar%data3d(j,k,l), 2.0)
             END DO
           END DO
         END DO
@@ -440,8 +443,8 @@ CONTAINS
 !NEC$ IVDEP
           DO j=i+1,SIZE(rvar%data2d,1)-i
             this%slopes%data3d(j,m,l) = Mesh%invdz * sweby_limiter(&
-                this%limiter_param*(rvar%data2d(j,l) - rvar%data2d(j-i,l)),&
-                this%limiter_param*(rvar%data2d(j+i,l) - rvar%data2d(j,l)), 2.0)
+                rvar%data2d(j,l) - rvar%data2d(j-i,l),&
+                rvar%data2d(j+i,l) - rvar%data2d(j,l), 2.0)
           END DO
         END DO
       END IF
@@ -473,8 +476,8 @@ CONTAINS
 !NEC$ IVDEP
             DO j=i+1,SIZE(rvar%data3d,1)-i
               this%slopes%data4d(j,k,m,l) = Mesh%invdy * ospre_limiter(&
-                  this%limiter_param*(rvar%data3d(j,k,l) - rvar%data3d(j-i,k,l)),&
-                  this%limiter_param*(rvar%data3d(j+i,k,l) - rvar%data3d(j,k,l)))
+                  rvar%data3d(j,k,l) - rvar%data3d(j-i,k,l),&
+                  rvar%data3d(j+i,k,l) - rvar%data3d(j,k,l))
             END DO
           END DO
         END DO
@@ -489,8 +492,8 @@ CONTAINS
 !NEC$ IVDEP
           DO j=i+1,SIZE(rvar%data2d,1)-i
             this%slopes%data3d(j,m,l) = Mesh%invdz * ospre_limiter(&
-                this%limiter_param*(rvar%data2d(j,l) - rvar%data2d(j-i,l)),&
-                this%limiter_param*(rvar%data2d(j+i,l) - rvar%data2d(j,l)))
+                rvar%data2d(j,l) - rvar%data2d(j-i,l),&
+                rvar%data2d(j+i,l) - rvar%data2d(j,l))
           END DO
         END DO
       END IF
@@ -545,8 +548,8 @@ CONTAINS
 !NEC$ IVDEP
             DO j=i+1,SIZE(rvar%data3d,1)-i
               this%slopes%data4d(j,k,m,l) = Mesh%invdy * vanleer_limiter(&
-                  this%limiter_param*(rvar%data3d(j,k,l) - rvar%data3d(j-i,k,l)),&
-                  this%limiter_param*(rvar%data3d(j+i,k,l) - rvar%data3d(j,k,l)))
+                  rvar%data3d(j,k,l) - rvar%data3d(j-i,k,l),&
+                  rvar%data3d(j+i,k,l) - rvar%data3d(j,k,l))
             END DO
           END DO
         END DO
@@ -561,8 +564,8 @@ CONTAINS
 !NEC$ IVDEP
           DO j=i+1,SIZE(rvar%data2d,1)-i
             this%slopes%data3d(j,m,l) = Mesh%invdz * vanleer_limiter(&
-                this%limiter_param*(rvar%data2d(j,l) - rvar%data2d(j-i,l)),&
-                this%limiter_param*(rvar%data2d(j+i,l) - rvar%data2d(j,l)))
+                rvar%data2d(j,l) - rvar%data2d(j-i,l),&
+                rvar%data2d(j+i,l) - rvar%data2d(j,l))
           END DO
         END DO
       END IF
@@ -594,8 +597,8 @@ CONTAINS
 !NEC$ IVDEP
             DO j=i+1,SIZE(rvar%data3d,1)-i
               this%slopes%data4d(j,k,m,l) = Mesh%invdy * nolimit_limiter(&
-                  this%limiter_param*(rvar%data3d(j,k,l) - rvar%data3d(j-i,k,l)),&
-                  this%limiter_param*(rvar%data3d(j+i,k,l) - rvar%data3d(j,k,l)))
+                  rvar%data3d(j,k,l) - rvar%data3d(j-i,k,l),&
+                  rvar%data3d(j+i,k,l) - rvar%data3d(j,k,l))
             END DO
           END DO
         END DO
@@ -610,8 +613,8 @@ CONTAINS
 !NEC$ IVDEP
           DO j=i+1,SIZE(rvar%data2d,1)-i
             this%slopes%data3d(j,m,l) = Mesh%invdz * nolimit_limiter(&
-                this%limiter_param*(rvar%data2d(j,l) - rvar%data2d(j-i,l)),&
-                this%limiter_param*(rvar%data2d(j+i,l) - rvar%data2d(j,l)))
+                rvar%data2d(j,l) - rvar%data2d(j-i,l),&
+                rvar%data2d(j+i,l) - rvar%data2d(j,l))
           END DO
         END DO
       END IF

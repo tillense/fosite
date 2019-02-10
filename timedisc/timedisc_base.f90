@@ -338,7 +338,7 @@ CONTAINS
 
     ! check data bit mask
     ! \todo{expected argument list...}
-    CALL GetAttr(config, "checkdata", this%checkdatabm, CHECK_INVALID)
+    CALL GetAttr(config, "checkdata", this%checkdatabm, CHECK_ALL)
 
     ! pressure minimum to check if CHECK_PMIN is active
     CALL GetAttr(config, "pmin", this%pmin, TINY(this%pmin))
@@ -1060,7 +1060,7 @@ CONTAINS
       CLASS IS(statevector_euler)
         SELECT TYPE(c => cvar)
         CLASS IS(statevector_euler)
-          ! If temperature is below TMIN limit pressure to density*RG/MU*TMIN.
+          ! If temperature is below PMIN limit pressure to PMIN
           p%pressure%data1d(:) &
             = MAX(p%pressure%data1d(:),this%pmin)
           CALL Physics%Convert2Conservative(p,c)
