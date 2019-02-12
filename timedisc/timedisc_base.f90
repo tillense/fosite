@@ -361,6 +361,8 @@ CONTAINS
          ! check geometry
          SELECT TYPE(geo=>Mesh%Geometry)
          TYPE IS(geometry_cylindrical)
+            IF (Mesh%JNUM.LT.2) CALL this%Error("InitTimedisc", &
+              "fargo advection needs more the one cell in y-direction")
             ! allocate data arrays used for fargo
             ALLOCATE( &
                      this%w(Mesh%IGMIN:Mesh%IGMAX,Mesh%KGMIN:Mesh%KGMAX), &
@@ -377,6 +379,8 @@ CONTAINS
             this%fargo_src(:,:,:,:) = 0.0
 
          TYPE IS(geometry_logcylindrical)
+            IF (Mesh%JNUM.LT.2) CALL this%Error("InitTimedisc", &
+              "fargo advection needs more the one cell in y-direction")
             ! allocate data arrays used for fargo
             ALLOCATE( &
                      this%w(Mesh%IGMIN:Mesh%IGMAX,Mesh%KGMIN:Mesh%KGMAX), &
@@ -848,7 +852,7 @@ CONTAINS
     IF (ASSOCIATED(Sources)) THEN
       ! initialize this to be sure dt_src > 0
       dt_src = dt_cfl
-      CALL Sources%CalcTimestep(Mesh,Physics,Fluxes,time,this%pvar%data4d,this%cvar%data4d,dt_src,dtcause)
+      CALL Sources%CalcTimestep(Mesh,Physics,Fluxes,this%pvar,this%cvar,time,dt_src,dtcause)
       dt = MIN(dt_cfl,dt_src)
     ELSE
       dt = dt_cfl

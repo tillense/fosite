@@ -3,7 +3,7 @@
 !# fosite - 3D hydrodynamical simulation program                             #
 !# module: sources_c_accel.f90                                               #
 !#                                                                           #
-!# Copyright (C) 2009,2011,2018                                              #
+!# Copyright (C) 2009-2019                                                   #
 !# Björn Sperling   <sperling@astrophysik.uni-kiel.de>                       #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
 !# Jannes Klee      <tillense@astrophysik.uni-kiel.de>                       #
@@ -107,16 +107,15 @@ CONTAINS
     CALL Physics%ExternalSources(this%accel,pvar,cvar,sterm)
   END SUBROUTINE
 
-  SUBROUTINE CalcTimestep_single(this,Mesh,Physics,Fluxes,time,pvar,cvar,dt)
+  SUBROUTINE CalcTimestep_single(this,Mesh,Physics,Fluxes,pvar,cvar,time,dt)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(sources_c_accel), INTENT(INOUT) :: this
     CLASS(mesh_base),       INTENT(IN)    :: Mesh
     CLASS(physics_base),    INTENT(INOUT) :: Physics
     CLASS(fluxes_base),     INTENT(IN)    :: Fluxes
+    CLASS(marray_compound), INTENT(INOUT) :: pvar,cvar
     REAL,                   INTENT(IN)    :: time
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
-                            INTENT(IN)    :: pvar,cvar
     REAL,                   INTENT(OUT)   :: dt
     !------------------------------------------------------------------------!
     dt = HUGE(dt)

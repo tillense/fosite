@@ -34,6 +34,9 @@
 !!
 !! \brief generic gravity terms module providing functionaly common to all
 !! gravity terms
+!!
+!! \extends sources_c_accel
+!! \ingroup sources
 !----------------------------------------------------------------------------!
 MODULE sources_gravity_mod
   USE logging_base_mod

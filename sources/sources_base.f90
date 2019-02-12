@@ -98,21 +98,17 @@ MODULE sources_base_mod
       !------------------------------------------------------------------------!
       INTENT(INOUT)     :: this
     END SUBROUTINE
-    SUBROUTINE CalcTimestep_single(this,Mesh,Physics,Fluxes,time,pvar,cvar,dt)
-      IMPORT Sources_base, Mesh_base, Physics_base, Fluxes_base
+    SUBROUTINE CalcTimestep_single(this,Mesh,Physics,Fluxes,pvar,cvar,time,dt)
+      IMPORT Sources_base, Mesh_base, Physics_base, Fluxes_base, marray_compound
       IMPLICIT NONE
       !------------------------------------------------------------------------!
       CLASS(sources_base),INTENT(INOUT) :: this
       CLASS(mesh_base),INTENT(IN)         :: Mesh
       CLASS(physics_base),INTENT(INOUT)   :: Physics
       CLASS(fluxes_base),INTENT(IN)       :: Fluxes
-      REAL,INTENT(IN)                     :: time
-      REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM) &
-                      :: pvar,cvar
-      REAL              :: dt
-      !------------------------------------------------------------------------!
-      INTENT(IN)        :: pvar,cvar
-      INTENT(OUT)       :: dt
+      CLASS(marray_compound), INTENT(INOUT) :: pvar,cvar
+      REAL,INTENT(IN)                       :: time
+      REAL, INTENT(OUT)                     :: dt
     END SUBROUTINE
     SUBROUTINE ExternalSources_single(this,Mesh,Physics,Fluxes,Sources,time,dt,pvar,cvar,sterm)
       IMPORT sources_base, mesh_base, physics_base, fluxes_base, marray_compound
@@ -220,24 +216,20 @@ CONTAINS
   END SUBROUTINE ExternalSources
 
 
-  SUBROUTINE CalcTimestep(this,Mesh,Physics,Fluxes,time,pvar,cvar,dt,dtcause)
+  SUBROUTINE CalcTimestep(this,Mesh,Physics,Fluxes,pvar,cvar,time,dt,dtcause)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(sources_base), TARGET, INTENT(IN)    :: this
     CLASS(mesh_base),            INTENT(IN)    :: Mesh
     CLASS(physics_base),         INTENT(INOUT) :: Physics
     CLASS(fluxes_base),          INTENT(IN)    :: Fluxes
-    REAL              :: time
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM) &
-                      :: pvar,cvar
-    REAL              :: dt
-    INTEGER           :: dtcause
+    CLASS(marray_compound),      INTENT(INOUT) :: pvar,cvar
+    REAL, INTENT(IN)              :: time
+    REAL, INTENT(OUT)             :: dt
+    INTEGER, INTENT(OUT)          :: dtcause
     !------------------------------------------------------------------------!
     CLASS(Sources_base), POINTER :: srcptr
     REAL              :: dt_new
-    !------------------------------------------------------------------------!
-    INTENT(IN)        :: time,pvar,cvar
-    INTENT(INOUT)     :: dt,dtcause
     !------------------------------------------------------------------------!
     dt_new = dt
 
@@ -245,7 +237,7 @@ CONTAINS
     srcptr => this
     DO WHILE(ASSOCIATED(srcptr))
 
-       CALL srcptr%CalcTimestep_single(Mesh,Physics,Fluxes,time,pvar,cvar,dt_new)
+       CALL srcptr%CalcTimestep_single(Mesh,Physics,Fluxes,pvar,cvar,time,dt_new)
 
 
        IF (dt_new .LT. dt) dtcause=srcptr%GetType()
