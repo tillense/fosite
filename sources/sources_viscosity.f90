@@ -28,6 +28,7 @@
 !! \key{vismodel,INTEGER,viscosity model}
 !! \key{dynconst,REAL,dynamic viscosity constant,0.1}
 !! \key{bulkconst,REAL,bulk viscosity constant,-2/3*dynconst}
+!! \key{exponent,REAL,power law exponent,0.0}
 !! \key{cvis,REAL,viscous courant number,0.5}
 !! \key{output/stress,INTEGER,enable(=1) output of the stress tensor,0}
 !! \key{output/dynvis,INTEGER,enable(=1) output of dynamic viscosity,0}
@@ -73,13 +74,13 @@ MODULE sources_viscosity_mod
     INTEGER,PARAMETER :: MOLECULAR = 1     ! constant viscosity
     INTEGER,PARAMETER :: ALPHA     = 2     ! Shakura-Sunyaev prescription
     INTEGER,PARAMETER :: BETA      = 3     ! Duschl prescription
-    INTEGER,PARAMETER :: PRINGLE   = 4     ! constant kinematic viscosity
+    INTEGER,PARAMETER :: POWERLAW  = 4     ! power law depending on spec. angular momentum
     INTEGER,PARAMETER :: ALPHA_ALT = 5     ! alternative Shakura-Sunyaev
     CHARACTER(LEN=32),PARAMETER, DIMENSION(5) :: viscosity_name = (/ &
                                      "constant viscosity              ", &
                                      "turbulent Shakura-Sunyaev       ", &
                                      "turbulent Duschl                ", &
-                                     "const. kinematic viscosity      ", &
+                                     "power law viscosity             ", &
                                      "alternative Shakura-Sunyaev     "/)
 
 
@@ -87,16 +88,15 @@ MODULE sources_viscosity_mod
     CHARACTER(LEN=32) :: source_name = "viscosity of Newtonian fluid"
     CLASS(logging_base), ALLOCATABLE :: viscosity
     CLASS(marray_base), ALLOCATABLE  :: ephir, &    !< azimuthal unit vector */ distance to axis
-                                     ephir_tmp
-    REAL :: dynconst,bulkconst                      !< viscosity const.
-    REAL, DIMENSION(:,:,:), POINTER  :: dynvis, &   !< dynamic viscosity
+                                        ephir_tmp, &
+                                        dynvis, &   !< dynamic viscosity
                                         kinvis, &   !< kinematic viscosity
-                                        bulkvis, &  !< bulk viscosity
-                                        envelope
-     REAL, DIMENSION(:,:,:), POINTER :: &           !< comp. of stress tensor
-           btxx,btyy,btzz,btxy,btxz,btyz,tmp,tmp2,tmp3
-     REAL, DIMENSION(:,:), POINTER   :: &
-           Sxx,Syy,Szz,Sxy,Sxz,Syz
+                                        bulkvis     !< bulk viscosity
+    REAL :: dynconst,bulkconst,power                !< viscosity constants
+    REAL, DIMENSION(:,:,:), POINTER :: &            !< comp. of stress tensor
+          btxx,btyy,btzz,btxy,btxz,btyz,tmp,tmp2,tmp3
+    REAL, DIMENSION(:,:), POINTER   :: &
+          Sxx,Syy,Szz,Sxy,Sxz,Syz
   CONTAINS
     PROCEDURE :: InitSources_viscosity
     PROCEDURE :: InfoSources
@@ -112,7 +112,7 @@ MODULE sources_viscosity_mod
        ! types
        Sources_viscosity, &
        ! constants
-       MOLECULAR,ALPHA,BETA,PRINGLE,ALPHA_ALT,viscosity_name
+       MOLECULAR,ALPHA,BETA,POWERLAW,ALPHA_ALT,viscosity_name
   !--------------------------------------------------------------------------!
 
 CONTAINS
@@ -142,15 +142,8 @@ CONTAINS
     ALLOCATE(logging_base::this%viscosity)
     CALL this%viscosity%InitLogging(viscosity_number,viscosity_name(viscosity_number))
 
-
     IF (.NOT.Fluxes%Initialized()) &
          CALL this%Error("InitSources_viscosity","fluxes module uninitialized")
-
-    ! check mesh
-    IF (Mesh%GetType().NE.MIDPOINT) &
-         CALL this%Error("InitSources_viscosity", &
-         "only midpoint rule is currently supported")
-
 
     ! dynamic viscosity constant
     CALL GetAttr(config, "dynconst", this%dynconst, 0.1)
@@ -161,14 +154,14 @@ CONTAINS
     ! is hard coded and cannot be changed.
     CALL GetAttr(config, "bulkconst", this%bulkconst, -2./3.*this%dynconst)
 
+    ! power law exponent used for POWERLAW viscosity;
+    ! defaults to constant kinematic viscosity, i.e. nu ~ l^0 = const
+    CALL GetAttr(config, "exponent", this%power, 0.0)
+
     ! set viscous courant number
     CALL GetAttr(config, "cvis", this%cvis, 0.5)
 
-    ! enable the envelope mask field, which scales the viscosity with [0,1]
-    CALL GetAttr(config, "envelope", this%use_envelope, 0)
-    ALLOCATE(this%dynvis(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
-         this%kinvis(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
-         this%bulkvis(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
+    ALLOCATE(this%dynvis,this%kinvis,this%bulkvis, &
          this%btxx(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
          this%btyy(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
          this%btzz(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
@@ -178,11 +171,20 @@ CONTAINS
          STAT=err)
     IF (err.NE.0) &
          CALL this%Error("InitSources_viscosity","Memory allocation failed.")
+
+    ! initialize mesh arrays
+    this%dynvis  = marray_base()
+    this%kinvis  = marray_base()
+    this%bulkvis = marray_base()
+    this%dynvis%data1d(:)  = this%dynconst
+    this%kinvis%data1d(:)  = 0.0
+    this%bulkvis%data1d(:) = this%bulkconst
+
     ! do the model specific initialization
     SELECT CASE(this%viscosity%GetType())
-    CASE(MOLECULAR,PRINGLE)
+    CASE(MOLECULAR)
        ! do nothing
-    CASE(ALPHA,BETA)
+    CASE(ALPHA,BETA,POWERLAW)
       ! compute the projector to determine the local angular velocity
       ! ATTENTION: it is always assumed that the fluid rotates around the z-axis
       SELECT TYPE(phys => Physics)
@@ -235,9 +237,6 @@ CONTAINS
     ! set initial time to negative value;
     ! this guarantees update of viscosity for time t=0.0
     this%time = -1.0
-    ! initialize viscosity arrays
-    this%dynvis(:,:,:)  = this%dynconst
-    this%bulkvis(:,:,:) = this%bulkconst
     ! set stress tensor arrays to zero
     this%btxx(:,:,:) = 0.0
     this%btyy(:,:,:) = 0.0
@@ -245,13 +244,7 @@ CONTAINS
     this%btxy(:,:,:) = 0.0
     this%btxz(:,:,:) = 0.0
     this%btyz(:,:,:) = 0.0
-    IF(this%use_envelope.EQ.1) THEN
-      ALLOCATE(this%envelope(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX),&
-               STAT=err)
-      IF (err.NE.0) &
-        CALL this%Error("InitSources_viscosity","Memory allocation failed.")
-      this%envelope = 1.
-    END IF
+
     CALL this%SetOutput(Mesh,Physics,config,IO)
     IF (this%GetType().EQ.ALPHA_ALT) this%update_disk_height = .True.
 
@@ -283,15 +276,15 @@ CONTAINS
 
     CALL GetAttr(config, "output/dynvis", valwrite, 0)
     IF (valwrite .EQ. 1) &
-         CALL SetAttr(IO,"dynvis", this%dynvis(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX))
+         CALL SetAttr(IO,"dynvis", this%dynvis%data3d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX))
 
     CALL GetAttr(config, "output/kinvis", valwrite, 0)
     IF (valwrite .EQ. 1) &
-         CALL SetAttr(IO, "kinvis", this%kinvis(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX))
+         CALL SetAttr(IO, "kinvis", this%kinvis%data3d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX))
 
     CALL GetAttr(config, "output/bulkvis", valwrite, 0)
     IF (valwrite .EQ. 1) &
-         CALL SetAttr(IO, "bulkvis", this%bulkvis(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX))
+         CALL SetAttr(IO, "bulkvis", this%bulkvis%data3d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX))
 
   END SUBROUTINE SetOutput
 
@@ -305,18 +298,20 @@ CONTAINS
     CHARACTER(LEN=32) :: dynconst_str,bulkconst_str
     !------------------------------------------------------------------------!
     WRITE (dynconst_str,'(ES9.2)') this%dynconst
-    WRITE (bulkconst_str,'(ES9.2)') this%bulkconst
     CALL this%Info("            viscosity model:   " // this%viscosity%GetName())
     SELECT CASE(this%viscosity%GetType())
     CASE(MOLECULAR)
+       WRITE (bulkconst_str,'(ES9.2)') this%bulkconst
        CALL this%Info("            dynamic viscosity: " // TRIM(dynconst_str))
-       CALL this%Info("            bulk viscosity:    " // TRIM(bulkconst_str))
+       CALL this%Info("               bulk viscosity: " // TRIM(bulkconst_str))
     CASE(ALPHA,ALPHA_ALT)
-       CALL this%Info("            alpha:             " // TRIM(dynconst_str))
+       CALL this%Info("                        alpha: " // TRIM(dynconst_str))
     CASE(BETA)
-       CALL this%Info("            beta:              " // TRIM(dynconst_str))
-    CASE(PRINGLE)
-       CALL this%Info("            kinemat. viscosity:" // TRIM(dynconst_str))
+       CALL this%Info("                         beta: " // TRIM(dynconst_str))
+    CASE(POWERLAW)
+       WRITE (bulkconst_str,'(ES9.2)') this%power
+       CALL this%Info("            coupling constant: " // TRIM(dynconst_str))
+       CALL this%Info("                     exponent: " // TRIM(bulkconst_str))
     END SELECT
   END SUBROUTINE InfoSources
 
@@ -349,7 +344,8 @@ CONTAINS
   !!      with local angular velocity \f$ \Omega \f$ and dimensionless parameter
   !!      \f$ \beta \approx \mathfrak{Re}_\mathrm{crit}^{-1} \ll 1 \f$ where the
   !!      critical Reynolds number is of the order of \f$ 10^3 \f$ .
-  !!   -# pringle: constant kinematic viscosity
+  !!   -# powerlaw: kinematic viscosity scales with power law depending on specific
+  !!      angular momentum: \f[ \nu = \nu_0 / \ell_0^q \ell^q = \beta \ell^q \f]
   !!
   !! In cases 2. -- 5. bulk viscosity \f$ \mu_\mathrm{b} \f$ is set using the Stokes'
   !! hypothesis, namely that the volume viscosity is zero, i.e.
@@ -377,49 +373,30 @@ CONTAINS
           ! in InitSources_viscosity
        CASE(ALPHA)
           ! compute Shakura-Sunyaev type alpha viscosity
-          ! depending on physics and type of statevector (with or w/o pressure)
-          SELECT TYPE(phys => Physics)
-          CLASS IS(physics_eulerisotherm)
-            SELECT TYPE(p => pvar)
-            CLASS IS(statevector_eulerisotherm)
-              ! project velocity on ephi/r -> local angular velocity
-              ! use dynvis as temporary storage
-              this%dynvis(:,:,:) = this%ephir%data4d(:,:,:,1) * p%velocity%data4d(:,:,:,1)
-              DO l=2,phys%VDIM
-                this%dynvis(:,:,:) = this%dynvis(:,:,:) + this%ephir%data4d(:,:,:,l) &
-                                        * p%velocity%data4d(:,:,:,l)
-              END DO
-              ! use either speed of sound or
-              this%dynvis(:,:,:) = etafkt_alpha(this%dynconst,p%density%data3d(:,:,:), &
-                phys%bccsound%data3d(:,:,:),this%dynvis(:,:,:)+Mesh%Omega)
+          ! account for non-inertial frames by adding the frame angular velocity
+          SELECT TYPE(p => pvar)
+          CLASS IS(statevector_eulerisotherm)
+            SELECT TYPE(phys => Physics)
+            CLASS IS(physics_eulerisotherm)
+              this%dynvis%data1d(:) = etafkt_alpha(this%dynconst,p%density%data1d(:),&
+                phys%bccsound%data1d(:),Omega(this%ephir,p%velocity)+Mesh%Omega)
             END SELECT
           END SELECT
        CASE(BETA)
-          ! Duschl type beta viscosity kin_vis = beta * spec_angular_momentum
-          SELECT TYPE(phys => Physics)
-          CLASS IS(physics_eulerisotherm)
-            SELECT TYPE(p => pvar)
-            CLASS IS(statevector_eulerisotherm)
-              ! project velocity on ephi/r -> local angular velocity
-              ! use dynvis as temporary storage
-              this%dynvis(:,:,:) = this%ephir%data4d(:,:,:,1) * p%velocity%data4d(:,:,:,1)
-              DO l=2,phys%VDIM
-                this%dynvis(:,:,:) = this%dynvis(:,:,:) + this%ephir%data4d(:,:,:,l) &
-                                       * p%velocity%data4d(:,:,:,l)
-              END DO
-              ! compute dynamic viscosity using beta ansatz; account for rotating
-              ! non-inertial frames by adding the frame angular velocity
-              this%dynvis(:,:,:) = etafkt_beta(this%dynconst,Mesh%radius%bcenter(:,:,:), &
-                p%density%data3d(:,:,:),this%dynvis(:,:,:)+Mesh%Omega)
-            END SELECT
+          ! compute Duschl type beta viscosity
+          ! account for non-inertial frames by adding the frame angular velocity
+          SELECT TYPE(p => pvar)
+          CLASS IS(statevector_eulerisotherm)
+            this%dynvis%data1d(:) = etafkt_beta(this%dynconst,Mesh%radius%data2d(:,2), &
+              p%density%data1d(:),Omega(this%ephir,p%velocity)+Mesh%Omega)
           END SELECT
-       CASE(PRINGLE) ! constant kinematic viscosity
-          SELECT TYPE(phys => Physics)
-          CLASS IS(physics_eulerisotherm)
-            SELECT TYPE(p => pvar)
-            CLASS IS(statevector_eulerisotherm)
-              this%dynvis(:,:,:) = etafkt_pringle(this%dynconst,p%density%data3d(:,:,:))
-            END SELECT
+       CASE(POWERLAW)
+          ! kinematic viscosity scales with power of specific angular momentum
+          ! account for non-inertial frames by adding the frame angular velocity
+          SELECT TYPE(p => pvar)
+          CLASS IS(statevector_eulerisotherm)
+            this%dynvis%data1d(:) = etafkt_powerlaw(this%dynconst,this%power, &
+              Mesh%radius%data2d(:,2),p%density%data1d(:),Omega(this%ephir,p%velocity)+Mesh%Omega)
           END SELECT
 ! TODO: height of the disk is calculated in another source module, which is not translated yet. Therefore, ALPHA_ALT is not
 ! working
@@ -430,18 +407,15 @@ CONTAINS
 !                * Physics%sources%height(:,:,:) * pvar(:,:,:,Physics%DENSITY)
        END SELECT
 
-       IF(this%use_envelope.EQ.1) &
-         this%dynvis(:,:,:) = this%envelope(:,:,:) * this%dynvis(:,:,:)
-
        ! Set the bulk viscosity
        SELECT CASE(this%viscosity%GetType())
        CASE(MOLECULAR)
          ! do nothing, since it has already been initialized
          ! in InitSources_viscosity
-       CASE(ALPHA,BETA,PRINGLE,ALPHA_ALT)
+       CASE(ALPHA,BETA,POWERLAW,ALPHA_ALT)
          ! All available parametrized viscosities should be trace free.
          ! This can be achieved by setting the following:
-         this%bulkvis(:,:,:) = -2./3.*this%dynvis(:,:,:)
+         this%bulkvis%data1d(:) = -2./3.*this%dynvis%data1d(:)
        END SELECT
 
        ! update time
@@ -449,6 +423,23 @@ CONTAINS
     END IF
   CONTAINS
     ! some elemental functions for computation of the viscosity
+
+    ! compute angular velocity
+    PURE FUNCTION Omega(ephir,velocity)
+      IMPLICIT NONE
+      !----------------------------------------------------------------------!
+      CLASS(marray_base), INTENT(IN) :: ephir,velocity
+      REAL, DIMENSION(SIZE(ephir%data2d,DIM=1)) :: Omega
+      !----------------------------------------------------------------------!
+      INTEGER :: l
+      !----------------------------------------------------------------------!
+      ! project velocity on ephi/r -> local angular velocity
+      ! use dynvis as temporary storage
+      Omega(:) = ephir%data2d(:,1) * velocity%data2d(:,1)
+      DO l=2,ephir%DIMS(1)
+        Omega(:) = Omega(:) + ephir%data2d(:,l) * velocity%data2d(:,l)
+      END DO
+    END FUNCTION Omega
 
     ! Alpha viscosity
     ELEMENTAL FUNCTION etafkt_alpha(alpha,density,cs,omega) RESULT(eta)
@@ -472,15 +463,15 @@ CONTAINS
       eta = beta * density * r**2 * ABS(omega)
     END FUNCTION etafkt_beta
 
-    ! Pringle disk (kinematic viscosity is constant)
-    ELEMENTAL FUNCTION etafkt_pringle(nu,rho) RESULT(eta)
+    ! power law viscosity
+    ELEMENTAL FUNCTION etafkt_powerlaw(beta,q,r,density,omega) RESULT(eta)
       IMPLICIT NONE
       !----------------------------------------------------------------------!
-      REAL, INTENT(IN) :: nu,rho
+      REAL, INTENT(IN) :: beta,q,r,density,omega
       REAL :: eta
       !----------------------------------------------------------------------!
-      eta = nu * rho   !nu is the kinematic viscosity
-    END FUNCTION etafkt_pringle
+      eta = beta * density * (r**2 * ABS(omega))**q
+    END FUNCTION etafkt_powerlaw
 
   END SUBROUTINE UpdateViscosity
 
@@ -497,7 +488,7 @@ CONTAINS
     CLASS(marray_compound),INTENT(INOUT)   :: pvar,cvar,sterm
     !------------------------------------------------------------------------!
     CALL this%UpdateViscosity(Mesh,Physics,Fluxes,time,pvar,cvar)
-    CALL Physics%CalcStresses_euler(Mesh,pvar%data4d,this%dynvis,this%bulkvis, &
+    CALL Physics%CalcStresses_euler(Mesh,pvar%data4d,this%dynvis%data3d,this%bulkvis%data3d, &
              this%btxx,this%btxy,this%btxz,this%btyy,this%btyz,this%btzz)
     CALL Physics%ViscositySources(Mesh,pvar%data4d,this%btxx,this%btxy,this%btxz, &
              this%btyy,this%btyz,this%btzz,sterm%data4d)
@@ -525,29 +516,29 @@ CONTAINS
     ! compute kinematic viscosity
     SELECT TYPE(p => pvar)
     CLASS IS(statevector_eulerisotherm)
-      this%kinvis(:,:,:) = this%dynvis(:,:,:) / p%density%data3d(:,:,:)
+      this%kinvis%data1d(:) = this%dynvis%data1d(:) / p%density%data1d(:)
     END SELECT
 
     ! x-direction
     IF (Mesh%INUM.GT.1) THEN
-       invdt_x = MAXVAL(this%kinvis(:,:,:) / Mesh%dlx%data3d(:,:,:)**2, &
-                        MASK=Mesh%without_ghost_zones%mask3d(:,:,:))
+       invdt_x = MAXVAL(this%kinvis%data1d(:) / Mesh%dlx%data1d(:)**2, &
+                        MASK=Mesh%without_ghost_zones%mask1d(:))
     ELSE
        ! set to zero, i.e. no limit in x-direction due to diffusion
        invdt_x = 0.0
     END IF
     ! y-direction
     IF (Mesh%JNUM.GT.1) THEN
-       invdt_y = MAXVAL(this%kinvis(:,:,:)  / Mesh%dly%data3d(:,:,:)**2, &
-                        MASK=Mesh%without_ghost_zones%mask3d(:,:,:))
+       invdt_y = MAXVAL(this%kinvis%data1d(:)  / Mesh%dly%data1d(:)**2, &
+                        MASK=Mesh%without_ghost_zones%mask1d(:))
     ELSE
        ! set to zero, i.e. no limit in y-direction due to diffusion
        invdt_y = 0.0
     END IF
     ! z-direction
     IF (Mesh%INUM.GT.1) THEN
-       invdt_z = MAXVAL(this%kinvis(:,:,:)  / Mesh%dlz%data3d(:,:,:)**2, &
-                        MASK=Mesh%without_ghost_zones%mask3d(:,:,:))
+       invdt_z = MAXVAL(this%kinvis%data1d(:)  / Mesh%dlz%data1d(:)**2, &
+                        MASK=Mesh%without_ghost_zones%mask1d(:))
     ELSE
        ! set to zero, i.e. no limit in z-direction due to diffusion
        invdt_z = 0.0
@@ -571,10 +562,11 @@ CONTAINS
       CALL this%ephir%Destroy()
       DEALLOCATE(this%ephir)
     END IF
+    CALL this%dynvis%Destroy()
+    CALL this%kinvis%Destroy()
+    CALL this%bulkvis%Destroy()
     DEALLOCATE(this%dynvis,this%kinvis,this%bulkvis, &
                this%btxx,this%btyy,this%btzz,this%btxy,this%btxz,this%btyz)
-    IF(this%viscosity%GetType().EQ.ALPHA) DEALLOCATE(this%invr)
-    IF(this%use_envelope.EQ.1) DEALLOCATE(this%envelope)
     CALL this%Finalize_base()
     IF(ASSOCIATED(this%next)) CALL this%next%Finalize()
   END SUBROUTINE Finalize

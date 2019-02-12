@@ -51,7 +51,8 @@ PROGRAM pringle_test
   ! general constants
   REAL, PARAMETER    :: GN      = 6.6742D-11 ! Newtons grav. constant [SI]
   ! simulation parameters
-  REAL, PARAMETER    :: TSIM    = 1.0E-0     ! simulation time [TAU] see below
+  REAL, PARAMETER    :: TSIM    = 1.0E-2     ! simulation time [TAU] see below
+                                             ! should be << 1 ~ viscous time scale
   ! the equations are solved in non-dimensional units, using the Keplerian
   ! velocity at the location of the initial ring at R=1 as the velocity scale
   REAL, PARAMETER    :: CENTMASS= 1./GN      ! fixed for non-dim. equations
@@ -62,8 +63,10 @@ PROGRAM pringle_test
   ! lower limit for nitial density
   REAL, PARAMETER    :: RHOMIN  = 1.0E-20    ! minimal initial density
   ! viscosity prescription
-  INTEGER, PARAMETER :: VISTYPE = BETA
-!   INTEGER, PARAMETER :: VISTYPE = PRINGLE
+!   INTEGER, PARAMETER :: VISTYPE = BETA
+  INTEGER, PARAMETER :: VISTYPE = POWERLAW
+  REAL, PARAMETER    :: PL_EXP  = 2.0        ! exponent for power law viscosity
+  REAL, PARAMETER    :: TAU     = 4./3.*RE   ! viscous time scale
   REAL, PARAMETER    :: TAU0    = 0.01       ! time for initial condition [TAU]
   ! mesh settings
   !**************************************************************************!
@@ -78,7 +81,7 @@ PROGRAM pringle_test
   !**************************************************************************!
   INTEGER, PARAMETER :: MGEO = CYLINDRICAL
 !   INTEGER, PARAMETER :: MGEO = LOGCYLINDRICAL
-  INTEGER, PARAMETER :: XRES = 100          ! x-resolution
+  INTEGER, PARAMETER :: XRES = 200         ! x-resolution
   INTEGER, PARAMETER :: YRES = 1           ! y-resolution
   INTEGER, PARAMETER :: ZRES = 1           ! z-resolution
   REAL, PARAMETER    :: RMIN = 0.1         ! min radius of comp. domain
@@ -92,7 +95,6 @@ PROGRAM pringle_test
                      :: OFNAME = 'pringle'
   ! derived parameters
   REAL, PARAMETER    :: CSISO = 1./MA      ! isothermal speed of sound
-  REAL               :: TAU                ! viscous time scale
   REAL               :: X0 = 0.0           ! cartesian position of point
   REAL               :: Y0 = 0.0           !   mass (default: origin)
   REAL               :: Z0 = 0.0           !
@@ -207,21 +209,12 @@ CONTAINS
             "limiter"   / MONOCENT, &
             "theta"     / 1.2)
 
-    ! compute viscous time scale
-    SELECT CASE(VISTYPE)
-    CASE(BETA)
-       TAU = 4./27. * RE
-    CASE(PRINGLE)
-       TAU = RE / 12.0
-    CASE DEFAULT
-       CALL Error(Sim%Physics,"InitProgram","viscosity type not supported")
-    END SELECT
-
     ! source term due to viscosity
     vis => Dict( &
             "stype"     / VISCOSITY, &
             "vismodel"  / VISTYPE, &
             "dynconst"  / (1./RE), &
+            "exponent"  / PL_EXP, &
             "cvis"      / 0.003)
 
     ! source term due to a point mass
@@ -333,7 +326,7 @@ CONTAINS
             END DO
           END DO
         END DO
-      CASE(PRINGLE)
+      CASE(POWERLAW)
         DO k=Mesh%KGMIN,Mesh%KGMAX
           DO j=Mesh%JGMIN,Mesh%JGMAX
             DO i=Mesh%IMIN,Mesh%IGMAX
