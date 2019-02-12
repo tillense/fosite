@@ -172,8 +172,8 @@ CONTAINS
                              this%dAzdxdy(i,j,k,1),this%dAzdxdy(i,j,k,2), &
                              this%dxdydV%data3d(i,j,k),this%dzdxdV%data3d(i,j,k),this%dydzdV%data3d(i,j,k), &
                              0.0,0.0,0.0,0.0, & ! no commutator coefficients
-                             0.5*(vx(i-1,j,k)+vx(i,j,k)),0.5*(vx(i+1,j,k)+vx(i,j,k)), &
-                             0.5*(vy(i,j-1,k)+vy(i,j,k)),0.5*(vy(i,j+1,k)+vy(i,j,k)), &
+                             0.5*(vx(i-this%IP1,j,k)+vx(i,j,k)),0.5*(vx(i+this%IP1,j,k)+vx(i,j,k)), &
+                             0.5*(vy(i,j-this%JP1,k)+vy(i,j,k)),0.5*(vy(i,j+this%JP1,k)+vy(i,j,k)), &
                              0.0, 0.0,  &
                              0.0,0.0,0.0,0.0)   ! no off-diagonal tensor components
         END DO
@@ -246,8 +246,8 @@ CONTAINS
                                  this%dxdydV%data3d(i,j,k),this%dzdxdV%data3d(i,j,k),this%dydzdV%data3d(i,j,k), &
                                  this%cxyx%center(i,j,k),this%cyxy%center(i,j,k), &
                                  0.0,0.0, & ! czxz = 0 and cxzx = 0 because of 2D
-                                 0.5*(Txx(i-1,j,k)+Txx(i,j,k)),0.5*(Txx(i+1,j,k)+Txx(i,j,k)), &
-                                 0.5*(Txy(i,j-1,k)+Txy(i,j,k)),0.5*(Txy(i,j+1,k)+Txy(i,j,k)), &
+                                 0.5*(Txx(i-this%IP1,j,k)+Txx(i,j,k)),0.5*(Txx(i+this%IP1,j,k)+Txx(i,j,k)), &
+                                 0.5*(Txy(i,j-this%JP1,k)+Txy(i,j,k)),0.5*(Txy(i,j+this%JP1,k)+Txy(i,j,k)), &
                                  0.0, 0.0, & ! difference at Bottom and Top faces is 0 because of 2D
                                  Tyx(i,j,k),Tyy(i,j,k),0.0,0.0) ! Tzz = 0 and Tzx = 0 because of 2D
          ! y component of tensor divergence
@@ -257,8 +257,8 @@ CONTAINS
                                  this%dxdydV%data3d(i,j,k),this%dzdxdV%data3d(i,j,k),this%dydzdV%data3d(i,j,k), &
                                  -this%cxyx%center(i,j,k),-this%cyxy%center(i,j,k), &
                                  0.0,0.0, & ! czyz = 0 and cyzy = 0 because of 2D
-                                 0.5*(Tyx(i-1,j,k)+Tyx(i,j,k)),0.5*(Tyx(i+1,j,k)+Tyx(i,j,k)), &
-                                 0.5*(Tyy(i,j-1,k)+Tyy(i,j,k)),0.5*(Tyy(i,j+1,k)+Tyy(i,j,k)), &
+                                 0.5*(Tyx(i-this%IP1,j,k)+Tyx(i,j,k)),0.5*(Tyx(i+this%IP1,j,k)+Tyx(i,j,k)), &
+                                 0.5*(Tyy(i,j-this%JP1,k)+Tyy(i,j,k)),0.5*(Tyy(i,j+this%JP1,k)+Tyy(i,j,k)), &
                                  0.0, 0.0, & ! difference at Bottom and Top faces is 0 because of 2D
                                  Txx(i,j,k),Txy(i,j,k),0.0,0.0) ! Tzz = 0 and Tzy = 0 because of 2D
         END DO
@@ -347,9 +347,9 @@ CONTAINS
                                      this%dAzdxdy(i,j,k,1),this%dAzdxdy(i,j,k,2), &
                                      this%dxdydV%data3d(i,j,k),this%dzdxdV%data3d(i,j,k),this%dydzdV%data3d(i,j,k), &
                                      0.0,0.0,0.0,0.0, & ! no commutator coefficients
-                                     0.5*(vx(i-1,j,k)+vx(i,j,k)),0.5*(vx(i+1,j,k)+vx(i,j,k)), &
-                                     0.5*(vy(i,j-1,k)+vy(i,j,k)),0.5*(vy(i,j+1,k)+vy(i,j,k)), &
-                                     0.5*(vz(i,j,k-1)+vz(i,j,k)),0.5*(vz(i,j,k+1)+vz(i,j,k)), &
+                                     0.5*(vx(i-this%IP1,j,k)+vx(i,j,k)),0.5*(vx(i+this%IP1,j,k)+vx(i,j,k)), &
+                                     0.5*(vy(i,j-this%JP1,k)+vy(i,j,k)),0.5*(vy(i,j+this%JP1,k)+vy(i,j,k)), &
+                                     0.5*(vz(i,j,k-this%KP1)+vz(i,j,k)),0.5*(vz(i,j,k+this%KP1)+vz(i,j,k)), &
                                      0.0,0.0,0.0,0.0)   ! no off-diagonal tensor components
         END DO
       END DO

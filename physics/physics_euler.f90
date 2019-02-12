@@ -185,21 +185,26 @@ CONTAINS
     this%pvarname(this%PRESSURE)  = "pressure"
     this%cvarname(this%ENERGY)    = "energy"
 
-    ! set names shown in the data file
+    ! set names shown in the data file and 
+    ! whether a particular vector component is available
+    this%vector_component_enabled(1:3) = .FALSE.
     next_idx = 2
     IF (Mesh%INUM.GT.1.OR.Mesh%ROTSYM.EQ.1) THEN
       this%pvarname(next_idx) = "xvelocity"
       this%cvarname(next_idx) = "xmomentum"
+      this%vector_component_enabled(1) = .TRUE.
       next_idx = next_idx + 1
     END IF
     IF (Mesh%JNUM.GT.1.OR.Mesh%ROTSYM.EQ.2) THEN
       this%pvarname(next_idx) = "yvelocity"
       this%cvarname(next_idx) = "ymomentum"
+      this%vector_component_enabled(2) = .TRUE.
       next_idx = next_idx + 1
     END IF
     IF (Mesh%KNUM.GT.1.OR.Mesh%ROTSYM.EQ.3) THEN
       this%pvarname(next_idx) = "zvelocity"
       this%cvarname(next_idx) = "zmomentum"
+      this%vector_component_enabled(3) = .TRUE.
     END IF
 
     ! not used in non-isotherml physics

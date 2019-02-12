@@ -62,6 +62,7 @@ MODULE physics_eulerisotherm_mod
     !> \name
     !! #### Variables
     REAL                 :: csiso            !< isothermal sound speed
+    LOGICAL :: vector_component_enabled(3)   !< to test which vector components are available
   CONTAINS
     PROCEDURE :: InitPhysics_eulerisotherm
     PROCEDURE :: PrintConfiguration_eulerisotherm
@@ -210,21 +211,26 @@ CONTAINS
     this%PRESSURE  = 0                                 ! no pressure         !
     this%ENERGY    = 0                                 ! no total energy     !
 
-    ! set names shown in the data file
+    ! set names shown in the data file and 
+    ! whether a particular vector component is available
+    this%vector_component_enabled(1:3) = .FALSE.
     next_idx = 2
     IF (Mesh%INUM.GT.1.OR.Mesh%ROTSYM.EQ.1) THEN
       this%pvarname(next_idx) = "xvelocity"
       this%cvarname(next_idx) = "xmomentum"
+      this%vector_component_enabled(1) = .TRUE.
       next_idx = next_idx + 1
     END IF
     IF (Mesh%JNUM.GT.1.OR.Mesh%ROTSYM.EQ.2) THEN
       this%pvarname(next_idx) = "yvelocity"
       this%cvarname(next_idx) = "ymomentum"
+      this%vector_component_enabled(2) = .TRUE.
       next_idx = next_idx + 1
     END IF
     IF (Mesh%KNUM.GT.1.OR.Mesh%ROTSYM.EQ.3) THEN
       this%pvarname(next_idx) = "zvelocity"
       this%cvarname(next_idx) = "zmomentum"
+      this%vector_component_enabled(3) = .TRUE.
     END IF
 
     ! create new mesh array bccsound
@@ -1149,19 +1155,19 @@ CONTAINS
        DO i=Mesh%IMIN-Mesh%IP1,Mesh%IMAX+Mesh%IP1
           ! compute the diagonal elements of the stress tensor
           btxx(i,j,k) = dynvis(i,j,k) * &
-                ((pvar(i+1,j,k,this%XVELOCITY) - pvar(i-1,j,k,this%XVELOCITY)) / Mesh%dlx%data3d(i,j,k) &
+                ((pvar(i+Mesh%IP1,j,k,this%XVELOCITY) - pvar(i-Mesh%IP1,j,k,this%XVELOCITY)) / Mesh%dlx%data3d(i,j,k) &
                + 2.0 * Mesh%cxyx%bcenter(i,j,k) * pvar(i,j,k,this%YVELOCITY)) &
                + this%tmp(i,j,k)
 
           btyy(i,j,k) = dynvis(i,j,k) * &
-               ( (pvar(i,j+1,k,this%YVELOCITY) - pvar(i,j-1,k,this%YVELOCITY)) / Mesh%dly%data3d(i,j,k) &
+               ( (pvar(i,j+Mesh%JP1,k,this%YVELOCITY) - pvar(i,j-Mesh%JP1,k,this%YVELOCITY)) / Mesh%dly%data3d(i,j,k) &
                + 2.0 * Mesh%cyxy%bcenter(i,j,k) * pvar(i,j,k,this%XVELOCITY) ) &
                + this%tmp(i,j,k)
 
           ! compute the off-diagonal elements (no bulk viscosity)
           btxy(i,j,k) = dynvis(i,j,k) * ( 0.5 * &
-               ( (pvar(i+1,j,k,this%YVELOCITY) - pvar(i-1,j,k,this%YVELOCITY)) / Mesh%dlx%data3d(i,j,k) &
-               + (pvar(i,j+1,k,this%XVELOCITY) - pvar(i,j-1,k,this%XVELOCITY)) / Mesh%dly%data3d(i,j,k) ) &
+               ( (pvar(i+Mesh%IP1,j,k,this%YVELOCITY) - pvar(i-Mesh%IP1,j,k,this%YVELOCITY)) / Mesh%dlx%data3d(i,j,k) &
+               + (pvar(i,j+Mesh%JP1,k,this%XVELOCITY) - pvar(i,j-Mesh%JP1,k,this%XVELOCITY)) / Mesh%dly%data3d(i,j,k) ) &
                - Mesh%cxyx%bcenter(i,j,k) * pvar(i,j,k,this%XVELOCITY) &
                - Mesh%cyxy%bcenter(i,j,k) * pvar(i,j,k,this%YVELOCITY) )
 
@@ -1176,39 +1182,39 @@ CONTAINS
        DO i=Mesh%IMIN-Mesh%IP1,Mesh%IMAX+Mesh%IP1
           ! compute the diagonal elements of the stress tensor
           btxx(i,j,k) = dynvis(i,j,k) * &
-                ((pvar(i+1,j,k,this%XVELOCITY) - pvar(i-1,j,k,this%XVELOCITY)) / Mesh%dlx%data3d(i,j,k) &
+                ((pvar(i+Mesh%IP1,j,k,this%XVELOCITY) - pvar(i-Mesh%IP1,j,k,this%XVELOCITY)) / Mesh%dlx%data3d(i,j,k) &
                + 2.0 * Mesh%cxyx%bcenter(i,j,k) * pvar(i,j,k,this%YVELOCITY) &
                + 2.0 * Mesh%cxzx%bcenter(i,j,k) * pvar(i,j,k,this%ZVELOCITY) ) &
                + this%tmp(i,j,k)
 
           btyy(i,j,k) = dynvis(i,j,k) * &
-               ( (pvar(i,j+1,k,this%YVELOCITY) - pvar(i,j-1,k,this%YVELOCITY)) / Mesh%dly%data3d(i,j,k) &
+               ( (pvar(i,j+Mesh%JP1,k,this%YVELOCITY) - pvar(i,j-Mesh%JP1,k,this%YVELOCITY)) / Mesh%dly%data3d(i,j,k) &
                + 2.0 * Mesh%cyxy%bcenter(i,j,k) * pvar(i,j,k,this%XVELOCITY)  &
                + 2.0 * Mesh%cyzy%bcenter(i,j,k) * pvar(i,j,k,this%ZVELOCITY) ) &
                + this%tmp(i,j,k)
 
           btzz(i,j,k) = dynvis(i,j,k) * &
-               ( (pvar(i,j,k+1,this%ZVELOCITY) - pvar(i,j,k-1,this%ZVELOCITY)) / Mesh%dlz%data3d(i,j,k) &
+               ( (pvar(i,j,k+Mesh%KP1,this%ZVELOCITY) - pvar(i,j,k-Mesh%KP1,this%ZVELOCITY)) / Mesh%dlz%data3d(i,j,k) &
                + 2.0 * Mesh%czxz%bcenter(i,j,k) * pvar(i,j,k,this%XVELOCITY) &
                + 2.0 * Mesh%czyz%bcenter(i,j,k) * pvar(i,j,k,this%YVELOCITY) ) &
                + this%tmp(i,j,k)
 
           ! compute the off-diagonal elements (no bulk viscosity)
           btxy(i,j,k) = dynvis(i,j,k) * ( 0.5 * &
-               ( (pvar(i+1,j,k,this%YVELOCITY) - pvar(i-1,j,k,this%YVELOCITY)) / Mesh%dlx%data3d(i,j,k) &
-               + (pvar(i,j+1,k,this%XVELOCITY) - pvar(i,j-1,k,this%XVELOCITY)) / Mesh%dly%data3d(i,j,k) ) &
+               ( (pvar(i+Mesh%IP1,j,k,this%YVELOCITY) - pvar(i-Mesh%IP1,j,k,this%YVELOCITY)) / Mesh%dlx%data3d(i,j,k) &
+               + (pvar(i,j+Mesh%JP1,k,this%XVELOCITY) - pvar(i,j-Mesh%JP1,k,this%XVELOCITY)) / Mesh%dly%data3d(i,j,k) ) &
                - Mesh%cxyx%bcenter(i,j,k) * pvar(i,j,k,this%XVELOCITY) &
                - Mesh%cyxy%bcenter(i,j,k) * pvar(i,j,k,this%YVELOCITY) )
 
           btxz(i,j,k) = dynvis(i,j,k) * ( 0.5 * &
-               ( (pvar(i+1,j,k,this%ZVELOCITY) - pvar(i-1,j,k,this%ZVELOCITY)) / Mesh%dlx%data3d(i,j,k) &
-               + (pvar(i,j,k+1,this%XVELOCITY) - pvar(i,j,k-1,this%XVELOCITY)) / Mesh%dlz%data3d(i,j,k) ) &
+               ( (pvar(i+Mesh%IP1,j,k,this%ZVELOCITY) - pvar(i-Mesh%IP1,j,k,this%ZVELOCITY)) / Mesh%dlx%data3d(i,j,k) &
+               + (pvar(i,j,k+Mesh%KP1,this%XVELOCITY) - pvar(i,j,k-Mesh%KP1,this%XVELOCITY)) / Mesh%dlz%data3d(i,j,k) ) &
                - Mesh%czxz%bcenter(i,j,k) * pvar(i,j,k,this%ZVELOCITY) &
                - Mesh%cxzx%bcenter(i,j,k) * pvar(i,j,k,this%XVELOCITY) )
 
           btyz(i,j,k) = dynvis(i,j,k) * ( 0.5 * &
-               ( (pvar(i,j,k+1,this%YVELOCITY) - pvar(i,j,k-1,this%YVELOCITY)) / Mesh%dlz%data3d(i,j,k) &
-               + (pvar(i,j+1,k,this%ZVELOCITY) - pvar(i,j-1,k,this%ZVELOCITY)) / Mesh%dly%data3d(i,j,k) ) &
+               ( (pvar(i,j,k+Mesh%KP1,this%YVELOCITY) - pvar(i,j,k-Mesh%KP1,this%YVELOCITY)) / Mesh%dlz%data3d(i,j,k) &
+               + (pvar(i,j+Mesh%JP1,k,this%ZVELOCITY) - pvar(i,j-Mesh%JP1,k,this%ZVELOCITY)) / Mesh%dly%data3d(i,j,k) ) &
                - Mesh%czyz%bcenter(i,j,k) * pvar(i,j,k,this%ZVELOCITY) &
                - Mesh%cyzy%bcenter(i,j,k) * pvar(i,j,k,this%YVELOCITY) )
         END DO
