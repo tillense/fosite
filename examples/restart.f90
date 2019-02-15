@@ -67,20 +67,21 @@ PROGRAM Restart
   !--------------------------------------------------------------------------!
   CLASS(fosite), ALLOCATABLE :: Sim
   TYPE(Dict_TYP), POINTER :: input
-  REAL                    :: time
+  REAL                    :: time,stoptime
   INTEGER                 :: i, step
   CHARACTER(LEN=100)      :: filename, filename_tmp
 #ifdef PARALLEL
   INTEGER, DIMENSION(3)   :: decomposition
 #endif
   LOGICAL                 :: file_exists
-  REAL :: HRATIO = 0.5
+  REAL :: HRATIO = 0.05
   REAL, DIMENSION(:,:,:),   POINTER :: r, Sigma
   REAL, DIMENSION(:,:,:,:), POINTER :: r_faces
   REAL, DIMENSION(:,:,:),   POINTER :: bccsound
   REAL, DIMENSION(:,:,:,:), POINTER :: fcsound
   REAL, PARAMETER    :: MBH1    = 0.4465*1.0
   REAL, PARAMETER    :: MBH2    = 0.4465*1.0
+  INTEGER :: count
   !--------------------------------------------------------------------------!
 
   ! load file
@@ -188,48 +189,102 @@ FUNCTION LoadConfig(filename) RESULT(res)
   CHARACTER(LEN=*)        :: filename
   TYPE(Dict_TYP),POINTER  :: res
   !--------------------------------------------------------------------------!
-  INTEGER                 :: file, error, offset, keylen, intsize, realsize,  &
+  INTEGER                 :: file, error, keylen, intsize, realsize,  &
                              type, bytes, l, dims(5)
   CHARACTER(LEN=6)        :: magic
   CHARACTER(LEN=2)        :: endian
-  CHARACTER(LEN=1)        :: version
+  CHARACTER(LEN=13)       :: header
   CHARACTER(LEN=4)        :: sizestr
+  CHARACTER(LEN=1),DIMENSION(128)        :: buffer
+#ifndef PARALLEL
+  INTEGER                               :: offset
+  CHARACTER(LEN=1)                      :: version
+#else
+  INTEGER(KIND=MPI_OFFSET_KIND)         :: offset, offset_0, filesize
+  INTEGER                               :: version
+#endif
   CHARACTER(LEN=1),DIMENSION(:),POINTER :: keybuf
   CHARACTER(LEN=MAX_CHAR_LEN)           :: key,kf
   REAL,DIMENSION(:,:,:),        POINTER :: ptr3 => null()
   CHARACTER(LEN=1),DIMENSION(:),POINTER :: val
-
+#ifdef PARALLEL
+  INTEGER                               :: handle      !< MPI file handle
+  INTEGER                               :: ierror      !< MPI error output
+  INTEGER                               :: bufsize     !< output data buffer size
+  INTEGER                               :: position
+  INTEGER, DIMENSION(2)                 :: gsizes,lsizes,indices,memsizes
+  INTEGER, DIMENSION(MPI_STATUS_SIZE)   :: status      !< MPI i/o status record
+#endif
   !--------------------------------------------------------------------------!
   INTENT(IN)         :: filename
   !--------------------------------------------------------------------------!
   NULLIFY(res)
   offset = 1
+#ifndef PARALLEL
   file = 5555
   OPEN(file, &
-       FILE       =TRIM(filename), &
-       STATUS     = 'OLD',      &
-       ACCESS     = 'STREAM' ,   &
+       FILE       = TRIM(filename), &
+       STATUS     = 'OLD', &
+       ACCESS     = 'STREAM', &
        ACTION     = 'READ', &
        POSITION   = 'REWIND', &
        IOSTAT     = error)
-  READ(file) magic, endian, version, sizestr
+#else
+  ! Open File
+  CALL MPI_File_open(MPI_COMM_WORLD,TRIM(filename),MPI_MODE_RDONLY, &
+       MPI_INFO_NULL,handle,error)
+  offset_0 = 0
+  CALL MPI_File_set_view(handle,offset_0,MPI_BYTE,MPI_BYTE,'native',MPI_INFO_NULL,ierror)
+  CALL MPI_File_seek(handle,offset-1,MPI_SEEK_SET,ierror)
+#endif
+
+#ifndef PARALLEL
+  READ(file,POS=offset) magic, endian, version, sizestr
+#else
+  CALL MPI_File_read_all(handle, header, LEN(header), MPI_BYTE, &
+    status,ierror)
+  WRITE (magic, '(A6)')  header(1:6)
+  WRITE (endian, '(A2)')  header(7:8)
+  version = IACHAR(header(9:9))
+  WRITE (sizestr, '(A4)')  header(10:13)
+#endif
   offset = offset + 13
   READ(sizestr, '(I2,I2)') realsize, intsize
-  READ(file, IOSTAT=error) keylen
+
+#ifndef PARALLEL
+  READ(file, IOSTAT=error, POS=offset) keylen
+#else
+! TODO: keylen from data does not need to have the same intsize like from the actual run with Fosite
+  buffer = ''
+  CALL MPI_File_seek(handle,offset-1,MPI_SEEK_SET,ierror)
+  CALL MPI_File_read_all(handle, buffer, intsize, MPI_BYTE, status,ierror)
+  keylen = TRANSFER(buffer(1:intsize),keylen)
+#endif
   offset = offset + intsize
+
   DO WHILE(error.EQ.0)
     key = ''
+    buffer = ''
     ALLOCATE(keybuf(keylen))
-    READ(file) keybuf,type,bytes
+#ifndef PARALLEL
+    READ(file, POS=offset) keybuf,type,bytes
+#else
+    CALL MPI_File_seek(handle,offset-1,MPI_SEEK_SET,ierror)
+    CALL MPI_File_read_all(handle, buffer, keylen+2*intsize, MPI_BYTE, &
+      status,ierror)
+    keybuf = TRANSFER(buffer(1:keylen), keybuf)
+    type = TRANSFER(buffer(keylen+1:keylen+intsize), type)
+    bytes = TRANSFER(buffer(keylen+intsize+1:keylen+2*intsize), bytes)
+#endif
     WRITE(kf,'(A, I4, A)') '(',keylen,'(A))'
-    WRITE(key,kf)keybuf
+    WRITE(key,kf) keybuf
     DEALLOCATE(keybuf)
     key = TRIM(key)
     offset = offset + keylen + 2*intsize
     dims(:) = 1
     SELECT CASE(type)
     CASE(DICT_REAL_TWOD)
-      l = 2
+      l = 3
     CASE(DICT_REAL_THREED)
       l = 3
     CASE(DICT_REAL_FOURD)
@@ -240,26 +295,42 @@ FUNCTION LoadConfig(filename) RESULT(res)
       l = 0
     END SELECT
     IF(l.GE.2) THEN
-      READ(file) dims(1:l)
+#ifndef PARALLEL
+      READ(file, POS=offset) dims(1:l)
+#else
+      buffer = ''
+      CALL MPI_File_seek(handle,offset-1,MPI_SEEK_SET,ierror)
+      CALL MPI_File_read_all(handle,buffer(1:l*intsize),l*intsize,MPI_BYTE,status,error)
+      dims(1:l) = TRANSFER(buffer(1:l*intsize),dims(1:l))
+#endif
       bytes = bytes - l*intsize
       offset = offset + l*intsize
     END IF
 
-    ! Here nothing is read in, the data parts are skipped
+
+    ! Here, the data fields are skipped (only single values are set, e.g.
+    ! configs, central mass, etc.)
     ! TODO: The allocation of the field is not good here and just a workaround
     !   - Problem: The data parts in the file need to be skipped somewhow,
     !     but the POS argument is not available in F95, which can be used
     !     on NEC/SX-Ace. At the field decomposition by MPI is done after
     !     reading in the dictionary in SetupFosite.
     SELECT CASE(l)
+    CASE(2)
     CASE(3)
-      ALLOCATE(ptr3(dims(1), dims(2), dims(3)))
-      READ(file) ptr3
-      DEALLOCATE(ptr3)
+    CASE(4)
+    CASE(5)
     CASE DEFAULT
       IF(bytes.GT.0) THEN
         ALLOCATE(val(bytes))
-        READ(file) val
+#ifndef PARALLEL
+        READ(file, POS=offset) val
+#else
+        buffer = ''
+        CALL MPI_File_seek(handle,offset-1,MPI_SEEK_SET,ierror)
+        CALL MPI_File_read_all(handle,buffer(1:bytes),bytes,MPI_BYTE,status,error)
+        val = TRANSFER(buffer(1:bytes),val)
+#endif
         IF(key.EQ.'/config/mesh/decomposition')THEN
           ! Do not set the key for composition. Use new one.
         ELSE
@@ -271,8 +342,25 @@ FUNCTION LoadConfig(filename) RESULT(res)
 
     offset = offset + bytes
 
-    READ(file, IOSTAT=error) keylen
+#ifndef PARALLEL
+    READ(file, POS=offset, IOSTAT=error) keylen
+#else
+    buffer = ''
+    CALL MPI_File_seek(handle,offset-1,MPI_SEEK_SET,ierror)
+    CALL MPI_File_read_all(handle,buffer(1:intsize),intsize,MPI_BYTE,status,ierror)
+    keylen = TRANSFER(buffer(1:intsize),keylen)
+
+
+    CALL MPI_File_get_position(handle,offset_0,ierror)
+    CALL MPI_File_get_size(handle,filesize,ierror)
+    IF (filesize.LE.offset_0) THEN
+      ierror=1
+    END IF
+
+    error = ierror
+#endif
     offset = offset + intsize
+
   END DO
 
   CLOSE(file)
@@ -297,7 +385,7 @@ SUBROUTINE LoadData(this,filename)
   CHARACTER(LEN=13)                     :: header
   CHARACTER(LEN=6)                      :: magic
   CHARACTER(LEN=2)                      :: endian
-  CHARACTER(LEN=1),DIMENSION(50)        :: buffer
+  CHARACTER(LEN=1),DIMENSION(128)        :: buffer
 #ifndef PARALLEL
   INTEGER                               :: offset
   CHARACTER(LEN=1)                      :: version
@@ -313,7 +401,6 @@ SUBROUTINE LoadData(this,filename)
   REAL,DIMENSION(:,:,:,:),      POINTER :: ptr4 => null()
   REAL,DIMENSION(:,:,:,:,:),    POINTER :: ptr5 => null()
   CHARACTER(LEN=1),DIMENSION(:),POINTER :: val
-  INTEGER                               :: counter
 #ifdef PARALLEL
   INTEGER                               :: handle      !< MPI file handle
   INTEGER                               :: filetype    !< data type for data i/o
@@ -330,7 +417,6 @@ SUBROUTINE LoadData(this,filename)
   INTENT(INOUT)                         :: this
   !--------------------------------------------------------------------------!
   offset = 1
-  counter = 0 !temporary
 
 #ifndef PARALLEL
   unit = 5555
@@ -420,7 +506,7 @@ SUBROUTINE LoadData(this,filename)
 #else
       buffer = ''
       CALL MPI_File_read_all(handle,buffer(1:l*intsize),l*intsize,MPI_BYTE,status,error)
-      dims = TRANSFER(buffer(1:l*intsize),dims)
+      dims(1:l) = TRANSFER(buffer(1:l*intsize),dims(1:l))
 #endif
       bytes = bytes - l*intsize
       offset = offset + l*intsize
