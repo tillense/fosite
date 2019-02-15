@@ -174,6 +174,7 @@ MODULE fileio_base_mod
                                tsoutput    !< list of scalar time step output
      REAL, DIMENSION(:,:) , POINTER  :: &
                                bflux       !< boundary flux output buffer
+     REAL                   :: walltime    !< adds output before walltime is
 #ifdef PARALLEL
      !> \name Variables in Parallel Mode
      LOGICAL                :: multfiles   !< spread files across nodes
@@ -337,6 +338,7 @@ CONTAINS
     CALL GetAttr(config, "filepath"  , fpath, fpath)
     CALL GetAttr(config, "unit"      , unit , lastunit+1)
     lastunit = unit
+    CALL GetAttr(config, "walltime"  , this%walltime, HUGE(1.0))
 
     ! mesh coordinates are cartesian by default (cartcoords == 1)
     ! set to 0 for curvilinear coordinates (currently supported in gnuplot and vtk)

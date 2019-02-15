@@ -405,7 +405,7 @@ CONTAINS
     ! write output to data file
     IF ((ABS(this%Datafile%time-this%Timedisc%time)&
             .LE.1.0E-5*this%Datafile%time).OR.&
-        this%Timedisc%break) THEN
+        this%Timedisc%break.OR.(this%Datafile%walltime.LE.this%wall_time)) THEN
        CALL this%Datafile%WriteDataset(this%Mesh,this%Physics,this%Fluxes,&
                          this%Timedisc,this%config,this%IO)
        CALL this%PrintInfo(this%Datafile%step-1, this%iter,this%Timedisc%time,&
@@ -416,6 +416,11 @@ CONTAINS
          CALL this%Warning("SolveODE", "Time step too small, aborting.",0)
          break = .True.
          RETURN
+       END IF
+
+       ! only give one additional output at before walltime
+       IF (this%Datafile%walltime.LE.this%wall_time) THEN
+         this%Datafile%walltime = HUGE(1.0)
        END IF
 
        ! reset dt_min,dtmincause and n_adj
