@@ -126,6 +126,8 @@ MARK_AS_ADVANCED(CMAKE_Fortran_FLAGS_PROFILING
     CMAKE_EXE_LINKER_FLAGS_PROFILING)
 
 
+#----------------------- search GSL ------------------------------------------#
+find_package(GSL)
 
 #----------------------- search FFTW -----------------------------------------#
 set(CMAKE_FIND_ROOT_PATH ${FFTW_DIR})
@@ -146,6 +148,7 @@ if(PARALLEL)
     HINTS /opt/nec/ve/nlc/1.0.0/lib/ ${FFTW_DIR}/lib
   )
 endif()
+
 #end search for libraries
 
 # search for headers
@@ -206,7 +209,11 @@ endforeach (p)
 
 add_library(fosite fosite.f90)
 target_link_libraries(fosite ${LIBDIRS})
-
+# add gsl
+if(GSL_FOUND)
+  include_directories(${GSL_INCLUDE_DIRS})
+  target_link_libraries(fosite ${GSL_LIBRARIES})
+endif()
 # add fftw
 if (NOT CMAKE_SYSTEM_NAME MATCHES "(.*)SX-Aurora")
   if(FFTW_LIB)
