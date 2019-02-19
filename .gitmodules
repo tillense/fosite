@@ -1,0 +1,3 @@
+[submodule "contrib/fgsl"]
+	path = contrib/fgsl
+	url = https://github.com/reinh-bader/fgsl/

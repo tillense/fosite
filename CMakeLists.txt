@@ -2,15 +2,21 @@
 cmake_minimum_required (VERSION 2.8.10)
 project (FOSITE NONE)
 
-# get the latest git version tag and commit hash
-# adds "-dirty" if working tree is not clean
-execute_process(
-  COMMAND git describe --tag --dirty
-  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-  OUTPUT_VARIABLE GIT_VERSION
-  OUTPUT_STRIP_TRAILING_WHITESPACE
-)
-add_compile_options("-DVERSION=\"${GIT_VERSION}\"")
+# detect git
+find_package(Git)
+if(Git_FOUND)
+  # get the latest git version tag and commit hash
+  # adds "-dirty" if working tree is not clean
+  execute_process(
+    COMMAND ${GIT_EXECUTABLE} describe --tag --dirty
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    OUTPUT_VARIABLE GIT_VERSION
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+  )
+  add_definitions("-DVERSION=\"${GIT_VERSION}\"")
+else()
+  add_definitions("-DVERSION=\"0.8.1\"") 
+endif()
 
 # make sure that the default is a RELEASE
 if (NOT CMAKE_BUILD_TYPE)
@@ -31,14 +37,14 @@ option(MPI_USE_SENDRECV "MPI_USE_SENDRECV" ON)
 option(USE_MPI_MOD "USE_MPI_MOD" ON)
 if (PARALLEL MATCHES "ON")
   message(STATUS "Configuring parallel build using MPI")
-  add_compile_options(-DPARALLEL)
+  add_definitions(-DPARALLEL)
   if(USE_MPI_MOD MATCHES "ON")
-    add_compile_options(-DHAVE_MPI_MOD)
+    add_definitions(-DHAVE_MPI_MOD)
   else()
-    add_compile_options(-DHAVE_MPIF_H)
+    add_definitions(-DHAVE_MPIF_H)
   endif()
   if(MPI_USE_SENDRECV MATCHES "ON")
-    add_compile_options(-DMPI_USE_SENDRECV)
+    add_definitions(-DMPI_USE_SENDRECV)
   endif()
   if (CMAKE_SYSTEM_NAME MATCHES "SX-Aurora")
     set(CMAKE_Fortran_COMPILER ${MPI_Fortran_COMPILER})
@@ -112,13 +118,13 @@ if (CMAKE_SYSTEM_NAME MATCHES "(.*)SX-Aurora")
   add_definitions(-DVECTOR_LENGTH="256" -DNECSXAURORA)
 else ()#(CMAKE_SYSTEM_NAME MATCHES "(.*)SX-AURORA")
   if (X86_VECTOR_EXTENSION MATCHES "AVX")
-    add_compile_options(-DVECTOR_LENGTH="16")
+    add_definitions(-DVECTOR_LENGTH="16")
   elseif (X86_VECTOR_EXTENSION MATCHES "AVX2")
-    add_compile_options(-DVECTOR_LENGTH="16")
+    add_definitions(-DVECTOR_LENGTH="16")
   elseif (X86_VECTOR_EXTENSION MATCHES "AVX-512")
-    add_compile_options(-DVECTOR_LENGTH="32")
+    add_definitions(-DVECTOR_LENGTH="32")
   else()
-    add_compile_options(-DVECTOR_LENGTH="1")
+    add_definitions(-DVECTOR_LENGTH="1")
   endif()
 endif ()#(CMAKE_SYSTEM_NAME MATCHES "(.*)SX-AURORA")
 
@@ -209,10 +215,45 @@ endforeach (p)
 
 add_library(fosite fosite.f90)
 target_link_libraries(fosite ${LIBDIRS})
+
 # add gsl
 if(GSL_FOUND)
-  include_directories(${GSL_INCLUDE_DIRS})
-  target_link_libraries(fosite ${GSL_LIBRARIES})
+  set(FGSL_SOURCE_DIR ${CMAKE_SOURCE_DIR}/contrib/fgsl) 
+  set(FGSL_BINARY_DIR ${CMAKE_BINARY_DIR}/contrib/fgsl) 
+  include_directories(${GSL_INCLUDE_DIRS} ${FGSL_BINARY_DIR}/include/fgsl)
+  target_link_libraries(fosite ${GSL_LIBRARIES} ${FGSL_BINARY_DIR}/lib/libfgsl.a)
+  # add gsl fortran interface as external project
+  if(NOT EXISTS "${FGSL_SOURCE_DIR}/configure.ac")
+    message(STATUS "fgsl: found empty source dir -> fetching code")
+    execute_process(
+        COMMAND git submodule update --init --force contrib/fgsl
+	WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
+  endif()
+  if(NOT EXISTS ${FGSL_SOURCE_DIR}/configure)
+    if(NOT EXISTS ${FGSL_SOURCE_DIR}/m4)
+      file(MAKE_DIRECTORY ${FGSL_SOURCE_DIR}/m4)
+    endif()
+    execute_process(
+      COMMAND autoreconf -i
+      WORKING_DIRECTORY ${FGSL_SOURCE_DIR}
+    )
+  endif()
+  include(ExternalProject)
+  ExternalProject_Add(fgsl
+    PREFIX ${FGSL_BINARY_DIR}
+    SOURCE_DIR ${FGSL_BINARY_DIR}/src
+    BUILD_IN_SOURCE 0
+    BINARY_DIR ${FGSL_BINARY_DIR}/build
+    INSTALL_DIR ${FGSL_BINARY_DIR}
+    DOWNLOAD_DIR ${FGSL_BINARY_DIR}
+    STAMP_DIR ${FGSL_BINARY_DIR}/stamp
+    TMP_DIR ${FGSL_BINARY_DIR}/tmp
+    DOWNLOAD_COMMAND  ${CMAKE_COMMAND} -E remove_directory "${FGSL_BINARY_DIR}/src" && ${CMAKE_COMMAND} -E create_symlink "${FGSL_SOURCE_DIR}" "${FGSL_BINARY_DIR}/src"
+    CONFIGURE_COMMAND ../src/configure -q --prefix=${FGSL_BINARY_DIR}
+    BUILD_COMMAND make
+    INSTALL_COMMAND make install)
+  add_dependencies(numtools fgsl)
+  add_definitions(-DHAVE_FGSL)
 endif()
 # add fftw
 if (NOT CMAKE_SYSTEM_NAME MATCHES "(.*)SX-Aurora")
