@@ -217,9 +217,6 @@ CONTAINS
     CLASS(sources_shearbox), INTENT(INOUT) :: this
     !------------------------------------------------------------------------!
     CALL this%accel%Destroy()
-    CALL this%Finalize_base()
-
-    IF (ASSOCIATED(this%next)) CALL this%next%Finalize()
   END SUBROUTINE Finalize
 
 END MODULE sources_shearbox_mod

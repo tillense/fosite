@@ -47,7 +47,7 @@ MODULE sources_generic_mod
 
 CONTAINS
 
-  SUBROUTINE new_sources(this,Mesh,Fluxes,Physics,config,IO)
+  SUBROUTINE New_Sources(this,Mesh,Fluxes,Physics,config,IO)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(sources_base), POINTER :: this
@@ -149,11 +149,24 @@ CONTAINS
 
   END SUBROUTINE New_Sources
 
-  SUBROUTINE close_sources()
+  SUBROUTINE Destroy_Sources(this)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    ! add new source term to beginning of
-    ! list of source terms
-  END SUBROUTINE
+    CLASS(sources_base), POINTER :: this
+    !------------------------------------------------------------------------!
+    CLASS(sources_base), POINTER :: srcptr
+    !------------------------------------------------------------------------!
+    ! loop over all source terms and call finalization subroutines
+    IF (ASSOCIATED(this)) THEN
+      CALL this%Finalize_base()
+      DO
+        srcptr => this
+        IF (.NOT.ASSOCIATED(srcptr)) EXIT
+        this => srcptr%next
+        CALL srcptr%Finalize()
+        DEALLOCATE(srcptr)
+      END DO
+    END IF
+  END SUBROUTINE Destroy_Sources
 
 END MODULE sources_generic_mod

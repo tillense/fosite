@@ -135,9 +135,6 @@ CONTAINS
     CLASS(sources_c_accel), INTENT(INOUT) :: this
     !------------------------------------------------------------------------!
     CALL this%accel%Destroy()
-    CALL this%Finalize_base()
-
-    IF(ASSOCIATED(this%next)) CALL this%next%Finalize()
   END SUBROUTINE Finalize
 
 END MODULE sources_c_accel_mod

@@ -71,16 +71,14 @@ MODULE sources_base_mod
   CONTAINS
 
     PROCEDURE :: InitSources
-    PROCEDURE (InfoSources),     DEFERRED :: InfoSources
-    PROCEDURE :: CloseSources_all
+    PROCEDURE (InfoSources),            DEFERRED :: InfoSources
     PROCEDURE :: ExternalSources
     PROCEDURE (ExternalSources_single), DEFERRED :: ExternalSources_single
     PROCEDURE :: CalcTimestep
     PROCEDURE (CalcTimestep_single),    DEFERRED :: CalcTimestep_single
     PROCEDURE :: GetSourcesPointer
-
+    PROCEDURE (Finalize),               DEFERRED :: Finalize
     PROCEDURE :: Finalize_base
-    PROCEDURE (Finalize), DEFERRED :: Finalize
   END TYPE sources_base
   ABSTRACT INTERFACE
     SUBROUTINE InfoSources(this,Mesh)
@@ -89,14 +87,6 @@ MODULE sources_base_mod
       !------------------------------------------------------------------------!
       CLASS(Sources_base),INTENT(IN) :: this
       CLASS(Mesh_base),INTENT(IN)    :: Mesh
-    END SUBROUTINE
-    SUBROUTINE Close_Sources(this)
-      IMPORT Sources_base
-      IMPLICIT NONE
-      !------------------------------------------------------------------------!
-      CLASS(Sources_base) :: this
-      !------------------------------------------------------------------------!
-      INTENT(INOUT)     :: this
     END SUBROUTINE
     SUBROUTINE CalcTimestep_single(this,Mesh,Physics,Fluxes,pvar,cvar,time,dt)
       IMPORT Sources_base, Mesh_base, Physics_base, Fluxes_base, marray_compound
@@ -123,11 +113,11 @@ MODULE sources_base_mod
       CLASS(marray_compound),INTENT(INOUT):: pvar,cvar,sterm
     END SUBROUTINE
     SUBROUTINE Finalize(this)
-      Import sources_base
+      IMPORT sources_base
       IMPLICIT NONE
-      CLASS(sources_base), INTENT(INOUT) :: this
+      !------------------------------------------------------------------------!
+      CLASS(sources_base),INTENT(INOUT) :: this
     END SUBROUTINE
-
   END INTERFACE
   ! tempory storage for source terms
   CLASS(marray_compound), POINTER, SAVE :: temp_sterm => null()
@@ -264,34 +254,14 @@ CONTAINS
     END DO
   END FUNCTION GetSourcesPointer
 
-  SUBROUTINE CloseSources_all(this,Fluxes)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(sources_base), TARGET, INTENT(IN) :: this
-    CLASS(fluxes_base),          INTENT(IN) :: Fluxes
-    !------------------------------------------------------------------------!
-    CLASS(sources_base), POINTER            :: srcptr
-    !------------------------------------------------------------------------!
-    ! call deallocation procedures for all source terms
-    DO
-       srcptr => this
-       IF (.NOT.ASSOCIATED(srcptr)) EXIT
-       srcptr => srcptr%next
-       IF (.NOT.srcptr%Initialized()) &
-            CALL srcptr%Error("CloseSources","not initialized")
-!       CALL srcptr%Finalize()
-       DEALLOCATE(srcptr)
-    END DO
-  END SUBROUTINE CloseSources_all
-
   !> Destructor
   SUBROUTINE Finalize_base(this)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(sources_base) :: this
+    CLASS(sources_base), INTENT(INOUT) :: this
     !------------------------------------------------------------------------!
     IF (.NOT.this%Initialized()) &
-        CALL this%Error("CloseSources","not initialized")
+        CALL this%Error("sources_base::Finalize_base","not initialized")
 
     IF(ASSOCIATED(temp_sterm)) THEN
       IF (ASSOCIATED(temp_sterm%data1d)) CALL temp_sterm%Destroy()

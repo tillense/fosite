@@ -238,7 +238,7 @@ CONTAINS
     CALL this%centproj%Destroy()
     CALL this%cos1%Destroy()
 
-    CALL this%next%Finalize()
+    CALL this%sources_c_accel%Finalize()
   END SUBROUTINE Finalize
 
 END MODULE sources_rotframe_mod

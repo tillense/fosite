@@ -567,8 +567,6 @@ CONTAINS
     CALL this%bulkvis%Destroy()
     DEALLOCATE(this%dynvis,this%kinvis,this%bulkvis, &
                this%btxx,this%btyy,this%btzz,this%btxy,this%btxz,this%btyz)
-    CALL this%Finalize_base()
-    IF(ASSOCIATED(this%next)) CALL this%next%Finalize()
   END SUBROUTINE Finalize
 
 

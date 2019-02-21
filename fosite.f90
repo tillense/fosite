@@ -465,10 +465,8 @@ CONTAINS
     CALL this%Timedisc%Finalize()
     DEALLOCATE(this%Timedisc)
 
-    IF (ASSOCIATED(this%Sources)) THEN
-      CALL this%Sources%Finalize()
-      DEALLOCATE(this%Sources)
-    END IF
+    CALL Destroy_Sources(this%Sources)
+
     CALL this%Physics%Finalize()
     DEALLOCATE(this%Physics)
     CALL this%Fluxes%Finalize()
