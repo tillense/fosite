@@ -92,14 +92,16 @@ CONTAINS
     TYPE IS(physics_eulerisotherm)
       ! do nothing
     CLASS DEFAULT
-       CALL this%Error("ExternalSources_rotframe","physics not supported")
+       CALL this%Error("sources_rotframe::InitSources","physics not supported")
     END SELECT
 
+    IF (Mesh%FARGO.GT.0) &
+      CALL this%Error("sources_rotframe::InitSources", &
+         "rotating frame with FARGO seems broken, don't use it together")
 
-    IF (Physics%VDIM.NE.2) THEN
-      CALL this%Error("ExternalSources_rotframe", &
-      "Only 2D simulations working with rotating frame at the moment." )
-    END IF
+    IF (Physics%VDIM.NE.2) &
+      CALL this%Error("sources_rotframe::InitSources", &
+         "Only 2D simulations working with rotating frame at the moment." )
 
     this%accel = marray_base(Physics%VDIM)
     this%accel%data1d(:) = 0.
