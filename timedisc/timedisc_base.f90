@@ -1802,8 +1802,34 @@ CONTAINS
   END SUBROUTINE CalcBackgroundVelocity
 
 
+  !> Compute velocity leading to a centrifugal acceleration with
+  !! respect to some given axis of rotation which balances any
+  !! local radial acceleration. If the acceleration is not given
+  !! explicitly determine it from a complete evaluation of
+  !! of the right hand side of the transport problem.
+  !!
+  !! The algorithm follows these steps:
+  !!
+  !! 1. Get curvilinear components of the vectors pointing
+  !!    from the origin/center of rotation into each cell.
+  !! 2. Get curvilinear components of the vectors pointing
+  !!    from the axis of rotation perpendicular to that axis
+  !!    into each cell, i. e.
+  !!      \f[ \vec{R} = \vec{r} - (\hat{e}_\Omega\cdot\vec{r})\hat{e}_\Omega \f].
+  !!    and the components of the azimuthal unit vector in terms
+  !!    of the local orthnormal basis
+  !!      \f[ \hat{e}_\varphi = \hat{e}_\Omega \times \vec{r} / r \f]
+  !! 3. Determine the acceleration to balance.
+  !! 4. Compute absolute value of azimuthal velocity using the balance law
+  !!    \f[ \Omega^2 R\hat{e}_R = -\vec{a} \Leftrightarrow
+  !!        v_\varphi = \sqrt{\Omega^2 R^2} = \sqrt{-R \hat{e}_R\cdot\vec{a}} \f]
+  !! 5. Compute components of \f$ v_\varphi \hat{e}_\varphi \f$ with respect
+  !!    to the local orthonormal basis.
+  !!
+  !! \todo move code depending on physics into appropriate subroutines
+  !! in physics modules
   FUNCTION GetCentrifugalVelocity(this,Mesh,Physics,Fluxes,Sources,&
-                       dir_omega_,accel_,centrot) RESULT(velo)
+                       dir_omega_,accel_,centrot) RESULT(velocity)
     USE physics_euler_mod, ONLY: physics_euler
     USE physics_eulerisotherm_mod, ONLY: physics_eulerisotherm
     IMPLICIT NONE
@@ -1813,129 +1839,168 @@ CONTAINS
     CLASS(physics_base),  INTENT(INOUT) :: Physics
     CLASS(fluxes_base),   INTENT(INOUT) :: Fluxes
     CLASS(sources_base),  POINTER       :: Sources
-    REAL, DIMENSION(3),   INTENT(IN)    :: dir_omega_
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,3), OPTIONAL, &
-                          INTENT(IN)    :: accel_
-    REAL, DIMENSION(3), OPTIONAL, &
-                          INTENT(IN)    :: centrot
+    REAL, OPTIONAL,       INTENT(IN)    :: dir_omega_(3)
+    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VDIM), &
+                OPTIONAL, INTENT(IN)    :: accel_
+    REAL, OPTIONAL,       INTENT(IN)    :: centrot(3)
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VDIM) &
-                                        :: velo
+                                        :: velocity
     !------------------------------------------------------------------------!
-!     REAL               :: time
-    REAL, DIMENSION(3) :: dir_omega
-    REAL               :: omega2
-    INTEGER            :: k
-!     REAL               :: rotoemga
-    REAL,DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,3) &
-                       :: bccart, bcposvec,  accel
-    REAL,DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX) &
-                       :: tmp
+    CLASS(marray_base), ALLOCATABLE :: accel,dist_axis_projected,ephi_projected
+    REAL               :: omega2,dir_omega(3)
+    INTEGER            :: k,l,err
+    REAL,DIMENSION(:,:,:,:),ALLOCATABLE :: bccart, bcposvec, ephi
+    REAL,DIMENSION(:,:,:),ALLOCATABLE   :: tmp
     !------------------------------------------------------------------------!
-
-    IF(PRESENT(accel_)) THEN
-      accel = accel_
+    ALLOCATE(accel,dist_axis_projected,ephi_projected, &
+             bccart(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,3), &
+             bcposvec(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,3), &
+             ephi(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,3), &
+             tmp(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
+             STAT=err)
+    IF (err.NE.0) CALL this%Error("timedisc_base::GetCentrifugalVelocity", &
+                       "Unable to allocate memory.")
+    ! do some sanity checks on the input data
+    IF (PRESENT(dir_omega_)) THEN
+      dir_omega(:) = dir_omega_(:)
+      omega2 = SUM(dir_omega(:)*dir_omega(:))
+      ! omega must not be the zero vector
+      IF (.NOT. (omega2.GT.0.0)) &
+        CALL this%Error("timedisc_base::GetCentrifugalVelocity", &
+           "omega must not be the zero vector")
+      ! normalize dir_omega
+      dir_omega(:) = dir_omega(:) / SQRT(omega2)
     ELSE
-      ! Works only for centrot = 0
-      IF(PRESENT(centrot)) &
-        CALL this%Error("GetCentrifugalVelocity","You are not allowed to "&
-          //"define centrot without accel.")
-      ! This may not work for physics with unusual conservative variables.
-      ! We assume
-      !   conservative momentum = density * velocity
-      ! This is not true for the second component of physics with
-      ! angular momentum transport, but that component should be zero.
-      SELECT TYPE(Physics)
-      TYPE IS(physics_euler)
-        ! do nothing
-      TYPE IS(physics_eulerisotherm)
-        ! do nothing
-      CLASS DEFAULT
-        CALL this%Error("GetCentrifugalVelocity","It is unknown, if the "&
-          //"selected physics module works with this routine.")
-      END SELECT
-      CALL this%ComputeRHS(Mesh,Physics,Sources,Fluxes,this%time,0.0,this%pvar,this%cvar,this%checkdatabm,this%rhs)
-      ! HERE DEPENDEND ON Physics
-      DO k=Physics%XMOMENTUM,Physics%XMOMENTUM+Physics%VDIM-1
-        accel(:,:,:,k-Physics%XMOMENTUM+1) = -1. * this%rhs%data4d(:,:,:,k) &
-                                           / this%pvar%data4d(:,:,:,Physics%DENSITY)
-      END DO
+      ! default is rotation in a plane perpendicular to ê_z
+      dir_omega(1:3) = (/ 0.0, 0.0, 1.0 /)
     END IF
 
-    dir_omega = dir_omega_
-
-    ! be sure: |dir_omega| == 1
-    omega2 = SUM(dir_omega(:)*dir_omega(:))
-    ! omega must not be the zero vector
-    IF (omega2 .EQ. 0.0) &
-        CALL this%Error("GetCentrifugalVelocity", &
-           "omega must not be the zero vector")
-    ! norm must be one
-    IF (omega2 .NE. 1.0) dir_omega(:) = dir_omega(:) / SQRT(omega2)
-
-    IF ((Physics%VDIM .EQ. 2) .AND. &
-        ((dir_omega(1) .NE. 0.0) .OR. (dir_omega(2) .NE. 0.0))) &
-        CALL this%Error("GetCentrifugalVelocity", &
-           "the direction of omega should be (0,0,+-1) in case of two dimensions")
-
-
-    IF (present(centrot)) THEN
-      ! translate the position vector to the center of rotation
-      bccart(:,:,:,1) = Mesh%bccart(:,:,:,1) - centrot(1)
-      bccart(:,:,:,2) = Mesh%bccart(:,:,:,2) - centrot(2)
-
+    ! 1. Get the curvilinear components of all vectors pointing
+    ! from the center of rotation into each cell using cartesian
+    ! coordinates.
+    ! The cartesian coordinates are the components of the position
+    ! vector with respect to the cartesian standard orthonormal
+    ! basis {ê_x, ê_y, ê_z}.
+    IF (PRESENT(centrot)) THEN
+      IF ((Mesh%rotsym.GT.0.0).AND.ANY(centrot(:).NE.0.0)) &
+        CALL this%Error("timedisc_base::GetCentrifugalVelocity", &
+           "if rotational symmetry is enabled center of rotation must be the origin")
+      ! Translate the position vector to the center of rotation.
+      DO k=1,3
+        bccart(:,:,:,k) = Mesh%bccart(:,:,:,k) - centrot(k)
+      END DO
       ! compute curvilinear components of translated position vectors
       CALL Mesh%Geometry%Convert2Curvilinear(Mesh%bcenter,bccart,bcposvec)
     ELSE
+      ! default center of rotation is the origin of the mesh
+      ! -> use position vectors with respect to the origin
       bcposvec = Mesh%posvec%bcenter
     END IF
 
+    ! 2. Compute vectors pointing from axis of rotation into each cell
+    !    and the azimuthal unit vector
+    tmp(:,:,:) =  bcposvec(:,:,:,1)*dir_omega(1) &
+                + bcposvec(:,:,:,2)*dir_omega(2) &
+                + bcposvec(:,:,:,3)*dir_omega(3)
+    bcposvec(:,:,:,1) = bcposvec(:,:,:,1) - tmp(:,:,:)*dir_omega(1)
+    bcposvec(:,:,:,2) = bcposvec(:,:,:,2) - tmp(:,:,:)*dir_omega(2)
+    bcposvec(:,:,:,3) = bcposvec(:,:,:,3) - tmp(:,:,:)*dir_omega(3)
+    tmp(:,:,:) = SQRT(SUM(bcposvec(:,:,:,:)*bcposvec(:,:,:,:),DIM=4))
 
-    ! compute distance to axis of rotation (It is automatically fulfilled in 2D.)
-    IF (Physics%VDIM .GT. 2) THEN
-      tmp(:,:,:) =  bcposvec(:,:,:,1)*dir_omega(1) &
-                  + bcposvec(:,:,:,2)*dir_omega(2) &
-                  + bcposvec(:,:,:,3)*dir_omega(3)
-      bcposvec(:,:,:,1) = bcposvec(:,:,:,1) - tmp(:,:,:)*dir_omega(1)
-      bcposvec(:,:,:,2) = bcposvec(:,:,:,2) - tmp(:,:,:)*dir_omega(2)
-      bcposvec(:,:,:,3) = bcposvec(:,:,:,3) - tmp(:,:,:)*dir_omega(3)
+    CALL cross_product(dir_omega(1),dir_omega(2),dir_omega(3), &
+      bcposvec(:,:,:,1)/tmp(:,:,:),bcposvec(:,:,:,2)/tmp(:,:,:), &
+      bcposvec(:,:,:,3)/tmp(:,:,:),ephi(:,:,:,1),ephi(:,:,:,2),ephi(:,:,:,3))
+
+    ! project it onto the mesh
+    dist_axis_projected = marray_base(Physics%VDIM)
+    ephi_projected = marray_base(Physics%VDIM)
+    SELECT TYPE(phys => Physics)
+    CLASS IS(physics_eulerisotherm)
+      l = 1
+      DO k=1,3
+        IF (phys%vector_component_enabled(k)) THEN
+          IF (Mesh%rotsym.EQ.k) THEN
+            dist_axis_projected%data2d(:,l) = 0.0
+            ephi_projected%data2d(:,l) = 0.0
+          ELSE
+            dist_axis_projected%data4d(:,:,:,l) = bcposvec(:,:,:,k)
+            ephi_projected%data4d(:,:,:,l) = ephi(:,:,:,k)
+          END IF
+          l = l + 1
+        END IF
+      END DO
+    CLASS DEFAULT
+      CALL this%Error("timedisc_base::GetCentrifugalVelocity", &
+        "physics not supported")
+    END SELECT
+
+    ! 3. determine the acceleration
+    accel = marray_base(Physics%VDIM)
+    IF(PRESENT(accel_)) THEN
+      accel%data4d(:,:,:,:) = accel_(:,:,:,:)
+    ELSE
+      ! Works only for centrot = (0,0,0)
+      IF(PRESENT(centrot)) THEN
+        IF(ANY(centrot(:).NE.0.0)) &
+          CALL this%Error("timedisc_base::GetCentrifugalVelocity", &
+            "You are not allowed to define centrot without accel.")
+      END IF
+      ! This may not work for physics with unusual conservative variables.
+      ! We assume:  conservative momentum = density * velocity
+      ! sanity check if someone derives new physics from the euler modules
+      ! which does not have this property
+      SELECT TYPE(phys => Physics)
+      TYPE IS(physics_eulerisotherm)
+        ! supported -> do nothing
+      TYPE IS(physics_euler)
+        ! supported -> do nothing
+      CLASS DEFAULT
+        CALL this%Error("timedisc_base::GetCentrifugalVelocity", &
+          "physics not supported")
+      END SELECT
+      SELECT TYPE(phys => Physics)
+      CLASS IS(physics_eulerisotherm)
+        ! evaluate the right hand side for given (preliminary) initial data
+        CALL this%ComputeRHS(Mesh,phys,Sources,Fluxes,this%time,0.0, &
+                             this%pvar,this%cvar,this%checkdatabm,this%rhs)
+        SELECT TYPE(pvar => this%pvar)
+        CLASS IS(statevector_eulerisotherm)
+          SELECT TYPE(rhs => this%rhs)
+          CLASS IS(statevector_eulerisotherm)
+            DO k=1,phys%VDIM
+              accel%data2d(:,k) = -rhs%momentum%data2d(:,k) / pvar%density%data1d(:)
+            END DO
+          END SELECT
+        END SELECT
+      END SELECT
     END IF
 
-    ! compute omega = SQRT(-dot(g,r)/|r|**2)
-    tmp(:,:,:) = SQRT(MAX(0.0,-SUM(accel(:,:,:,1:3)*bcposvec(:,:,:,:),DIM=4))&
-                    / SUM(bcposvec(:,:,:,:)*bcposvec(:,:,:,:),DIM=4))
+    ! 4. compute absolute value of azimuthal velocity
+    tmp(:,:,:) = SQRT(MAX(0.0,-SUM(accel%data4d(:,:,:,:)*dist_axis_projected%data4d(:,:,:,:),DIM=4)))
 
-    ! v / |omega| = dir_omega x r
-    velo(:,:,:,:) = CROSS_PRODUCT(Mesh,Physics,dir_omega,bcposvec)
-    ! v = |omega| * dir_omega x r
+    ! 5. Compute components of the azimuthal velocity vector
     DO k=1,Physics%VDIM
-      velo(:,:,:,k) = tmp(:,:,:)*velo(:,:,:,k)
+      velocity(:,:,:,k) = tmp(:,:,:) * ephi_projected%data4d(:,:,:,k)
     END DO
 
+    CALL accel%Destroy()
+    CALL dist_axis_projected%Destroy()
+    CALL ephi_projected%Destroy()
+    DEALLOCATE(accel,dist_axis_projected,ephi_projected,bccart,bcposvec,ephi,tmp)
+
   CONTAINS
-    FUNCTION CROSS_PRODUCT(Mesh,Physics,a,b) RESULT(cp)
+
+    ELEMENTAL SUBROUTINE cross_product(ax,ay,az,bx,by,bz,aXbx,aXby,aXbz)
       IMPLICIT NONE
       !------------------------------------------------------------------------!
-      CLASS(mesh_base),    INTENT(IN)    :: Mesh
-      CLASS(physics_base), INTENT(IN) :: Physics
-      REAL, DIMENSION(3),  INTENT(IN) :: a
-      REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,3), &
-                           INTENT(IN) :: b
-      REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VDIM) &
-                                      :: cp
+      REAL, INTENT(IN)  :: ax,ay,az,bx,by,bz
+      REAL, INTENT(OUT) :: aXbx,aXby,aXbz
       !------------------------------------------------------------------------!
-      SELECT CASE(Physics%VDIM)
-      CASE (2) ! 2D
-        ! => a(1) = a(2) = 0 and a(3) = 1 or -1
-        cp(:,:,:,1) = - a(3)*b(:,:,:,2)
-        cp(:,:,:,2) = a(3)*b(:,:,:,1)
-      CASE (3) ! 3D
-        cp(:,:,:,1) = a(2)*b(:,:,:,3) - a(3)*b(:,:,:,2)
-        cp(:,:,:,2) = a(3)*b(:,:,:,1) - a(1)*b(:,:,:,3)
-        cp(:,:,:,3) = a(1)*b(:,:,:,2) - a(2)*b(:,:,:,1)
-      CASE DEFAULT
-        CALL Mesh%Error("timedisc_base::GetCentrifugalVelocity","only 2D/3D cross product possible")
-      END SELECT
-     END FUNCTION CROSS_PRODUCT
+      aXbx = ay*bz - az*by
+      aXby = az*bx - ax*bz
+      aXbz = ax*by - ay*bx
+    END SUBROUTINE cross_product
+
   END FUNCTION GetCentrifugalVelocity
 
   SUBROUTINE Finalize_base(this)
