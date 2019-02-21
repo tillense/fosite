@@ -162,7 +162,7 @@ MODULE physics_base_mod
     PROCEDURE (SubtractBackgroundVelocityY),  DEFERRED :: SubtractBackgroundVelocityY
     PROCEDURE (AddBackgroundVelocityZ),       DEFERRED :: AddBackgroundVelocityZ
     PROCEDURE (SubtractBackgroundVelocityZ),  DEFERRED :: SubtractBackgroundVelocityZ
-    PROCEDURE (FargoSources),                 DEFERRED :: FargoSources
+    PROCEDURE (AddFargoSources),              DEFERRED :: AddFargoSources
     !------Geometry Routines-------!
     PROCEDURE (GeometricalSources),           DEFERRED :: GeometricalSources
     PROCEDURE (Masks),                        DEFERRED :: ReflectionMasks
@@ -340,58 +340,52 @@ MODULE physics_base_mod
       CLASS(marray_compound), INTENT(INOUT) :: prim,cons,zfluxes
     END SUBROUTINE
     PURE SUBROUTINE AddBackgroundVelocityX(this,Mesh,w,pvar,cvar)
-      IMPORT physics_base,mesh_base
+      IMPORT physics_base,mesh_base,marray_compound
       CLASS(physics_base), INTENT(INOUT) :: this
       CLASS(mesh_base),    INTENT(IN)    :: Mesh
       REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%KGMIN:Mesh%KGMAX), &
                            INTENT(IN)    :: w
-      REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM+this%PNUM), &
-                           INTENT(INOUT) ::  pvar,cvar
+      CLASS(marray_compound), INTENT(INOUT) ::  pvar,cvar
     END SUBROUTINE AddBackgroundVelocityX
     PURE SUBROUTINE AddBackgroundVelocityY(this,Mesh,w,pvar,cvar)
-      IMPORT physics_base,mesh_base
+      IMPORT physics_base,mesh_base,marray_compound
       CLASS(physics_base), INTENT(INOUT) :: this
       CLASS(mesh_base),    INTENT(IN)    :: Mesh
       REAL, DIMENSION(Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
                            INTENT(IN)    :: w
-      REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM+this%PNUM), &
-                           INTENT(INOUT) ::  pvar,cvar
+      CLASS(marray_compound), INTENT(INOUT) ::  pvar,cvar
     END SUBROUTINE AddBackgroundVelocityY
     PURE SUBROUTINE AddBackgroundVelocityZ(this,Mesh,w,pvar,cvar)
-      IMPORT physics_base,mesh_base
+      IMPORT physics_base,mesh_base,marray_compound
       CLASS(physics_base), INTENT(INOUT) :: this
       CLASS(mesh_base),    INTENT(IN)    :: Mesh
       REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX), &
                            INTENT(IN)    :: w
-      REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM+this%PNUM), &
-                           INTENT(INOUT) ::  pvar,cvar
+      CLASS(marray_compound), INTENT(INOUT) ::  pvar,cvar
     END SUBROUTINE AddBackgroundVelocityZ
     PURE SUBROUTINE SubtractBackgroundVelocityX(this,Mesh,w,pvar,cvar)
-      IMPORT physics_base,mesh_base
+      IMPORT physics_base,mesh_base,marray_compound
       CLASS(physics_base), INTENT(INOUT) :: this
       CLASS(mesh_base),    INTENT(IN)    :: Mesh
       REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%KGMIN:Mesh%KGMAX), &
                            INTENT(IN)    :: w
-      REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM+this%PNUM), &
-                           INTENT(INOUT) ::  pvar,cvar
+      CLASS(marray_compound), INTENT(INOUT) ::  pvar,cvar
     END SUBROUTINE SubtractBackgroundVelocityX
     PURE SUBROUTINE SubtractBackgroundVelocityY(this,Mesh,w,pvar,cvar)
-      IMPORT physics_base,mesh_base
+      IMPORT physics_base,mesh_base,marray_compound
       CLASS(physics_base), INTENT(INOUT) :: this
       CLASS(mesh_base),    INTENT(IN)    :: Mesh
       REAL, DIMENSION(Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
                            INTENT(IN)    :: w
-      REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM+this%PNUM), &
-                           INTENT(INOUT) ::  pvar,cvar
+      CLASS(marray_compound), INTENT(INOUT) ::  pvar,cvar
     END SUBROUTINE SubtractBackgroundVelocityY
     PURE SUBROUTINE SubtractBackgroundVelocityZ(this,Mesh,w,pvar,cvar)
-      IMPORT physics_base,mesh_base
+      IMPORT physics_base,mesh_base,marray_compound
       CLASS(physics_base), INTENT(INOUT) :: this
       CLASS(mesh_base),    INTENT(IN)    :: Mesh
       REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX), &
                            INTENT(IN)    :: w
-      REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM+this%PNUM), &
-                           INTENT(INOUT) ::  pvar,cvar
+      CLASS(marray_compound), INTENT(INOUT) ::  pvar,cvar
     END SUBROUTINE SubtractBackgroundVelocityZ
     PURE SUBROUTINE GeometricalSources(this,Mesh,pvar,cvar,sterm)
       IMPORT physics_base,mesh_base,marray_compound
@@ -399,17 +393,14 @@ MODULE physics_base_mod
       CLASS(mesh_base),    INTENT(IN)    :: Mesh
       CLASS(marray_compound), INTENT(INOUT) :: pvar,cvar,sterm
     END SUBROUTINE
-    PURE SUBROUTINE FargoSources(this,Mesh,w,pvar,cvar,sterm)
-      IMPORT physics_base,mesh_base
+    PURE SUBROUTINE AddFargoSources(this,Mesh,w,pvar,cvar,sterm)
+      IMPORT physics_base,mesh_base,marray_compound
       CLASS(physics_base), INTENT(IN)    :: this
       CLASS(mesh_base),    INTENT(IN)    :: Mesh
       REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%KGMIN:Mesh%KGMAX), &
                            INTENT(IN)    :: w
-      REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM+this%PNUM), &
-                           INTENT(IN)    :: pvar,cvar
-      REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM+this%PNUM), &
-                           INTENT(INOUT) :: sterm
-    END SUBROUTINE FargoSources
+      CLASS(marray_compound), INTENT(INOUT) :: pvar,cvar,sterm
+    END SUBROUTINE AddFargoSources
     PURE SUBROUTINE Masks(this,Mesh,reflX,reflY,reflZ)
       IMPORT physics_base, mesh_base
       CLASS(physics_base),           INTENT(IN)  :: this

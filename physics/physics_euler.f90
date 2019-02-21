@@ -1609,27 +1609,32 @@ CONTAINS
     CLASS(mesh_base),       INTENT(IN)    :: Mesh
     REAL, DIMENSION(Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
                             INTENT(IN)    :: w
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM+this%PNUM), &
-                            INTENT(INOUT) ::  pvar,cvar
+    CLASS(marray_compound), INTENT(INOUT) ::  pvar,cvar
     !------------------------------------------------------------------------!
     INTEGER                               :: i,j,k
     !------------------------------------------------------------------------!
     IF (this%transformed_xvelocity) THEN
-      DO k=Mesh%KGMIN,Mesh%KGMAX
-        DO j=Mesh%JGMIN,Mesh%JGMAX
-          DO i=Mesh%IGMIN,Mesh%IGMAX
-             ! ATTENTION: don't change the order; on the RHS of the first
-             !            assignment there must be the old momentum
-             cvar(i,j,k,this%ENERGY) = cvar(i,j,k,this%ENERGY) &
-                                     + w(j,k)*(cvar(i,j,k,this%XMOMENTUM) &
-                                     + 0.5*cvar(i,j,k,this%DENSITY)*w(j,k))
-             pvar(i,j,k,this%XVELOCITY) = pvar(i,j,k,this%XVELOCITY) + w(j,k)
-             cvar(i,j,k,this%XMOMENTUM) = cvar(i,j,k,this%XMOMENTUM) &
-                                      + cvar(i,j,k,this%DENSITY)*w(j,k)
+      SELECT TYPE(p => pvar)
+      TYPE IS(statevector_euler)
+        SELECT TYPE(c => cvar)
+        TYPE IS(statevector_euler)
+          DO k=Mesh%KGMIN,Mesh%KGMAX
+            DO j=Mesh%JGMIN,Mesh%JGMAX
+              DO i=Mesh%IGMIN,Mesh%IGMAX
+                ! ATTENTION: don't change the order; on the RHS of the first
+                !            assignment there must be the old momentum
+                c%energy%data3d(i,j,k) = c%energy%data3d(i,j,k) &
+                    + w(j,k)*(c%momentum%data4d(i,j,k,1) &
+                    + 0.5*c%density%data3d(i,j,k)*w(j,k))
+                p%velocity%data4d(i,j,k,1) = p%velocity%data4d(i,j,k,1) + w(j,k)
+                c%momentum%data4d(i,j,k,1) = c%momentum%data4d(i,j,k,1) &
+                    + c%density%data3d(i,j,k)*w(j,k)
+              END DO
+            END DO
           END DO
-        END DO
-      END DO
-      this%transformed_xvelocity = .FALSE.
+          this%transformed_xvelocity = .FALSE.
+        END SELECT
+      END SELECT
     END IF
   END SUBROUTINE AddBackgroundVelocityX
 
@@ -1650,27 +1655,32 @@ CONTAINS
     CLASS(mesh_base),       INTENT(IN)    :: Mesh
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%KGMIN:Mesh%KGMAX), &
                             INTENT(IN)    :: w
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM+this%PNUM), &
-                            INTENT(INOUT) ::  pvar,cvar
+    CLASS(marray_compound), INTENT(INOUT) ::  pvar,cvar
     !------------------------------------------------------------------------!
     INTEGER                               :: i,j,k
     !------------------------------------------------------------------------!
     IF (this%transformed_yvelocity) THEN
-      DO k=Mesh%KGMIN,Mesh%KGMAX
-        DO j=Mesh%JGMIN,Mesh%JGMAX
-          DO i=Mesh%IGMIN,Mesh%IGMAX
-            ! ATTENTION: don't change the order; on the RHS of the first
-            !            assignment there must be the old momentum
-            cvar(i,j,k,this%ENERGY) = cvar(i,j,k,this%ENERGY) &
-                                  + w(i,k)*(cvar(i,j,k,this%YMOMENTUM) &
-                                  + 0.5*cvar(i,j,k,this%DENSITY)*w(i,k))
-            pvar(i,j,k,this%YVELOCITY) = pvar(i,j,k,this%YVELOCITY) + w(i,k)
-            cvar(i,j,k,this%YMOMENTUM) = cvar(i,j,k,this%YMOMENTUM) &
-                                     + cvar(i,j,k,this%DENSITY)*w(i,k)
+      SELECT TYPE(p => pvar)
+      TYPE IS(statevector_euler)
+        SELECT TYPE(c => cvar)
+        TYPE IS(statevector_euler)
+          DO k=Mesh%KGMIN,Mesh%KGMAX
+            DO j=Mesh%JGMIN,Mesh%JGMAX
+              DO i=Mesh%IGMIN,Mesh%IGMAX
+                ! ATTENTION: don't change the order; on the RHS of the first
+                !            assignment there must be the old momentum
+                c%energy%data3d(i,j,k) = c%energy%data3d(i,j,k) &
+                    + w(i,k)*(c%momentum%data4d(i,j,k,2) &
+                    + 0.5*c%density%data3d(i,j,k)*w(i,k))
+                p%velocity%data4d(i,j,k,2) = p%velocity%data4d(i,j,k,2) + w(i,k)
+                c%momentum%data4d(i,j,k,2) = c%momentum%data4d(i,j,k,2) &
+                    + c%density%data3d(i,j,k)*w(i,k)
+              END DO
+            END DO
           END DO
-        END DO
-      END DO
-      this%transformed_yvelocity = .FALSE.
+          this%transformed_yvelocity = .FALSE.
+        END SELECT
+      END SELECT
     END IF
   END SUBROUTINE AddBackgroundVelocityY
 
@@ -1691,27 +1701,32 @@ CONTAINS
     CLASS(mesh_base),       INTENT(IN)    :: Mesh
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX), &
                             INTENT(IN)    :: w
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM+this%PNUM), &
-                            INTENT(INOUT) ::  pvar,cvar
+    CLASS(marray_compound), INTENT(INOUT) ::  pvar,cvar
     !------------------------------------------------------------------------!
     INTEGER                               :: i,j,k
     !------------------------------------------------------------------------!
     IF (this%transformed_zvelocity) THEN
-      DO k=Mesh%KGMIN,Mesh%KGMAX
-        DO j=Mesh%JGMIN,Mesh%JGMAX
-          DO i=Mesh%IGMIN,Mesh%IGMAX
-            ! ATTENTION: don't change the order; on the RHS of the first
-            !            assignment there must be the old momentum
-            cvar(i,j,k,this%ENERGY) = cvar(i,j,k,this%ENERGY) &
-                                  + w(i,j)*(cvar(i,j,k,this%ZMOMENTUM) &
-                                  + 0.5*cvar(i,j,k,this%DENSITY)*w(i,j))
-            pvar(i,j,k,this%ZVELOCITY) = pvar(i,j,k,this%ZVELOCITY) + w(i,j)
-            cvar(i,j,k,this%ZMOMENTUM) = cvar(i,j,k,this%ZMOMENTUM) &
-                                     + cvar(i,j,k,this%DENSITY)*w(i,j)
+      SELECT TYPE(p => pvar)
+      TYPE IS(statevector_euler)
+        SELECT TYPE(c => cvar)
+        TYPE IS(statevector_euler)
+          DO k=Mesh%KGMIN,Mesh%KGMAX
+            DO j=Mesh%JGMIN,Mesh%JGMAX
+              DO i=Mesh%IGMIN,Mesh%IGMAX
+                ! ATTENTION: don't change the order; on the RHS of the first
+                !            assignment there must be the old momentum
+                c%energy%data3d(i,j,k) = c%energy%data3d(i,j,k) &
+                    + w(i,j)*(c%momentum%data4d(i,j,k,3) &
+                    + 0.5*c%density%data3d(i,j,k)*w(i,j))
+                p%velocity%data4d(i,j,k,3) = p%velocity%data4d(i,j,k,3) + w(i,j)
+                c%momentum%data4d(i,j,k,3) = c%momentum%data4d(i,j,k,3) &
+                    + c%density%data3d(i,j,k)*w(i,j)
+              END DO
+            END DO
           END DO
-        END DO
-      END DO
-      this%transformed_zvelocity = .FALSE.
+          this%transformed_zvelocity = .FALSE.
+        END SELECT
+      END SELECT
     END IF
   END SUBROUTINE AddBackgroundVelocityZ
 
@@ -1732,27 +1747,32 @@ CONTAINS
     CLASS(mesh_base),       INTENT(IN)    :: Mesh
     REAL,DIMENSION(Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
                             INTENT(IN)    :: w
-    REAL,DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM+this%PNUM), &
-                            INTENT(INOUT) :: pvar,cvar
+    CLASS(marray_compound), INTENT(INOUT) ::  pvar,cvar
     !------------------------------------------------------------------------!
     INTEGER :: i,j,k
     !------------------------------------------------------------------------!
     IF (.NOT.this%transformed_xvelocity) THEN
-      DO k=Mesh%KGMIN,Mesh%KGMAX
-        DO j=Mesh%JGMIN,Mesh%JGMAX
-          DO i=Mesh%IGMIN,Mesh%IGMAX
-            ! ATTENTION: don't change the order; on the RHS of the first
-            !            assignment there must be the old momentum
-            cvar(i,j,k,this%ENERGY) = cvar(i,j,k,this%ENERGY) &
-                                  - w(j,k)*(cvar(i,j,k,this%XMOMENTUM) &
-                                  - 0.5*cvar(i,j,k,this%DENSITY)*w(j,k))
-            pvar(i,j,k,this%XVELOCITY) = pvar(i,j,k,this%XVELOCITY) - w(j,k)
-            cvar(i,j,k,this%XMOMENTUM) = cvar(i,j,k,this%XMOMENTUM) &
-                                     - cvar(i,j,k,this%DENSITY)*w(j,k)
+      SELECT TYPE(p => pvar)
+      TYPE IS(statevector_euler)
+        SELECT TYPE(c => cvar)
+        TYPE IS(statevector_euler)
+          DO k=Mesh%KGMIN,Mesh%KGMAX
+            DO j=Mesh%JGMIN,Mesh%JGMAX
+              DO i=Mesh%IGMIN,Mesh%IGMAX
+                ! ATTENTION: don't change the order; on the RHS of the first
+                !            assignment there must be the old momentum
+                c%energy%data3d(i,j,k) = c%energy%data3d(i,j,k) &
+                    - w(j,k)*(c%momentum%data4d(i,j,k,1) &
+                    - 0.5*c%density%data3d(i,j,k)*w(j,k))
+                p%velocity%data4d(i,j,k,1) = p%velocity%data4d(i,j,k,1) - w(j,k)
+                c%momentum%data4d(i,j,k,1) = c%momentum%data4d(i,j,k,1) &
+                    - c%density%data3d(i,j,k)*w(j,k)
+              END DO
+            END DO
           END DO
-        END DO
-      END DO
-      this%transformed_xvelocity = .TRUE.
+          this%transformed_xvelocity = .TRUE.
+        END SELECT
+      END SELECT
     END IF
   END SUBROUTINE SubtractBackgroundVelocityX
 
@@ -1773,27 +1793,32 @@ CONTAINS
     CLASS(mesh_base),       INTENT(IN)    :: Mesh
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%KGMIN:Mesh%KGMAX), &
                             INTENT(IN)    :: w
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM+this%PNUM), &
-                            INTENT(INOUT) :: pvar,cvar
+    CLASS(marray_compound), INTENT(INOUT) ::  pvar,cvar
     !------------------------------------------------------------------------!
     INTEGER                               :: i,j,k
     !------------------------------------------------------------------------!
     IF (.NOT.this%transformed_yvelocity) THEN
-      DO k=Mesh%KGMIN,Mesh%KGMAX
-        DO j=Mesh%JGMIN,Mesh%JGMAX
-          DO i=Mesh%IGMIN,Mesh%IGMAX
-            ! ATTENTION: don't change the order; on the RHS of the first
-            !            assignment there must be the old momentum
-            cvar(i,j,k,this%ENERGY) = cvar(i,j,k,this%ENERGY) &
-                                  - w(i,k)*(cvar(i,j,k,this%YMOMENTUM) &
-                                  - 0.5*cvar(i,j,k,this%DENSITY)*w(i,k))
-            pvar(i,j,k,this%YVELOCITY) = pvar(i,j,k,this%YVELOCITY) - w(i,k)
-            cvar(i,j,k,this%YMOMENTUM) = cvar(i,j,k,this%YMOMENTUM) &
-                                     - cvar(i,j,k,this%DENSITY)*w(i,k)
+      SELECT TYPE(p => pvar)
+      TYPE IS(statevector_euler)
+        SELECT TYPE(c => cvar)
+        TYPE IS(statevector_euler)
+          DO k=Mesh%KGMIN,Mesh%KGMAX
+            DO j=Mesh%JGMIN,Mesh%JGMAX
+              DO i=Mesh%IGMIN,Mesh%IGMAX
+                ! ATTENTION: don't change the order; on the RHS of the first
+                !            assignment there must be the old momentum
+                c%energy%data3d(i,j,k) = c%energy%data3d(i,j,k) &
+                    - w(i,k)*(c%momentum%data4d(i,j,k,2) &
+                    - 0.5*c%density%data3d(i,j,k)*w(i,k))
+                p%velocity%data4d(i,j,k,2) = p%velocity%data4d(i,j,k,2) - w(i,k)
+                c%momentum%data4d(i,j,k,2) = c%momentum%data4d(i,j,k,2) &
+                    - c%density%data3d(i,j,k)*w(i,k)
+              END DO
+            END DO
           END DO
-        END DO
-      END DO
-      this%transformed_yvelocity = .TRUE.
+          this%transformed_yvelocity = .TRUE.
+        END SELECT
+      END SELECT
     END IF
   END SUBROUTINE SubtractBackgroundVelocityY
 
@@ -1814,27 +1839,32 @@ CONTAINS
     CLASS(mesh_base),       INTENT(IN)    :: Mesh
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX), &
                             INTENT(IN)    :: w
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM+this%PNUM), &
-                            INTENT(INOUT) :: pvar,cvar
+    CLASS(marray_compound), INTENT(INOUT) ::  pvar,cvar
     !------------------------------------------------------------------------!
     INTEGER                               :: i,j,k
     !------------------------------------------------------------------------!
     IF (.NOT.this%transformed_zvelocity) THEN
-      DO k=Mesh%KGMIN,Mesh%KGMAX
-        DO j=Mesh%JGMIN,Mesh%JGMAX
-          DO i=Mesh%IGMIN,Mesh%IGMAX
-            ! ATTENTION: don't change the order; on the RHS of the first
-            !            assignment there must be the old momentum
-            cvar(i,j,k,this%ENERGY) = cvar(i,j,k,this%ENERGY) &
-                                  - w(i,j)*(cvar(i,j,k,this%ZMOMENTUM) &
-                                  - 0.5*cvar(i,j,k,this%DENSITY)*w(i,j))
-            pvar(i,j,k,this%ZVELOCITY) = pvar(i,j,k,this%ZVELOCITY) - w(i,j)
-            cvar(i,j,k,this%ZMOMENTUM) = cvar(i,j,k,this%ZMOMENTUM) &
-                                     - cvar(i,j,k,this%DENSITY)*w(i,j)
+      SELECT TYPE(p => pvar)
+      TYPE IS(statevector_euler)
+        SELECT TYPE(c => cvar)
+        TYPE IS(statevector_euler)
+          DO k=Mesh%KGMIN,Mesh%KGMAX
+            DO j=Mesh%JGMIN,Mesh%JGMAX
+              DO i=Mesh%IGMIN,Mesh%IGMAX
+                ! ATTENTION: don't change the order; on the RHS of the first
+                !            assignment there must be the old momentum
+                c%energy%data3d(i,j,k) = c%energy%data3d(i,j,k) &
+                    - w(i,j)*(c%momentum%data4d(i,j,k,3) &
+                    - 0.5*c%density%data3d(i,j,k)*w(i,j))
+                p%velocity%data4d(i,j,k,3) = p%velocity%data4d(i,j,k,3) - w(i,j)
+                c%momentum%data4d(i,j,k,3) = c%momentum%data4d(i,j,k,3) &
+                    - c%density%data3d(i,j,k)*w(i,j)
+              END DO
+            END DO
           END DO
-        END DO
-      END DO
-      this%transformed_zvelocity = .TRUE.
+          this%transformed_zvelocity = .TRUE.
+        END SELECT
+      END SELECT
     END IF
   END SUBROUTINE SubtractBackgroundVelocityZ
 

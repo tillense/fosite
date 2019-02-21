@@ -98,7 +98,7 @@ MODULE physics_eulerisotherm_mod
     PROCEDURE :: SubtractBackgroundVelocityX
     PROCEDURE :: SubtractBackgroundVelocityY
     PROCEDURE :: SubtractBackgroundVelocityZ
-    PROCEDURE :: FargoSources
+    PROCEDURE :: AddFargoSources
 
     PROCEDURE :: GeometricalSources
     PROCEDURE :: ExternalSources
@@ -1257,21 +1257,27 @@ CONTAINS
     !------------------------------------------------------------------------!
     REAL,DIMENSION(Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
                               INTENT(IN)    :: w
-    REAL,DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM+this%PNUM), &
-                              INTENT(INOUT) :: pvar,cvar
+    CLASS(marray_compound), INTENT(INOUT) ::  pvar,cvar
     !------------------------------------------------------------------------!
     INTEGER              :: i,j,k
     !------------------------------------------------------------------------!
     IF (this%transformed_xvelocity) THEN
-      DO k=Mesh%KGMIN,Mesh%KGMAX
-        DO j=Mesh%JGMIN,Mesh%JGMAX
-          DO i=Mesh%IGMIN,Mesh%IGMAX
-             pvar(i,j,k,this%XVELOCITY) = pvar(i,j,k,this%XVELOCITY) + w(j,k)
-             cvar(i,j,k,this%XMOMENTUM) = cvar(i,j,k,this%XMOMENTUM) &
-                                      + cvar(i,j,k,this%DENSITY)*w(j,k)
+      SELECT TYPE(p => pvar)
+      TYPE IS(statevector_eulerisotherm)
+        SELECT TYPE(c => cvar)
+        TYPE IS(statevector_eulerisotherm)
+          DO k=Mesh%KGMIN,Mesh%KGMAX
+            DO j=Mesh%JGMIN,Mesh%JGMAX
+              DO i=Mesh%IGMIN,Mesh%IGMAX
+                p%velocity%data4d(i,j,k,1) = p%velocity%data4d(i,j,k,1) + w(j,k)
+                c%momentum%data4d(i,j,k,1) = c%momentum%data4d(i,j,k,1) &
+                    + c%density%data3d(i,j,k)*w(j,k)
+              END DO
+            END DO
           END DO
-        END DO
-      END DO
+          this%transformed_xvelocity = .FALSE.
+        END SELECT
+      END SELECT
       this%transformed_xvelocity = .FALSE.
     END IF
   END SUBROUTINE AddBackgroundVelocityX
@@ -1284,22 +1290,27 @@ CONTAINS
     !------------------------------------------------------------------------!
     REAL,DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%KGMIN:Mesh%KGMAX), &
                               INTENT(IN)    :: w
-    REAL,DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM+this%PNUM), &
-                              INTENT(INOUT) :: pvar,cvar
+    CLASS(marray_compound), INTENT(INOUT) ::  pvar,cvar
     !------------------------------------------------------------------------!
     INTEGER              :: i,j,k
     !------------------------------------------------------------------------!
     IF (this%transformed_yvelocity) THEN
-      DO k=Mesh%KGMIN,Mesh%KGMAX
-        DO j=Mesh%JGMIN,Mesh%JGMAX
-          DO i=Mesh%IGMIN,Mesh%IGMAX
-             pvar(i,j,k,this%YVELOCITY) = pvar(i,j,k,this%YVELOCITY) + w(i,k)
-             cvar(i,j,k,this%YMOMENTUM) = cvar(i,j,k,this%YMOMENTUM) &
-                                      + cvar(i,j,k,this%DENSITY)*w(i,k)
+      SELECT TYPE(p => pvar)
+      TYPE IS(statevector_eulerisotherm)
+        SELECT TYPE(c => cvar)
+        TYPE IS(statevector_eulerisotherm)
+          DO k=Mesh%KGMIN,Mesh%KGMAX
+            DO j=Mesh%JGMIN,Mesh%JGMAX
+              DO i=Mesh%IGMIN,Mesh%IGMAX
+                p%velocity%data4d(i,j,k,2) = p%velocity%data4d(i,j,k,2) + w(i,k)
+                c%momentum%data4d(i,j,k,2) = c%momentum%data4d(i,j,k,2) &
+                    + c%density%data3d(i,j,k)*w(i,k)
+              END DO
+            END DO
           END DO
-        END DO
-      END DO
-      this%transformed_yvelocity = .FALSE.
+          this%transformed_yvelocity = .FALSE.
+        END SELECT
+      END SELECT
     END IF
   END SUBROUTINE AddBackgroundVelocityY
 
@@ -1311,22 +1322,27 @@ CONTAINS
     !------------------------------------------------------------------------!
     REAL,DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX), &
                               INTENT(IN)    :: w
-    REAL,DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM+this%PNUM), &
-                              INTENT(INOUT) :: pvar,cvar
+    CLASS(marray_compound), INTENT(INOUT) ::  pvar,cvar
     !------------------------------------------------------------------------!
     INTEGER              :: i,j,k
     !------------------------------------------------------------------------!
     IF (this%transformed_zvelocity) THEN
-      DO k=Mesh%KGMIN,Mesh%KGMAX
-        DO j=Mesh%JGMIN,Mesh%JGMAX
-          DO i=Mesh%IGMIN,Mesh%IGMAX
-             pvar(i,j,k,this%ZVELOCITY) = pvar(i,j,k,this%ZVELOCITY) + w(i,j)
-             cvar(i,j,k,this%ZMOMENTUM) = cvar(i,j,k,this%ZMOMENTUM) &
-                                      + cvar(i,j,k,this%DENSITY)*w(i,j)
+      SELECT TYPE(p => pvar)
+      TYPE IS(statevector_eulerisotherm)
+        SELECT TYPE(c => cvar)
+        TYPE IS(statevector_eulerisotherm)
+          DO k=Mesh%KGMIN,Mesh%KGMAX
+            DO j=Mesh%JGMIN,Mesh%JGMAX
+              DO i=Mesh%IGMIN,Mesh%IGMAX
+                p%velocity%data4d(i,j,k,3) = p%velocity%data4d(i,j,k,3) + w(i,j)
+                c%momentum%data4d(i,j,k,3) = c%momentum%data4d(i,j,k,3) &
+                    + c%density%data3d(i,j,k)*w(i,j)
+              END DO
+            END DO
           END DO
-        END DO
-      END DO
-      this%transformed_zvelocity = .FALSE.
+          this%transformed_zvelocity = .FALSE.
+        END SELECT
+      END SELECT
     END IF
   END SUBROUTINE AddBackgroundVelocityZ
 
@@ -1338,22 +1354,27 @@ CONTAINS
     !------------------------------------------------------------------------!
     REAL,DIMENSION(Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
                               INTENT(IN)    :: w
-    REAL,DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM+this%PNUM), &
-                              INTENT(INOUT) :: pvar,cvar
+    CLASS(marray_compound), INTENT(INOUT) ::  pvar,cvar
     !------------------------------------------------------------------------!
     INTEGER              :: i,j,k
     !------------------------------------------------------------------------!
     IF (.NOT.this%transformed_xvelocity) THEN
-      DO k=Mesh%KGMIN,Mesh%KGMAX
-        DO j=Mesh%JGMIN,Mesh%JGMAX
-          DO i=Mesh%IGMIN,Mesh%IGMAX
-            pvar(i,j,k,this%XVELOCITY) = pvar(i,j,k,this%XVELOCITY) - w(j,k)
-            cvar(i,j,k,this%XMOMENTUM) = cvar(i,j,k,this%XMOMENTUM) &
-                                     - cvar(i,j,k,this%DENSITY)*w(j,k)
+      SELECT TYPE(p => pvar)
+      TYPE IS(statevector_eulerisotherm)
+        SELECT TYPE(c => cvar)
+        TYPE IS(statevector_eulerisotherm)
+          DO k=Mesh%KGMIN,Mesh%KGMAX
+            DO j=Mesh%JGMIN,Mesh%JGMAX
+              DO i=Mesh%IGMIN,Mesh%IGMAX
+                p%velocity%data4d(i,j,k,1) = p%velocity%data4d(i,j,k,1) - w(j,k)
+                c%momentum%data4d(i,j,k,1) = c%momentum%data4d(i,j,k,1) &
+                    - c%density%data3d(i,j,k)*w(j,k)
+              END DO
+            END DO
           END DO
-        END DO
-      END DO
-      this%transformed_xvelocity = .TRUE.
+          this%transformed_xvelocity = .TRUE.
+        END SELECT
+      END SELECT
     END IF
   END SUBROUTINE SubtractBackgroundVelocityX
 
@@ -1365,22 +1386,27 @@ CONTAINS
     !------------------------------------------------------------------------!
     REAL,DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%KGMIN:Mesh%KGMAX), &
                               INTENT(IN)    :: w
-    REAL,DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM+this%PNUM), &
-                              INTENT(INOUT) :: pvar,cvar
+    CLASS(marray_compound), INTENT(INOUT) ::  pvar,cvar
     !------------------------------------------------------------------------!
     INTEGER              :: i,j,k
     !------------------------------------------------------------------------!
     IF (.NOT.this%transformed_yvelocity) THEN
-      DO k=Mesh%KGMIN,Mesh%KGMAX
-        DO j=Mesh%JGMIN,Mesh%JGMAX
-          DO i=Mesh%IGMIN,Mesh%IGMAX
-            pvar(i,j,k,this%YVELOCITY) = pvar(i,j,k,this%YVELOCITY) - w(i,k)
-            cvar(i,j,k,this%YMOMENTUM) = cvar(i,j,k,this%YMOMENTUM) &
-                                     - cvar(i,j,k,this%DENSITY)*w(i,k)
+      SELECT TYPE(p => pvar)
+      TYPE IS(statevector_eulerisotherm)
+        SELECT TYPE(c => cvar)
+        TYPE IS(statevector_eulerisotherm)
+          DO k=Mesh%KGMIN,Mesh%KGMAX
+            DO j=Mesh%JGMIN,Mesh%JGMAX
+              DO i=Mesh%IGMIN,Mesh%IGMAX
+                p%velocity%data4d(i,j,k,2) = p%velocity%data4d(i,j,k,2) - w(i,k)
+                c%momentum%data4d(i,j,k,2) = c%momentum%data4d(i,j,k,2) &
+                    - c%density%data3d(i,j,k)*w(i,k)
+              END DO
+            END DO
           END DO
-        END DO
-      END DO
-      this%transformed_yvelocity = .TRUE.
+          this%transformed_yvelocity = .TRUE.
+        END SELECT
+      END SELECT
     END IF
   END SUBROUTINE SubtractBackgroundVelocityY
 
@@ -1392,22 +1418,27 @@ CONTAINS
     !------------------------------------------------------------------------!
     REAL,DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX), &
                               INTENT(IN)    :: w
-    REAL,DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM+this%PNUM), &
-                              INTENT(INOUT) :: pvar,cvar
+    CLASS(marray_compound), INTENT(INOUT) ::  pvar,cvar
     !------------------------------------------------------------------------!
     INTEGER              :: i,j,k
     !------------------------------------------------------------------------!
     IF (.NOT.this%transformed_zvelocity) THEN
-      DO k=Mesh%KGMIN,Mesh%KGMAX
-        DO j=Mesh%JGMIN,Mesh%JGMAX
-          DO i=Mesh%IGMIN,Mesh%IGMAX
-            pvar(i,j,k,this%ZVELOCITY) = pvar(i,j,k,this%ZVELOCITY) - w(j,k)
-            cvar(i,j,k,this%ZMOMENTUM) = cvar(i,j,k,this%ZMOMENTUM) &
-                                     - cvar(i,j,k,this%DENSITY)*w(j,k)
+      SELECT TYPE(p => pvar)
+      TYPE IS(statevector_eulerisotherm)
+        SELECT TYPE(c => cvar)
+        TYPE IS(statevector_eulerisotherm)
+          DO k=Mesh%KGMIN,Mesh%KGMAX
+            DO j=Mesh%JGMIN,Mesh%JGMAX
+              DO i=Mesh%IGMIN,Mesh%IGMAX
+                p%velocity%data4d(i,j,k,3) = p%velocity%data4d(i,j,k,3) - w(i,j)
+                c%momentum%data4d(i,j,k,3) = c%momentum%data4d(i,j,k,3) &
+                    - c%density%data3d(i,j,k)*w(i,j)
+              END DO
+            END DO
           END DO
-        END DO
-      END DO
-      this%transformed_zvelocity = .TRUE.
+          this%transformed_zvelocity = .TRUE.
+        END SELECT
+      END SELECT
     END IF
   END SUBROUTINE SubtractBackgroundVelocityZ
 
@@ -1423,31 +1454,36 @@ CONTAINS
   !!     S_\mathrm{Fargo} = -\varrho u_\xi \frac{1}{h_\xi} \partial_\xi \left(h_\xi w\right)
   !!                      = -\varrho u_\xi w \,\partial_\xi \left(\ln{|h_\xi w|}\right)
   !! \f]
-  PURE SUBROUTINE FargoSources(this,Mesh,w,pvar,cvar,sterm)
+  PURE SUBROUTINE AddFargoSources(this,Mesh,w,pvar,cvar,sterm)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(physics_eulerisotherm), INTENT(IN)    :: this
-    CLASS(mesh_base),         INTENT(IN)    :: Mesh
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%KGMIN:Mesh%KGMAX), &
-                              INTENT(IN)    :: w
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM+this%PNUM), &
-                              INTENT(IN)    :: pvar,cvar
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM+this%PNUM), &
-                              INTENT(INOUT) :: sterm
+    CLASS(physics_eulerisotherm), INTENT(IN) :: this
+    CLASS(mesh_base), INTENT(IN)             :: Mesh
+    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%KGMIN:Mesh%KGMAX), INTENT(IN) &
+                                             :: w
+    CLASS(marray_compound), INTENT(INOUT)    :: pvar,cvar,sterm
     !------------------------------------------------------------------------!
     INTEGER           :: i,j,k
     !------------------------------------------------------------------------!
-    DO k=Mesh%KMIN,Mesh%KMAX
-      DO j=Mesh%JMIN,Mesh%JMAX
-        DO i=Mesh%IMIN,Mesh%IMAX
+    SELECT TYPE(c => cvar)
+    CLASS IS(statevector_eulerisotherm)
+      SELECT TYPE(s => sterm)
+      CLASS IS(statevector_eulerisotherm)
+        DO k=Mesh%KMIN,Mesh%KMAX
+          DO j=Mesh%JMIN,Mesh%JMAX
+            DO i=Mesh%IMIN,Mesh%IMAX
 !            sterm(i,j,this%XMOMENTUM) = cvar(i,j,this%YMOMENTUM) * w(i) &
 !                   * Mesh%cyxy%bcenter(i,j)
-           sterm(i,j,k,this%YMOMENTUM) = -cvar(i,j,k,this%XMOMENTUM) &
-                  * 0.5 * (w(i+1,k)-w(i-1,k)) / Mesh%dlx%data3d(i,j,k)
+              ! ATTENTION: fargo sources are added to the given sterm
+              s%momentum%data4d(i,j,k,1) = s%momentum%data4d(i,j,k,1) &
+                - c%momentum%data4d(i,j,k,1) * 0.5 * (w(i+1,k)-w(i-1,k)) &
+                / Mesh%dlx%data3d(i,j,k)
+            END DO
+          END DO
         END DO
-      END DO
-    END DO
-  END SUBROUTINE FargoSources
+      END SELECT
+    END SELECT
+  END SUBROUTINE AddFargoSources
 
   !> return masks for reflecting boundaries
   !!

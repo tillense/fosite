@@ -130,7 +130,6 @@ PRIVATE
      REAL, DIMENSION(:,:), POINTER     :: buf=>null()     !< fargo MPI buffer
      REAL, DIMENSION(:,:), POINTER     :: w=>null()       !< fargo background velocity
      REAL, DIMENSION(:,:), POINTER     :: delxy =>null()  !< fargo residual shift
-     REAL, DIMENSION(:,:,:,:), POINTER :: fargo_src =>null() !< fargo source terms
 
   CONTAINS
 
@@ -368,7 +367,6 @@ CONTAINS
                      this%w(Mesh%IGMIN:Mesh%IGMAX,Mesh%KGMIN:Mesh%KGMAX), &
                      this%delxy(Mesh%IGMIN:Mesh%IGMAX,Mesh%KGMIN:Mesh%KGMAX), &
                      this%shift(Mesh%IGMIN:Mesh%IGMAX,Mesh%KGMIN:Mesh%KGMAX), &
-                     this%fargo_src(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM+Physics%PNUM), &
 #ifdef PARALLEL
                      this%buf(Physics%VNUM+Physics%PNUM,1:Mesh%MINJNUM), & !!! NOT CHANGED, because not clear were used !
 #endif
@@ -376,7 +374,6 @@ CONTAINS
             IF (err.NE.0) THEN
                CALL this%Error("InitTimedisc", "Unable to allocate memory for fargo advection.")
             END IF
-            this%fargo_src(:,:,:,:) = 0.0
 
          TYPE IS(geometry_logcylindrical)
             IF (Mesh%JNUM.LT.2) CALL this%Error("InitTimedisc", &
@@ -386,7 +383,6 @@ CONTAINS
                      this%w(Mesh%IGMIN:Mesh%IGMAX,Mesh%KGMIN:Mesh%KGMAX), &
                      this%delxy(Mesh%IGMIN:Mesh%IGMAX,Mesh%KGMIN:Mesh%KGMAX), &
                      this%shift(Mesh%IGMIN:Mesh%IGMAX,Mesh%KGMIN:Mesh%KGMAX), &
-                     this%fargo_src(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM+Physics%PNUM), &
 #ifdef PARALLEL
                      this%buf(Physics%VNUM+Physics%PNUM,1:Mesh%MINJNUM), & !!! NOT CHANGED, because not clear were used !
 #endif
@@ -394,7 +390,6 @@ CONTAINS
             IF (err.NE.0) THEN
                CALL this%Error("InitTimedisc", "Unable to allocate memory for fargo advection.")
             END IF
-            this%fargo_src(:,:,:,:) = 0.0
          TYPE IS(geometry_cartesian) ! in cartesian fargo shift can be chosen in either x- or y-direction
             IF(Mesh%shear_dir.EQ.2) THEN
                ALLOCATE( &
@@ -648,9 +643,9 @@ CONTAINS
     ! transform to selenoidal velocities if fargo is enabled
     IF (Mesh%FARGO.GT.0) THEN
        IF (Mesh%shear_dir.EQ.1.AND.Mesh%FARGO.EQ.3) THEN
-          CALL Physics%SubtractBackgroundVelocityX(Mesh,this%w,this%pvar%data4d,this%cvar%data4d)
+          CALL Physics%SubtractBackgroundVelocityX(Mesh,this%w,this%pvar,this%cvar)
        ELSE
-          CALL Physics%SubtractBackgroundVelocityY(Mesh,this%w,this%pvar%data4d,this%cvar%data4d)
+          CALL Physics%SubtractBackgroundVelocityY(Mesh,this%w,this%pvar,this%cvar)
        END IF
     END IF
 
@@ -1021,16 +1016,16 @@ CONTAINS
     CASE(1,2)
         ! transform to real velocity, i.e. v_residual + w_background,
         ! before setting the boundary conditions
-        CALL Physics%AddBackgroundVelocityY(Mesh,this%w,pvar%data4d,cvar%data4d)
+        CALL Physics%AddBackgroundVelocityY(Mesh,this%w,pvar,cvar)
     CASE(3)
         ! boundary conditions are set for residual velocity in shearing box simulations
         ! usually it's not necessary to subtract the background velocity here, but
         ! in case someone adds it before, we subtract it here; the  subroutine checks,
         ! if the velocities have already been transformed
         IF (Mesh%shear_dir.EQ.1) THEN
-          CALL Physics%SubtractBackgroundVelocityX(Mesh,this%w,pvar%data4d,cvar%data4d)
+          CALL Physics%SubtractBackgroundVelocityX(Mesh,this%w,pvar,cvar)
         ELSE IF (Mesh%shear_dir.EQ.2) THEN
-          CALL Physics%SubtractBackgroundVelocityY(Mesh,this%w,pvar%data4d,cvar%data4d)
+          CALL Physics%SubtractBackgroundVelocityY(Mesh,this%w,pvar,cvar)
         END IF
         ! ATTENTION: the time must be the initial time of the whole time step
         !            not the time of a substep
@@ -1100,12 +1095,10 @@ CONTAINS
     ! carried out with residual velocity
     SELECT CASE(Mesh%FARGO)
     CASE(1,2)
-        ! compute fargo source terms
-        CALL Physics%FargoSources(Mesh,this%w,pvar%data4d,cvar%data4d,this%fargo_src)
-        ! add them to the geometrical source terms
-        this%geo_src%data4d(:,:,:,:) = this%geo_src%data4d(:,:,:,:) + this%fargo_src(:,:,:,:)
+        ! add fargo source terms to geometrical source terms
+        CALL Physics%AddFargoSources(Mesh,this%w,pvar,cvar,this%geo_src)
         ! subtract background velocity
-        CALL Physics%SubtractBackgroundVelocityY(Mesh,this%w,pvar%data4d,cvar%data4d)
+        CALL Physics%SubtractBackgroundVelocityY(Mesh,this%w,pvar,cvar)
     CASE(3)
         ! background velocity field has already been subtracted (do nothing);
         ! fargo specific source terms are handled in the shearing box source
@@ -1770,8 +1763,7 @@ CONTAINS
     CLASS(timedisc_base), INTENT(INOUT) :: this
     CLASS(mesh_base),     INTENT(IN)    :: Mesh
     CLASS(physics_base),  INTENT(INOUT) :: Physics
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM+Physics%PNUM), &
-                          INTENT(INOUT) :: pvar,cvar
+    CLASS(marray_compound), INTENT(INOUT) :: pvar,cvar
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%KGMIN:Mesh%KGMAX), &
                           INTENT(OUT)   :: w
     !------------------------------------------------------------------------!
@@ -1783,22 +1775,25 @@ CONTAINS
     !------------------------------------------------------------------------!
     ! make sure we are using true, i.e. non-selenoidal, quantities
     CALL Physics%AddBackgroundVelocityY(Mesh,w,pvar,cvar)
-    DO k=Mesh%KGMIN,Mesh%KGMAX
-      DO i=Mesh%IGMIN,Mesh%IGMAX
-        ! some up all yvelocities along the y-direction
-        wi = SUM(this%pvar%data4d(i,Mesh%JMIN:Mesh%JMAX,k,Physics%YVELOCITY))
+    SELECT TYPE(p => pvar)
+    CLASS IS(statevector_eulerisotherm)
+      DO k=Mesh%KGMIN,Mesh%KGMAX
+        DO i=Mesh%IGMIN,Mesh%IGMAX
+          ! some up all yvelocities along the y-direction
+          wi = SUM(p%velocity%data4d(i,Mesh%JMIN:Mesh%JMAX,k,2))
 #ifdef PARALLEL
-        ! extend the sum over all partitions
-        IF(Mesh%dims(2).GT.1) THEN
-           CALL MPI_AllReduce(MPI_IN_PLACE, wi, 1, DEFAULT_MPI_REAL, MPI_SUM, &
-                              Mesh%Jcomm, ierror)
-        END IF
+          ! extend the sum over all partitions
+          IF(Mesh%dims(2).GT.1) THEN
+            CALL MPI_AllReduce(MPI_IN_PLACE, wi, 1, DEFAULT_MPI_REAL, MPI_SUM, &
+                                Mesh%Jcomm, ierror)
+          END IF
 #endif
-        ! set new background velocity to the arithmetic mean of the
-        ! yvelocity field along the y-direction
-        w(i,k) = wi / Mesh%JNUM
+          ! set new background velocity to the arithmetic mean of the
+          ! yvelocity field along the y-direction
+          w(i,k) = wi / Mesh%JNUM
+        END DO
       END DO
-    END DO
+    END SELECT
   END SUBROUTINE CalcBackgroundVelocity
 
 
