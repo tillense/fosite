@@ -43,8 +43,8 @@ PROGRAM Init
   REAL, PARAMETER    :: AU      = 1.0             ! astronomical unit         !
   REAL, PARAMETER    :: MSUN    = 1.0             ! solar mass [kg]              !
   ! simulation parameters
-  REAL, PARAMETER    :: TSIM    = 10             ! simulation time [binary orbits]
-  REAL, PARAMETER    :: VALPHA  = 1e-3           ! alpha viscosity parameter !
+  REAL, PARAMETER    :: TSIM    = 10              ! simulation time [binary orbits]
+  REAL, PARAMETER    :: VALPHA  = 1e-3            ! alpha viscosity parameter !
   ! 1. binary system
 !  REAL, PARAMETER    :: MBH1    = 0.690*MSUN
 !  REAL, PARAMETER    :: MBH2    = 0.203*MSUN
@@ -64,8 +64,8 @@ PROGRAM Init
   REAL, PARAMETER    :: GPAR = AU                ! geometry scaling paramete !
   REAL, PARAMETER    :: RMIN = 1.5*SEMMA         ! inner radius of the disk  !
   REAL, PARAMETER    :: RMAX = 5.0*AU            ! outer radius of the grid  !
-  INTEGER, PARAMETER :: XRES = 512               ! x-resolution              !
-  INTEGER, PARAMETER :: YRES = 512               ! y-resolution              !
+  INTEGER, PARAMETER :: XRES = 128               ! x-resolution              !
+  INTEGER, PARAMETER :: YRES = 128               ! y-resolution              !
   INTEGER, PARAMETER :: ZRES = 1                 ! y-resolution              !
   ! output file parameter
   INTEGER, PARAMETER :: ONUM = 100               ! number of output time st  !
@@ -101,7 +101,7 @@ CONTAINS
     ! some derived simulation parameters
     OMEGA  = SQRT(GN*(MBH1+MBH2)/SEMMA)/SEMMA
     PERIOD = 2.*PI / OMEGA
-    OMEGA  = 0.0
+!     OMEGA  = 0.0
 
     ! mesh settings
     ! stellar orbits must be inside the central hole of the mesh
@@ -120,11 +120,11 @@ CONTAINS
               "ymax"            / (2.0*PI), &
               "zmin"            / 0.0, &
               "zmax"            / 0.0, &
-!              "omega"           / OMEGA, &
-              "fargo"           / 2, &
+              "use_fargo"       / 1, &
+              "fargo"           / 1, &
               "decomposition"   / (/ -1, 1, 1/), &
               "gparam"          / GPAR)
-
+    IF (OMEGA.GT.0.0) CALL SetAttr(mesh,"omega",OMEGA)
 
     ! physics settings
     physics => Dict( &
@@ -170,7 +170,7 @@ CONTAINS
               "gtype"           / POINTMASS_BINARY, &
               "mass1"           / MBH1, &
               "mass2"           / MBH2, &
-!              "mesh_rot"        / 1, &
+              "mesh_rot"        / 1, &
 !              "excentricity"    / EXCENT, &
               "output/binpos"   / 1, &
               "output/omega"    / 1, &
@@ -189,9 +189,8 @@ CONTAINS
 
     sources => Dict( &
               "vis"             / vis, &
-              "rotframe"        / rotframe, &
               "grav"            / grav)
-
+!     IF (OMEGA.GT.0.0) CALL SetAttr(sources,"rotframe",rotframe)
 
     ! time discretization settings
     timedisc => Dict( &
@@ -200,13 +199,13 @@ CONTAINS
               "stoptime"        / (PERIOD*TSIM), &
               "dtlimit"         / 1.0E-40,&
               "tol_rel"         / 1.0E-3, &
-              "tol_abs"         / (/ 1.0E-16, 1., 1.0E-16 /), &
-              "rhstype"         / 0, &
+              "tol_abs"         / (/ 1.0E-08, 1., 1.0E-08 /), &
+              "rhstype"         / 1, &
               "maxiter"         / 100000000)
 
     ! initialize data input/output
     datafile => Dict( &
-              "fileformat"      / XDMF, &
+              "fileformat"      / VTK, &
               "filename"        / (TRIM(ODIR) // TRIM(OFNAME)), &
               "count"           / ONUM)
 
@@ -265,6 +264,19 @@ CONTAINS
       CALL phys%Error("InitData","physics not supported")
     END SELECT
 
+    ! boundary conditions
+    ! custom boundary conditions at western boundary if requested
+    SELECT TYPE(bwest => Timedisc%Boundary%boundary(WEST)%p)
+    CLASS IS (boundary_custom)
+      CALL bwest%SetCustomBoundaries(Mesh,Physics, &
+        (/CUSTOM_NOGRAD,CUSTOM_OUTFLOW,CUSTOM_KEPLER/))
+    END SELECT
+    SELECT TYPE(beast => Timedisc%Boundary%boundary(EAST)%p)
+    CLASS IS (boundary_custom)
+      CALL beast%SetCustomBoundaries(Mesh,Physics, &
+        (/CUSTOM_NOGRAD,CUSTOM_OUTFLOW,CUSTOM_KEPLER/))
+    END SELECT
+
     ! get gravitational acceleration
     sp => Sources
     DO
@@ -287,12 +299,13 @@ CONTAINS
     CLASS IS(statevector_eulerisotherm)
       ! 1. set surface density and initialize gravitational acceleration
       pvar%density%data3d(:,:,:) = Fgap(r(:,:,:),Rgap)*Sigma0*0.1*XSCALE*r(:,:,:)**(-1.5)
+!       pvar%velocity%data4d(:,:,:,:) = 0.0
+!       IF (Mesh%FARGO.GT.0) Timedisc%w(:,:) = 0.0
+!       ! get conservative variables
+!       CALL Physics%Convert2Conservative(Timedisc%pvar,Timedisc%cvar)
+      ! 2. azimuthal velocity: balance initial radial gravitational acceleration
+      !    with centrifugal acceleration
       CALL gp%UpdateGravity(Mesh,Physics,Fluxes,pvar,0.0,0.0)
-      ! 2. azimuthal velocity: balance initial radial acceleration with centrifugal acceleration
-      ! ATTENTION: Don't use GetCentrifugalVelocity without the optional acceleration array!
-      ! This would yield undefined data, because GetCentrifugalVelocity calls ComputeRHS
-      ! which calls CenterBoundary. Since the FARFIELD boundary conditions are not
-      ! initialized at this stage (see below), the result is undefined.
       pvar%velocity%data4d(:,:,:,1:Physics%VDIM) = &
         Timedisc%GetCentrifugalVelocity(Mesh,Physics,Fluxes,Sources,(/0.,0.,1./),gp%accel%data4d)
       ! transform velocities to rotating frame
@@ -306,25 +319,12 @@ CONTAINS
     CALL Physics%Convert2Conservative(Timedisc%pvar,Timedisc%cvar)
 
     IF (Mesh%FARGO.EQ.2) &
-       Timedisc%w(:,:) = SQRT(Physics%constants%GN*(MBH1+MBH2)/r(:,Mesh%JMIN,:))
-
-    ! boundary conditions
-    ! custom boundary conditions at western boundary if requested
-    SELECT TYPE(bwest => Timedisc%Boundary%boundary(WEST)%p)
-    CLASS IS (boundary_custom)
-      CALL bwest%SetCustomBoundaries(Mesh,Physics, &
-        (/CUSTOM_NOGRAD,CUSTOM_OUTFLOW,CUSTOM_KEPLER/))
-    END SELECT
-    SELECT TYPE(beast => Timedisc%Boundary%boundary(EAST)%p)
-    CLASS IS (boundary_custom)
-      CALL beast%SetCustomBoundaries(Mesh,Physics, &
-        (/CUSTOM_NOGRAD,CUSTOM_OUTFLOW,CUSTOM_KEPLER/))
-    END SELECT
+       Timedisc%w(:,:) = SQRT(Physics%constants%GN*(MBH1+MBH2)/Mesh%radius%bcenter(:,Mesh%JMIN,:))
 
     ! print some information on stdout
-    CALL Mesh%Info(" DATA-----> initial condition:   " // "MMSN - Setup")
+    CALL Mesh%Info(" DATA-----> initial condition: " // "MMSN - Setup")
     WRITE (info_str, '(ES8.2)') XSCALE
-    CALL Mesh%Info("  disk mass:   " // TRIM(info_str) // " MMSN")
+    CALL Mesh%Info("                    disk mass: " // TRIM(info_str) // " MMSN")
 
   END SUBROUTINE InitData
 

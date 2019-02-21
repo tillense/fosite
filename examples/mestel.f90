@@ -3,7 +3,7 @@
 !# fosite - 3D hydrodynamical simulation program                             #
 !# module: mestel.f90                                                        #
 !#                                                                           #
-!# Copyright (C) 2012-2018                                                   #
+!# Copyright (C) 2012-2019                                                   #
 !# Manuel Jung    <mjung@astrophysik.uni-kiel.de>                            #
 !# Björn Sperling <sperling@astrophysik.uni-kiel.de>                         #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
@@ -100,11 +100,11 @@ PROGRAM mestel
   REAL, PARAMETER :: RMAX = 1.E+0 * PARSEC  ! outer radius [m]
   REAL, PARAMETER :: RGEO = 1.0 * PARSEC    ! geometry scaling constant
   INTEGER, PARAMETER :: MGEO = LOGCYLINDRICAL ! mesh geometry
-  INTEGER, PARAMETER :: XRES = 1024         ! mesh resolution (radial)
-  INTEGER, PARAMETER :: YRES = 2048         ! mesh resolution (azimuthal)
+  INTEGER, PARAMETER :: XRES = 64         ! mesh resolution (radial)
+  INTEGER, PARAMETER :: YRES = 128         ! mesh resolution (azimuthal)
   INTEGER, PARAMETER :: ZRES = 1            ! mesh resolution (z)
   ! output settings
-  INTEGER, PARAMETER :: ONUM = 10         ! number of output time steps
+  INTEGER, PARAMETER :: ONUM = 100         ! number of output time steps
   CHARACTER(LEN=256), PARAMETER :: &
   OFNAME = 'markward', &                    ! data file name
   ODIR   = "./"                             ! output directory
@@ -121,8 +121,7 @@ CALL asl_library_initialize()
 CALL Sim%InitFosite()
 CALL MakeConfig(Sim%config)
 CALL Sim%Setup()
-CALL InitData(Sim%Timedisc,Sim%Mesh,Sim%Physics,Sim%Fluxes,Sim%Sources, &
-              Sim%Timedisc%pvar%data4d,Sim%Timedisc%cvar%data4d)
+CALL InitData(Sim%Timedisc,Sim%Mesh,Sim%Physics,Sim%Fluxes,Sim%Sources)
 CALL Sim%Run()
 CALL Sim%Finalize()
 
@@ -171,7 +170,7 @@ CONTAINS
         "zmax"            / 0.0, &
         "gparam"          / RGEO, &
         "use_fargo"       / 1, &
-        "fargo"           / 2, &
+        "fargo"           / 1, &
         "decomposition"   / (/-1,1,1/), &
         "output/volume"   / 1 )
 
@@ -186,6 +185,7 @@ CONTAINS
     grav => Dict( &
         "stype"           / GRAVITY, &
         "cvis"            / 0.9, &
+        "energy"          / 0, &
         "output/height"   / 1, &
         "self/gtype"      / SPECTRAL, &
         "self/green"      / 1, &
@@ -197,12 +197,12 @@ CONTAINS
     ! cooling model
     cooling => Dict( &
         "stype"           / DISK_COOLING, &
-        "method"          / GRAY, &
-!        "method"          / GAMMIE, &
+!         "method"          / GRAY, &
+        "method"          / GAMMIE, &
         "b_cool"          / 10.0, &
-        "Tmin"            / 30.0, &
+        "Tmin"            / 3.0, &
         "rhomin"          / 1.0E-30, &
-        "cvis"            / 0.01)
+        "cvis"            / 0.1)
 
     ! viscosity model
     vis => Dict( &
@@ -216,23 +216,25 @@ CONTAINS
 
     ! collect source terms
     sources => Dict( &
-        "grav"            / grav, &
-!        "viscosity"       / vis, &
-        "diskcooling"     / cooling)
+        "diskcooling"     / cooling, &
+!         "viscosity"       / vis, &
+        "grav"            / grav)
 
     ! time discretization settings
     timedisc => Dict( &
         "method"          / SSPRK, &
-        "tol_rel"         / 1.0E-2, &
+        "tol_rel"         / 1.0E-3, &
         "cfl"             / 0.3, &
         "stoptime"        / SIMTIME, &
-        "dtlimit"         / 1.0E+2, &
+        "dtlimit"         / 1.0E-4, &
+        "tmin"            / 3.0, &
+        "rhstype"         / 1, &
         "maxiter"         / 2000000000)
 
     ! add absolute error bounds and output fields depending on physics
     SELECT CASE(PHYS)
     CASE(EULER)
-       CALL SetAttr(timedisc, "tol_abs", (/1.0E-5, 1.0E-3, 0.0, 1.0E+6/))
+       CALL SetAttr(timedisc, "tol_abs", (/1.0E-3, 1.0E-1, 1.0E-01, 1.0E+10/))
        CALL SetAttr(timedisc, "output/xmomentum", 0)
        CALL SetAttr(timedisc, "output/ymomentum", 0)
        CALL SetAttr(timedisc, "output/energy", 0)
@@ -244,7 +246,7 @@ CONTAINS
 
     ! data file settings
     datafile => Dict( &
-        "fileformat"      / XDMF, &
+        "fileformat"      / VTK, &
         "filename"        / "mestel", &
         "count"           / ONUM)
 
@@ -261,7 +263,8 @@ CONTAINS
   END SUBROUTINE MakeConfig
 
 
-  SUBROUTINE InitData(Timedisc,Mesh,Physics,Fluxes,Sources,pvar,cvar)
+  SUBROUTINE InitData(Timedisc,Mesh,Physics,Fluxes,Sources)
+    USE physics_euler_mod, ONLY : physics_euler, statevector_euler
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(timedisc_base), INTENT(INOUT) :: Timedisc
@@ -269,74 +272,64 @@ CONTAINS
     CLASS(physics_base),  INTENT(INOUT) :: Physics
     CLASS(fluxes_base),   INTENT(INOUT) :: Fluxes
     CLASS(sources_base),  POINTER       :: Sources
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
-                          INTENT(OUT)   :: pvar,cvar
     !------------------------------------------------------------------------!
     ! Local variable declaration
+    CLASS(sources_base), POINTER :: sp
+    CLASS(sources_gravity), POINTER :: gp
+    CLASS(marray_base), ALLOCATABLE :: rands,Sigma
 #ifdef PARALLEL
     INTEGER :: ierror
 #endif
     REAL    :: mass
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX) &
-            :: rands
-    REAL, DIMENSION(:,:,:),   POINTER :: r,Sigma
-    REAL, DIMENSION(:,:,:,:), POINTER :: r_vec
     CHARACTER(LEN=20) :: mdisk_str
 #ifdef NECSXAURORA
     INTEGER :: rng, n
 #endif
     !------------------------------------------------------------------------!
-    ! distance from origin to cell bary centers and position vector
-    r => Mesh%RemapBounds(Mesh%radius%bcenter(:,:,:))
-    r_vec => Mesh%RemapBounds(Mesh%posvec%bcenter(:,:,:,:))
-    ! pointer to density array
-    Sigma => Mesh%RemapBounds(pvar(:,:,:,Physics%DENSITY))
+    ALLOCATE(rands,Sigma)
+    ! get gravitational acceleration
+    sp => Sources
+    DO
+      IF (ASSOCIATED(sp).EQV..FALSE.) RETURN
+      SELECT TYPE(sp)
+      CLASS IS(sources_gravity)
+        gp => sp
+        EXIT
+      END SELECT
+      sp => sp%next
+    END DO
+    IF (.NOT.ASSOCIATED(sp)) CALL Physics%Error("mestel::InitData","no gravity term initialized")
 
-    ! set surface density using radial power law (1/r) with a little noise
+    ! get random numbers for density noise
+    rands = marray_base()
 #ifndef NECSXAURORA
     CALL InitRandSeed(Physics)
-    CALL RANDOM_NUMBER(rands)
+    CALL RANDOM_NUMBER(rands%data1d)
 #else
     CALL asl_random_create(rng, ASL_RANDOMMETHOD_MT19937_64)
     CALL asl_random_distribute_uniform(rng)
     n = (Mesh%IGMAX-Mesh%IGMIN+1)*(Mesh%JGMAX-Mesh%JGMIN+1)*(Mesh%KGMAX-Mesh%KGMIN+1)
-    CALL asl_random_generate_d(rng, n, rands)
-#endif
-
-    rands = rands * NOISE * 2.0 + (1.0 - NOISE)
-    Sigma = rands*(RMIN/r(:,:,:))
-
-#ifdef NECSXAURORA
+    CALL asl_random_generate_d(rng, n, rands%data1d)
     CALL asl_random_destroy(rng)
 #endif
+    rands%data1d(:) = rands%data1d(:) * NOISE * 2.0 + (1.0 - NOISE)
+
+    ! set surface density using radial power law (1/r) with a little noise
+    Sigma = marray_base()
+    Sigma%data1d(:) = rands%data1d(:) * RMIN/Mesh%radius%data2d(:,2)
 
     ! determine disk mass
-    mass = SUM(Mesh%volume%data3d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX) * &
-                     Sigma(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX))
+    mass = SUM(Mesh%volume%data1d(:)*Sigma%data1d(:),MASK=Mesh%without_ghost_zones%mask1d(:))
 #ifdef PARALLEL
-       CALL MPI_AllReduce(MPI_IN_PLACE,mass,1,DEFAULT_MPI_REAL,MPI_SUM, &
+    CALL MPI_AllReduce(MPI_IN_PLACE,mass,1,DEFAULT_MPI_REAL,MPI_SUM, &
             Mesh%comm_cart,ierror)
 #endif
-    ! rescale disk mass
-    Sigma(:,:,:) = Sigma(:,:,:) * MDISK / mass
-
-    ! set pressure using surface density and initial temperature
-    pvar(:,:,:,Physics%PRESSURE) = Physics%constants%RG/Physics%MU * TEMP * Sigma(:,:,:)
-
-    ! reset velocities
-    pvar(:,:,:,Physics%XVELOCITY:Physics%YVELOCITY) = 0.0
-
-    CALL Physics%Convert2Conservative(Mesh,pvar,cvar)
-
-    ! set the velocity due to the centrifugal force
-    pvar(:,:,:,Physics%XVELOCITY:Physics%XVELOCITY+Physics%VDIM-1) = &
-          Timedisc%GetCentrifugalVelocity(Mesh,Physics,Fluxes,Sources,(/0.,0.,1./))
 
     ! setting for custom boundary conditions (western boundary)
     SELECT TYPE(bwest => Timedisc%Boundary%boundary(WEST)%p)
     CLASS IS (boundary_custom)
       CALL bwest%SetCustomBoundaries(Mesh,Physics, &
-        (/CUSTOM_LOGEXPOL,CUSTOM_OUTFLOW,CUSTOM_KEPLER,CUSTOM_LOGEXPOL/))
+        (/CUSTOM_NOGRAD,CUSTOM_OUTFLOW,CUSTOM_KEPLER,CUSTOM_NOGRAD/))
     END SELECT
 
     ! setting for custom boundary conditions (eastern boundary)
@@ -346,12 +339,39 @@ CONTAINS
         (/CUSTOM_REFLECT,CUSTOM_REFLECT,CUSTOM_LOGEXPOL,CUSTOM_REFLECT/))
     END SELECT
 
-    CALL Physics%Convert2Conservative(Mesh,pvar,cvar)
+    SELECT TYPE (pvar => Timedisc%pvar)
+    CLASS IS(statevector_euler)
+      ! 1. set surface density by rescaling Sigma
+      pvar%density%data1d(:) = Sigma%data1d(:) * MDISK / mass
+      ! 2. initialize gravitational acceleration
+      CALL gp%UpdateGravity(Mesh,Physics,Fluxes,pvar,0.0,0.0)
+      ! 3. set azimuthal velocity: balance initial radial gravitational
+      !    acceleration with centrifugal acceleration
+      pvar%velocity%data4d(:,:,:,1:Physics%VDIM) = &
+        Timedisc%GetCentrifugalVelocity(Mesh,Physics,Fluxes,Sources,(/0.,0.,1./),gp%accel%data4d)
+      ! 4. transform velocities to rotating frame
+      ! ATTENTION: this works only if the second velocity is the azimuthal velocity
+      IF (Mesh%OMEGA.GT.0.0) &
+        pvar%velocity%data2d(:,2) = pvar%velocity%data2d(:,2) - Mesh%OMEGA*Mesh%radius%data2d(:,2)
+      ! 5. set pressure using surface density and initial temperature
+      pvar%pressure%data1d(:) = Physics%constants%RG/Physics%MU * TEMP * pvar%density%data1d(:)
+    CLASS DEFAULT
+      CALL Physics%Error("mestel::InitData","unsupported state vector")
+    END SELECT
+
+    IF (Mesh%FARGO.EQ.2) &
+       Timedisc%w(:,:) = SQRT(Physics%constants%GN*(MBH/Mesh%radius%bcenter(:,Mesh%JMIN,:)))
+
+    CALL Physics%Convert2Conservative(Timedisc%pvar,Timedisc%cvar)
+
     ! print some information
     WRITE (mdisk_str, '(ES8.2)') mdisk/MSUN
     CALL Mesh%Info(" DATA-----> initial condition: Mestel's disk")
     CALL Mesh%Info("            disk mass:         " // TRIM(mdisk_str) // " M_sun")
 
+    CALL rands%Destroy()
+    CALL Sigma%Destroy()
+    DEALLOCATE(rands,Sigma)
   END SUBROUTINE InitData
 
   SUBROUTINE InitRandSeed(Physics)
