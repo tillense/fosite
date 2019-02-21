@@ -302,12 +302,12 @@ CONTAINS
     SELECT CASE(this%viscosity%GetType())
     CASE(MOLECULAR)
        WRITE (bulkconst_str,'(ES9.2)') this%bulkconst
-       CALL this%Info("            dynamic viscosity: " // TRIM(dynconst_str))
-       CALL this%Info("               bulk viscosity: " // TRIM(bulkconst_str))
+       CALL this%Info("          dynamic viscosity:  " // TRIM(dynconst_str))
+       CALL this%Info("             bulk viscosity:  " // TRIM(bulkconst_str))
     CASE(ALPHA,ALPHA_ALT)
-       CALL this%Info("                        alpha: " // TRIM(dynconst_str))
+       CALL this%Info("                      alpha:  " // TRIM(dynconst_str))
     CASE(BETA)
-       CALL this%Info("                         beta: " // TRIM(dynconst_str))
+       CALL this%Info("                       beta:  " // TRIM(dynconst_str))
     CASE(POWERLAW)
        WRITE (bulkconst_str,'(ES9.2)') this%power
        CALL this%Info("            coupling constant: " // TRIM(dynconst_str))
@@ -536,7 +536,7 @@ CONTAINS
        invdt_y = 0.0
     END IF
     ! z-direction
-    IF (Mesh%INUM.GT.1) THEN
+    IF (Mesh%KNUM.GT.1) THEN
        invdt_z = MAXVAL(this%kinvis%data1d(:)  / Mesh%dlz%data1d(:)**2, &
                         MASK=Mesh%without_ghost_zones%mask1d(:))
     ELSE
