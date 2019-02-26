@@ -134,6 +134,42 @@ MARK_AS_ADVANCED(CMAKE_Fortran_FLAGS_PROFILING
 
 #----------------------- search GSL ------------------------------------------#
 find_package(GSL)
+if(GSL_FOUND)
+  set(FGSL_SOURCE_DIR ${CMAKE_SOURCE_DIR}/contrib/fgsl) 
+  set(FGSL_BINARY_DIR ${CMAKE_BINARY_DIR}/contrib/fgsl) 
+  include_directories(${GSL_INCLUDE_DIRS} ${FGSL_BINARY_DIR}/include/fgsl)
+  # add gsl fortran interface as external project
+  if(NOT EXISTS "${FGSL_SOURCE_DIR}/configure.ac")
+    message(STATUS "fgsl: found empty source dir -> fetching code")
+    execute_process(
+        COMMAND git submodule update --init --force contrib/fgsl
+	WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
+  endif()
+  if(NOT EXISTS ${FGSL_SOURCE_DIR}/configure)
+    if(NOT EXISTS ${FGSL_SOURCE_DIR}/m4)
+      file(MAKE_DIRECTORY ${FGSL_SOURCE_DIR}/m4)
+    endif()
+    execute_process(
+      COMMAND autoreconf -i
+      WORKING_DIRECTORY ${FGSL_SOURCE_DIR}
+    )
+  endif()
+  include(ExternalProject)
+  ExternalProject_Add(fgsl
+    PREFIX ${FGSL_BINARY_DIR}
+    SOURCE_DIR ${FGSL_BINARY_DIR}/src
+    BUILD_IN_SOURCE 0
+    BINARY_DIR ${FGSL_BINARY_DIR}/build
+    INSTALL_DIR ${FGSL_BINARY_DIR}
+    DOWNLOAD_DIR ${FGSL_BINARY_DIR}
+    STAMP_DIR ${FGSL_BINARY_DIR}/stamp
+    TMP_DIR ${FGSL_BINARY_DIR}/tmp
+    DOWNLOAD_COMMAND  ${CMAKE_COMMAND} -E remove_directory "${FGSL_BINARY_DIR}/src" && ${CMAKE_COMMAND} -E create_symlink "${FGSL_SOURCE_DIR}" "${FGSL_BINARY_DIR}/src"
+    CONFIGURE_COMMAND ../src/configure -q --prefix=${FGSL_BINARY_DIR}
+    BUILD_COMMAND make
+    INSTALL_COMMAND make install)
+  add_definitions(-DHAVE_FGSL)
+endif()
 
 #----------------------- search FFTW -----------------------------------------#
 set(CMAKE_FIND_ROOT_PATH ${FFTW_DIR})
@@ -218,43 +254,10 @@ target_link_libraries(fosite ${LIBDIRS})
 
 # add gsl
 if(GSL_FOUND)
-  set(FGSL_SOURCE_DIR ${CMAKE_SOURCE_DIR}/contrib/fgsl) 
-  set(FGSL_BINARY_DIR ${CMAKE_BINARY_DIR}/contrib/fgsl) 
-  include_directories(${GSL_INCLUDE_DIRS} ${FGSL_BINARY_DIR}/include/fgsl)
   target_link_libraries(fosite ${GSL_LIBRARIES} ${FGSL_BINARY_DIR}/lib/libfgsl.a)
-  # add gsl fortran interface as external project
-  if(NOT EXISTS "${FGSL_SOURCE_DIR}/configure.ac")
-    message(STATUS "fgsl: found empty source dir -> fetching code")
-    execute_process(
-        COMMAND git submodule update --init --force contrib/fgsl
-	WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
-  endif()
-  if(NOT EXISTS ${FGSL_SOURCE_DIR}/configure)
-    if(NOT EXISTS ${FGSL_SOURCE_DIR}/m4)
-      file(MAKE_DIRECTORY ${FGSL_SOURCE_DIR}/m4)
-    endif()
-    execute_process(
-      COMMAND autoreconf -i
-      WORKING_DIRECTORY ${FGSL_SOURCE_DIR}
-    )
-  endif()
-  include(ExternalProject)
-  ExternalProject_Add(fgsl
-    PREFIX ${FGSL_BINARY_DIR}
-    SOURCE_DIR ${FGSL_BINARY_DIR}/src
-    BUILD_IN_SOURCE 0
-    BINARY_DIR ${FGSL_BINARY_DIR}/build
-    INSTALL_DIR ${FGSL_BINARY_DIR}
-    DOWNLOAD_DIR ${FGSL_BINARY_DIR}
-    STAMP_DIR ${FGSL_BINARY_DIR}/stamp
-    TMP_DIR ${FGSL_BINARY_DIR}/tmp
-    DOWNLOAD_COMMAND  ${CMAKE_COMMAND} -E remove_directory "${FGSL_BINARY_DIR}/src" && ${CMAKE_COMMAND} -E create_symlink "${FGSL_SOURCE_DIR}" "${FGSL_BINARY_DIR}/src"
-    CONFIGURE_COMMAND ../src/configure -q --prefix=${FGSL_BINARY_DIR}
-    BUILD_COMMAND make
-    INSTALL_COMMAND make install)
   add_dependencies(numtools fgsl)
-  add_definitions(-DHAVE_FGSL)
 endif()
+
 # add fftw
 if (NOT CMAKE_SYSTEM_NAME MATCHES "(.*)SX-Aurora")
   if(FFTW_LIB)
