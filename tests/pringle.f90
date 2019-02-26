@@ -29,6 +29,9 @@
 !! \author Björn Sperling
 !! \author Tobias Illenseer
 !!
+!! The equations are solved in non-dimensional units, using the Keplerian
+!! velocity at the location of the initial ring at R=1 as the velocity scale.
+!!
 !! References:
 !!  - \cite lynden1974 Lynden-Bell, D. & Pringle, J. E. Evolution of Viscous Disks and Origin
 !!      of Nebular Variables, M.N.R.A.S vol. 168(3) (1974) pp. 603-637
@@ -48,26 +51,22 @@ PROGRAM pringle_test
 #include "tap.h"
   IMPLICIT NONE
   !--------------------------------------------------------------------------!
-  ! general constants
-  REAL, PARAMETER    :: GN      = 6.6742D-11 ! Newtons grav. constant [SI]
   ! simulation parameters
   REAL, PARAMETER    :: TSIM    = 1.0E-2     ! simulation time [TAU] see below
                                              ! should be << 1 ~ viscous time scale
-  ! the equations are solved in non-dimensional units, using the Keplerian
-  ! velocity at the location of the initial ring at R=1 as the velocity scale
-  REAL, PARAMETER    :: CENTMASS= 1./GN      ! fixed for non-dim. equations
   ! these are the basic parameters; for stable solutions one requires
   ! MA >> 1 and RE > MA
   REAL, PARAMETER    :: RE      = 1.0E+4     ! Reynolds number (at R=1)
   REAL, PARAMETER    :: MA      = 1.0E+2     ! Mach number (at R=1)
+  REAL, PARAMETER    :: MDISK   = 1.0E-2     ! disk mass << 1 = central mass
   ! lower limit for nitial density
   REAL, PARAMETER    :: RHOMIN  = 1.0E-20    ! minimal initial density
   ! viscosity prescription
 !   INTEGER, PARAMETER :: VISTYPE = BETA
   INTEGER, PARAMETER :: VISTYPE = POWERLAW
-  REAL, PARAMETER    :: PL_EXP  = 2.0        ! exponent for power law viscosity
+  REAL, PARAMETER    :: PL_EXP  = 0.0        ! exponent for power law viscosity
   REAL, PARAMETER    :: TAU     = 4./3.*RE   ! viscous time scale
-  REAL, PARAMETER    :: TAU0    = 0.01       ! time for initial condition [TAU]
+  REAL, PARAMETER    :: TINIT   = 5.0E-8     ! time for initial condition [TAU]
   ! mesh settings
   !**************************************************************************!
   !> \remark #1: This test is very sensitive to mesh settings. If there are
@@ -84,9 +83,9 @@ PROGRAM pringle_test
   INTEGER, PARAMETER :: XRES = 200         ! x-resolution
   INTEGER, PARAMETER :: YRES = 1           ! y-resolution
   INTEGER, PARAMETER :: ZRES = 1           ! z-resolution
-  REAL, PARAMETER    :: RMIN = 0.1         ! min radius of comp. domain
+  REAL, PARAMETER    :: RMIN = 0.01         ! min radius of comp. domain
   REAL, PARAMETER    :: RMAX = 2.0         ! max radius of comp. domain
-  REAL, PARAMETER    :: GPAR = 0.8         ! geometry scaling parameter
+  REAL, PARAMETER    :: GPAR = 1.0         ! geometry scaling parameter
   ! output parameters
   INTEGER, PARAMETER :: ONUM = 10          ! number of output data sets
   CHARACTER(LEN=256), PARAMETER &          ! output data dir
@@ -100,6 +99,8 @@ PROGRAM pringle_test
   REAL               :: Z0 = 0.0           !
   !--------------------------------------------------------------------------!
   CLASS(fosite), ALLOCATABLE   :: Sim
+  REAL    :: next_output_time
+  INTEGER :: i,j,k
   LOGICAL :: ok
   !--------------------------------------------------------------------------!
 
@@ -112,7 +113,40 @@ PROGRAM pringle_test
   CALL MakeConfig(Sim, Sim%config)
   CALL Sim%Setup()
   CALL InitData(Sim,Sim%Mesh, Sim%Physics, Sim%Timedisc)
-  CALL Sim%Run()
+  next_output_time = Sim%Datafile%time
+  IF (ASSOCIATED(Sim%Timedisc%solution)) THEN
+#ifdef HAVE_FGSL
+    DO WHILE((Sim%Timedisc%maxiter.LE.0).OR.(Sim%iter.LE.Sim%Timedisc%maxiter))
+      ! advance numerical solution
+      IF(Sim%Step()) EXIT
+      IF (next_output_time.LT.Sim%Datafile%time) THEN
+        ! compute exact solution for next output time step
+        next_output_time = Sim%Datafile%time
+        SELECT TYPE(pvar => Sim%Timedisc%solution)
+        TYPE IS (statevector_eulerisotherm)
+          k=Sim%Mesh%KMIN
+          DO j=Sim%Mesh%JMIN,Sim%Mesh%JMAX
+            DO i=Sim%Mesh%IMIN,Sim%Mesh%IMAX
+              IF (VISTYPE.EQ.BETA) THEN
+                CALL ViscousRing_analytic(1.0,next_output_time/TAU+TINIT, &
+                  Sim%Mesh%radius%bcenter(i,j,k), &
+                  pvar%density%data3d(i,j,k),pvar%velocity%data4d(i,j,k,1))
+              ELSE
+                CALL ViscousRing_analytic(PL_EXP,next_output_time/TAU+TINIT, &
+                  Sim%Mesh%radius%bcenter(i,j,k), &
+                  pvar%density%data3d(i,j,k),pvar%velocity%data4d(i,j,k,1))
+              END IF
+            END DO
+          END DO
+        END SELECT
+      END IF
+    END DO
+#else
+    CALL Sim%Error("pringle","computation of analytical solution requires GSL support")
+#endif
+  ELSE
+    CALL Sim%Run()
+  END IF
   ok = .NOT.Sim%aborted
   CALL Sim%Finalize()
 
@@ -145,10 +179,10 @@ CONTAINS
       x2 = RMAX
       y1 = -PI
       y2 = PI
-      bc(WEST)  = NO_GRADIENTS
-      bc(EAST)  = NO_GRADIENTS
-!       bc(WEST)  = CUSTOM
-!       bc(EAST)  = CUSTOM
+!       bc(WEST)  = NO_GRADIENTS
+!       bc(EAST)  = NO_GRADIENTS
+      bc(WEST)  = CUSTOM
+      bc(EAST)  = CUSTOM
       bc(SOUTH) = PERIODIC
       bc(NORTH) = PERIODIC
       bc(BOTTOM) = NO_GRADIENTS
@@ -191,14 +225,14 @@ CONTAINS
             "eastern"   / bc(EAST), &
             "southern"  / bc(SOUTH), &
             "northern"  / bc(NORTH), &
-            "bottomer"    / bc(BOTTOM), &
-            "topper"       / bc(TOP))
+            "bottomer"  / bc(BOTTOM), &
+            "topper"    / bc(TOP))
 
 
     ! physics settings
     physics => Dict( &
             "problem"   / EULER_ISOTHERM, &
-            "gamma"     / 1.4, &
+            "units"     / GEOMETRICAL, &
             "cs"        / CSISO)
 
     ! flux calculation and reconstruction method
@@ -206,7 +240,7 @@ CONTAINS
             "order"     / LINEAR, &
             "fluxtype"  / KT, &
             "variables" / PRIMITIVE, &
-            "limiter"   / MONOCENT, &
+            "limiter"   / VANLEER, &
             "theta"     / 1.2)
 
     ! source term due to viscosity
@@ -215,16 +249,16 @@ CONTAINS
             "vismodel"  / VISTYPE, &
             "dynconst"  / (1./RE), &
             "exponent"  / PL_EXP, &
-            "cvis"      / 0.003)
+            "cvis"      / 0.002)
 
     ! source term due to a point mass
     grav => Dict( &
             "stype"     / GRAVITY, &
-            "pmass/gtype"/ POINTMASS, &    ! grav. accel. of a point mass     !
-            "pmass/mass" / CENTMASS, &      ! mass of the accreting object[kg] !
-            "pmass/x"   / X0, &               ! cartesian position of point mass !
+            "pmass/gtype"/ POINTMASS, &    ! grav. accel. of a point mass
+            "pmass/mass" / 1.0, &          ! non-dim. mass of the accreting object
+            "pmass/x"   / X0, &            ! cartesian position of point mass
             "pmass/y"   / Y0, &
-            "pmass/outbound" / 1)           ! disable accretion
+            "pmass/outbound" / 0)          ! disable accretion
 
     ! combine all source terms
     sources => Dict( &
@@ -240,7 +274,8 @@ CONTAINS
 !             "rhstype"   / 1, &
             "maxiter"   / 100000000, &
             "tol_rel"   / 0.01, &
-            "tol_abs"   / (/0.0,1e-5,0.0/))
+            "tol_abs"   / (/0.0,1e-5,0.0/), &
+            "output/solution" / 1 )
 
     ! initialize data input/output
     datafile => Dict( &
@@ -271,7 +306,7 @@ CONTAINS
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,3) &
                       :: posvec,ephi
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX) :: radius
-    REAL              :: r,r34,vr,vphi
+    REAL              :: r,r34,vr,vphi,sden
     CHARACTER(LEN=64) :: value
     !------------------------------------------------------------------------!
     IF (ABS(X0).LE.TINY(X0).AND.ABS(Y0).LE.TINY(Y0)) THEN
@@ -302,6 +337,18 @@ CONTAINS
     ephi(:,:,:,2) = posvec(:,:,:,1)/radius(:,:,:)
     ephi(:,:,:,3) = 0.0
 
+    ! custom boundary conditions if requested
+    SELECT TYPE(bwest => Timedisc%Boundary%boundary(WEST)%p)
+    CLASS IS (boundary_custom)
+      CALL bwest%SetCustomBoundaries(Mesh,Physics, &
+        (/CUSTOM_NOGRAD,CUSTOM_NOGRAD,CUSTOM_LOGEXPOL/))
+    END SELECT
+    SELECT TYPE(beast => Timedisc%Boundary%boundary(EAST)%p)
+    CLASS IS (boundary_custom)
+      CALL beast%SetCustomBoundaries(Mesh,Physics, &
+        (/CUSTOM_NOGRAD,CUSTOM_NOGRAD,CUSTOM_NOGRAD/))
+    END SELECT
+
     SELECT TYPE(p => Timedisc%pvar)
     TYPE IS(statevector_eulerisotherm)
       SELECT CASE(VISTYPE)
@@ -314,12 +361,12 @@ CONTAINS
               ! radius parameter r**(3/4)
               r34 = r**0.75
               ! Keplerian velocity
-              vphi = SQRT(GN*CENTMASS/r)
-              ! radial velocity (approximation for small TAU0)
-              vr = 4.5/(RE*TAU0) * r34*(r34-1.0) * vphi
+              vphi = SQRT(1.0/r)
+              ! radial velocity (approximation for small initial time)
+              vr = 4.5/(RE*TINIT*TAU) * r34*(r34-1.0) * vphi
               ! surface density
               p%density%data3d(i,j,k) = RHOMIN &
-                  + 3. / SQRT(TAU0*(4*PI*r34)**3) * EXP(-((1.0-r34)**2)/TAU0)
+                  + 3. / SQRT(TINIT*TAU*(4*PI*r34)**3) * EXP(-((1.0-r34)**2)/(TINIT*TAU))
               ! curvilinear velocity components
               p%velocity%data4d(i,j,k,1:2) = &
                   vr*posvec(i,j,k,1:2)/r + vphi*ephi(i,j,k,1:2)
@@ -333,18 +380,22 @@ CONTAINS
               ! distance to center of mass
               r = radius(i,j,k)
               ! Keplerian velocity
-              vphi = SQRT(GN*CENTMASS/r)
-              ! radial velocity
-              IF (2*r/TAU0.LE.0.1) THEN
-                ! use series expansion, see below
-                vr = func_vr(TAU0,r)
-              ELSE
-                ! approximation for large values of 2*r/t
-                vr = 3.0/RE * (0.25/r + 2.0/TAU0*(r-1.0))
-              END IF
+              vphi = SQRT(1.0/r)
+#ifdef HAVE_FGSL
+              CALL ViscousRing_analytic(PL_EXP,TINIT*TAU,r,sden,vr)
+#else
+              CALL ViscousRing_approx(PL_EXP,TINIT*TAU,r,sden,vr)
+#endif
+!               ! radial velocity
+!               IF (2*r/TAU0.LE.0.1) THEN
+!                 ! use series expansion, see below
+!                 vr = func_vr(TAU0,r)
+!               ELSE
+!                 ! approximation for large values of 2*r/t
+!                 vr = 3.0/RE * (0.25/r + 2.0/TAU0*(r-1.0))
+!               END IF
               ! surface density (approximate solution)
-              p%density%data3d(i,j,k) = RHOMIN &
-                  + 1. / SQRT(4*TAU0*(PI*SQRT(r))**3) * EXP(-(1.0-r)**2/TAU0)
+              p%density%data3d(i,j,k) = RHOMIN + sden
               ! curvilinear velocity components
               p%velocity%data4d(i,j,k,1:2) = &
                   vr*posvec(i,j,k,1:2)/r + vphi*ephi(i,j,k,1:2)
@@ -358,25 +409,17 @@ CONTAINS
       CALL Timedisc%Error("pringle::InitData","only isothermal physics possible")
     END SELECT
 
+    IF (ASSOCIATED(Timedisc%solution)) THEN
+      ! store initial condition in exact solution array
+      Timedisc%solution = Timedisc%pvar
+    END IF
 
     ! check fargo
     IF (Mesh%FARGO.EQ.2) &
-       Timedisc%w(:,:) = SQRT(GN*CENTMASS/radius(:,Mesh%JMIN,:))
+       Timedisc%w(:,:) = SQRT(1.0/radius(:,Mesh%JMIN,:))
 
     ! transform to conservative variables
     CALL Physics%Convert2Conservative(Timedisc%pvar,Timedisc%cvar)
-
-    ! custom boundary conditions if requested
-    SELECT TYPE(bwest => Timedisc%Boundary%boundary(WEST)%p)
-    CLASS IS (boundary_custom)
-      CALL bwest%SetCustomBoundaries(Mesh,Physics, &
-        (/CUSTOM_NOGRAD,CUSTOM_EXTRAPOL,CUSTOM_KEPLER/))
-    END SELECT
-    SELECT TYPE(beast => Timedisc%Boundary%boundary(EAST)%p)
-    CLASS IS (boundary_custom)
-      CALL beast%SetCustomBoundaries(Mesh,Physics, &
-        (/CUSTOM_NOGRAD,CUSTOM_NOGRAD,CUSTOM_NOGRAD/))
-    END SELECT
 
     CALL Mesh%Info(" DATA-----> initial condition: " // "pringle disk")
     WRITE(value,"(ES9.3)") TAU
@@ -388,6 +431,62 @@ CONTAINS
 
   END SUBROUTINE InitData
 
+
+  SUBROUTINE ViscousRing_approx(mu,tau,r,Sigma,vr)
+    IMPLICIT NONE
+    !--------------------------------------------------------------------!
+    REAL, INTENT(IN)  :: mu,tau,r
+    REAL, INTENT(OUT) :: Sigma,vr
+    !--------------------------------------------------------------------!
+    REAL :: lambda,r4l,invr4l
+    !--------------------------------------------------------------------!
+    lambda = 1./(4.0-mu)
+    r4l    = r**(0.25/lambda)
+    invr4l = 1./r4l
+    Sigma  = MDISK/SQRT((4*PI)**3 * tau) * r4l**(1.5-9*lambda) &
+               * EXP(-lambda**2/tau*(1.0-r4l)**2)
+    vr     = -1.5/RE*r*(1.5*invr4l**2 - lambda/tau*(0.5 - invr4l))
+  END SUBROUTINE ViscousRing_approx
+
+#ifdef HAVE_FGSL
+  SUBROUTINE ViscousRing_analytic(mu,tau,r,Sigma,vr)
+    IMPLICIT NONE
+    !--------------------------------------------------------------------!
+    REAL, INTENT(IN)  :: mu,tau,r
+    REAL, INTENT(OUT) :: Sigma,vr
+    !--------------------------------------------------------------------!
+    REAL :: lambda,invr4l,x
+    !--------------------------------------------------------------------!
+    lambda = 1./(4.0-mu)
+    invr4l = r**(-0.25/lambda)
+    x    = 2*lambda**2 / (tau*invr4l)
+    Sigma  = MDISK*lambda/(4*PI * tau) * r**(0.5/lambda-2.25) &
+               * EXP(-lambda**2/tau*(1.0+r**(0.5/lambda))) &
+               * modified_bessel_Inu(lambda,x)
+    vr     = -1.5/RE * r * (1.5*invr4l**2 - lambda/tau*(0.5-invr4l &
+               * modified_bessel_Inu(1+lambda,x)/modified_bessel_Inu(lambda,x)))
+  END SUBROUTINE ViscousRing_analytic
+
+  FUNCTION modified_bessel_Inu(nu,x) RESULT(Inu)
+    USE fgsl
+    IMPLICIT NONE
+    !--------------------------------------------------------------------!
+    REAL, INTENT(IN) :: nu,x
+    REAL             :: Inu
+    !--------------------------------------------------------------------!
+    INTEGER          :: n
+    !--------------------------------------------------------------------!
+    IF (AINT(nu).EQ.nu) THEN
+      ! nu is an integer -> use modified bessel functions of integer order
+      n = INT(nu)
+      Inu = fgsl_sf_bessel_icn(n,x)
+    ELSE
+      ! nu is not an integer -> use representation of modified bessel functions
+      ! through hypergeometric functions 0F1
+      Inu = (0.5*x)**nu / fgsl_sf_gamma(1.0+nu) * fgsl_sf_hyperg_0f1(1.0+nu,(0.5*x)**2)
+    END IF
+  END FUNCTION modified_bessel_Inu
+#endif
 
   FUNCTION func_vr(t,r) RESULT(v)
     IMPLICIT NONE
