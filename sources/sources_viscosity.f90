@@ -137,13 +137,20 @@ CONTAINS
     !------------------------------------------------------------------------!
     CALL GetAttr(config, "stype", stype)
     CALL this%InitLogging(stype,this%source_name)
+
+    SELECT TYPE(phys => Physics)
+    CLASS IS(physics_eulerisotherm)
+      IF (phys%VDIM.EQ.1) &
+        CALL this%Error("InitSources_viscosity","viscosity is currently not supported in 1D physics")
+    CLASS DEFAULT
+      CALL this%Error("InitSources_viscosity", &
+        "viscosity is currently only supported in eulerisotherm/euler physics")
+    END SELECT
+
     ! viscosity model
     CALL GetAttr(config, "vismodel", viscosity_number)
     ALLOCATE(logging_base::this%viscosity)
     CALL this%viscosity%InitLogging(viscosity_number,viscosity_name(viscosity_number))
-
-    IF (.NOT.Fluxes%Initialized()) &
-         CALL this%Error("InitSources_viscosity","fluxes module uninitialized")
 
     ! dynamic viscosity constant
     CALL GetAttr(config, "dynconst", this%dynconst, 0.1)
@@ -477,6 +484,8 @@ CONTAINS
 
 
   SUBROUTINE ExternalSources_single(this,Mesh,Physics,Fluxes,Sources,time,dt,pvar,cvar,sterm)
+    USE physics_eulerisotherm_mod, ONLY : physics_eulerisotherm
+    USE physics_euler_mod, ONLY : physics_euler
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(sources_viscosity),INTENT(INOUT) :: this
@@ -488,10 +497,13 @@ CONTAINS
     CLASS(marray_compound),INTENT(INOUT)   :: pvar,cvar,sterm
     !------------------------------------------------------------------------!
     CALL this%UpdateViscosity(Mesh,Physics,Fluxes,time,pvar,cvar)
-    CALL Physics%CalcStresses_euler(Mesh,pvar%data4d,this%dynvis%data3d,this%bulkvis%data3d, &
-             this%btxx,this%btxy,this%btxz,this%btyy,this%btyz,this%btzz)
-    CALL Physics%ViscositySources(Mesh,pvar%data4d,this%btxx,this%btxy,this%btxz, &
-             this%btyy,this%btyz,this%btzz,sterm%data4d)
+    SELECT TYPE(phys => Physics)
+    CLASS IS(physics_eulerisotherm)
+      CALL phys%CalcStresses(Mesh,pvar,this%dynvis,this%bulkvis, &
+                this%btxx,this%btxy,this%btxz,this%btyy,this%btyz,this%btzz)
+      CALL phys%ViscositySources(Mesh,pvar,this%btxx,this%btxy,this%btxz, &
+                this%btyy,this%btyz,this%btzz,sterm)
+    END SELECT
   END SUBROUTINE ExternalSources_single
 
 

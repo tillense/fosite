@@ -185,8 +185,6 @@ MODULE physics_base_mod
 !   PROCEDURE ::  CalculatePrim2RiemannY
 !   PROCEDURE ::  CalculateRiemann2PrimX
 !   PROCEDURE ::  CalculateRiemann2PrimY
-   PROCEDURE (CalcStresses_euler),       DEFERRED :: CalcStresses_euler
-   PROCEDURE (ViscositySources),             DEFERRED :: ViscositySources
 !   PROCEDURE ::  SGSSources
 !   PROCEDURE ::  CalculateSGSTensor
 !   PROCEDURE :: GetSoundSpeed_adiabatic
@@ -406,34 +404,6 @@ MODULE physics_base_mod
       CLASS(physics_base),           INTENT(IN)  :: this
       CLASS(mesh_base),              INTENT(IN)  :: Mesh       
       LOGICAL, DIMENSION(this%VNUM), INTENT(OUT) :: reflX,reflY,reflZ
-    END SUBROUTINE
-    PURE SUBROUTINE CalcStresses_euler(this,Mesh,pvar,dynvis,bulkvis, &
-         btxx,btxy,btxz,btyy,btyz,btzz)
-      IMPORT physics_base, mesh_base
-      !------------------------------------------------------------------------!
-      CLASS(Physics_base),INTENT(INOUT) :: this
-      CLASS(Mesh_base),INTENT(IN)       :: Mesh
-      REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM) :: pvar
-      REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX) :: &
-           dynvis,bulkvis,btxx,btxy,btxz,btyy,btyz,btzz
-      !------------------------------------------------------------------------!
-      INTENT(IN)        :: pvar,dynvis,bulkvis
-      INTENT(OUT)       :: btxx,btxy,btxz,btyy,btyz,btzz
-    END SUBROUTINE
-    PURE SUBROUTINE ViscositySources(this,Mesh,pvar,btxx,btxy,btxz,btyy,btyz,btzz,sterm)
-      IMPORT physics_base, mesh_base
-      !------------------------------------------------------------------------!
-      CLASS(physics_base), INTENT(INOUT) :: this
-      CLASS(mesh_base),       INTENT(IN)    :: Mesh
-      REAL,                   INTENT(IN), &
-        DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM) &
-                                            :: pvar
-      REAL,                   INTENT(IN), &
-        DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX) &
-                                            :: btxx,btxy,btyy,btyz,btzz,btxz
-      REAL,                   INTENT(OUT), &
-        DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM) &
-                                            :: sterm
     END SUBROUTINE
     PURE SUBROUTINE CalculateCharSystemX(this,Mesh,i,dir,pvar,lambda,xvar)
       IMPORT physics_base, mesh_base

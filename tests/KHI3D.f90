@@ -208,12 +208,12 @@ PROGRAM KHI
 
   CALL Sim%Finalize(.TRUE.)
   DEALLOCATE(Sim,pvar_xy,pvar_xz,pvar_yx,pvar_yz,pvar_zx,pvar_zy,pvar_temp,seed)
-  TAP_CHECK_SMALL(sigma_1,2*EPSILON(sigma_1),"xy-yx symmetry test")
-  TAP_CHECK_SMALL(sigma_2,2*EPSILON(sigma_2),"xz-zx symmetry test")
-  TAP_CHECK_SMALL(sigma_3,2*EPSILON(sigma_3),"zy-yz symmetry test")
-  TAP_CHECK_SMALL(sigma_4,2*EPSILON(sigma_4),"zx-zy symmetry test")
-  TAP_CHECK_SMALL(sigma_5,2*EPSILON(sigma_5),"yx-yz symmetry test")
-  TAP_CHECK_SMALL(sigma_6,2*EPSILON(sigma_6),"xy-xz symmetry test")
+  TAP_CHECK_SMALL(sigma_1,3*EPSILON(sigma_1),"xy-yx symmetry test")
+  TAP_CHECK_SMALL(sigma_2,3*EPSILON(sigma_2),"xz-zx symmetry test")
+  TAP_CHECK_SMALL(sigma_3,3*EPSILON(sigma_3),"zy-yz symmetry test")
+  TAP_CHECK_SMALL(sigma_4,3*EPSILON(sigma_4),"zx-zy symmetry test")
+  TAP_CHECK_SMALL(sigma_5,3*EPSILON(sigma_5),"yx-yz symmetry test")
+  TAP_CHECK_SMALL(sigma_6,3*EPSILON(sigma_6),"xy-xz symmetry test")
 
 
   TAP_DONE

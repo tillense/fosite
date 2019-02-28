@@ -66,7 +66,7 @@ PROGRAM pringle_test
   INTEGER, PARAMETER :: VISTYPE = POWERLAW
   REAL, PARAMETER    :: PL_EXP  = 0.0        ! exponent for power law viscosity
   REAL, PARAMETER    :: TAU     = 4./3.*RE   ! viscous time scale
-  REAL, PARAMETER    :: TINIT   = 5.0E-8     ! time for initial condition [TAU]
+  REAL, PARAMETER    :: TINIT   = 1.0E-3     ! time for initial condition [TAU]
   ! mesh settings
   !**************************************************************************!
   !> \remark #1: This test is very sensitive to mesh settings. If there are
@@ -80,10 +80,11 @@ PROGRAM pringle_test
   !**************************************************************************!
   INTEGER, PARAMETER :: MGEO = CYLINDRICAL
 !   INTEGER, PARAMETER :: MGEO = LOGCYLINDRICAL
-  INTEGER, PARAMETER :: XRES = 200         ! x-resolution
+!   INTEGER, PARAMETER :: MGEO = SPHERICAL
+  INTEGER, PARAMETER :: XRES = 400         ! x-resolution
   INTEGER, PARAMETER :: YRES = 1           ! y-resolution
-  INTEGER, PARAMETER :: ZRES = 1           ! z-resolution
-  REAL, PARAMETER    :: RMIN = 0.01         ! min radius of comp. domain
+  INTEGER, PARAMETER :: ZRES = 1          ! z-resolution
+  REAL, PARAMETER    :: RMIN = 0.05         ! min radius of comp. domain
   REAL, PARAMETER    :: RMAX = 2.0         ! max radius of comp. domain
   REAL, PARAMETER    :: GPAR = 1.0         ! geometry scaling parameter
   ! output parameters
@@ -103,7 +104,6 @@ PROGRAM pringle_test
   INTEGER :: i,j,k
   LOGICAL :: ok
   !--------------------------------------------------------------------------!
-
 
   TAP_PLAN(1)
 
@@ -168,7 +168,7 @@ CONTAINS
     INTEGER           :: bc(6)
     TYPE(Dict_TYP), POINTER :: mesh, physics, boundary, datafile, &
                                grav, vis, timedisc, fluxes, sources
-    REAL              :: x1,x2,y1,y2
+    REAL              :: x1,x2,y1,y2,z1,z2
     !------------------------------------------------------------------------!
     INTENT(INOUT)     :: Sim
     !------------------------------------------------------------------------!
@@ -179,6 +179,8 @@ CONTAINS
       x2 = RMAX
       y1 = -PI
       y2 = PI
+      z1 = 0.0
+      z2 = 0.0
 !       bc(WEST)  = NO_GRADIENTS
 !       bc(EAST)  = NO_GRADIENTS
       bc(WEST)  = CUSTOM
@@ -192,12 +194,29 @@ CONTAINS
       x2 = LOG(RMAX/GPAR)
       y1 = -PI
       y2 = PI
+      z1 = 0.0
+      z2 = 0.0
       bc(WEST)  = NO_GRADIENTS
       bc(EAST)  = NO_GRADIENTS
       bc(SOUTH) = PERIODIC
       bc(NORTH) = PERIODIC
       bc(BOTTOM) = NO_GRADIENTS
       bc(TOP)    = NO_GRADIENTS
+    CASE(SPHERICAL)
+      x1 = RMIN
+      x2 = RMAX
+      y1 = PI/2 ! - 0.05*PI
+      y2 = PI/2 ! + 0.05*PI
+      z1 = -PI
+      z2 = PI
+!       bc(WEST)  = NO_GRADIENTS
+!       bc(EAST)  = NO_GRADIENTS
+      bc(WEST)  = CUSTOM
+      bc(EAST)  = CUSTOM
+      bc(SOUTH) = NO_GRADIENTS
+      bc(NORTH) = NO_GRADIENTS
+      bc(BOTTOM) = PERIODIC
+      bc(TOP)    = PERIODIC
     CASE DEFAULT
       CALL Sim%Error("pringle::MakeConfig","mesh geometry not supported for Pringle disk")
     END SELECT
@@ -213,8 +232,8 @@ CONTAINS
            "xmax"       / x2, &
            "ymin"       / y1, &
            "ymax"       / y2, &
-           "zmin"       / 0.0, &
-           "zmax"       / 0.0, &
+           "zmin"       / z1, &
+           "zmax"       / z2, &
 !            "use_fargo"  / 1, &
 !            "fargo"      / 2, &
            "gparam"     / GPAR)
@@ -249,7 +268,7 @@ CONTAINS
             "vismodel"  / VISTYPE, &
             "dynconst"  / (1./RE), &
             "exponent"  / PL_EXP, &
-            "cvis"      / 0.002)
+            "cvis"      / 0.01)
 
     ! source term due to a point mass
     grav => Dict( &
@@ -302,6 +321,8 @@ CONTAINS
     CLASS(timedisc_base), INTENT(INOUT) :: Timedisc
     !------------------------------------------------------------------------!
     ! Local variable declaration
+    CLASS(sources_base), POINTER :: sp
+    CLASS(sources_gravity), POINTER :: gp
     INTEGER           :: i,j,k
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,3) &
                       :: posvec,ephi
@@ -325,7 +346,7 @@ CONTAINS
        ! from the point mass to the bary center of any cell on the mesh
        posvec(:,:,:,:) = Mesh%posvec%bcenter(:,:,:,:) - posvec(:,:,:,:)
        ! compute its absolute value
-       radius(:,:,:) = SQRT(posvec(:,:,:,1)**2+posvec(:,:,:,2)**2)
+       radius(:,:,:) = SQRT(posvec(:,:,:,1)**2+posvec(:,:,:,2)**2+posvec(:,:,:,3)**2)
     END IF
 
     ! curvilinear components of azimuthal unit vector
@@ -341,15 +362,28 @@ CONTAINS
     SELECT TYPE(bwest => Timedisc%Boundary%boundary(WEST)%p)
     CLASS IS (boundary_custom)
       CALL bwest%SetCustomBoundaries(Mesh,Physics, &
-        (/CUSTOM_NOGRAD,CUSTOM_NOGRAD,CUSTOM_LOGEXPOL/))
+        (/CUSTOM_NOGRAD,CUSTOM_OUTFLOW,CUSTOM_KEPLER/))
     END SELECT
     SELECT TYPE(beast => Timedisc%Boundary%boundary(EAST)%p)
     CLASS IS (boundary_custom)
       CALL beast%SetCustomBoundaries(Mesh,Physics, &
-        (/CUSTOM_NOGRAD,CUSTOM_NOGRAD,CUSTOM_NOGRAD/))
+        (/CUSTOM_NOGRAD,CUSTOM_NOGRAD,CUSTOM_KEPLER/))
     END SELECT
 
-    SELECT TYPE(p => Timedisc%pvar)
+    ! get gravitational acceleration
+    sp => Sim%Sources
+    DO
+      IF (ASSOCIATED(sp).EQV..FALSE.) RETURN
+      SELECT TYPE(sp)
+      CLASS IS(sources_gravity)
+        gp => sp
+        EXIT
+      END SELECT
+      sp => sp%next
+    END DO
+    IF (.NOT.ASSOCIATED(sp)) CALL Physics%Error("pringle::InitData","no gravity term initialized")
+
+    SELECT TYPE(pvar => Timedisc%pvar)
     TYPE IS(statevector_eulerisotherm)
       SELECT CASE(VISTYPE)
       CASE(BETA)
@@ -365,10 +399,10 @@ CONTAINS
               ! radial velocity (approximation for small initial time)
               vr = 4.5/(RE*TINIT*TAU) * r34*(r34-1.0) * vphi
               ! surface density
-              p%density%data3d(i,j,k) = RHOMIN &
+              pvar%density%data3d(i,j,k) = RHOMIN &
                   + 3. / SQRT(TINIT*TAU*(4*PI*r34)**3) * EXP(-((1.0-r34)**2)/(TINIT*TAU))
               ! curvilinear velocity components
-              p%velocity%data4d(i,j,k,1:2) = &
+              pvar%velocity%data4d(i,j,k,1:2) = &
                   vr*posvec(i,j,k,1:2)/r + vphi*ephi(i,j,k,1:2)
             END DO
           END DO
@@ -382,9 +416,9 @@ CONTAINS
               ! Keplerian velocity
               vphi = SQRT(1.0/r)
 #ifdef HAVE_FGSL
-              CALL ViscousRing_analytic(PL_EXP,TINIT*TAU,r,sden,vr)
+              CALL ViscousRing_analytic(PL_EXP,TINIT,r,sden,vr)
 #else
-              CALL ViscousRing_approx(PL_EXP,TINIT*TAU,r,sden,vr)
+              CALL ViscousRing_approx(PL_EXP,TINIT,r,sden,vr)
 #endif
 !               ! radial velocity
 !               IF (2*r/TAU0.LE.0.1) THEN
@@ -395,13 +429,19 @@ CONTAINS
 !                 vr = 3.0/RE * (0.25/r + 2.0/TAU0*(r-1.0))
 !               END IF
               ! surface density (approximate solution)
-              p%density%data3d(i,j,k) = RHOMIN + sden
+              pvar%density%data3d(i,j,k) = RHOMIN + sden
               ! curvilinear velocity components
-              p%velocity%data4d(i,j,k,1:2) = &
+              pvar%velocity%data4d(i,j,k,1:2) = &
                   vr*posvec(i,j,k,1:2)/r + vphi*ephi(i,j,k,1:2)
+!               pvar%velocity%data4d(i,j,k,1:2) = vr*posvec(i,j,k,1:2)/r
+!               p%velocity%data4d(i,j,k,2) = vphi
             END DO
           END DO
         END DO
+!         CALL gp%UpdateGravity(Mesh,Sim%Physics,Sim%Fluxes,pvar,0.0,0.0)
+!         pvar%velocity%data4d(:,:,:,1:Physics%VDIM) = &
+!           Timedisc%GetCentrifugalVelocity(Mesh,Sim%Physics,Sim%Fluxes,Sim%Sources,(/0.,0.,1./), &
+!             gp%accel%data4d)
       CASE DEFAULT
         CALL Timedisc%Error("pringle::InitData","only pringle and beta viscosity possible")
       END SELECT

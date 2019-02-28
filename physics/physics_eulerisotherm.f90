@@ -42,6 +42,7 @@
 !! \ingroup physics
 !----------------------------------------------------------------------------!
 MODULE physics_eulerisotherm_mod
+  USE logging_base_mod
   USE physics_base_mod
   USE mesh_base_mod
   USE marray_base_mod
@@ -102,8 +103,9 @@ MODULE physics_eulerisotherm_mod
 
     PROCEDURE :: GeometricalSources
     PROCEDURE :: ExternalSources
+    PROCEDURE :: ViscositySources
 
-    PROCEDURE :: ReflectionMasks                      ! for reflecting boundaries
+    PROCEDURE :: CalcStresses
 !    PROCEDURE :: CalcIntermediateStateX_eulerisotherm    ! for HLLC
 !    PROCEDURE :: CalcIntermediateStateY_eulerisotherm    ! for HLLC
     PROCEDURE :: CalculateCharSystemX           ! for absorbing boundaries
@@ -118,9 +120,8 @@ MODULE physics_eulerisotherm_mod
 !    PROCEDURE :: CalcRiemann2PrimY_eulerisotherm         ! for farfield boundaries
 !    PROCEDURE :: CalcRoeAverages_eulerisotherm           ! for advanced wavespeeds
 !    PROCEDURE :: ExternalSources_eulerisotherm
+    PROCEDURE :: ReflectionMasks                      ! for reflecting boundaries
     PROCEDURE :: AxisMasks
-    PROCEDURE :: ViscositySources
-    PROCEDURE :: CalcStresses_euler
 
     PROCEDURE     :: Finalize
   END TYPE
@@ -792,111 +793,107 @@ CONTAINS
           TYPE IS(statevector_eulerisotherm)
             ! no source terms
             s%density%data1d(:) = 0.0
-            SELECT CASE(this%VDIM)
-            CASE(1) ! 1D
-              IF (Mesh%INUM.GT.1) THEN
-                ! x-momentum
-                ! vy = vz = my = mz = 0
-                s%momentum%data2d(:,1) = GetGeometricalSourceX( &
-                   Mesh%cxyx%data2d(:,2),Mesh%cxzx%data2d(:,2), &
-                   Mesh%cyxy%data2d(:,2),Mesh%czxz%data2d(:,2), &
-                   p%velocity%data2d(:,1),0.0,0.0, &
-                   p%density%data1d(:)*this%bccsound%data1d(:)**2, &
-                   0.0,0.0)
-              ELSE IF (Mesh%JNUM.GT.1) THEN
-                ! y-momentum
-                ! vx = vz = mx = mz = 0
-                s%momentum%data2d(:,1) = GetGeometricalSourceY( &
-                   Mesh%cxyx%data2d(:,2),Mesh%cyxy%data2d(:,2), &
-                   Mesh%cyzy%data2d(:,2),Mesh%czyz%data2d(:,2), &
-                   0.0,p%velocity%data2d(:,1),0.0, &
-                   p%density%data1d(:)*this%bccsound%data1d(:)**2, &
-                   0.0,0.0)
-              ELSE IF (Mesh%KNUM.GT.1) THEN
-                ! z-momentum
-                ! vx = vy = mx = my = 0
-                s%momentum%data2d(:,1) = GetGeometricalSourceZ( &
-                   Mesh%cxzx%data2d(:,2),Mesh%cyzy%data2d(:,2), &
-                   Mesh%czxz%data2d(:,2),Mesh%czyz%data2d(:,2), &
-                   0.0,0.0,p%velocity%data2d(:,1), &
-                   p%density%data1d(:)*this%bccsound%data1d(:)**2, &
-                   0.0,0.0)
-              END IF
-            CASE(2) ! 2D
-              IF (Mesh%KNUM.EQ.1.AND..NOT.Mesh%ROTSYM.EQ.3) THEN
-                ! vz = mz = 0
-                ! x-momentum
-                s%momentum%data2d(:,1) = GetGeometricalSourceX( &
-                   Mesh%cxyx%data2d(:,2),Mesh%cxzx%data2d(:,2), &
-                   Mesh%cyxy%data2d(:,2),Mesh%czxz%data2d(:,2), &
-                   p%velocity%data2d(:,1),p%velocity%data2d(:,2),0.0, &
-                   p%density%data1d(:)*this%bccsound%data1d(:)**2, &
-                   c%momentum%data2d(:,2),0.0)
-                ! y-momentum
-                s%momentum%data2d(:,2) = GetGeometricalSourceY( &
-                   Mesh%cxyx%data2d(:,2),Mesh%cyxy%data2d(:,2), &
-                   Mesh%cyzy%data2d(:,2),Mesh%czyz%data2d(:,2), &
-                   p%velocity%data2d(:,1),p%velocity%data2d(:,2),0.0, &
-                   p%density%data1d(:)*this%bccsound%data1d(:)**2, &
-                   c%momentum%data2d(:,1),0.0)
-              ELSE IF (Mesh%JNUM.EQ.1.AND..NOT.Mesh%ROTSYM.EQ.2) THEN
-                ! vy = my = 0
-                ! x-momentum
-                s%momentum%data2d(:,1) = GetGeometricalSourceX( &
-                   Mesh%cxyx%data2d(:,2),Mesh%cxzx%data2d(:,2), &
-                   Mesh%cyxy%data2d(:,2),Mesh%czxz%data2d(:,2), &
-                   p%velocity%data2d(:,1),0.0,p%velocity%data2d(:,2), &
-                   p%density%data1d(:)*this%bccsound%data1d(:)**2, &
-                   0.0,c%momentum%data2d(:,2))
-                ! z-momentum
-                s%momentum%data2d(:,2) = GetGeometricalSourceZ( &
-                   Mesh%cxzx%data2d(:,2),Mesh%cyzy%data2d(:,2), &
-                   Mesh%czxz%data2d(:,2),Mesh%czyz%data2d(:,2), &
-                   p%velocity%data2d(:,1),0.0,p%velocity%data2d(:,2), &
-                   p%density%data1d(:)*this%bccsound%data1d(:)**2, &
-                   0.0,c%momentum%data2d(:,2))
-              ELSE IF (Mesh%INUM.EQ.1.AND..NOT.Mesh%ROTSYM.EQ.1) THEN
-                ! vx = mx = 0
-                ! y-momentum
-                s%momentum%data2d(:,1) = GetGeometricalSourceY( &
-                   Mesh%cxyx%data2d(:,2),Mesh%cyxy%data2d(:,2), &
-                   Mesh%cyzy%data2d(:,2),Mesh%czyz%data2d(:,2), &
-                   0.0,p%velocity%data2d(:,1),p%velocity%data2d(:,2), &
-                   p%density%data1d(:)*this%bccsound%data1d(:)**2, &
-                   0.0,c%momentum%data2d(:,2))
-                ! z-momentum
-                s%momentum%data2d(:,2) = GetGeometricalSourceZ( &
-                   Mesh%cxzx%data2d(:,2),Mesh%cyzy%data2d(:,2), &
-                   Mesh%czxz%data2d(:,2),Mesh%czyz%data2d(:,2), &
-                   0.0,p%velocity%data2d(:,1),p%velocity%data2d(:,2), &
-                   p%density%data1d(:)*this%bccsound%data1d(:)**2, &
-                   0.0,c%momentum%data2d(:,2))
-              END IF
-            CASE(3) ! 3D
-                ! x-momentum
-                s%momentum%data2d(:,1) = GetGeometricalSourceX( &
-                   Mesh%cxyx%data2d(:,2),Mesh%cxzx%data2d(:,2), &
-                   Mesh%cyxy%data2d(:,2),Mesh%czxz%data2d(:,2), &
-                   p%velocity%data2d(:,1),p%velocity%data2d(:,2), &
-                   p%velocity%data2d(:,3), &
-                   p%density%data1d(:)*this%bccsound%data1d(:)**2, &
-                   c%momentum%data2d(:,2),c%momentum%data2d(:,3))
-                ! y-momentum
-                s%momentum%data2d(:,2) = GetGeometricalSourceY( &
-                   Mesh%cxyx%data2d(:,2),Mesh%cyxy%data2d(:,2), &
-                   Mesh%cyzy%data2d(:,2),Mesh%czyz%data2d(:,2), &
-                   p%velocity%data2d(:,1),p%velocity%data2d(:,2), &
-                   p%velocity%data2d(:,3), &
-                   p%density%data1d(:)*this%bccsound%data1d(:)**2, &
-                   c%momentum%data2d(:,1),c%momentum%data2d(:,3))
-                ! z-momentum
-                s%momentum%data2d(:,3) = GetGeometricalSourceZ( &
-                   Mesh%cxzx%data2d(:,2),Mesh%cyzy%data2d(:,2), &
-                   Mesh%czxz%data2d(:,2),Mesh%czyz%data2d(:,2), &
-                   p%velocity%data2d(:,1),p%velocity%data2d(:,2), &
-                   p%velocity%data2d(:,3), &
-                   p%density%data1d(:)*this%bccsound%data1d(:)**2, &
-                   c%momentum%data2d(:,1),c%momentum%data2d(:,2))
+            SELECT CASE(Mesh%VECTOR_COMPONENTS)
+            CASE(VECTOR_X) ! 1D momentum in x-direction
+              ! vy = vz = my = mz = 0
+              s%momentum%data2d(:,1) = GetGeometricalSourceX( &
+                  Mesh%cxyx%data2d(:,2),Mesh%cxzx%data2d(:,2), &
+                  Mesh%cyxy%data2d(:,2),Mesh%czxz%data2d(:,2), &
+                  p%velocity%data2d(:,1),0.0,0.0, &
+                  p%density%data1d(:)*this%bccsound%data1d(:)**2, &
+                  0.0,0.0)
+            CASE(VECTOR_Y) ! 1D momentum in y-direction
+              ! vx = vz = mx = mz = 0
+              s%momentum%data2d(:,1) = GetGeometricalSourceY( &
+                  Mesh%cxyx%data2d(:,2),Mesh%cyxy%data2d(:,2), &
+                  Mesh%cyzy%data2d(:,2),Mesh%czyz%data2d(:,2), &
+                  0.0,p%velocity%data2d(:,1),0.0, &
+                  p%density%data1d(:)*this%bccsound%data1d(:)**2, &
+                  0.0,0.0)
+            CASE(VECTOR_Z) ! 1D momentum in z-direction
+              ! vx = vy = mx = my = 0
+              s%momentum%data2d(:,1) = GetGeometricalSourceZ( &
+                  Mesh%cxzx%data2d(:,2),Mesh%cyzy%data2d(:,2), &
+                  Mesh%czxz%data2d(:,2),Mesh%czyz%data2d(:,2), &
+                  0.0,0.0,p%velocity%data2d(:,1), &
+                  p%density%data1d(:)*this%bccsound%data1d(:)**2, &
+                  0.0,0.0)
+            CASE(IOR(VECTOR_X,VECTOR_Y)) ! 2D momentum in x-y-plane
+              ! vz = mz = 0
+              ! x-momentum
+              s%momentum%data2d(:,1) = GetGeometricalSourceX( &
+                  Mesh%cxyx%data2d(:,2),Mesh%cxzx%data2d(:,2), &
+                  Mesh%cyxy%data2d(:,2),Mesh%czxz%data2d(:,2), &
+                  p%velocity%data2d(:,1),p%velocity%data2d(:,2),0.0, &
+                  p%density%data1d(:)*this%bccsound%data1d(:)**2, &
+                  c%momentum%data2d(:,2),0.0)
+              ! y-momentum
+              s%momentum%data2d(:,2) = GetGeometricalSourceY( &
+                  Mesh%cxyx%data2d(:,2),Mesh%cyxy%data2d(:,2), &
+                  Mesh%cyzy%data2d(:,2),Mesh%czyz%data2d(:,2), &
+                  p%velocity%data2d(:,1),p%velocity%data2d(:,2),0.0, &
+                  p%density%data1d(:)*this%bccsound%data1d(:)**2, &
+                  c%momentum%data2d(:,1),0.0)
+            CASE(IOR(VECTOR_X,VECTOR_Z)) ! 2D momentum in x-z-plane
+              ! vy = my = 0
+              ! x-momentum
+              s%momentum%data2d(:,1) = GetGeometricalSourceX( &
+                  Mesh%cxyx%data2d(:,2),Mesh%cxzx%data2d(:,2), &
+                  Mesh%cyxy%data2d(:,2),Mesh%czxz%data2d(:,2), &
+                  p%velocity%data2d(:,1),0.0,p%velocity%data2d(:,2), &
+                  p%density%data1d(:)*this%bccsound%data1d(:)**2, &
+                  0.0,c%momentum%data2d(:,2))
+              ! z-momentum
+              s%momentum%data2d(:,2) = GetGeometricalSourceZ( &
+                  Mesh%cxzx%data2d(:,2),Mesh%cyzy%data2d(:,2), &
+                  Mesh%czxz%data2d(:,2),Mesh%czyz%data2d(:,2), &
+                  p%velocity%data2d(:,1),0.0,p%velocity%data2d(:,2), &
+                  p%density%data1d(:)*this%bccsound%data1d(:)**2, &
+                  c%momentum%data2d(:,1),0.0)
+            CASE(IOR(VECTOR_Y,VECTOR_Z)) ! 2D momentum in y-z-plane
+              ! vx = mx = 0
+              ! y-momentum
+              s%momentum%data2d(:,1) = GetGeometricalSourceY( &
+                  Mesh%cxyx%data2d(:,2),Mesh%cyxy%data2d(:,2), &
+                  Mesh%cyzy%data2d(:,2),Mesh%czyz%data2d(:,2), &
+                  0.0,p%velocity%data2d(:,1),p%velocity%data2d(:,2), &
+                  p%density%data1d(:)*this%bccsound%data1d(:)**2, &
+                  0.0,c%momentum%data2d(:,2))
+              ! z-momentum
+              s%momentum%data2d(:,2) = GetGeometricalSourceZ( &
+                  Mesh%cxzx%data2d(:,2),Mesh%cyzy%data2d(:,2), &
+                  Mesh%czxz%data2d(:,2),Mesh%czyz%data2d(:,2), &
+                  0.0,p%velocity%data2d(:,1),p%velocity%data2d(:,2), &
+                  p%density%data1d(:)*this%bccsound%data1d(:)**2, &
+                  0.0,c%momentum%data2d(:,1))
+            CASE(IOR(IOR(VECTOR_X,VECTOR_Y),VECTOR_Z)) ! 3D momentum
+              ! x-momentum
+              s%momentum%data2d(:,1) = GetGeometricalSourceX( &
+                  Mesh%cxyx%data2d(:,2),Mesh%cxzx%data2d(:,2), &
+                  Mesh%cyxy%data2d(:,2),Mesh%czxz%data2d(:,2), &
+                  p%velocity%data2d(:,1),p%velocity%data2d(:,2), &
+                  p%velocity%data2d(:,3), &
+                  p%density%data1d(:)*this%bccsound%data1d(:)**2, &
+                  c%momentum%data2d(:,2),c%momentum%data2d(:,3))
+              ! y-momentum
+              s%momentum%data2d(:,2) = GetGeometricalSourceY( &
+                  Mesh%cxyx%data2d(:,2),Mesh%cyxy%data2d(:,2), &
+                  Mesh%cyzy%data2d(:,2),Mesh%czyz%data2d(:,2), &
+                  p%velocity%data2d(:,1),p%velocity%data2d(:,2), &
+                  p%velocity%data2d(:,3), &
+                  p%density%data1d(:)*this%bccsound%data1d(:)**2, &
+                  c%momentum%data2d(:,1),c%momentum%data2d(:,3))
+              ! z-momentum
+              s%momentum%data2d(:,3) = GetGeometricalSourceZ( &
+                  Mesh%cxzx%data2d(:,2),Mesh%cyzy%data2d(:,2), &
+                  Mesh%czxz%data2d(:,2),Mesh%czyz%data2d(:,2), &
+                  p%velocity%data2d(:,1),p%velocity%data2d(:,2), &
+                  p%velocity%data2d(:,3), &
+                  p%density%data1d(:)*this%bccsound%data1d(:)**2, &
+                  c%momentum%data2d(:,1),c%momentum%data2d(:,2))
+            CASE DEFAULT
+              ! return NaN
+              s%momentum%data1d(:) = NAN_DEFAULT_REAL
             END SELECT
           END SELECT
         END SELECT
@@ -1066,162 +1063,224 @@ CONTAINS
     END SELECT
   END SUBROUTINE CalcFluxesZ
 
-
+  !> compute viscous source terms
   PURE SUBROUTINE ViscositySources(this,Mesh,pvar,btxx,btxy,btxz,btyy,btyz,btzz,sterm)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(physics_eulerisotherm), INTENT(INOUT) :: this
     CLASS(mesh_base),       INTENT(IN)    :: Mesh
-    REAL,                   INTENT(IN), &
-       DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM) &
-                                           :: pvar
+    CLASS(marray_compound), INTENT(INOUT) :: pvar,sterm
     REAL,                   INTENT(IN), &
        DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX) &
                                            :: btxx,btxy,btxz,btyy,btyz,btzz
-    REAL,                   INTENT(OUT), &
-       DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM) &
-                                          :: sterm
-   !------------------------------------------------------------------------!
-   ! mean values of stress tensor components across the cell interfaces
+    !------------------------------------------------------------------------!
+    SELECT TYPE(p => pvar)
+    CLASS IS(statevector_eulerisotherm)
+      SELECT TYPE(s => sterm)
+      CLASS IS(statevector_eulerisotherm)
+        ! no viscous sources in continuity equation
+        s%density%data1d(:) = 0.0
+        ! viscous momentum sources
+        SELECT CASE(this%VDIM)
+!         CASE(1) ! 1D velocities are currently not supported
+!           CALL Mesh%Divergence(btxx,sterm(:,:,:,this%XMOMENTUM))
+        CASE(2)
+          ! divergence of stress tensor with symmetry btyx=btxy
+          CALL Mesh%Divergence(btxx,btxy,btxy,btyy,s%momentum%data4d(:,:,:,1), &
+                               s%momentum%data4d(:,:,:,2))
+        CASE(3)
+          ! divergence of stress tensor with symmetry btyx=btxy, btxz=btzx, btyz=btzy
+          CALL Mesh%Divergence(btxx,btxy,btxz,btxy,btyy,btyz,btxz,btyz,btzz, &
+               s%momentum%data4d(:,:,:,1),s%momentum%data4d(:,:,:,2), &
+               s%momentum%data4d(:,:,:,3))
+        CASE DEFAULT
+          ! return NaN
+          s%data1d(:) = NAN_DEFAULT_REAL
+        END SELECT
+      END SELECT
+    END SELECT
+  END SUBROUTINE ViscositySources
 
-   ! viscosity source terms
-    sterm(:,:,:,this%DENSITY) = 0.0 
-
-   ! compute viscous momentum sources
-   ! divergence of stress tensor with symmetry btyx=btxy
-   SELECT CASE(this%VDIM)
-!   CASE(1)
-!     CALL Mesh%Divergence(btxx,sterm(:,:,:,this%XMOMENTUM))
-   CASE(2)
-    CALL Mesh%Divergence(btxx,btxy,btxy,btyy,sterm(:,:,:,this%XMOMENTUM), &
-                         sterm(:,:,:,this%YMOMENTUM))
-   CASE(3)
-    CALL Mesh%Divergence(btxx,btxy,btxz,btxy,btyy,btyz,btxz,btyz,btzz,sterm(:,:,:,this%XMOMENTUM), &
-                         sterm(:,:,:,this%YMOMENTUM),sterm(:,:,:,this%ZMOMENTUM))
-   END SELECT
-
- END SUBROUTINE ViscositySources
-
-  ! identical to isothermal case. 
-  PURE SUBROUTINE CalcStresses_euler(this,Mesh,pvar,dynvis,bulkvis, &
+  !> calculate components of the stress tensor
+  !!
+  !! The components are computed at cell bary centers inside the computational
+  !! domain including one slice of ghost cells.
+  PURE SUBROUTINE CalcStresses(this,Mesh,pvar,dynvis,bulkvis, &
        btxx,btxy,btxz,btyy,btyz,btzz)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(Physics_eulerisotherm), INTENT(INOUT) :: this
-    CLASS(Mesh_base), INTENT(IN)          :: Mesh
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM) :: pvar
+    CLASS(physics_eulerisotherm), INTENT(INOUT) :: this
+    CLASS(mesh_base), INTENT(IN)          :: Mesh
+    CLASS(marray_compound), INTENT(INOUT) :: pvar
+    CLASS(marray_base), INTENT(INOUT)     :: dynvis,bulkvis
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX) :: &
-         dynvis,bulkvis,btxx,btxy,btxz,btyy,btyz,btzz
+         btxx,btxy,btxz,btyy,btyz,btzz
     !------------------------------------------------------------------------!
     INTEGER           :: i,j,k
     !------------------------------------------------------------------------!
-    INTENT(IN)        :: pvar,dynvis,bulkvis
     INTENT(OUT)       :: btxx,btxy,btxz,btyy,btyz,btzz
     !------------------------------------------------------------------------!
-    ! compute components of the stress tensor at cell bary centers
-    ! inside the computational domain including one slice of ghost cells
-
-    ! compute bulk viscosity first and store the result in this%tmp
-    SELECT CASE(this%VDIM)
-!    CASE(1)
-!      CALL Mesh%Divergence(pvar(:,:,:,this%XVELOCITY),this%tmp(:,:,:))
-    CASE(2)
-      CALL Mesh%Divergence(pvar(:,:,:,this%XVELOCITY),pvar(:,:,:,this%YVELOCITY),this%tmp(:,:,:))
-    CASE(3)
-      CALL Mesh%Divergence(pvar(:,:,:,this%XVELOCITY),pvar(:,:,:,this%YVELOCITY),pvar(:,:,:,this%ZVELOCITY),this%tmp(:,:,:))
-    END SELECT
-    this%tmp(:,:,:) = bulkvis(:,:,:)*this%tmp(:,:,:)
-
-    SELECT CASE(this%VDIM)
-!    CASE(1)
-!    !NEC$ OUTERLOOP_UNROLL(8)
-!       DO k=Mesh%KMIN-Mesh%KP1,Mesh%KMAX+Mesh%KP1
-!        DO j=Mesh%JMIN-Mesh%JP1,Mesh%JMAX+Mesh%JP1
-!          !NEC$ IVDEP
-!          DO i=Mesh%IMIN-Mesh%IP1,Mesh%IMAX+Mesh%IP1
-!          ! compute the diagonal elements of the stress tensor
-!          btxx(i,j,k) = dynvis(i,j,k) * &
-!                (pvar(i+1,j,k,this%XVELOCITY) - pvar(i-1,j,k,this%XVELOCITY)) / Mesh%dlx%data3d(i,j,k) &
-!               + this%tmp(i,j,k)
-!
-!          END DO
-!        END DO
-!       END DO
-    CASE(2)
-!NEC$ OUTERLOOP_UNROLL(8)
-  DO k=Mesh%KMIN-Mesh%KP1,Mesh%KMAX+Mesh%KP1
-    DO j=Mesh%JMIN-Mesh%JP1,Mesh%JMAX+Mesh%JP1
+    SELECT TYPE(p => pvar)
+    CLASS IS(statevector_eulerisotherm)
+      SELECT CASE(Mesh%VECTOR_COMPONENTS)
+!!!! 1D velocities are currently not supported !!!!
+!         CASE(VECTOR_X) ! 1D velocity in x-direction
+!         CASE(VECTOR_Y) ! 1D velocity in y-direction
+!         CASE(VECTOR_Z) ! 1D velocity in z-direction
+      CASE(IOR(VECTOR_X,VECTOR_Y)) ! 2D velocities in x-y-plane
+        ! compute bulk viscosity first and store the result in this%tmp
+        CALL Mesh%Divergence(p%velocity%data4d(:,:,:,1),p%velocity%data4d(:,:,:,2),&
+                             this%tmp(:,:,:))
+        this%tmp(:,:,:) = bulkvis%data3d(:,:,:)*this%tmp(:,:,:)
+        DO k=Mesh%KMIN-Mesh%KP1,Mesh%KMAX+Mesh%KP1
+          DO j=Mesh%JMIN-Mesh%JP1,Mesh%JMAX+Mesh%JP1
 !NEC$ IVDEP
-       DO i=Mesh%IMIN-Mesh%IP1,Mesh%IMAX+Mesh%IP1
-          ! compute the diagonal elements of the stress tensor
-          btxx(i,j,k) = dynvis(i,j,k) * &
-                ((pvar(i+Mesh%IP1,j,k,this%XVELOCITY) - pvar(i-Mesh%IP1,j,k,this%XVELOCITY)) / Mesh%dlx%data3d(i,j,k) &
-               + 2.0 * Mesh%cxyx%bcenter(i,j,k) * pvar(i,j,k,this%YVELOCITY)) &
-               + this%tmp(i,j,k)
-
-          btyy(i,j,k) = dynvis(i,j,k) * &
-               ( (pvar(i,j+Mesh%JP1,k,this%YVELOCITY) - pvar(i,j-Mesh%JP1,k,this%YVELOCITY)) / Mesh%dly%data3d(i,j,k) &
-               + 2.0 * Mesh%cyxy%bcenter(i,j,k) * pvar(i,j,k,this%XVELOCITY) ) &
-               + this%tmp(i,j,k)
-
-          ! compute the off-diagonal elements (no bulk viscosity)
-          btxy(i,j,k) = dynvis(i,j,k) * ( 0.5 * &
-               ( (pvar(i+Mesh%IP1,j,k,this%YVELOCITY) - pvar(i-Mesh%IP1,j,k,this%YVELOCITY)) / Mesh%dlx%data3d(i,j,k) &
-               + (pvar(i,j+Mesh%JP1,k,this%XVELOCITY) - pvar(i,j-Mesh%JP1,k,this%XVELOCITY)) / Mesh%dly%data3d(i,j,k) ) &
-               - Mesh%cxyx%bcenter(i,j,k) * pvar(i,j,k,this%XVELOCITY) &
-               - Mesh%cyxy%bcenter(i,j,k) * pvar(i,j,k,this%YVELOCITY) )
-
-       END DO
-    END DO
-  END DO
-    CASE(3)
-!NEC$ OUTERLOOP_UNROLL(8)
-  DO k=Mesh%KMIN-Mesh%KP1,Mesh%KMAX+Mesh%KP1
-    DO j=Mesh%JMIN-Mesh%JP1,Mesh%JMAX+Mesh%JP1
+            DO i=Mesh%IMIN-Mesh%IP1,Mesh%IMAX+Mesh%IP1
+              ! compute the diagonal elements of the stress tensor
+              btxx(i,j,k) = dynvis%data3d(i,j,k) * &
+                    ((p%velocity%data4d(i+Mesh%IP1,j,k,1) - p%velocity%data4d(i-Mesh%IP1,j,k,1)) &
+                      / Mesh%dlx%data3d(i,j,k) &
+                  + 2.0 * Mesh%cxyx%bcenter(i,j,k) * p%velocity%data4d(i,j,k,2)) + this%tmp(i,j,k)
+              btyy(i,j,k) = dynvis%data3d(i,j,k) * &
+                    ((p%velocity%data4d(i,j+Mesh%JP1,k,2) - p%velocity%data4d(i,j-Mesh%JP1,k,2)) &
+                      / Mesh%dly%data3d(i,j,k) &
+                  + 2.0 * Mesh%cyxy%bcenter(i,j,k) * p%velocity%data4d(i,j,k,1) ) + this%tmp(i,j,k)
+              ! compute the off-diagonal elements (no bulk viscosity)
+              btxy(i,j,k) = dynvis%data3d(i,j,k) * ( 0.5 * &
+                    ((p%velocity%data4d(i+Mesh%IP1,j,k,2) - p%velocity%data4d(i-Mesh%IP1,j,k,2)) &
+                      / Mesh%dlx%data3d(i,j,k) &
+                  +  (p%velocity%data4d(i,j+Mesh%JP1,k,1) - p%velocity%data4d(i,j-Mesh%JP1,k,1)) &
+                      / Mesh%dly%data3d(i,j,k) ) &
+                  - Mesh%cxyx%bcenter(i,j,k) * p%velocity%data4d(i,j,k,1) &
+                  - Mesh%cyxy%bcenter(i,j,k) * p%velocity%data4d(i,j,k,2) )
+            END DO
+          END DO
+        END DO
+      CASE(IOR(VECTOR_X,VECTOR_Z)) ! 2D velocities in x-z-plane
+        ! compute bulk viscosity first and store the result in this%tmp
+        CALL Mesh%Divergence(p%velocity%data4d(:,:,:,1),p%velocity%data4d(:,:,:,2),&
+                             this%tmp(:,:,:))
+        this%tmp(:,:,:) = bulkvis%data3d(:,:,:)*this%tmp(:,:,:)
+        DO k=Mesh%KMIN-Mesh%KP1,Mesh%KMAX+Mesh%KP1
+          DO j=Mesh%JMIN-Mesh%JP1,Mesh%JMAX+Mesh%JP1
 !NEC$ IVDEP
-       DO i=Mesh%IMIN-Mesh%IP1,Mesh%IMAX+Mesh%IP1
-          ! compute the diagonal elements of the stress tensor
-          btxx(i,j,k) = dynvis(i,j,k) * &
-                ((pvar(i+Mesh%IP1,j,k,this%XVELOCITY) - pvar(i-Mesh%IP1,j,k,this%XVELOCITY)) / Mesh%dlx%data3d(i,j,k) &
-               + 2.0 * Mesh%cxyx%bcenter(i,j,k) * pvar(i,j,k,this%YVELOCITY) &
-               + 2.0 * Mesh%cxzx%bcenter(i,j,k) * pvar(i,j,k,this%ZVELOCITY) ) &
-               + this%tmp(i,j,k)
-
-          btyy(i,j,k) = dynvis(i,j,k) * &
-               ( (pvar(i,j+Mesh%JP1,k,this%YVELOCITY) - pvar(i,j-Mesh%JP1,k,this%YVELOCITY)) / Mesh%dly%data3d(i,j,k) &
-               + 2.0 * Mesh%cyxy%bcenter(i,j,k) * pvar(i,j,k,this%XVELOCITY)  &
-               + 2.0 * Mesh%cyzy%bcenter(i,j,k) * pvar(i,j,k,this%ZVELOCITY) ) &
-               + this%tmp(i,j,k)
-
-          btzz(i,j,k) = dynvis(i,j,k) * &
-               ( (pvar(i,j,k+Mesh%KP1,this%ZVELOCITY) - pvar(i,j,k-Mesh%KP1,this%ZVELOCITY)) / Mesh%dlz%data3d(i,j,k) &
-               + 2.0 * Mesh%czxz%bcenter(i,j,k) * pvar(i,j,k,this%XVELOCITY) &
-               + 2.0 * Mesh%czyz%bcenter(i,j,k) * pvar(i,j,k,this%YVELOCITY) ) &
-               + this%tmp(i,j,k)
-
-          ! compute the off-diagonal elements (no bulk viscosity)
-          btxy(i,j,k) = dynvis(i,j,k) * ( 0.5 * &
-               ( (pvar(i+Mesh%IP1,j,k,this%YVELOCITY) - pvar(i-Mesh%IP1,j,k,this%YVELOCITY)) / Mesh%dlx%data3d(i,j,k) &
-               + (pvar(i,j+Mesh%JP1,k,this%XVELOCITY) - pvar(i,j-Mesh%JP1,k,this%XVELOCITY)) / Mesh%dly%data3d(i,j,k) ) &
-               - Mesh%cxyx%bcenter(i,j,k) * pvar(i,j,k,this%XVELOCITY) &
-               - Mesh%cyxy%bcenter(i,j,k) * pvar(i,j,k,this%YVELOCITY) )
-
-          btxz(i,j,k) = dynvis(i,j,k) * ( 0.5 * &
-               ( (pvar(i+Mesh%IP1,j,k,this%ZVELOCITY) - pvar(i-Mesh%IP1,j,k,this%ZVELOCITY)) / Mesh%dlx%data3d(i,j,k) &
-               + (pvar(i,j,k+Mesh%KP1,this%XVELOCITY) - pvar(i,j,k-Mesh%KP1,this%XVELOCITY)) / Mesh%dlz%data3d(i,j,k) ) &
-               - Mesh%czxz%bcenter(i,j,k) * pvar(i,j,k,this%ZVELOCITY) &
-               - Mesh%cxzx%bcenter(i,j,k) * pvar(i,j,k,this%XVELOCITY) )
-
-          btyz(i,j,k) = dynvis(i,j,k) * ( 0.5 * &
-               ( (pvar(i,j,k+Mesh%KP1,this%YVELOCITY) - pvar(i,j,k-Mesh%KP1,this%YVELOCITY)) / Mesh%dlz%data3d(i,j,k) &
-               + (pvar(i,j+Mesh%JP1,k,this%ZVELOCITY) - pvar(i,j-Mesh%JP1,k,this%ZVELOCITY)) / Mesh%dly%data3d(i,j,k) ) &
-               - Mesh%czyz%bcenter(i,j,k) * pvar(i,j,k,this%ZVELOCITY) &
-               - Mesh%cyzy%bcenter(i,j,k) * pvar(i,j,k,this%YVELOCITY) )
+            DO i=Mesh%IMIN-Mesh%IP1,Mesh%IMAX+Mesh%IP1
+              ! compute the diagonal elements btxx, btzz => btyy of the stress tensor
+              btxx(i,j,k) = dynvis%data3d(i,j,k) * &
+                    ((p%velocity%data4d(i+Mesh%IP1,j,k,1) - p%velocity%data4d(i-Mesh%IP1,j,k,1)) &
+                      / Mesh%dlx%data3d(i,j,k) &
+                  + 2.0 * Mesh%cxzx%bcenter(i,j,k) * p%velocity%data4d(i,j,k,2) ) & ! vz => vy
+                  + this%tmp(i,j,k)
+              btyy(i,j,k) = dynvis%data3d(i,j,k) * & ! btzz => btyy
+                    ((p%velocity%data4d(i,j,k+Mesh%KP1,2) - p%velocity%data4d(i,j,k-Mesh%KP1,2)) & ! vz => vy
+                      / Mesh%dlz%data3d(i,j,k) &
+                  + 2.0 * Mesh%czxz%bcenter(i,j,k) * p%velocity%data4d(i,j,k,1) ) &
+                  + this%tmp(i,j,k)
+              ! compute the off-diagonal elements btxz => btxy (no bulk viscosity)
+              btxy(i,j,k) = dynvis%data3d(i,j,k) * ( 0.5 * & ! btxz => btxy
+                    ((p%velocity%data4d(i+Mesh%IP1,j,k,2) - p%velocity%data4d(i-Mesh%IP1,j,k,2)) & ! vz => vy
+                      / Mesh%dlx%data3d(i,j,k) &
+                  +  (p%velocity%data4d(i,j,k+Mesh%KP1,1) - p%velocity%data4d(i,j,k-Mesh%KP1,1)) &
+                      / Mesh%dlz%data3d(i,j,k) ) &
+                  - Mesh%czxz%bcenter(i,j,k) * p%velocity%data4d(i,j,k,2) & ! vz => vy
+                  - Mesh%cxzx%bcenter(i,j,k) * p%velocity%data4d(i,j,k,1) )
+            END DO
+          END DO
         END DO
+      CASE(IOR(VECTOR_Y,VECTOR_Z)) ! 2D velocities in y-z-plane
+        CALL Mesh%Divergence(p%velocity%data4d(:,:,:,1),p%velocity%data4d(:,:,:,2),&
+                             this%tmp(:,:,:))
+        this%tmp(:,:,:) = bulkvis%data3d(:,:,:)*this%tmp(:,:,:)
+        DO k=Mesh%KMIN-Mesh%KP1,Mesh%KMAX+Mesh%KP1
+          DO j=Mesh%JMIN-Mesh%JP1,Mesh%JMAX+Mesh%JP1
+!NEC$ IVDEP
+            DO i=Mesh%IMIN-Mesh%IP1,Mesh%IMAX+Mesh%IP1
+              ! compute the diagonal elements btyy => btxx, btzz => btyy of the stress tensor
+              btxx(i,j,k) = dynvis%data3d(i,j,k) * &
+                    ((p%velocity%data4d(i,j+Mesh%JP1,k,1) - p%velocity%data4d(i,j-Mesh%JP1,k,1)) &
+                      / Mesh%dly%data3d(i,j,k) &
+                  + 2.0 * Mesh%cyzy%bcenter(i,j,k) * p%velocity%data4d(i,j,k,2) ) & ! vz => vy
+                  + this%tmp(i,j,k)
+              btyy(i,j,k) = dynvis%data3d(i,j,k) * &
+                    ((p%velocity%data4d(i,j,k+Mesh%KP1,2) - p%velocity%data4d(i,j,k-Mesh%KP1,2)) & ! vz => vy
+                      / Mesh%dlz%data3d(i,j,k) &
+                  + 2.0 * Mesh%czyz%bcenter(i,j,k) * p%velocity%data4d(i,j,k,1) ) &
+                  + this%tmp(i,j,k)
+              ! compute the off-diagonal elements btyz => btxy (no bulk viscosity)
+              btxy(i,j,k) = dynvis%data3d(i,j,k) * ( 0.5 * &
+                    ((p%velocity%data4d(i,j,k+Mesh%KP1,1) - p%velocity%data4d(i,j,k-Mesh%KP1,1)) & ! vy => vx
+                      / Mesh%dlz%data3d(i,j,k) &
+                  +  (p%velocity%data4d(i,j+Mesh%JP1,k,2) - p%velocity%data4d(i,j-Mesh%JP1,k,2)) & ! vz => vy
+                      / Mesh%dly%data3d(i,j,k) ) &
+                  - Mesh%czyz%bcenter(i,j,k) * p%velocity%data4d(i,j,k,2) & ! vz => vy
+                  - Mesh%cyzy%bcenter(i,j,k) * p%velocity%data4d(i,j,k,1) ) ! vy => vx
+            END DO
+          END DO
         END DO
+      CASE(IOR(IOR(VECTOR_X,VECTOR_Y),VECTOR_Z)) ! 3D velocities
+        ! compute bulk viscosity first and store the result in this%tmp
+        CALL Mesh%Divergence(p%velocity%data4d(:,:,:,1),p%velocity%data4d(:,:,:,2),&
+                            p%velocity%data4d(:,:,:,3),this%tmp(:,:,:))
+        this%tmp(:,:,:) = bulkvis%data3d(:,:,:)*this%tmp(:,:,:)
+        DO k=Mesh%KMIN-Mesh%KP1,Mesh%KMAX+Mesh%KP1
+          DO j=Mesh%JMIN-Mesh%JP1,Mesh%JMAX+Mesh%JP1
+!NEC$ IVDEP
+            DO i=Mesh%IMIN-Mesh%IP1,Mesh%IMAX+Mesh%IP1
+              ! compute the diagonal elements of the stress tensor
+              btxx(i,j,k) = dynvis%data3d(i,j,k) * &
+                    ((p%velocity%data4d(i+Mesh%IP1,j,k,1) - p%velocity%data4d(i-Mesh%IP1,j,k,1)) &
+                      / Mesh%dlx%data3d(i,j,k) &
+                  + 2.0 * Mesh%cxyx%bcenter(i,j,k) * p%velocity%data4d(i,j,k,2) &
+                  + 2.0 * Mesh%cxzx%bcenter(i,j,k) * p%velocity%data4d(i,j,k,3) ) &
+                  + this%tmp(i,j,k)
+              btyy(i,j,k) = dynvis%data3d(i,j,k) * &
+                    ((p%velocity%data4d(i,j+Mesh%JP1,k,2) - p%velocity%data4d(i,j-Mesh%JP1,k,2)) &
+                      / Mesh%dly%data3d(i,j,k) &
+                  + 2.0 * Mesh%cyxy%bcenter(i,j,k) * p%velocity%data4d(i,j,k,1)  &
+                  + 2.0 * Mesh%cyzy%bcenter(i,j,k) * p%velocity%data4d(i,j,k,3) ) &
+                  + this%tmp(i,j,k)
+              btzz(i,j,k) = dynvis%data3d(i,j,k) * &
+                    ((p%velocity%data4d(i,j,k+Mesh%KP1,3) - p%velocity%data4d(i,j,k-Mesh%KP1,3)) &
+                      / Mesh%dlz%data3d(i,j,k) &
+                  + 2.0 * Mesh%czxz%bcenter(i,j,k) * p%velocity%data4d(i,j,k,1) &
+                  + 2.0 * Mesh%czyz%bcenter(i,j,k) * p%velocity%data4d(i,j,k,2) ) &
+                  + this%tmp(i,j,k)
+              ! compute the off-diagonal elements (no bulk viscosity)
+              btxy(i,j,k) = dynvis%data3d(i,j,k) * ( 0.5 * &
+                    ((p%velocity%data4d(i+Mesh%IP1,j,k,2) - p%velocity%data4d(i-Mesh%IP1,j,k,2)) &
+                      / Mesh%dlx%data3d(i,j,k) &
+                  +  (p%velocity%data4d(i,j+Mesh%JP1,k,1) - p%velocity%data4d(i,j-Mesh%JP1,k,1)) &
+                      / Mesh%dly%data3d(i,j,k) ) &
+                  - Mesh%cxyx%bcenter(i,j,k) * p%velocity%data4d(i,j,k,1) &
+                  - Mesh%cyxy%bcenter(i,j,k) * p%velocity%data4d(i,j,k,2) )
+              btxz(i,j,k) = dynvis%data3d(i,j,k) * ( 0.5 * &
+                    ((p%velocity%data4d(i+Mesh%IP1,j,k,3) - p%velocity%data4d(i-Mesh%IP1,j,k,3)) &
+                      / Mesh%dlx%data3d(i,j,k) &
+                  +  (p%velocity%data4d(i,j,k+Mesh%KP1,1) - p%velocity%data4d(i,j,k-Mesh%KP1,1)) &
+                      / Mesh%dlz%data3d(i,j,k) ) &
+                  - Mesh%czxz%bcenter(i,j,k) * p%velocity%data4d(i,j,k,3) &
+                  - Mesh%cxzx%bcenter(i,j,k) * p%velocity%data4d(i,j,k,1) )
+              btyz(i,j,k) = dynvis%data3d(i,j,k) * ( 0.5 * &
+                    ((p%velocity%data4d(i,j,k+Mesh%KP1,2) - p%velocity%data4d(i,j,k-Mesh%KP1,2)) &
+                      / Mesh%dlz%data3d(i,j,k) &
+                  +  (p%velocity%data4d(i,j+Mesh%JP1,k,3) - p%velocity%data4d(i,j-Mesh%JP1,k,3)) &
+                      / Mesh%dly%data3d(i,j,k) ) &
+                  - Mesh%czyz%bcenter(i,j,k) * p%velocity%data4d(i,j,k,3) &
+                  - Mesh%cyzy%bcenter(i,j,k) * p%velocity%data4d(i,j,k,2) )
+            END DO
+          END DO
         END DO
+      CASE DEFAULT
+        ! return NaN
+        btxx(:,:,:) = NAN_DEFAULT_REAL
+        btxy(:,:,:) = NAN_DEFAULT_REAL
+        btxz(:,:,:) = NAN_DEFAULT_REAL
+        btyy(:,:,:) = NAN_DEFAULT_REAL
+        btyz(:,:,:) = NAN_DEFAULT_REAL
+        btzz(:,:,:) = NAN_DEFAULT_REAL
       END SELECT
-  END SUBROUTINE CalcStresses_euler
+    END SELECT
+  END SUBROUTINE CalcStresses
 
   !> compute momentum sources given an external force
   PURE SUBROUTINE ExternalSources(this,accel,pvar,cvar,sterm)
@@ -2150,7 +2209,7 @@ CONTAINS
   !! \attention These elemental functions exist multiple times for performance
   !!  reasons (inlining). Please keep this in mind for changes.
   !!  Other modules with this function:
-  !!      - physics_eulerisotherm_mod
+  !!      - physics_euler_mod
   !!
   !! x-momentum geometrical source term
   ELEMENTAL FUNCTION GetGeometricalSourceX(cxyx,cxzx,cyxy,czxz,vx,vy,vz,P,my,mz)
