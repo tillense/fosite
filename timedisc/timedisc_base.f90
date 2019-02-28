@@ -1841,20 +1841,25 @@ CONTAINS
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VDIM) &
                                         :: velocity
     !------------------------------------------------------------------------!
-    CLASS(marray_base), ALLOCATABLE :: accel,dist_axis_projected,ephi_projected
+    CLASS(marray_base), ALLOCATABLE &
+                       :: accel,dist_axis_projected,ephi_projected,eomega,tmpvec, &
+                          posvec,tmp
     REAL               :: omega2,dir_omega(3)
     INTEGER            :: k,l,err
-    REAL,DIMENSION(:,:,:,:),ALLOCATABLE :: bccart, bcposvec, ephi
-    REAL,DIMENSION(:,:,:),ALLOCATABLE   :: tmp
     !------------------------------------------------------------------------!
-    ALLOCATE(accel,dist_axis_projected,ephi_projected, &
-             bccart(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,3), &
-             bcposvec(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,3), &
-             ephi(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,3), &
-             tmp(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
+    ALLOCATE(accel,dist_axis_projected,ephi_projected,posvec,eomega,tmpvec,tmp, &
              STAT=err)
     IF (err.NE.0) CALL this%Error("timedisc_base::GetCentrifugalVelocity", &
                        "Unable to allocate memory.")
+    ! initialize marrays
+    tmp    = marray_base()
+    tmpvec = marray_base(3)
+    eomega = marray_base(3)
+    posvec = marray_base(3)
+    dist_axis_projected = marray_base(Physics%VDIM)
+    ephi_projected      = marray_base(Physics%VDIM)
+    accel               = marray_base(Physics%VDIM)
+
     ! do some sanity checks on the input data
     IF (PRESENT(dir_omega_)) THEN
       dir_omega(:) = dir_omega_(:)
@@ -1870,6 +1875,13 @@ CONTAINS
       dir_omega(1:3) = (/ 0.0, 0.0, 1.0 /)
     END IF
 
+    ! compute (local) curvilinear vector components of the unit
+    ! vectors pointing in the direction of the rotational axis
+    tmpvec%data2d(:,1) = dir_omega(1)
+    tmpvec%data2d(:,2) = dir_omega(2)
+    tmpvec%data2d(:,3) = dir_omega(3)
+    CALL Mesh%Geometry%Convert2Curvilinear(Mesh%bcenter,tmpvec%data4d,eomega%data4d)
+
     ! 1. Get the curvilinear components of all vectors pointing
     ! from the center of rotation into each cell using cartesian
     ! coordinates.
@@ -1882,33 +1894,31 @@ CONTAINS
            "if rotational symmetry is enabled center of rotation must be the origin")
       ! Translate the position vector to the center of rotation.
       DO k=1,3
-        bccart(:,:,:,k) = Mesh%bccart(:,:,:,k) - centrot(k)
+        tmpvec%data4d(:,:,:,k) = Mesh%bccart(:,:,:,k) - centrot(k)
       END DO
       ! compute curvilinear components of translated position vectors
-      CALL Mesh%Geometry%Convert2Curvilinear(Mesh%bcenter,bccart,bcposvec)
+      CALL Mesh%Geometry%Convert2Curvilinear(Mesh%bcenter,tmpvec%data4d,posvec%data4d)
     ELSE
       ! default center of rotation is the origin of the mesh
       ! -> use position vectors with respect to the origin
-      bcposvec = Mesh%posvec%bcenter
+      posvec%data4d = Mesh%posvec%bcenter
     END IF
 
     ! 2. Compute vectors pointing from axis of rotation into each cell
-    !    and the azimuthal unit vector
-    tmp(:,:,:) =  bcposvec(:,:,:,1)*dir_omega(1) &
-                + bcposvec(:,:,:,2)*dir_omega(2) &
-                + bcposvec(:,:,:,3)*dir_omega(3)
-    bcposvec(:,:,:,1) = bcposvec(:,:,:,1) - tmp(:,:,:)*dir_omega(1)
-    bcposvec(:,:,:,2) = bcposvec(:,:,:,2) - tmp(:,:,:)*dir_omega(2)
-    bcposvec(:,:,:,3) = bcposvec(:,:,:,3) - tmp(:,:,:)*dir_omega(3)
-    tmp(:,:,:) = SQRT(SUM(bcposvec(:,:,:,:)*bcposvec(:,:,:,:),DIM=4))
+    !    and the azimuthal unit vector ephi
+    tmp%data1d(:) = SUM(posvec%data2d(:,:)*eomega%data2d(:,:),DIM=2)
+    posvec%data2d(:,1) = posvec%data2d(:,1) - tmp%data1d(:)*eomega%data2d(:,1)
+    posvec%data2d(:,2) = posvec%data2d(:,2) - tmp%data1d(:)*eomega%data2d(:,2)
+    posvec%data2d(:,2) = posvec%data2d(:,2) - tmp%data1d(:)*eomega%data2d(:,3)
 
-    CALL cross_product(dir_omega(1),dir_omega(2),dir_omega(3), &
-      bcposvec(:,:,:,1)/tmp(:,:,:),bcposvec(:,:,:,2)/tmp(:,:,:), &
-      bcposvec(:,:,:,3)/tmp(:,:,:),ephi(:,:,:,1),ephi(:,:,:,2),ephi(:,:,:,3))
+    ! distance to axis
+    tmp%data1d(:) = SQRT(SUM(posvec%data2d(:,:)*posvec%data2d(:,:),DIM=2))
+    ! use tmpvec for temporary storage of ephi
+    CALL cross_product(eomega%data2d(:,1),eomega%data2d(:,2),eomega%data2d(:,3), &
+      posvec%data2d(:,1)/tmp%data1d(:),posvec%data2d(:,2)/tmp%data1d(:), &
+      posvec%data2d(:,3)/tmp%data1d(:),tmpvec%data2d(:,1),tmpvec%data2d(:,2),tmpvec%data2d(:,3))
 
     ! project it onto the mesh
-    dist_axis_projected = marray_base(Physics%VDIM)
-    ephi_projected = marray_base(Physics%VDIM)
     SELECT TYPE(phys => Physics)
     CLASS IS(physics_eulerisotherm)
       l = 1
@@ -1918,8 +1928,8 @@ CONTAINS
             dist_axis_projected%data2d(:,l) = 0.0
             ephi_projected%data2d(:,l) = 0.0
           ELSE
-            dist_axis_projected%data4d(:,:,:,l) = bcposvec(:,:,:,k)
-            ephi_projected%data4d(:,:,:,l) = ephi(:,:,:,k)
+            dist_axis_projected%data2d(:,l) = posvec%data2d(:,k)
+            ephi_projected%data2d(:,l) = tmpvec%data2d(:,k)
           END IF
           l = l + 1
         END IF
@@ -1930,7 +1940,6 @@ CONTAINS
     END SELECT
 
     ! 3. determine the acceleration
-    accel = marray_base(Physics%VDIM)
     IF(PRESENT(accel_)) THEN
       accel%data4d(:,:,:,:) = accel_(:,:,:,:)
     ELSE
@@ -1971,17 +1980,21 @@ CONTAINS
     END IF
 
     ! 4. compute absolute value of azimuthal velocity
-    tmp(:,:,:) = SQRT(MAX(0.0,-SUM(accel%data4d(:,:,:,:)*dist_axis_projected%data4d(:,:,:,:),DIM=4)))
+    tmp%data1d(:) = SQRT(MAX(0.0,-SUM(accel%data2d(:,:)*dist_axis_projected%data2d(:,:),DIM=2)))
 
     ! 5. Compute components of the azimuthal velocity vector
     DO k=1,Physics%VDIM
-      velocity(:,:,:,k) = tmp(:,:,:) * ephi_projected%data4d(:,:,:,k)
+      velocity(:,:,:,k) = tmp%data3d(:,:,:) * ephi_projected%data4d(:,:,:,k)
     END DO
 
     CALL accel%Destroy()
     CALL dist_axis_projected%Destroy()
     CALL ephi_projected%Destroy()
-    DEALLOCATE(accel,dist_axis_projected,ephi_projected,bccart,bcposvec,ephi,tmp)
+    CALL posvec%Destroy()
+    CALL eomega%Destroy()
+    CALL tmpvec%Destroy()
+    CALL tmp%Destroy()
+    DEALLOCATE(accel,dist_axis_projected,ephi_projected,posvec,eomega,tmpvec,tmp)
 
   CONTAINS
 
