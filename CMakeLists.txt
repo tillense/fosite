@@ -179,6 +179,7 @@ find_library(
   FFTW_LIB
 	NAMES fftw3 aslfftw3
 	DOC "Fastest Fourier Transform of the West."
+  HINTS /opt/nec/ve/nlc/1.0.0/musl/lib/ ${FFTW_DIR}/lib
   HINTS /opt/nec/ve/nlc/1.0.0/lib/ ${FFTW_DIR}/lib
 )
 
@@ -187,6 +188,7 @@ if(PARALLEL)
     FFTWMPI_LIB
 	  NAMES fftw3_mpi aslfftw3_mpi
     DOC "Distributed parallel implementation of FFTW."
+    HINTS /opt/nec/ve/nlc/1.0.0/musl/lib/ ${FFTW_DIR}/lib
     HINTS /opt/nec/ve/nlc/1.0.0/lib/ ${FFTW_DIR}/lib
   )
 endif()
