@@ -95,6 +95,12 @@ MODULE mesh_base_mod
      NORTH  = 4, & !< named constant for northern boundary
      BOTTOM = 5, & !< named constant for bottom   boundary
      TOP    = 6    !< named constant for top      boundary
+  !> flags to check which vector components are enabled
+  ENUM, BIND(C)
+    ENUMERATOR :: VECTOR_X = B'001', &
+                  VECTOR_Y = B'010', &
+                  VECTOR_Z = B'100'
+  END ENUM
   !> mesh data structure
   !PRIVATE
   TYPE,ABSTRACT, EXTENDS(logging_base) :: mesh_base
@@ -127,6 +133,7 @@ MODULE mesh_base_mod
     INTEGER           :: shear_dir         !< Enables shearingbox with shear direction (0 disabled, 1 enabled)
     INTEGER           :: fargo             !< Fargo parameter (0 disabled, 1,2,3 enabled)
     INTEGER           :: ROTSYM            !< assume rotational symmetry (> 0 enabled, contains index of azimuthal angle)
+    INTEGER           :: VECTOR_COMPONENTS !< enabled vector components
     REAL              :: rotcent(3)        !< center of the rotating frame of ref.
     !> \name
     !! #### cell coordinates
@@ -260,6 +267,7 @@ MODULE mesh_base_mod
        CARTESIAN, &
        CYLINDRICAL, LOGCYLINDRICAL, &
        SPHERICAL, LOGSPHERICAL, &
+       VECTOR_X, VECTOR_Y, VECTOR_Z, &
        WEST, EAST, SOUTH, NORTH, BOTTOM, TOP
   !--------------------------------------------------------------------------!
 
@@ -346,6 +354,7 @@ CONTAINS
     ! direction consists of only one cell and a full 2*PI range
     ! this%ROTSYM is either set to the direction of the azimuthal angle {1,2,3}
     ! or 0 if rotational symmetry is disabled
+    this%ROTSYM = 0     ! disable rotational symmetry by default
     SELECT CASE(this%geometry%GetAzimuthIndex())
     CASE(1)
       IF (this%INUM.EQ.1.AND.(ABS(this%xmax-this%xmin-2*PI).LE.EPSILON(this%xmin))) &
@@ -356,9 +365,6 @@ CONTAINS
     CASE(3)
       IF (this%KNUM.EQ.1.AND.(ABS(this%zmax-this%zmin-2*PI).LE.EPSILON(this%zmin))) &
         this%ROTSYM = 3
-    CASE DEFAULT
-      ! disable rotational symmetry
-      this%ROTSYM = 0
     END SELECT
 
     ! These constants are used to access date from adjacent cells, i.e., with
@@ -389,8 +395,10 @@ CONTAINS
     ! check dimensionality and suppress boundaries
     ! if there is only one cell in that direction
     this%NDIMS = 3 ! assume 3D simulation
+    this%VECTOR_COMPONENTS = B'111' ! enable all vector components
     IF (this%INUM.EQ.1) THEN
       this%NDIMS = this%NDIMS-1
+      IF (this%ROTSYM.NE.1) this%VECTOR_COMPONENTS = IEOR(this%VECTOR_COMPONENTS,VECTOR_X)
       this%GINUM = 0
       this%ip1 = 0
       this%ip2 = 0
@@ -399,6 +407,7 @@ CONTAINS
     END IF
     IF (this%JNUM.EQ.1) THEN
       this%NDIMS = this%NDIMS-1
+      IF (this%ROTSYM.NE.2) this%VECTOR_COMPONENTS = IEOR(this%VECTOR_COMPONENTS,VECTOR_Y)
       this%GJNUM = 0
       this%jp1 = 0
       this%jp2 = 0
@@ -407,6 +416,7 @@ CONTAINS
     END IF
     IF (this%KNUM.EQ.1) THEN
       this%NDIMS = this%NDIMS-1
+      IF (this%ROTSYM.NE.3) this%VECTOR_COMPONENTS = IEOR(this%VECTOR_COMPONENTS,VECTOR_Z)
       this%GKNUM = 0
       this%kp1 = 0
       this%kp2 = 0

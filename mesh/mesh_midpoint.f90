@@ -3,7 +3,7 @@
 !# fosite - 3D hydrodynamical simulation program                             #
 !# module: mesh_midpoint.f90                                                 #
 !#                                                                           #
-!# Copyright (C) 2006-2012                                                   #
+!# Copyright (C) 2006-2019                                                   #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
 !# Manuel Jung                                                               #
 !#                                                                           #
@@ -34,6 +34,7 @@
 !! \ingroup mesh
 !----------------------------------------------------------------------------!
 MODULE mesh_midpoint_mod
+  USE logging_base_mod
   USE mesh_base_mod
   USE common_dict
   IMPLICIT NONE
@@ -144,9 +145,13 @@ CONTAINS
   END SUBROUTINE InitMesh_midpoint
 
 
-  ! computes the cell centered curvilinear vector divergence
-  ! for cell centered 2D vector components vx,vy on the whole mesh
-  ! except for the outermost boundary cells
+  !> compute the cell centered 2D vector divergence
+  !!
+  !! We use the elemental function to compute the 3D tensor divergence
+  !! setting the commutator coefficients and the off-diagonal tensor components to 0.
+  !!
+  !! input:  cell centered 2D vector components vx,vy on the whole mesh
+  !! output: div(v) on the whole mesh except for the outermost boundary cells
   PURE SUBROUTINE VectorDivergence2D_1(this,vx,vy,divv)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
@@ -159,26 +164,70 @@ CONTAINS
     INTENT(IN)        :: vx,vy
     INTENT(OUT)       :: divv
     !------------------------------------------------------------------------!
-    ! we simply use the 3D tensor divergence and set the commutator coefficients
-    ! and the off-diagonal tensor components to 0
+    ! determine which velocity components are given
+    SELECT CASE(this%VECTOR_COMPONENTS)
+    CASE(IOR(VECTOR_X,VECTOR_Y))
+      DO k=this%KGMIN+this%KP1,this%KGMAX-this%KP1
+        DO j=this%JGMIN+this%JP1,this%JGMAX-this%JP1
 !NEC$ IVDEP
-    DO k=this%KGMIN+this%KP1,this%KGMAX-this%KP1
-      DO j=this%JGMIN+this%JP1,this%JGMAX-this%JP1
-!NEC$ IVDEP
-        DO i=this%IGMIN+this%IP1,this%IGMAX-this%IP1
-          divv(i,j,k) = Divergence3D( &
-                             this%dAxdydz(i,j,k,1),this%dAxdydz(i,j,k,2), &
-                             this%dAydzdx(i,j,k,1),this%dAydzdx(i,j,k,2), &
-                             this%dAzdxdy(i,j,k,1),this%dAzdxdy(i,j,k,2), &
-                             this%dxdydV%data3d(i,j,k),this%dzdxdV%data3d(i,j,k),this%dydzdV%data3d(i,j,k), &
-                             0.0,0.0,0.0,0.0, & ! no commutator coefficients
-                             0.5*(vx(i-this%IP1,j,k)+vx(i,j,k)),0.5*(vx(i+this%IP1,j,k)+vx(i,j,k)), &
-                             0.5*(vy(i,j-this%JP1,k)+vy(i,j,k)),0.5*(vy(i,j+this%JP1,k)+vy(i,j,k)), &
-                             0.0, 0.0,  &
-                             0.0,0.0,0.0,0.0)   ! no off-diagonal tensor components
+          DO i=this%IGMIN+this%IP1,this%IGMAX-this%IP1
+            divv(i,j,k) = Divergence3D(&
+                this%dAxdydz(i,j,k,1),this%dAxdydz(i,j,k,2), &
+                this%dAydzdx(i,j,k,1),this%dAydzdx(i,j,k,2), &
+                0.0,0.0, &
+                this%dydzdV%data3d(i,j,k),this%dzdxdV%data3d(i,j,k),0.0, &
+                0.0,0.0,0.0,0.0, & ! no commutator coefficients
+                0.5*(vx(i-this%IP1,j,k)+vx(i,j,k)),0.5*(vx(i+this%IP1,j,k)+vx(i,j,k)), &
+                0.5*(vy(i,j-this%JP1,k)+vy(i,j,k)),0.5*(vy(i,j+this%JP1,k)+vy(i,j,k)), &
+                0.0, 0.0,  &       ! no vz component
+                0.0,0.0,0.0,0.0)   ! no off-diagonal tensor components
+          END DO
         END DO
       END DO
-    END DO
+    CASE(IOR(VECTOR_X,VECTOR_Z))
+      DO k=this%KGMIN+this%KP1,this%KGMAX-this%KP1
+        DO j=this%JGMIN+this%JP1,this%JGMAX-this%JP1
+!NEC$ IVDEP
+          DO i=this%IGMIN+this%IP1,this%IGMAX-this%IP1
+            ! we simply use the 3D tensor divergence and set the commutator coefficients
+            ! and the off-diagonal tensor components to 0
+            divv(i,j,k) = Divergence3D(&
+                this%dAxdydz(i,j,k,1),this%dAxdydz(i,j,k,2), &
+                0.0,0.0, &
+                this%dAzdxdy(i,j,k,1),this%dAzdxdy(i,j,k,2), &
+                this%dydzdV%data3d(i,j,k),0.0,this%dxdydV%data3d(i,j,k), &
+                0.0,0.0,0.0,0.0, & ! no commutator coefficients
+                0.5*(vx(i-this%IP1,j,k)+vx(i,j,k)),0.5*(vx(i+this%IP1,j,k)+vx(i,j,k)), &
+                0.0, 0.0,  &       ! no vy component
+                0.5*(vy(i,j,k-this%KP1)+vy(i,j,k)),0.5*(vy(i,j,k)+vy(i,j,k+this%KP1)), &
+                0.0,0.0,0.0,0.0)   ! no off-diagonal tensor components
+          END DO
+        END DO
+      END DO
+    CASE(IOR(VECTOR_Y,VECTOR_Z))
+      DO k=this%KGMIN+this%KP1,this%KGMAX-this%KP1
+        DO j=this%JGMIN+this%JP1,this%JGMAX-this%JP1
+!NEC$ IVDEP
+          DO i=this%IGMIN+this%IP1,this%IGMAX-this%IP1
+            ! we simply use the 3D tensor divergence and set the commutator coefficients
+            ! and the off-diagonal tensor components to 0
+            divv(i,j,k) = Divergence3D(&
+                0.0,0.0, &
+                this%dAydzdx(i,j,k,1),this%dAydzdx(i,j,k,2), &
+                this%dAzdxdy(i,j,k,1),this%dAzdxdy(i,j,k,2), &
+                0.0,this%dzdxdV%data3d(i,j,k),this%dxdydV%data3d(i,j,k), &
+                0.0,0.0,0.0,0.0, & ! no commutator coefficients
+                0.0, 0.0,  &       ! no vx component
+                0.5*(vx(i,j-this%JP1,k)+vx(i,j,k)),0.5*(vx(i,j+this%JP1,k)+vx(i,j,k)), &
+                0.5*(vy(i,j,k-this%KP1)+vy(i,j,k)),0.5*(vy(i,j,k)+vy(i,j,k+this%KP1)), &
+                0.0,0.0,0.0,0.0)   ! no off-diagonal tensor components
+          END DO
+        END DO
+      END DO
+    CASE DEFAULT
+      ! return NaN
+      divv(:,:,:) = NAN_DEFAULT_REAL
+    END SELECT
   END SUBROUTINE VectorDivergence2D_1
 
 
@@ -216,10 +265,16 @@ CONTAINS
 !  END SUBROUTINE VectorDivergence2D_2
 !
 
-  ! computes the cell centered curvilinear tensor divergence on the whole mesh
-  ! except for the outermost boundary cells
-  ! input: 2D rank 2 tensor T with components Txx,Txy,Tyx,Tyy given at cell centers
-  ! output: 2D vector vector components divTx,divTy
+  !> compute the cell centered 2D rank 2 tensor divergence
+  !!
+  !! The divergence is computed on the whole mesh except for the outermost
+  !! boundary cells. The elemental function to compute the 3D curvilinear
+  !! tensor divergence is utilized. Thereby the commutator coefficients related
+  !! to the suppressed spatial dimension are set to 0.
+  !!
+  !! input:  2D rank 2 tensor T with components Txx,Txy,Tyx,Tyy
+  !!         given at cell centers
+  !! output: 2D vector vector components divTx,divTy
   PURE SUBROUTINE TensorDivergence2D_1(this,Txx,Txy,Tyx,Tyy,divTx,divTy)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
@@ -232,38 +287,129 @@ CONTAINS
     INTENT(IN)        :: Txx,Txy,Tyx,Tyy
     INTENT(OUT)       :: divTx,divTy
     !------------------------------------------------------------------------!
-    ! we simply use the 3D tensor divergence and set the commutator coefficient
-    ! and the tensor component related to the z-direction to zero
+    ! determine which velocity components are given
+    SELECT CASE(this%VECTOR_COMPONENTS)
+    CASE(IOR(VECTOR_X,VECTOR_Y))
     DO k=this%KGMIN+this%KP1,this%KGMAX-this%KP1
+       DO j=this%JGMIN+this%JP1,this%JGMAX-this%JP1
 !NEC$ IVDEP
-      DO j=this%JGMIN+this%JP1,this%JGMAX-this%JP1
-!NEC$ IVDEP
-        DO i=this%IGMIN+this%IP1,this%IGMAX-this%IP1
-         ! x component of tensor divergence
-         divTx(i,j,k) = Divergence3D(this%dAxdydz(i,j,k,1),this%dAxdydz(i,j,k,2), &
-                                 this%dAydzdx(i,j,k,1),this%dAydzdx(i,j,k,2), &
-                                 this%dAzdxdy(i,j,k,1),this%dAzdxdy(i,j,k,2), &
-                                 this%dxdydV%data3d(i,j,k),this%dzdxdV%data3d(i,j,k),this%dydzdV%data3d(i,j,k), &
-                                 this%cxyx%center(i,j,k),this%cyxy%center(i,j,k), &
-                                 0.0,0.0, & ! czxz = 0 and cxzx = 0 because of 2D
-                                 0.5*(Txx(i-this%IP1,j,k)+Txx(i,j,k)),0.5*(Txx(i+this%IP1,j,k)+Txx(i,j,k)), &
-                                 0.5*(Txy(i,j-this%JP1,k)+Txy(i,j,k)),0.5*(Txy(i,j+this%JP1,k)+Txy(i,j,k)), &
-                                 0.0, 0.0, & ! difference at Bottom and Top faces is 0 because of 2D
-                                 Tyx(i,j,k),Tyy(i,j,k),0.0,0.0) ! Tzz = 0 and Tzx = 0 because of 2D
-         ! y component of tensor divergence
-         divTy(i,j,k) = Divergence3D(this%dAxdydz(i,j,k,1),this%dAxdydz(i,j,k,2), &
-                                 this%dAydzdx(i,j,k,1),this%dAydzdx(i,j,k,2), &
-                                 this%dAzdxdy(i,j,k,1),this%dAzdxdy(i,j,k,2), &
-                                 this%dxdydV%data3d(i,j,k),this%dzdxdV%data3d(i,j,k),this%dydzdV%data3d(i,j,k), &
-                                 -this%cxyx%center(i,j,k),-this%cyxy%center(i,j,k), &
-                                 0.0,0.0, & ! czyz = 0 and cyzy = 0 because of 2D
-                                 0.5*(Tyx(i-this%IP1,j,k)+Tyx(i,j,k)),0.5*(Tyx(i+this%IP1,j,k)+Tyx(i,j,k)), &
-                                 0.5*(Tyy(i,j-this%JP1,k)+Tyy(i,j,k)),0.5*(Tyy(i,j+this%JP1,k)+Tyy(i,j,k)), &
-                                 0.0, 0.0, & ! difference at Bottom and Top faces is 0 because of 2D
-                                 Txx(i,j,k),Txy(i,j,k),0.0,0.0) ! Tzz = 0 and Tzy = 0 because of 2D
+          DO i=this%IGMIN+this%IP1,this%IGMAX-this%IP1
+             ! x component of tensor divergence
+             divTx(i,j,k) = Divergence3D(&
+                  this%dAxdydz(i,j,k,1),this%dAxdydz(i,j,k,2), &
+                  this%dAydzdx(i,j,k,1),this%dAydzdx(i,j,k,2), &
+                  0.0,0.0,&
+                  this%dydzdV%data3d(i,j,k),this%dzdxdV%data3d(i,j,k),0.0, &
+                  this%cxyx%center(i,j,k),0.0, &
+                  this%cyxy%center(i,j,k),0.0, &
+                  0.5*(Txx(i-this%IP1,j,k)+Txx(i,j,k)),0.5*(Txx(i+this%IP1,j,k)+Txx(i,j,k)), &
+                  0.5*(Txy(i,j-this%JP1,k)+Txy(i,j,k)),0.5*(Txy(i,j+this%JP1,k)+Txy(i,j,k)), &
+                  0.0,0.0,  &
+                  Tyx(i,j,k),0.0,Tyy(i,j,k),0.0)
+             ! y component of tensor divergence
+             ! change input of Divergence3D according to the rules given in
+             ! the comments (see below)
+             divTy(i,j,k) = Divergence3D(&
+                  this%dAxdydz(i,j,k,1),this%dAxdydz(i,j,k,2), &
+                  this%dAydzdx(i,j,k,1),this%dAydzdx(i,j,k,2), &
+                  0.0,0.0, &
+                  this%dydzdV%data3d(i,j,k),this%dzdxdV%data3d(i,j,k),0.0, &
+                  -this%cxyx%center(i,j,k),0.0, &
+                  -this%cyxy%center(i,j,k),0.0, &
+                  0.5*(Tyx(i-this%IP1,j,k)+Tyx(i,j,k)),0.5*(Tyx(i+this%IP1,j,k)+Tyx(i,j,k)), &
+                  0.5*(Tyy(i,j-this%JP1,k)+Tyy(i,j,k)),0.5*(Tyy(i,j+this%JP1,k)+Tyy(i,j,k)), &
+                  0.0,0.0,&
+                  Txx(i,j,k),0.0,Txy(i,j,k),0.0)
+          END DO
         END DO
       END DO
-    END DO
+    CASE(IOR(VECTOR_X,VECTOR_Z))
+      ! renaming scheme
+      ! Txz => Txy
+      ! Tzx => Tyx
+      ! Tzz => Tyy
+      ! divTz => divTy
+      DO k=this%KGMIN+this%KP1,this%KGMAX-this%KP1
+        DO j=this%JGMIN+this%JP1,this%JGMAX-this%JP1
+  !NEC$ IVDEP
+          DO i=this%IGMIN+this%IP1,this%IGMAX-this%IP1
+            ! x component of tensor divergence
+            divTx(i,j,k) = Divergence3D(&
+                this%dAxdydz(i,j,k,1),this%dAxdydz(i,j,k,2), &
+                this%dAydzdx(i,j,k,1),this%dAydzdx(i,j,k,2), &
+                this%dAzdxdy(i,j,k,1),this%dAzdxdy(i,j,k,2), &
+                this%dydzdV%data3d(i,j,k),this%dzdxdV%data3d(i,j,k),this%dxdydV%data3d(i,j,k), &
+                this%cxyx%center(i,j,k),this%cxzx%center(i,j,k), &
+                this%cyxy%center(i,j,k),this%czxz%center(i,j,k), &
+                0.5*(Txx(i-this%IP1,j,k)+Txx(i,j,k)),0.5*(Txx(i+this%IP1,j,k)+Txx(i,j,k)), &
+                0.0,0.0, & ! Txy = 0
+                0.5*(Txy(i,j,k-this%KP1)+Txy(i,j,k)),0.5*(Txy(i,j,k+this%KP1)+Txy(i,j,k)), & ! Txz => Txy
+                0.0,Tyx(i,j,k),0.0,Tyy(i,j,k)) ! Tyx = 0, Tzx => Tyx, Tyy = 0, Tzz => Tyy
+            ! z component of tensor divergence
+            ! change input of Divergence3D according to the rules given in
+            ! the comments (see below)
+            divTy(i,j,k) = Divergence3D(& ! divTz => divTy
+                this%dAxdydz(i,j,k,1),this%dAxdydz(i,j,k,2), &
+                this%dAydzdx(i,j,k,1),this%dAydzdx(i,j,k,2), &
+                this%dAzdxdy(i,j,k,1),this%dAzdxdy(i,j,k,2), &
+                this%dydzdV%data3d(i,j,k),this%dzdxdV%data3d(i,j,k),this%dxdydV%data3d(i,j,k), &
+                this%czyz%center(i,j,k),-this%cxzx%center(i,j,k), &
+                this%cyzy%center(i,j,k),-this%czxz%center(i,j,k), &
+                0.5*(Tyx(i-this%IP1,j,k)+Tyx(i,j,k)),0.5*(Tyx(i+this%IP1,j,k)+Tyx(i,j,k)), & ! Tzx => Tyx
+                0.0,0.0, & ! Tzy = 0
+                0.5*(Tyy(i,j,k-this%KP1)+Tyy(i,j,k)),0.5*(Tyy(i,j,k+this%KP1)+Tyy(i,j,k)), & ! Tzz => Tyy
+                0.0,Txx(i,j,k),0.0,Txy(i,j,k)) ! Tyz = 0, Txz => Txy, Tyy = 0
+          END DO
+        END DO
+      END DO
+    CASE(IOR(VECTOR_Y,VECTOR_Z))
+      ! renaming scheme
+      ! Tyz => Txy
+      ! Tyy => Txx
+      ! Tzy => Tyx
+      ! Tzz => Tyy
+      ! divTy => divTx
+      ! divTz => divTy
+      DO k=this%KGMIN+this%KP1,this%KGMAX-this%KP1
+        DO j=this%JGMIN+this%JP1,this%JGMAX-this%JP1
+  !NEC$ IVDEP
+          DO i=this%IGMIN+this%IP1,this%IGMAX-this%IP1
+            ! y component of tensor divergence
+            ! change input of Divergence3D according to the rules given in
+            ! the comments (see below)
+            divTx(i,j,k) = Divergence3D(& ! divTy => divTx
+                  this%dAxdydz(i,j,k,1),this%dAxdydz(i,j,k,2), &
+                  this%dAydzdx(i,j,k,1),this%dAydzdx(i,j,k,2), &
+                  this%dAzdxdy(i,j,k,1),this%dAzdxdy(i,j,k,2), &
+                  this%dydzdV%data3d(i,j,k),this%dzdxdV%data3d(i,j,k),this%dxdydV%data3d(i,j,k), &
+                  -this%cxyx%center(i,j,k),this%cyzy%center(i,j,k), &
+                  -this%cyxy%center(i,j,k),this%czyz%center(i,j,k), &
+                  0.0,0.0, & ! Tyx = 0
+                  0.5*(Txx(i,j-this%JP1,k)+Txx(i,j,k)),0.5*(Txx(i,j+this%JP1,k)+Tyy(i,j,k)), & ! Tyy => Txx
+                  0.5*(Txy(i,j,k-this%KP1)+Txy(i,j,k)),0.5*(Txy(i,j,k+this%KP1)+Txy(i,j,k)), & ! Tyz => Txy
+                  0.0,Tyx(i,j,k),0.0,Tyy(i,j,k)) ! Txx = 0, Tzy => Tyx, Txy = 0, Tzz => Tyy
+            ! z component of tensor divergence
+            ! change input of Divergence3D according to the rules given in
+            ! the comments (see below)
+            divTy(i,j,k) = Divergence3D(& ! divTz => divTy
+                  this%dAxdydz(i,j,k,1),this%dAxdydz(i,j,k,2), &
+                  this%dAydzdx(i,j,k,1),this%dAydzdx(i,j,k,2), &
+                  this%dAzdxdy(i,j,k,1),this%dAzdxdy(i,j,k,2), &
+                  this%dydzdV%data3d(i,j,k),this%dzdxdV%data3d(i,j,k),this%dxdydV%data3d(i,j,k), &
+                  this%czyz%center(i,j,k),-this%cxzx%center(i,j,k), &
+                  this%cyzy%center(i,j,k),-this%czxz%center(i,j,k), &
+                  0.0,0.0, & ! Tzx = 0
+                  0.5*(Tyx(i,j-this%JP1,k)+Tyx(i,j,k)),0.5*(Tyx(i,j+this%JP1,k)+Tyx(i,j,k)), & ! Tzy => Tyx
+                  0.5*(Tyy(i,j,k-this%KP1)+Tyy(i,j,k)),0.5*(Tyy(i,j,k+this%KP1)+Tyy(i,j,k)), & ! Tzz => Tyy
+                  Txy(i,j,k),0.0,Txx(i,j,k),0.0) ! Tyz => Txy, Txx = 0, Tyy => Txx, Txz = 0
+          END DO
+        END DO
+      END DO
+    CASE DEFAULT
+      ! return NaN
+      divTx(:,:,:) = NAN_DEFAULT_REAL
+      divTy(:,:,:) = NAN_DEFAULT_REAL
+    END SELECT
   END SUBROUTINE TensorDivergence2D_1
 
 
@@ -320,9 +466,10 @@ CONTAINS
 !  END SUBROUTINE TensorDivergence2D_2
 
 
-  ! computes the cell centered curvilinear vector divergence
-  ! for cell centered 3D vector components vx,vy,vz on the whole mesh
-  ! except for the outermost boundary cells
+  !> compute the cell centered 3D vector divergence
+  !! 
+  !! input:  cell centered 3D vector components vx,vy,vz on the whole mesh
+  !! output: div(v) on the whole mesh except for the outermost boundary cells
   PURE SUBROUTINE VectorDivergence3D(this,vx,vy,vz,divv)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
@@ -338,19 +485,19 @@ CONTAINS
     ! we simply use the 3D tensor divergence and set the commutator coefficients
     ! and the off-diagonal tensor components to 0
     DO k=this%KGMIN+this%KP1,this%KGMAX-this%KP1
-!NEC$ IVDEP
       DO j=this%JGMIN+this%JP1,this%JGMAX-this%JP1
 !NEC$ IVDEP
         DO i=this%IGMIN+this%IP1,this%IGMAX-this%IP1
-          divv(i,j,k) = Divergence3D(this%dAxdydz(i,j,k,1),this%dAxdydz(i,j,k,2), &
-                                     this%dAydzdx(i,j,k,1),this%dAydzdx(i,j,k,2), &
-                                     this%dAzdxdy(i,j,k,1),this%dAzdxdy(i,j,k,2), &
-                                     this%dxdydV%data3d(i,j,k),this%dzdxdV%data3d(i,j,k),this%dydzdV%data3d(i,j,k), &
-                                     0.0,0.0,0.0,0.0, & ! no commutator coefficients
-                                     0.5*(vx(i-this%IP1,j,k)+vx(i,j,k)),0.5*(vx(i+this%IP1,j,k)+vx(i,j,k)), &
-                                     0.5*(vy(i,j-this%JP1,k)+vy(i,j,k)),0.5*(vy(i,j+this%JP1,k)+vy(i,j,k)), &
-                                     0.5*(vz(i,j,k-this%KP1)+vz(i,j,k)),0.5*(vz(i,j,k+this%KP1)+vz(i,j,k)), &
-                                     0.0,0.0,0.0,0.0)   ! no off-diagonal tensor components
+          divv(i,j,k) = Divergence3D(&
+              this%dAxdydz(i,j,k,1),this%dAxdydz(i,j,k,2), &
+              this%dAydzdx(i,j,k,1),this%dAydzdx(i,j,k,2), &
+              this%dAzdxdy(i,j,k,1),this%dAzdxdy(i,j,k,2), &
+              this%dydzdV%data3d(i,j,k),this%dzdxdV%data3d(i,j,k),this%dxdydV%data3d(i,j,k), &
+              0.0,0.0,0.0,0.0, & ! no commutator coefficients
+              0.5*(vx(i-this%IP1,j,k)+vx(i,j,k)),0.5*(vx(i+this%IP1,j,k)+vx(i,j,k)), &
+              0.5*(vy(i,j-this%JP1,k)+vy(i,j,k)),0.5*(vy(i,j+this%JP1,k)+vy(i,j,k)), &
+              0.5*(vz(i,j,k-this%KP1)+vz(i,j,k)),0.5*(vz(i,j,k+this%KP1)+vz(i,j,k)), &
+              0.0,0.0,0.0,0.0)   ! no off-diagonal tensor components
         END DO
       END DO
     END DO
@@ -358,12 +505,14 @@ CONTAINS
 
 
 
-  ! computes the cell centered tensor divergence in curvilinear coordinates with
-  ! symmetry along the z-direction on the whole mesh except for the outermost
-  ! boundary cells
-  ! input: 3D rank 2 tensor T with components Txx,Txy,Txz,Tyx,Tyy,Tyz,Tzx,Tzy,Tzz
-  !        given at cell centers
-  ! output: 3D vector vector components divTx,divTy,divTz
+  !> compute the cell centered 3D rank 2 tensor divergence
+  !! 
+  !! It is computed on the whole mesh except for the outermost boundary cells.
+  !! It accounts for contributions due to the curvilinear mesh.
+  !!
+  !! input: 3D rank 2 tensor T with components Txx,Txy,Txz,Tyx,Tyy,Tyz,Tzx,Tzy,Tzz
+  !!        given at cell centers
+  !! output: 3D vector vector components divTx,divTy,divTz
   PURE SUBROUTINE TensorDivergence3D(this,Txx,Txy,Txz,Tyx,Tyy,Tyz,Tzx,Tzy,Tzz, &
                                      divTx,divTy,divTz)
     IMPLICIT NONE
@@ -377,57 +526,64 @@ CONTAINS
     INTENT(IN)        :: Txx,Txy,Txz,Tyx,Tyy,Tyz,Tzx,Tzy,Tzz
     INTENT(OUT)       :: divTx,divTy,divTz
     !------------------------------------------------------------------------!
-!NEC$ IVDEP
     DO k=this%KGMIN+this%KP1,this%KGMAX-this%KP1
-!NEC$ IVDEP
        DO j=this%JGMIN+this%JP1,this%JGMAX-this%JP1
 !NEC$ IVDEP
           DO i=this%IGMIN+this%IP1,this%IGMAX-this%IP1
              ! x component of tensor divergence
-             divTx(i,j,k) = Divergence3D(this%dAxdydz(i,j,k,1),this%dAxdydz(i,j,k,2),                                 &
-                                         this%dAydzdx(i,j,k,1),this%dAydzdx(i,j,k,2),                                 &
-                                         this%dAzdxdy(i,j,k,1),this%dAzdxdy(i,j,k,2),                                 &
-                                         this%dxdydV%data3d(i,j,k),this%dzdxdV%data3d(i,j,k),this%dydzdV%data3d(i,j,k),                    &
-                                         this%cxyx%center(i,j,k),this%cxzx%center(i,j,k),this%cyxy%center(i,j,k),this%czxz%center(i,j,k), &
-                                         0.5*(Txx(i-1,j,k)+Txx(i,j,k)),0.5*(Txx(i+1,j,k)+Txx(i,j,k)),             &
-                                         0.5*(Txy(i,j-1,k)+Txy(i,j,k)),0.5*(Txy(i,j+1,k)+Txy(i,j,k)),             &
-                                         0.5*(Txz(i,j,k-1)+Txz(i,j,k)),0.5*(Txz(i,j,k+1)+Txz(i,j,k)),             &
-                                         Tyx(i,j,k),Tzx(i,j,k),Tyy(i,j,k),Tzz(i,j,k))
-
+             divTx(i,j,k) = Divergence3D(&
+                  this%dAxdydz(i,j,k,1),this%dAxdydz(i,j,k,2), &
+                  this%dAydzdx(i,j,k,1),this%dAydzdx(i,j,k,2), &
+                  this%dAzdxdy(i,j,k,1),this%dAzdxdy(i,j,k,2), &
+                  this%dydzdV%data3d(i,j,k),this%dzdxdV%data3d(i,j,k),this%dxdydV%data3d(i,j,k), &
+                  this%cxyx%center(i,j,k),this%cxzx%center(i,j,k), &
+                  this%cyxy%center(i,j,k),this%czxz%center(i,j,k), &
+                  0.5*(Txx(i-this%IP1,j,k)+Txx(i,j,k)),0.5*(Txx(i+this%IP1,j,k)+Txx(i,j,k)), &
+                  0.5*(Txy(i,j-this%JP1,k)+Txy(i,j,k)),0.5*(Txy(i,j+this%JP1,k)+Txy(i,j,k)), &
+                  0.5*(Txz(i,j,k-this%KP1)+Txz(i,j,k)),0.5*(Txz(i,j,k+this%KP1)+Txz(i,j,k)), &
+                  Tyx(i,j,k),Tzx(i,j,k),Tyy(i,j,k),Tzz(i,j,k))
              ! y component of tensor divergence
-             divTy(i,j,k) = Divergence3D(this%dAxdydz(i,j,k,1),this%dAxdydz(i,j,k,2),                                  &
-                                         this%dAydzdx(i,j,k,1),this%dAydzdx(i,j,k,2),                                  &
-                                         this%dAzdxdy(i,j,k,1),this%dAzdxdy(i,j,k,2),                                  &
-                                         this%dxdydV%data3d(i,j,k),this%dzdxdV%data3d(i,j,k),this%dydzdV%data3d(i,j,k),                     &
-                                        -this%cxyx%center(i,j,k),this%cyzy%center(i,j,k),-this%cyxy%center(i,j,k),this%czyz%center(i,j,k), &
-                                         0.5*(Tyx(i-1,j,k)+Tyx(i,j,k)),0.5*(Tyx(i+1,j,k)+Tyx(i,j,k)),              &
-                                         0.5*(Tyy(i,j-1,k)+Tyy(i,j,k)),0.5*(Tyy(i,j+1,k)+Tyy(i,j,k)),              &
-                                         0.5*(Tyz(i,j,k-1)+Tyz(i,j,k)),0.5*(Tyz(i,j,k+1)+Tyz(i,j,k)),              &
-                                         Txx(i,j,k),Tzy(i,j,k),Txy(i,j,k),Tzz(i,j,k))
+             ! change input of Divergence3D according to the rules given in
+             ! the comments (see below)
+             divTy(i,j,k) = Divergence3D(&
+                  this%dAxdydz(i,j,k,1),this%dAxdydz(i,j,k,2), &
+                  this%dAydzdx(i,j,k,1),this%dAydzdx(i,j,k,2), &
+                  this%dAzdxdy(i,j,k,1),this%dAzdxdy(i,j,k,2), &
+                  this%dydzdV%data3d(i,j,k),this%dzdxdV%data3d(i,j,k),this%dxdydV%data3d(i,j,k), &
+                  -this%cxyx%center(i,j,k),this%cyzy%center(i,j,k), &
+                  -this%cyxy%center(i,j,k),this%czyz%center(i,j,k), &
+                  0.5*(Tyx(i-this%IP1,j,k)+Tyx(i,j,k)),0.5*(Tyx(i+this%IP1,j,k)+Tyx(i,j,k)), &
+                  0.5*(Tyy(i,j-this%JP1,k)+Tyy(i,j,k)),0.5*(Tyy(i,j+this%JP1,k)+Tyy(i,j,k)), &
+                  0.5*(Tyz(i,j,k-this%KP1)+Tyz(i,j,k)),0.5*(Tyz(i,j,k+this%KP1)+Tyz(i,j,k)), &
+                  Txx(i,j,k),Tzy(i,j,k),Txy(i,j,k),Tzz(i,j,k))
              ! z component of tensor divergence
-             divTz(i,j,k) = Divergence3D(this%dAxdydz(i,j,k,1),this%dAxdydz(i,j,k,2),                     &
-                                         this%dAydzdx(i,j,k,1),this%dAydzdx(i,j,k,2),                     &
-                                         this%dAzdxdy(i,j,k,1),this%dAzdxdy(i,j,k,2),                     &
-                                         this%dxdydV%data3d(i,j,k),this%dzdxdV%data3d(i,j,k),this%dydzdV%data3d(i,j,k),        &
-                                         this%czyz%center(i,j,k),-this%cxzx%center(i,j,k),-this%czxz%center(i,j,k),this%cyzy%center(i,j,k), &
-                                         0.5*(Tzx(i-1,j,k)+Tzx(i,j,k)),0.5*(Tzx(i+1,j,k)+Tzx(i,j,k)), &
-                                         0.5*(Tzy(i,j-1,k)+Tzy(i,j,k)),0.5*(Tzy(i,j+1,k)+Tzy(i,j,k)), &
-                                         0.5*(Tzz(i,j,k-1)+Tzz(i,j,k)),0.5*(Tzz(i,j,k+1)+Tzz(i,j,k)), &
-                                         Tyz(i,j,k),Txx(i,j,k),Txz(i,j,k),Tyy(i,j,k))
+             ! change input of Divergence3D according to the rules given in
+             ! the comments (see below)
+             divTz(i,j,k) = Divergence3D(&
+                  this%dAxdydz(i,j,k,1),this%dAxdydz(i,j,k,2), &
+                  this%dAydzdx(i,j,k,1),this%dAydzdx(i,j,k,2), &
+                  this%dAzdxdy(i,j,k,1),this%dAzdxdy(i,j,k,2), &
+                  this%dydzdV%data3d(i,j,k),this%dzdxdV%data3d(i,j,k),this%dxdydV%data3d(i,j,k), &
+                  this%czyz%center(i,j,k),-this%cxzx%center(i,j,k), &
+                  this%cyzy%center(i,j,k),-this%czxz%center(i,j,k), &
+                  0.5*(Tzx(i-this%IP1,j,k)+Tzx(i,j,k)),0.5*(Tzx(i+this%IP1,j,k)+Tzx(i,j,k)), &
+                  0.5*(Tzy(i,j-this%JP1,k)+Tzy(i,j,k)),0.5*(Tzy(i,j+this%JP1,k)+Tzy(i,j,k)), &
+                  0.5*(Tzz(i,j,k-this%KP1)+Tzz(i,j,k)),0.5*(Tzz(i,j,k+this%KP1)+Tzz(i,j,k)), &
+                  Tyz(i,j,k),Txx(i,j,k),Tyy(i,j,k),Txz(i,j,k))
           END DO
        END DO
     END DO
   END SUBROUTINE TensorDivergence3D
-!
-!   TODO: Highly unsure whether this is correct....
-!  ! the elemental workhorse: basic function for computing 2D/3D vector or tensor divergences
-!  ! works with planar geometry as well (czxz = 0)
-!  ! input: area and volume elements (multiplied and devided by dx or dy,
-!  !        commutator coefficients, tensor components
-!  ! output: vector divergence (scalar) or x-component of the tensor divergence
-!  !         call this function with different input to obtain other components
+
+
+  !> elemental workhorse to compute divergence
+  !!
+  !! input: area and volume elements (multiplied and devided by dx or dy,
+  !!        commutator coefficients, tensor components
+  !! output: vector divergence (scalar) or x-component of the tensor divergence
+  !!         call this function with different input to obtain other components
   ELEMENTAL FUNCTION Divergence3D(dAxdydzWest,dAxdydzEast,dAydxdzSouth,dAydxdzNorth,dAzdxdyBottom,dAzdxdyTop, &
-                                  dxdydV,dxdzdV,dydzdV,cxyx,cxzx,cyxy,czxz, &
+                                  dydzdV,dxdzdV,dxdydV,cxyx,cxzx,cyxy,czxz, &
                                   TxxWest,TxxEast,TxySouth,TxyNorth,TxzBottom,TxzTop, &
                                   TyxCent,TzxCent,TyyCent,TzzCent) RESULT(div)
     IMPLICIT NONE
@@ -441,26 +597,28 @@ CONTAINS
                        TxyNorth,TxySouth, &             !   on cell faces
                        TxzBottom,TxzTop, &
                        TyxCent,TyyCent,TzzCent,TzxCent  !   central
-
-                 !this rules are from fosite2D and will not work for 3D...maybe
-                 !useful as a debugging orientation
-
                        ! to compute the y-component of the tensor divergence,
                        ! one has to modify the input according to
                        !   Txx   <->   Tyx
                        !   Txy   <->   Tyy
-                       !   cxyx   ->   -cxyx
-                       !   cyxy   ->   -cyxy
-                       !   czxz   ->    czyz
+                       !   Txz    ->   Tyz
+                       !   Tzx    ->   Tzy
+                       !   Tzz    ->   Tzz
+                       !   cxyx   ->  -cxyx
+                       !   cyxy   ->  -cyxy
+                       !   cxzx   ->   cyzy
+                       !   czxz   ->   czyz
                        ! to compute the z-component of the tensor divergence,
                        ! one has to modify the input according to
-                       !   Txx    ->   Tzx
+                       !   Txx   <->   Tzx
                        !   Txy    ->   Tzy
+                       !   Txz   <->   Tzz
                        !   Tyx    ->   Tyz
-                       !   Tyy    ->   0
-                       !   Tzz    ->  -Txz
+                       !   Tyy    ->   Tyy
                        !   cxyx   ->   czyz
-                       !   cyxy   ->   0
+                       !   cyxy   ->   cyzy
+                       !   cxzx   ->  -cxzx
+                       !   czxz   ->  -czxz 
     !------------------------------------------------------------------------!
     REAL            :: div
     !------------------------------------------------------------------------!
