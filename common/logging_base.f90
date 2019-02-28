@@ -82,6 +82,7 @@ MODULE logging_base_mod
   INTEGER, SAVE          :: DEFAULT_MPI_COMPLEX = MPI_DOUBLE_COMPLEX !< default real type for MPI
   REAL, PARAMETER        :: dummy   = 1.0                            !< check default real type
 #endif
+  REAL, SAVE             :: NAN_DEFAULT_REAL                         !< NaN real constant 
   INTEGER, PARAMETER     :: STDERR  = 0                              !< fortran stderr unit
   INTEGER, PARAMETER     :: STDOUT  = 6                              !< fortran stdout unit
   INTEGER, SAVE, TARGET  :: myrank  = 0                              !< MPI rank
@@ -97,6 +98,7 @@ MODULE logging_base_mod
        DEFAULT_MPI_2REAL,   &
        DEFAULT_MPI_COMPLEX, &
 #endif
+       NAN_DEFAULT_REAL, &
        SetPrefix
   !--------------------------------------------------------------------------!
 
@@ -109,6 +111,7 @@ CONTAINS
   !! mode such as the MPI rank and the total number of MPI processes.
   !! The default MPI real data types are determined.
   SUBROUTINE InitLogging(this,t,n)
+    USE, INTRINSIC :: ieee_arithmetic
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(logging_base), INTENT(INOUT) :: this !< \param [out] this module type and name
@@ -140,6 +143,7 @@ CONTAINS
        END SELECT
     END IF
 #endif
+    NAN_DEFAULT_REAL    = IEEE_VALUE(NAN_DEFAULT_REAL,IEEE_QUIET_NAN)
     this%err = 0
     this%isinitialized  = .TRUE.
   END SUBROUTINE InitLogging
