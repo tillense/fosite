@@ -1531,10 +1531,8 @@ CONTAINS
         DO k=Mesh%KMIN,Mesh%KMAX
           DO j=Mesh%JMIN,Mesh%JMAX
             DO i=Mesh%IMIN,Mesh%IMAX
-!            sterm(i,j,this%XMOMENTUM) = cvar(i,j,this%YMOMENTUM) * w(i) &
-!                   * Mesh%cyxy%bcenter(i,j)
               ! ATTENTION: fargo sources are added to the given sterm
-              s%momentum%data4d(i,j,k,1) = s%momentum%data4d(i,j,k,1) &
+              s%momentum%data4d(i,j,k,2) = s%momentum%data4d(i,j,k,2) &
                 - c%momentum%data4d(i,j,k,1) * 0.5 * (w(i+1,k)-w(i-1,k)) &
                 / Mesh%dlx%data3d(i,j,k)
             END DO
