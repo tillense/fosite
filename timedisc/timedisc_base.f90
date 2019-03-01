@@ -1633,7 +1633,7 @@ CONTAINS
 #ifdef PARALLEL
     ! make sure all MPI processes use the same step if domain is decomposed
     ! along the y-direction (can be different due to round-off errors)
-    IF (Mesh%dims(1).GT.1) THEN
+    IF (Mesh%dims(2).GT.1) THEN
       CALL MPI_Allreduce(MPI_IN_PLACE,this%delxy,(Mesh%IGMAX-Mesh%IGMIN+1)*(Mesh%KGMAX-Mesh%KGMIN+1), &
                          DEFAULT_MPI_REAL,MPI_MIN,Mesh%Jcomm,ierror)
     END IF
