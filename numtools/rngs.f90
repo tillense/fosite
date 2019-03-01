@@ -26,17 +26,17 @@
 !> \author Manuel Jung
 !!
 !! random number generators
-!! Kiss64: Period: >2^124 \approx 2.1*10^37
+!! Kiss64: Period: \f$ > 2^{124} \approx 2.1 \cdot 10^{37} \f$
 !!   Source: https://de.wikipedia.org/wiki/KISS_(Zufallszahlengenerator)
 !!           http://fortranwiki.org/fortran/show/kiss64
 !! DKiss64: Kiss64 converted to double intervall [0,1]
-!! SuperKiss64: A Super KISS. Period of 5*2^1320480*(2^64-1)
+!! SuperKiss64: A Super KISS. Period of \f$ 5\cdot 2^{1320480} \cdot (2^{64}-1) \f$
 !!   A KISS (Keep-It-Simple-Stupid) RNG combining,
-!!   by addition mod 2^32, three simple RNGs:
+!!   by addition mod \f$ 2^{32} \f$ , three simple RNGs:
 !!     CMWC (Complementary-Multiply-With-Carry)
 !!   + CNG (Congruential)
 !!   + XS(Xorshift)
-!!   with resulting period greater than 10^402575
+!!   with resulting period greater than \f$ 10^{402575} \f$
 !!   Source: http://mathforum.org/kb/message.jspa?messageID=6914945
 !----------------------------------------------------------------------------!
 MODULE rngs

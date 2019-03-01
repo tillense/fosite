@@ -49,7 +49,7 @@
 !! \f[ \mathbf{T} = \eta\left(\nabla\mathbf{v} + \nabla\mathbf{v}^\mathsf{T}\right)
 !!     + \mu_\mathrm{b} \nabla\cdot\mathbf{v}
 !! \f]
-!! are computed in the physics modules, see e.g. \ref physics_euler.calcstresses_euler
+!! are computed in the physics modules, see e.g. \ref physics_eulerisotherm.calcstresses
 !! for any given curvilinear orthonormal geometry.
 !!
 !! For a description of the currently supported (effective turbulent) viscosity
