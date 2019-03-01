@@ -52,8 +52,8 @@ PROGRAM pringle_test
   IMPLICIT NONE
   !--------------------------------------------------------------------------!
   ! simulation parameters
-  REAL, PARAMETER    :: TSIM    = 1.0E-2     ! simulation time [TAU] see below
-                                             ! should be << 1 ~ viscous time scale
+  REAL, PARAMETER    :: TSIM    = 2.0E-2     ! simulation time [TVIS] see below
+                                             ! should be < 1 ~ viscous time scale
   ! these are the basic parameters; for stable solutions one requires
   ! MA >> 1 and RE > MA
   REAL, PARAMETER    :: RE      = 1.0E+4     ! Reynolds number (at R=1)
@@ -65,8 +65,8 @@ PROGRAM pringle_test
 !   INTEGER, PARAMETER :: VISTYPE = BETA
   INTEGER, PARAMETER :: VISTYPE = POWERLAW
   REAL, PARAMETER    :: PL_EXP  = 0.0        ! exponent for power law viscosity
-  REAL, PARAMETER    :: TAU     = 4./3.*RE   ! viscous time scale
-  REAL, PARAMETER    :: TINIT   = 1.0E-3     ! time for initial condition [TAU]
+  REAL, PARAMETER    :: TVIS    = 4./3.*RE   ! viscous time scale
+  REAL, PARAMETER    :: TINIT   = 1.0E-3     ! time for initial condition [TVIS]
   ! mesh settings
   !**************************************************************************!
   !> \remark #1: This test is very sensitive to mesh settings. If there are
@@ -81,10 +81,10 @@ PROGRAM pringle_test
   INTEGER, PARAMETER :: MGEO = CYLINDRICAL
 !   INTEGER, PARAMETER :: MGEO = LOGCYLINDRICAL
 !   INTEGER, PARAMETER :: MGEO = SPHERICAL
-  INTEGER, PARAMETER :: XRES = 400         ! x-resolution
+  INTEGER, PARAMETER :: XRES = 400        ! x-resolution
   INTEGER, PARAMETER :: YRES = 1           ! y-resolution
-  INTEGER, PARAMETER :: ZRES = 1          ! z-resolution
-  REAL, PARAMETER    :: RMIN = 0.05         ! min radius of comp. domain
+  INTEGER, PARAMETER :: ZRES = 1           ! z-resolution
+  REAL, PARAMETER    :: RMIN = 0.05        ! min radius of comp. domain
   REAL, PARAMETER    :: RMAX = 2.0         ! max radius of comp. domain
   REAL, PARAMETER    :: GPAR = 1.0         ! geometry scaling parameter
   ! output parameters
@@ -128,11 +128,11 @@ PROGRAM pringle_test
           DO j=Sim%Mesh%JMIN,Sim%Mesh%JMAX
             DO i=Sim%Mesh%IMIN,Sim%Mesh%IMAX
               IF (VISTYPE.EQ.BETA) THEN
-                CALL ViscousRing_analytic(1.0,next_output_time/TAU+TINIT, &
+                CALL ViscousRing_analytic(1.0,next_output_time/TVIS+TINIT, &
                   Sim%Mesh%radius%bcenter(i,j,k), &
                   pvar%density%data3d(i,j,k),pvar%velocity%data4d(i,j,k,1))
               ELSE
-                CALL ViscousRing_analytic(PL_EXP,next_output_time/TAU+TINIT, &
+                CALL ViscousRing_analytic(PL_EXP,next_output_time/TVIS+TINIT, &
                   Sim%Mesh%radius%bcenter(i,j,k), &
                   pvar%density%data3d(i,j,k),pvar%velocity%data4d(i,j,k,1))
               END IF
@@ -168,7 +168,7 @@ CONTAINS
     INTEGER           :: bc(6)
     TYPE(Dict_TYP), POINTER :: mesh, physics, boundary, datafile, &
                                grav, vis, timedisc, fluxes, sources
-    REAL              :: x1,x2,y1,y2,z1,z2
+    REAL              :: x1,x2,y1,y2,z1,z2,cvis
     !------------------------------------------------------------------------!
     INTENT(INOUT)     :: Sim
     !------------------------------------------------------------------------!
@@ -189,6 +189,9 @@ CONTAINS
       bc(NORTH) = PERIODIC
       bc(BOTTOM) = NO_GRADIENTS
       bc(TOP)    = NO_GRADIENTS
+      !!! ATTENTION:  empirical formula found for standard parameters
+      !!!             seems to work for RMIN=0.05 and XRES <= 1000
+      cvis = (XRES/1207.0)**1.9
     CASE(LOGCYLINDRICAL)
       x1 = LOG(RMIN/GPAR)
       x2 = LOG(RMAX/GPAR)
@@ -202,6 +205,7 @@ CONTAINS
       bc(NORTH) = PERIODIC
       bc(BOTTOM) = NO_GRADIENTS
       bc(TOP)    = NO_GRADIENTS
+      cvis = 0.1
     CASE(SPHERICAL)
       x1 = RMIN
       x2 = RMAX
@@ -217,6 +221,9 @@ CONTAINS
       bc(NORTH) = NO_GRADIENTS
       bc(BOTTOM) = PERIODIC
       bc(TOP)    = PERIODIC
+      !!! ATTENTION:  empirical formula found for standard parameters
+      !!!             seems to work for RMIN=0.05 and XRES <= 1000
+      cvis = (XRES/1207.0)**1.9
     CASE DEFAULT
       CALL Sim%Error("pringle::MakeConfig","mesh geometry not supported for Pringle disk")
     END SELECT
@@ -268,7 +275,7 @@ CONTAINS
             "vismodel"  / VISTYPE, &
             "dynconst"  / (1./RE), &
             "exponent"  / PL_EXP, &
-            "cvis"      / 0.01)
+            "cvis"      / cvis)
 
     ! source term due to a point mass
     grav => Dict( &
@@ -287,9 +294,9 @@ CONTAINS
     ! time discretization settings
     timedisc => Dict( &
             "method"    / SSPRK, &
-            "stoptime"  / (TSIM * TAU), &
+            "stoptime"  / (TSIM * TVIS), &
             "cfl"       / 0.4, &
-            "dtlimit"   / (1E-10 * TAU), &
+            "dtlimit"   / (1E-10 * TVIS), &
 !             "rhstype"   / 1, &
             "maxiter"   / 100000000, &
             "tol_rel"   / 0.01, &
@@ -327,7 +334,7 @@ CONTAINS
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,3) &
                       :: posvec,ephi
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX) :: radius
-    REAL              :: r,r34,vr,vphi,sden
+    REAL              :: r,vr,vphi,sden,mu
     CHARACTER(LEN=64) :: value
     !------------------------------------------------------------------------!
     IF (ABS(X0).LE.TINY(X0).AND.ABS(Y0).LE.TINY(Y0)) THEN
@@ -367,7 +374,7 @@ CONTAINS
     SELECT TYPE(beast => Timedisc%Boundary%boundary(EAST)%p)
     CLASS IS (boundary_custom)
       CALL beast%SetCustomBoundaries(Mesh,Physics, &
-        (/CUSTOM_NOGRAD,CUSTOM_NOGRAD,CUSTOM_KEPLER/))
+        (/CUSTOM_NOGRAD,CUSTOM_OUTFLOW,CUSTOM_EXTRAPOL/))
     END SELECT
 
     ! get gravitational acceleration
@@ -383,68 +390,46 @@ CONTAINS
     END DO
     IF (.NOT.ASSOCIATED(sp)) CALL Physics%Error("pringle::InitData","no gravity term initialized")
 
+    SELECT CASE(VISTYPE)
+    CASE(BETA)
+      mu=1.0
+    CASE(POWERLAW)
+      mu=PL_EXP
+    CASE DEFAULT
+      CALL Timedisc%Error("pringle::InitData","only pringle and beta viscosity possible")
+    END SELECT
+
+    ! initial condition
     SELECT TYPE(pvar => Timedisc%pvar)
     TYPE IS(statevector_eulerisotherm)
-      SELECT CASE(VISTYPE)
-      CASE(BETA)
-        DO k=Mesh%KGMIN,Mesh%KGMAX
-          DO j=Mesh%JGMIN,Mesh%JGMAX
-            DO i=Mesh%IMIN,Mesh%IGMAX
-              ! distance to center of mass
-              r = radius(i,j,k)
-              ! radius parameter r**(3/4)
-              r34 = r**0.75
-              ! Keplerian velocity
-              vphi = SQRT(1.0/r)
-              ! radial velocity (approximation for small initial time)
-              vr = 4.5/(RE*TINIT*TAU) * r34*(r34-1.0) * vphi
-              ! surface density
-              pvar%density%data3d(i,j,k) = RHOMIN &
-                  + 3. / SQRT(TINIT*TAU*(4*PI*r34)**3) * EXP(-((1.0-r34)**2)/(TINIT*TAU))
-              ! curvilinear velocity components
-              pvar%velocity%data4d(i,j,k,1:2) = &
-                  vr*posvec(i,j,k,1:2)/r + vphi*ephi(i,j,k,1:2)
-            END DO
-          END DO
-        END DO
-      CASE(POWERLAW)
-        DO k=Mesh%KGMIN,Mesh%KGMAX
-          DO j=Mesh%JGMIN,Mesh%JGMAX
-            DO i=Mesh%IMIN,Mesh%IGMAX
-              ! distance to center of mass
-              r = radius(i,j,k)
-              ! Keplerian velocity
-              vphi = SQRT(1.0/r)
+      DO k=Mesh%KGMIN,Mesh%KGMAX
+        DO j=Mesh%JGMIN,Mesh%JGMAX
+          DO i=Mesh%IMIN,Mesh%IGMAX
+            ! distance to center of mass
+            r = radius(i,j,k)
+            ! Keplerian velocity
+            vphi = SQRT(1.0/r)
 #ifdef HAVE_FGSL
-              CALL ViscousRing_analytic(PL_EXP,TINIT,r,sden,vr)
+            ! use exact solution at time TINIT
+            CALL ViscousRing_analytic(mu,TINIT,r,sden,vr)
 #else
-              CALL ViscousRing_approx(PL_EXP,TINIT,r,sden,vr)
+            ! use approximation for TINIT << 1
+            ! no need for modified Bessel functions
+            CALL ViscousRing_approx(mu,TINIT,r,sden,vr)
 #endif
-!               ! radial velocity
-!               IF (2*r/TAU0.LE.0.1) THEN
-!                 ! use series expansion, see below
-!                 vr = func_vr(TAU0,r)
-!               ELSE
-!                 ! approximation for large values of 2*r/t
-!                 vr = 3.0/RE * (0.25/r + 2.0/TAU0*(r-1.0))
-!               END IF
-              ! surface density (approximate solution)
-              pvar%density%data3d(i,j,k) = RHOMIN + sden
-              ! curvilinear velocity components
-              pvar%velocity%data4d(i,j,k,1:2) = &
-                  vr*posvec(i,j,k,1:2)/r + vphi*ephi(i,j,k,1:2)
+            pvar%density%data3d(i,j,k) = RHOMIN + sden
+            ! curvilinear velocity components
+            pvar%velocity%data4d(i,j,k,1:2) = &
+                vr*posvec(i,j,k,1:2)/r + vphi*ephi(i,j,k,1:2)
 !               pvar%velocity%data4d(i,j,k,1:2) = vr*posvec(i,j,k,1:2)/r
 !               p%velocity%data4d(i,j,k,2) = vphi
-            END DO
           END DO
         END DO
+      END DO
 !         CALL gp%UpdateGravity(Mesh,Sim%Physics,Sim%Fluxes,pvar,0.0,0.0)
 !         pvar%velocity%data4d(:,:,:,1:Physics%VDIM) = &
 !           Timedisc%GetCentrifugalVelocity(Mesh,Sim%Physics,Sim%Fluxes,Sim%Sources,(/0.,0.,1./), &
 !             gp%accel%data4d)
-      CASE DEFAULT
-        CALL Timedisc%Error("pringle::InitData","only pringle and beta viscosity possible")
-      END SELECT
     CLASS DEFAULT
       CALL Timedisc%Error("pringle::InitData","only isothermal physics possible")
     END SELECT
@@ -454,7 +439,7 @@ CONTAINS
       Timedisc%solution = Timedisc%pvar
     END IF
 
-    ! check fargo
+    ! check fargo and set background velocity field
     IF (Mesh%FARGO.EQ.2) &
        Timedisc%w(:,:) = SQRT(1.0/radius(:,Mesh%JMIN,:))
 
@@ -462,7 +447,7 @@ CONTAINS
     CALL Physics%Convert2Conservative(Timedisc%pvar,Timedisc%cvar)
 
     CALL Mesh%Info(" DATA-----> initial condition: " // "pringle disk")
-    WRITE(value,"(ES9.3)") TAU
+    WRITE(value,"(ES9.3)") TVIS
     CALL Mesh%Info("                               " // "viscous timescale:  " //TRIM(value))
     WRITE(value,"(ES9.3)") RE
     CALL Mesh%Info("                               " // "Reynolds number:    " //TRIM(value))
@@ -478,14 +463,16 @@ CONTAINS
     REAL, INTENT(IN)  :: mu,tau,r
     REAL, INTENT(OUT) :: Sigma,vr
     !--------------------------------------------------------------------!
-    REAL :: lambda,r4l,invr4l
+    REAL :: lambda,x,r4l,invr4l
     !--------------------------------------------------------------------!
     lambda = 1./(4.0-mu)
     r4l    = r**(0.25/lambda)
+    x      = 2*lambda**2 / tau * r**(0.25/lambda)
     invr4l = 1./r4l
     Sigma  = MDISK/SQRT((4*PI)**3 * tau) * r4l**(1.5-9*lambda) &
                * EXP(-lambda**2/tau*(1.0-r4l)**2)
-    vr     = -1.5/RE*r*(1.5*invr4l**2 - lambda/tau*(0.5 - invr4l))
+    vr     = -1.5/RE * ((x*tau)/(2*lambda*lambda))**(4*lambda-2.) &
+               * (1.0 - 0.5*x/lambda * (x*tau/(2*lambda*lambda) - 1.0))
   END SUBROUTINE ViscousRing_approx
 
 #ifdef HAVE_FGSL
@@ -495,16 +482,17 @@ CONTAINS
     REAL, INTENT(IN)  :: mu,tau,r
     REAL, INTENT(OUT) :: Sigma,vr
     !--------------------------------------------------------------------!
-    REAL :: lambda,invr4l,x
+    REAL :: lambda,r4l,x
     !--------------------------------------------------------------------!
     lambda = 1./(4.0-mu)
-    invr4l = r**(-0.25/lambda)
-    x    = 2*lambda**2 / (tau*invr4l)
-    Sigma  = MDISK*lambda/(4*PI * tau) * r**(0.5/lambda-2.25) &
-               * EXP(-lambda**2/tau*(1.0+r**(0.5/lambda))) &
+    r4l    = r**(0.25/lambda)
+    x      = 2*lambda**2 / tau * r4l
+    Sigma  = MDISK/(4*PI) * (lambda/tau) * r4l**2 * r**(-2.25) &
+               * EXP(-lambda**2/tau*(1.0+r4l**2)) &
                * modified_bessel_Inu(lambda,x)
-    vr     = -1.5/RE * r * (1.5*invr4l**2 - lambda/tau*(0.5-invr4l &
-               * modified_bessel_Inu(1+lambda,x)/modified_bessel_Inu(lambda,x)))
+    vr     = -1.5/RE * ((x*tau)/(2*lambda*lambda))**(4*lambda-2.) &
+               * (1.0 - 0.5*x/lambda * (x*tau/(2*lambda*lambda) &
+               - modified_bessel_Inu(1+lambda,x)/modified_bessel_Inu(lambda,x)))
   END SUBROUTINE ViscousRing_analytic
 
   FUNCTION modified_bessel_Inu(nu,x) RESULT(Inu)
@@ -527,34 +515,5 @@ CONTAINS
     END IF
   END FUNCTION modified_bessel_Inu
 #endif
-
-  FUNCTION func_vr(t,r) RESULT(v)
-    IMPLICIT NONE
-    !--------------------------------------------------------------------!
-    REAL, INTENT(IN) :: t,r
-    REAL :: v
-    !--------------------------------------------------------------------!
-    INTEGER :: k
-    REAL :: ak,qk,y,y2,y2k,sum1,sum2
-    REAL, PARAMETER :: GAMMA_QUARTER = 3.62560990822191
-    !--------------------------------------------------------------------!
-    ak = 1./GAMMA_QUARTER ! 1./Gamma(0.25) with Gamma-function
-    qk = ak
-    y  = r/t
-    y2 = y*y
-    y2k = 1.0
-    sum1 = qk
-    sum2 = 4.*qk
-    DO k=1,100
-       ak = ak /(k*(k-0.75))
-       y2k = y2k*y2
-       qk = ak*y2k
-       sum1 = sum1 + qk
-       sum2 = sum2 + qk/(k+0.25)
-    END DO
-    ! sum/(y*sum2) = I_{-3/4}(2*r/t) / I_{1/4}(2*r/t)
-    ! where I_n are modified Bessel functions of the first kind
-    v = 6./(RE*t)*(r-sum1/(y*sum2))
-  END FUNCTION func_vr
 
 END PROGRAM pringle_test
