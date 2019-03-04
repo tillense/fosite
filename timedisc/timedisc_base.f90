@@ -1909,7 +1909,7 @@ CONTAINS
     tmp%data1d(:) = SUM(posvec%data2d(:,:)*eomega%data2d(:,:),DIM=2)
     posvec%data2d(:,1) = posvec%data2d(:,1) - tmp%data1d(:)*eomega%data2d(:,1)
     posvec%data2d(:,2) = posvec%data2d(:,2) - tmp%data1d(:)*eomega%data2d(:,2)
-    posvec%data2d(:,2) = posvec%data2d(:,2) - tmp%data1d(:)*eomega%data2d(:,3)
+    posvec%data2d(:,3) = posvec%data2d(:,3) - tmp%data1d(:)*eomega%data2d(:,3)
 
     ! distance to axis
     tmp%data1d(:) = SQRT(SUM(posvec%data2d(:,:)*posvec%data2d(:,:),DIM=2))
@@ -1923,14 +1923,10 @@ CONTAINS
     CLASS IS(physics_eulerisotherm)
       l = 1
       DO k=1,3
-        IF (phys%vector_component_enabled(k)) THEN
-          IF (Mesh%rotsym.EQ.k) THEN
-            dist_axis_projected%data2d(:,l) = 0.0
-            ephi_projected%data2d(:,l) = 0.0
-          ELSE
-            dist_axis_projected%data2d(:,l) = posvec%data2d(:,k)
-            ephi_projected%data2d(:,l) = tmpvec%data2d(:,k)
-          END IF
+        ! check if vector component is used
+        IF (BTEST(Mesh%VECTOR_COMPONENTS,k-1)) THEN
+          dist_axis_projected%data2d(:,l) = posvec%data2d(:,k)
+          ephi_projected%data2d(:,l) = tmpvec%data2d(:,k)
           l = l + 1
         END IF
       END DO
