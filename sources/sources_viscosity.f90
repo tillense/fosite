@@ -216,7 +216,7 @@ CONTAINS
         ! copy vector components actually used
         l = 1
         DO k=1,3
-          IF (phys%vector_component_enabled(k)) THEN
+          IF (BTEST(Mesh%VECTOR_COMPONENTS,k-1)) THEN
             this%ephir%data2d(:,l) = this%ephir_tmp%data2d(:,k)
             l = l + 1
           END IF
