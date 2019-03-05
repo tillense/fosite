@@ -69,13 +69,15 @@ MODULE physics_eulerisotherm_mod
     PROCEDURE :: EnableOutput
     PROCEDURE :: new_statevector
     !------Convert2Primitive-------!
-    PROCEDURE :: Convert2Primitive_new
+    PROCEDURE :: Convert2Primitive_all
+    PROCEDURE :: Convert2Primitive_subset
     PROCEDURE :: Convert2Primitive_center
     PROCEDURE :: Convert2Primitive_centsub
     PROCEDURE :: Convert2Primitive_faces
     PROCEDURE :: Convert2Primitive_facesub
     !------Convert2Conservative----!
-    PROCEDURE :: Convert2Conservative_new
+    PROCEDURE :: Convert2Conservative_all
+    PROCEDURE :: Convert2Conservative_subset
     PROCEDURE :: Convert2Conservative_center
     PROCEDURE :: Convert2Conservative_centsub
     PROCEDURE :: Convert2Conservative_faces
@@ -315,7 +317,7 @@ CONTAINS
   END SUBROUTINE SetSoundSpeeds_faces
   
   !> Converts to primitives at cell centers using state vectors
-  PURE SUBROUTINE Convert2Primitive_new(this,cvar,pvar)
+  PURE SUBROUTINE Convert2Primitive_all(this,cvar,pvar)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(physics_eulerisotherm), INTENT(IN) :: this
@@ -346,7 +348,81 @@ CONTAINS
         END IF
       END SELECT
     END SELECT
-  END SUBROUTINE Convert2Primitive_new
+  END SUBROUTINE Convert2Primitive_all
+
+  !> Converts to primitives at cell centers using state vectors
+  PURE SUBROUTINE Convert2Primitive_subset(this,i1,i2,j1,j2,k1,k2,cvar,pvar)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(physics_eulerisotherm), INTENT(IN) :: this
+    INTEGER,                      INTENT(IN) :: i1,i2,j1,j2,k1,k2
+    CLASS(marray_compound),    INTENT(INOUT) :: cvar,pvar
+    !------------------------------------------------------------------------!
+    SELECT TYPE(c => cvar)
+    TYPE IS (statevector_eulerisotherm)
+      SELECT TYPE(p => pvar)
+      TYPE IS (statevector_eulerisotherm)
+        IF (c%flavour.EQ.CONSERVATIVE.AND.p%flavour.EQ.PRIMITIVE) THEN
+          SELECT CASE (c%density%RANK)
+          CASE(0) ! state vector contains cell center values
+            ! perform the transformation depending on dimensionality
+            SELECT CASE(this%VDIM)
+            CASE(1) ! 1D velocity / momentum
+              CALL Cons2Prim(c%density%data3d(i1:i2,j1:j2,k1:k2), &
+                            c%momentum%data4d(i1:i2,j1:j2,k1:k2,1), &
+                            p%density%data3d(i1:i2,j1:j2,k1:k2), &
+                            p%velocity%data4d(i1:i2,j1:j2,k1:k2,1))
+            CASE(2) ! 2D velocity / momentum
+              CALL Cons2Prim(c%density%data3d(i1:i2,j1:j2,k1:k2), &
+                            c%momentum%data4d(i1:i2,j1:j2,k1:k2,1), &
+                            c%momentum%data4d(i1:i2,j1:j2,k1:k2,2), &
+                            p%density%data3d(i1:i2,j1:j2,k1:k2), &
+                            p%velocity%data4d(i1:i2,j1:j2,k1:k2,1), &
+                            p%velocity%data4d(i1:i2,j1:j2,k1:k2,2))
+            CASE(3) ! 3D velocity / momentum
+              CALL Cons2Prim(c%density%data3d(i1:i2,j1:j2,k1:k2), &
+                            c%momentum%data4d(i1:i2,j1:j2,k1:k2,1), &
+                            c%momentum%data4d(i1:i2,j1:j2,k1:k2,2), &
+                            c%momentum%data4d(i1:i2,j1:j2,k1:k2,3), &
+                            p%density%data3d(i1:i2,j1:j2,k1:k2), &
+                            p%velocity%data4d(i1:i2,j1:j2,k1:k2,1), &
+                            p%velocity%data4d(i1:i2,j1:j2,k1:k2,2), &
+                            p%velocity%data4d(i1:i2,j1:j2,k1:k2,3))
+            END SELECT
+          CASE(1) ! state vector contains cell face / corner values
+            ! perform the transformation depending on dimensionality
+            SELECT CASE(this%VDIM)
+            CASE(1) ! 1D velocity / momentum
+              CALL Cons2Prim(c%density%data4d(i1:i2,j1:j2,k1:k2,:), &
+                            c%momentum%data5d(i1:i2,j1:j2,k1:k2,:,1), &
+                            p%density%data4d(i1:i2,j1:j2,k1:k2,:), &
+                            p%velocity%data5d(i1:i2,j1:j2,k1:k2,:,1))
+            CASE(2) ! 2D velocity / momentum
+              CALL Cons2Prim(c%density%data4d(i1:i2,j1:j2,k1:k2,:), &
+                            c%momentum%data5d(i1:i2,j1:j2,k1:k2,:,1), &
+                            c%momentum%data5d(i1:i2,j1:j2,k1:k2,:,2), &
+                            p%density%data4d(i1:i2,j1:j2,k1:k2,:), &
+                            p%velocity%data5d(i1:i2,j1:j2,k1:k2,:,1), &
+                            p%velocity%data5d(i1:i2,j1:j2,k1:k2,:,2))
+            CASE(3) ! 3D velocity / momentum
+              CALL Cons2Prim(c%density%data4d(i1:i2,j1:j2,k1:k2,:), &
+                            c%momentum%data5d(i1:i2,j1:j2,k1:k2,:,1), &
+                            c%momentum%data5d(i1:i2,j1:j2,k1:k2,:,2), &
+                            c%momentum%data5d(i1:i2,j1:j2,k1:k2,:,3), &
+                            p%density%data4d(i1:i2,j1:j2,k1:k2,:), &
+                            p%velocity%data5d(i1:i2,j1:j2,k1:k2,:,1), &
+                            p%velocity%data5d(i1:i2,j1:j2,k1:k2,:,2), &
+                            p%velocity%data5d(i1:i2,j1:j2,k1:k2,:,3))
+            END SELECT
+          CASE DEFAULT
+            ! do nothing
+          END SELECT
+        ELSE
+          ! do nothing
+        END IF
+      END SELECT
+    END SELECT
+  END SUBROUTINE Convert2Primitive_subset
 
   !> Converts to primitives at cell centers
   PURE SUBROUTINE Convert2Primitive_center(this,Mesh,cvar,pvar)
@@ -460,8 +536,8 @@ CONTAINS
     END SELECT
   END SUBROUTINE Convert2Primitive_facesub
 
-  !> Converts to conservative at cell centers using state vectors
-  PURE SUBROUTINE Convert2Conservative_new(this,pvar,cvar)
+  !> Converts primitive to conservative variables on the whole mesh
+  PURE SUBROUTINE Convert2Conservative_all(this,pvar,cvar)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(physics_eulerisotherm), INTENT(IN) :: this
@@ -492,7 +568,81 @@ CONTAINS
         END IF
       END SELECT
     END SELECT
-  END SUBROUTINE Convert2Conservative_new
+  END SUBROUTINE Convert2Conservative_all
+
+  !> Converts to primitive to conservative variables on a subset of the data
+  PURE SUBROUTINE Convert2Conservative_subset(this,i1,i2,j1,j2,k1,k2,pvar,cvar)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(physics_eulerisotherm), INTENT(IN) :: this
+    INTEGER,                      INTENT(IN) :: i1,i2,j1,j2,k1,k2
+    CLASS(marray_compound),    INTENT(INOUT) :: pvar,cvar
+    !------------------------------------------------------------------------!
+    SELECT TYPE(p => pvar)
+    TYPE IS (statevector_eulerisotherm)
+      SELECT TYPE(c => cvar)
+      TYPE IS (statevector_eulerisotherm)
+        IF (p%flavour.EQ.PRIMITIVE.AND.c%flavour.EQ.CONSERVATIVE) THEN
+          SELECT CASE (p%density%RANK)
+          CASE(0) ! state vector contains cell center values
+            ! perform the transformation depending on dimensionality
+            SELECT CASE(this%VDIM)
+            CASE(1) ! 1D velocity / momentum
+              CALL Prim2Cons(p%density%data3d(i1:i2,j1:j2,k1:k2), &
+                            p%velocity%data4d(i1:i2,j1:j2,k1:k2,1), &
+                            c%density%data3d(i1:i2,j1:j2,k1:k2), &
+                            c%momentum%data4d(i1:i2,j1:j2,k1:k2,1))
+            CASE(2) ! 2D velocity / momentum
+              CALL Prim2Cons(p%density%data3d(i1:i2,j1:j2,k1:k2), &
+                            p%velocity%data4d(i1:i2,j1:j2,k1:k2,1), &
+                            p%velocity%data4d(i1:i2,j1:j2,k1:k2,2), &
+                            c%density%data3d(i1:i2,j1:j2,k1:k2), &
+                            c%momentum%data4d(i1:i2,j1:j2,k1:k2,1), &
+                            c%momentum%data4d(i1:i2,j1:j2,k1:k2,2))
+            CASE(3) ! 3D velocity / momentum
+              CALL Prim2Cons(p%density%data3d(i1:i2,j1:j2,k1:k2), &
+                            p%velocity%data4d(i1:i2,j1:j2,k1:k2,1), &
+                            p%velocity%data4d(i1:i2,j1:j2,k1:k2,2), &
+                            p%velocity%data4d(i1:i2,j1:j2,k1:k2,3), &
+                            c%density%data3d(i1:i2,j1:j2,k1:k2), &
+                            c%momentum%data4d(i1:i2,j1:j2,k1:k2,1), &
+                            c%momentum%data4d(i1:i2,j1:j2,k1:k2,2), &
+                            c%momentum%data4d(i1:i2,j1:j2,k1:k2,3))
+            END SELECT
+          CASE(1) ! state vector contains cell face / corner values
+            ! perform the transformation depending on dimensionality
+            SELECT CASE(this%VDIM)
+            CASE(1) ! 1D velocity / momentum
+              CALL Prim2Cons(p%density%data4d(i1:i2,j1:j2,k1:k2,:), &
+                            p%velocity%data5d(i1:i2,j1:j2,k1:k2,:,1), &
+                            c%density%data4d(i1:i2,j1:j2,k1:k2,:), &
+                            c%momentum%data5d(i1:i2,j1:j2,k1:k2,:,1))
+            CASE(2) ! 2D velocity / momentum
+              CALL Prim2Cons(p%density%data4d(i1:i2,j1:j2,k1:k2,:), &
+                            p%velocity%data5d(i1:i2,j1:j2,k1:k2,:,1), &
+                            p%velocity%data5d(i1:i2,j1:j2,k1:k2,:,2), &
+                            c%density%data4d(i1:i2,j1:j2,k1:k2,:), &
+                            c%momentum%data5d(i1:i2,j1:j2,k1:k2,:,1), &
+                            c%momentum%data5d(i1:i2,j1:j2,k1:k2,:,2))
+            CASE(3) ! 3D velocity / momentum
+              CALL Prim2Cons(p%density%data4d(i1:i2,j1:j2,k1:k2,:), &
+                            p%velocity%data5d(i1:i2,j1:j2,k1:k2,:,1), &
+                            p%velocity%data5d(i1:i2,j1:j2,k1:k2,:,2), &
+                            p%velocity%data5d(i1:i2,j1:j2,k1:k2,:,3), &
+                            c%density%data4d(i1:i2,j1:j2,k1:k2,:), &
+                            c%momentum%data5d(i1:i2,j1:j2,k1:k2,:,1), &
+                            c%momentum%data5d(i1:i2,j1:j2,k1:k2,:,2), &
+                            c%momentum%data5d(i1:i2,j1:j2,k1:k2,:,3))
+            END SELECT
+          CASE DEFAULT
+            ! do nothing
+          END SELECT
+        ELSE
+          ! do nothing
+        END IF
+      END SELECT
+    END SELECT
+  END SUBROUTINE Convert2Conservative_subset
 
   !> Convert from primtive to conservative variables at cell-centers
   PURE SUBROUTINE Convert2Conservative_center(this,Mesh,pvar,cvar)

@@ -119,25 +119,29 @@ MODULE physics_base_mod
     PROCEDURE (ExternalSources),              DEFERRED :: ExternalSources
     PROCEDURE (EnableOutput),                 DEFERRED :: EnableOutput
     !------Convert2Primitve--------!
-    PROCEDURE (Convert2Primitive_new),        DEFERRED :: Convert2Primitive_new
+    PROCEDURE (Convert2Primitive_all),        DEFERRED :: Convert2Primitive_all
+    PROCEDURE (Convert2Primitive_subset),     DEFERRED :: Convert2Primitive_subset
     PROCEDURE (Convert2Primitive_center),     DEFERRED :: Convert2Primitive_center
     PROCEDURE (Convert2Primitive_centsub),    DEFERRED :: Convert2Primitive_centsub
     PROCEDURE (Convert2Primitive_faces),      DEFERRED :: Convert2Primitive_faces
     PROCEDURE (Convert2Primitive_facesub),    DEFERRED :: Convert2Primitive_facesub
     GENERIC   :: Convert2Primitive => &
-                   Convert2Primitive_new, &
+                   Convert2Primitive_all, &
+                   Convert2Primitive_subset, &
                    Convert2Primitive_center, &
                    Convert2Primitive_centsub, &
                    Convert2Primitive_faces, &
                    Convert2Primitive_facesub
     !------Convert2Conservative----!
-    PROCEDURE (Convert2Conservative_new),     DEFERRED :: Convert2Conservative_new
+    PROCEDURE (Convert2Conservative_all),     DEFERRED :: Convert2Conservative_all
+    PROCEDURE (Convert2Conservative_subset),  DEFERRED :: Convert2Conservative_subset
     PROCEDURE (Convert2Conservative_center),  DEFERRED :: Convert2Conservative_center
     PROCEDURE (Convert2Conservative_centsub), DEFERRED :: Convert2Conservative_centsub
     PROCEDURE (Convert2Conservative_faces),   DEFERRED :: Convert2Conservative_faces
     PROCEDURE (Convert2Conservative_facesub), DEFERRED :: Convert2Conservative_facesub
     GENERIC   :: Convert2Conservative => &
-                   Convert2Conservative_new, &
+                   Convert2Conservative_all, &
+                   Convert2Conservative_subset, &
                    Convert2Conservative_center, &
                    Convert2Conservative_centsub, &
                    Convert2Conservative_faces, &
@@ -209,9 +213,15 @@ MODULE physics_base_mod
       CLASS(marray_compound), POINTER :: new_sv
       INTEGER, OPTIONAL, INTENT(IN)   :: flavour,num
     END SUBROUTINE
-    PURE SUBROUTINE Convert2Primitive_new(this,cvar,pvar)
+    PURE SUBROUTINE Convert2Primitive_all(this,cvar,pvar)
       IMPORT physics_base, marray_compound
       CLASS(physics_base), INTENT(IN)  :: this
+      CLASS(marray_compound), INTENT(INOUT) :: cvar,pvar
+    END SUBROUTINE
+    PURE SUBROUTINE Convert2Primitive_subset(this,i1,i2,j1,j2,k1,k2,cvar,pvar)
+      IMPORT physics_base, marray_compound
+      CLASS(physics_base), INTENT(IN)  :: this
+      INTEGER,             INTENT(IN)  :: i1,i2,j1,j2,k1,k2
       CLASS(marray_compound), INTENT(INOUT) :: cvar,pvar
     END SUBROUTINE
     PURE SUBROUTINE Convert2Primitive_center(this,Mesh,cvar,pvar)
@@ -252,9 +262,15 @@ MODULE physics_base_mod
       REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%nfaces,this%vnum), &
                            INTENT(OUT) :: prim
     END SUBROUTINE
-    PURE SUBROUTINE Convert2Conservative_new(this,pvar,cvar)
+    PURE SUBROUTINE Convert2Conservative_all(this,pvar,cvar)
       IMPORT physics_base, marray_compound
       CLASS(physics_base), INTENT(IN)  :: this
+      CLASS(marray_compound), INTENT(INOUT) :: pvar,cvar
+    END SUBROUTINE
+    PURE SUBROUTINE Convert2Conservative_subset(this,i1,i2,j1,j2,k1,k2,pvar,cvar)
+      IMPORT physics_base, marray_compound
+      CLASS(physics_base), INTENT(IN)  :: this
+      INTEGER,             INTENT(IN)  :: i1,i2,j1,j2,k1,k2
       CLASS(marray_compound), INTENT(INOUT) :: pvar,cvar
     END SUBROUTINE
     PURE SUBROUTINE Convert2Conservative_center(this,Mesh,pvar,cvar)
