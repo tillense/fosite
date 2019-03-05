@@ -58,6 +58,7 @@
 MODULE boundary_shearing_mod
   USE boundary_base_mod
   USE boundary_periodic_mod
+  USE marray_compound_mod
   USE mesh_base_mod
   USE physics_base_mod
   USE common_dict
@@ -191,9 +192,7 @@ CONTAINS
     CLASS(mesh_base),         INTENT(IN)    :: Mesh
     CLASS(physics_base),      INTENT(IN)    :: Physics
     REAL,                     INTENT(IN)    :: time
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX, &
-                    Physics%VNUM+Physics%PNUM), &
-                              INTENT(INOUT) :: pvar
+    CLASS(marray_compound),   INTENT(INOUT) :: pvar
     !------------------------------------------------------------------------!
     INTEGER            :: i,j,k,l,intshift
     REAL               :: offremain,offset,offset_tmp
@@ -225,14 +224,14 @@ CONTAINS
         offremain = offset_tmp - intshift
         DO i=1,Mesh%GNUM
           !------- integral shift ---------------------------------------------!
-          pvar(Mesh%IMIN-i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,l)  = &
-            CSHIFT(pvar(Mesh%IMIN-i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,l),intshift)
+          pvar%data4d(Mesh%IMIN-i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,l)  = &
+            CSHIFT(pvar%data4d(Mesh%IMIN-i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,l),intshift)
           !------- residual shift ---------------------------------------------!
-          pvar(Mesh%IMIN-i,Mesh%JMAX+1,:,l) = pvar(Mesh%IMIN-i,Mesh%JMIN,:,l)
+          pvar%data4d(Mesh%IMIN-i,Mesh%JMAX+1,:,l) = pvar%data4d(Mesh%IMIN-i,Mesh%JMIN,:,l)
           DO k=Mesh%KMIN,Mesh%KMAX
             DO j=Mesh%JMIN,Mesh%JMAX
-              pvar(Mesh%IMIN-i,j,k,l) = (1.0 - offremain)*pvar(Mesh%IMIN-i,j,k,l) + &
-                offremain*pvar(Mesh%IMIN-i,j+1,k,l) + this%velocity_shift(l)
+              pvar%data4d(Mesh%IMIN-i,j,k,l) = (1.0 - offremain)*pvar%data4d(Mesh%IMIN-i,j,k,l) + &
+                offremain*pvar%data4d(Mesh%IMIN-i,j+1,k,l) + this%velocity_shift(l)
             END DO
           END DO
         END DO
@@ -242,14 +241,14 @@ CONTAINS
         offremain = offset_tmp - intshift
         DO i=1,Mesh%GNUM
           !------- integral shift ---------------------------------------------!
-          pvar(Mesh%IMAX+i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,l)  = &
-            CSHIFT(pvar(Mesh%IMAX+i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,l),intshift)
+          pvar%data4d(Mesh%IMAX+i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,l)  = &
+            CSHIFT(pvar%data4d(Mesh%IMAX+i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,l),intshift)
           !------- residual shift ---------------------------------------------!
-          pvar(Mesh%IMAX+i,Mesh%JMAX+1,:,l) = pvar(Mesh%IMAX+i,Mesh%JMIN,:,l)
+          pvar%data4d(Mesh%IMAX+i,Mesh%JMAX+1,:,l) = pvar%data4d(Mesh%IMAX+i,Mesh%JMIN,:,l)
           DO k=Mesh%KMIN,Mesh%KMAX
             DO j=Mesh%JMIN,Mesh%JMAX
-              pvar(Mesh%IMAX+i,j,k,l) = (1.0 - offremain)*pvar(Mesh%IMAX+i,j,k,l) + &
-                offremain*pvar(Mesh%IMAX+i,j+1,k,l) - this%velocity_shift(l)
+              pvar%data4d(Mesh%IMAX+i,j,k,l) = (1.0 - offremain)*pvar%data4d(Mesh%IMAX+i,j,k,l) + &
+                offremain*pvar%data4d(Mesh%IMAX+i,j+1,k,l) - this%velocity_shift(l)
             END DO
           END DO
         END DO
@@ -259,14 +258,14 @@ CONTAINS
         offremain = offset_tmp - intshift
         DO j=1,Mesh%GNUM
           !------- integral shift ---------------------------------------------!
-          pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN-j,Mesh%KMIN:Mesh%KMAX,l)  = &
-            CSHIFT(pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN-j,Mesh%KMIN:Mesh%KMAX,l),intshift)
+          pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN-j,Mesh%KMIN:Mesh%KMAX,l)  = &
+            CSHIFT(pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN-j,Mesh%KMIN:Mesh%KMAX,l),intshift)
           !------- residual shift ---------------------------------------------!
-          pvar(Mesh%IMAX+1,Mesh%JMIN-j,:,l) = pvar(Mesh%IMIN,Mesh%JMIN-j,:,l)
+          pvar%data4d(Mesh%IMAX+1,Mesh%JMIN-j,:,l) = pvar%data4d(Mesh%IMIN,Mesh%JMIN-j,:,l)
           DO k=Mesh%KMIN,Mesh%KMAX
             DO i=Mesh%IMIN,Mesh%IMAX
-              pvar(i,Mesh%JMIN-j,k,l) = (1.0 - offremain)*pvar(i,Mesh%JMIN-j,k,l) + &
-                offremain*pvar(i+1,Mesh%JMIN-j,k,l) - this%velocity_shift(l)
+              pvar%data4d(i,Mesh%JMIN-j,k,l) = (1.0 - offremain)*pvar%data4d(i,Mesh%JMIN-j,k,l) + &
+                offremain*pvar%data4d(i+1,Mesh%JMIN-j,k,l) - this%velocity_shift(l)
             END DO
           END DO
         END DO
@@ -276,14 +275,14 @@ CONTAINS
         offremain = offset_tmp - intshift
         DO j=1,Mesh%GNUM
           !------- integral shift ---------------------------------------------!
-          pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX+j,Mesh%KMIN:Mesh%KMAX,l)  = &
-            CSHIFT(pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX+j,Mesh%KMIN:Mesh%KMAX,l),intshift)
+          pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX+j,Mesh%KMIN:Mesh%KMAX,l)  = &
+            CSHIFT(pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX+j,Mesh%KMIN:Mesh%KMAX,l),intshift)
           !------- residual shift ---------------------------------------------!
-          pvar(Mesh%IMAX+1,Mesh%JMAX+j,:,l) = pvar(Mesh%IMIN,Mesh%JMAX+j,:,l)
+          pvar%data4d(Mesh%IMAX+1,Mesh%JMAX+j,:,l) = pvar%data4d(Mesh%IMIN,Mesh%JMAX+j,:,l)
           DO k=Mesh%KMIN,Mesh%KMAX
             DO i=Mesh%IMIN,Mesh%IMAX
-              pvar(i,Mesh%JMAX+j,k,l) = (1.0 - offremain)*pvar(i,Mesh%JMAX+j,k,l) + &
-                offremain*pvar(i+1,Mesh%JMAX+j,k,l) + this%velocity_shift(l)
+              pvar%data4d(i,Mesh%JMAX+j,k,l) = (1.0 - offremain)*pvar%data4d(i,Mesh%JMAX+j,k,l) + &
+                offremain*pvar%data4d(i+1,Mesh%JMAX+j,k,l) + this%velocity_shift(l)
             END DO
           END DO
         END DO

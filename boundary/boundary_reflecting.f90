@@ -32,6 +32,7 @@
 !! \ingroup boundary
 !----------------------------------------------------------------------------!
 MODULE boundary_reflecting_mod
+  USE marray_compound_mod
   USE mesh_base_mod
   USE boundary_base_mod
   USE physics_base_mod
@@ -92,8 +93,7 @@ CONTAINS
     CLASS(mesh_base),           INTENT(IN)    :: Mesh
     CLASS(physics_base),        INTENT(IN)    :: Physics
     REAL,                       INTENT(IN)    :: time
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
-                                INTENT(INOUT) :: pvar
+    CLASS(marray_compound), INTENT(INOUT)     :: pvar
     !------------------------------------------------------------------------!
     INTEGER                                   :: i,j,k,m
     !------------------------------------------------------------------------!
@@ -104,14 +104,14 @@ CONTAINS
         IF (this%reflX(m)) THEN
 !NEC$ SHORTLOOP
           DO i=1,Mesh%GINUM
-            pvar(Mesh%IMIN-i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m) &
-              = -pvar(Mesh%IMIN+i-1,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m)
+            pvar%data4d(Mesh%IMIN-i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m) &
+              = -pvar%data4d(Mesh%IMIN+i-1,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m)
           END DO
         ELSE
 !NEC$ SHORTLOOP
           DO i=1,Mesh%GINUM
-            pvar(Mesh%IMIN-i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m) &
-              = pvar(Mesh%IMIN+i-1,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m)
+            pvar%data4d(Mesh%IMIN-i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m) &
+              = pvar%data4d(Mesh%IMIN+i-1,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m)
           END DO
         END IF
       END DO
@@ -121,14 +121,14 @@ CONTAINS
         IF (this%reflX(m)) THEN
 !NEC$ SHORTLOOP
           DO i=1,Mesh%GINUM
-            pvar(Mesh%IMAX+i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m) &
-              = -pvar(Mesh%IMAX-i+1,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m)
+            pvar%data4d(Mesh%IMAX+i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m) &
+              = -pvar%data4d(Mesh%IMAX-i+1,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m)
           END DO
         ELSE
 !NEC$ SHORTLOOP
           DO i=1,Mesh%GINUM
-            pvar(Mesh%IMAX+i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m) &
-              = pvar(Mesh%IMAX-i+1,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m)
+            pvar%data4d(Mesh%IMAX+i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m) &
+              = pvar%data4d(Mesh%IMAX-i+1,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m)
           END DO
         END IF
       END DO
@@ -138,14 +138,14 @@ CONTAINS
         IF (this%reflY(m)) THEN
 !NEC$ SHORTLOOP
           DO j=1,Mesh%GJNUM
-            pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN-j,Mesh%KMIN:Mesh%KMAX,m) &
-              = -pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN+j-1,Mesh%KMIN:Mesh%KMAX,m)
+            pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN-j,Mesh%KMIN:Mesh%KMAX,m) &
+              = -pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN+j-1,Mesh%KMIN:Mesh%KMAX,m)
           END DO
         ELSE
 !NEC$ SHORTLOOP
           DO j=1,Mesh%GJNUM
-            pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN-j,Mesh%KMIN:Mesh%KMAX,m) &
-              = pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN+j-1,Mesh%KMIN:Mesh%KMAX,m)
+            pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN-j,Mesh%KMIN:Mesh%KMAX,m) &
+              = pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN+j-1,Mesh%KMIN:Mesh%KMAX,m)
           END DO
         END IF
       END DO
@@ -155,14 +155,14 @@ CONTAINS
         IF (this%reflY(m)) THEN
 !NEC$ SHORTLOOP
           DO j=1,Mesh%GJNUM
-            pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX+j,Mesh%KMIN:Mesh%KMAX,m) &
-              = -pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX-j+1,Mesh%KMIN:Mesh%KMAX,m)
+            pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX+j,Mesh%KMIN:Mesh%KMAX,m) &
+              = -pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX-j+1,Mesh%KMIN:Mesh%KMAX,m)
           END DO
         ELSE
 !NEC$ SHORTLOOP
           DO j=1,Mesh%GJNUM
-            pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX+j,Mesh%KMIN:Mesh%KMAX,m) &
-              = pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX-j+1,Mesh%KMIN:Mesh%KMAX,m)
+            pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX+j,Mesh%KMIN:Mesh%KMAX,m) &
+              = pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX-j+1,Mesh%KMIN:Mesh%KMAX,m)
           END DO
         END IF
       END DO
@@ -172,14 +172,14 @@ CONTAINS
         IF (this%reflZ(m)) THEN
 !NEC$ SHORTLOOP
           DO k=1,Mesh%GKNUM
-            pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN-k,m) &
-              = -pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN+k-1,m)
+            pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN-k,m) &
+              = -pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN+k-1,m)
           END DO
         ELSE
 !NEC$ SHORTLOOP
           DO k=1,Mesh%GKNUM
-            pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN-k,m) &
-              = pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN+k-1,m)
+            pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN-k,m) &
+              = pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN+k-1,m)
           END DO
         END IF
       END DO
@@ -189,14 +189,14 @@ CONTAINS
         IF (this%reflZ(m)) THEN
 !NEC$ SHORTLOOP
           DO k=1,Mesh%GKNUM
-            pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMAX+k,m) &
-              = -pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMAX-k+1,m)
+            pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMAX+k,m) &
+              = -pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMAX-k+1,m)
           END DO
         ELSE
 !NEC$ SHORTLOOP
           DO k=1,Mesh%GKNUM
-            pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMAX+k,m) &
-              = pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMAX-k+1,m)
+            pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMAX+k,m) &
+              = pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMAX-k+1,m)
           END DO
         END IF
       END DO

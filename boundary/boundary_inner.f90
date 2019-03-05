@@ -40,6 +40,7 @@
 !----------------------------------------------------------------------------!
 MODULE boundary_inner_mod
   USE boundary_base_mod
+  USE marray_compound_mod
   USE mesh_base_mod
   USE physics_base_mod
   USE common_dict
@@ -96,8 +97,7 @@ CONTAINS
     CLASS(mesh_base),      INTENT(IN) :: Mesh
     CLASS(physics_base),   INTENT(IN) :: Physics
     REAL,                  INTENT(IN) :: time
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
-                        INTENT(INOUT) :: pvar
+    CLASS(marray_compound), INTENT(INOUT) :: pvar
     !------------------------------------------------------------------------!
     ! nothing to do
   END SUBROUTINE SetBoundaryData

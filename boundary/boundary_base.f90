@@ -39,6 +39,7 @@
 !----------------------------------------------------------------------------!
 MODULE boundary_base_mod
   USE logging_base_mod
+  USE marray_compound_mod
   USE mesh_base_mod
   USE physics_base_mod
   USE common_dict
@@ -83,14 +84,13 @@ MODULE boundary_base_mod
   !> \cond InterfaceBlock
   ABSTRACT INTERFACE
     PURE SUBROUTINE SetBoundaryData(this,Mesh,Physics,time,pvar)
-      IMPORT boundary_base,mesh_base,physics_base
+      IMPORT boundary_base,mesh_base,physics_base,marray_compound
       IMPLICIT NONE
-      CLASS(boundary_base), INTENT(INOUT)    :: this
-      CLASS(mesh_base),     INTENT(IN)    :: Mesh
-      CLASS(physics_base),  INTENT(IN)    :: Physics
-      REAL,                 INTENT(IN)    :: time
-      REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
-                            INTENT(INOUT) :: pvar
+      CLASS(boundary_base),   INTENT(INOUT) :: this
+      CLASS(mesh_base),       INTENT(IN)    :: Mesh
+      CLASS(physics_base),    INTENT(IN)    :: Physics
+      REAL,                   INTENT(IN)    :: time
+      CLASS(marray_compound), INTENT(INOUT) :: pvar
     END SUBROUTINE
     SUBROUTINE Finalize(this)
       IMPORT boundary_base

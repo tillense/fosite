@@ -35,6 +35,7 @@
 !! \ingroup boundary
 !----------------------------------------------------------------------------!
 MODULE boundary_noslip_mod
+  USE marray_compound_mod
   USE mesh_base_mod
   USE physics_base_mod
   USE boundary_base_mod
@@ -101,7 +102,7 @@ CONTAINS
     CLASS(Mesh_base)      ,INTENT(IN) :: Mesh
     CLASS(Physics_base)   ,INTENT(IN) :: Physics
     REAL                  ,INTENT(IN) :: time
-    REAL,INTENT(INOUT) :: pvar(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%vnum)
+    CLASS(marray_compound),INTENT(INOUT) :: pvar
     !------------------------------------------------------------------------!
     INTEGER       :: i,j,k
     !------------------------------------------------------------------------!
@@ -113,132 +114,132 @@ CONTAINS
 !NEC$ UNROLL(4)
        DO i=1,Mesh%GINUM
           ! vanishing density gradient at the boundary
-          pvar(Mesh%IMIN-i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,Physics%DENSITY) &
-               = pvar(Mesh%IMIN+i-1,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,Physics%DENSITY)
+          pvar%data4d(Mesh%IMIN-i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,Physics%DENSITY) &
+               = pvar%data4d(Mesh%IMIN+i-1,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,Physics%DENSITY)
           ! normal velocity
-          pvar(Mesh%IMIN-i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,Physics%XVELOCITY) &
-               = -pvar(Mesh%IMIN+i-1,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,Physics%XVELOCITY)
+          pvar%data4d(Mesh%IMIN-i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,Physics%XVELOCITY) &
+               = -pvar%data4d(Mesh%IMIN+i-1,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,Physics%XVELOCITY)
           ! tangential velocities
-          pvar(Mesh%IMIN-i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,Physics%YVELOCITY) &
+          pvar%data4d(Mesh%IMIN-i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,Physics%YVELOCITY) &
                = this%data(i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,Physics%YVELOCITY)
           IF (Physics%ZVELOCITY.GT.0) THEN
-          pvar(Mesh%IMIN-i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,Physics%ZVELOCITY) &
+          pvar%data4d(Mesh%IMIN-i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,Physics%ZVELOCITY) &
                = this%data(i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,Physics%ZVELOCITY)
           END IF
           ! vanishing pressure gradient at the boundary
           IF (Physics%PRESSURE.GT.0) THEN
-             pvar(Mesh%IMIN-i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,Physics%PRESSURE) &
-                  = pvar(Mesh%IMIN+i-1,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,Physics%PRESSURE)
+             pvar%data4d(Mesh%IMIN-i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,Physics%PRESSURE) &
+                  = pvar%data4d(Mesh%IMIN+i-1,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,Physics%PRESSURE)
           END IF
        END DO
     CASE(EAST)
 !NEC$ UNROLL(4)
        DO i=1,Mesh%GNUM
           ! vanishing density gradient at the boundary
-          pvar(Mesh%IMAX+i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,Physics%DENSITY) &
-               = pvar(Mesh%IMAX-i+1,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,Physics%DENSITY)
+          pvar%data4d(Mesh%IMAX+i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,Physics%DENSITY) &
+               = pvar%data4d(Mesh%IMAX-i+1,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,Physics%DENSITY)
           ! normal velocity
-          pvar(Mesh%IMAX+i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,Physics%XVELOCITY) &
-               = -pvar(Mesh%IMAX-i+1,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,Physics%XVELOCITY)
+          pvar%data4d(Mesh%IMAX+i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,Physics%XVELOCITY) &
+               = -pvar%data4d(Mesh%IMAX-i+1,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,Physics%XVELOCITY)
           ! tangential velocities
-          pvar(Mesh%IMAX+i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,Physics%YVELOCITY) &
+          pvar%data4d(Mesh%IMAX+i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,Physics%YVELOCITY) &
                = this%data(i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,Physics%YVELOCITY)
           IF (Physics%ZVELOCITY.GT.0) THEN
-          pvar(Mesh%IMAX+i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,Physics%ZVELOCITY) &
+          pvar%data4d(Mesh%IMAX+i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,Physics%ZVELOCITY) &
                = this%data(i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,Physics%ZVELOCITY)
           END IF
           ! vanishing pressure gradient at the boundary
           IF (Physics%PRESSURE.GT.0) THEN
-             pvar(Mesh%IMAX+i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,Physics%PRESSURE) &
-                  = pvar(Mesh%IMAX-i+1,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,Physics%PRESSURE)
+             pvar%data4d(Mesh%IMAX+i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,Physics%PRESSURE) &
+                  = pvar%data4d(Mesh%IMAX-i+1,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,Physics%PRESSURE)
           END IF
        END DO
     CASE(SOUTH)
 !NEC$ UNROLL(4)
        DO j=1,Mesh%GJNUM
           ! vanishing density gradient at the boundary
-          pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN-j,Mesh%KMIN:Mesh%KMAX,Physics%DENSITY) &
-               = pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN+j-1,Mesh%KMIN:Mesh%KMAX,Physics%DENSITY)
+          pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN-j,Mesh%KMIN:Mesh%KMAX,Physics%DENSITY) &
+               = pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN+j-1,Mesh%KMIN:Mesh%KMAX,Physics%DENSITY)
           ! normal velocity
-          pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN-j,Mesh%KMIN:Mesh%KMAX,Physics%YVELOCITY) &
-               = -pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN+j-1,Mesh%KMIN:Mesh%KMAX,Physics%YVELOCITY)
+          pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN-j,Mesh%KMIN:Mesh%KMAX,Physics%YVELOCITY) &
+               = -pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN+j-1,Mesh%KMIN:Mesh%KMAX,Physics%YVELOCITY)
           ! tangential velocities
-          pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN-j,Mesh%KMIN:Mesh%KMAX,Physics%XVELOCITY) &
+          pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN-j,Mesh%KMIN:Mesh%KMAX,Physics%XVELOCITY) &
                = this%data(Mesh%IMIN:Mesh%IMAX,j,Mesh%KMIN:Mesh%KMAX,Physics%XVELOCITY)
           IF (Physics%ZVELOCITY.GT.0) THEN
-          pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN-j,Mesh%KMIN:Mesh%KMAX,Physics%ZVELOCITY) &
+          pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN-j,Mesh%KMIN:Mesh%KMAX,Physics%ZVELOCITY) &
                = this%data(Mesh%IMIN:Mesh%IMAX,j,Mesh%KMIN:Mesh%KMAX,Physics%ZVELOCITY)
           END IF
           ! vanishing pressure gradient at the boundary
           IF (Physics%PRESSURE.GT.0) THEN
-             pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN-j,Mesh%KMIN:Mesh%KMAX,Physics%PRESSURE) &
-                  = pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN+j-1,Mesh%KMIN:Mesh%KMAX,Physics%PRESSURE)
+             pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN-j,Mesh%KMIN:Mesh%KMAX,Physics%PRESSURE) &
+                  = pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN+j-1,Mesh%KMIN:Mesh%KMAX,Physics%PRESSURE)
           END IF
        END DO
     CASE(NORTH)
 !NEC$ UNROLL(4)
        DO j=1,Mesh%GNUM
           ! vanishing density gradient at the boundary
-          pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX+j,Mesh%KMIN:Mesh%KMAX,Physics%DENSITY) &
-               = pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX-j+1,Mesh%KMIN:Mesh%KMAX,Physics%DENSITY)
+          pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX+j,Mesh%KMIN:Mesh%KMAX,Physics%DENSITY) &
+               = pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX-j+1,Mesh%KMIN:Mesh%KMAX,Physics%DENSITY)
           ! normal velocity
-          pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX+j,Mesh%KMIN:Mesh%KMAX,Physics%YVELOCITY) &
-               = -pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX-j+1,Mesh%KMIN:Mesh%KMAX,Physics%YVELOCITY)
+          pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX+j,Mesh%KMIN:Mesh%KMAX,Physics%YVELOCITY) &
+               = -pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX-j+1,Mesh%KMIN:Mesh%KMAX,Physics%YVELOCITY)
           ! tangential velocities
-          pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX+j,Mesh%KMIN:Mesh%KMAX,Physics%XVELOCITY) &
+          pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX+j,Mesh%KMIN:Mesh%KMAX,Physics%XVELOCITY) &
                = this%data(Mesh%IMIN:Mesh%IMAX,j,Mesh%KMIN:Mesh%KMAX,Physics%XVELOCITY)
           IF (Physics%ZVELOCITY.GT.0) THEN
-          pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX+j,Mesh%KMIN:Mesh%KMAX,Physics%ZVELOCITY) &
+          pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX+j,Mesh%KMIN:Mesh%KMAX,Physics%ZVELOCITY) &
                = this%data(Mesh%IMIN:Mesh%IMAX,j,Mesh%KMIN:Mesh%KMAX,Physics%ZVELOCITY)
           END IF
           ! vanishing pressure gradient at the boundary
           IF (Physics%PRESSURE.GT.0) THEN
-             pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX+j,Mesh%KMIN:Mesh%KMAX,Physics%PRESSURE) &
-                  = pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX-j+1,Mesh%KMIN:Mesh%KMAX,Physics%PRESSURE)
+             pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX+j,Mesh%KMIN:Mesh%KMAX,Physics%PRESSURE) &
+                  = pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX-j+1,Mesh%KMIN:Mesh%KMAX,Physics%PRESSURE)
           END IF
        END DO
     CASE(BOTTOM)
 !NEC$ UNROLL(4)
        DO k=1,Mesh%GKNUM
           ! vanishing density gradient at the boundary
-          pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN-k,Physics%DENSITY) &
-               = pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%kMIN+k-1,Physics%DENSITY)
+          pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN-k,Physics%DENSITY) &
+               = pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%kMIN+k-1,Physics%DENSITY)
           ! normal velocity
           IF (Physics%ZVELOCITY.GT.0) THEN
-          pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN-k,Physics%ZVELOCITY) &
-               = -pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN+k-1,Physics%ZVELOCITY)
+          pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN-k,Physics%ZVELOCITY) &
+               = -pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN+k-1,Physics%ZVELOCITY)
           END IF
           ! tangential velocities
-          pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN-k,Physics%XVELOCITY) &
+          pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN-k,Physics%XVELOCITY) &
                = this%data(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k,Physics%XVELOCITY)
-          pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN-k,Physics%YVELOCITY) &
+          pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN-k,Physics%YVELOCITY) &
                = this%data(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k,Physics%YVELOCITY)
           ! vanishing pressure gradient at the boundary
           IF (Physics%PRESSURE.GT.0) THEN
-             pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN-k,Physics%PRESSURE) &
-                  = pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN+k-1,Physics%PRESSURE)
+             pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN-k,Physics%PRESSURE) &
+                  = pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN+k-1,Physics%PRESSURE)
           END IF
        END DO
     CASE(TOP)
 !NEC$ UNROLL(4)
        DO k=1,Mesh%GKNUM
           ! vanishing density gradient at the boundary
-          pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMAX+k,Physics%DENSITY) &
-               = pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMAX-k+1,Physics%DENSITY)
+          pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMAX+k,Physics%DENSITY) &
+               = pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMAX-k+1,Physics%DENSITY)
           ! normal velocity
           IF (Physics%ZVELOCITY.GT.0) THEN
-          pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMAX+k,Physics%ZVELOCITY) &
-               = -pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMAX-k+1,Physics%ZVELOCITY)
+          pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMAX+k,Physics%ZVELOCITY) &
+               = -pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMAX-k+1,Physics%ZVELOCITY)
           END IF
           ! tangential velocities
-          pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMAX+k,Physics%XVELOCITY) &
+          pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMAX+k,Physics%XVELOCITY) &
                = this%data(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k,Physics%XVELOCITY)
-          pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMAX+k,Physics%YVELOCITY) &
+          pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMAX+k,Physics%YVELOCITY) &
                = this%data(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k,Physics%YVELOCITY)
           ! vanishing pressure gradient at the boundary
           IF (Physics%PRESSURE.GT.0) THEN
-             pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMAX+k,Physics%PRESSURE) &
-                  = pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMAX-k+1,Physics%PRESSURE)
+             pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMAX+k,Physics%PRESSURE) &
+                  = pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMAX-k+1,Physics%PRESSURE)
           END IF
        END DO
 

@@ -291,10 +291,10 @@ CONTAINS
     this%err = 0
     ! set physical boundary conditions at western and eastern boundaries
     IF (Mesh%INUM.GT.1) THEN
-      CALL this%Boundary(WEST)%p%SetBoundaryData(Mesh,Physics,time,pvar%data4d)
+      CALL this%Boundary(WEST)%p%SetBoundaryData(Mesh,Physics,time,pvar)
       IF (this%err.GT.0) CALL this%Error("boundary_generic::CenterBoundary", &
                                     "western boundary condition failed")
-      CALL this%Boundary(EAST)%p%SetBoundaryData(Mesh,Physics,time,pvar%data4d)
+      CALL this%Boundary(EAST)%p%SetBoundaryData(Mesh,Physics,time,pvar)
       IF (this%err.GT.0) CALL this%Error("boundary_generic::CenterBoundary", &
                                     "eastern boundary condition failed")
     END IF
@@ -313,7 +313,7 @@ CONTAINS
       ! code passage further below.
     CLASS DEFAULT
       IF (Mesh%JNUM.GT.1) THEN
-        CALL this%Boundary(SOUTH)%p%SetBoundaryData(Mesh,Physics,time,pvar%data4d)
+        CALL this%Boundary(SOUTH)%p%SetBoundaryData(Mesh,Physics,time,pvar)
         IF (this%err.GT.0) CALL this%Error("boundary_generic::CenterBoundary", &
                                       "southern boundary condition failed")
       END IF
@@ -325,17 +325,17 @@ CONTAINS
       ! code passage further below.
     CLASS DEFAULT
       IF (Mesh%JNUM.GT.1) THEN
-        CALL this%Boundary(NORTH)%p%SetBoundaryData(Mesh,Physics,time,pvar%data4d)
+        CALL this%Boundary(NORTH)%p%SetBoundaryData(Mesh,Physics,time,pvar)
         IF (this%err.GT.0) CALL this%Error("boundary_generic::CenterBoundary", &
                                       "northern boundary condition failed")
       END IF
     END SELECT
 #else
     IF (Mesh%JNUM.GT.1) THEN
-      CALL this%Boundary(SOUTH)%p%SetBoundaryData(Mesh,Physics,time,pvar%data4d)
+      CALL this%Boundary(SOUTH)%p%SetBoundaryData(Mesh,Physics,time,pvar)
         IF (this%err.GT.0) CALL this%Error("boundary_generic::CenterBoundary", &
                                       "southern boundary condition failed")
-      CALL this%Boundary(NORTH)%p%SetBoundaryData(Mesh,Physics,time,pvar%data4d)
+      CALL this%Boundary(NORTH)%p%SetBoundaryData(Mesh,Physics,time,pvar)
         IF (this%err.GT.0) CALL this%Error("boundary_generic::CenterBoundary", &
                                       "northern boundary condition failed")
     END IF
@@ -343,10 +343,10 @@ CONTAINS
 
     ! set physical boundary conditions at top and bottom boundaries
     IF (Mesh%KNUM.GT.1) THEN
-      CALL this%Boundary(BOTTOM)%p%SetBoundaryData(Mesh,Physics,time,pvar%data4d)
+      CALL this%Boundary(BOTTOM)%p%SetBoundaryData(Mesh,Physics,time,pvar)
         IF (this%err.GT.0) CALL this%Error("boundary_generic::CenterBoundary", &
                                       "bottom boundary condition failed")
-      CALL this%Boundary(TOP)%p%SetBoundaryData(Mesh,Physics,time,pvar%data4d)
+      CALL this%Boundary(TOP)%p%SetBoundaryData(Mesh,Physics,time,pvar)
         IF (this%err.GT.0) CALL this%Error("boundary_generic::CenterBoundary", &
                                       "top boundary condition failed")
     END IF
@@ -362,7 +362,7 @@ CONTAINS
     SELECT TYPE(bound1 => this%Boundary(SOUTH)%p)
     TYPE IS (boundary_shearing)
       IF (Mesh%JNUM.GT.1) THEN
-        CALL this%Boundary(SOUTH)%p%SetBoundaryData(Mesh,Physics,time,pvar%data4d)
+        CALL this%Boundary(SOUTH)%p%SetBoundaryData(Mesh,Physics,time,pvar)
       END IF
     CLASS DEFAULT
       ! do nothing
@@ -370,7 +370,7 @@ CONTAINS
     SELECT TYPE(bound2 => this%Boundary(NORTH)%p)
     TYPE IS (boundary_shearing)
       IF (Mesh%JNUM.GT.1) THEN
-        CALL this%Boundary(NORTH)%p%SetBoundaryData(Mesh,Physics,time,pvar%data4d)
+        CALL this%Boundary(NORTH)%p%SetBoundaryData(Mesh,Physics,time,pvar)
       END IF
     CLASS DEFAULT
       ! do nothing

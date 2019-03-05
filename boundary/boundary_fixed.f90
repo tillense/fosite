@@ -35,6 +35,7 @@
 !! \ingroup boundary
 !----------------------------------------------------------------------------!
 MODULE boundary_fixed_mod
+  USE marray_compound_mod
   USE mesh_base_mod
   USE physics_base_mod
   USE boundary_base_mod
@@ -107,7 +108,7 @@ CONTAINS
     CLASS(Mesh_base),INTENT(IN)      :: Mesh
     CLASS(Physics_base),INTENT(IN)   :: Physics
     REAL,INTENT(IN) :: time
-    REAL,INTENT(INOUT) :: pvar(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%vnum)
+    CLASS(marray_compound), INTENT(INOUT) :: pvar
     !------------------------------------------------------------------------!
     INTEGER       :: i,j,k
     !------------------------------------------------------------------------!
@@ -120,13 +121,13 @@ CONTAINS
        DO i=1,Mesh%GINUM
           WHERE(this%fixed(Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,:))
              ! set fixed boundary data
-             pvar(Mesh%IMIN-i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,:) = &
+             pvar%data4d(Mesh%IMIN-i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,:) = &
                   this%data(i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,:)
           ELSEWHERE
              ! first order extrapolation
-             pvar(Mesh%IMIN-i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,:) = &
-             (i+1)*pvar(Mesh%IMIN,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,:) &
-             - i*pvar(Mesh%IMIN+1,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,:)
+             pvar%data4d(Mesh%IMIN-i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,:) = &
+             (i+1)*pvar%data4d(Mesh%IMIN,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,:) &
+             - i*pvar%data4d(Mesh%IMIN+1,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,:)
           END WHERE
 
        END DO
@@ -135,13 +136,13 @@ CONTAINS
        DO i=1,Mesh%GINUM
           WHERE(this%fixed(Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,:))
              ! set fixed boundary data
-             pvar(Mesh%IMAX+i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,:) = &
+             pvar%data4d(Mesh%IMAX+i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,:) = &
                   this%data(i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,:)
           ELSEWHERE
              ! first order extrapolation
-             pvar(Mesh%IMAX+i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,:) = &
-                  (i+1)*pvar(Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,:) &
-                  - i*pvar(Mesh%IMAX-1,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,:)
+             pvar%data4d(Mesh%IMAX+i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,:) = &
+                  (i+1)*pvar%data4d(Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,:) &
+                  - i*pvar%data4d(Mesh%IMAX-1,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,:)
           END WHERE
         END DO
     CASE(SOUTH)
@@ -149,13 +150,13 @@ CONTAINS
        DO j=1,Mesh%GJNUM
           WHERE(this%fixed(Mesh%KMIN:Mesh%KMAX,Mesh%IMIN:Mesh%IMAX,:))
              ! set fixed boundary data
-             pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN-j,Mesh%KMIN:Mesh%KMAX,:) = &
+             pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN-j,Mesh%KMIN:Mesh%KMAX,:) = &
                   this%data(Mesh%IMIN:Mesh%IMAX,j,Mesh%KMIN:Mesh%KMAX,:)
           ELSEWHERE
              ! first order extrapolation
-             pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN-j,Mesh%KMIN:Mesh%KMAX,:) = &
-               (j+1)*pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN,Mesh%KMIN:Mesh%KMAX,:) &
-               - j*pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN+1,Mesh%KMIN:Mesh%KMAX,:)
+             pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN-j,Mesh%KMIN:Mesh%KMAX,:) = &
+               (j+1)*pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN,Mesh%KMIN:Mesh%KMAX,:) &
+               - j*pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN+1,Mesh%KMIN:Mesh%KMAX,:)
           END WHERE
         END DO
     CASE(NORTH)
@@ -163,13 +164,13 @@ CONTAINS
        DO j=1,Mesh%GJNUM
           WHERE(this%fixed(Mesh%KMIN:Mesh%KMAX,Mesh%IMIN:Mesh%IMAX,:))
              ! set fixed boundary data
-             pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX+j,Mesh%KMIN:Mesh%KMAX,:) = &
+             pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX+j,Mesh%KMIN:Mesh%KMAX,:) = &
                   this%data(Mesh%IMIN:Mesh%IMAX,j,Mesh%KMIN:Mesh%KMAX,:)
           ELSEWHERE
              ! first order extrapolation
-             pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX+j,Mesh%KMIN:Mesh%KMAX,:) = &
-                  (j+1)*pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,:) &
-                  - j*pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX-1,Mesh%KMIN:Mesh%KMAX,:)
+             pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX+j,Mesh%KMIN:Mesh%KMAX,:) = &
+                  (j+1)*pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,:) &
+                  - j*pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX-1,Mesh%KMIN:Mesh%KMAX,:)
           END WHERE
 
        END DO
@@ -178,13 +179,13 @@ CONTAINS
           DO k=1,Mesh%GKNUM
             WHERE(this%fixed(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,:))
              ! set fixed boundary data
-             pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN-k,:) = &
+             pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN-k,:) = &
                   this%data(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k,:)
           ELSEWHERE
              ! first order extrapolation
-             pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN-k,:) = &
-                  (k+1)*pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN,:) &
-                  - k*pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN+1,:)
+             pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN-k,:) = &
+                  (k+1)*pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN,:) &
+                  - k*pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN+1,:)
           END WHERE
           END DO
     CASE(TOP)
@@ -192,13 +193,13 @@ CONTAINS
        DO k=1,Mesh%GKNUM
           WHERE(this%fixed(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,:))
              ! set fixed boundary data
-             pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMAX+k,:) = &
+             pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMAX+k,:) = &
                   this%data(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k,:)
           ELSEWHERE
              ! first order extrapolation
-             pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMAX+k,:) = &
-                  (k+1)*pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMAX,:) &
-                  - k*pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMAX-1,:)
+             pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMAX+k,:) = &
+                  (k+1)*pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMAX,:) &
+                  - k*pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMAX-1,:)
           END WHERE
       END DO
     END SELECT

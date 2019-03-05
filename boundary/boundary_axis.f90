@@ -33,6 +33,7 @@
 !> \todo compiles, but strange behavior at axis. Be carefull
 !----------------------------------------------------------------------------!
 MODULE boundary_axis_mod
+  USE marray_compound_mod
   USE mesh_base_mod
   USE boundary_base_mod
   USE boundary_reflecting_mod

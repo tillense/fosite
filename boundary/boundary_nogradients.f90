@@ -35,6 +35,7 @@
 !----------------------------------------------------------------------------!
 MODULE boundary_nogradients_mod
   USE boundary_base_mod
+  USE marray_compound_mod
   USE mesh_base_mod
   USE physics_base_mod
   USE common_dict
@@ -79,12 +80,9 @@ CONTAINS
     CLASS(mesh_base), INTENT(IN)            :: Mesh
     CLASS(physics_base), INTENT(IN)         :: Physics
     REAL,                 INTENT(IN)        :: time
-    REAL :: pvar(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX, &
-                 Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM)
+    CLASS(marray_compound), INTENT(INOUT)   :: pvar
     !------------------------------------------------------------------------!
     INTEGER                                 :: i,j,k
-    !------------------------------------------------------------------------!
-    INTENT(INOUT)                           :: pvar
     !------------------------------------------------------------------------!
     SELECT CASE(this%direction%GetType())
     CASE(WEST)
@@ -93,38 +91,38 @@ CONTAINS
        ! hope that nobody sets Mesh%GNUM to a value greater than 4
 !NEC$ UNROLL(4)
        DO i=1,Mesh%GINUM
-          pvar(Mesh%IMIN-i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,:) = &
-            pvar(Mesh%IMIN,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,:)
+          pvar%data4d(Mesh%IMIN-i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,:) = &
+            pvar%data4d(Mesh%IMIN,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,:)
        END DO
     CASE(EAST)
 !NEC$ UNROLL(4)
        DO i=1,Mesh%GINUM
-          pvar(Mesh%IMAX+i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,:) = &
-            pvar(Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,:)
+          pvar%data4d(Mesh%IMAX+i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,:) = &
+            pvar%data4d(Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,:)
        END DO
     CASE(SOUTH)
 !NEC$ UNROLL(4)
        DO j=1,Mesh%GJNUM
-          pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN-j,Mesh%KMIN:Mesh%KMAX,:) = &
-            pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN,Mesh%KMIN:Mesh%KMAX,:)
+          pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN-j,Mesh%KMIN:Mesh%KMAX,:) = &
+            pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN,Mesh%KMIN:Mesh%KMAX,:)
        END DO
     CASE(NORTH)
 !NEC$ UNROLL(4)
        DO j=1,Mesh%GJNUM
-          pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX+j,Mesh%KMIN:Mesh%KMAX,:) = &
-            pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,:)
+          pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX+j,Mesh%KMIN:Mesh%KMAX,:) = &
+            pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,:)
        END DO
     CASE(BOTTOM)
 !NEC$ UNROLL(4)
        DO k=1,Mesh%GKNUM
-          pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN-k,:) = &
-            pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN,:)
+          pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN-k,:) = &
+            pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN,:)
        END DO
     CASE(TOP)
 !NEC$ UNROLL(4)
        DO k=1,Mesh%GKNUM
-          pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMAX+k,:) = &
-            pvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMAX,:)
+          pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMAX+k,:) = &
+            pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMAX,:)
        END DO
     END SELECT
 

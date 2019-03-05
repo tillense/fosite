@@ -34,6 +34,7 @@
 !----------------------------------------------------------------------------!
 MODULE boundary_periodic_mod
   USE boundary_base_mod
+  USE marray_compound_mod
   USE mesh_base_mod
   USE physics_base_mod
   USE common_dict
@@ -76,42 +77,40 @@ CONTAINS
     CLASS(mesh_base),         INTENT(IN) :: Mesh
     CLASS(physics_base),      INTENT(IN) :: Physics
     REAL,                     INTENT(IN) :: time
-    REAL :: pvar(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%vnum)
+    CLASS(marray_compound),   INTENT(INOUT) :: pvar
     !------------------------------------------------------------------------!
     INTEGER                              :: i,j,k
-    !------------------------------------------------------------------------!
-    INTENT(INOUT)                        :: pvar
     !------------------------------------------------------------------------!
     SELECT CASE(this%Direction%GetType())
     CASE(WEST)
 !NEC$ IVDEP
        DO i=1,Mesh%GINUM
-         pvar(Mesh%IMIN-i,:,:,:) = pvar(Mesh%IMAX-i+1,:,:,:)
+         pvar%data4d(Mesh%IMIN-i,:,:,:) = pvar%data4d(Mesh%IMAX-i+1,:,:,:)
        END DO
     CASE(EAST)
 !NEC$ IVDEP
        DO i=1,Mesh%GINUM
-         pvar(Mesh%IMAX+i,:,:,:) = pvar(Mesh%IMIN+i-1,:,:,:)
+         pvar%data4d(Mesh%IMAX+i,:,:,:) = pvar%data4d(Mesh%IMIN+i-1,:,:,:)
        END DO
     CASE(SOUTH)
 !NEC$ IVDEP
        DO j=1,Mesh%GJNUM
-         pvar(:,Mesh%JMIN-j,:,:) = pvar(:,Mesh%JMAX-j+1,:,:)
+         pvar%data4d(:,Mesh%JMIN-j,:,:) = pvar%data4d(:,Mesh%JMAX-j+1,:,:)
        END DO
     CASE(NORTH)
 !NEC$ IVDEP
        DO j=1,Mesh%GJNUM
-         pvar(:,Mesh%JMAX+j,:,:) = pvar(:,Mesh%JMIN+j-1,:,:)
+         pvar%data4d(:,Mesh%JMAX+j,:,:) = pvar%data4d(:,Mesh%JMIN+j-1,:,:)
        END DO
     CASE(BOTTOM)
 !NEC$ IVDEP
       DO k=1,Mesh%GKNUM
-        pvar(:,:,Mesh%KMIN-k,:) = pvar(:,:,Mesh%KMAX-k+1,:)
+        pvar%data4d(:,:,Mesh%KMIN-k,:) = pvar%data4d(:,:,Mesh%KMAX-k+1,:)
       END DO
     CASE(TOP)
 !NEC$ IVDEP
       DO k=1,Mesh%GKNUM
-        pvar(:,:,Mesh%KMAX+k,:) = pvar(:,:,Mesh%KMIN+k-1,:)
+        pvar%data4d(:,:,Mesh%KMAX+k,:) = pvar%data4d(:,:,Mesh%KMIN+k-1,:)
       END DO
     END SELECT
   END SUBROUTINE SetBoundaryData
