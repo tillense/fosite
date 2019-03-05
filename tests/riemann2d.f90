@@ -1265,7 +1265,7 @@ CONTAINS
 !         Timedisc%pvar%data4d(:,:,:,Physics%XVELOCITY:Physics%YVELOCITY))
    Timedisc%pvar%data4d(:,:,:,Physics%XVELOCITY) = vxy(:,:,:,1)
    Timedisc%pvar%data4d(:,:,:,Physics%YVELOCITY) = vxy(:,:,:,2)
-    CALL Physics%Convert2Conservative(Mesh,Timedisc%pvar%data4d,Timedisc%cvar%data4d)
+    CALL Physics%Convert2Conservative(Timedisc%pvar,Timedisc%cvar)
     CALL Mesh%Info(" DATA-----> initial condition: " // TRIM(teststr))
 
   END SUBROUTINE InitData

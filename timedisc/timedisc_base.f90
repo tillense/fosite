@@ -1035,7 +1035,7 @@ CONTAINS
     END SELECT
 
     ! set boundary values and convert conservative to primitive variables
-    CALL this%boundary%CenterBoundary(Mesh,Physics,t,pvar%data4d,cvar%data4d)
+    CALL this%boundary%CenterBoundary(Mesh,Physics,t,pvar,cvar)
 
     IF(IAND(checkdatabm,CHECK_TMIN).NE.CHECK_NOTHING.AND.&
       this%tmin.GT.1.E-10) THEN

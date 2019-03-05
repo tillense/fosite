@@ -453,7 +453,7 @@ CONTAINS
       END SELECT
     END DO
 
-    CALL Physics%Convert2Conservative(Mesh,Timedisc%pvar%data4d,Timedisc%cvar%data4d)
+    CALL Physics%Convert2Conservative(Timedisc%pvar,Timedisc%cvar)
   END SUBROUTINE InitData
 
   FUNCTION rsq(Mesh,r,x) RESULT(res)

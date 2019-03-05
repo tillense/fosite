@@ -335,7 +335,7 @@ CONTAINS
        Timedisc%pvar%data4d(:,:,:,Physics%PRESSURE)  = P0
     END WHERE
 
-    CALL Physics%Convert2Conservative(Mesh,Timedisc%pvar%data4d,Timedisc%cvar%data4d)
+    CALL Physics%Convert2Conservative(Timedisc%pvar,Timedisc%cvar)
     CALL Mesh%Info(" DATA-----> initial condition: 3D Sedov explosion")
 
   END SUBROUTINE InitData

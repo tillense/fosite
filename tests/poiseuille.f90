@@ -239,7 +239,7 @@ CONTAINS
        btop%fixed(:,:,Physics%PRESSURE)  = .TRUE.
     END SELECT
 
-    CALL Physics%Convert2Conservative(Mesh,Timedisc%pvar%data4d,Timedisc%cvar%data4d)
+    CALL Physics%Convert2Conservative(Timedisc%pvar,Timedisc%cvar)
     CALL Mesh%Info(" DATA-----> initial condition: " // &
          "tube with pressure gradient")
 

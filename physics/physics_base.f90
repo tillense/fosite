@@ -121,31 +121,15 @@ MODULE physics_base_mod
     !------Convert2Primitve--------!
     PROCEDURE (Convert2Primitive_all),        DEFERRED :: Convert2Primitive_all
     PROCEDURE (Convert2Primitive_subset),     DEFERRED :: Convert2Primitive_subset
-    PROCEDURE (Convert2Primitive_center),     DEFERRED :: Convert2Primitive_center
-    PROCEDURE (Convert2Primitive_centsub),    DEFERRED :: Convert2Primitive_centsub
-    PROCEDURE (Convert2Primitive_faces),      DEFERRED :: Convert2Primitive_faces
-    PROCEDURE (Convert2Primitive_facesub),    DEFERRED :: Convert2Primitive_facesub
     GENERIC   :: Convert2Primitive => &
                    Convert2Primitive_all, &
-                   Convert2Primitive_subset, &
-                   Convert2Primitive_center, &
-                   Convert2Primitive_centsub, &
-                   Convert2Primitive_faces, &
-                   Convert2Primitive_facesub
+                   Convert2Primitive_subset
     !------Convert2Conservative----!
     PROCEDURE (Convert2Conservative_all),     DEFERRED :: Convert2Conservative_all
     PROCEDURE (Convert2Conservative_subset),  DEFERRED :: Convert2Conservative_subset
-    PROCEDURE (Convert2Conservative_center),  DEFERRED :: Convert2Conservative_center
-    PROCEDURE (Convert2Conservative_centsub), DEFERRED :: Convert2Conservative_centsub
-    PROCEDURE (Convert2Conservative_faces),   DEFERRED :: Convert2Conservative_faces
-    PROCEDURE (Convert2Conservative_facesub), DEFERRED :: Convert2Conservative_facesub
     GENERIC   :: Convert2Conservative => &
                    Convert2Conservative_all, &
-                   Convert2Conservative_subset, &
-                   Convert2Conservative_center, &
-                   Convert2Conservative_centsub, &
-                   Convert2Conservative_faces, &
-                   Convert2Conservative_facesub
+                   Convert2Conservative_subset
     !------Wavespeed Routines-----!
     PROCEDURE (CalcWaveSpeeds_center),        DEFERRED :: CalcWaveSpeeds_center
     PROCEDURE (CalcWaveSpeeds_faces),         DEFERRED :: CalcWaveSpeeds_faces
@@ -224,44 +208,6 @@ MODULE physics_base_mod
       INTEGER,             INTENT(IN)  :: i1,i2,j1,j2,k1,k2
       CLASS(marray_compound), INTENT(INOUT) :: cvar,pvar
     END SUBROUTINE
-    PURE SUBROUTINE Convert2Primitive_center(this,Mesh,cvar,pvar)
-      IMPORT physics_base, mesh_base
-      CLASS(physics_base), INTENT(IN)  :: this
-      CLASS(mesh_base),    INTENT(IN)  :: Mesh
-      REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%vnum), &
-                           INTENT(IN)  :: cvar
-      REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%vnum), &
-                           INTENT(OUT) :: pvar
-    END SUBROUTINE
-    PURE SUBROUTINE Convert2Primitive_centsub(this,Mesh,i1,i2,j1,j2,k1,k2,cvar,pvar)
-      IMPORT physics_base, mesh_base
-      CLASS(physics_base), INTENT(IN)  :: this
-      CLASS(mesh_base),    INTENT(IN)  :: Mesh
-      INTEGER,             INTENT(IN)  :: i1,i2,j1,j2,k1,k2
-      REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%vnum), &
-                           INTENT(IN)  :: cvar
-      REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%vnum), &
-                           INTENT(OUT) :: pvar
-    END SUBROUTINE
-    PURE SUBROUTINE Convert2Primitive_faces(this,Mesh,cons,prim)
-      IMPORT physics_base, mesh_base
-      CLASS(physics_base), INTENT(IN)  :: this
-      CLASS(mesh_base),    INTENT(IN)  :: Mesh
-      REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%nfaces,this%vnum), &
-                           INTENT(IN)  :: cons
-      REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%nfaces,this%vnum), &
-                           INTENT(OUT) :: prim
-    END SUBROUTINE
-    PURE SUBROUTINE Convert2Primitive_facesub(this,Mesh,i1,i2,j1,j2,k1,k2,cons,prim)
-      IMPORT physics_base, mesh_base
-      CLASS(physics_base), INTENT(IN)  :: this
-      CLASS(mesh_base),    INTENT(IN)  :: Mesh
-      INTEGER,             INTENT(IN)  :: i1,i2,j1,j2,k1,k2
-      REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%nfaces,this%vnum), &
-                           INTENT(IN)  :: cons
-      REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%nfaces,this%vnum), &
-                           INTENT(OUT) :: prim
-    END SUBROUTINE
     PURE SUBROUTINE Convert2Conservative_all(this,pvar,cvar)
       IMPORT physics_base, marray_compound
       CLASS(physics_base), INTENT(IN)  :: this
@@ -272,44 +218,6 @@ MODULE physics_base_mod
       CLASS(physics_base), INTENT(IN)  :: this
       INTEGER,             INTENT(IN)  :: i1,i2,j1,j2,k1,k2
       CLASS(marray_compound), INTENT(INOUT) :: pvar,cvar
-    END SUBROUTINE
-    PURE SUBROUTINE Convert2Conservative_center(this,Mesh,pvar,cvar)
-      IMPORT physics_base, mesh_base
-      CLASS(physics_base), INTENT(IN)  :: this
-      CLASS(mesh_base),    INTENT(IN)  :: Mesh
-      REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%vnum), &
-                           INTENT(IN)  :: pvar
-      REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%vnum), &
-                           INTENT(OUT) :: cvar
-    END SUBROUTINE
-    PURE SUBROUTINE Convert2Conservative_centsub(this,Mesh,i1,i2,j1,j2,k1,k2,pvar,cvar)
-      IMPORT physics_base, mesh_base
-      CLASS(physics_base), INTENT(IN)  :: this
-      CLASS(mesh_base),    INTENT(IN)  :: Mesh
-      INTEGER,             INTENT(IN)  :: i1,i2,j1,j2,k1,k2
-      REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%vnum), &
-                           INTENT(IN)  :: pvar
-      REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%vnum), &
-                           INTENT(OUT) :: cvar
-    END SUBROUTINE
-    PURE SUBROUTINE Convert2Conservative_faces(this,Mesh,prim,cons)
-      IMPORT physics_base, mesh_base
-      CLASS(physics_base), INTENT(IN)  :: this
-      CLASS(mesh_base),    INTENT(IN)  :: Mesh
-      REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%nfaces,this%vnum), &
-                           INTENT(IN)  :: prim
-      REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%nfaces,this%vnum), &
-                           INTENT(OUT) :: cons
-    END SUBROUTINE
-    PURE SUBROUTINE Convert2Conservative_facesub(this,Mesh,i1,i2,j1,j2,k1,k2,prim,cons)
-      IMPORT physics_base, mesh_base
-      CLASS(physics_base), INTENT(IN)  :: this
-      CLASS(mesh_base),    INTENT(IN)  :: Mesh
-      INTEGER,             INTENT(IN)  :: i1,i2,j1,j2,k1,k2
-      REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%nfaces,this%vnum), &
-                           INTENT(IN)  :: prim
-      REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Mesh%nfaces,this%vnum), &
-                           INTENT(OUT) :: cons
     END SUBROUTINE
     PURE SUBROUTINE ExternalSources(this,accel,pvar,cvar,sterm)
       IMPORT physics_base, mesh_base, marray_base, marray_compound

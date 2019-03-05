@@ -528,7 +528,7 @@ CONTAINS
       CALL Mesh%Error("KHI INIT","Unknown flow direction")
     END IF
 
-    CALL Physics%Convert2Conservative(Mesh,Timedisc%pvar%data4d,Timedisc%cvar%data4d)
+    CALL Physics%Convert2Conservative(Timedisc%pvar,Timedisc%cvar)
     CALL Mesh%Info(" DATA-----> initial condition: " // &
          "Kelvin-Helmholtz instability")
 
