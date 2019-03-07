@@ -96,6 +96,16 @@ par_test_poiseuille:
     script:
         - mpirun -n 2 ./par_build/tests/poiseuille
 
+ser_test_pringle:
+    stage: test
+    script:
+        - ./ser_build/tests/pringle
+
+par_test_pringle:
+    stage: test
+    script:
+        - mpirun -n 2 ./par_build/tests/pringle
+
 ser_test_KHI2D:
     stage: test
     script:
