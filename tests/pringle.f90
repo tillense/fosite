@@ -80,7 +80,7 @@ PROGRAM pringle_test
   !**************************************************************************!
   INTEGER, PARAMETER :: MGEO = CYLINDRICAL
 !   INTEGER, PARAMETER :: MGEO = LOGCYLINDRICAL
-!   INTEGER, PARAMETER :: MGEO = SPHERICAL
+!   INTEGER, PARAMETER :: MGEO = SPHERICAL !!! ATTENTION: not applicable in 1D
   INTEGER, PARAMETER :: XRES = 400        ! x-resolution
   INTEGER, PARAMETER :: YRES = 1           ! y-resolution
   INTEGER, PARAMETER :: ZRES = 1           ! z-resolution
@@ -100,16 +100,25 @@ PROGRAM pringle_test
   REAL               :: Z0 = 0.0           !
   !--------------------------------------------------------------------------!
   CLASS(fosite), ALLOCATABLE   :: Sim
+  REAL, DIMENSION(:), ALLOCATABLE :: sigma
+  REAL :: sum_numer, sum_denom
+  INTEGER :: n,DEN,VX,VY
   REAL    :: next_output_time
   INTEGER :: i,j,k
   LOGICAL :: ok
   !--------------------------------------------------------------------------!
 
-  TAP_PLAN(1)
-
   ALLOCATE(Sim)
-
   CALL Sim%InitFosite()
+
+#ifdef PARALLEL
+  IF (Sim%GetRank().EQ.0) THEN
+#endif
+TAP_PLAN(4)
+#ifdef PARALLEL
+  END IF
+#endif
+
   CALL MakeConfig(Sim, Sim%config)
   CALL Sim%Setup()
   CALL InitData(Sim,Sim%Mesh, Sim%Physics, Sim%Timedisc)
@@ -148,12 +157,56 @@ PROGRAM pringle_test
     CALL Sim%Run()
   END IF
   ok = .NOT.Sim%aborted
+  ! compare with exact solution if requested
+  IF (ASSOCIATED(Sim%Timedisc%solution)) THEN
+    ALLOCATE(sigma(Sim%Physics%VNUM))
+    DO n=1,Sim%Physics%VNUM
+      ! use L1 norm to estimate the deviation from the exact solution:
+      !   Σ |pvar - pvar_exact| / Σ |pvar_exact|
+      sum_numer = SUM(ABS(Sim%Timedisc%pvar%data4d(Sim%Mesh%IMIN:Sim%Mesh%IMAX,&
+                           Sim%Mesh%JMIN:Sim%Mesh%JMAX,Sim%Mesh%KMIN:Sim%Mesh%KMAX,n) &
+                        -Sim%Timedisc%solution%data4d(Sim%Mesh%IMIN:Sim%Mesh%IMAX,&
+                           Sim%Mesh%JMIN:Sim%Mesh%JMAX,Sim%Mesh%KMIN:Sim%Mesh%KMAX,n)))
+      sum_denom = SUM(ABS(Sim%Timedisc%solution%data4d(Sim%Mesh%IMIN:Sim%Mesh%IMAX,&
+                           Sim%Mesh%JMIN:Sim%Mesh%JMAX,Sim%Mesh%KMIN:Sim%Mesh%KMAX,n)))
+#ifdef PARALLEL
+      IF (Sim%GetRank().GT.0) THEN
+        CALL MPI_Reduce(sum_numer,sum_numer,1,DEFAULT_MPI_REAL,MPI_SUM,0,MPI_COMM_WORLD,Sim%ierror)
+        CALL MPI_Reduce(sum_denom,sum_denom,1,DEFAULT_MPI_REAL,MPI_SUM,0,MPI_COMM_WORLD,Sim%ierror)
+      ELSE
+        CALL MPI_Reduce(MPI_IN_PLACE,sum_numer,1,DEFAULT_MPI_REAL,MPI_SUM,0,MPI_COMM_WORLD,Sim%ierror)
+        CALL MPI_Reduce(MPI_IN_PLACE,sum_denom,1,DEFAULT_MPI_REAL,MPI_SUM,0,MPI_COMM_WORLD,Sim%ierror)
+#endif
+      sigma(n) = sum_numer / sum_denom
+#ifdef PARALLEL
+      END IF
+#endif
+    END DO
+  ELSE
+    sigma(:) = 0.0
+  END IF
+
+  DEN = Sim%Physics%DENSITY
+  VX  = Sim%Physics%XVELOCITY
+  VY  = Sim%Physics%YVELOCITY
+
+#ifdef PARALLEL
+  IF (Sim%GetRank().EQ.0) THEN
+#endif
+TAP_CHECK(ok,"stoptime reached")
+! These lines are very long if expanded. So we can't indent it or it will be cropped.
+TAP_CHECK_SMALL(sigma(DEN),5.0E-02,"density deviation < 5%")
+TAP_CHECK_SMALL(sigma(VX),8.0E-02,"radial velocity deviation < 8%")
+! skip azimuthal velocity deviation, because exact value is 0
+TAP_CHECK_SMALL(sigma(VY),2.0E-04,"azimuthal velocity deviation < 0.02%")
+TAP_DONE
+#ifdef PARALLEL
+  END IF
+#endif
+
+  IF (ALLOCATED(sigma)) DEALLOCATE(sigma)
   CALL Sim%Finalize()
-
   DEALLOCATE(Sim)
-
-  TAP_CHECK(ok,"stoptime reached")
-  TAP_DONE
 
 CONTAINS
 
@@ -183,6 +236,8 @@ CONTAINS
       z2 = 0.0
 !       bc(WEST)  = NO_GRADIENTS
 !       bc(EAST)  = NO_GRADIENTS
+!       bc(WEST)  = ABSORBING
+!       bc(EAST)  = ABSORBING
       bc(WEST)  = CUSTOM
       bc(EAST)  = CUSTOM
       bc(SOUTH) = PERIODIC
@@ -300,8 +355,13 @@ CONTAINS
 !             "rhstype"   / 1, &
             "maxiter"   / 100000000, &
             "tol_rel"   / 0.01, &
-            "tol_abs"   / (/0.0,1e-5,0.0/), &
-            "output/solution" / 1 )
+            "tol_abs"   / (/0.0,1e-5,0.0/))
+
+    ! enable output of analytical solution
+#ifdef HAVE_FGSL
+    IF (MGEO.EQ.CYLINDRICAL) &
+      CALL SetAttr(timedisc,"output/solution",1)
+#endif
 
     ! initialize data input/output
     datafile => Dict( &
@@ -369,12 +429,12 @@ CONTAINS
     SELECT TYPE(bwest => Timedisc%Boundary%boundary(WEST)%p)
     CLASS IS (boundary_custom)
       CALL bwest%SetCustomBoundaries(Mesh,Physics, &
-        (/CUSTOM_NOGRAD,CUSTOM_OUTFLOW,CUSTOM_KEPLER/))
+        (/CUSTOM_NOGRAD,CUSTOM_EXTRAPOL,CUSTOM_KEPLER/))
     END SELECT
     SELECT TYPE(beast => Timedisc%Boundary%boundary(EAST)%p)
     CLASS IS (boundary_custom)
       CALL beast%SetCustomBoundaries(Mesh,Physics, &
-        (/CUSTOM_NOGRAD,CUSTOM_OUTFLOW,CUSTOM_EXTRAPOL/))
+        (/CUSTOM_LOGEXPOL,CUSTOM_OUTFLOW,CUSTOM_KEPLER/))
     END SELECT
 
     ! get gravitational acceleration
