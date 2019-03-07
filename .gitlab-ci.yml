@@ -13,7 +13,7 @@ serial_build:
         - mkdir ser_build
         - cd ser_build
         - FC=gfortran cmake -DFFTW_DIR=$FFTW ..
-        - make -j
+        - make
     artifacts:
         paths:
         - ./ser_build
@@ -25,7 +25,7 @@ parallel_build:
         - mkdir par_build
         - cd par_build
         - FC=mpifort cmake -DPARALLEL=ON -DFFTW_DIR=$FFTW ..
-        - make -j
+        - make
     artifacts:
         paths:
         - ./par_build
