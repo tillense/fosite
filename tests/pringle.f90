@@ -157,9 +157,9 @@ TAP_PLAN(4)
     CALL Sim%Run()
   END IF
   ok = .NOT.Sim%aborted
+  ALLOCATE(sigma(Sim%Physics%VNUM))
   ! compare with exact solution if requested
   IF (ASSOCIATED(Sim%Timedisc%solution)) THEN
-    ALLOCATE(sigma(Sim%Physics%VNUM))
     DO n=1,Sim%Physics%VNUM
       ! use L1 norm to estimate the deviation from the exact solution:
       !   Σ |pvar - pvar_exact| / Σ |pvar_exact|
