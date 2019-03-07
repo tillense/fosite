@@ -83,16 +83,16 @@ CONTAINS
                   "boundary condition not supported for this type of physics")
     SELECT CASE(this%direction%GetType())
     CASE(WEST,EAST)
-       ALLOCATE(this%xvar(Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
-            this%lambda(Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
+       ALLOCATE(this%xvar(Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,Physics%VNUM), &
+            this%lambda(Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,Physics%VNUM), &
             STAT=err)
     CASE(SOUTH,NORTH)
-       ALLOCATE(this%xvar(Mesh%IGMIN:Mesh%IGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
-            this%lambda(Mesh%IGMIN:Mesh%IGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
+       ALLOCATE(this%xvar(Mesh%IMIN:Mesh%IMAX,Mesh%KMIN:Mesh%KMAX,Physics%VNUM), &
+            this%lambda(Mesh%IMIN:Mesh%IMAX,Mesh%KMIN:Mesh%KMAX,Physics%VNUM), &
             STAT=err)
     CASE(BOTTOM,TOP)
-       ALLOCATE(this%xvar(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Physics%VNUM), &
-            this%lambda(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Physics%VNUM), &
+       ALLOCATE(this%xvar(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Physics%VNUM), &
+            this%lambda(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Physics%VNUM), &
             STAT=err)
     END SELECT
     IF (err.NE.0) &
@@ -124,72 +124,90 @@ CONTAINS
     !------------------------------------------------------------------------!
     SELECT CASE(this%direction%GetType())
     CASE(WEST)
-       DO i=1,Mesh%GINUM
-          ! get characteristic variables
-          CALL Physics%CalculateCharSystemX(Mesh,Mesh%IMIN-i+1,+1,pvar,this%lambda,this%xvar)
-          ! set characteristic variables to zero for all incomming waves
-          WHERE (this%lambda(:,:,:).GE.0.0)
-             this%xvar(:,:,:) = 0.0
-          END WHERE
-          ! transform back to primitive variables at the boundary
-          CALL Physics%CalculateBoundaryDataX(Mesh,Mesh%IMIN-i+1,-1,this%xvar,pvar)
-       END DO
+      ! get characteristic variables
+      CALL Physics%CalculateCharSystemX(Mesh,Mesh%IMIN,Mesh%IMIN+1,pvar,this%lambda,this%xvar)
+      ! set characteristic variables to zero for all incomming waves
+      WHERE (this%lambda(:,:,:).GE.0.0)
+        this%xvar(:,:,:) = 0.0
+      END WHERE
+      ! transform back to primitive variables at the boundary
+      CALL Physics%CalculateBoundaryDataX(Mesh,Mesh%IMIN,Mesh%IMIN-1,this%xvar,pvar)
+      ! copy data to outer ghost cells
+      DO i=2,Mesh%GINUM
+        pvar%data4d(Mesh%IMIN-i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,:) &
+          = pvar%data4d(Mesh%IMIN-1,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,:)
+      END DO
     CASE(EAST)
-       DO i=1,Mesh%GINUM
-          ! get characteristic variables
-          CALL Physics%CalculateCharSystemX(Mesh,Mesh%IMAX+i-1,-1,pvar,this%lambda,this%xvar)
-          ! set characteristic variables to zero for all incomming waves
-          WHERE (this%lambda(:,:,:).LE.0.0)
-             this%xvar(:,:,:) = 0.0
-          END WHERE
-          ! transform back to primitive variables at the boundary
-          CALL Physics%CalculateBoundaryDataX(Mesh,Mesh%IMAX+i-1,+1,this%xvar,pvar)
-       END DO
-     CASE(SOUTH)
-       DO j=1,Mesh%GJNUM
-          ! get characteristic variables
-          CALL Physics%CalculateCharSystemY(Mesh,Mesh%JMIN-j+1,+1,pvar,this%lambda,this%xvar)
-          ! set characteristic variables to zero for all incomming waves
-          WHERE (this%lambda(:,:,:).GE.0.0)
-             this%xvar(:,:,:) = 0.0
-          END WHERE
-          ! transform back to primitive variables at the boundary
-          CALL Physics%CalculateBoundaryDataY(Mesh,Mesh%JMIN-j+1,-1,this%xvar,pvar)
-       END DO
+      ! get characteristic variables
+      CALL Physics%CalculateCharSystemX(Mesh,Mesh%IMAX,Mesh%IMAX-1,pvar,this%lambda,this%xvar)
+      ! set characteristic variables to zero for all incomming waves
+      WHERE (this%lambda(:,:,:).LE.0.0)
+        this%xvar(:,:,:) = 0.0
+      END WHERE
+      ! transform back to primitive variables at the boundary
+      CALL Physics%CalculateBoundaryDataX(Mesh,Mesh%IMAX,Mesh%IMAX+1,this%xvar,pvar)
+      ! copy data to outer ghost cells
+      DO i=2,Mesh%GINUM
+        pvar%data4d(Mesh%IMAX+i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,:) &
+          = pvar%data4d(Mesh%IMAX+1,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,:)
+      END DO
+    CASE(SOUTH)
+      ! get characteristic variables
+      CALL Physics%CalculateCharSystemY(Mesh,Mesh%JMIN,Mesh%JMIN+1,pvar,this%lambda,this%xvar)
+      ! set characteristic variables to zero for all incomming waves
+      WHERE (this%lambda(:,:,:).GE.0.0)
+        this%xvar(:,:,:) = 0.0
+      END WHERE
+      ! transform back to primitive variables at the boundary
+      CALL Physics%CalculateBoundaryDataY(Mesh,Mesh%JMIN,Mesh%JMIN-1,this%xvar,pvar)
+      ! copy data to outer ghost cells
+      DO j=2,Mesh%GJNUM
+        pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN-j,Mesh%KMIN:Mesh%KMAX,:) &
+          = pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN-1,Mesh%KMIN:Mesh%KMAX,:)
+      END DO
     CASE(NORTH)
-       DO j=1,Mesh%GJNUM
-          ! get characteristic variables
-          CALL Physics%CalculateCharSystemY(Mesh,Mesh%JMAX+j-1,-1,pvar,this%lambda,this%xvar)
-          ! set characteristic variables to zero for all incomming waves
-          WHERE (this%lambda(:,:,:).LE.0.0)
-             this%xvar(:,:,:) = 0.0
-          END WHERE
-          ! transform back to primitive variables at the boundary
-          CALL Physics%CalculateBoundaryDataY(Mesh,Mesh%JMAX+j-1,+1,this%xvar,pvar)
-       END DO   
-     CASE(BOTTOM)
-       DO k=1,Mesh%GKNUM
-          ! get characteristic variables
-          CALL Physics%CalculateCharSystemZ(Mesh,Mesh%KMIN-k+1,+1,pvar,this%lambda,this%xvar)
-          ! set characteristic variables to zero for all incomming waves
-          WHERE (this%lambda(:,:,:).GE.0.0)
-             this%xvar(:,:,:) = 0.0
-          END WHERE
-          ! transform back to primitive variables at the boundary
-          CALL Physics%CalculateBoundaryDataZ(Mesh,Mesh%KMIN-k+1,-1,this%xvar,pvar)
-       END DO
+      ! get characteristic variables
+      CALL Physics%CalculateCharSystemY(Mesh,Mesh%JMAX,Mesh%JMAX-1,pvar,this%lambda,this%xvar)
+      ! set characteristic variables to zero for all incomming waves
+      WHERE (this%lambda(:,:,:).LE.0.0)
+        this%xvar(:,:,:) = 0.0
+      END WHERE
+      ! transform back to primitive variables at the boundary
+      CALL Physics%CalculateBoundaryDataY(Mesh,Mesh%JMAX,Mesh%JMAX+1,this%xvar,pvar)
+      ! copy data to outer ghost cells
+      DO j=2,Mesh%GJNUM
+        pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX+j,Mesh%KMIN:Mesh%KMAX,:) &
+          = pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX+1,Mesh%KMIN:Mesh%KMAX,:)
+      END DO
+    CASE(BOTTOM)
+      ! get characteristic variables
+      CALL Physics%CalculateCharSystemZ(Mesh,Mesh%KMIN,Mesh%KMIN+1,pvar,this%lambda,this%xvar)
+      ! set characteristic variables to zero for all incomming waves
+      WHERE (this%lambda(:,:,:).GE.0.0)
+        this%xvar(:,:,:) = 0.0
+      END WHERE
+      ! transform back to primitive variables at the boundary
+      CALL Physics%CalculateBoundaryDataZ(Mesh,Mesh%KMIN,Mesh%KMIN-1,this%xvar,pvar)
+      ! copy data to outer ghost cells
+      DO k=2,Mesh%GKNUM
+        pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN-k,:) &
+          = pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN-1,:)
+      END DO
     CASE(TOP)
-       DO k=1,Mesh%GKNUM
-          ! get characteristic variables
-          CALL Physics%CalculateCharSystemZ(Mesh,Mesh%KMAX+k-1,-1,pvar,this%lambda,this%xvar)
-          ! set characteristic variables to zero for all incomming waves
-          WHERE (this%lambda(:,:,:).LE.0.0)
-             this%xvar(:,:,:) = 0.0
-          END WHERE
-          ! transform back to primitive variables at the boundary
-          CALL Physics%CalculateBoundaryDataZ(Mesh,Mesh%KMAX+k-1,+1,this%xvar,pvar)
-       END DO
-     END SELECT
+      ! get characteristic variables
+      CALL Physics%CalculateCharSystemZ(Mesh,Mesh%KMAX,Mesh%KMAX-1,pvar,this%lambda,this%xvar)
+      ! set characteristic variables to zero for all incomming waves
+      WHERE (this%lambda(:,:,:).LE.0.0)
+        this%xvar(:,:,:) = 0.0
+      END WHERE
+      ! transform back to primitive variables at the boundary
+      CALL Physics%CalculateBoundaryDataZ(Mesh,Mesh%KMAX,Mesh%KMAX+1,this%xvar,pvar)
+      ! copy data to outer ghost cells
+      DO k=2,Mesh%GKNUM
+        pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMAX+k,:) &
+          = pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMAX+1,:)
+      END DO
+    END SELECT
   END SUBROUTINE SetBoundaryData
 
 

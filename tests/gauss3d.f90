@@ -35,18 +35,18 @@ PROGRAM gauss3d
   IMPLICIT NONE
   !--------------------------------------------------------------------------!
   ! simulation parameter
-  REAL, PARAMETER     :: TSIM     = 0.3      ! simulation time
+  REAL, PARAMETER     :: TSIM     = 0.5      ! simulation time
   REAL, PARAMETER     :: GAMMA    = 1.4      ! ratio of specific heats
   REAL, PARAMETER     :: CSISO    = &
-!                                     0.0      ! non-isothermal simulation
-                                    1.127    ! isothermal simulation
+                                    0.0      ! non-isothermal simulation
+!                                     1.127    ! isothermal simulation
                                              !   with CSISO as sound speed
   ! initial condition (dimensionless units)
   REAL, PARAMETER     :: RHO0     = 1.0      ! ambient density
   REAL, PARAMETER     :: RHO1     = 1.0      ! peak density above RHO0
   REAL, PARAMETER     :: RWIDTH   = 0.06     ! half width of the Gaussian
   REAL, PARAMETER     :: P0       = 1.0      ! ambient pressure
-  REAL, PARAMETER     :: P1       = 1.0      ! peak pressure above P0
+  REAL, PARAMETER     :: P1       = 100.0      ! peak pressure above P0
   REAL, PARAMETER     :: PWIDTH   = 0.06     ! half width of the Gaussian
   REAL, PARAMETER     :: OMEGA0   = 0.0      ! angular velocity
   REAL, PARAMETER     :: ETA      = 0.0      ! dynamic viscosity (0.0 disables)
@@ -117,12 +117,18 @@ CONTAINS
        xres       = RES
        yres       = RES
        zres       = RES
-       bc(WEST)   = NO_GRADIENTS
-       bc(EAST)   = NO_GRADIENTS
-       bc(SOUTH)  = NO_GRADIENTS
-       bc(NORTH)  = NO_GRADIENTS
-       bc(BOTTOM) = NO_GRADIENTS
-       bc(TOP)    = NO_GRADIENTS
+!        bc(WEST)   = NO_GRADIENTS
+!        bc(EAST)   = NO_GRADIENTS
+!        bc(SOUTH)  = NO_GRADIENTS
+!        bc(NORTH)  = NO_GRADIENTS
+!        bc(BOTTOM) = NO_GRADIENTS
+!        bc(TOP)    = NO_GRADIENTS
+       bc(WEST)   = ABSORBING
+       bc(EAST)   = ABSORBING
+       bc(SOUTH)  = ABSORBING
+       bc(NORTH)  = ABSORBING
+       bc(BOTTOM) = ABSORBING
+       bc(TOP)    = ABSORBING
     CASE(CYLINDRICAL)
        x1 =  0.01
        x2 =  RMAX
@@ -134,11 +140,11 @@ CONTAINS
        yres       = RES / 2
        zres       = RES
        bc(WEST)   = AXIS
-       bc(EAST)   = AXIS
+       bc(EAST)   = ABSORBING
        bc(SOUTH)  = PERIODIC
        bc(NORTH)  = PERIODIC
-       bc(BOTTOM) = NO_GRADIENTS
-       bc(TOP)    = NO_GRADIENTS
+       bc(BOTTOM) = ABSORBING
+       bc(TOP)    = ABSORBING
     CASE(SPHERICAL)
        x1 = 0.01
        x2 = RMAX
@@ -149,8 +155,8 @@ CONTAINS
        xres       = RES / 2
        yres       = RES / 4
        zres       = RES / 2
-       bc(WEST)  = NO_GRADIENTS
-       bc(EAST)  = NO_GRADIENTS
+       bc(WEST)  = AXIS
+       bc(EAST)  = ABSORBING
        bc(SOUTH) = AXIS
        bc(NORTH) = AXIS
        bc(BOTTOM)= PERIODIC

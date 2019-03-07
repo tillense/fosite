@@ -155,20 +155,15 @@ MODULE physics_base_mod
     PROCEDURE (GeometricalSources),           DEFERRED :: GeometricalSources
     PROCEDURE (Masks),                        DEFERRED :: ReflectionMasks
     PROCEDURE (Masks),                        DEFERRED :: AxisMasks
-
-! these routines are only necessary for special boundaries, fluxes
-   PROCEDURE   (CalculateCharSystemX), DEFERRED :: CalculateCharSystemX
-   PROCEDURE   (CalculateCharSystemY), DEFERRED :: CalculateCharSystemY
-   PROCEDURE   (CalculateCharSystemZ), DEFERRED :: CalculateCharSystemZ
-   PROCEDURE   (CalculateBoundaryDataX), DEFERRED :: CalculateBoundaryDataX
-   PROCEDURE   (CalculateBoundaryDataY), DEFERRED :: CalculateBoundaryDataY
-   PROCEDURE   (CalculateBoundaryDataZ), DEFERRED :: CalculateBoundaryDataZ
-   GENERIC   :: CalcCharSystemX => CalculateCharSystemX
-   GENERIC   :: CalcCharSystemY => CalculateCharSystemY
-   GENERIC   :: CalcCharSystemZ => CalculateCharSystemZ
-   GENERIC   :: CalcBoundaryDataX => CalculateBoundaryDataX
-   GENERIC   :: CalcBoundaryDataY => CalculateBoundaryDataY
-   GENERIC   :: CalcBoundaryDataZ => CalculateBoundaryDataZ
+    !------Boundary Conditions-----!
+    ! absorbing boundaries
+    PROCEDURE (CalculateCharSystemX),        DEFERRED :: CalculateCharSystemX
+    PROCEDURE (CalculateCharSystemY),        DEFERRED :: CalculateCharSystemY
+    PROCEDURE (CalculateCharSystemZ),        DEFERRED :: CalculateCharSystemZ
+    PROCEDURE (CalculateBoundaryDataX),      DEFERRED :: CalculateBoundaryDataX
+    PROCEDURE (CalculateBoundaryDataY),      DEFERRED :: CalculateBoundaryDataY
+    PROCEDURE (CalculateBoundaryDataZ),      DEFERRED :: CalculateBoundaryDataZ
+    ! far field boundaries
 !   PROCEDURE ::  CalculatePrim2RiemannX
 !   PROCEDURE ::  CalculatePrim2RiemannY
 !   PROCEDURE ::  CalculateRiemann2PrimX
@@ -329,57 +324,57 @@ MODULE physics_base_mod
       CLASS(mesh_base),              INTENT(IN)  :: Mesh       
       LOGICAL, DIMENSION(this%VNUM), INTENT(OUT) :: reflX,reflY,reflZ
     END SUBROUTINE
-    PURE SUBROUTINE CalculateCharSystemX(this,Mesh,i,dir,pvar,lambda,xvar)
+    PURE SUBROUTINE CalculateCharSystemX(this,Mesh,i1,i2,pvar,lambda,xvar)
       IMPORT physics_base, mesh_base, marray_compound
       !----------------------------------------------------------------------!
-      CLASS(physics_base), INTENT(IN) :: this
+      CLASS(physics_base),    INTENT(IN)    :: this
       CLASS(mesh_base),       INTENT(IN)    :: Mesh
-      INTEGER,                INTENT(IN)    :: i,dir
+      INTEGER,                INTENT(IN)    :: i1,i2
       CLASS(marray_compound), INTENT(INOUT) :: pvar
-      REAL,DIMENSION(Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM), INTENT(OUT) :: lambda
-      REAL,DIMENSION(Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM), INTENT(OUT)   :: xvar
+      REAL,DIMENSION(Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,this%VNUM), &
+                              INTENT(OUT)   :: lambda,xvar
    END SUBROUTINE
-   PURE SUBROUTINE CalculateCharSystemY(this,Mesh,j,dir,pvar,lambda,xvar)
+   PURE SUBROUTINE CalculateCharSystemY(this,Mesh,j1,j2,pvar,lambda,xvar)
       IMPORT physics_base, mesh_base, marray_compound
       !----------------------------------------------------------------------!
-      CLASS(physics_base), INTENT(IN) :: this
+      CLASS(physics_base),    INTENT(IN)    :: this
       CLASS(mesh_base),       INTENT(IN)    :: Mesh
-      INTEGER,                INTENT(IN)    :: j,dir
+      INTEGER,                INTENT(IN)    :: j1,j2
       CLASS(marray_compound), INTENT(INOUT) :: pvar
-      REAL,DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM), INTENT(OUT) :: lambda
-      REAL,DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM), INTENT(OUT)   :: xvar
+      REAL,DIMENSION(Mesh%IMIN:Mesh%IMAX,Mesh%KMIN:Mesh%KMAX,this%VNUM), &
+                              INTENT(OUT)   :: lambda,xvar
    END SUBROUTINE
-   PURE SUBROUTINE CalculateCharSystemZ(this,Mesh,k,dir,pvar,lambda,xvar)
+   PURE SUBROUTINE CalculateCharSystemZ(this,Mesh,k1,k2,pvar,lambda,xvar)
       IMPORT physics_base, mesh_base, marray_compound
       !----------------------------------------------------------------------!
-      CLASS(physics_base), INTENT(IN) :: this
+      CLASS(physics_base),    INTENT(IN)    :: this
       CLASS(mesh_base),       INTENT(IN)    :: Mesh
-      INTEGER,                INTENT(IN) :: k,dir
+      INTEGER,                INTENT(IN)    :: k1,k2
       CLASS(marray_compound), INTENT(INOUT) :: pvar
-      REAL,DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,this%VNUM), INTENT(OUT) :: lambda
-      REAL,DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,this%VNUM), INTENT(OUT)   :: xvar
+      REAL,DIMENSION(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,this%VNUM), &
+                              INTENT(OUT)   :: lambda,xvar
    END SUBROUTINE
-   PURE SUBROUTINE CalculateBoundaryDataX(this,Mesh,i1,dir,xvar,pvar)
+   PURE SUBROUTINE CalculateBoundaryDataX(this,Mesh,i1,i2,xvar,pvar)
       IMPORT physics_base, mesh_base, marray_compound
      CLASS(physics_base), INTENT(IN)    :: this
      CLASS(mesh_base),       INTENT(IN)    :: Mesh
-     INTEGER,                INTENT(IN)    :: i1,dir
+     INTEGER,                INTENT(IN)    :: i1,i2
      REAL,DIMENSION(Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM), INTENT(IN)   :: xvar
      CLASS(marray_compound), INTENT(INOUT) :: pvar
    END SUBROUTINE
-   PURE SUBROUTINE CalculateBoundaryDataY(this,Mesh,j1,dir,xvar,pvar)
+   PURE SUBROUTINE CalculateBoundaryDataY(this,Mesh,j1,j2,xvar,pvar)
       IMPORT physics_base, mesh_base, marray_compound
      CLASS(physics_base), INTENT(IN)    :: this
      CLASS(mesh_base),       INTENT(IN)    :: Mesh
-     INTEGER,                 INTENT(IN)   :: j1,dir
+     INTEGER,                 INTENT(IN)   :: j1,j2
      REAL,DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM), INTENT(IN)   :: xvar
      CLASS(marray_compound), INTENT(INOUT) :: pvar
    END SUBROUTINE
-   PURE SUBROUTINE CalculateBoundaryDataZ(this,Mesh,k1,dir,xvar,pvar)
+   PURE SUBROUTINE CalculateBoundaryDataZ(this,Mesh,k1,k2,xvar,pvar)
       IMPORT physics_base, mesh_base, marray_compound
      CLASS(physics_base), INTENT(IN)    :: this
      CLASS(mesh_base),       INTENT(IN)    :: Mesh
-     INTEGER,                INTENT(IN)    :: k1,dir
+     INTEGER,                INTENT(IN)    :: k1,k2
      REAL,DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,this%VNUM), INTENT(IN)   :: xvar
      CLASS(marray_compound), INTENT(INOUT) :: pvar
    END SUBROUTINE

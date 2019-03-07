@@ -44,10 +44,10 @@ PROGRAM gauss2d
                                              !   with CSISO as sound speed
   ! initial condition (dimensionless units)
   REAL, PARAMETER     :: RHO0     = 1.0      ! ambient density
-  REAL, PARAMETER     :: RHO1     = 1.0      ! peak density above RHO0
+  REAL, PARAMETER     :: RHO1     = 100.0      ! peak density above RHO0
   REAL, PARAMETER     :: RWIDTH   = 0.06     ! half width of the Gaussian
   REAL, PARAMETER     :: P0       = 1.0      ! ambient pressure
-  REAL, PARAMETER     :: P1       = 1.0      ! peak pressure above P0
+  REAL, PARAMETER     :: P1       = 100.0      ! peak pressure above P0
   REAL, PARAMETER     :: PWIDTH   = 0.06     ! half width of the Gaussian
   REAL, PARAMETER     :: OMEGA0   = 0.0      ! angular velocity
   REAL, PARAMETER     :: ETA      = 0.0      ! dynamic viscosity (0.0 disables)
@@ -115,10 +115,14 @@ CONTAINS
        y2         =  0.5
        z1         = -0.0
        z2         =  0.0
-       bc(WEST)   = NO_GRADIENTS
-       bc(EAST)   = NO_GRADIENTS
-       bc(SOUTH)  = NO_GRADIENTS
-       bc(NORTH)  = NO_GRADIENTS
+       bc(WEST)   = ABSORBING
+       bc(EAST)   = ABSORBING
+       bc(SOUTH)  = ABSORBING
+       bc(NORTH)  = ABSORBING
+!        bc(WEST)   = NO_GRADIENTS
+!        bc(EAST)   = NO_GRADIENTS
+!        bc(SOUTH)  = NO_GRADIENTS
+!        bc(NORTH)  = NO_GRADIENTS
        bc(BOTTOM) = NO_GRADIENTS
        bc(TOP)    = NO_GRADIENTS
     CASE DEFAULT
