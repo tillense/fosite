@@ -126,6 +126,7 @@ deploy_github:
     script:
         - git checkout master
         - git merge origin/master
+        - git remote | grep -q origin_github && git remote remove origin_github
         - git remote add origin_github git@github.com:tillense/fosite.git
         - git push origin_github master --tags
     environment:
@@ -139,6 +140,7 @@ deploy_website:
     script:
         - git checkout master
         - git merge origin/master
+        - git remote | grep -q origin_website && git remote remove origin_website
         - git remote add origin_website webadmin@portia:/home/webadmin/src/fosite/git
         - git push origin_website master -f --tags
     environment:
