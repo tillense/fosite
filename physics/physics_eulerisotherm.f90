@@ -1846,7 +1846,7 @@ CONTAINS
       SELECT CASE(this%VDIM)
       CASE(1) ! 1D
         CALL SetBoundaryData1d(i2-i1, &
-              this%fcsound%data4d(i1,Mesh%JMIN:Mesh%JMAX,Mesh%KGMIN:Mesh%KGMAX,fidx), &
+              this%fcsound%data4d(i1,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,fidx), &
               p%density%data3d(i1,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX), &
               p%velocity%data4d(i1,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,1), &
               xvar(Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,1), &
@@ -1855,7 +1855,7 @@ CONTAINS
               p%velocity%data4d(i2,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,1))
       CASE(2) ! 2D
         CALL SetBoundaryData2d(i2-i1, &
-              this%fcsound%data4d(i1,Mesh%JMIN:Mesh%JMAX,Mesh%KGMIN:Mesh%KGMAX,fidx), &
+              this%fcsound%data4d(i1,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,fidx), &
               p%density%data3d(i1,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX), &
               p%velocity%data4d(i1,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,1), &
               p%velocity%data4d(i1,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,2), &
@@ -1867,7 +1867,7 @@ CONTAINS
               p%velocity%data4d(i2,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,2))
       CASE(3) ! 3D
         CALL SetBoundaryData3d(i2-i1, &
-              this%fcsound%data4d(i1,Mesh%JMIN:Mesh%JMAX,Mesh%KGMIN:Mesh%KGMAX,fidx), &
+              this%fcsound%data4d(i1,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,fidx), &
               p%density%data3d(i1,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX), &
               p%velocity%data4d(i1,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,1), &
               p%velocity%data4d(i1,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,2), &
