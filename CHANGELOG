@@ -8,6 +8,7 @@ This is the changelog for the fosite project.
 - ability to use functions from the GNU scientific library (GSL)
 - absorbing boundary conditions
 - power law viscosity depending on specific angular momentum
+- add ability to output data at specified wall time
 #### Changed
 #### Deprecated
 #### Removed
@@ -16,6 +17,7 @@ This is the changelog for the fosite project.
 - bugs in computation of stress tensor components
 - broken computation of centrifugal velocity for balanced initial conditions
 - bugs in fast advection code (FARGO)
+- bug in limiter code
 
 ## 0.8.1 - 2019-01-24
 #### Added
