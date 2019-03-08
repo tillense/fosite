@@ -15,7 +15,7 @@ if(Git_FOUND)
   )
   add_definitions("-DVERSION=\"${GIT_VERSION}\"")
 else()
-  add_definitions("-DVERSION=\"0.8.1\"") 
+  add_definitions("-DVERSION=\"0.8.2\"") 
 endif()
 
 # make sure that the default is a RELEASE
@@ -133,7 +133,12 @@ MARK_AS_ADVANCED(CMAKE_Fortran_FLAGS_PROFILING
 
 
 #----------------------- search GSL ------------------------------------------#
-find_package(GSL)
+option(USE_GSL "Add GSL/FGSL support" OFF)
+if(USE_GSL MATCHES ON)
+  find_package(GSL)
+else()
+  set(GSL_FOUND CACHE BOOL FALSE)
+endif()
 if(GSL_FOUND)
   set(FGSL_SOURCE_DIR ${CMAKE_SOURCE_DIR}/contrib/fgsl) 
   set(FGSL_BINARY_DIR ${CMAKE_BINARY_DIR}/contrib/fgsl) 
