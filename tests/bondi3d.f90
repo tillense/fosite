@@ -58,7 +58,7 @@ PROGRAM bondi3d
   INTEGER, PARAMETER :: MGEO    = SPHERICAL   ! geometry of the mesh         !
   INTEGER, PARAMETER :: XRES    = 100          ! x-resolution                 !
   INTEGER, PARAMETER :: YRES    = 4           ! y-resolution                 !
-  INTEGER, PARAMETER :: ZRES    = 8           ! z-resolution                 !
+  INTEGER, PARAMETER :: ZRES    = 4           ! z-resolution                 !
   REAL, PARAMETER    :: RIN     = 0.1         ! inner/outer radii in terms of!
   REAL, PARAMETER    :: ROUT    = 2.0         ! the Bondi radius RB, ROUT > 1!
   ! output parameters
@@ -177,7 +177,7 @@ CONTAINS
       y2 = PI
       z1 = 0.0
       z2 = 2*PI
-      bc(WEST)   = NO_GRADIENTS
+      bc(WEST)   = ABSORBING
       bc(EAST)   = CUSTOM
       bc(SOUTH)  = AXIS
       bc(NORTH)  = AXIS
