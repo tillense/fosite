@@ -16,6 +16,7 @@ set (EXES
   mestel
   mmsn
   orbitingcylinders
+  pringle3d
   restart
   sgdisk
   shearingsheet
