@@ -1,7 +1,23 @@
 # Changelog
 This is the changelog for the fosite project.
 
-## 0.8.1 - 2018-01-24
+## 0.8.2 - 2019-03-08
+#### Added
+- various new examples and tests
+- example to restart a simulation
+- ability to use functions from the GNU scientific library (GSL)
+- absorbing boundary conditions
+- power law viscosity depending on specific angular momentum
+#### Changed
+#### Deprecated
+#### Removed
+- obsolete primitive/conservative variable conversion routines
+#### Fixes
+- bugs in computation of stress tensor components
+- broken computation of centrifugal velocity for balanced initial conditions
+- bugs in fast advection code (FARGO)
+
+## 0.8.1 - 2019-01-24
 #### Added
 - better vector performance in gravity_spectral, alternative rhs
 #### Changed
@@ -15,7 +31,7 @@ This is the changelog for the fosite project.
 - parallel usage of restart.f90 repaired (missing unit number)
 - finalizing asl-library on SX caused no calculations in fftw-interface
 
-## 0.8.0 - 2018-01-08
+## 0.8.0 - 2019-01-08
 ### Initial version
 - 3D hydrodynamics with isothermal/ideal-gas EOS
 - new object-oriented design using Fortran 2008 language features
