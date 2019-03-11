@@ -153,9 +153,11 @@ CONTAINS
   !> \public Applies the shearing boundary conditions.
   !!
   !! The physical meaning of the implementation is explained in the
-  !! overall module descriptions. To the implementation used values which
-  !! are calculated during initialization of the \link timedisc_generic \endlink
-  !! module.
+  !! overall module descriptions. Some of the data required for setting
+  !! this boundary condition is calculated during initialization
+  !! (see \ref boundary_shearing_mod.initboundary_shearing ) and depends
+  !! on whether fast advection (FARGO) (see \ref timedisc_base_mod )
+  !! is enabled or not.
   !!
   !! The implemenation is done in a way, that periodic boundaries are applied at
   !! the very beginning (in serial) or are already applied (in parallel). Thus,

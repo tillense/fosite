@@ -24,6 +24,11 @@
 !# Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.                 #
 !#                                                                           #
 !#############################################################################
+!> \defgroup gravity Gravity
+!! \{
+!! \brief Source terms for gravitational forces
+!! \}
+!----------------------------------------------------------------------------!
 !> \addtogroup gravity
 !! - general parameters of gravity group as key-values
 !! \key{gtype,INTEGER,Type of gravity source}
@@ -36,6 +41,8 @@
 !!
 !! \brief generic gravity terms module providing functionaly common to all
 !! gravity terms
+!!
+!! \ingroup gravity
 !----------------------------------------------------------------------------!
 MODULE gravity_base_mod
   USE logging_base_mod

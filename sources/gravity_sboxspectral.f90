@@ -23,7 +23,7 @@
 !#                                                                           #
 !#############################################################################
 !> \addtogroup gravity
-!! - parameters of \link gravity_sboxspectral \endlink as key-values
+!! - parameters of \link gravity_sboxspectral_mod gravity_sboxspectral \endlink as key-values
 !!  \key{output/phi,INTEGER,(enable=1) output of gravitational potential}
 !!  \key{output/accel_x,INTEGER,(enable=1) output of accel in x-direction}
 !!  \key{output/accel_y,INTEGER,(enable=1) output of accel in y-direction}
@@ -59,6 +59,9 @@
 !! References:
 !!
 !! \cite gammie2001 , \cite gammiecode, \cite frigo2005, \cite mathkeisan2018
+!!
+!! \extends gravity_spectral
+!! \ingroup gravity
 !----------------------------------------------------------------------------!
 MODULE gravity_sboxspectral_mod
   USE gravity_base_mod
@@ -404,7 +407,7 @@ MODULE gravity_sboxspectral_mod
   !!  \f[
   !!      \Sigma(x,y) \longrightarrow \Sigma(x,y').
   !!  \f]
-  !!    See \link gravity_sboxspectral::fieldshift \endlink for more informations.
+  !!    See \link gravity_sboxspectral.fieldshift \endlink for more informations.
   !! 2. FFT of shifted surface density field
   !!  \f[
   !!      \Sigma(x,y') \longrightarrow \Sigma(\mathbf{k})
@@ -423,8 +426,8 @@ MODULE gravity_sboxspectral_mod
   !!      \Phi(x,y') \longrightarrow \Phi(x,y).
   !!  \f]
   !!
-  !! The acceleration is eventually calculated in \link
-  !! gravity_sboxspectral::updategravity_sboxspectral \endlink.
+  !! The acceleration is eventually calculated in
+  !! \link gravity_sboxspectral.updategravity_single \endlink.
 #ifdef HAVE_FFTW
   SUBROUTINE CalcPotential(this,Mesh,Physics,time,pvar)
     USE physics_eulerisotherm_mod, ONLY : statevector_eulerisotherm

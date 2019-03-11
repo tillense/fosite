@@ -249,7 +249,7 @@ CONTAINS
   !> \public Print information on standard output.
   !!
   !! Print the string given in `msg` preceded by the
-  !! character previously set by \link SetPrefix \endlink . If the optional
+  !! character previously set by \ref setprefix . If the optional
   !! parameter `tostderr` is .TRUE. the information is printed to STDERR instead
   !! of STDOUT.
   !!

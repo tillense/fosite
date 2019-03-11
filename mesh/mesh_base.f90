@@ -3,7 +3,7 @@
 !# fosite - 3D hydrodynamical simulation program                             #
 !# module: mesh_generic.f90                                                  #
 !#                                                                           #
-!# Copyright (C) 2006-2012                                                   #
+!# Copyright (C) 2006-2019                                                   #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
 !#                                                                           #
 !# This program is free software; you can redistribute it and/or modify      #
@@ -22,12 +22,16 @@
 !# Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.                 #
 !#                                                                           #
 !#############################################################################
+!> \defgroup mesh Mesh
+!! \{
+!! \brief Family of mesh modules
+!! \}
+!----------------------------------------------------------------------------!
 !> \addtogroup mesh
 !! - general parameters of mesh group as key-values
 !! \key{type,INTEGER,spatial integration method
-!!      (see \link mesh_generic \endlink for currently supported mesh types)}
 !! \key{geometry,INTEGER,geometry of the mesh
-!!      (see \link geometry_generic \endlink for currently supported geometries)}
+!!      (see \ref geometry_base_mod for currently supported geometries)}
 !! \key{inum,INTEGER,x-resolution}
 !! \key{jnum,INTEGER,y-resolution}
 !! \key{xmin,REAL,minimum of x-coordinates}
@@ -54,7 +58,7 @@
 !----------------------------------------------------------------------------!
 !> \author Tobias Illenseer
 !!
-!! \brief base mesh module
+!! \brief basic mesh module
 !!
 !! \ingroup mesh
 !----------------------------------------------------------------------------!

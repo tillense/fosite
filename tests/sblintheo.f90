@@ -49,9 +49,9 @@
 !! with gravity until the first maximum in the amplitude is reached.
 !!
 !! Test for the following modules:
-!!    1. shearing boundaries (\link boundary_shearing \endlink)
-!!    2. fictious forces (\link sources_shearbox \endlink)
-!!    3. selfgravity (\link gravity_sboxspectral \endlink)
+!!    1. shearing boundaries (\ref boundary_shearing_mod )
+!!    2. fictious forces (\ref sources_shearbox_mod )
+!!    3. selfgravity (\ref gravity_sboxspectral_mod )
 !!
 !! Within the linear theory test the evolution of a shearing wave
 !! \f[

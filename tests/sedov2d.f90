@@ -29,7 +29,7 @@
 !!
 !! References:
 !! \cite sedov1945
-!! \cite sedoc1959
+!! \cite sedov1959
 !! \cite padmanabhan2000
 !----------------------------------------------------------------------------!
 PROGRAM sedov2d

@@ -24,7 +24,7 @@
 !#                                                                           #
 !#############################################################################
 !> \addtogroup sources
-!! - parameters of \link sources_viscosity \endlink as key-values
+!! - parameters of \link sources_viscosity_mod sources_viscosity \endlink as key-values
 !! \key{vismodel,INTEGER,viscosity model}
 !! \key{dynconst,REAL,dynamic viscosity constant,0.1}
 !! \key{bulkconst,REAL,bulk viscosity constant,-2/3*dynconst}

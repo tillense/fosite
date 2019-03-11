@@ -33,10 +33,10 @@
 !> \addtogroup physics
 !! - general physics settings
 !! \key{problem,INTEGER,advection problem
-!!      (see \link physics_generic \endlink for a list of currently supported
+!!      (see \link physics_base_mod physics_base \endlink for a list of currently supported
 !!       advection problems)}
 !! \key{units,INTEGER,unit system
-!!      (see \link constants_generic \endlink for a list of currently supported
+!!      (see \link constants_base_mod constants_base \endlink for a list of currently supported
 !!       unit systems)}
 !! \key{mu,REAL,mean molecular weight (default is for air
 !!      at normal conditions),0.029}

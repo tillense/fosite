@@ -54,7 +54,7 @@ PROGRAM pringle_test
   IMPLICIT NONE
   !--------------------------------------------------------------------------!
   ! simulation parameters
-  REAL, PARAMETER    :: TSIM    = 2.0E-2     ! simulation time [TVIS] see below
+  REAL, PARAMETER    :: TSIM    = 5.0E-3     ! simulation time [TVIS] see below
                                              ! should be < 1 ~ viscous time scale
   ! these are the basic parameters; for stable solutions one requires
   ! MA >> 1 and RE > MA
@@ -85,7 +85,7 @@ PROGRAM pringle_test
   INTEGER, PARAMETER :: MGEO = SPHERICAL !!! ATTENTION: not applicable in 1D
   INTEGER, PARAMETER :: XRES = 200        ! x-resolution
   INTEGER, PARAMETER :: YRES = 16           ! y-resolution
-  INTEGER, PARAMETER :: ZRES = 1           ! z-resolution
+  INTEGER, PARAMETER :: ZRES = 6           ! z-resolution
   REAL, PARAMETER    :: RMIN = 0.1        ! min radius of comp. domain
   REAL, PARAMETER    :: RMAX = 2.0         ! max radius of comp. domain
   REAL, PARAMETER    :: GPAR = 1.0         ! geometry scaling parameter

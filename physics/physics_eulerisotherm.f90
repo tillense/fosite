@@ -2034,9 +2034,9 @@ CONTAINS
 
   !> \public Constructor of statevector_eulerisotherm
   !!
-  !! \attention This is not a class member itself, instead its an ordinary
-  !!            module procedure. The function name is overloaded with
-  !!            the class name.
+  !! This is not a class member itself, instead its an ordinary
+  !! module procedure. The function name is overloaded with
+  !! the class name.
   FUNCTION CreateStateVector(Physics,flavour,num) RESULT(new_sv)
     IMPLICIT NONE
     !-------------------------------------------------------------------!

@@ -35,7 +35,7 @@
 !! 2D simulation of a geometrically thin, self-gravitating accretion disk
 !! around a supermassive black hole in polar geometry with logarithmic
 !! radial spacing. The standard setup solves the non-isothermal inviscid
-!! Euler equations with thin-disk gray cooling (see \link sources_diskcooling \endlink ).
+!! Euler equations with thin-disk gray cooling (see \ref sources_diskcooling_mod.lambda_gray ).
 !! Gravitational forces account for the central point mass as well as self-gravity
 !! of the disk.
 !!

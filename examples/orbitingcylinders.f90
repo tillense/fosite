@@ -42,7 +42,7 @@
 !! \section static_spectral_test Density-Potential Pairs
 !!
 !! This part compares the solution of the potential by the gravitational
-!! \link gravity_spectral spectral solver \endlink with an existing analytical
+!! \link gravity_spectral_mod spectral solver \endlink with an existing analytical
 !! result. Since the module only calculates the potential within the simulation
 !! area, the potential produced by the boundaries need to be neglectable.
 !! However, the potential from outside the potential can calculated with

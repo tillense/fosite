@@ -3,7 +3,7 @@
 !# fosite - 3D hydrodynamical simulation program                             #
 !# module: riemann2d.f90                                                     #
 !#                                                                           #
-!# Copyright (C) 2006-2012                                                   #
+!# Copyright (C) 2006-2019                                                   #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
 !#                                                                           #
 !# This program is free software; you can redistribute it and/or modify      #
@@ -83,14 +83,14 @@
 !! </div> <div class="col-md-4">
 !! <div class="row"> <div class="col-md-6" align="center">
 !!   \image html http://www.astrophysik.uni-kiel.de/fosite/riemann2d_03_thumb.png ""
-!!   \ref conf90 "Configuration No. 3"
+!!   \ref conf03 "Configuration No. 3"
 !!   \image html http://www.astrophysik.uni-kiel.de/fosite/riemann2d_07_thumb.png ""
 !!   \ref conf07 "Configuration No. 7"
 !! </div> <div class="col-md-6" align="center">
 !!   \image html http://www.astrophysik.uni-kiel.de/fosite/riemann2d_04_thumb.png ""
 !!   \ref conf04 "Configuration No. 4"
 !!   \image html http://www.astrophysik.uni-kiel.de/fosite/riemann2d_08_thumb.png ""
-!!   \ref conf90 "Configuration No. 8"
+!!   \ref conf08 "Configuration No. 8"
 !! </div> </div>
 !! </div> </div>
 !!
@@ -165,7 +165,7 @@
 !! </div> </div>
 !!
 !! <div class="row"> <div class="col-md-6">
-!! #### Configuration No. 3 \anchor conf90
+!! #### Configuration No. 3 \anchor conf03
 !!
 !! The initial condition yields four shocks along the
 !! interfaces of the four quadrants.
@@ -250,7 +250,7 @@
 !! </div> </div>
 !!
 !! <div class="row"> <div class="col-md-6">
-!! #### Configuration No. 8 \anchor conf90
+!! #### Configuration No. 8 \anchor conf08
 !!
 !! The initial condition ontains two rarefactions at the upper and the
 !! right interfaces and two contacts at the lower and left interfaces.

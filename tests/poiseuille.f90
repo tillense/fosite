@@ -3,7 +3,7 @@
 !# fosite - 3D hydrodynamical simulation program                             #
 !# module: poiseuille.f90                                                    #
 !#                                                                           #
-!# Copyright (C) 2006-2014                                                   #
+!# Copyright (C) 2006-2019                                                   #
 !# Bjoern Sperling  <sperling@astrophysik.uni-kiel.de>                       #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
 !#                                                                           #
@@ -23,11 +23,12 @@
 !# Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.                 #
 !#                                                                           #
 !#############################################################################
-
-!----------------------------------------------------------------------------!
-!> Program and data initialization for a test of Hagen-Poiseuille equ. in a tube
+!> \test Poisseuille flow through a pipe
+!! \author Bjoern Sperling
+!! \author Tobias Illenseer
 !!
-!! \example poiseuille.f90
+!! \brief Program and data initialization for testing the law of Hagen-Poiseuille
+!!
 !----------------------------------------------------------------------------!
 PROGRAM poiseuille
   USE fosite_mod

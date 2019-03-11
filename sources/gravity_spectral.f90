@@ -23,7 +23,8 @@
 !# Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.                 #
 !#                                                                           #
 !#############################################################################
-!! - parameters of \link gravity_spectral \endlink as key-values
+!> \addtogroup gravity
+!! - parameters of \link gravity_spectral_mod gravity_spectral \endlink as key-values
 !! \key{green,INTEGER, type of Green-function,1}
 !! \key{sigma,REAL,standard deviation,0.05}
 !! \key{output/potential,INTEGER,enable(=1) output of grav. potential}
@@ -37,6 +38,9 @@
 !! It is a native 2D solver and works only in flat, polar geometries. This is why
 !! it should be paid attention to the dimension of the arrays. They where only
 !! allocated in 3D if necessary.
+!!
+!! \extends gravity_base
+!! \ingroup gravity
 !----------------------------------------------------------------------------!
 MODULE gravity_spectral_mod
   USE gravity_base_mod

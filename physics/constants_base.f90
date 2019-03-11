@@ -22,9 +22,13 @@
 !# Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.                 #
 !#                                                                           #
 !#############################################################################
+!> \defgroup constants Constants
+!! \{
+!! \brief Module class for system of units and natural constants
+!! \}
+!----------------------------------------------------------------------------!
 !> \addtogroup constants
 !! \key{units,INTEGER,physical unit system}
-
 !----------------------------------------------------------------------------!
 !> \author Tobias Illenseer
 !!

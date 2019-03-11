@@ -25,7 +25,7 @@
 !#############################################################################
 !----------------------------------------------------------------------------!
 !> \addtogroup sources
-!! - parameters of \link sources_shearing \endlink as key-values
+!! - parameters of \link sources_rotframe_mod sources_rotframe \endlink as key-values
 !!  \key{gparam,REAL,geometry parameter (needed for bianglspherical
 !!       geometry - corresponds to the radius)}
 !----------------------------------------------------------------------------!

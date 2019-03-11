@@ -22,9 +22,12 @@
 !# Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.                 #
 !#                                                                           #
 !#############################################################################
-!> \addtogroup marray
-!!
-!! \author Tobias Illenseer
+!> \defgroup marray Marray
+!! \{
+!! \brief Module class for mesh arrays
+!! \}
+!----------------------------------------------------------------------------!
+!> \author Tobias Illenseer
 !!
 !! \brief base class for mesh arrays
 !!

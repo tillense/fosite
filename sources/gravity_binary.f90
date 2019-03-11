@@ -26,7 +26,7 @@
 !#                                                                           #
 !#############################################################################
 !> \addtogroup gravity
-!! - parameters of \link gravity_binary \endlink as key-values
+!! - parameters of \link gravity_binary_mod gravity_binary \endlink as key-values
 !! \key{mass1,REAL,mass of primary component,1.0}
 !! \key{mass2,REAL,mass of secondary component,1.0}
 !! \key{excentricity,REAL,excentricity,0.0}
@@ -384,7 +384,7 @@ CONTAINS
   !! to calculate the eccentric anomaly \f$ E \f$.
   !! \f$ \epsilon \f$ is the eccentricity of the orbit which is given as an
   !! input parameter of the binary.
-  !! We can solve the equation using the function \link roots::getroot_regulafalsi \endlink.
+  !! We can solve the equation using the function \ref roots.getroot_regulafalsi .
   !! To do this, we have to know an Intervall that includes the correct solution
   !! for \f$ E \f$. This should be as small as possible to speed up the calculation.
   !! Looking at the Kepler equation we can see, that if \f$ \tau\f$ is in

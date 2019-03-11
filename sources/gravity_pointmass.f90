@@ -25,11 +25,12 @@
 !#                                                                           #
 !#############################################################################
 !> \addtogroup gravity
-!! - parameters of \link gravity_pointmass \endlink as key-values
+!! - parameters of \link gravity_pointmass_mod gravity_pointmass \endlink as key-values
 !! \key{potential,INTEGER,type of the potential}
 !! \key{mass,REAL,mass of the point mass, 1.0}
 !! \key{x,REAL,cartesian x-position of the point mass,0.0}
 !! \key{y,REAL,cartesian y-position of the point mass,0.0}
+!! \key{z,REAL,cartesian z-position of the point mass,0.0}
 !! \key{softening,REAL,Softening (e.g. for planets inside the computational domain),0.0}
 !! \key{switchon,REAL,soft switch on,-1.0}
 !! \key{acclimit,REAL,max accretion rate / mass [1/unit time] (if negative => disabled),-1.0}
@@ -41,7 +42,7 @@
 !! \brief source terms module for gravitational acceleration due to a point
 !! mass at the center of the coordinate system
 !!
-!! \extends gravity_common
+!! \extends gravity_base
 !! \ingroup gravity
 !----------------------------------------------------------------------------!
 MODULE gravity_pointmass_mod
@@ -411,7 +412,7 @@ CONTAINS
 
   !> \public computes pressure scale height of a geometrically thin Keplerian disk
   !!
-  !! (see \link getdiskheight_pointmass \endlink )
+  !! (see \ref getdiskheight )
   PURE SUBROUTINE CalcDiskHeight_single(this,Mesh,Physics,pvar,bccsound,h_ext,height)
     IMPLICIT NONE
     !------------------------------------------------------------------------!

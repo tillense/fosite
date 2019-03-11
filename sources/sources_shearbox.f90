@@ -25,6 +25,7 @@
 !#############################################################################
 !----------------------------------------------------------------------------!
 !> \addtogroup sources
+!! - parameters of \link sources_shearbox_mod sources_shearbox \endlink as key-values
 !!
 !! \brief source term module for shearing forces in a shearingsheet
 !!

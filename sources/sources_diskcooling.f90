@@ -25,7 +25,7 @@
 !#############################################################################
 !----------------------------------------------------------------------------!
 !> \addtogroup sources
-!! - parameters of \link sources_diskcooling \endlink as key-values
+!! - parameters of \link sources_diskcooling_mod sources_diskcooling\endlink as key-values
 !! \key{method,INTEGER,cooling model (GRAY or GAMMIE)}
 !! \key{cvis,REAL,safety factor for numerical stability, 0.1}
 !! \key{Tmin,REAL,set a minimum temperature, 1.0E-30}

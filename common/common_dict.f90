@@ -37,9 +37,9 @@
 !!  7. Pointer to 3D Real array
 !!  8. Pointer to 4D Real array
 !!  9. 1D Integer array
-!! 10. Pointer to Real
-!! 11. Pointer to Integer
-!! 12. Pointer to 5D Real array
+!!  10. Pointer to Real
+!!  11. Pointer to Integer
+!!  12. Pointer to 5D Real array
 !!
 !! The dictionary is implemented as Trie(1) with comprepressed keys, which is
 !! called radix tree(2). Each node can hold data with a defined type, which
@@ -48,11 +48,12 @@
 !! severall children. 'child' points to the first child and other can be
 !! found by iterating to the 'next' one.
 !!
-!! (1): http://en.wikipedia.org/wiki/Trie
-!! (2): http://en.wikipedia.org/wiki/Radix_tree
-!! (3): http://fortranwiki.org/fortran/show/transfer
-!! (4): \cite blevins2009
-!! (5): http://fortranwiki.org/fortran/show/gen_list
+!! ### References
+!! - http://en.wikipedia.org/wiki/Trie
+!! - http://en.wikipedia.org/wiki/Radix_tree
+!! - http://fortranwiki.org/fortran/show/transfer
+!! - Jason R. Blevins. A generic linked list implementation in fortran 95. \cite blevins2009
+!! - http://fortranwiki.org/fortran/show/gen_list
 !!
 !! \extends common_types
 !! \ingroup dict
