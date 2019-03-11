@@ -149,17 +149,17 @@ CONTAINS
 
 #ifdef PARALLEL
     IF(Mesh%INUM.EQ.Mesh%IMAX) THEN
-      this%INUM = Mesh%IMAX-Mesh%IMIN+2
+      this%INUM = Mesh%IMAX-Mesh%IMIN+1+Mesh%IP1
     ELSE
       this%INUM = Mesh%IMAX-Mesh%IMIN+1
     END IF
     IF(Mesh%JNUM.EQ.Mesh%JMAX) THEN
-      this%JNUM = Mesh%JMAX-Mesh%JMIN+2
+      this%JNUM = Mesh%JMAX-Mesh%JMIN+1+Mesh%JP1
     ELSE
       this%JNUM = Mesh%JMAX-Mesh%JMIN+1
     END IF
     IF(Mesh%KNUM.EQ.Mesh%KMAX) THEN
-      this%KNUM = Mesh%KMAX-Mesh%KMIN+2
+      this%KNUM = Mesh%KMAX-Mesh%KMIN+1+Mesh%KP1
     ELSE
       this%KNUM = Mesh%KMAX-Mesh%KMIN+1
     END IF
