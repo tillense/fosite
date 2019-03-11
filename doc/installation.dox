@@ -1,12 +1,12 @@
 /*! \page installation Configuration & Installation
 
 ## Dependencies & Prerequisities:
-- **Needed**: Fosite makes full usage of the Fortran 2003 standard. Please ensure that your
-  fortran compiler has this capability. Have a look at the compiler status
+- **Needed**: Fosite relies heavily on the Fortran 2003 standard and uses some features from the 2008 standard.
+Thus if you run into any problems compiling fosite you should first ensure that your Fortran compiler has the
+required capabilities. Have a look at the compiler status
   <a href="http://fortranwiki.org/fortran/show/Fortran+2003+status" target="_blank">Fortran-Wiki</a>
-  in order to get an overview. We encourage you to use the most recent compilers in order to benefit from vectorization features
-  on new architectures. The following compilers were tested and should work:
-    - gfortran (>=6.4): GNU fortran compiler
+  in order to get an overview. We encourage you to use the most recent compilers in order to benefit from vectorization features on new architectures. The following compilers were tested and should work:
+    - gfortran (>=6.2): GNU fortran compiler
     - ifort (>=16.0.4): Intel fortran compiler
     - nfort (>=1.6.0): NEC compiler for SX-Tsubasa system
 - **Needed**: <a href="https://cmake.org/" target='_blank'> cmake </a> (>=2.8.10) - Necessary to configure fosite.
@@ -21,34 +21,48 @@
   want to build the html documentation on your own. During the build *bash*, *sed* and *awk* are also used.
 
 ## Compiling the Serial Version
-To customize the build process enter the directory with the source code
-and run
+To prepare the code for compilation, you can either run
 
     cmake
 
-In order to get information about available options type
+from within the root of the source tree or create a new build directory somewhere
+else and run cmake from this new directory
 
-    cmake -L
+    cmake <path_to_fosite>
 
-Setting up an alternative compiler in a different folder (here a build-
-folder within the source) is possible with
+where <tt>\<path_to_fosite\></tt> contains the path to the fosite source code. We strongly
+recommend this so-called out of place build.
+In order to get information about additional options for setting up the code type
 
-    FC=gfortran cmake ..
+    cmake -L <path_to_fosite>
 
-Compilation is done by
+If you want to use a particular Fortran compiler, e. g., the Intel Fortran compiler <tt>ifort</tt>,
+which is not the default on your system, run
+
+    FC=ifort cmake <path_to_fosite>
+
+If the configuration succeeded run
 
     make
+
+from within the build folder to compile fosite. If the build finishes without errors you
+find some binary files in the subfolders <tt>\<builddir\>/tests</tt> and
+<tt>\<builddir\>/examples</tt>. If you type
+
+    ctest
+
+all test simulations from the <tt>\<builddir\>/tests</tt> subfolder are run.
 
 ## Compiling the Parallel Version
 In order to build the parallel version type
 
-    cmake -DPARALLEL=ON
+    cmake -DPARALLEL=ON <path_to_fosite>
 
-Compilation is done by
+from within the build folder. Again compilation is done typing
 
     make
 
-Finally run
+To run a simulation in parallel type
 
     mpirun -n X programname
 
@@ -60,7 +74,7 @@ X1*X2*X3 should be equal to X.
 ## Compile on NEC-SX Aurora
 On NEC-SX Aurora vector machines there is a toolchain provided. Run
 
-    cmake -DCMAKE_TOOLCHAIN_FILE=../Toolchain-SX-Aurora.cmake ..
+    cmake -DCMAKE_TOOLCHAIN_FILE=../Toolchain-SX-Aurora.cmake <path_to_fosite>
 
 (from a build folder).
 
@@ -69,7 +83,7 @@ Also run cmake and make sure doxygen was found. Afterwards run
 
     make doc
 
-in the build directory. The documentation lies now in *<build>/doc/html*.
+in the build directory. The documentation can then be found under <tt>\<builddir\>/doc/html</tt>.
 
 ## Problems During Installation
 
