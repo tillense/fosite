@@ -25,14 +25,26 @@
 !#############################################################################
 
 !----------------------------------------------------------------------------!
-!> \test Jim Pringles famous viscous spreading ring solution
+!> Jim Pringles famous viscous spreading ring solution in 3D
+!!
 !! \author Björn Sperling
 !! \author Tobias Illenseer
+!!
+!! \example pringle3d.f90
 !!
 !! This variant simulates the ring with vertical extent with and without
 !! rotational symmetry.
 !! The equations are solved in non-dimensional units, using the Keplerian
 !! velocity at the location of the initial ring at R=1 as the velocity scale.
+!!
+!! \remark (1) This test is very sensitive to mesh settings. If there are
+!!         not enough mesh points at small radii instabilities grow
+!!         starting at the inner boundary.
+!! \remark (2) There is an unsolved stability issue with the viscous
+!!         source term. The stability condition doesn't seem to be
+!!         sufficient. Thus in case of high Reynolds numbers one has
+!!         to adjust the viscous CFL number cvis to enforce smaller time
+!!         steps and preserve stability.
 !!
 !! References:
 !!  - \cite lynden1974 Lynden-Bell, D. & Pringle, J. E. Evolution of Viscous Disks and Origin
@@ -45,12 +57,10 @@
 !!      Astron. Astrophys. vol. 399 (2003), pp. 395-407
 !!      DOI: 10.1051/0004-6361:20021783
 !!
-!! \warning compile with autodouble
 !----------------------------------------------------------------------------!
-PROGRAM pringle_test
+PROGRAM pringle3d
   USE fosite_mod
   USE common_dict
-#include "tap.h"
   IMPLICIT NONE
   !--------------------------------------------------------------------------!
   ! simulation parameters
@@ -70,16 +80,6 @@ PROGRAM pringle_test
   REAL, PARAMETER    :: TVIS    = 4./3.*RE   ! viscous time scale
   REAL, PARAMETER    :: TINIT   = 1.0E-3     ! time for initial condition [TVIS]
   ! mesh settings
-  !**************************************************************************!
-  !> \remark #1: This test is very sensitive to mesh settings. If there are
-  !!         not enough mesh points at small radii instabilities grow
-  !!         starting at the inner boundary.
-  !! \remark #2: There is an unsolved stability issue with the viscous
-  !!         source term. The stability condition doesn't seem to be
-  !!         sufficient. Thus in case of high Reynolds numbers one has
-  !!         to adjust the viscous CFL number cvis to enforce smaller time
-  !!         steps and preserve stability.
-  !**************************************************************************!
 !   INTEGER, PARAMETER :: MGEO = CYLINDRICAL
 !   INTEGER, PARAMETER :: MGEO = LOGCYLINDRICAL
   INTEGER, PARAMETER :: MGEO = SPHERICAL !!! ATTENTION: not applicable in 1D
@@ -481,4 +481,4 @@ CONTAINS
   END FUNCTION modified_bessel_Inu
 #endif
 
-END PROGRAM pringle_test
+END PROGRAM pringle3d
