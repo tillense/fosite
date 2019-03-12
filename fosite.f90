@@ -186,6 +186,10 @@ CONTAINS
       NULLIFY(IOdir)
       CALL new_mesh(this%Mesh, dir, IOdir)
       IF(ASSOCIATED(IOdir)) CALL SetAttr(this%IO, "mesh", IOdir)
+      IF (this%Mesh%shear_dir.GT.0) THEN
+        ! add shearing box source term to the config
+        CALL SetAttr(this%config,"sources/shearing/stype",SHEARBOX)
+      END IF
     END IF
 
     CALL GetAttr(this%config, "physics", dir)

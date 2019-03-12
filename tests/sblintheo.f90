@@ -137,8 +137,7 @@ CONTAINS
     TYPE(Dict_TYP), POINTER :: config
     !--------------------------------------------------------------------------!
     TYPE(Dict_TYP), POINTER :: mesh,physics,fluxes,&
-                               grav,sources,timedisc,shearingbox,&
-                               datafile
+                               grav,sources,timedisc,datafile
     REAL                    :: XMIN,XMAX,YMIN,YMAX,ZMIN,ZMAX
     !--------------------------------------------------------------------------!
     DOMAINX    = DOMAINX*GN*SIGMA0/(OMEGA*OMEGA)
@@ -161,7 +160,7 @@ CONTAINS
     mesh =>     Dict(&
                 "meshtype"    / MIDPOINT, &
                 "geometry"    / MGEO, &
-                "shear_dir"   / SHEARSHEET_DIRECTION, &
+                "shearingbox" / SHEARSHEET_DIRECTION, &
                 "inum"        / XRES, &
                 "jnum"        / YRES, &
                 "knum"        / ZRES, &
@@ -177,7 +176,7 @@ CONTAINS
                 "output/volume"   / 0, &
                 "output/bh"   / 0, &
                 "output/dl"   / 0,  &
-                "Q"           / Q &
+                "Qshear"      / Q &
                 )
 
     ! fluxes settings
@@ -198,14 +197,8 @@ CONTAINS
                 "self/output/accel_y" / 0 &
                 )
 
-    ! shearing box fictious forces
-    shearingbox => Dict(&
-                "stype"           / SHEARBOX &
-                )
-
-    ! sources settings (contains source terms)
+    ! add gravitational sources
     sources =>  Dict(&
-                "shearing"    / shearingbox, &
                 "grav"        / grav &
                 )
 

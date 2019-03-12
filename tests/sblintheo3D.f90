@@ -138,8 +138,7 @@ CONTAINS
     TYPE(Dict_TYP), POINTER :: config
     !--------------------------------------------------------------------------!
     TYPE(Dict_TYP), POINTER :: mesh,physics,fluxes,&
-                               grav,sources,timedisc,shearingbox,&
-                               datafile
+                               grav,sources,timedisc,datafile
     REAL                    :: XMIN,XMAX,YMIN,YMAX,ZMIN,ZMAX
     !--------------------------------------------------------------------------!
     DOMAINX    = DOMAINX*GN*SIGMA0/(OMEGA*OMEGA)
@@ -164,7 +163,7 @@ CONTAINS
     mesh =>     Dict(&
                 "meshtype"    / MIDPOINT, &
                 "geometry"    / MGEO, &
-                "shear_dir"   / SHEARSHEET_DIRECTION, &
+                "shearingbox" / SHEARSHEET_DIRECTION, &
                 "inum"        / XRES, &
                 "jnum"        / YRES, &
                 "knum"        / ZRES, &
@@ -180,7 +179,7 @@ CONTAINS
                 "output/volume"   / 0, &
                 "output/bh"   / 0, &
                 "output/dl"   / 0,  &
-                "Q"           / Q &
+                "Qsher"       / Q &
                 )
 
     ! fluxes settings
@@ -201,15 +200,9 @@ CONTAINS
                 "self/output/accel_y" / 0 &
                 )
 
-    ! shearing box fictious forces
-    shearingbox => Dict(&
-                "stype"           / SHEARBOX &
-                )
-
     ! sources settings (contains source terms)
     sources =>  Dict(&
-!                "grav"        / grav, &
-                "shearing"    / shearingbox &
+               "grav"        / grav &
                 )
 
     ! time discretization settings
@@ -232,7 +225,7 @@ CONTAINS
                   "mesh"        / mesh, &
                   "physics"     / physics, &
                   "fluxes"      / fluxes, &
-                  "sources"     / sources, &
+!                   "sources"     / sources, &
                   "timedisc"    / timedisc, &
                   "datafile"    / datafile &
                   )

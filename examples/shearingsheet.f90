@@ -150,7 +150,7 @@ CONTAINS
     !--------------------------------------------------------------------------!
     ! local variable declaration
     TYPE(Dict_TYP), POINTER :: mesh,physics,fluxes,grav,cooling, &
-                               shearingbox,sources,timedisc,datafile
+                               sources,timedisc,datafile
     REAL :: XMIN,XMAX,YMIN,YMAX,ZMIN,ZMAX, SOUNDSPEED
     !--------------------------------------------------------------------------!
     DOMAINX    = DOMAINX*GN*SIGMA0/(OMEGA*OMEGA)
@@ -175,7 +175,7 @@ CONTAINS
                 "meshtype"    / MIDPOINT, &
                 "geometry"    / MGEO, &
                 "omega"       / OMEGA, &
-                "shear_dir"   / SHEAR_DIRECTION, &
+                "shearingbox" / SHEAR_DIRECTION, &
                 "decomposition" / (/ 1, -1, 1/), &
                 "inum"        / XRES, &
                 "jnum"        / YRES, &
@@ -186,7 +186,7 @@ CONTAINS
                 "ymax"        / YMAX, &
                 "zmin"        / ZMIN, &
                 "zmax"        / ZMAX, &
-                "Q"           / Q &
+                "Qshear"      / Q &
                 )
 
     ! fluxes settings
@@ -215,15 +215,9 @@ CONTAINS
                 "b_cool"       / BETA_C &
                 )
 
-    ! shearing box fictious forces
-    shearingbox => Dict(&
-                "stype"        / SHEARBOX &
-                )
-
     ! sources settings (contains source terms)
     sources =>  Dict(&
                 "cooling"     / cooling, &
-                "shearing"    / shearingbox, &
                 "grav"        / grav &
                 )
 

@@ -29,9 +29,11 @@
 !----------------------------------------------------------------------------!
 !> \addtogroup mesh
 !! - general parameters of mesh group as key-values
-!! \key{type,INTEGER,spatial integration method
+!! \key{type,INTEGER,spatial integration method}
 !! \key{geometry,INTEGER,geometry of the mesh
 !!      (see \ref geometry_base_mod for currently supported geometries)}
+!! \key{shearingbox,INTEGER,enable/disable shearing box with shear along x-/y-coordinate
+!!      \{1\,2\}\, 0 disables the shearing box,0}
 !! \key{inum,INTEGER,x-resolution}
 !! \key{jnum,INTEGER,y-resolution}
 !! \key{xmin,REAL,minimum of x-coordinates}
@@ -42,7 +44,9 @@
 !! \key{gparam2,REAL,2nd geometry parameter}
 !! \key{gparam3,REAL,3rd geometry parameter}
 !! \key{omega,REAL,angular speed of rotating frame of reference,0.0}
-!! \key{rotcent,REAL,cartesian (x\,y)-coordiantes for center of rotation,(0\,0)
+!! \key{Qshear,REAL,power law exponent of the rotation law \f$ Q=-\frac{d\ln\Omega}{d\ln r}\f$
+!!      in the shearing box,1.5}
+!! \key{rotcent,REAL,cartesian (x\,y)-coordiantes for center of rotation,(0\,0)}
 !! - enable/disable output of certain mesh arrays
 !! \key{output/bary,INTEGER,cell bary center in cartesian coordinates,1}
 !! \key{output/bary_curv,INTEGER,cell bary center in curvilinear coordinates,1}
@@ -294,7 +298,7 @@ CONTAINS
     CHARACTER(LEN=32)       :: mname
     !------------------------------------------------------------------------!
     CHARACTER(LEN=32)       :: xres,yres,zres,somega
-    INTEGER                 :: meshtype,use_fargo,fargo
+    INTEGER                 :: use_fargo,fargo
     INTEGER                 :: i,j,k
     REAL                    :: mesh_dx,mesh_dy,mesh_dz
 #ifdef PARALLEL
@@ -309,6 +313,13 @@ CONTAINS
 
     CALL new_geometry(this%geometry, config)
 
+    ! check whether shearing box simulation is enabled and along which
+    ! coordinate direction the shear should be applied
+    ! default: disable shearing box
+    CALL GetAttr(config,"shearingbox",this%shear_dir,0)
+    IF (this%shear_dir.LT.0.OR.this%shear_dir.GT.2) &
+      CALL this%Error("mesh_base::InitMesh","direction of the shear should be one of {1,2} or 0")
+
     ! Here the angular velocity and the center of rotation are defined, if
     ! the mesh is in a rotating frame of reference. The fictious forces must
     ! be added through one of the following methods:
@@ -316,13 +327,13 @@ CONTAINS
     ! 2. special physics module with angular momentum transport *IAMT, *IAMROT
     ! 3. special rhstype with angular momentum conservation
     ! Only the IAMROT physics module and rotframe source module allow
-    ! for a different center of rotation than (/0, 0/)
+    ! for a different center of rotation than (/0, 0, 0/)
 
     ! angular velocity of the rotating reference frame
     CALL GetAttr(config, "omega", this%omega, 0.0)
 
-    ! shearing force in shearingsheet
-    CALL GetAttr(config, "Q", this%Q, 1.5)
+    ! shearing force in shearingsheet (default: Keplerian rotation)
+    CALL GetAttr(config, "Qshear", this%Q, 1.5)
 
     ! center of rotation
     this%rotcent = (/ 0., 0., 0./)
@@ -401,6 +412,8 @@ CONTAINS
     this%NDIMS = 3 ! assume 3D simulation
     this%VECTOR_COMPONENTS = B'111' ! enable all vector components
     IF (this%INUM.EQ.1) THEN
+      IF (this%shear_dir.EQ.1) &
+        CALL this%Error("mesh_base:Initmesh","shearing box enabled with direction 1, but INUM set to 1")
       this%NDIMS = this%NDIMS-1
       IF (this%ROTSYM.NE.1) this%VECTOR_COMPONENTS = IEOR(this%VECTOR_COMPONENTS,VECTOR_X)
       this%GINUM = 0
@@ -410,6 +423,8 @@ CONTAINS
       this%im2 = 0
     END IF
     IF (this%JNUM.EQ.1) THEN
+      IF (this%shear_dir.EQ.2) &
+        CALL this%Error("mesh_base:Initmesh","shearing box enabled with direction 2, but JNUM set to 1")
       this%NDIMS = this%NDIMS-1
       IF (this%ROTSYM.NE.2) this%VECTOR_COMPONENTS = IEOR(this%VECTOR_COMPONENTS,VECTOR_Y)
       this%GJNUM = 0
@@ -419,6 +434,8 @@ CONTAINS
       this%jm2 = 0
     END IF
     IF (this%KNUM.EQ.1) THEN
+      IF (this%shear_dir.EQ.3) &
+        CALL this%Error("mesh_base:Initmesh","shearing box enabled with direction 3, but KNUM set to 1")
       this%NDIMS = this%NDIMS-1
       IF (this%ROTSYM.NE.3) this%VECTOR_COMPONENTS = IEOR(this%VECTOR_COMPONENTS,VECTOR_Z)
       this%GKNUM = 0
@@ -625,15 +642,6 @@ CONTAINS
     ! set bary center curvilinear coordinates to geometric centers
     ! will be overwritten later
     this%curv%bcenter = this%curv%center
-
-    ! set bary center curvilinear coordinates to geometric centers
-    ! will be overwritten later
-    CALL GetAttr(config, "meshtype", meshtype)
-
-    ! this%shear_dir sets the shearing direction in the shearinghsheet.
-    ! If this variable is enabled, boundaries and fargo will be set
-    ! automatically.
-    CALL GetAttr(config, "shear_dir", this%shear_dir, 0)
 
     use_fargo = 0
     IF(this%shear_dir.GT.0) use_fargo = 1

@@ -84,8 +84,14 @@ CONTAINS
         CASE(DISK_COOLING)
           ALLOCATE(sources_diskcooling::newsrc)
         CASE(ROTATING_FRAME)
+          tmpsrc => this%GetSourcesPointer(ROTATING_FRAME)
+          IF (ASSOCIATED(tmpsrc)) &
+            CALL this%Error("sources_generic::new_sources","only one rotating frame source term allowed")
           ALLOCATE(sources_rotframe::newsrc)
         CASE(SHEARBOX)
+          tmpsrc => this%GetSourcesPointer(SHEARBOX)
+          IF (ASSOCIATED(tmpsrc)) &
+            CALL this%Error("sources_generic::new_sources","only one shearing box source term allowed")
           ALLOCATE(sources_shearbox::newsrc)
         CASE(VISCOSITY)
           ALLOCATE(sources_viscosity::newsrc)
