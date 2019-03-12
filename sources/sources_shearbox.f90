@@ -144,6 +144,11 @@ CONTAINS
       this%MOMENTUM2 = Physics%XMOMENTUM
     END IF
 
+    ! set vertical gravitational acceleration for 3D shearing
+    ! box simulations using bary center cartesian z-coordinate
+    IF (Mesh%KNUM.GT.1) THEN
+      this%accel%data2d(:,3) = -Mesh%OMEGA**2 * Mesh%cart%data3d(:,2,3)
+    END IF
   END SUBROUTINE InitSources_shearbox
 
   !> \public Write shearbox fictious forces parameters to screen.
@@ -166,7 +171,7 @@ CONTAINS
   !! Computation is done via
   !! \f[
   !!    \mathbf{a} = - 2 \mathbf{\Omega} \times \mathbf{v} + 2 q \Omega^2 x
-  !!                    \mathbf{\hat{e}_x}.
+  !!                    \mathbf{\hat{e}_x} - \Omega^2 z \mathbf{\hat{e}_z}
   !! \f]
   !! See for example \cite gammie2001 or \cite hawley1995 .
   SUBROUTINE ExternalSources_single(this,Mesh,Physics,Fluxes,Sources,time,dt,pvar,cvar,sterm)
@@ -199,10 +204,16 @@ CONTAINS
         *Mesh%OMEGA*2.0*this%SIGN1*pvar%data2d(:,this%VEL1)
       sterm%data2d(:,this%MOMENTUM2) = pvar%data2d(:,Physics%DENSITY) &
         *Mesh%OMEGA*(2.0-Mesh%Q)*this%SIGN2*pvar%data2d(:,this%VEL2)
+      IF (Mesh%KNUM.GT.1) &
+        sterm%data2d(:,Physics%ZMOMENTUM) = pvar%data2d(:,Physics%DENSITY) &
+          *this%accel%data2d(:,3)
       IF (Physics%PRESSURE .GT. 0) THEN
         sterm%data2d(:,Physics%ENERGY) = &
              this%SIGN1*pvar%data2d(:,Physics%DENSITY)*Mesh%Q*Mesh%OMEGA* &
              pvar%data2d(:,this%VEL2)*pvar%data2d(:,this%VEL1)
+        IF (Mesh%KNUM.GT.1) &
+          sterm%data2d(:,Physics%ENERGY) = sterm%data2d(:,Physics%ENERGY) &
+            + cvar%data2d(:,Physics%ZMOMENTUM)*this%accel%data2d(:,3)
       END IF
     CASE DEFAULT
       ! other fargo transport schemes are not supported

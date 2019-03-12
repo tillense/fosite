@@ -82,7 +82,7 @@ PROGRAM sblintheo
   ! simulation parameter
   REAL, PARAMETER    :: OMEGA      = 1.0            ! rotation at fid. point !
   REAL, PARAMETER    :: SIGMA0     = 1.0            ! mean surf.dens.        !
-  REAL, PARAMETER    :: DELSIGMA   = SIGMA0*5.0e-4  ! disturbance            !
+  REAL, PARAMETER    :: DELSIGMA   = SIGMA0*5.0e-2  ! disturbance            !
   REAL, PARAMETER    :: TSIM       = 10.0/OMEGA     ! simulation time        !
   REAL, PARAMETER    :: GAMMA      = 2.0            ! dep. on vert. struct.  !
   REAL, PARAMETER    :: Q          = 1.5            ! shearing parameter     !
@@ -104,7 +104,7 @@ PROGRAM sblintheo
   INTEGER, PARAMETER :: ONUM       = 10
   ! output directory and output name
   CHARACTER(LEN=256), PARAMETER :: ODIR   = "./"
-  CHARACTER(LEN=256), PARAMETER :: OFNAME = "sblintheo"
+  CHARACTER(LEN=256), PARAMETER :: OFNAME = "sblintheo3D"
   !--------------------------------------------------------------------------!
   CLASS(fosite), ALLOCATABLE :: Sim
   !--------------------------------------------------------------------------!
@@ -137,7 +137,7 @@ CONTAINS
     CLASS(fosite)           :: Sim
     TYPE(Dict_TYP), POINTER :: config
     !--------------------------------------------------------------------------!
-    TYPE(Dict_TYP), POINTER :: mesh,physics,fluxes,&
+    TYPE(Dict_TYP), POINTER :: mesh,physics,fluxes,boundary,&
                                grav,sources,timedisc,datafile
     REAL                    :: XMIN,XMAX,YMIN,YMAX,ZMIN,ZMAX
     !--------------------------------------------------------------------------!
@@ -154,8 +154,6 @@ CONTAINS
     physics =>  Dict(&
                "problem"     / EULER_ISOTHERM, &
                "cs"          / SOUNDSPEED, &
-!               "problem"     / EULER3D, &
-!               "gamma"       / GAMMA, &
                 "units"       / GEOMETRICAL &
                 )
 
@@ -174,13 +172,20 @@ CONTAINS
                 "zmin"        / ZMIN, &
                 "zmax"        / ZMAX, &
                 "omega"       / OMEGA, &
-                "decomposition"/ (/ 1, -1, 1/), &
+                "decomposition"/ (/ 1, 1, -1/), &
                 "output/rotation" / 0, &
                 "output/volume"   / 0, &
                 "output/bh"   / 0, &
                 "output/dl"   / 0,  &
                 "Qsher"       / Q &
                 )
+
+    ! boundary conditions (x-/y-boundaries are set automatically)
+    boundary => Dict(&
+               "bottomer" / ABSORBING,&
+               "topper"   / ABSORBING)
+!                "bottomer" / NO_GRADIENTS,&
+!                "topper"   / NO_GRADIENTS)
 
     ! fluxes settings
     fluxes =>   Dict(&
@@ -191,6 +196,7 @@ CONTAINS
                 )
 
     ! gravity settings (source term)
+    !!!! ATTENTION: currently not working in 3D !!!!
     grav =>     Dict(&
                 "stype"               / GRAVITY, &
                 "self/gtype"          / SBOXSPECTRAL, &
@@ -225,6 +231,7 @@ CONTAINS
                   "mesh"        / mesh, &
                   "physics"     / physics, &
                   "fluxes"      / fluxes, &
+                  "boundary"    / boundary, &
 !                   "sources"     / sources, &
                   "timedisc"    / timedisc, &
                   "datafile"    / datafile &
@@ -240,52 +247,53 @@ CONTAINS
     CLASS(marray_compound), POINTER, INTENT(INOUT) :: pvar,cvar
     !------------------------------------------------------------------------!
     ! local variable declaration
-    REAL              :: kx, ky, kz
+    REAL              :: kx, ky, kz, h
     !------------------------------------------------------------------------!
 
     !---------------------- linear theory test ------------------------------!
     kx = -2*(2*PI/DOMAINX)
     ky = 2*PI/DOMAINY
     kz = 2*PI/DOMAINZ
+    h  = SOUNDSPEED/Mesh%OMEGA
 
     ! initial condition
     SELECT TYPE(p => pvar)
     TYPE IS(statevector_eulerisotherm)
       IF(Mesh%shear_dir.EQ.2)THEN
-        p%density%data3d(:,:,:) = SIGMA0 &
+        p%density%data3d(:,:,:) = (SIGMA0 &
           + DELSIGMA*COS(kx*Mesh%bcenter(:,:,:,1) &
-                       + ky*Mesh%bcenter(:,:,:,2) &
-                       + kz*Mesh%bcenter(:,:,:,3))
+                       + ky*Mesh%bcenter(:,:,:,2)))/(SQRT(2*PI)*h) &
+                    *EXP(-0.5*(Mesh%bcenter(:,:,:,3)/h)**2)
         p%velocity%data2d(:,1) = 0.0
         p%velocity%data4d(:,:,:,2) = -Q*OMEGA*Mesh%bcenter(:,:,:,1)
         p%velocity%data2d(:,3) = 0.0
       ELSE IF(Mesh%shear_dir.EQ.1)THEN
-        p%density%data3d(:,:,:) = SIGMA0 &
+        p%density%data3d(:,:,:) = (SIGMA0 &
           + DELSIGMA*COS(kx*Mesh%bcenter(:,:,:,2) &
-                       - ky*Mesh%bcenter(:,:,:,1) &
-                       + kz*Mesh%bcenter(:,:,:,3))
+                       - ky*Mesh%bcenter(:,:,:,1)))/(SQRT(2*PI)*h) &
+                    *EXP(-0.5*(Mesh%OMEGA/SOUNDSPEED*Mesh%bcenter(:,:,:,3))**2)
         p%velocity%data4d(:,:,:,1) = Q*OMEGA*Mesh%bcenter(:,:,:,2)
         p%velocity%data2d(:,2) = 0.0
         p%velocity%data2d(:,3) = 0.0
       END IF
-    TYPE IS(statevector_euler) ! non-isothermal HD
-      IF(Mesh%shear_dir.EQ.2)THEN
-        p%density%data3d(:,:,:) = SIGMA0 &
-          + DELSIGMA*COS(kx*Mesh%bcenter(:,:,:,1) &
-                       + ky*Mesh%bcenter(:,:,:,2) &
-                       + kz*Mesh%bcenter(:,:,:,3))
-        p%velocity%data2d(:,1) = 0.0
-        p%velocity%data4d(:,:,:,2) = -Q*OMEGA*Mesh%bcenter(:,:,:,1)
-        p%velocity%data2d(:,3) = 0.0
-      ELSE IF(Mesh%shear_dir.EQ.1)THEN
-        p%density%data3d(:,:,:) = SIGMA0 &
-          + DELSIGMA*COS(kx*Mesh%bcenter(:,:,:,2) &
-                       - ky*Mesh%bcenter(:,:,:,1) &
-                       + kz*Mesh%bcenter(:,:,:,3))
-        p%velocity%data4d(:,:,:,1) = Q*OMEGA*Mesh%bcenter(:,:,:,2)
-        p%velocity%data2d(:,2) = 0.0
-        p%velocity%data2d(:,3) = 0.0
-      END IF
+!     TYPE IS(statevector_euler) ! non-isothermal HD
+!       IF(Mesh%shear_dir.EQ.2)THEN
+!         p%density%data3d(:,:,:) = (SIGMA0 &
+!           + DELSIGMA*COS(kx*Mesh%bcenter(:,:,:,1) &
+!                        + ky*Mesh%bcenter(:,:,:,2)))/(SQRT(2*PI)*h) &
+!                     *EXP(-0.5*(Mesh%OMEGA/SOUNDSPEED*Mesh%bcenter(:,:,:,3))**2)
+!         p%velocity%data2d(:,1) = 0.0
+!         p%velocity%data4d(:,:,:,2) = -Q*OMEGA*Mesh%bcenter(:,:,:,1)
+!         p%velocity%data2d(:,3) = 0.0
+!       ELSE IF(Mesh%shear_dir.EQ.1)THEN
+!         p%density%data3d(:,:,:) = (SIGMA0 &
+!           + DELSIGMA*COS(kx*Mesh%bcenter(:,:,:,2) &
+!                        - ky*Mesh%bcenter(:,:,:,1)))/(SQRT(2*PI)*h) &
+!                     *EXP(-0.5*(Mesh%OMEGA/SOUNDSPEED*Mesh%bcenter(:,:,:,3))**2)
+!         p%velocity%data4d(:,:,:,1) = Q*OMEGA*Mesh%bcenter(:,:,:,2)
+!         p%velocity%data2d(:,2) = 0.0
+!         p%velocity%data2d(:,3) = 0.0
+!       END IF
     CLASS DEFAULT
       CALL Physics%Error("shear::InitData","only (non-)isothermal HD supported")
     END SELECT
