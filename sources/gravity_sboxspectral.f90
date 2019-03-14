@@ -195,13 +195,6 @@ MODULE gravity_sboxspectral_mod
          "Physics modules with density necessary for this module.")
     END SELECT
 
-    ! Check even number of cells
-    IF(.NOT.(MOD(Mesh%JMAX-Mesh%JMIN+1,2)==0)) THEN
-      CALL this%Error("InitGravity_sboxspectral", &
-                 "The spectral poisson solver needs an even number of "// &
-                 "cells in the phi direction due to the discrete cosinus "// &
-                 "transform.")
-    END IF
     !------------------------------------------------------------------------!
 
     ! check the dimensions if fftw should be used in parallel in order to
