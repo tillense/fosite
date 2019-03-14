@@ -5,6 +5,7 @@
 !#                                                                           #
 !# Copyright (C) 2015-2019                                                   #
 !# Jannes Klee <jklee@astrophysik.uni-kiel.de>                               #
+!# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
 !#                                                                           #
 !# This program is free software; you can redistribute it and/or modify      #
 !# it under the terms of the GNU General Public License as published by      #
@@ -23,7 +24,11 @@
 !#                                                                           #
 !#############################################################################
 !> \addtogroup gravity
-!! - parameters of \link gravity_sboxspectral_mod gravity_sboxspectral \endlink as key-values
+!! - parameters of \link gravity_sboxspectral_mod gravity_sboxspectral \endlink
+!!   as key-value pairs
+!!  \key{order,INTEGER,order for the approximation of the gradient of the
+!!       potential \f$ \in \\{2\,4\\}\f$ ,2}
+!!  \key{print_plans,INTEGER,enable=1/disable=0 output of FFTW plans,0}
 !!  \key{output/phi,INTEGER,(enable=1) output of gravitational potential}
 !!  \key{output/accel_x,INTEGER,(enable=1) output of accel in x-direction}
 !!  \key{output/accel_y,INTEGER,(enable=1) output of accel in y-direction}
@@ -33,8 +38,9 @@
 !!                              space}
 !----------------------------------------------------------------------------!
 !> \author Jannes Klee
+!! \author Tobias Illenseer
 !!
-!! \brief Poisson solver via spectral methods within the shearingsheet.
+!! \brief Poisson solver via spectral methods within the shearingbox.
 !!
 !! \extends gravity_common
 !! \ingroup gravity
@@ -90,19 +96,32 @@ MODULE gravity_sboxspectral_mod
   PRIVATE
   REAL, PARAMETER              :: SQRTTWOPI &
     = 2.50662827463100050241576528481104525300698674
+  TYPE C_DOUBLE_PTR2D_TYP
+    REAL(C_DOUBLE), DIMENSION(:,:), POINTER :: ptr2D
+  END TYPE C_DOUBLE_PTR2D_TYP
+  TYPE C_DOUBLE_COMPLEX_PTR2D_TYP
+    COMPLEX(C_DOUBLE_COMPLEX), DIMENSION(:,:), POINTER :: ptr2D
+  END TYPE C_DOUBLE_COMPLEX_PTR2D_TYP
 
   TYPE, EXTENDS(gravity_spectral) :: gravity_sboxspectral
 #ifdef HAVE_FFTW
     !> \name
     !!#### spectral poisson solver shearing box
-    REAL(C_DOUBLE), POINTER          :: mass2D(:,:)    !< temporary variable
-    COMPLEX(C_DOUBLE_COMPLEX), POINTER &
-                                     :: Fmass2D(:,:)   !< temporary variable
-    REAL, DIMENSION(:,:,:), POINTER  :: Fmass2D_real & !< temporary variable
-                                        => null()
+    TYPE(C_DOUBLE_PTR2D_TYP), DIMENSION(:), ALLOCATABLE &
+                                     :: density        !< z-layered density field
+    TYPE(C_DOUBLE_COMPLEX_PTR2D_TYP), DIMENSION(:), ALLOCATABLE &
+                                     :: FTdensity       !< z-layered fourier transformed density
+    REAL(C_DOUBLE), DIMENSION(:,:), POINTER, CONTIGUOUS &
+                                     :: mass2D         !< 2D mass density within a z-layer
+    COMPLEX(C_DOUBLE_COMPLEX), POINTER, CONTIGUOUS &
+                                     :: Fmass2D(:,:),& !< fourier transformed 2D mass density
+                                        Fmass3D(:,:,:) !< fourier transformed 3D mass density
+    REAL, DIMENSION(:,:,:), POINTER, CONTIGUOUS &
+                                     :: Fmass3D_real => null(), & !< just for output
+                                        den_ip         !< interpolated 3D density
     INTEGER(C_INTPTR_T)              :: local_joff
-    REAL,DIMENSION(:), POINTER       :: kx             !< wave numbers for FFT (x)
-    REAL,DIMENSION(:), POINTER       :: ky             !< wave numbers for FFT (y)
+    REAL,DIMENSION(:), POINTER       :: kx,ky, &       !< x/y wave numbers for FFT
+                                        qz,invqz       !< weight factors (3D only)
     REAL                             :: shiftconst     !< constant for shift
     REAL, DIMENSION(:), POINTER      :: joff, jrem     !< shifting indices (in SB)
     INTEGER                          :: order
@@ -118,7 +137,7 @@ MODULE gravity_sboxspectral_mod
 
     PROCEDURE :: InitGravity_sboxspectral
     PROCEDURE :: UpdateGravity_single
-    PROCEDURE :: InfoGravity
+!     PROCEDURE :: InfoGravity
     PROCEDURE :: SetOutput
     PROCEDURE :: CalcDiskHeight_single
     PROCEDURE :: Finalize
@@ -126,8 +145,8 @@ MODULE gravity_sboxspectral_mod
     PROCEDURE :: CalcPotential
     PROCEDURE :: FFT_Forward
     PROCEDURE :: FFT_Backward
-    PROCEDURE :: FieldShift
 #endif
+    PROCEDURE :: FieldShift
   END TYPE
 
   !--------------------------------------------------------------------------!
@@ -155,7 +174,7 @@ MODULE gravity_sboxspectral_mod
     TYPE(Dict_TYP),      POINTER    :: config,IO
     !------------------------------------------------------------------------!
     INTEGER             :: gravity_number
-    INTEGER             :: err, valwrite, i
+    INTEGER             :: err, valwrite, i,k
 #if defined(HAVE_FFTW) && defined(PARALLEL)
     INTEGER(C_INTPTR_T) :: C_INUM,C_JNUM
     INTEGER(C_INTPTR_T) :: alloc_local, local_JNUM, local_joff
@@ -170,6 +189,13 @@ MODULE gravity_sboxspectral_mod
          "No fftw package could be loaded.")
 #else
     CALL GetAttr(config, "order", this%order, 2)
+    SELECT CASE(this%order)
+    CASE(2,4)
+      ! ok, do nothing
+    CASE DEFAULT
+      CALL this%Error("InitGravity_sboxspectral", &
+        "Order must be one of {2,4}.")
+    END SELECT
 
 #ifdef PARALLEL
     CALL fftw_mpi_init()
@@ -198,9 +224,9 @@ MODULE gravity_sboxspectral_mod
 
     !------------------------------------------------------------------------!
 
+#ifdef PARALLEL
     ! check the dimensions if fftw should be used in parallel in order to
     ! know how to allocate the local arrays
-#ifdef PARALLEL
     CALL MPI_Comm_size(MPI_COMM_WORLD, nprocs, err)
     IF (nprocs.GT.1 .AND. Mesh%shear_dir.EQ.2) THEN
       CALL this%Error("InitGravity_sboxspectral", &
@@ -219,16 +245,30 @@ MODULE gravity_sboxspectral_mod
                  "along second direction")
     END IF
 #endif
+
+    ! check for vertical extent (3D)
+    IF (Mesh%KNUM.GT.1) THEN
+      IF (Mesh%zmin.NE.Mesh%zmax) &
+        CALL this%Error("InitGravity_sboxspectral","z_min != -zmax not allowed: " // &
+                        ACHAR(13) // " computational domain must be symmetric" // &
+                        "with respect to z=0 plane")
+#ifdef PARALLEL
+      CALL this%Error("InitGravity_sboxspectral","sboxspectral does currently not support parallelization in 3D")
+#endif
+    END IF
+
     ALLOCATE( &
              this%phi(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
 #if !defined(PARALLEL)
-             this%mass2D(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX), &
-             this%Fmass2D(Mesh%IMIN:Mesh%IMAX/2+1,Mesh%JMIN:Mesh%JMAX), &
+             this%Fmass3D(Mesh%IMIN:Mesh%IMAX/2+1,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX), &
+             this%density(Mesh%KMIN:Mesh%KMAX), &
+             this%FTdensity(Mesh%KMIN:Mesh%KMAX), &
 #else
              ! initialization handled by FFTW (see below)
 #endif
              this%kx(Mesh%INUM), &
              this%ky(Mesh%JNUM), &
+             this%qz(Mesh%KNUM),this%invqz(Mesh%KNUM),&
              this%den_ip(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX), &
              STAT=err)
     IF (err.NE.0) &
@@ -254,17 +294,27 @@ MODULE gravity_sboxspectral_mod
     ! are switched because of C -> row-major, Fortran -> column-major),      !
     ! BUT ONLY in modern Fortran UNLIKE the legacy version                   !
     ! ------------ plans are allocated in dictionary ------------------------!
+    CALL this%Info("            initializing FFTW: " // &
 #if  !defined(PARALLEL)
+                   "serial mode")
+    DO k=Mesh%KMIN,Mesh%KMAX
+      this%density(k)%ptr2D => this%den_ip(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k)
+      this%FTdensity(k)%ptr2D => this%Fmass3D(Mesh%IMIN:Mesh%IMAX/2+1,Mesh%JMIN:Mesh%JMAX,k)
+    END DO
+!!! REMOVE this, if this%mass2D and this%Fmass2D has been replaced everywhere
+    this%mass2D(1:,1:) => this%density(Mesh%KMIN)%ptr2D
+    this%Fmass2D(1:,1:) => this%FTdensity(Mesh%KMIN)%ptr2D
     this%plan_r2c = fftw_plan_dft_r2c_2d(Mesh%JMAX-Mesh%JMIN+1, &
-                                         Mesh%IMAX-Mesh%IMIN+1,this%mass2D, &
-                                         this%Fmass2D,FFTW_MEASURE)
+                                         Mesh%IMAX-Mesh%IMIN+1,this%density(Mesh%KMIN)%ptr2D, &
+                                         this%FTdensity(Mesh%KMIN)%ptr2D,FFTW_MEASURE)
     this%plan_c2r = fftw_plan_dft_c2r_2d(Mesh%JMAX-Mesh%JMIN+1, &
-                                         Mesh%IMAX-Mesh%IMIN+1, this%Fmass2D, &
-                                         this%mass2D, FFTW_MEASURE)
+                                         Mesh%IMAX-Mesh%IMIN+1, this%FTdensity(Mesh%KMIN)%ptr2D, &
+                                         this%density(Mesh%KMIN)%ptr2D, FFTW_MEASURE)
     IF ((.NOT. C_ASSOCIATED(this%plan_r2c)) .OR. (.NOT. c_associated(this%plan_c2r))) THEN
        CALL this%Error("InitGravity_sboxspectral","FFT plan could not be created.")
     END IF
 #elif defined(PARALLEL)
+                   "parallel mode")
     this%plan_r2c = fftw_mpi_plan_dft_r2c_2d(C_JNUM,C_INUM, &
                                              this%mass2D,this%Fmass2D, &
                                              MPI_COMM_WORLD, FFTW_MEASURE)
@@ -272,13 +322,24 @@ MODULE gravity_sboxspectral_mod
                                              this%Fmass2D,this%mass2D, &
                                              MPI_COMM_WORLD, FFTW_MEASURE)
 #endif
+    CALL GetAttr(config, "print_plans", valwrite, 0)
+    IF (valwrite.GT.0) THEN
+      IF (this%GetRank().EQ.0) THEN
+        CALL fftw_print_plan(this%plan_r2c)
+        PRINT *,ACHAR(13)
+        CALL fftw_print_plan(this%plan_c2r)
+        PRINT *,ACHAR(13)
+      END IF
+    END IF
+
     !------------------------------------------------------------------------!
-    ! set potential and acceleration to zero
+    ! initialize arrays
     this%phi(:,:,:) = 0.
-    this%mass2D(:,:) = 0.
-    this%Fmass2D(:,:) = CMPLX(0.,0)
+    this%Fmass3D(:,:,:) = CMPLX(0.,0)
     this%kx(:) = 0.
     this%ky(:) = 0.
+    this%qz(:) = 0.
+    this%invqz(:) = 0.
     ! nullify not used potential explicitely
     NULLIFY(this%pot)
 
@@ -307,7 +368,7 @@ MODULE gravity_sboxspectral_mod
         "Shear direction must be one of WE_shear (x-direction) or SN_shear (y-direction).")
     END SELECT
     IF (err.NE.0) &
-      CALL this%Error("InitGravity_sboxspectral","Memory allocation failed.")
+      CALL this%Error("InitGravity_sboxspectral","Memory allocation failed for joff & jrem.")
     this%joff(:) = 0.
     this%jrem(:) = 0.
 
@@ -333,15 +394,15 @@ MODULE gravity_sboxspectral_mod
               this%phi(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX))
     END IF
     valwrite = 0
-    CALL GetAttr(config, "output/Fmass2D", valwrite, 0)
+    CALL GetAttr(config, "output/Fmass3D", valwrite, 0)
     IF (valwrite .EQ. 1) THEN
-      ALLOCATE(this%Fmass2D_real(Mesh%IMIN:Mesh%IMAX+2,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX), &
-        STAT=err)
+      ALLOCATE(this%Fmass3D_real(Mesh%IMIN:Mesh%IMAX+2,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX), &
+               STAT=err)
       IF (err.NE.0) &
-         CALL this%Error("sboxspectral::SetOutput","Memory allocation failed.")
-      this%Fmass2D_real(:,:,:) = 0.0
-      CALL SetAttr(IO, "Fmass2D_real", &
-              this%Fmass2D_real(Mesh%IMIN:Mesh%IMAX+2,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX))
+        CALL this%Error("sboxspectral::SetOutput","Memory allocation failed for Fmass3D_real.")
+      this%Fmass3D_real(:,:,:) = 0.0
+      CALL SetAttr(IO, "Fmass3D_real", &
+              this%Fmass3D_real(Mesh%IMIN:Mesh%IMAX+2,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX))
     END IF
 #endif
   END SUBROUTINE SetOutput
@@ -385,7 +446,7 @@ MODULE gravity_sboxspectral_mod
          END DO
         END DO
       END DO
-    ELSE IF (this%order.EQ.4) THEN
+    ELSE ! this%order.EQ.4
       w1 = 3./48.
       w2 = 30./48.
 !NEC$ ivdep
@@ -404,9 +465,6 @@ MODULE gravity_sboxspectral_mod
           END DO
         END DO
       END DO
-    ELSE
-      CALL this%Error("InitGravity_sboxspectral", &
-        "The chosen order approximation does not exist (only 2 and 3).")
     END IF
 #endif
   END SUBROUTINE UpdateGravity_single
@@ -460,8 +518,8 @@ MODULE gravity_sboxspectral_mod
     INTEGER :: i,j,k
     REAL    :: K2max,K2,KO
     REAL    :: joff2,jrem2,delt,time0
-    INTEGER :: nprocs
 #ifdef PARALLEL
+    INTEGER :: nprocs
     INTEGER :: status(MPI_STATUS_SIZE),ierror,ier
     REAL    :: mpi_buf(Mesh%IMIN:Mesh%IMAX,Mesh%GJNUM,Mesh%KMIN:Mesh%KMAX) !TODO: ONLY 2D
 #endif
@@ -469,7 +527,6 @@ MODULE gravity_sboxspectral_mod
     !---------------- fourier transformation of density ---------------------!
     ! calculate the shift of the indice at time t                            !
     ! shift density to pretend periodic behavior with interpolation          !
-    nprocs=1
 #ifdef PARALLEL
     CALL MPI_Comm_size(MPI_COMM_WORLD, nprocs, ier)
 #endif
@@ -501,9 +558,9 @@ MODULE gravity_sboxspectral_mod
 #if defined(PARALLEL)
     this%mass2D(1:Mesh%INUM,1:this%local_JNUM) = &
       RESHAPE(this%den_ip(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX), (/ Mesh%INUM,Mesh%JNUM/nprocs /))
-#else
-    this%mass2D(1:Mesh%INUM,1:Mesh%JNUM/nprocs) = &
-      RESHAPE(this%den_ip(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX), (/ Mesh%INUM,Mesh%JNUM/nprocs /))
+! #else
+!     this%mass2D(1:Mesh%INUM,1:Mesh%JNUM) = &
+!       RESHAPE(this%den_ip(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX), (/ Mesh%INUM,Mesh%JNUM /))
 #endif
 
     !-------------- fourier transform (forward) of shifted density ----------!
@@ -778,15 +835,15 @@ CALL ftrace_region_begin("forward FFT")
     CALL fftw_mpi_execute_dft_r2c(this%plan_r2c,this%mass2D, this%Fmass2D)
 #endif
 
-    IF (ASSOCIATED(this%Fmass2D_real)) THEN
+    IF (ASSOCIATED(this%Fmass3D_real)) THEN
 !NEC$ IVDEP
       DO k = Mesh%KMIN,Mesh%KMAX
 !NEC$ IVDEP
         DO j = Mesh%JMIN,Mesh%JMAX
 !NEC$ IVDEP
           DO i = Mesh%IMIN,Mesh%IMAX/2+1
-            this%Fmass2D_real(2*i-1,j,k) = REAL(REAL(this%Fmass2D(i,j-this%local_joff)))
-            this%Fmass2D_real(2*i,j,k)   = REAL(AIMAG(this%Fmass2D(i,j-this%local_joff)))
+            this%Fmass3D_real(2*i-1,j,k) = REAL(REAL(this%Fmass3D(i,j-this%local_joff,k)))
+            this%Fmass3D_real(2*i,j,k)   = REAL(AIMAG(this%Fmass3D(i,j-this%local_joff,k)))
           END DO
         END DO
       END DO
@@ -885,24 +942,6 @@ CALL ftrace_region_end("foward FFT")
 #endif
   END SUBROUTINE CalcDiskHeight_single
 
-  !> Prints out information
-  SUBROUTINE InfoGravity(this,Mesh)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(gravity_sboxspectral), INTENT(IN) :: this
-    CLASS(mesh_base),            INTENT(IN) :: Mesh
-    !------------------------------------------------------------------------!
-#ifdef HAVE_FFTW
-    CALL this%Info( "            FFT-Package:       FFTW " // &
-#if defined(PARALLEL)
-                                                    "- parallel mode")
-#else
-                                                    "- serial mode")
-#endif
-    CALL this%Info("            .. done initializing")
-#endif
-  END SUBROUTINE InfoGravity
-
   !> \public Shifts the whole field to the next periodic point.
   !!
   !! Implementation is done by
@@ -912,7 +951,6 @@ CALL ftrace_region_end("foward FFT")
   !! with \f$ t_p = \text{NINT}(q\Omega t) / (q\Omega) \f$. In order to map
   !! the continuous shift at the discrete field linear interpolation is used,
   !! and assumes periodic behaviour along the y-direction.
-#ifdef HAVE_FFTW
   SUBROUTINE FieldShift(this,Mesh,Physics,delt,field,mass2D)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
@@ -925,7 +963,7 @@ CALL ftrace_region_end("foward FFT")
     REAL, DIMENSION(1:Mesh%INUM,1:this%local_JNUM), &
                          INTENT(OUT) :: mass2D
 #else
-    REAL, DIMENSION(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX), &
+    REAL, DIMENSION(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX), &
                          INTENT(OUT) :: mass2D
 #endif
     !------------------------------------------------------------------------!
@@ -944,7 +982,7 @@ CALL ftrace_region_end("foward FFT")
           this%jrem(j)  = this%joff(j) - FLOOR(this%joff(j))
 !NEC$ IVDEP
           DO i = Mesh%IMIN,Mesh%IMAX
-            mass2D(i,j-local_joff) = &
+            mass2D(i,j-local_joff,k) = &
              (1.0-this%jrem(j))*field(1+MODULO(i-1+FLOOR(this%joff(j)), &
               Mesh%IMAX-Mesh%IMIN+1),j,k) + this%jrem(j)*field(1+MODULO(i+ &
               FLOOR(this%joff(j)),Mesh%IMAX-Mesh%IMIN+1),j,k)
@@ -963,7 +1001,7 @@ CALL ftrace_region_end("foward FFT")
         DO j = Mesh%JMIN,Mesh%JMAX
 !NEC$ IVDEP
           DO i = Mesh%IMIN,Mesh%IMAX
-            mass2D(i,j) = &
+            mass2D(i,j,k) = &
              (1.0-this%jrem(i))*field(i,1+MODULO(j-1+FLOOR(this%joff(i)), &
               Mesh%JMAX-Mesh%JMIN+1),k) + this%jrem(i)*field(i,1+MODULO(j+ &
               FLOOR(this%joff(i)),Mesh%JMAX-Mesh%JMIN+1),k)
@@ -972,7 +1010,7 @@ CALL ftrace_region_end("foward FFT")
       END DO
     END IF
   END SUBROUTINE FieldShift
-#endif
+
   !> \public Closes the gravity term of the shearingsheet spectral solver.
   SUBROUTINE Finalize(this)
    IMPLICIT NONE
@@ -986,13 +1024,14 @@ CALL ftrace_region_end("foward FFT")
     CALL fftw_free(this%mass2D_pointer)
     CALL fftw_free(this%Fmass2D_pointer)
 #else
-    DEALLOCATE(this%mass2D,this%Fmass2D)
+    DEALLOCATE(this%Fmass3D,this%density,this%FTdensity)
 #endif
     ! Free memory
-    IF (ASSOCIATED(this%Fmass2D_real)) DEALLOCATE(this%Fmass2D)
+    IF (ASSOCIATED(this%Fmass3D_real)) DEALLOCATE(this%Fmass3D_real)
     DEALLOCATE(&
                this%phi, &
                this%kx, this%ky, &
+               this%qz, this%invqz, &
                this%joff, &
                this%jrem, &
                this%den_ip &

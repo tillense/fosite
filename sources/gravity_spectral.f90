@@ -79,7 +79,6 @@ MODULE gravity_spectral_mod
     COMPLEX(C_DOUBLE_COMPLEX), DIMENSION(:,:,:), POINTER &
                                      :: cFI
     TYPE(C_PTR)                      :: p_FI
-    REAL, DIMENSION(:,:,:), POINTER  :: den_ip       !< interpolated density
     REAL, DIMENSION(:,:,:), POINTER  :: phi          !< potential
     REAL, DIMENSION(:,:), POINTER    :: tmp2D
     REAL, DIMENSION(:,:), POINTER    :: phi2D
