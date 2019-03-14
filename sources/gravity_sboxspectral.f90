@@ -229,8 +229,6 @@ MODULE gravity_sboxspectral_mod
              this%Fmass2D_real(Mesh%IMIN:Mesh%IMAX+2,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX), &
              this%kx(Mesh%INUM), &
              this%ky(Mesh%JNUM), &
-             this%joff(Mesh%IMIN:Mesh%IMAX), &
-             this%jrem(Mesh%IMIN:Mesh%IMAX), &
              this%den_ip(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX), &
              STAT=err)
     IF (err.NE.0) &
@@ -280,8 +278,6 @@ MODULE gravity_sboxspectral_mod
     this%mass2D(:,:) = 0.
     this%Fmass2D(:,:) = CMPLX(0.,0)
     this%Fmass2D_real(:,:,:) = 0.
-    this%joff(:) = 0.
-    this%jrem(:) = 0.
     this%kx(:) = 0.
     this%ky(:) = 0.
     ! nullify not used potential explicitely
@@ -294,14 +290,27 @@ MODULE gravity_sboxspectral_mod
                 +(Mesh%JNUM+1)/2)*2.*PI/(Mesh%YMAX-Mesh%YMIN)
 
     ! precompute shift constant
-    IF(Mesh%shear_dir.EQ.2) THEN
-      this%shiftconst = Mesh%Q*Mesh%OMEGA*(Mesh%xmax-Mesh%xmin)/Mesh%dy
-    ELSE IF (Mesh%shear_dir.EQ.1) THEN
+    SELECT CASE (Mesh%shear_dir)
+    CASE(1)
       this%shiftconst = Mesh%Q*Mesh%OMEGA*(Mesh%ymax-Mesh%ymin)/Mesh%dx
-    ELSE
+      ALLOCATE(&
+             this%joff(Mesh%JMIN:Mesh%JMAX), &
+             this%jrem(Mesh%JMIN:Mesh%JMAX), &
+             STAT=err)
+    CASE(2)
+      this%shiftconst = Mesh%Q*Mesh%OMEGA*(Mesh%xmax-Mesh%xmin)/Mesh%dy
+      ALLOCATE(&
+             this%joff(Mesh%IMIN:Mesh%IMAX), &
+             this%jrem(Mesh%IMIN:Mesh%IMAX), &
+             STAT=err)
+    CASE DEFAULT
       CALL this%Error("InitGravity_sboxspectral", &
-        "Either WE_shear or SN_shear need to be applied.")
-    END IF
+        "Shear direction must be one of WE_shear (x-direction) or SN_shear (y-direction).")
+    END SELECT
+    IF (err.NE.0) &
+      CALL this%Error("InitGravity_sboxspectral","Memory allocation failed.")
+    this%joff(:) = 0.
+    this%jrem(:) = 0.
 
     !------------------------------- output ---------------------------------!
     valwrite = 0
@@ -926,7 +935,7 @@ CALL ftrace_region_end("foward FFT")
           END DO
         END DO
       END DO
-    ELSE IF (Mesh%shear_dir.EQ.2) THEN
+    ELSE ! must be Mesh%shear_dir.EQ.2, because otherwise initialization would raise an error
 !NEC$ IVDEP
       DO k = Mesh%KMIN,Mesh%KMAX
 !NEC$ IVDEP
