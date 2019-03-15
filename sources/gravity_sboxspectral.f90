@@ -110,19 +110,23 @@ MODULE gravity_sboxspectral_mod
     TYPE(C_DOUBLE_PTR2D_TYP), DIMENSION(:), ALLOCATABLE &
                                      :: density        !< z-layered density field
     TYPE(C_DOUBLE_COMPLEX_PTR2D_TYP), DIMENSION(:), ALLOCATABLE &
-                                     :: FTdensity       !< z-layered fourier transformed density
+                                     :: FTdensity      !< z-layered fourier transformed density
     REAL(C_DOUBLE), DIMENSION(:,:), POINTER, CONTIGUOUS &
-                                     :: mass2D         !< 2D mass density within a z-layer
+                                     :: mass2D, &      !< 2D mass density within a z-layer
+                                        Kxy2           !< length of wave vectors squared
     COMPLEX(C_DOUBLE_COMPLEX), POINTER, CONTIGUOUS &
-                                     :: Fmass2D(:,:),& !< fourier transformed 2D mass density
-                                        Fmass3D(:,:,:) !< fourier transformed 3D mass density
+                                     :: Fmass2D(:,:),&   !< fourier transformed 2D mass density
+                                        Fmass3D(:,:,:),& !< fourier transformed 3D mass density
+                                        Fsum3D(:,:,:), & !< sum used for reconstruction
+                                                         !<   of transformed potential (3D only)
+                                        qk(:,:,:)        !< weight factors (3D only)
     REAL, DIMENSION(:,:,:), POINTER, CONTIGUOUS &
                                      :: Fmass3D_real => null(), & !< just for output
                                         den_ip         !< interpolated 3D density
     INTEGER(C_INTPTR_T)              :: local_joff
-    REAL,DIMENSION(:), POINTER       :: kx,ky, &       !< x/y wave numbers for FFT
-                                        qz,invqz       !< weight factors (3D only)
+    REAL,DIMENSION(:), POINTER       :: kx,ky          !< x/y wave numbers for FFT
     REAL                             :: shiftconst     !< constant for shift
+    REAL                             :: maxKxy2        !< max
     REAL, DIMENSION(:), POINTER      :: joff, jrem     !< shifting indices (in SB)
     INTEGER                          :: order
 #ifdef PARALLEL
@@ -174,11 +178,10 @@ MODULE gravity_sboxspectral_mod
     TYPE(Dict_TYP),      POINTER    :: config,IO
     !------------------------------------------------------------------------!
     INTEGER             :: gravity_number
-    INTEGER             :: err, valwrite, i,k
+    INTEGER             :: err, valwrite, i,j,k
 #if defined(HAVE_FFTW) && defined(PARALLEL)
     INTEGER(C_INTPTR_T) :: C_INUM,C_JNUM
     INTEGER(C_INTPTR_T) :: alloc_local, local_JNUM, local_joff
-    INTEGER             :: nprocs
 #endif
     !------------------------------------------------------------------------!
     CALL this%InitGravity(Mesh,Physics,"shearingbox spectral solver",config,IO)
@@ -227,8 +230,7 @@ MODULE gravity_sboxspectral_mod
 #ifdef PARALLEL
     ! check the dimensions if fftw should be used in parallel in order to
     ! know how to allocate the local arrays
-    CALL MPI_Comm_size(MPI_COMM_WORLD, nprocs, err)
-    IF (nprocs.GT.1 .AND. Mesh%shear_dir.EQ.2) THEN
+    IF (this%GetNumProcs().GT.1 .AND. Mesh%shear_dir.EQ.2) THEN
       CALL this%Error("InitGravity_sboxspectral", &
                  "Execution of the parallel Fourier solver is only possible with pencil "// &
                  "decomposition. The first dimension should be fully accessible by the "//&
@@ -261,14 +263,18 @@ MODULE gravity_sboxspectral_mod
              this%phi(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
 #if !defined(PARALLEL)
              this%Fmass3D(Mesh%IMIN:Mesh%IMAX/2+1,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX), &
+             this%qk(Mesh%IMIN:Mesh%IMAX/2+1,Mesh%JMIN:Mesh%JMAX,0:Mesh%KNUM-1),&
              this%density(Mesh%KMIN:Mesh%KMAX), &
              this%FTdensity(Mesh%KMIN:Mesh%KMAX), &
 #else
              ! initialization handled by FFTW (see below)
 #endif
+!!!! TODO: only allocate these for KNUM > 1
+             this%Fsum3D(Mesh%IMIN:Mesh%IMAX/2+1,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX), &
+!!!! END TODO
+             this%Kxy2(Mesh%IMIN:Mesh%IMAX/2+1,Mesh%JMIN:Mesh%JMAX), &
              this%kx(Mesh%INUM), &
              this%ky(Mesh%JNUM), &
-             this%qz(Mesh%KNUM),this%invqz(Mesh%KNUM),&
              this%den_ip(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX), &
              STAT=err)
     IF (err.NE.0) &
@@ -336,18 +342,21 @@ MODULE gravity_sboxspectral_mod
     ! initialize arrays
     this%phi(:,:,:) = 0.
     this%Fmass3D(:,:,:) = CMPLX(0.,0)
+    this%Fsum3D(:,:,:) = CMPLX(0.,0)
     this%kx(:) = 0.
     this%ky(:) = 0.
-    this%qz(:) = 0.
-    this%invqz(:) = 0.
+    this%qk(:,:,:) = 0.
     ! nullify not used potential explicitely
     NULLIFY(this%pot)
 
-    ! precompute wavenumbers
-    this%kx = cshift((/(i-(Mesh%INUM+1)/2,i=0,Mesh%INUM-1)/), &
-                +(Mesh%INUM+1)/2)*2.*PI/(Mesh%XMAX-Mesh%XMIN)
-    this%ky = cshift((/(i-(Mesh%JNUM+1)/2,i=0,Mesh%JNUM-1)/), &
-                +(Mesh%JNUM+1)/2)*2.*PI/(Mesh%YMAX-Mesh%YMIN)
+    ! precompute wave numbers
+    this%kx(:) = CSHIFT((/(i-(Mesh%INUM+1)/2,i=0,Mesh%INUM-1)/),(Mesh%INUM+1)/2) &
+                   *2.*PI/(Mesh%XMAX-Mesh%XMIN)
+    this%ky(:) = CSHIFT((/(j-(Mesh%JNUM+1)/2,j=0,Mesh%JNUM-1)/),(Mesh%JNUM+1)/2) &
+                   *2.*PI/(Mesh%YMAX-Mesh%YMIN)
+
+    ! cut-off value for wave numbers
+    this%maxKxy2 = 0.5*MIN(PI/Mesh%dx,PI/Mesh%dy)**2
 
     ! precompute shift constant
     SELECT CASE (Mesh%shear_dir)
@@ -515,21 +524,16 @@ MODULE gravity_sboxspectral_mod
     REAL,                INTENT(IN) :: time
     CLASS(marray_compound),   INTENT(INOUT) :: pvar
     !------------------------------------------------------------------------!
-    INTEGER :: i,j,k
-    REAL    :: K2max,K2,KO
+    INTEGER :: i,j,k,kk
     REAL    :: joff2,jrem2,delt,time0
 #ifdef PARALLEL
-    INTEGER :: nprocs
-    INTEGER :: status(MPI_STATUS_SIZE),ierror,ier
+    INTEGER :: status(MPI_STATUS_SIZE),ierror
     REAL    :: mpi_buf(Mesh%IMIN:Mesh%IMAX,Mesh%GJNUM,Mesh%KMIN:Mesh%KMAX) !TODO: ONLY 2D
 #endif
     !------------------------------------------------------------------------!
     !---------------- fourier transformation of density ---------------------!
     ! calculate the shift of the indice at time t                            !
     ! shift density to pretend periodic behavior with interpolation          !
-#ifdef PARALLEL
-    CALL MPI_Comm_size(MPI_COMM_WORLD, nprocs, ier)
-#endif
 
     IF (Mesh%OMEGA .EQ. 0) THEN
       time0 = 0.0
@@ -557,10 +561,8 @@ MODULE gravity_sboxspectral_mod
 
 #if defined(PARALLEL)
     this%mass2D(1:Mesh%INUM,1:this%local_JNUM) = &
-      RESHAPE(this%den_ip(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX), (/ Mesh%INUM,Mesh%JNUM/nprocs /))
-! #else
-!     this%mass2D(1:Mesh%INUM,1:Mesh%JNUM) = &
-!       RESHAPE(this%den_ip(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX), (/ Mesh%INUM,Mesh%JNUM /))
+      RESHAPE(this%den_ip(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX), &
+              (/ Mesh%INUM,Mesh%JNUM/this%GetNumProcs() /))
 #endif
 
     !-------------- fourier transform (forward) of shifted density ----------!
@@ -579,26 +581,13 @@ CALL ftrace_region_begin("forward_fft")
 CALL ftrace_region_end("forward_fft")
 #endif
 
-    !------------- calculate potential in fourier domain --------------------!
-    IF (Mesh%dx .GT. Mesh%dy) THEN
-      K2max = 0.5*PI**2/(Mesh%dx**2)
-    ELSE
-      K2max = 0.5*PI**2/(Mesh%dy**2)
-    END IF
-
+    !------------- calculate wave number vector squared --------------------!
     IF (Mesh%shear_dir.EQ.2) THEN
 !NEC$ IVDEP
       DO j = Mesh%JMIN,Mesh%JMAX
 !NEC$ IVDEP
         DO i = Mesh%IMIN,Mesh%IMAX/2+1
-          K2 = (this%kx(i) + Mesh%Q*Mesh%OMEGA*this%ky(j)*delt)**2 + this%ky(j)**2
-          KO = SQRT(K2)
-          IF ((K2 .LT. K2max) .AND. (K2 .GT. 0)) THEN
-            this%Fmass2D(i,j-this%local_joff) = -2.*PI*Physics%Constants%GN* &
-                                              this%Fmass2D(i,j-this%local_joff)/KO
-          ELSE
-            this%Fmass2D(i,j-this%local_joff) = 0.0
-          END IF
+          this%Kxy2(i,j) = (this%kx(i) + Mesh%Q*Mesh%OMEGA*this%ky(j)*delt)**2 + this%ky(j)**2
         END DO
       END DO
     ELSE IF (Mesh%shear_dir.EQ.1) THEN
@@ -606,16 +595,87 @@ CALL ftrace_region_end("forward_fft")
       DO j = Mesh%JMIN,Mesh%JMAX
 !NEC$ IVDEP
         DO i = Mesh%IMIN,Mesh%IMAX/2+1
-          K2 = this%kx(i)**2 + (this%ky(j)-Mesh%Q*mesh%OMEGA*this%kx(i)*delt)**2
-           KO = SQRT(K2)
-          IF ((K2 .LT. K2max) .AND. (K2 .GT. 0)) THEN
-            this%Fmass2D(i,j-this%local_joff) = -2.*PI*Physics%Constants%GN* &
-                                              this%Fmass2D(i,j-this%local_joff)/KO
+          this%Kxy2(i,j) = this%kx(i)**2 + (this%ky(j)-Mesh%Q*mesh%OMEGA*this%kx(i)*delt)**2
+        END DO
+      END DO
+    END IF
+
+    !------------- calculate potential in fourier domain --------------------!
+    IF (ABS(Mesh%zmax-Mesh%zmin).LT.TINY(Mesh%zmin)) THEN
+      ! 2D razor thin disk
+      k=Mesh%KMIN
+      DO j = Mesh%JMIN,Mesh%JMAX
+!NEC$ IVDEP
+        DO i = Mesh%IMIN,Mesh%IMAX/2+1
+          IF ((this%Kxy2(i,j).LT.this%maxKxy2).AND.(this%Kxy2(i,j).GT. 0)) THEN
+              this%Fmass3D(i,j-this%local_joff,k) = -2.*PI*Physics%Constants%GN &
+                *this%Fmass3D(i,j-this%local_joff,k)/SQRT(this%Kxy2(i,j))
           ELSE
-            this%Fmass2D(i,j-this%local_joff) = 0.0
+              this%Fmass3D(i,j-this%local_joff,k) = 0.0
           END IF
         END DO
       END DO
+!       k=Mesh%KMIN
+!       WHERE ((this%Kxy2(:,:).LT.this%maxKxy2).AND.(this%Kxy2(:,:).GT. 0))
+!         this%Fmass3D(:,:,k) = -2.*PI*Physics%Constants%GN &
+!           *this%Fmass3D(:,:,k)/SQRT(this%Kxy2(:,:))
+!       ELSEWHERE
+!         this%Fmass3D(:,:,k) = 0.0
+!       END WHERE
+    ELSE
+      ! disk with vertical extent
+      this%qk(:,:,0) = EXP(-0.5*Mesh%dz*SQRT(this%Kxy2(:,:)))
+      ! compute weight factors for disks with more than one vertical cell
+      IF (Mesh%KNUM.EQ.1) THEN
+        ! 2D disk with one zone with finite vertical size
+        k=Mesh%KMIN
+!NEC$ IVDEP
+        DO j = Mesh%JMIN,Mesh%JMAX
+!NEC$ IVDEP
+          DO i = Mesh%IMIN,Mesh%IMAX/2+1
+            IF ((this%Kxy2(i,j).LT.this%maxKxy2).AND.(this%Kxy2(i,j).GT. 0)) THEN
+              this%Fmass3D(i,j-this%local_joff,k) = -4.*PI*Physics%Constants%GN &
+                *(1.-this%qk(i,j,0))/this%Kxy2(i,j) * this%Fmass3D(i,j-this%local_joff,k)
+            ELSE
+              this%Fmass3D(i,j-this%local_joff,k) = 0.0
+            END IF
+          END DO
+        END DO
+      ELSE
+        ! 3D disk with more than one vertical zone
+        this%qk(:,:,1) = this%qk(:,:,0)*this%qk(:,:,0)
+        DO k=2,Mesh%KNUM-1
+          this%qk(:,:,k) = this%qk(:,:,k-1) * this%qk(:,:,1)
+        END DO
+        DO k=Mesh%KMIN,Mesh%KMAX
+          this%Fsum3D(:,:,k) = 0.0
+!!!! the following seems to be equivalent to a matrix vector multiplication
+!!!! where the matrix is a skew symmetric band matrix
+          DO kk=Mesh%KMIN,k-1
+            this%Fsum3D(:,:,k) = this%Fsum3D(:,:,k) + this%qk(:,:,ABS(k-kk)) &
+                                    * SIGN(1,k-kk) * this%Fmass3D(:,:,kk)
+          END DO
+          ! skip k=kk
+          DO kk=k+1,Mesh%KMAX
+            this%Fsum3D(:,:,k) = this%Fsum3D(:,:,k) + this%qk(:,:,ABS(k-kk)) &
+                                    * SIGN(1,k-kk) * this%Fmass3D(:,:,kk)
+          END DO
+!NEC$ IVDEP
+          DO j = Mesh%JMIN,Mesh%JMAX
+!NEC$ IVDEP
+            DO i = Mesh%IMIN,Mesh%IMAX/2+1
+              IF ((this%Kxy2(i,j).LT.this%maxKxy2).AND.(this%Kxy2(i,j).GT. 0)) THEN
+                this%Fmass3D(i,j,k) = -4.*PI*Physics%Constants%GN &
+                  * (1.-this%qk(i,j,0))/this%Kxy2(i,j) &
+                  * (this%Fmass3D(i,j,k) + 0.5*(1.0+1./this%qk(i,j,0)) &
+                    * this%Fsum3D(i,j,k))
+              ELSE
+                this%Fmass3D(i,j-this%local_joff,k) = 0.0
+              END IF
+            END DO
+          END DO
+        END DO
+      END IF
     END IF
 
     !----------- fourier transform (backward) of shifted density -----------!
@@ -816,23 +876,22 @@ CALL ftrace_region_end("backward_fft")
     CLASS(physics_base), INTENT(IN) :: Physics
     !------------------------------------------------------------------------!
     INTEGER :: i,j,k
-#ifdef PARALLEL
-    INTEGER :: nprocs,status(MPI_STATUS_SIZE)
-    INTEGER :: ier
-#endif
     !------------------------------------------------------------------------!
-#ifdef PARALLEL
-    CALL MPI_Comm_size(MPI_COMM_WORLD, nprocs, ier)
-#endif
 
 #ifdef _FTRACE
 CALL ftrace_region_begin("forward FFT")
 #endif
 
-#if !defined(PARALLEL)
-    CALL fftw_execute_dft_r2c(this%plan_r2c, this%mass2D, this%Fmass2D)
+#if defined(PARALLEL)
+    ! 3D is currently not supported in parallel
+    k=Mesh%KMIN
+    CALL fftw_mpi_execute_dft_r2c(this%plan_r2c,this%density(k)%ptr2D, &
+                                  this%FTdensity(k)%ptr2D)
 #else
-    CALL fftw_mpi_execute_dft_r2c(this%plan_r2c,this%mass2D, this%Fmass2D)
+    DO k=Mesh%KMIN,Mesh%KMAX
+      CALL fftw_execute_dft_r2c(this%plan_r2c,this%density(k)%ptr2D, &
+                                this%FTdensity(k)%ptr2D)
+    END DO
 #endif
 
     IF (ASSOCIATED(this%Fmass3D_real)) THEN
@@ -864,19 +923,18 @@ CALL ftrace_region_end("foward FFT")
     CLASS(mesh_base),    INTENT(IN) :: Mesh
     CLASS(physics_base), INTENT(IN) :: Physics
     !------------------------------------------------------------------------!
-#ifdef PARALLEL
-    INTEGER           :: nprocs,status(MPI_STATUS_SIZE)
-    INTEGER           :: ier
-#endif
+    INTEGER           :: k
     !------------------------------------------------------------------------!
-#ifdef PARALLEL
-    CALL MPI_Comm_size(MPI_COMM_WORLD, nprocs, ier)
-#endif
-
 #if defined(PARALLEL)
-    CALL fftw_mpi_execute_dft_c2r(this%plan_c2r,this%Fmass2D, this%mass2D)
+    ! 3D is currently not supported in parallel
+    k=Mesh%KMIN
+    CALL fftw_mpi_execute_dft_c2r(this%plan_c2r,this%FTdensity(k)%ptr2D, &
+                                  this%density(k)%ptr2D)
 #else
-    CALL fftw_execute_dft_c2r(this%plan_c2r, this%Fmass2D, this%mass2D)
+    DO k=Mesh%KMIN,Mesh%KMAX
+      CALL fftw_execute_dft_c2r(this%plan_c2r,this%FTdensity(k)%ptr2D, &
+                                this%density(k)%ptr2D)
+    END DO
 #endif
   END SUBROUTINE
 #endif
@@ -951,7 +1009,7 @@ CALL ftrace_region_end("foward FFT")
   !! with \f$ t_p = \text{NINT}(q\Omega t) / (q\Omega) \f$. In order to map
   !! the continuous shift at the discrete field linear interpolation is used,
   !! and assumes periodic behaviour along the y-direction.
-  SUBROUTINE FieldShift(this,Mesh,Physics,delt,field,mass2D)
+  SUBROUTINE FieldShift(this,Mesh,Physics,delt,field,shifted_field)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(gravity_sboxspectral), INTENT(INOUT) :: this
@@ -960,11 +1018,11 @@ CALL ftrace_region_end("foward FFT")
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
                          INTENT(IN)  :: field
 #if defined(PARALLEL)
-    REAL, DIMENSION(1:Mesh%INUM,1:this%local_JNUM), &
-                         INTENT(OUT) :: mass2D
+    REAL, DIMENSION(1:Mesh%INUM,1:this%local_JNUM,Mesh%KMIN:Mesh%KMAX), &
+                         INTENT(OUT) :: shifted_field
 #else
     REAL, DIMENSION(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX), &
-                         INTENT(OUT) :: mass2D
+                         INTENT(OUT) :: shifted_field
 #endif
     !------------------------------------------------------------------------!
     INTEGER           :: i,j,k,local_joff
@@ -982,7 +1040,7 @@ CALL ftrace_region_end("foward FFT")
           this%jrem(j)  = this%joff(j) - FLOOR(this%joff(j))
 !NEC$ IVDEP
           DO i = Mesh%IMIN,Mesh%IMAX
-            mass2D(i,j-local_joff,k) = &
+            shifted_field(i,j-local_joff,k) = &
              (1.0-this%jrem(j))*field(1+MODULO(i-1+FLOOR(this%joff(j)), &
               Mesh%IMAX-Mesh%IMIN+1),j,k) + this%jrem(j)*field(1+MODULO(i+ &
               FLOOR(this%joff(j)),Mesh%IMAX-Mesh%IMIN+1),j,k)
@@ -1001,7 +1059,7 @@ CALL ftrace_region_end("foward FFT")
         DO j = Mesh%JMIN,Mesh%JMAX
 !NEC$ IVDEP
           DO i = Mesh%IMIN,Mesh%IMAX
-            mass2D(i,j,k) = &
+            shifted_field(i,j,k) = &
              (1.0-this%jrem(i))*field(i,1+MODULO(j-1+FLOOR(this%joff(i)), &
               Mesh%JMAX-Mesh%JMIN+1),k) + this%jrem(i)*field(i,1+MODULO(j+ &
               FLOOR(this%joff(i)),Mesh%JMAX-Mesh%JMIN+1),k)
@@ -1024,14 +1082,14 @@ CALL ftrace_region_end("foward FFT")
     CALL fftw_free(this%mass2D_pointer)
     CALL fftw_free(this%Fmass2D_pointer)
 #else
-    DEALLOCATE(this%Fmass3D,this%density,this%FTdensity)
+    DEALLOCATE(this%Fmass3D,this%Fsum3D,this%density,this%FTdensity)
 #endif
     ! Free memory
     IF (ASSOCIATED(this%Fmass3D_real)) DEALLOCATE(this%Fmass3D_real)
     DEALLOCATE(&
                this%phi, &
-               this%kx, this%ky, &
-               this%qz, this%invqz, &
+               this%kx, this%ky, this%Kxy2, &
+               this%qk, &
                this%joff, &
                this%jrem, &
                this%den_ip &

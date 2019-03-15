@@ -119,7 +119,11 @@ PROGRAM sblintheo
   CALL Sim%Run()
 
   ! check amplitude
-  maximum = MAXVAL(Sim%Timedisc%pvar%data4d(:,:,:,Sim%Physics%DENSITY)) - SIGMA0
+  IF (Sim%Mesh%dz.GT.0.0) THEN
+    maximum = MAXVAL(Sim%Timedisc%pvar%data4d(:,:,:,Sim%Physics%DENSITY))*Sim%Mesh%dz - SIGMA0
+  ELSE
+    maximum = MAXVAL(Sim%Timedisc%pvar%data4d(:,:,:,Sim%Physics%DENSITY)) - SIGMA0
+  END IF
 
   CALL Sim%Finalize()
   DEALLOCATE(Sim)
@@ -148,6 +152,8 @@ CONTAINS
     YMAX       = +0.5*DOMAINY
     ZMIN       = 0.0
     ZMAX       = 0.0
+!     ZMIN       = -0.00001*DOMAINX
+!     ZMAX       = +0.00001*DOMAINX
 
     ! physics settings
     physics =>  Dict(&
@@ -259,6 +265,9 @@ CONTAINS
         p%velocity%data4d(:,:,:,1) = Q*OMEGA*Mesh%bcenter(:,:,:,2)
         p%velocity%data2d(:,2) = 0.0
       END IF
+      ! compute volume density from surface density
+      ! for disks with vertical extent
+      IF (Mesh%dz.GT.0.0) p%density%data1d(:) = p%density%data1d(:) / Mesh%dz
     TYPE IS(statevector_euler) ! non-isothermal HD
       IF(Mesh%shear_dir.EQ.2)THEN
         p%density%data3d(:,:,:) = SIGMA0 &
@@ -272,6 +281,12 @@ CONTAINS
         p%velocity%data2d(:,2) = 0.0
       END IF
       p%pressure%data3d(:,:,:) = SOUNDSPEED**2 * SIGMA0 / GAMMA
+      ! compute volume density/pressure from surface density/pressure
+      ! for disks with vertical extent
+      IF (Mesh%dz.GT.0.0) THEN
+        p%density%data1d(:) = p%density%data1d(:) / Mesh%dz
+        p%pressure%data1d(:) = p%pressure%data1d(:) / Mesh%dz
+      END IF
     CLASS DEFAULT
       CALL Physics%Error("shear::InitData","only (non-)isothermal HD supported")
     END SELECT
