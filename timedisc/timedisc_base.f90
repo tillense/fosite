@@ -29,6 +29,7 @@
 !! \brief Base module for time discretization
 !! - general parameters of timedisc group as key-values
 !! \key{method,INTEGER,time integration method}
+!! \key{rhstype,INTEGER,enable(1)/disabel(0) special right hand side treatment,0}
 !! \key{stoptime,REAL,physical stop time of simulation}
 !! \key{cfl,REAL,CFL number,0.4}
 !! \key{dtlimit,REAL,time step minimum,EPSILON(dtlimit)*stoptime}
@@ -39,9 +40,12 @@
 !! \key{tol_abs,REAL\, DIMENSION(Physics%VNUM), absolute tolerance for adaptive
 !!   step size control, (/0.001\,0.001\,../)}
 !! \key{beta,REAL,time step friction parameter for PI-Controller,0.08}
-!! \key{always_update_bccsound,INTEGER,enable (=1) update of bccsound at each
-!!      substep (0 disables),1}
-
+!! \key{always_update_bccsound,INTEGER,enable(1)/disable(0) update of bccsound at each
+!!      substep,1}
+!! \key{checkdata,INTEGER,bitmask to verify data validity/integrity,CHECK_ALL}
+!! \key{pmin,REAL,pressure minimum to check if CHECK_PMIN has been enabled,TINY(REAL)}
+!! \key{pmin,REAL,temperature minimum to check if CHECK_TMIN has been enabled,TINY(REAL)}
+!! \key{pmin,REAL,density minimum to check if CHECK_RHOMIN has been enabled,TINY(REAL)}
 !----------------------------------------------------------------------------!
 !> \author Tobias Illenseer
 !! \author Björn Sperling
@@ -662,11 +666,23 @@ CONTAINS
       dtold = dt
 
       CALL this%SolveODE(Mesh,Physics,Sources,Fluxes,time,dt,err)
-      ! check truncation error and restart if necessary
-      IF (err.LT.1.0) THEN
-         CALL this%AcceptSolution(Mesh,Physics,Sources,Fluxes,time,dtold,iter)
+
+      ! check truncation error and restart if necessary,
+      ! but first check data integrity of err
+      IF (err.NE.err) THEN
+        ! err = NaN
+        CALL this%Warning("timedisc_base::IntegrationStep","max error returned by SolveODE is NaN")
+        this%break = .TRUE.
+      ELSE IF (err.GT.HUGE(err)) THEN
+        ! err = Inf
+        CALL this%Warning("timedisc_base::IntegrationStep","max error returned by SolveODE is Inf")
+        this%break = .TRUE.
+      ELSE IF (err.GE.1.0) THEN
+        ! err >= 1.0
+        CALL this%RejectSolution(Mesh,Physics,Sources,Fluxes,time,dt)
       ELSE
-         CALL this%RejectSolution(Mesh,Physics,Sources,Fluxes,time,dt)
+        ! err < 1.0
+        CALL this%AcceptSolution(Mesh,Physics,Sources,Fluxes,time,dtold,iter)
       END IF
 
       IF (dt.LT.this%dtlimit) &
@@ -916,7 +932,7 @@ CONTAINS
     INTENT(INOUT)                       :: dt
     !------------------------------------------------------------------------!
     this%cvar%data1d(:) = this%cold%data1d(:)
-    ! This data has already been checked at AcceptSolution
+    ! This data has already been checked before in AcceptSolution
     CALL this%ComputeRHS(Mesh,Physics,Sources,Fluxes,time,dt,this%pvar, &
       this%cvar,CHECK_NOTHING,this%rhs)
     Fluxes%bxflux(:,:,:,:) = Fluxes%bxfold(:,:,:,:)
