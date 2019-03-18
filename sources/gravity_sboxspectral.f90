@@ -659,25 +659,25 @@ CALL ftrace_region_end("forward_fft")
         END DO
         DO k=Mesh%KMIN-Mesh%KP1,Mesh%KMAX+Mesh%KP1
           this%Fsum3D(:,:,k) = 0.0
-!!!! the following seems to be equivalent to a matrix vector multiplication
-!!!! where the matrix is a skew symmetric band matrix
-!           DO kk=Mesh%KMIN-Mesh%KP1,k-1
-!             this%Fsum3D(:,:,k) = this%Fsum3D(:,:,k) + this%qk(:,:,ABS(k-kk)) &
-!                                     * SIGN(1,k-kk) * this%Fmass3D(:,:,kk)
-!           END DO
-!           ! skip k=kk
-!           DO kk=k+1,Mesh%KMAX+Mesh%KP1
-!             this%Fsum3D(:,:,k) = this%Fsum3D(:,:,k) + this%qk(:,:,ABS(k-kk)) &
-!                                     * SIGN(1,k-kk) * this%Fmass3D(:,:,kk)
-!           END DO
+!!! the following seems to be equivalent to a matrix vector multiplication
+!!! where the matrix is a skew symmetric band matrix
+          DO kk=Mesh%KMIN-Mesh%KP1,k-1
+            this%Fsum3D(:,:,k) = this%Fsum3D(:,:,k) + this%qk(:,:,ABS(k-kk)) &
+                                    * SIGN(1,k-kk) * this%Fmass3D(:,:,kk)
+          END DO
+          ! skip k=kk
+          DO kk=k+1,Mesh%KMAX+Mesh%KP1
+            this%Fsum3D(:,:,k) = this%Fsum3D(:,:,k) + this%qk(:,:,ABS(k-kk)) &
+                                    * SIGN(1,k-kk) * this%Fmass3D(:,:,kk)
+          END DO
 !NEC$ IVDEP
           DO j = Mesh%JMIN,Mesh%JMAX
 !NEC$ IVDEP
             DO i = Mesh%IMIN,Mesh%IMAX/2+1
               IF ((this%Kxy2(i,j).LT.this%maxKxy2).AND.(this%Kxy2(i,j).GT. 0)) THEN
-                this%Fmass3D(i,j,k) = -4.*PI*Physics%Constants%GN &
+                this%Fmass3D(i,j-this%local_joff,k) = -4.*PI*Physics%Constants%GN &
                   * (1.-this%qk(i,j,0))/this%Kxy2(i,j) &
-                  * (this%Fmass3D(i,j,k) + 0.5*(1.0+1./this%qk(i,j,0)) &
+                  * (this%Fmass3D(i,j-this%local_joff,k) + 0.5*(1.0+1./this%qk(i,j,0)) &
                     * this%Fsum3D(i,j,k))
               ELSE
                 this%Fmass3D(i,j-this%local_joff,k) = 0.0
@@ -931,7 +931,7 @@ CALL ftrace_region_begin("forward FFT")
     CALL fftw_mpi_execute_dft_r2c(this%plan_r2c,this%density(k)%ptr2D, &
                                   this%FTdensity(k)%ptr2D)
 #else
-    DO k=Mesh%KMIN,Mesh%KMAX
+    DO k=Mesh%KMIN-Mesh%KP1,Mesh%KMAX+Mesh%KP1
       CALL fftw_execute_dft_r2c(this%plan_r2c,this%density(k)%ptr2D, &
                                 this%FTdensity(k)%ptr2D)
     END DO
