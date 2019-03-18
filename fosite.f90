@@ -664,7 +664,9 @@ CONTAINS
     !--------------------------------------------------------------------------!
     IF (this%GetRank().EQ.0) THEN
        CALL this%Info("===================================================================")
-       IF ((this%Timedisc%maxiter.LE.0).OR.(this%iter.LT.this%Timedisc%maxiter)) THEN
+       IF (this%aborted) THEN
+          CALL this%Info("time integration aborted due to errors!")
+       ELSE IF ((this%Timedisc%maxiter.LE.0).OR.(this%iter.LT.this%Timedisc%maxiter)) THEN
           CALL this%Info("calculation finished correctly.")
        ELSE
           CALL this%Info("too many iterations, aborting!")
