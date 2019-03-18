@@ -35,9 +35,6 @@ PROGRAM shear
   ! simulation parameters
   REAL, PARAMETER    :: GN         = 1.0            ! grav. constant [GEOM]  !
   INTEGER, PARAMETER :: UNITS      = GEOMETRICAL
-  ! make a shearingsheet simulation and denote the direction of shearing
-  ! (applies boundaries, ficitious forces and fargo automatically)
-  INTEGER, PARAMETER :: SHEARSHEET_DIRECTION = 2
   ! simulation parameter
   REAL, PARAMETER    :: CSISO    = &
                                      0.0      ! non-isothermal simulation
@@ -50,11 +47,10 @@ PROGRAM shear
   REAL, PARAMETER    :: Q          = 1.5            ! shearing parameter     !
   ! mesh settings
   INTEGER, PARAMETER :: MGEO       = CARTESIAN
-  INTEGER, PARAMETER :: XRES       = 128
-  INTEGER, PARAMETER :: YRES       = 128
-  INTEGER, PARAMETER :: ZRES       = 1
-  REAL               :: DOMAINX    = 320.0
-  REAL               :: DOMAINY    = 320.0
+  INTEGER, PARAMETER :: RES_XY     = 128            ! resolution in x/y-direction
+  INTEGER, PARAMETER :: RES_Z      = 1              ! resolution in z-direction
+  REAL, PARAMETER    :: BOX_SIZE   = 320*GN*SIGMA0/(OMEGA*OMEGA)
+  REAL, PARAMETER    :: BOX_HEIGHT = 0.0
   ! number of output time steps
   INTEGER, PARAMETER :: ONUM       = 10
   ! output directory and output name
@@ -89,7 +85,7 @@ PROGRAM shear
   CALL Sim%InitFosite()
   CALL MakeConfig(Sim, Sim%config)
   CALL SetAttr(Sim%config, "/datafile/filename", (TRIM(ODIR) // TRIM(OFNAME) // "_rotate"))
-  CALL SetAttr(Sim%config, "mesh/shear_dir", 1)
+  CALL SetAttr(Sim%config, "mesh/shearingbox", 1)
   CALL Sim%Setup()
   Sim%Timedisc%pvar%data1d(:) = pvar_init%data1d(:)
   CALL Sim%Physics%Convert2Conservative(Sim%Timedisc%pvar,Sim%Timedisc%cvar)
@@ -121,23 +117,21 @@ PROGRAM shear
     INTENT(INOUT)            :: Sim
     REAL                     :: XMIN,XMAX,YMIN,YMAX,ZMIN,ZMAX
     !------------------------------------------------------------------------!
-    DOMAINX    = DOMAINX*GN*SIGMA0/(OMEGA*OMEGA)
-    DOMAINY    = DOMAINY*GN*SIGMA0/(OMEGA*OMEGA)
-    XMIN       = -0.5*DOMAINX
-    XMAX       = +0.5*DOMAINX
-    YMIN       = -0.5*DOMAINY
-    YMAX       = +0.5*DOMAINY
-    ZMIN       = 0.0
-    ZMAX       = 0.0
+    XMIN       = -0.5*BOX_SIZE
+    XMAX       = +0.5*BOX_SIZE
+    YMIN       = -0.5*BOX_SIZE
+    YMAX       = +0.5*BOX_SIZE
+    ZMIN       = -0.5*BOX_HEIGHT
+    ZMAX       = +0.5*BOX_HEIGHT
 
     ! mesh settings
     mesh =>     Dict(&
                 "meshtype"    / MIDPOINT, &
                 "geometry"    / MGEO, &
-                "shear_dir"   / SHEARSHEET_DIRECTION, &
-                "inum"        / XRES, &
-                "jnum"        / YRES, &
-                "knum"        / ZRES, &
+                "shearingbox" / 2, &
+                "inum"        / RES_XY, &
+                "jnum"        / RES_XY, &
+                "knum"        / RES_Z, &
                 "xmin"        / XMIN, &
                 "xmax"        / XMAX, &
                 "ymin"        / YMIN, &
@@ -178,16 +172,6 @@ PROGRAM shear
                 "limiter"     / VANLEER &
                 )
 
-    ! shearing box fictious forces
-    shear => Dict( &
-                "stype"           / SHEARBOX, &
-                "output/accel_x"  / 0, &
-                "output/accel_y"  / 0 &
-                )
-
-    ! collect sources in dictionary
-    sources => Dict("shear"   / shear)
-
     ! time discretization settings
     timedisc => Dict( &
               "method"        / MODIFIED_EULER, &
@@ -210,7 +194,6 @@ PROGRAM shear
               "mesh"          / mesh, &
               "physics"       / physics, &
               "fluxes"        / fluxes, &
-              "sources"       / sources, &
               "timedisc"      / timedisc, &
               "datafile"      / datafile)
   END SUBROUTINE MakeConfig
@@ -228,8 +211,8 @@ PROGRAM shear
     ! initial condition
     SELECT TYPE(p => pvar)
     TYPE IS(statevector_eulerisotherm) ! isothermal HD
-      WHERE ((ABS(Mesh%bcenter(:,:,:,1)).LT.0.15*DOMAINX.AND. &
-              ABS(Mesh%bcenter(:,:,:,2)).LT.0.15*DOMAINY))
+      WHERE ((ABS(Mesh%bcenter(:,:,:,1)).LT.0.15*BOX_SIZE.AND. &
+              ABS(Mesh%bcenter(:,:,:,2)).LT.0.15*BOX_SIZE))
         p%density%data3d(:,:,:) = SIGMA0
       ELSEWHERE
         p%density%data3d(:,:,:) = SIGMA0*1e-2
@@ -237,8 +220,8 @@ PROGRAM shear
       p%velocity%data2d(:,1) = 0.0
       p%velocity%data4d(:,:,:,2) = -Mesh%Q*Mesh%bcenter(:,:,:,1)*Mesh%Omega
     TYPE IS(statevector_euler) ! non-isothermal HD
-      WHERE ((ABS(Mesh%bcenter(:,:,:,1)).LT.0.15*DOMAINX.AND. &
-              ABS(Mesh%bcenter(:,:,:,2)).LT.0.15*DOMAINY))
+      WHERE ((ABS(Mesh%bcenter(:,:,:,1)).LT.0.15*BOX_SIZE.AND. &
+              ABS(Mesh%bcenter(:,:,:,2)).LT.0.15*BOX_SIZE))
         p%density%data3d(:,:,:) = SIGMA0
       ELSEWHERE
         p%density%data3d(:,:,:) = SIGMA0*1e-2

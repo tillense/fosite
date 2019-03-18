@@ -116,6 +116,11 @@ ser_test_KHI3D:
     script:
        - ./ser_build/tests/KHI3D
 
+set_test_shear:
+    stage: test
+    script:
+       - ./ser_build/tests/shear
+
 ser_test_rootstest:
     stage: test
     script:
