@@ -128,15 +128,15 @@ CONTAINS
       eastern_std = PERIODIC
       southern_std = SHEARING
       northern_std = SHEARING
-      bottomer_std = PERIODIC
-      topper_std = PERIODIC
+      bottomer_std = REFLECTING
+      topper_std = REFLECTING
     ELSE IF (Mesh%shear_dir.EQ.2) THEN
       western_std = SHEARING
       eastern_std = SHEARING
       southern_std = PERIODIC
       northern_std = PERIODIC
-      bottomer_std = PERIODIC
-      topper_std = PERIODIC
+      bottomer_std = REFLECTING
+      topper_std = REFLECTING
     END IF
 
     CALL GetAttr(config, "western",   western, western_std)
@@ -207,6 +207,8 @@ CONTAINS
       CASE(NONE)
         ALLOCATE(boundary_inner::this%Boundary(dir)%p)
 #endif
+      CASE DEFAULT
+        CALL this%Error("boundary_generic::InitBoundary","unknown boundary condition")
       END SELECT
 
       SELECT TYPE(obj => this%Boundary(dir)%p)
