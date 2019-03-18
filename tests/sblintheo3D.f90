@@ -232,7 +232,7 @@ CONTAINS
                   "physics"     / physics, &
                   "fluxes"      / fluxes, &
                   "boundary"    / boundary, &
-!                   "sources"     / sources, &
+                  "sources"     / sources, &
                   "timedisc"    / timedisc, &
                   "datafile"    / datafile &
                   )

@@ -250,9 +250,9 @@ MODULE gravity_sboxspectral_mod
 
     ! check for vertical extent (3D)
     IF (Mesh%KNUM.GT.1) THEN
-      IF (Mesh%zmin.NE.Mesh%zmax) &
+      IF (Mesh%zmin.NE.-Mesh%zmax) &
         CALL this%Error("InitGravity_sboxspectral","z_min != -zmax not allowed: " // &
-                        ACHAR(13) // " computational domain must be symmetric" // &
+                        ACHAR(13) // " computational domain must be symmetric " // &
                         "with respect to z=0 plane")
 #ifdef PARALLEL
       CALL this%Error("InitGravity_sboxspectral","sboxspectral does currently not support parallelization in 3D")
@@ -683,9 +683,9 @@ CALL ftrace_region_end("forward_fft")
 CALL ftrace_region_begin("backward_fft")
 #endif
 
-    !> \todo Violation of best practices. It should take Fmass2D and mass2D as
+    !> \todo Violation of best practices. It should take Fmass3D and den_ip as
     !!      dummy argument, but this is different for every combination.
-!!NEC$ EXPAND
+    !! The potential is now in this%den_ip.
     CALL this%FFT_Backward(Mesh,Physics)
 
 #ifdef _FTRACE
