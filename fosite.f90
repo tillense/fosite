@@ -146,7 +146,7 @@ CONTAINS
     CALL this%InitLogging(simtype,simname)
 
     CALL InitDict()
-    this%iter = 0
+    this%iter = -1
   END SUBROUTINE InitFosite
 
   SUBROUTINE Setup(this)
@@ -261,6 +261,14 @@ CONTAINS
     CLASS(fosite), INTENT(INOUT) :: this
     INTEGER                      :: datetime(8)
     !--------------------------------------------------------------------------!
+    IF(.NOT.this%Initialized()) &
+      CALL this%Error("fosite::FirstStep","Sim is uninitialized")
+
+    ! this%iter = -1 initially (see InitFosite)
+    ! it is set to 0 here to make sure FirstStep is only called once
+    IF (this%iter.GT.-1) &
+      CALL this%Error("fosite::FirstStep","FirstStep should only be called once.")
+    this%iter = 0
 
 #ifdef PARALLEL
     this%start_time = MPI_Wtime()
@@ -360,7 +368,7 @@ CONTAINS
     !--------------------------------------------------------------------------!
     break = .FALSE.
 
-    IF (this%iter.EQ.0) &
+    IF (this%iter.EQ.-1) &
         CALL this%FirstStep()
 
     ! finish simulation if stop time is reached
