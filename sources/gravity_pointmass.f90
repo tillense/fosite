@@ -95,6 +95,7 @@ MODULE gravity_pointmass_mod
     REAL, DIMENSION(:,:,:,:), POINTER   :: omega2       !< Omega Kepler squared
   CONTAINS
     PROCEDURE :: InitGravity_pointmass
+    PROCEDURE :: SetOutput
     PROCEDURE :: CalcPotential
     PROCEDURE :: UpdateGravity_single
     PROCEDURE :: InfoGravity
@@ -196,11 +197,6 @@ CONTAINS
     CASE DEFAULT
        CALL this%Error("InitGravity_pointmass", "potential must be either NEWTON or WIITA")
     END SELECT
-
-    ! output cartesian positions of the point mass
-    CALL GetAttr(config, "output/position", valwrite, 0)
-    IF (valwrite .EQ. 1) &
-       CALL SetAttr(IO, "position", this%pos)
 
     ! reset mass flux and massloss and register for output
     this%mdot = 0.0
@@ -342,6 +338,29 @@ CONTAINS
     END IF
   END SUBROUTINE InfoGravity
 
+  SUBROUTINE SetOutput(this,Mesh,Physics,config,IO)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(gravity_pointmass), INTENT(INOUT) :: this
+    CLASS(mesh_base),    INTENT(IN)    :: Mesh
+    CLASS(physics_base), INTENT(IN)    :: Physics
+    TYPE(Dict_TYP),      POINTER       :: config,IO
+    !------------------------------------------------------------------------!
+    INTEGER          :: valwrite
+    !------------------------------------------------------------------------!
+    ! output cartesian positions of the point mass
+    valwrite = 0
+    CALL GetAttr(config, "output/position", valwrite, 0)
+    IF (valwrite .EQ. 1) &
+       CALL SetAttr(IO, "position", this%pos)
+    valwrite = 0
+    CALL GetAttr(config, "output/potential", valwrite, 0)
+    IF (valwrite .EQ. 1) THEN
+      IF (ASSOCIATED(this%pot)) &
+        CALL SetAttr(IO, "potential", &
+              this%pot(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,4))
+    END IF
+  END SUBROUTINE SetOutput
 
   !> \public updates the gravitational acceleration of the pointmass module
   !!

@@ -102,6 +102,7 @@ MODULE gravity_spectral_mod
 #endif
   CONTAINS
     PROCEDURE :: InitGravity_spectral
+    PROCEDURE :: SetOutput
     PROCEDURE :: UpdateGravity_single
     PROCEDURE :: CalcDiskHeight_single
     PROCEDURE :: Finalize
@@ -270,10 +271,6 @@ MODULE gravity_spectral_mod
                                            1, 2*this%MNUM, &
                                            FFTW_MEASURE)
 
-    CALL GetAttr(config, "output/potential", valwrite, 0)
-    IF (valwrite .EQ. 1) &
-       CALL SetAttr(IO, "potential",this%phi2D(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX))
-
     IF(this%ecut.GT.0.) &
       CALL SetAttr(IO, "mcut",Ref(this%mcut))
 
@@ -293,6 +290,25 @@ MODULE gravity_spectral_mod
 #endif
 
   END SUBROUTINE InitGravity_spectral
+
+  SUBROUTINE SetOutput(this,Mesh,Physics,config,IO)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(gravity_spectral), INTENT(INOUT) :: this
+    CLASS(mesh_base),    INTENT(IN)    :: Mesh
+    CLASS(physics_base), INTENT(IN)    :: Physics
+    TYPE(Dict_TYP),      POINTER       :: config,IO
+    !------------------------------------------------------------------------!
+    INTEGER          :: valwrite
+    !------------------------------------------------------------------------!
+    valwrite = 0
+    CALL GetAttr(config, "output/potential", valwrite, 0)
+    IF (valwrite .EQ. 1) THEN
+      IF (ASSOCIATED(this%pot)) &
+        CALL SetAttr(IO, "potential", &
+              this%pot(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,4))
+    END IF
+  END SUBROUTINE SetOutput
 
 
 #ifdef HAVE_FFTW

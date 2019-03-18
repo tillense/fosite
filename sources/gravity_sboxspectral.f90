@@ -105,7 +105,6 @@ MODULE gravity_sboxspectral_mod
     REAL                             :: shiftconst     !< constant for shift
     REAL, DIMENSION(:), POINTER      :: joff, jrem     !< shifting indices (in SB)
     INTEGER                          :: order
-    LOGICAL                          :: calc_Fmass2D
 #ifdef PARALLEL
     INTEGER(C_INTPTR_T)              :: C_INUM, C_JNUM
     INTEGER(C_INTPTR_T)              :: alloc_local, local_JNUM
@@ -119,6 +118,7 @@ MODULE gravity_sboxspectral_mod
     PROCEDURE :: InitGravity_sboxspectral
     PROCEDURE :: UpdateGravity_single
     PROCEDURE :: InfoGravity
+    PROCEDURE :: SetOutput
     PROCEDURE :: CalcDiskHeight_single
     PROCEDURE :: Finalize
 #ifdef HAVE_FFTW
@@ -226,7 +226,6 @@ MODULE gravity_sboxspectral_mod
 #else
              ! initialization handled by FFTW (see below)
 #endif
-             this%Fmass2D_real(Mesh%IMIN:Mesh%IMAX+2,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX), &
              this%kx(Mesh%INUM), &
              this%ky(Mesh%JNUM), &
              this%den_ip(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX), &
@@ -312,23 +311,39 @@ MODULE gravity_sboxspectral_mod
     this%joff(:) = 0.
     this%jrem(:) = 0.
 
-    !------------------------------- output ---------------------------------!
-    valwrite = 0
-    CALL GetAttr(config, "output/phi", valwrite, 0)
-    IF (valwrite .EQ. 1) &
-      CALL SetAttr(IO, "phi", &
-              this%phi(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX))
-    valwrite = 0
-    this%calc_Fmass2D = .FALSE.
-    CALL GetAttr(config, "output/Fmass2D", valwrite, 0)
-    IF (valwrite .EQ. 1) THEN
-      CALL SetAttr(IO, "Fmass2D_real", &
-              this%Fmass2D_real(Mesh%IMIN:Mesh%IMAX+2,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX))
-      this%calc_Fmass2D = .TRUE.
-    END IF
-
 #endif
   END SUBROUTINE InitGravity_sboxspectral
+
+  SUBROUTINE SetOutput(this,Mesh,Physics,config,IO)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(gravity_sboxspectral), INTENT(INOUT) :: this
+    CLASS(mesh_base),    INTENT(IN)    :: Mesh
+    CLASS(physics_base), INTENT(IN)    :: Physics
+    TYPE(Dict_TYP),      POINTER       :: config,IO
+    !------------------------------------------------------------------------!
+    INTEGER          :: valwrite,err
+    !------------------------------------------------------------------------!
+    valwrite = 0
+    CALL GetAttr(config, "output/potential", valwrite, 0)
+    IF (valwrite .EQ. 1) THEN
+      IF (ASSOCIATED(this%phi)) &
+        CALL SetAttr(IO, "potential", &
+              this%phi(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX))
+    END IF
+#ifdef HAVE_FFTW
+    valwrite = 0
+    CALL GetAttr(config, "output/Fmass2D", valwrite, 0)
+    IF (valwrite .EQ. 1) THEN
+      ALLOCATE(this%Fmass2D_real(Mesh%IMIN:Mesh%IMAX+2,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX), &
+        STAT=err)
+      IF (err.NE.0) &
+         CALL this%Error("sboxspectral::SetOutput","Memory allocation failed.")
+      CALL SetAttr(IO, "Fmass2D_real", &
+              this%Fmass2D_real(Mesh%IMIN:Mesh%IMAX+2,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX))
+    END IF
+#endif
+  END SUBROUTINE SetOutput
 
   !> \public Calculates the acceleration from potential.
   !!
@@ -762,7 +777,7 @@ CALL ftrace_region_begin("forward FFT")
     CALL fftw_mpi_execute_dft_r2c(this%plan_r2c,this%mass2D, this%Fmass2D)
 #endif
 
-    IF (this%calc_Fmass2D) THEN
+    IF (ASSOCIATED(this%Fmass2D_real)) THEN
 !NEC$ IVDEP
       DO k = Mesh%KMIN,Mesh%KMAX
 !NEC$ IVDEP
@@ -973,9 +988,9 @@ CALL ftrace_region_end("foward FFT")
     DEALLOCATE(this%mass2D,this%Fmass2D)
 #endif
     ! Free memory
+    IF (ASSOCIATED(this%Fmass2D_real)) DEALLOCATE(this%Fmass2D)
     DEALLOCATE(&
                this%phi, &
-               this%Fmass2D_real, &
                this%kx, this%ky, &
                this%joff, &
                this%jrem, &

@@ -32,8 +32,7 @@
 !> \addtogroup gravity
 !! - general parameters of gravity group as key-values
 !! \key{gtype,INTEGER,Type of gravity source}
-!! \key{output/accel,INTEGER,enable(=1) output of acceleration}
-!! \key{output/height,INTEGER,enable(=1) output of disc height}
+!! \key{output/accel,INTEGER,enable(=1) output of acceleration,0}
 !----------------------------------------------------------------------------!
 !> \author Björn Sperling
 !! \author Tobias Illenseer
@@ -64,8 +63,8 @@ MODULE gravity_base_mod
     REAL, DIMENSION(:,:,:,:), POINTER  :: pot          !< general potential
   CONTAINS
     PROCEDURE :: InitGravity
-    PROCEDURE :: SetOutput
-    PROCEDURE (UpdateGravity_single), DEFERRED :: UpdateGravity_single
+    PROCEDURE (SetOutput),             DEFERRED :: SetOutput
+    PROCEDURE (UpdateGravity_single),  DEFERRED :: UpdateGravity_single
     PROCEDURE (CalcDiskHeight_single), DEFERRED :: CalcDiskHeight_single
     PROCEDURE :: GetGravityPointer
     PROCEDURE :: Finalize_base
@@ -73,6 +72,15 @@ MODULE gravity_base_mod
   END TYPE gravity_base
 
   ABSTRACT INTERFACE
+    SUBROUTINE SetOutput(this,Mesh,Physics,config,IO)
+      IMPORT gravity_base, mesh_base, physics_base, dict_typ
+      IMPLICIT NONE
+      !------------------------------------------------------------------------!
+      CLASS(gravity_base), INTENT(INOUT) :: this
+      CLASS(mesh_base),    INTENT(IN)    :: Mesh
+      CLASS(physics_base), INTENT(IN)    :: Physics
+      TYPE(Dict_TYP),      POINTER       :: config,IO
+    END SUBROUTINE
     SUBROUTINE UpdateGravity_single(this,Mesh,Physics,Fluxes,pvar,time,dt)
       IMPORT gravity_base, mesh_base, physics_base, fluxes_base, marray_compound
       IMPLICIT NONE
@@ -128,7 +136,8 @@ CONTAINS
     CHARACTER(LEN=*),     INTENT(IN)    :: gravity_name
     TYPE(Dict_TYP),POINTER              :: config,IO
     !------------------------------------------------------------------------!
-    INTEGER :: gtype
+    CHARACTER(LEN=1) :: xyz(3) = (/"x","y","z"/)
+    INTEGER :: gtype,k,valwrite
     !------------------------------------------------------------------------!
     ! basic initialization of gravity module
     CALL GetAttr(config, "gtype", gtype)
@@ -138,34 +147,17 @@ CONTAINS
     this%accel = marray_base(Physics%VDIM)
     ! reset acceleration
     this%accel%data1d(:) = 0.0
-    CALL this%Info(" GRAVITY--> gravity term:      " // this%GetName())
-  END SUBROUTINE InitGravity
-
-  SUBROUTINE SetOutput(this,Mesh,Physics,config,IO)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(gravity_base), INTENT(INOUT) :: this
-    CLASS(mesh_base),    INTENT(IN)    :: Mesh
-    CLASS(physics_base), INTENT(IN)    :: Physics
-    TYPE(Dict_TYP),      POINTER       :: config,IO
-    !------------------------------------------------------------------------!
-    CHARACTER(LEN=1) :: xyz(3) = (/"x","y","z"/)
-    INTEGER          :: valwrite,k
-    !------------------------------------------------------------------------!
-    CALL GetAttr(config, "output/accel", valwrite, 1)
+    ! check whether gravitational acceleration of a particular gravity
+    ! module should be written into the data file
+    CALL GetAttr(config, "output/accel", valwrite, 0)
     IF (valwrite .EQ. 1) THEN
        DO k=1,SIZE(this%accel%data4d,4)
           CALL SetAttr(IO, ("accel_" // xyz(k)),&
              this%accel%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,k))
        END DO
     END IF
-
-    CALL GetAttr(config, "output/potential", valwrite, 1)
-    IF (valwrite .EQ. 1) &
-       CALL SetAttr(IO, "potential",&
-         this%pot(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,1))
-
-  END SUBROUTINE SetOutput
+    CALL this%Info(" GRAVITY--> gravity term:      " // this%GetName())
+  END SUBROUTINE InitGravity
 
   FUNCTION GetGravityPointer(list,stype) RESULT(gp)
     IMPLICIT NONE
