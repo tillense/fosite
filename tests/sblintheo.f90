@@ -102,7 +102,7 @@ PROGRAM sblintheo
   INTEGER, PARAMETER :: ONUM       = 10
   ! output directory and output name
   CHARACTER(LEN=256), PARAMETER :: ODIR   = "./"
-  CHARACTER(LEN=256), PARAMETER :: OFNAME = "sblintheo"
+  CHARACTER(LEN=256), PARAMETER :: OFNAME = "sblintheo_finite_dz"
   !--------------------------------------------------------------------------!
   CLASS(fosite), ALLOCATABLE :: Sim
   REAL               :: maximum
@@ -150,10 +150,10 @@ CONTAINS
     XMAX       = +0.5*DOMAINX
     YMIN       = -0.5*DOMAINY
     YMAX       = +0.5*DOMAINY
-    ZMIN       = 0.0
-    ZMAX       = 0.0
-!     ZMIN       = -0.00001*DOMAINX
-!     ZMAX       = +0.00001*DOMAINX
+!     ZMIN       = 0.0
+!     ZMAX       = 0.0
+    ZMIN       = -0.00001*DOMAINX
+    ZMAX       = +0.00001*DOMAINX
 
     ! physics settings
     physics =>  Dict(&
@@ -197,10 +197,8 @@ CONTAINS
     grav =>     Dict(&
                 "stype"               / GRAVITY, &
                 "self/gtype"          / SBOXSPECTRAL, &
-!                "output/accel"        / 1, &
-                "self/output/phi"     / 0, &
-                "self/output/accel_x" / 0, &
-                "self/output/accel_y" / 0 &
+                "self/output/accel"     / 1, &
+                "self/output/potential" / 1 &
                 )
 
     ! add gravitational sources

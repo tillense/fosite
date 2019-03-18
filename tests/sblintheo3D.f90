@@ -182,10 +182,10 @@ CONTAINS
 
     ! boundary conditions (x-/y-boundaries are set automatically)
     boundary => Dict(&
-               "bottomer" / ABSORBING,&
-               "topper"   / ABSORBING)
-!                "bottomer" / NO_GRADIENTS,&
-!                "topper"   / NO_GRADIENTS)
+!                "bottomer" / ABSORBING,&
+!                "topper"   / ABSORBING)
+               "bottomer" / NO_GRADIENTS,&
+               "topper"   / NO_GRADIENTS)
 
     ! fluxes settings
     fluxes =>   Dict(&
@@ -196,14 +196,11 @@ CONTAINS
                 )
 
     ! gravity settings (source term)
-    !!!! ATTENTION: currently not working in 3D !!!!
     grav =>     Dict(&
                 "stype"               / GRAVITY, &
                 "self/gtype"          / SBOXSPECTRAL, &
-!                "output/accel"        / 1, &
-                "self/output/phi"     / 0, &
-                "self/output/accel_x" / 0, &
-                "self/output/accel_y" / 0 &
+                "self/output/accel"   / 1, &
+                "self/output/potential" / 1 &
                 )
 
     ! sources settings (contains source terms)
