@@ -150,6 +150,7 @@ MODULE gravity_sboxspectral_mod
     PROCEDURE :: FFT_Forward
     PROCEDURE :: FFT_Backward
 #endif
+    PROCEDURE :: SetBoundaryData
     PROCEDURE :: FieldShift
   END TYPE
 
@@ -452,6 +453,9 @@ MODULE gravity_sboxspectral_mod
                                  (2*Mesh%dlx%data3d(i,j,k))
             this%accel%data4d(i,j,k,2) = -1.0*(this%phi(i,j+1,k)-this%phi(i,j-1,k))/ &
                                  (2*Mesh%dly%data3d(i,j,k))
+            IF (Physics%VDIM.EQ.3) &
+              this%accel%data4d(i,j,k,3) = -1.0*(this%phi(i,j,k+1)-this%phi(i,j,k-1))/ &
+                                 (2*Mesh%dlz%data3d(i,j,k))
          END DO
         END DO
       END DO
@@ -471,6 +475,10 @@ MODULE gravity_sboxspectral_mod
             this%accel%data4d(i,j,k,2) = -1.0*(w1*this%phi(i,j-2,k)-w2*this%phi(i,j-1,k)+ &
                                         w2*this%phi(i,j+1,k)-w1*this%phi(i,j+2,k)) / &
                                        (Mesh%dly%data3d(i,j,k))
+            IF (Physics%VDIM.EQ.3) &
+              this%accel%data4d(i,j,k,3) = -1.0*(w1*this%phi(i,j,k-2)-w2*this%phi(i,j,k-1)+ &
+                                        w2*this%phi(i,j,k+1)-w1*this%phi(i,j,k+2)) / &
+                                       (Mesh%dlz%data3d(i,j,k))
           END DO
         END DO
       END DO
@@ -525,7 +533,7 @@ MODULE gravity_sboxspectral_mod
     CLASS(marray_compound),   INTENT(INOUT) :: pvar
     !------------------------------------------------------------------------!
     INTEGER :: i,j,k,kk
-    REAL    :: joff2,jrem2,delt,time0
+    REAL    :: delt,time0
 #ifdef PARALLEL
     INTEGER :: status(MPI_STATUS_SIZE),ierror
     REAL    :: mpi_buf(Mesh%IMIN:Mesh%IMAX,Mesh%GJNUM,Mesh%KMIN:Mesh%KMAX) !TODO: ONLY 2D
@@ -699,7 +707,7 @@ CALL ftrace_region_end("backward_fft")
       DO j = Mesh%JMIN,Mesh%JMAX
 !NEC$ IVDEP
         DO i = Mesh%IMIN,Mesh%IMAX
-          this%phi(i,j,k) = this%mass2D(i,j-this%local_joff)/ &
+          this%phi(i,j,k) = this%den_ip(i,j-this%local_joff,k)/ &
                (Mesh%JNUM*Mesh%INUM)                        ! no norm. by FFTW !
         END DO
       END DO
@@ -721,61 +729,93 @@ CALL ftrace_region_end("backward_fft")
       END DO
     END DO
 
-    !----- copy values to boundaries in order to calculate acceleration -----!
+    CALL this%SetBoundaryData(Mesh,Physics,delt)
+  END SUBROUTINE CalcPotential
+
+  !> \private Set ghost cell data for the potential
+  !!
+  !! Parallelization in x-y-plane is only supported for shear along 1st dimension,
+  !! i.e., in west-east direction, so we need MPI communication only in this case.
+  SUBROUTINE SetBoundaryData(this,Mesh,Physics,delt)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(gravity_sboxspectral), INTENT(INOUT):: this
+    CLASS(mesh_base),    INTENT(IN) :: Mesh
+    CLASS(physics_base), INTENT(IN) :: Physics
+    REAL,                INTENT(IN) :: delt
+    !------------------------------------------------------------------------!
+    INTEGER :: i,j,k
+    REAL    :: joff,jrem
+    !------------------------------------------------------------------------!
     IF(Mesh%shear_dir.EQ.2) THEN
+      ! southern / northern boundary: periodic
+      DO k = Mesh%KMIN,Mesh%KMAX
 !NEC$ SHORTLOOP
-      DO j = 1,Mesh%GJNUM
-        ! southern northern (periodic)
-        this%phi(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN-j,Mesh%KMIN:Mesh%KMAX) = this%phi(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX-j+1,Mesh%KMIN:Mesh%KMAX)
-        this%phi(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX+j,Mesh%KMIN:Mesh%KMAX) = this%phi(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN+j-1,Mesh%KMIN:Mesh%KMAX)
+        DO j = 1,Mesh%GJNUM
+          DO i = Mesh%IMIN,Mesh%IMAX
+            this%phi(i,Mesh%JMIN-j,k) = this%phi(i,Mesh%JMAX-j+1,k)
+            this%phi(i,Mesh%JMAX+j,k) = this%phi(i,Mesh%JMIN+j-1,k)
+          END DO
+        END DO
       END DO
-      joff2 = -this%shiftconst*delt
-      jrem2 = joff2 - FLOOR(joff2)
+
+      ! western / eastern boundary: shifted periodic
+      joff = -this%shiftconst*delt
+      jrem = joff - FLOOR(joff)
+      DO k = Mesh%KMIN,Mesh%KMAX
 !NEC$ SHORTLOOP
-      DO i = 1,Mesh%GINUM
-        ! western (periodic)
-        this%phi(Mesh%IMIN-i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX) = this%phi(Mesh%IMAX-i+1,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX)
-        ! western integer shift
-        this%phi(Mesh%IMIN-i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX)  = &
-              CSHIFT(this%phi(Mesh%IMIN-i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX),FLOOR(joff2))
-        ! western residual shift
-        this%phi(Mesh%IMIN-i,Mesh%JMAX+1,:) = this%phi(Mesh%IMIN-i,Mesh%JMIN,:)
-        DO k=Mesh%KMIN,Mesh%KMAX
-          DO j=Mesh%JMIN,Mesh%JMAX
+        DO i = 1,Mesh%GINUM
+          DO j = Mesh%JMIN,Mesh%JMAX
+            ! copy eastern data
+            this%phi(Mesh%IMIN-i,j,k) = this%phi(Mesh%IMAX-i+1,j,k)
+          END DO
+          ! apply integer shift
+          this%phi(Mesh%IMIN-i,Mesh%JMIN:Mesh%JMAX,k) = &
+            CSHIFT(this%phi(Mesh%IMIN-i,Mesh%JMIN:Mesh%JMAX,k),FLOOR(joff))
+          this%phi(Mesh%IMIN-i,Mesh%JMAX+1,k) = this%phi(Mesh%IMIN-i,Mesh%JMIN,k)
+          ! apply residual shift (interpolation)
+          DO j = Mesh%JMIN,Mesh%JMAX
             this%phi(Mesh%IMIN-i,j,k) = &
-                (1.0 - jrem2)*this%phi(Mesh%IMIN-i,j,k) + jrem2*this%phi(Mesh%IMIN-i,j+1,k)
+                (1.0 - jrem)*this%phi(Mesh%IMIN-i,j,k) + jrem*this%phi(Mesh%IMIN-i,j+1,k)
           END DO
         END DO
       END DO
-      joff2 = this%shiftconst*delt
-      jrem2 = joff2 - FLOOR(joff2)
+
+      joff = this%shiftconst*delt
+      jrem = joff - FLOOR(joff)
+      DO k = Mesh%KMIN,Mesh%KMAX
 !NEC$ SHORTLOOP
-      DO i = 1,Mesh%GINUM
-        ! eastern (periodic)
-        this%phi(Mesh%IMAX+i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX) = this%phi(Mesh%IMIN+i-1,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX)
-        ! eastern integer shift
-        this%phi(Mesh%IMAX+i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX)  = &
-              CSHIFT(this%phi(Mesh%IMAX+i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX),FLOOR(joff2))
-        ! eastern residual shift
-        this%phi(Mesh%IMAX+i,Mesh%JMAX+1,:) = this%phi(Mesh%IMAX+i,Mesh%JMIN,:)
-        DO k=Mesh%KMIN,Mesh%KMAX
-          DO j=Mesh%JMIN,Mesh%JMAX
+        DO i = 1,Mesh%GINUM
+          DO j = Mesh%JMIN,Mesh%JMAX
+            ! copy western data
+            this%phi(Mesh%IMAX+i,j,k) = this%phi(Mesh%IMIN+i-1,j,k)
+          END DO
+          ! apply integer shift
+          this%phi(Mesh%IMAX+i,Mesh%JMIN:Mesh%JMAX,k) = &
+            CSHIFT(this%phi(Mesh%IMAX+i,Mesh%JMIN:Mesh%JMAX,k),FLOOR(joff))
+          this%phi(Mesh%IMAX+i,Mesh%JMAX+1,:) = this%phi(Mesh%IMAX+i,Mesh%JMIN,:)
+          ! apply residual shift (interpolation)
+          DO j = Mesh%JMIN,Mesh%JMAX
             this%phi(Mesh%IMAX+i,j,k) = &
-                (1.0 - jrem2)*this%phi(Mesh%IMAX+i,j,k) + jrem2*this%phi(Mesh%IMAX+i,j+1,k)
+                (1.0 - jrem)*this%phi(Mesh%IMAX+i,j,k) + jrem*this%phi(Mesh%IMAX+i,j+1,k)
           END DO
         END DO
       END DO
-! Only north-south direction has parallelization allowed
-! Attention: The order of the copies plays a role. First the non-shifted direction needs to be
-! copied, afterwards the shifted.
     ELSE IF(Mesh%shear_dir.EQ.1) THEN
+      ! western / eastern boundary: periodic (no MPI communication)
+      DO k = Mesh%KMIN,Mesh%KMAX
+        DO j = Mesh%JMIN,Mesh%JMAX
 !NEC$ SHORTLOOP
-      DO i = 1,Mesh%GINUM
-        ! western and eastern (always periodic)
-        this%phi(Mesh%IMIN-i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX) = this%phi(Mesh%IMAX-i+1,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX)
-        this%phi(Mesh%IMAX+i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX) = this%phi(Mesh%IMIN+i-1,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX)
+          DO i = 1,Mesh%GJNUM
+            this%phi(Mesh%IMIN-i,j,k) = this%phi(Mesh%IMAX-i+1,j,k)
+            this%phi(Mesh%IMAX+i,j,k) = this%phi(Mesh%IMIN+i-1,j,k)
+          END DO
+        END DO
       END DO
 #ifdef PARALLEL
+      ! ATTENTION: send order is important for MPI:
+      !  1. send non-shifted direction
+      !  2. send shifted direction
       IF(Mesh%dims(2).GT.1) THEN
         mpi_buf(Mesh%IMIN:Mesh%IMAX,1:Mesh%GJNUM,Mesh%KMIN:Mesh%KMAX) = &
           this%phi(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX-Mesh%GJNUM+1:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX)
@@ -786,11 +826,13 @@ CALL ftrace_region_end("backward_fft")
           Mesh%neighbor(NORTH), 53+NORTH, &
           Mesh%neighbor(SOUTH), MPI_ANY_TAG, &
           Mesh%comm_cart, status, ierror)
+
         this%phi(Mesh%IMIN:Mesh%IMAX,Mesh%JGMIN:Mesh%JMIN-1,Mesh%KMIN:Mesh%KMAX) = &
           mpi_buf(Mesh%IMIN:Mesh%IMAX,1:Mesh%GJNUM,Mesh%KMIN:Mesh%KMAX)
 
         mpi_buf(Mesh%IMIN:Mesh%IMAX,1:Mesh%GJNUM,Mesh%KMIN:Mesh%KMAX) = &
           this%phi(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMIN+Mesh%GJNUM-1,Mesh%KMIN:Mesh%KMAX)
+
         CALL MPI_Sendrecv_replace(&
           mpi_buf,&
           2*(Mesh%IMAX-Mesh%IMIN+1), &
@@ -819,17 +861,17 @@ CALL ftrace_region_end("backward_fft")
 #ifndef PARALLEL
         this%phi(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN-j,Mesh%KMIN:Mesh%KMAX) = this%phi(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX-j+1,Mesh%KMIN:Mesh%KMAX)
 #endif
-        joff2 = this%shiftconst*delt
-        jrem2 = joff2 - FLOOR(joff2)
+        joff = this%shiftconst*delt
+        jrem = joff - FLOOR(joff)
         !------- integral shift ---------------------------------------------!
         this%phi(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN-j,Mesh%KMIN:Mesh%KMAX)  = &
-          CSHIFT(this%phi(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN-j,Mesh%KMIN:Mesh%KMAX),FLOOR(joff2))
+          CSHIFT(this%phi(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN-j,Mesh%KMIN:Mesh%KMAX),FLOOR(joff))
         !------- residual shift ---------------------------------------------!
         this%phi(Mesh%IMAX+1,Mesh%JMIN-j,:) = this%phi(Mesh%IMIN,Mesh%JMIN-j,:)
         DO k = Mesh%KMIN,Mesh%KMAX
           DO i=Mesh%IMIN,Mesh%IMAX
             this%phi(i,Mesh%JMIN-j,k) = &
-              (1.0 - jrem2)*this%phi(i,Mesh%JMIN-j,k) + jrem2*this%phi(i+1,Mesh%JMIN-j,k)
+              (1.0 - jrem)*this%phi(i,Mesh%JMIN-j,k) + jrem*this%phi(i+1,Mesh%JMIN-j,k)
           END DO
         END DO
       END DO
@@ -846,17 +888,17 @@ CALL ftrace_region_end("backward_fft")
         this%phi(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX+j,Mesh%KMIN:Mesh%KMAX) = this%phi(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN+j-1,Mesh%KMIN:Mesh%KMAX)
 #endif
         ! northern (shorn periodic) - residual and integer shift
-        joff2 = -this%shiftconst*delt
-        jrem2 = joff2 - FLOOR(joff2)
+        joff = -this%shiftconst*delt
+        jrem = joff - FLOOR(joff)
         !------- integral shift ---------------------------------------------!
         this%phi(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX+j,Mesh%KMIN:Mesh%KMAX)  = &
-          CSHIFT(this%phi(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX+j,Mesh%KMIN:Mesh%KMAX),FLOOR(joff2))
+          CSHIFT(this%phi(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX+j,Mesh%KMIN:Mesh%KMAX),FLOOR(joff))
         !------- residual shift ---------------------------------------------!
         this%phi(Mesh%IMAX+1,Mesh%JMAX+j,:) = this%phi(Mesh%IMIN,Mesh%JMAX+j,:)
         DO k = Mesh%KMIN,Mesh%KMAX
           DO i = Mesh%IMIN,Mesh%IMAX
             this%phi(i,Mesh%JMAX+j,k) = &
-              (1.0 - jrem2)*this%phi(i,Mesh%JMAX+j,k) + jrem2*this%phi(i+1,Mesh%JMAX+j,k)
+              (1.0 - jrem)*this%phi(i,Mesh%JMAX+j,k) + jrem*this%phi(i+1,Mesh%JMAX+j,k)
           END DO
         END DO
       END DO
@@ -864,8 +906,7 @@ CALL ftrace_region_end("backward_fft")
       END IF
 #endif
     END IF
-  END SUBROUTINE CalcPotential
-
+  END SUBROUTINE SetBoundaryData
 
   !> \private Calculates the FFT forward
   SUBROUTINE FFT_Forward(this,Mesh,Physics)
@@ -913,7 +954,6 @@ CALL ftrace_region_end("foward FFT")
 #endif
 
   END SUBROUTINE
-
 
   !> \private Calculates the FFT backward transformation
   SUBROUTINE FFT_Backward(this,Mesh,Physics)
@@ -1015,6 +1055,7 @@ CALL ftrace_region_end("foward FFT")
     CLASS(gravity_sboxspectral), INTENT(INOUT) :: this
     CLASS(mesh_base),    INTENT(IN)  :: Mesh
     CLASS(physics_base), INTENT(IN)  :: Physics
+    REAL,                INTENT(IN)  :: delt
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
                          INTENT(IN)  :: field
 #if defined(PARALLEL)
@@ -1026,7 +1067,6 @@ CALL ftrace_region_end("foward FFT")
 #endif
     !------------------------------------------------------------------------!
     INTEGER           :: i,j,k,local_joff
-    REAL              :: delt
     !------------------------------------------------------------------------!
     local_joff = this%local_joff
 
