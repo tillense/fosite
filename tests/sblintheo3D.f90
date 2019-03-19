@@ -183,7 +183,7 @@ CONTAINS
                 "zmin"        / ZMIN, &
                 "zmax"        / ZMAX, &
                 "omega"       / OMEGA, &
-                "decomposition"/ (/ 1, 1, -1/), &
+                "decomposition"/ (/ 1, -1, 1/), &
                 "output/rotation" / 0, &
                 "output/volume"   / 0, &
                 "output/bh"   / 0, &
