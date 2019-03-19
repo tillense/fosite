@@ -655,17 +655,19 @@ CALL ftrace_region_end("forward_fft")
         END DO
         DO k=Mesh%KMIN-Mesh%KP1,Mesh%KMAX+Mesh%KP1
           this%Fsum3D(:,:,k) = 0.0
-!!! the following seems to be equivalent to a matrix vector multiplication
-!!! where the matrix is a skew symmetric band matrix
+          ! the following operations are equivalent to a matrix vector multiplication
+          ! where the matrix is a symmetric band matrix with zeros on the main diagonal
           DO kk=Mesh%KMIN-Mesh%KP1,k-1
             this%Fsum3D(:,:,k) = this%Fsum3D(:,:,k) + this%qk(:,:,ABS(k-kk)) &
-                                    * SIGN(1,k-kk) * this%Fmass3D(:,:,kk)
+                                    * this%Fmass3D(:,:,kk)
           END DO
           ! skip k=kk
           DO kk=k+1,Mesh%KMAX+Mesh%KP1
             this%Fsum3D(:,:,k) = this%Fsum3D(:,:,k) + this%qk(:,:,ABS(k-kk)) &
-                                    * SIGN(1,k-kk) * this%Fmass3D(:,:,kk)
+                                    * this%Fmass3D(:,:,kk)
           END DO
+        END DO
+        DO k=Mesh%KMIN-Mesh%KP1,Mesh%KMAX+Mesh%KP1
 !NEC$ IVDEP
           DO j = Mesh%JMIN,Mesh%JMAX
 !NEC$ IVDEP
@@ -730,7 +732,7 @@ CALL ftrace_region_end("backward_fft")
     CALL this%SetBoundaryData(Mesh,Physics,delt)
   END SUBROUTINE CalcPotential
 
-  !> \private Set ghost cell data for the potential
+  !> \public Set ghost cell data for the potential
   !!
   !! Parallelization in x-y-plane is only supported for shear along 1st dimension,
   !! i.e., in west-east direction, so we need MPI communication only in this case.

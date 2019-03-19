@@ -82,51 +82,55 @@ PROGRAM sblintheo
   ! simulation parameter
   REAL, PARAMETER    :: OMEGA      = 1.0            ! rotation at fid. point !
   REAL, PARAMETER    :: SIGMA0     = 1.0            ! mean surf.dens.        !
-  REAL, PARAMETER    :: DELSIGMA   = SIGMA0*5.0e-2  ! disturbance            !
+  REAL, PARAMETER    :: DELSIGMA   = SIGMA0*5.0e-4  ! disturbance            !
   REAL, PARAMETER    :: TSIM       = 10.0/OMEGA     ! simulation time        !
-  REAL, PARAMETER    :: GAMMA      = 2.0            ! dep. on vert. struct.  !
+  REAL, PARAMETER    :: GAMMA      = 1.4            ! dep. on vert. struct.  !
   REAL, PARAMETER    :: Q          = 1.5            ! shearing parameter     !
   ! set (initial) speed of sound using the Toomre criterion and 
   ! assuming marginal stabily; in non-isothermal simulations this is
   ! used to set the initial pressure (see InitData) whereas in isothermal
   ! simulations this is constant throughout the simulation
   REAL, PARAMETER    :: SOUNDSPEED = PI*GN*SIGMA0/OMEGA ! det. by. Toomre    !
+!   INTEGER, PARAMETER :: PHYS       = EULER
+  INTEGER, PARAMETER :: PHYS       = EULER_ISOTHERM
   ! mesh settings
   INTEGER, PARAMETER :: MGEO       = CARTESIAN
-  INTEGER, PARAMETER :: XRES       = 30            ! amount of cells in x-  !
-  INTEGER, PARAMETER :: YRES       = 30            ! y-direction (rho/phi)  !
+  INTEGER, PARAMETER :: XRES       = 60            ! amount of cells in x-  !
+  INTEGER, PARAMETER :: YRES       = 60            ! y-direction (rho/phi)  !
   INTEGER, PARAMETER :: ZRES       = 30
   REAL               :: DOMAINX    = 40.0           ! domain size [GEOM]     !
   REAL               :: DOMAINY    = 40.0           ! domain size [GEOM]     !
-  REAL               :: DOMAINZ    = 40.0           ! domain size [GEOM]     !
+  REAL               :: DOMAINZ    = 20.0           ! domain size [GEOM]     !
   ! number of output time steps
-!  INTEGER, PARAMETER :: ONUM       = 1
   INTEGER, PARAMETER :: ONUM       = 10
   ! output directory and output name
   CHARACTER(LEN=256), PARAMETER :: ODIR   = "./"
   CHARACTER(LEN=256), PARAMETER :: OFNAME = "sblintheo3D"
   !--------------------------------------------------------------------------!
   CLASS(fosite), ALLOCATABLE :: Sim
+  LOGICAL :: ok
   !--------------------------------------------------------------------------!
 
-!TAP_PLAN(1)
+TAP_PLAN(1)
 
-ALLOCATE(Sim)
+  ALLOCATE(Sim)
 
-CALL Sim%InitFosite()
-CALL MakeConfig(Sim, Sim%config)
-CALL Sim%Setup()
-CALL InitData(Sim%Mesh, Sim%Physics, Sim%Timedisc%pvar, Sim%Timedisc%cvar)
-CALL Sim%Run()
+  CALL Sim%InitFosite()
+  CALL MakeConfig(Sim, Sim%config)
+  CALL Sim%Setup()
+  CALL InitData(Sim%Mesh, Sim%Physics, Sim%Timedisc%pvar, Sim%Timedisc%cvar)
+  CALL Sim%Run()
+  ok = .NOT.Sim%aborted
 
 ! search for the amplitude
 !maximum = MAXVAL(Sim%Timedisc%pvar(:,:,:,Sim%Physics%DENSITY)) - SIGMA0
 !TAP_CHECK_CLOSE(maximum, 0.0316463969505, 0.005, "Last max. < 0.005 deviation")
 
-CALL Sim%Finalize()
-DEALLOCATE(Sim)
+  CALL Sim%Finalize()
+  DEALLOCATE(Sim)
 
-!TAP_DONE
+TAP_CHECK(ok,"stoptime reached")
+TAP_DONE
 
 CONTAINS
 
@@ -151,11 +155,18 @@ CONTAINS
     ZMAX       = +0.5*DOMAINZ
 
     ! physics settings
-    physics =>  Dict(&
-               "problem"     / EULER_ISOTHERM, &
-               "cs"          / SOUNDSPEED, &
-                "units"       / GEOMETRICAL &
-                )
+    SELECT CASE(PHYS)
+    CASE(EULER_ISOTHERM)
+      physics => Dict("problem" / EULER_ISOTHERM, &
+                      "cs"      / SOUNDSPEED, &      ! isothermal speed of sound
+                      "units"   / GEOMETRICAL)
+    CASE(EULER)
+      physics => Dict("problem" / EULER, &
+                      "gamma"   / GAMMA, &           ! ratio of specific heats
+                      "units"   / GEOMETRICAL)
+    CASE DEFAULT
+      CALL Sim%Error("sblintheo3D::MakeConfig","unsupported physics")
+    END SELECT
 
     ! mesh settings
     mesh =>     Dict(&
@@ -181,11 +192,11 @@ CONTAINS
                 )
 
     ! boundary conditions (x-/y-boundaries are set automatically)
+    ! z-boundary should be reflecting, otherwise the disk mass
+    ! increases and the disk becomes unstable
     boundary => Dict(&
-!                "bottomer" / ABSORBING,&
-!                "topper"   / ABSORBING)
-               "bottomer" / NO_GRADIENTS,&
-               "topper"   / NO_GRADIENTS)
+               "bottomer" / REFLECTING,&
+               "topper"   / REFLECTING)
 
     ! fluxes settings
     fluxes =>   Dict(&
@@ -199,8 +210,8 @@ CONTAINS
     grav =>     Dict(&
                 "stype"               / GRAVITY, &
                 "self/gtype"          / SBOXSPECTRAL, &
-                "self/output/accel"   / 1, &
-                "self/output/potential" / 1 &
+                "self/output/accel"   / 0, &
+                "self/output/potential" / 0 &
                 )
 
     ! sources settings (contains source terms)
@@ -219,7 +230,7 @@ CONTAINS
 
     ! initialize data input/output
     datafile => Dict( &
-              "fileformat"    / VTK, &
+              "fileformat"    / XDMF, &
               "filename"      / (TRIM(ODIR) // TRIM(OFNAME)), &
               "count"         / ONUM)
 
@@ -273,30 +284,33 @@ CONTAINS
         p%velocity%data2d(:,2) = 0.0
         p%velocity%data2d(:,3) = 0.0
       END IF
-!     TYPE IS(statevector_euler) ! non-isothermal HD
-!       IF(Mesh%shear_dir.EQ.2)THEN
-!         p%density%data3d(:,:,:) = (SIGMA0 &
-!           + DELSIGMA*COS(kx*Mesh%bcenter(:,:,:,1) &
-!                        + ky*Mesh%bcenter(:,:,:,2)))/(SQRT(2*PI)*h) &
-!                     *EXP(-0.5*(Mesh%OMEGA/SOUNDSPEED*Mesh%bcenter(:,:,:,3))**2)
-!         p%velocity%data2d(:,1) = 0.0
-!         p%velocity%data4d(:,:,:,2) = -Q*OMEGA*Mesh%bcenter(:,:,:,1)
-!         p%velocity%data2d(:,3) = 0.0
-!       ELSE IF(Mesh%shear_dir.EQ.1)THEN
-!         p%density%data3d(:,:,:) = (SIGMA0 &
-!           + DELSIGMA*COS(kx*Mesh%bcenter(:,:,:,2) &
-!                        - ky*Mesh%bcenter(:,:,:,1)))/(SQRT(2*PI)*h) &
-!                     *EXP(-0.5*(Mesh%OMEGA/SOUNDSPEED*Mesh%bcenter(:,:,:,3))**2)
-!         p%velocity%data4d(:,:,:,1) = Q*OMEGA*Mesh%bcenter(:,:,:,2)
-!         p%velocity%data2d(:,2) = 0.0
-!         p%velocity%data2d(:,3) = 0.0
-!       END IF
+      p%density%data1d(:) = p%density%data1d(:) / Mesh%dz
+    TYPE IS(statevector_euler) ! non-isothermal HD
+      IF(Mesh%shear_dir.EQ.2)THEN
+        p%density%data3d(:,:,:) = (SIGMA0 &
+          + DELSIGMA*COS(kx*Mesh%bcenter(:,:,:,1) &
+                       + ky*Mesh%bcenter(:,:,:,2)))/(SQRT(2*PI)*h) &
+                    *EXP(-0.5*(Mesh%OMEGA/SOUNDSPEED*Mesh%bcenter(:,:,:,3))**2)
+        p%velocity%data2d(:,1) = 0.0
+        p%velocity%data4d(:,:,:,2) = -Q*OMEGA*Mesh%bcenter(:,:,:,1)
+        p%velocity%data2d(:,3) = 0.0
+      ELSE IF(Mesh%shear_dir.EQ.1)THEN
+        p%density%data3d(:,:,:) = (SIGMA0 &
+          + DELSIGMA*COS(kx*Mesh%bcenter(:,:,:,2) &
+                       - ky*Mesh%bcenter(:,:,:,1)))/(SQRT(2*PI)*h) &
+                    *EXP(-0.5*(Mesh%OMEGA/SOUNDSPEED*Mesh%bcenter(:,:,:,3))**2)
+        p%velocity%data4d(:,:,:,1) = Q*OMEGA*Mesh%bcenter(:,:,:,2)
+        p%velocity%data2d(:,2) = 0.0
+        p%velocity%data2d(:,3) = 0.0
+      END IF
+      p%density%data1d(:) = p%density%data1d(:) / Mesh%dz
+      p%pressure%data1d(:) = SOUNDSPEED**2 / GAMMA * p%density%data1d(:)
     CLASS DEFAULT
-      CALL Physics%Error("shear::InitData","only (non-)isothermal HD supported")
+      CALL Physics%Error("sblintheo3D::InitData","only (non-)isothermal HD supported")
     END SELECT
 
     CALL Physics%Convert2Conservative(pvar,cvar)
     CALL Mesh%Info(" DATA-----> initial condition: " // &
-         "Linear Theory Test - Shearingsheet")
+         "Linear Theory Test - 3D Shearingbox")
   END SUBROUTINE InitData
 END PROGRAM sblintheo
