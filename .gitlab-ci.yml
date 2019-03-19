@@ -131,6 +131,16 @@ set_test_shear:
     script:
        - ./ser_build/tests/shear
 
+set_test_sblintheo:
+    stage: test
+    script:
+       - ./ser_build/tests/sblintheo
+
+set_test_sblintheo3D:
+    stage: test
+    script:
+       - ./ser_build/tests/sblintheo3D
+
 ser_test_rootstest:
     stage: test
     script:
