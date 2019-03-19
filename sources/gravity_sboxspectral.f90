@@ -536,10 +536,6 @@ MODULE gravity_sboxspectral_mod
     !------------------------------------------------------------------------!
     INTEGER :: i,j,k,kk
     REAL    :: delt,time0
-#ifdef PARALLEL
-    INTEGER :: status(MPI_STATUS_SIZE),ierror
-    REAL    :: mpi_buf(Mesh%IMIN:Mesh%IMAX,Mesh%GJNUM,Mesh%KMIN:Mesh%KMAX) !TODO: ONLY 2D
-#endif
     !------------------------------------------------------------------------!
     !---------------- fourier transformation of density ---------------------!
     ! calculate the shift of the indice at time t                            !
@@ -748,6 +744,10 @@ CALL ftrace_region_end("backward_fft")
     !------------------------------------------------------------------------!
     INTEGER :: i,j,k
     REAL    :: joff,jrem
+#ifdef PARALLEL
+    INTEGER :: status(MPI_STATUS_SIZE),ierror
+    REAL    :: mpi_buf(Mesh%IMIN:Mesh%IMAX,Mesh%GJNUM,Mesh%KMIN:Mesh%KMAX) !TODO: ONLY 2D
+#endif
     !------------------------------------------------------------------------!
     IF(Mesh%shear_dir.EQ.2) THEN
       ! southern / northern boundary: periodic
