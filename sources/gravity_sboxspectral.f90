@@ -276,7 +276,6 @@ MODULE gravity_sboxspectral_mod
     this%phi(:,:,:) = 0.
     this%mass2D(:,:) = 0.
     this%Fmass2D(:,:) = CMPLX(0.,0)
-    this%Fmass2D_real(:,:,:) = 0.
     this%kx(:) = 0.
     this%ky(:) = 0.
     ! nullify not used potential explicitely
@@ -339,6 +338,7 @@ MODULE gravity_sboxspectral_mod
         STAT=err)
       IF (err.NE.0) &
          CALL this%Error("sboxspectral::SetOutput","Memory allocation failed.")
+      this%Fmass2D_real(:,:,:) = 0.0
       CALL SetAttr(IO, "Fmass2D_real", &
               this%Fmass2D_real(Mesh%IMIN:Mesh%IMAX+2,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX))
     END IF
