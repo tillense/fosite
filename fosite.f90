@@ -271,7 +271,10 @@ CONTAINS
     this%iter = 0
 
 #ifdef PARALLEL
+    CALL MPI_Barrier(MPI_COMM_WORLD,this%ierror)
     this%start_time = MPI_Wtime()
+    CALL MPI_Allreduce(MPI_IN_PLACE,this%start_time,1,MPI_DOUBLE_PRECISION,MPI_MAX,&
+        MPI_COMM_WORLD,this%ierror)
 #else
     CALL CPU_TIME(this%start_time)
 #endif
@@ -507,14 +510,14 @@ CONTAINS
     !--------------------------------------------------------------------------!
 
 #ifdef PARALLEL
-    this%end_time = MPI_Wtime() - this%start_time
-    CALL MPI_Allreduce(this%end_time,this%run_time,1,MPI_DOUBLE_PRECISION,MPI_MIN,&
-        this%Mesh%comm_cart,this%ierror)
+    CALL MPI_Barrier(MPI_COMM_WORLD,this%ierror)
+    this%end_time = MPI_Wtime()
+    CALL MPI_Allreduce(MPI_IN_PLACE,this%end_time,1,MPI_DOUBLE_PRECISION,MPI_MIN,&
+        MPI_COMM_WORLD,this%ierror)
 #else
     CALL CPU_TIME(this%end_time)
-    this%run_time = this%end_time - this%start_time
 #endif
-
+    this%run_time = this%end_time - this%start_time
   END SUBROUTINE ComputeRunTime
 
 
