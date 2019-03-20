@@ -130,6 +130,7 @@ MODULE gravity_sboxspectral_mod
     REAL, DIMENSION(:), POINTER      :: joff, jrem     !< shifting indices (in SB)
     INTEGER                          :: order
 #ifdef PARALLEL
+    REAL, DIMENSION(:,:,:), POINTER  :: mpi_buf
     INTEGER(C_INTPTR_T)              :: C_INUM, C_JNUM
     INTEGER(C_INTPTR_T)              :: alloc_local, local_JNUM
     TYPE(C_PTR)                      :: mass2D_pointer
@@ -178,11 +179,9 @@ MODULE gravity_sboxspectral_mod
     CLASS(physics_base), INTENT(IN) :: Physics
     TYPE(Dict_TYP),      POINTER    :: config,IO
     !------------------------------------------------------------------------!
-    INTEGER             :: gravity_number
     INTEGER             :: err, valwrite, i,j,k
 #if defined(HAVE_FFTW) && defined(PARALLEL)
     INTEGER(C_INTPTR_T) :: C_INUM,C_JNUM
-    INTEGER(C_INTPTR_T) :: alloc_local, local_JNUM, local_joff
 #endif
     !------------------------------------------------------------------------!
     CALL this%InitGravity(Mesh,Physics,"shearingbox spectral solver",config,IO)
@@ -286,6 +285,11 @@ MODULE gravity_sboxspectral_mod
     ! use special allocation pattern from fftw when using MPI in order to
     ! assure good alignment
 #if defined(PARALLEL)
+    ALLOCATE(this%mpi_buf(Mesh%IMIN:Mesh%IMAX,Mesh%GJNUM,Mesh%KMIN:Mesh%KMAX), &
+             STAT=err)
+    IF (err.NE.0) &
+        CALL this%Error("InitGravity_sboxspectral","Memory allocation failed for mpi_buf.")
+
     this%alloc_local     = fftw_mpi_local_size_2d(C_JNUM, C_INUM, &
                               MPI_COMM_WORLD, this%local_JNUM, this%local_joff)
     DO k=Mesh%KMIN-Mesh%KP1,Mesh%KMAX+Mesh%KP1
@@ -663,13 +667,25 @@ CALL ftrace_region_end("forward_fft")
           ! the following operations are equivalent to a matrix vector multiplication
           ! where the matrix is a symmetric band matrix with zeros on the main diagonal
           DO kk=Mesh%KMIN-Mesh%KP1,k-1
-            this%Fsum3D(:,:,k) = this%Fsum3D(:,:,k) + this%qk(:,:,ABS(k-kk)) &
-                                    * this%FTdensity(kk)%ptr2D(i,j-this%local_joff)
+!NEC$ IVDEP
+            DO j = Mesh%JMIN,Mesh%JMAX
+!NEC$ IVDEP
+              DO i = Mesh%IMIN,Mesh%IMAX/2+1
+                this%Fsum3D(i,j,k) = this%Fsum3D(i,j,k) + this%qk(i,j,ABS(k-kk)) &
+                                   * this%FTdensity(kk)%ptr2D(i,j-this%local_joff)
+              END DO
+            END DO
           END DO
           ! skip k=kk
-          DO kk=k+1,Mesh%KMAX+Mesh%KP1
-            this%Fsum3D(:,:,k) = this%Fsum3D(:,:,k) + this%qk(:,:,ABS(k-kk)) &
-                                    * this%FTdensity(kk)%ptr2D(i,j-this%local_joff)
+!NEC$ IVDEP
+          DO j = Mesh%JMIN,Mesh%JMAX
+!NEC$ IVDEP
+            DO i = Mesh%IMIN,Mesh%IMAX/2+1
+              DO kk=k+1,Mesh%KMAX+Mesh%KP1
+                this%Fsum3D(i,j,k) = this%Fsum3D(i,j,k) + this%qk(i,j,ABS(k-kk)) &
+                                   * this%FTdensity(kk)%ptr2D(i,j-this%local_joff)
+              END DO
+            END DO
           END DO
         END DO
         DO k=Mesh%KMIN-Mesh%KP1,Mesh%KMAX+Mesh%KP1
@@ -753,7 +769,6 @@ CALL ftrace_region_end("backward_fft")
     REAL    :: joff,jrem
 #ifdef PARALLEL
     INTEGER :: status(MPI_STATUS_SIZE),ierror
-    REAL    :: mpi_buf(Mesh%IMIN:Mesh%IMAX,Mesh%GJNUM,Mesh%KMIN:Mesh%KMAX) !TODO: ONLY 2D
 #endif
     !------------------------------------------------------------------------!
     IF(Mesh%shear_dir.EQ.2) THEN
@@ -826,31 +841,31 @@ CALL ftrace_region_end("backward_fft")
       !  1. send non-shifted direction
       !  2. send shifted direction
       IF(Mesh%dims(2).GT.1) THEN
-        mpi_buf(Mesh%IMIN:Mesh%IMAX,1:Mesh%GJNUM,Mesh%KMIN:Mesh%KMAX) = &
+        this%mpi_buf(Mesh%IMIN:Mesh%IMAX,1:Mesh%GJNUM,Mesh%KMIN:Mesh%KMAX) = &
           this%phi(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX-Mesh%GJNUM+1:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX)
         CALL MPI_Sendrecv_replace(&
-          mpi_buf,&
-          2*(Mesh%IMAX-Mesh%IMIN+1), &
+          this%mpi_buf,&
+          SIZE(this%mpi_buf), &
           DEFAULT_MPI_REAL, &
           Mesh%neighbor(NORTH), 53+NORTH, &
           Mesh%neighbor(SOUTH), MPI_ANY_TAG, &
           Mesh%comm_cart, status, ierror)
 
         this%phi(Mesh%IMIN:Mesh%IMAX,Mesh%JGMIN:Mesh%JMIN-1,Mesh%KMIN:Mesh%KMAX) = &
-          mpi_buf(Mesh%IMIN:Mesh%IMAX,1:Mesh%GJNUM,Mesh%KMIN:Mesh%KMAX)
+          this%mpi_buf(Mesh%IMIN:Mesh%IMAX,1:Mesh%GJNUM,Mesh%KMIN:Mesh%KMAX)
 
-        mpi_buf(Mesh%IMIN:Mesh%IMAX,1:Mesh%GJNUM,Mesh%KMIN:Mesh%KMAX) = &
+        this%mpi_buf(Mesh%IMIN:Mesh%IMAX,1:Mesh%GJNUM,Mesh%KMIN:Mesh%KMAX) = &
           this%phi(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMIN+Mesh%GJNUM-1,Mesh%KMIN:Mesh%KMAX)
 
         CALL MPI_Sendrecv_replace(&
-          mpi_buf,&
-          2*(Mesh%IMAX-Mesh%IMIN+1), &
+          this%mpi_buf,&
+          SIZE(this%mpi_buf), &
           DEFAULT_MPI_REAL, &
           Mesh%neighbor(SOUTH), 53+SOUTH, &
           Mesh%neighbor(NORTH), MPI_ANY_TAG, &
           Mesh%comm_cart, status, ierror)
         this%phi(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX+1:Mesh%JGMAX,Mesh%KMIN:Mesh%KMAX) = &
-          mpi_buf(Mesh%IMIN:Mesh%IMAX,1:Mesh%GJNUM,Mesh%KMIN:Mesh%KMAX)
+          this%mpi_buf(Mesh%IMIN:Mesh%IMAX,1:Mesh%GJNUM,Mesh%KMIN:Mesh%KMAX)
       ELSE
 !NEC$ SHORTLOOP
         DO j = 1,Mesh%GJNUM
@@ -932,17 +947,15 @@ CALL ftrace_region_end("backward_fft")
 CALL ftrace_region_begin("forward FFT")
 #endif
 
+    DO k=Mesh%KMIN-Mesh%KP1,Mesh%KMAX+Mesh%KP1
 #if defined(PARALLEL)
-    ! 3D is currently not supported in parallel
-    k=Mesh%KMIN
-    CALL fftw_mpi_execute_dft_r2c(this%plan_r2c,this%density(k)%ptr2D, &
+      CALL fftw_mpi_execute_dft_r2c(this%plan_r2c,this%density(k)%ptr2D, &
                                   this%FTdensity(k)%ptr2D)
 #else
-    DO k=Mesh%KMIN-Mesh%KP1,Mesh%KMAX+Mesh%KP1
       CALL fftw_execute_dft_r2c(this%plan_r2c,this%density(k)%ptr2D, &
                                 this%FTdensity(k)%ptr2D)
-    END DO
 #endif
+    END DO
 
     IF (ASSOCIATED(this%Fmass3D_real)) THEN
 !NEC$ IVDEP
@@ -974,17 +987,15 @@ CALL ftrace_region_end("foward FFT")
     !------------------------------------------------------------------------!
     INTEGER           :: k
     !------------------------------------------------------------------------!
+    DO k=Mesh%KMIN-Mesh%KP1,Mesh%KMAX+Mesh%KP1
 #if defined(PARALLEL)
-    ! 3D is currently not supported in parallel
-    k=Mesh%KMIN
-    CALL fftw_mpi_execute_dft_c2r(this%plan_c2r,this%FTdensity(k)%ptr2D, &
-                                  this%density(k)%ptr2D)
+      CALL fftw_mpi_execute_dft_c2r(this%plan_c2r,this%FTdensity(k)%ptr2D, &
+                                    this%density(k)%ptr2D)
 #else
-    DO k=Mesh%KMIN,Mesh%KMAX
       CALL fftw_execute_dft_c2r(this%plan_c2r,this%FTdensity(k)%ptr2D, &
                                 this%density(k)%ptr2D)
-    END DO
 #endif
+    END DO
   END SUBROUTINE
 #endif
 
