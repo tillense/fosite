@@ -29,42 +29,28 @@
 !!  \key{order,INTEGER,order for the approximation of the gradient of the
 !!       potential \f$ \in \\{2\,4\\}\f$ ,2}
 !!  \key{print_plans,INTEGER,enable=1/disable=0 output of FFTW plans,0}
-!!  \key{output/phi,INTEGER,(enable=1) output of gravitational potential}
-!!  \key{output/accel_x,INTEGER,(enable=1) output of accel in x-direction}
-!!  \key{output/accel_y,INTEGER,(enable=1) output of accel in y-direction}
-!!  \key{output/mass2D,INTEGER,(enable=1) output of density that will be
-!!                              fourier transformed}
-!!  \key{output/Fmass2D,INTEGER,(enable=1) output of density in spectral
-!!                              space}
+!!  \key{output/potential,INTEGER,(enable=1) output gravitational potential,0}
+!!  \key{output/Fmass3D,INTEGER,(enable=1) output z-slices of 2D (x-y) fourier
+!!                              transformed density,0}
 !----------------------------------------------------------------------------!
 !> \author Jannes Klee
 !! \author Tobias Illenseer
 !!
-!! \brief Poisson solver via spectral methods within the shearingbox.
-!!
-!! \extends gravity_common
-!! \ingroup gravity
-!!
-!! Program and data initialization for a shearing-box simulation
-!!
+!! \brief Poisson solver using spectral methods within the shearingbox.
+!! \parblock
 !! There are currently two different implementations. Please be aware that this module
 !! requires a certain domain decomposition in pencils and cannot be chosen
 !! arbitrarily.
 !!
 !! 1. FFTW on one core
 !! 2. FFTW distributed parallel
-!
-!! \todo Remove unnecessary allocations like ip_den, etc. At the moment there
-!!       are certainly possibilities to save memory, because for every task
-!!       a new array is allocated.
-!
-!! \attention The parallel version with this module needs a pencil decomposition
-!!            of Mesh%INUM X Mesh%JNUM/nprocs for each process, in order to use
-!!            the FFT-method with period boundaries in one direction.
-!!
-!! References:
-!!
-!! \cite gammie2001 , \cite gammiecode, \cite frigo2005, \cite mathkeisan2018
+!! \attention The parallel execution of this spectral solver requires pencil
+!!            decomposition of the computation domain, i.e., splitting
+!!            is only allowed in 2nd and/or 3rd dimension. Check the key
+!!            "decomposition" when setting the mesh properties (see \ref mesh ).
+!! \endparblock
+!! #### References
+!! \cite gammie2001 , \cite gammiecode, \cite frigo2005
 !!
 !! \extends gravity_spectral
 !! \ingroup gravity
@@ -112,10 +98,8 @@ MODULE gravity_sboxspectral_mod
     TYPE(C_DOUBLE_COMPLEX_PTR2D_TYP), DIMENSION(:), ALLOCATABLE &
                                      :: FTdensity      !< z-layered fourier transformed density
     REAL(C_DOUBLE), DIMENSION(:,:), POINTER, CONTIGUOUS &
-!                                      :: mass2D, &      !< 2D mass density within a z-layer
                                      :: Kxy2           !< length of wave vectors squared
     COMPLEX(C_DOUBLE_COMPLEX), POINTER, CONTIGUOUS &
-!                                      :: Fmass2D(:,:),&   !< fourier transformed 2D mass density
                                      :: Fmass3D(:,:,:),& !< fourier transformed 3D mass density
                                         Fsum3D(:,:,:), & !< sum used for reconstruction
                                                          !<   of transformed potential (3D only)
