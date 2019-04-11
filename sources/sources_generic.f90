@@ -37,6 +37,7 @@ MODULE sources_generic_mod
   USE sources_c_accel_mod
   USE sources_diskcooling_mod
   USE sources_gravity_mod
+  USE sources_planetheating_mod
   USE sources_rotframe_mod
   USE sources_shearbox_mod
   USE sources_viscosity_mod
@@ -83,6 +84,8 @@ CONTAINS
           ALLOCATE(sources_c_accel::newsrc)
         CASE(DISK_COOLING)
           ALLOCATE(sources_diskcooling::newsrc)
+        CASE(PLANET_HEATING)
+          ALLOCATE(sources_planetheating::newsrc)
         CASE(ROTATING_FRAME)
           tmpsrc => this%GetSourcesPointer(ROTATING_FRAME)
           IF (ASSOCIATED(tmpsrc)) &
@@ -107,6 +110,8 @@ CONTAINS
           TYPE IS (sources_diskcooling)
             CALL obj%InitSources_diskcooling(Mesh,Physics,Fluxes,src,IOsrc)
             IF (obj%cooling%GetType().EQ.GRAY) update_disk_height = 1
+          TYPE IS (sources_planetheating)
+            CALL obj%InitSources_planetheating(Mesh,Physics,Fluxes,src,IOsrc)
           TYPE IS (sources_rotframe)
             CALL obj%InitSources_rotframe(Mesh,Physics,Fluxes,src,IOsrc)
           TYPE IS (sources_shearbox)

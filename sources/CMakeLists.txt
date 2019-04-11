@@ -14,7 +14,7 @@ add_library(sources
 #  sources_wave_damping.f90
 #  sources_forcing.f90
 #  sources_stellarheating.f90
-#  sources_planetheating.f90
+  sources_planetheating.f90
 #  sources_planetcooling.f90
 #  multipole_spherical.f90
 #  multipole_generic.f90
