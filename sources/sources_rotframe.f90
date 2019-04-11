@@ -53,6 +53,7 @@ MODULE sources_rotframe_mod
     TYPE(marray_base) :: cent                       !< rot. frame centrifugal
     TYPE(marray_base) :: centproj                   !< rot.frame centr.3d->2d
     TYPE(marray_base) :: cos1
+    INTEGER           :: issphere
   CONTAINS
     PROCEDURE :: InitSources_rotframe
     PROCEDURE :: InfoSources
@@ -113,18 +114,19 @@ CONTAINS
     this%cos1%data1d(:) = 0.
 
     CALL GetAttr(config, "gparam", this%gparam, 1.0)
+    CALL GetAttr(config, "issphere", this%issphere, 0)
 
     ! define position vectors
-    ! for bianglespherical no shift of axis possible
+    ! for planetery atmosphere no shift of axis possible
     ! (for a planet reasonable)
-!    IF ((Mesh%Geometry%GetType()).EQ.BIANGLESPHERICAL) THEN
-!
-!      this%centproj%data4d(:,:,:,1) = this%gparam*SIN(Mesh%bcenter(:,:,:,1))*&
-!                              COS(Mesh%bcenter(:,:,:,1))
-!      ! for better performance
-!      this%cos1%data4d(:,:,:,1)  = COS(Mesh%bcenter(:,:,:,1))
-!      this%cos1%data4d(:,:,:,2)  = COS(Mesh%bcenter(:,:,:,2))
-!    ELSE
+    IF (this%issphere.EQ.1) THEN
+
+      this%centproj%data4d(:,:,:,1) = this%gparam*SIN(Mesh%bcenter(:,:,:,1))*&
+                              COS(Mesh%bcenter(:,:,:,1))
+      ! for better performance
+      this%cos1%data4d(:,:,:,1)  = COS(Mesh%bcenter(:,:,:,1))
+      this%cos1%data4d(:,:,:,2)  = COS(Mesh%bcenter(:,:,:,2))
+    ELSE
       IF (ABS(Mesh%rotcent(1)).LE.TINY(Mesh%rotcent(1)) &
        .AND.ABS(Mesh%rotcent(2)).LE.TINY(Mesh%rotcent(2))) THEN
         ! no shift of point mass: set position vector to Mesh defaults
@@ -141,7 +143,7 @@ CONTAINS
         ! from the center of rotation to the bary center of any cell on the mesh
         this%cent%data4d(:,:,:,:) = Mesh%posvec%bcenter(:,:,:,:) - this%cent%data4d(:,:,:,:)
       END IF
-!    END IF
+    END IF
   END SUBROUTINE InitSources_rotframe
 
 
@@ -153,7 +155,7 @@ CONTAINS
     !------------------------------------------------------------------------!
     CHARACTER(LEN=32) :: omega_str
     !------------------------------------------------------------------------!
-    WRITE (omega_str,'(ES8.2)') Mesh%OMEGA
+    WRITE (omega_str,'(ES9.2)') Mesh%OMEGA
     CALL this%Info("            angular velocity:  " // TRIM(omega_str))
   END SUBROUTINE InfoSources
 
@@ -173,22 +175,22 @@ CONTAINS
     !------------------------------------------------------------------------!
     ! Two cases due to different angles between angular velocity to mesh
     ! 1. only a projected part plays role for bianglespherical geometry
-!    IF ((Mesh%Geometry%GetType()).EQ.BIANGLESPHERICAL) THEN
-!!NEC$ outerloop_unroll(8)
-!      DO k=Mesh%KMIN,Mesh%KMAX
-!        DO j=Mesh%JMIN,Mesh%JMAX
-!!NEC$ ivdep
-!          DO i=Mesh%IMIN,Mesh%IMAX
-!            this%accel%data4d(i,j,k,1) = Mesh%OMEGA*(Mesh%OMEGA*&
-!                   this%centproj%data4d(i,j,k,1) + 2.0*this%cos1%data4d(i,j,k,1)*&
-!                   pvar%data4d(i,j,k,Physics%YVELOCITY))
-!            this%accel%data4d(i,j,k,2) = -Mesh%OMEGA*2.0*this%cos1%data4d(i,j,k,1)*&
-!                   pvar%data4d(i,j,k,Physics%XVELOCITY)
-!          END DO
-!        END DO
-!      END DO
-!    ! 2. OMEGA is always perpendicular to other curvilinear coordinates
-!    ELSE
+    IF (this%issphere.EQ.1) THEN
+!NEC$ outerloop_unroll(8)
+      DO k=Mesh%KMIN,Mesh%KMAX
+        DO j=Mesh%JMIN,Mesh%JMAX
+!NEC$ ivdep
+          DO i=Mesh%IMIN,Mesh%IMAX
+            this%accel%data4d(i,j,k,1) = Mesh%OMEGA*(Mesh%OMEGA*&
+                   this%centproj%data4d(i,j,k,1) + 2.0*this%cos1%data4d(i,j,k,1)*&
+                   pvar%data4d(i,j,k,Physics%YVELOCITY))
+            this%accel%data4d(i,j,k,2) = -Mesh%OMEGA*2.0*this%cos1%data4d(i,j,k,1)*&
+                   pvar%data4d(i,j,k,Physics%XVELOCITY)
+          END DO
+        END DO
+      END DO
+    ! 2. OMEGA is always perpendicular to other curvilinear coordinates
+    ELSE
 !NEC$ outerloop_unroll(8)
       DO k=Mesh%KMIN,Mesh%KMAX
         DO j=Mesh%JMIN,Mesh%JMAX
@@ -202,7 +204,7 @@ CONTAINS
           END DO
         END DO
       END DO
-!    END IF
+    END IF
 
     ! inertial forces source terms
     CALL Physics%ExternalSources(this%accel,pvar,cvar,sterm)
@@ -218,16 +220,16 @@ CONTAINS
                              INTENT(INOUT) :: pvar
     !------------------------------------------------------------------------!
     ! Convert velocities to the rotating frame
-!    IF ((Mesh%Geometry%GetType()).EQ.BIANGLESPHERICAL) THEN
-!      pvar(:,:,:,Physics%XVELOCITY) = pvar(:,:,:,Physics%XVELOCITY)
-!      pvar(:,:,:,Physics%YVELOCITY) = pvar(:,:,:,Physics%YVELOCITY) - &
-!                            Mesh%OMEGA*SIN(Mesh%bcenter(:,:,:,1))*this%gparam
-!    ELSE
+    IF (this%issphere.EQ.1) THEN
+      pvar(:,:,:,Physics%XVELOCITY) = pvar(:,:,:,Physics%XVELOCITY)
+      pvar(:,:,:,Physics%YVELOCITY) = pvar(:,:,:,Physics%YVELOCITY) - &
+                            Mesh%OMEGA*SIN(Mesh%bcenter(:,:,:,1))*this%gparam
+    ELSE
       pvar(:,:,:,Physics%XVELOCITY) = pvar(:,:,:,Physics%XVELOCITY) + &
                                       Mesh%OMEGA * this%cent%data4d(:,:,:,2)
       pvar(:,:,:,Physics%YVELOCITY) = pvar(:,:,:,Physics%YVELOCITY) - &
                                       Mesh%OMEGA * this%cent%data4d(:,:,:,1)
-!    END IF
+    END IF
   END SUBROUTINE Convert2RotatingFrame
 
   SUBROUTINE Finalize(this)

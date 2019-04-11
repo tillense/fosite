@@ -81,7 +81,7 @@ MODULE sources_planetheating_mod
   PRIVATE
   !--------------------------------------------------------------------------!
   TYPE, EXTENDS(sources_base) :: sources_planetheating
-    CHARACTER(LEN=32) :: source_name = "thin planetary atmosphere heating"
+    CHARACTER(LEN=32) :: source_name = "thin atmosphere heating"
     TYPE(marray_base) :: Qstar          !< energy term due to stellar cooling
     TYPE(marray_base) :: T_s            !< surface temperature (black body)
     TYPE(marray_base) :: cos1,sin1      !< helping arrays for precomputation
@@ -166,9 +166,9 @@ CONTAINS
     SELECT TYPE (mgeo => Mesh%Geometry)
     CLASS IS(geometry_spherical)
       ! TODO: ATTENTION CHECK THAT THIS REGION IS CORRECT AFTER TRANSITION TO NEW FOSITE
-      this%cos1%data4d(:,:,:,1) = COS(Mesh%bcenter(:,:,:,1))
+      this%cos1%data4d(:,:,:,1) = COS(Mesh%bcenter(:,:,:,2))
 !      this%cos1(:,:,2) = COS(Mesh%bcenter(:,:,2))
-      this%sin1%data4d(:,:,:,1) = SIN(Mesh%bcenter(:,:,:,1))
+      this%sin1%data4d(:,:,:,1) = SIN(Mesh%bcenter(:,:,:,2))
 !      this%sin1(:,:,2) = SIN(Mesh%bcenter(:,:,2))
     CLASS DEFAULT
       CALL this%Error("InitSources_planetheating","only spherical geometry allowed")
@@ -197,11 +197,19 @@ CONTAINS
     CLASS(mesh_base),           INTENT(IN) :: Mesh
     !------------------------------------------------------------------------!
     CHARACTER(LEN=32) :: param_str
+    REAL :: tmp_out
+    REAL, PARAMETER   :: AU      = 1.49597870691E+11    ! astr. unit [m]     !
     !------------------------------------------------------------------------!
-    CALL this%Info("            planetary heating: ingoing radiation from the star")
+    tmp_out = this%year/(3.6e3*24*365)
+    WRITE (param_str,'(ES8.2)') tmp_out
+    CALL this%Info("            sid. year [yr]:    " // TRIM(param_str))
+    tmp_out = 1./(this%omegasun*3.6e3*24.0)
+    WRITE (param_str,'(ES8.2)') ABS(tmp_out)
+    CALL this%Info("            day [d]:           " // TRIM(param_str))
+    tmp_out = this%distance/AU
+    WRITE (param_str,'(ES8.2)') tmp_out
+    CALL this%Info("            distance [au]:     " // TRIM(param_str))
   END SUBROUTINE InfoSources
-
-
 
 
   !> Add the calculated sources to the energy equation.

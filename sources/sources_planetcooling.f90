@@ -68,7 +68,7 @@ MODULE sources_planetcooling_mod
   PRIVATE
   !--------------------------------------------------------------------------!
   TYPE, EXTENDS(sources_base) :: sources_planetcooling
-    CHARACTER(LEN=32) :: source_name = "thin planetary atmosphere cooling"
+    CHARACTER(LEN=32) :: source_name = "thin atmosphere cooling"
     TYPE(marray_base) :: Qcool          !< energy term due planetary cooling
     TYPE(marray_base) :: T_s            !< temperature at the surface
     TYPE(marray_base) :: rho_s          !< density at the surface
@@ -210,8 +210,16 @@ CONTAINS
     CLASS(mesh_base),           INTENT(IN) :: Mesh
     !------------------------------------------------------------------------!
     CHARACTER(LEN=32) :: param_str
+    REAL, PARAMETER   :: AU      = 1.49597870691E+11    ! astr. unit [m]     !
     !------------------------------------------------------------------------!
-    CALL this%Info("            planetary cooling: OLR-approximation")
+    WRITE (param_str,'(ES8.2)') (this%intensity/4.)*(AU/this%distance)**(2.)
+    CALL this%Info("            intensity:         " // TRIM(param_str))
+    WRITE (param_str,'(ES8.2)') this%T_0
+    CALL this%Info("            equil. temp. [K]:  " // TRIM(param_str))
+    WRITE (param_str,'(ES8.2)') this%tau_inf
+    CALL this%Info("            opt. depth:        " // TRIM(param_str))
+    WRITE (param_str,'(ES8.2)') this%albedo
+    CALL this%Info("            albedo:            " // TRIM(param_str))
   END SUBROUTINE InfoSources
 
 
