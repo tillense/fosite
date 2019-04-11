@@ -79,7 +79,6 @@ MODULE sources_planetheating_mod
   IMPLICIT NONE
   !--------------------------------------------------------------------------!
   PRIVATE
-  CHARACTER(LEN=32), PARAMETER :: source_name = "planetheating"
   !--------------------------------------------------------------------------!
   TYPE, EXTENDS(sources_base) :: sources_planetheating
     CHARACTER(LEN=32) :: source_name = "thin planetary atmosphere heating"
@@ -199,7 +198,7 @@ CONTAINS
     !------------------------------------------------------------------------!
     CHARACTER(LEN=32) :: param_str
     !------------------------------------------------------------------------!
-    CALL this%Info("            heating: optically thin planetary surface")
+    CALL this%Info("            planetary heating: ingoing radiation from the star")
   END SUBROUTINE InfoSources
 
 

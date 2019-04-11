@@ -133,7 +133,7 @@ MODULE sources_base_mod
 !  INTEGER, PARAMETER :: WAVE_DAMPING     = 25
 !  INTEGER, PARAMETER :: FORCING          = 26
   INTEGER, PARAMETER :: PLANET_HEATING   = 27
-!  INTEGER, PARAMETER :: PLANET_COOLING   = 28
+  INTEGER, PARAMETER :: PLANET_COOLING   = 28
 !  INTEGER, PARAMETER :: STELLAR_HEATING  = 29
   INTEGER, PARAMETER :: SHEARBOX         = 30
   !--------------------------------------------------------------------------!
@@ -142,7 +142,7 @@ MODULE sources_base_mod
        sources_base, &
        ! constants
        VISCOSITY, C_ACCEL, SHEARBOX, GRAVITY, DISK_COOLING, ROTATING_FRAME, &
-       PLANET_HEATING
+       PLANET_HEATING, PLANET_COOLING
   !--------------------------------------------------------------------------!
 
 CONTAINS
