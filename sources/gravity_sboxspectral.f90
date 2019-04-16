@@ -323,6 +323,7 @@ MODULE gravity_sboxspectral_mod
     !------------------------------------------------------------------------!
     INTEGER          :: valwrite,err
     !------------------------------------------------------------------------!
+#ifdef HAVE_FFTW
     valwrite = 0
     CALL GetAttr(config, "output/potential", valwrite, 0)
     IF (valwrite .EQ. 1) THEN
@@ -330,7 +331,6 @@ MODULE gravity_sboxspectral_mod
         CALL SetAttr(IO, "potential", &
               this%phi(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX))
     END IF
-#ifdef HAVE_FFTW
     valwrite = 0
     CALL GetAttr(config, "output/Fmass2D", valwrite, 0)
     IF (valwrite .EQ. 1) THEN
