@@ -105,17 +105,17 @@ CONTAINS
     !mesh settings
     mesh => Dict( &
          "meshtype"         / MIDPOINT, &
-         "geometry"         / SPHERICAL, &
+         "geometry"         / SPHERICAL_PLANET, &
          "omega"            / OMEGA, &
-         "inum"             / XRES, &
-         "jnum"             / YRES, &
-         "knum"             / ZRES, &
-         "xmin"             / GPAR, &
-         "xmax"             / GPAR, &
-         "ymin"             / (0.01), &
-         "ymax"             / (PI-0.01), &
-         "zmin"             / (-PI), &
-         "zmax"             / (PI), &
+         "knum"             / XRES, &
+         "inum"             / YRES, &
+         "jnum"             / ZRES, &
+         "zmin"             / GPAR, &
+         "zmax"             / GPAR, &
+         "xmin"             / (0.01), &
+         "xmax"             / (PI-0.01), &
+         "ymin"             / (0.0), &
+         "ymax"             / (2.0*PI), &
          "gparam"           / GPAR, &
          "dz"               / HEIGHT, &
          "output/rotation"  / 0, &
@@ -126,10 +126,10 @@ CONTAINS
     boundary => Dict( &
          "western"          / REFLECTING, &
          "eastern"          / REFLECTING, &
-         "southern"         / REFLECTING, &
-         "northern"         / REFLECTING, &
-         "bottomer"         / PERIODIC, &
-         "topper"           / PERIODIC)
+         "southern"         / PERIODIC, &
+         "northern"         / PERIODIC, &
+         "bottomer"         / REFLECTING, &
+         "topper"           / REFLECTING)
 
     ! physics settings
     physics => Dict( &

@@ -14,6 +14,7 @@ add_library(mesh
   geometry_logcylindrical.f90
   geometry_logspherical.f90
   geometry_spherical.f90
+  geometry_spherical_planet.f90
   #geometry_oblatespheroidal.f90
   #geometry_sinhpolar.f90
   #geometry_tanpolar.f90
@@ -27,6 +28,5 @@ add_library(mesh
   #geometry_channel.f90
   #geometry_elliptic.f90
   #geometry_sinhcartesian.f90
-  #geometry_bianglespherical.f90
 )
 target_link_libraries(mesh common)

@@ -112,6 +112,7 @@ CONTAINS
   SUBROUTINE InitSources_planetheating(this,Mesh,Physics,Fluxes,config,IO)
     USE physics_euler_mod, ONLY : physics_euler
     USE geometry_spherical_mod, ONLY : geometry_spherical
+    USE geometry_spherical_planet_mod, ONLY : geometry_spherical_planet
     USE constants_si_mod, ONLY : constants_si
     IMPLICIT NONE
     !------------------------------------------------------------------------!
@@ -164,11 +165,17 @@ CONTAINS
     CALL GetAttr(config, "phi0", this%phi0, 0.0)
 
     SELECT TYPE (mgeo => Mesh%Geometry)
-    CLASS IS(geometry_spherical)
+    TYPE IS(geometry_spherical)
       ! TODO: ATTENTION CHECK THAT THIS REGION IS CORRECT AFTER TRANSITION TO NEW FOSITE
       this%cos1%data4d(:,:,:,1) = COS(Mesh%bcenter(:,:,:,2))
 !      this%cos1(:,:,2) = COS(Mesh%bcenter(:,:,2))
       this%sin1%data4d(:,:,:,1) = SIN(Mesh%bcenter(:,:,:,2))
+!      this%sin1(:,:,2) = SIN(Mesh%bcenter(:,:,2))
+    TYPE IS(geometry_spherical_planet)
+      ! TODO: ATTENTION CHECK THAT THIS REGION IS CORRECT AFTER TRANSITION TO NEW FOSITE
+      this%cos1%data4d(:,:,:,1) = COS(Mesh%bcenter(:,:,:,1))
+!      this%cos1(:,:,2) = COS(Mesh%bcenter(:,:,2))
+      this%sin1%data4d(:,:,:,1) = SIN(Mesh%bcenter(:,:,:,1))
 !      this%sin1(:,:,2) = SIN(Mesh%bcenter(:,:,2))
     CLASS DEFAULT
       CALL this%Error("InitSources_planetheating","only spherical geometry allowed")

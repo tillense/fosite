@@ -274,7 +274,7 @@ MODULE mesh_base_mod
        MIDPOINT, &
        CARTESIAN, &
        CYLINDRICAL, LOGCYLINDRICAL, &
-       SPHERICAL, LOGSPHERICAL, &
+       SPHERICAL, LOGSPHERICAL, SPHERICAL_PLANET, &
        VECTOR_X, VECTOR_Y, VECTOR_Z, &
        WEST, EAST, SOUTH, NORTH, BOTTOM, TOP
   !--------------------------------------------------------------------------!

@@ -357,8 +357,8 @@ MODULE geometry_base_mod
 !  INTEGER, PARAMETER :: LNCOSHCYLINDRICAL = 33
   INTEGER, PARAMETER :: SPHERICAL         = 40
   INTEGER, PARAMETER :: LOGSPHERICAL      = 41
-!  INTEGER, PARAMETER :: SINHSPHERICAL     = 42
-!  INTEGER, PARAMETER :: BIANGLESPHERICAL  = 43
+  INTEGER, PARAMETER :: SPHERICAL_PLANET  = 42
+!  INTEGER, PARAMETER :: SINHSPHERICAL     = 43
 !  INTEGER, PARAMETER :: OBLATE_SPHEROIDAL = 50
 !  INTEGER, PARAMETER :: CHANNEL           = 60
   !> \}
@@ -369,7 +369,7 @@ MODULE geometry_base_mod
        PI, &
        CARTESIAN, &
        CYLINDRICAL, LOGCYLINDRICAL, &
-       SPHERICAL, LOGSPHERICAL
+       SPHERICAL, LOGSPHERICAL, SPHERICAL_PLANET
   !--------------------------------------------------------------------------!
 
 CONTAINS
@@ -395,7 +395,7 @@ CONTAINS
     ! check if geometry parameters were given
     ! and set to defaults if not
     SELECT CASE(gnum)
-    CASE(CARTESIAN,CYLINDRICAL,SPHERICAL)
+    CASE(CARTESIAN,CYLINDRICAL,SPHERICAL,SPHERICAL_PLANET)
        ! do nothing (no parameters needed)
     CASE DEFAULT
        ! geometries with at least one parameter

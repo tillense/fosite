@@ -39,6 +39,7 @@ MODULE geometry_generic_mod
   USE geometry_logcylindrical_mod
   USE geometry_logspherical_mod
   USE geometry_spherical_mod
+  USE geometry_spherical_planet_mod
   USE common_dict
 
 !  INTERFACE geometry_base
@@ -68,6 +69,8 @@ CONTAINS
       ALLOCATE(geometry_logspherical::Geometry)
     CASE(SPHERICAL)
       ALLOCATE(geometry_spherical::Geometry)
+    CASE(SPHERICAL_PLANET)
+      ALLOCATE(geometry_spherical_planet::Geometry)
     CASE DEFAULT
       CALL Geometry%Error("new_geometry","Unknown geometry")
     END SELECT
@@ -84,6 +87,8 @@ CONTAINS
       CALL geometry_child%InitGeometry_logspherical(config)
     TYPE IS (geometry_spherical)
       CALL geometry_child%InitGeometry_spherical(config)
+    TYPE IS (geometry_spherical_planet)
+      CALL geometry_child%InitGeometry_spherical_planet(config)
     END SELECT
   END SUBROUTINE
 END MODULE geometry_generic_mod
