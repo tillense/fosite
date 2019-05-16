@@ -102,15 +102,15 @@ CONTAINS
     USE constants_si_mod, ONLY : constants_si
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(sources_planetcooling) :: this
+    CLASS(sources_planetcooling)    :: this
     CLASS(mesh_base),    INTENT(IN) :: Mesh
     CLASS(physics_base), INTENT(IN) :: Physics
     CLASS(fluxes_base),  INTENT(IN) :: Fluxes
-    TYPE(Dict_TYP),      POINTER :: config,IO
+    TYPE(Dict_TYP),      POINTER    :: config,IO
     INTEGER           :: stype
     !------------------------------------------------------------------------!
     REAL              :: intensity
-    REAL, PARAMETER   :: AU      = 1.49597870691E+11    ! astronomical unit [m]
+!    REAL, PARAMETER   :: AU      = 1.49597870691E+11    ! astronomical unit [m]
     INTEGER           :: err
     !------------------------------------------------------------------------!
     CALL GetAttr(config, "stype", stype)
@@ -163,7 +163,7 @@ CONTAINS
     this%P_s%data1d(:)   = 0.0
 
     ! initial calculation of optical thickness
-    intensity =  (this%intensity/4.)*(AU/this%distance)**(2.)
+    intensity =  (this%intensity/4.)*(Physics%Constants%AU/this%distance)**(2.)
     this%tau_inf= (((1.-this%albedo)*intensity/Physics%Constants%SB)&
              **(-0.25)*Gamma(4.*(Physics%Constants%RG/Physics%Constants%RG)&
              *(this%gamma-1.)/this%gamma))**(0.25)*this%T_0&
@@ -207,7 +207,7 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(sources_planetcooling), INTENT(IN) :: this
-    CLASS(mesh_base),           INTENT(IN) :: Mesh
+    CLASS(mesh_base),             INTENT(IN) :: Mesh
     !------------------------------------------------------------------------!
     CHARACTER(LEN=32) :: param_str
     REAL, PARAMETER   :: AU      = 1.49597870691E+11    ! astr. unit [m]     !
@@ -287,7 +287,7 @@ CONTAINS
     !------------------------------------------------------------------------!
     INTEGER           :: i,j,k
     REAL              :: Qcool
-    REAL, PARAMETER   :: AU      = 1.49597870691E+11    ! astronomical unit [m]
+!    REAL, PARAMETER   :: AU      = 1.49597870691E+11    ! astronomical unit [m]
     REAL              :: const1,const2       ! needed due to performance issues
     !------------------------------------------------------------------------!
     const1 = this%mu*(1.+(this%gamma-1.)/this%gamma)/Physics%Constants%RG

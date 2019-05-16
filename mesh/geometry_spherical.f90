@@ -486,7 +486,7 @@ CONTAINS
     !------------------------------------------------------------------------!
     vx = vr*SIN(theta)*COS(phi) + vtheta*COS(theta)*COS(phi) - vphi*SIN(phi)
     vy = vr*SIN(theta)*SIN(phi) + vtheta*COS(theta)*SIN(phi) + vphi*COS(phi)
-    vz = vr*COS(theta) - vtheta*SIN(theta)
+    vz = vr*COS(theta)          - vtheta*SIN(theta)
   END SUBROUTINE Convert2Cartesian_vectors
 
   !> Reference: \cite bronstein2008 , Tabelle 13.1
@@ -496,9 +496,9 @@ CONTAINS
     REAL, INTENT(IN)                      :: r,theta,phi,vx,vy,vz
     REAL, INTENT(OUT)                     :: vr,vtheta,vphi
     !------------------------------------------------------------------------!
-    vr     = vx*SIN(theta)*COS(phi) + vy*SIN(theta)*SIN(phi) + vz*COS(theta)
-    vtheta = vx*COS(theta)*COS(phi) + vy*COS(theta)*SIN(phi) - vz*SIN(theta)
-    vphi   = -vx*SIN(phi) + vy*COS(phi)
+    vr     =  vx*SIN(theta)*COS(phi) + vy*SIN(theta)*SIN(phi) + vz*COS(theta)
+    vtheta =  vx*COS(theta)*COS(phi) + vy*COS(theta)*SIN(phi) - vz*SIN(theta)
+    vphi   = -vx*SIN(phi)            + vy*COS(phi)
   END SUBROUTINE Convert2Curvilinear_vectors
 
 END MODULE geometry_spherical_mod

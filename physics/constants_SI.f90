@@ -47,17 +47,27 @@ MODULE constants_SI_mod
   ! basic numerical constants
   !!#### Physical constants in SI units
   REAL, PARAMETER :: &
-     C  = 2.99792458E+08, & !< vacuum speed of light [m/s]
-     GN = 6.6742E-11, &     !< gravitational constant [m^3/kg/s^2]
-     KB = 1.3806505E-23, &  !< Boltzmann constant[J/K]
-     NA = 6.022E+23, &      !< Avogadro constant [1/mol]
-     SB = 5.6704E-8, &      !< Stefan-Boltzmann constant[W/m^2/K^4
-     KE = 3.48E-02          !< electron scattering opacity [m^2/kg]
+     C  = 2.99792458E+08, &   !< vacuum speed of light       [m/s]
+     GN = 6.6742E-11, &       !< gravitational constant      [m^3/kg/s^2]
+     KB = 1.3806505E-23, &    !< Boltzmann constant          [J/K]
+     NA = 6.022E+23, &        !< Avogadro constant           [1/mol]
+     SB = 5.6704E-8, &        !< Stefan-Boltzmann constant   [W/m^2/K^4]
+     KE = 3.48E-02, &         !< electron scattering opacity [m^2/kg]
+     AU = 1.49597870691D+11, &!< astronomical unit           [m]
+     MSUN     = 1.9885D+30, & !< sun mass                    [kg]
+     MJUPITER = 1.89819D+27, &!< jupiter mass                [kg]
+     MEARTH   = 5.9723D+24, & !< earth mass                  [kg]
+     RSUN     = 6.957E+8, &   !< sun radius                  [m]
+     RJUPITER = 6.9911E+7, &  !< jupiter radius              [m]
+     REARTH   = 6.371E+6, &   !< earth radius                [m]
+     DAY      = 8.64E+4, &    !< length of a day             [s]
+     PI = 3.1415926535897932384626433832795028842
   !--------------------------------------------------------------------------!
   PUBLIC :: &
        ! types
        constants_SI, &
-       C, GN, KB, NA, SB, KE
+       C, GN, KB, NA, SB, KE, AU, &
+       MSUN, MJUPITER, MEARTH, RSUN, RJUPITER, REARTH, DAY, PI
   !--------------------------------------------------------------------------!
 
 CONTAINS
@@ -76,6 +86,15 @@ CONTAINS
     this%NA = NA
     this%SB = SB
     this%KE = KE
+    this%AU = AU
+    this%MSUN     = MSUN
+    this%MJUPITER = MJUPITER
+    this%MEARTH   = MEARTH
+    this%RSUN     = RSUN
+    this%RJUPITER = RJUPITER
+    this%REARTH   = REARTH
+    this%DAY      = DAY
+    this%PI       = PI
     ! conversion factors to SI units are unity
     this%cf_time        = 1.0
     this%cf_mass        = 1.0

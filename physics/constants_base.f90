@@ -59,6 +59,17 @@ MODULE constants_base_mod
      REAL :: SB                         !< Stefan-Boltzmann constant
      REAL :: RG                         !< universal gas constant
      REAL :: KE                         !< electron scattering opacity
+     !!#### Named natural constants
+     REAL :: AU                         !< astronomical unit
+     REAL :: MSUN                       !< sun mass
+     REAL :: MJUPITER                   !< jupiter mass
+     REAL :: MEARTH                     !< earth mass
+     REAL :: RSUN                       !< sun radius
+     REAL :: RJUPITER                   !< jupiter radius
+     REAL :: REARTH                     !< earth radius
+     REAL :: DAY                        !< length of a day in seconds
+     !!#### Named mathematical constants
+     REAL :: PI                         !< circle constant
      !> \name
      !!#### Conversion factors from SI to other units
      REAL :: cf_time                    !< time scale

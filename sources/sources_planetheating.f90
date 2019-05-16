@@ -88,6 +88,9 @@ MODULE sources_planetheating_mod
     REAL              :: intensity      !< intensity of the star
     REAL              :: albedo         !< albedo of the star
     REAL              :: distance       !< distance of the star
+    REAL              :: sm_axis        !< semi-major axis
+    REAL              :: eccentricity   !< eccentricity
+    REAL              :: true_anomaly   !< true anomaly aka orbital phase angle
     REAL              :: omegasun       !< rotational omega of the star
     REAL              :: year           !< a year
     REAL              :: theta0, phi0   !< states were heating should start
@@ -116,14 +119,14 @@ CONTAINS
     USE constants_si_mod, ONLY : constants_si
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(sources_planetheating) :: this
+    CLASS(sources_planetheating)    :: this
     CLASS(mesh_base),    INTENT(IN) :: Mesh
     CLASS(physics_base), INTENT(IN) :: Physics
     CLASS(fluxes_base),  INTENT(IN) :: Fluxes
-    TYPE(Dict_TYP),      POINTER :: config,IO
-    INTEGER           :: stype
+    TYPE(Dict_TYP),      POINTER    :: config,IO
+    INTEGER                         :: stype
     !------------------------------------------------------------------------!
-    INTEGER           :: err
+    INTEGER                         :: err
     !------------------------------------------------------------------------!
     CALL GetAttr(config, "stype", stype)
     CALL this%InitLogging(stype,this%source_name)
@@ -144,9 +147,9 @@ CONTAINS
     END SELECT
 
     this%Qstar = marray_base()
-    this%T_s = marray_base()
-    this%cos1 = marray_base(2) !TODO check if 2 is really necessary
-    this%sin1 = marray_base(2) !TODO check if 2 is really necessary
+    this%T_s   = marray_base()
+    this%cos1  = marray_base(2) !TODO check if 2 is really necessary
+    this%sin1  = marray_base(2) !TODO check if 2 is really necessary
 
     ! Courant number, i.e. safety factor for numerical stability
     CALL GetAttr(config, "cvis", this%cvis, 0.1)
@@ -156,6 +159,10 @@ CONTAINS
     CALL GetAttr(config, "albedo", this%albedo)
     ! distance planet-star
     CALL GetAttr(config, "distance", this%distance)
+    ! nummerical eccentricity
+    CALL GetAttr(config, "eccentricity", this%eccentricity, 0.0)
+    ! semi-major-axis
+    CALL GetAttr(config, "sm_axis", this%sm_axis, this%distance)
     ! day-night omega
     CALL GetAttr(config, "omegasun", this%omegasun, 0.0)
     ! year
@@ -201,21 +208,30 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(sources_planetheating), INTENT(IN) :: this
-    CLASS(mesh_base),           INTENT(IN) :: Mesh
+    CLASS(mesh_base),             INTENT(IN) :: Mesh
     !------------------------------------------------------------------------!
     CHARACTER(LEN=32) :: param_str
-    REAL :: tmp_out
+    REAL              :: tmp_out
     REAL, PARAMETER   :: AU      = 1.49597870691E+11    ! astr. unit [m]     !
     !------------------------------------------------------------------------!
     tmp_out = this%year/(3.6e3*24*365)
     WRITE (param_str,'(ES8.2)') tmp_out
-    CALL this%Info("            sid. year [yr]:    " // TRIM(param_str))
+    CALL this%Info("            sid. year [yr]:        " // TRIM(param_str))
+
     tmp_out = 1./(this%omegasun*3.6e3*24.0)
     WRITE (param_str,'(ES8.2)') ABS(tmp_out)
-    CALL this%Info("            day [d]:           " // TRIM(param_str))
+    CALL this%Info("            day [d]:               " // TRIM(param_str))
+
     tmp_out = this%distance/AU
     WRITE (param_str,'(ES8.2)') tmp_out
-    CALL this%Info("            distance [au]:     " // TRIM(param_str))
+    CALL this%Info("            distance [au]:         " // TRIM(param_str))
+
+    tmp_out = this%sm_axis/AU
+    WRITE (param_str,'(ES8.2)') tmp_out
+    CALL this%Info("            semi-major axis [au:]: " // TRIM(param_str))
+
+    WRITE (param_str,'(ES8.2)') this%eccentricity
+    CALL this%Info("            eccentricity:          " // TRIM(param_str))
   END SUBROUTINE InfoSources
 
 
@@ -236,6 +252,16 @@ CONTAINS
     TYPE IS (statevector_euler)
       s%density%data1d(:)   = 0.0
       s%momentum%data1d(:) = 0.0
+
+
+      ! calculate the new distance from the semi major axis and the eccentricity
+      ! once for each timestep
+      this%distance = this%sm_axis * (1 - this%eccentricity**(2.)) / &
+                               (1 + this%eccentricity * COS(this%true_anomaly))
+
+      this%true_anomaly = this%true_anomaly + (2.*PI/this%year) * &
+                      (this%sm_axis**(2.) * SQRT(1 - this%eccentricity**(2.))) &
+                    / (this%distance**(2.))
 
       CALL this%UpdatePlanetHeating(Mesh,Sources,time)
 
@@ -351,14 +377,15 @@ CONTAINS
               ! for sin,cos have a look at spherical trigonometry
               ! the albedo can contain things like scattering etc. (not implemented)
 
-              this%Qstar%data3d(i,j,k) = this%intensity*&
-                   (AU/this%distance)**(2.)*(1.-(this%albedo))*SIN(theta2)*COS(phi2)
+              this%Qstar%data3d(i,j,k) = this%intensity * (AU/this%distance)**(2.) * &
+                                            (1.-(this%albedo))*SIN(theta2)*COS(phi2)
             ELSE
               this%Qstar%data3d(i,j,k) = 0.0
             END IF
           END DO
         END DO
       END DO
+      this%time = time
     END IF
   END SUBROUTINE UpdatePlanetHeating
 
