@@ -317,12 +317,16 @@ MODULE gravity_sboxspectral_mod
 #endif
     CALL GetAttr(config, "print_plans", valwrite, 0)
     IF (valwrite.GT.0) THEN
+#ifndef NECSXAURORA
       IF (this%GetRank().EQ.0) THEN
         CALL fftw_print_plan(this%plan_r2c)
         PRINT *,ACHAR(13)
         CALL fftw_print_plan(this%plan_c2r)
         PRINT *,ACHAR(13)
       END IF
+#else
+      CALL this%Warning("InitGravity_sboxspectral", "fftw_print_plan currently not supported on SX-Aurora",0)
+#endif
     END IF
 
     !------------------------------------------------------------------------!
