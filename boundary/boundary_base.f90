@@ -107,24 +107,23 @@ MODULE boundary_base_mod
 #ifdef PARALLEL
   INTEGER, PARAMETER :: NONE            = 0
 #endif
-  ENUM, BIND(C)
-    ENUMERATOR :: NO_GRADIENTS  = Z'01', & !< copy data from last cell in comp. domain in ghost zones
-                  PERIODIC      = Z'02', & !< connects opposite boundaries
-                  REFLECTING    = Z'03', & !< reflecting, i.e. wall
-                  AXIS          = Z'04', & !< axis
-!                   FOLDED        = Z'05', & !< cuts boundary in half and connects
+  INTEGER, PARAMETER :: &
+                  NO_GRADIENTS  = INT(Z'01'), & !< copy data from last cell in comp. domain in ghost zones
+                  PERIODIC      = INT(Z'02'), & !< connects opposite boundaries
+                  REFLECTING    = INT(Z'03'), & !< reflecting, i.e. wall
+                  AXIS          = INT(Z'04'), & !< axis
+!                   FOLDED        = INT(Z'05'), & !< cuts boundary in half and connects
 !                                        !<   the two parts (not supported in parallel mode)
-                  FIXED         = Z'06', & !< set fixed boundary data
-                  EXTRAPOLATION = Z'07', & !< linear extrapolation
-!                   NOH2D         = Z'08', & !< time-dependent inflow for 2D Noh problem
-!                   NOH3D         = Z'09', & !< time-dependent inflow for 3D Noh problem
-                  NOSLIP        = Z'0A', & !< reflecting, but with moving wall
-                  CUSTOM        = Z'0B', & !< user defined
-!                   FARFIELD      = Z'0C', & !< uses far-field data and Riemann invariants
-                  ABSORBING     = Z'0D', & !< vanishing characteristic pseudo-variables for incomming waves
-!                   DMR           = Z'0E', & !< ???
-                  SHEARING      = Z'0F'    !< periodic with shear for shearing sheet/box
-  END ENUM
+                  FIXED         = INT(Z'06'), & !< set fixed boundary data
+                  EXTRAPOLATION = INT(Z'07'), & !< linear extrapolation
+!                   NOH2D         = INT(Z'08'), & !< time-dependent inflow for 2D Noh problem
+!                   NOH3D         = INT(Z'09'), & !< time-dependent inflow for 3D Noh problem
+                  NOSLIP        = INT(Z'0A'), & !< reflecting, but with moving wall
+                  CUSTOM        = INT(Z'0B'), & !< user defined
+!                   FARFIELD      = INT(Z'0C', & !< uses far-field data and Riemann invariants
+                  ABSORBING     = INT(Z'0D'), & !< vanishing characteristic pseudo-variables for incomming waves
+!                   DMR           = INT(Z'0E'), & !< ???
+                  SHEARING      = INT(Z'0F')    !< periodic with shear for shearing sheet/box
   !--------------------------------------------------------------------------!
   PUBLIC :: &
     ! types

@@ -213,7 +213,7 @@ CONTAINS
               - Mesh%radius%bcenter(Mesh%IMIN-i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX)**2*Mesh%OMEGA
           END DO
         CASE DEFAULT
-          this%err = IOR(CUSTOM,Z'0100')
+          this%err = IOR(CUSTOM,INT(Z'0100'))
         END SELECT
       END DO
     CASE(EAST)
@@ -306,7 +306,7 @@ CONTAINS
               - Mesh%radius%bcenter(Mesh%IMAX+i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX)**2*Mesh%OMEGA
           END DO
         CASE DEFAULT
-          this%err = IOR(CUSTOM,Z'0200')
+          this%err = IOR(CUSTOM,INT(Z'0200'))
         END SELECT
       END DO
     CASE(SOUTH)
@@ -399,7 +399,7 @@ CONTAINS
             - Mesh%radius%bcenter(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN-j,Mesh%KMIN:Mesh%KMAX)**2*Mesh%OMEGA
           END DO
         CASE DEFAULT
-          this%err = IOR(CUSTOM,Z'0300')
+          this%err = IOR(CUSTOM,INT(Z'0300'))
         END SELECT
       END DO
     CASE(NORTH)
@@ -492,7 +492,7 @@ CONTAINS
               - Mesh%radius%bcenter(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX+j,Mesh%KMIN:Mesh%KMAX)**2*Mesh%OMEGA
           END DO
         CASE DEFAULT
-          this%err = IOR(CUSTOM,Z'0400')
+          this%err = IOR(CUSTOM,INT(Z'0400'))
         END SELECT
       END DO
     CASE(BOTTOM)
@@ -588,7 +588,7 @@ CONTAINS
               - Mesh%radius%bcenter(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN-k)**2*Mesh%OMEGA
           END DO
         CASE DEFAULT
-          this%err = IOR(CUSTOM,Z'0500')
+          this%err = IOR(CUSTOM,INT(Z'0500'))
         END SELECT
       END DO
     CASE(TOP)
@@ -683,7 +683,7 @@ CONTAINS
               - Mesh%radius%bcenter(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMAX+k)**2*Mesh%OMEGA
           END DO
         CASE DEFAULT
-          this%err = IOR(CUSTOM,Z'0600')
+          this%err = IOR(CUSTOM,INT(Z'0600'))
         END SELECT
       END DO
     END SELECT

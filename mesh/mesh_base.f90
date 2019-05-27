@@ -104,11 +104,10 @@ MODULE mesh_base_mod
      BOTTOM = 5, & !< named constant for bottom   boundary
      TOP    = 6    !< named constant for top      boundary
   !> flags to check which vector components are enabled
-  ENUM, BIND(C)
-    ENUMERATOR :: VECTOR_X = B'001', &
-                  VECTOR_Y = B'010', &
-                  VECTOR_Z = B'100'
-  END ENUM
+  INTEGER, PARAMETER :: &
+     VECTOR_X = INT(B'001'), &
+     VECTOR_Y = INT(B'010'), &
+     VECTOR_Z = INT(B'100')
   !> mesh data structure
   !PRIVATE
   TYPE,ABSTRACT, EXTENDS(logging_base) :: mesh_base
@@ -410,7 +409,7 @@ CONTAINS
     ! check dimensionality and suppress boundaries
     ! if there is only one cell in that direction
     this%NDIMS = 3 ! assume 3D simulation
-    this%VECTOR_COMPONENTS = B'111' ! enable all vector components
+    this%VECTOR_COMPONENTS = INT(B'111') ! enable all vector components
     IF (this%INUM.EQ.1) THEN
       IF (this%shear_dir.EQ.1) &
         CALL this%Error("mesh_base:Initmesh","shearing box enabled with direction 1, but INUM set to 1")
