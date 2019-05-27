@@ -1215,7 +1215,8 @@ CONTAINS
                   + wp * (0.5 * wp * this%xfluxdydz(i,j,k,Physics%DENSITY) &
                   + this%xfluxdydz(i,j,k,Physics%YMOMENTUM))
               IF (have_potential) THEN
-                this%xfluxdydz(i,j,k,Physics%ENERGY) = this%xfluxdydz(i,j,k,Physics%ENERGY) + pot(i,j,k,2)*this%xfluxdydz(i,j,k,Physics%DENSITY)
+                this%xfluxdydz(i,j,k,Physics%ENERGY) = this%xfluxdydz(i,j,k,Physics%ENERGY) &
+                  + pot(i,j,k,2)*this%xfluxdydz(i,j,k,Physics%DENSITY)
               END IF
             END IF
 
@@ -1230,7 +1231,8 @@ CONTAINS
                  + wp * ( 0.5 * wp * this%yfluxdzdx(i,j,k,Physics%DENSITY) &
                  + this%yfluxdzdx(i,j,k,Physics%YMOMENTUM))
               IF (have_potential) THEN
-                this%yfluxdzdx(i,j,k,Physics%ENERGY) = this%yfluxdzdx(i,j,k,Physics%ENERGY) + pot(i,j,k,3)*this%yfluxdzdx(i,j,k,Physics%DENSITY)
+                this%yfluxdzdx(i,j,k,Physics%ENERGY) = this%yfluxdzdx(i,j,k,Physics%ENERGY) &
+                  + pot(i,j,k,3)*this%yfluxdzdx(i,j,k,Physics%DENSITY)
               END IF
             END IF
 

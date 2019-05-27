@@ -155,7 +155,8 @@ CONTAINS
              this%fr_prim(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,3), &
              this%posvec_prim(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,3),&
              this%posvec_prim_tmp(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,3),&
-             this%fposvec_prim(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,3,3),& ! last two entries (EAST,NORTH,TOP)x(dim1,dim2,dim3)
+             this%fposvec_prim(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,3,3),&
+               ! last two entries (EAST,NORTH,TOP)x(dim1,dim2,dim3)
              this%mass, this%accrate, this%massloss, this%pos(1,3), &
          STAT = err)
     IF (err.NE.0) CALL this%Error("InitGravity_pointmass", "Unable allocate memory!")
@@ -224,9 +225,12 @@ CONTAINS
        this%posvec_prim_tmp(:,:,:,2) = this%pos(1,2)
        this%posvec_prim_tmp(:,:,:,3) = this%pos(1,3)
 
-       CALL Mesh%Geometry%Convert2Curvilinear(Mesh%curv%faces(:,:,:,EAST,:),this%posvec_prim_tmp(:,:,:,:),this%fposvec_prim(:,:,:,1,:))
-       CALL Mesh%Geometry%Convert2Curvilinear(Mesh%curv%faces(:,:,:,NORTH,:),this%posvec_prim_tmp(:,:,:,:),this%fposvec_prim(:,:,:,2,:))
-       CALL Mesh%Geometry%Convert2Curvilinear(Mesh%curv%faces(:,:,:,TOP,:),this%posvec_prim_tmp(:,:,:,:),this%fposvec_prim(:,:,:,3,:))
+       CALL Mesh%Geometry%Convert2Curvilinear(Mesh%curv%faces(:,:,:,EAST,:), &
+            this%posvec_prim_tmp(:,:,:,:),this%fposvec_prim(:,:,:,1,:))
+       CALL Mesh%Geometry%Convert2Curvilinear(Mesh%curv%faces(:,:,:,NORTH,:), &
+            this%posvec_prim_tmp(:,:,:,:),this%fposvec_prim(:,:,:,2,:))
+       CALL Mesh%Geometry%Convert2Curvilinear(Mesh%curv%faces(:,:,:,TOP,:), &
+            this%posvec_prim_tmp(:,:,:,:),this%fposvec_prim(:,:,:,3,:))
 
        CALL Mesh%Geometry%Convert2Curvilinear(Mesh%bcenter,this%posvec_prim_tmp,this%posvec_prim)
 
@@ -238,10 +242,14 @@ CONTAINS
        this%fposvec_prim(:,:,:,2,:) = Mesh%posvec%faces(:,:,:,NORTH,:) - this%fposvec_prim(:,:,:,2,:) ! NORTH
        this%fposvec_prim(:,:,:,3,:) = Mesh%posvec%faces(:,:,:,TOP,:) - this%fposvec_prim(:,:,:,3,:)   ! TOP
 
-       this%r_prim(:,:,:) = SQRT(this%posvec_prim(:,:,:,1)**2+this%posvec_prim(:,:,:,2)**2+this%posvec_prim(:,:,:,3)**2)
-       this%fr_prim(:,:,:,1) = SQRT(this%fposvec_prim(:,:,:,1,1)**2+this%fposvec_prim(:,:,:,1,2)**2+this%fposvec_prim(:,:,:,1,3)**2) ! shifted EAST-faces
-       this%fr_prim(:,:,:,2) = SQRT(this%fposvec_prim(:,:,:,2,1)**2+this%fposvec_prim(:,:,:,2,2)**2+this%fposvec_prim(:,:,:,2,3)**2) ! shifted NORTH-faces
-       this%fr_prim(:,:,:,3) = SQRT(this%fposvec_prim(:,:,:,3,1)**2+this%fposvec_prim(:,:,:,3,2)**2+this%fposvec_prim(:,:,:,3,3)**2) ! shifted TOP-faces
+       this%r_prim(:,:,:) = SQRT(this%posvec_prim(:,:,:,1)**2 &
+         + this%posvec_prim(:,:,:,2)**2 + this%posvec_prim(:,:,:,3)**2)
+       this%fr_prim(:,:,:,1) = SQRT(this%fposvec_prim(:,:,:,1,1)**2 &
+         + this%fposvec_prim(:,:,:,1,2)**2 + this%fposvec_prim(:,:,:,1,3)**2) ! shifted EAST-faces
+       this%fr_prim(:,:,:,2) = SQRT(this%fposvec_prim(:,:,:,2,1)**2 &
+         + this%fposvec_prim(:,:,:,2,2)**2 + this%fposvec_prim(:,:,:,2,3)**2) ! shifted NORTH-faces
+       this%fr_prim(:,:,:,3) = SQRT(this%fposvec_prim(:,:,:,3,1)**2 &
+         +this%fposvec_prim(:,:,:,3,2)**2 + this%fposvec_prim(:,:,:,3,3)**2) ! shifted TOP-faces
     END IF
 
     ! initialize gravitational acceleration and Keplerian angular velocity

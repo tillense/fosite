@@ -154,7 +154,8 @@ CONTAINS
          this%fr_prim(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,3), &
          this%fr_sec(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,3), &
          this%fposvec_prim(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,3,3),&
-         this%fposvec_sec(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,3,3),& ! last two entries (EAST,NORTH)x(dim1,dim2)
+         this%fposvec_sec(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,3,3),&
+           ! last two entries (EAST,NORTH)x(dim1,dim2)
          STAT = err)
     IF (err.NE.0) CALL this%Error("InitGravity_pointmass", "Unable allocate memory!")
 
@@ -330,14 +331,22 @@ CONTAINS
 
     ! compute the distances between each component of the binary system
     ! and all cell bary centers
-    this%r_prim(:,:,:) = SQRT(this%posvec_prim(:,:,:,1)**2+this%posvec_prim(:,:,:,2)**2+this%posvec_prim(:,:,:,3)**2)
-    this%fr_prim(:,:,:,1) = SQRT(this%fposvec_prim(:,:,:,1,1)**2+this%fposvec_prim(:,:,:,1,2)**2+this%fposvec_prim(:,:,:,1,3)**2)   ! shifted EAST-faces
-    this%fr_prim(:,:,:,2) = SQRT(this%fposvec_prim(:,:,:,2,1)**2+this%fposvec_prim(:,:,:,2,2)**2+this%fposvec_prim(:,:,:,2,3)**2)   ! shifted NORTH-faces
-    this%fr_prim(:,:,:,3) = SQRT(this%fposvec_prim(:,:,:,3,1)**2+this%fposvec_prim(:,:,:,3,2)**2+this%fposvec_prim(:,:,:,3,3)**2)   ! shifted TOP-faces
-    this%r_sec(:,:,:) = SQRT(this%posvec_sec(:,:,:,1)**2+this%posvec_sec(:,:,:,2)**2+this%posvec_sec(:,:,:,3)**2)
-    this%fr_sec(:,:,:,1) = SQRT(this%fposvec_sec(:,:,:,1,1)**2+this%fposvec_sec(:,:,:,1,2)**2+this%fposvec_sec(:,:,:,1,3)**2)      ! shifted EAST-faces
-    this%fr_sec(:,:,:,2) = SQRT(this%fposvec_sec(:,:,:,2,1)**2+this%fposvec_sec(:,:,:,2,2)**2+this%fposvec_sec(:,:,:,2,3)**2)      ! shifted NORTH-faces
-    this%fr_sec(:,:,:,3) = SQRT(this%fposvec_sec(:,:,:,3,1)**2+this%fposvec_sec(:,:,:,3,2)**2+this%fposvec_sec(:,:,:,3,3)**2)      ! shifted NORTH-faces
+    this%r_prim(:,:,:) = SQRT(this%posvec_prim(:,:,:,1)**2 &
+      + this%posvec_prim(:,:,:,2)**2 + this%posvec_prim(:,:,:,3)**2)
+    this%fr_prim(:,:,:,1) = SQRT(this%fposvec_prim(:,:,:,1,1)**2 &
+      + this%fposvec_prim(:,:,:,1,2)**2 + this%fposvec_prim(:,:,:,1,3)**2) ! shifted EAST-faces
+    this%fr_prim(:,:,:,2) = SQRT(this%fposvec_prim(:,:,:,2,1)**2 &
+      + this%fposvec_prim(:,:,:,2,2)**2 + this%fposvec_prim(:,:,:,2,3)**2) ! shifted NORTH-faces
+    this%fr_prim(:,:,:,3) = SQRT(this%fposvec_prim(:,:,:,3,1)**2 &
+      + this%fposvec_prim(:,:,:,3,2)**2 + this%fposvec_prim(:,:,:,3,3)**2) ! shifted TOP-faces
+    this%r_sec(:,:,:) = SQRT(this%posvec_sec(:,:,:,1)**2 &
+      + this%posvec_sec(:,:,:,2)**2 + this%posvec_sec(:,:,:,3)**2)
+    this%fr_sec(:,:,:,1) = SQRT(this%fposvec_sec(:,:,:,1,1)**2 &
+      + this%fposvec_sec(:,:,:,1,2)**2 + this%fposvec_sec(:,:,:,1,3)**2)   ! shifted EAST-faces
+    this%fr_sec(:,:,:,2) = SQRT(this%fposvec_sec(:,:,:,2,1)**2 &
+      + this%fposvec_sec(:,:,:,2,2)**2 + this%fposvec_sec(:,:,:,2,3)**2)   ! shifted NORTH-faces
+    this%fr_sec(:,:,:,3) = SQRT(this%fposvec_sec(:,:,:,3,1)**2 &
+      + this%fposvec_sec(:,:,:,3,2)**2 + this%fposvec_sec(:,:,:,3,3)**2)   ! shifted NORTH-faces
 
     ! compute square of Keplerian velocities for updated time value
     ! with respect to PRIMARY star
