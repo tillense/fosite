@@ -202,8 +202,9 @@ CONTAINS
     y = Mesh%bccart(:,:,:,2)
 
     IF(GravEnergySource.EQ.0) THEN
-      CALL SetPotential_euler2Dia(Physics,Mesh,-GN * MCENTRAL / Mesh%radius%bcenter)
-      CALL SetPotential_euler2Dia(Physics,Mesh,-GN * MCENTRAL / Mesh%radius%faces)
+      CALL Timedisc%Error("keplerianvortex:InitData","GravEnergySource=0 is currently not supported")
+!      CALL SetPotential_euler2Dia(Physics,Mesh,-GN * MCENTRAL / Mesh%radius%bcenter)
+!      CALL SetPotential_euler2Dia(Physics,Mesh,-GN * MCENTRAL / Mesh%radius%faces)
     END IF
 
     ! get gravitational acceleration
