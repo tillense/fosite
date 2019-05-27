@@ -228,7 +228,7 @@ CONTAINS
        ! compute curvilinear components of shift vector
        posvec(:,:,:,1) = R0
        posvec(:,:,:,2) = Z0
-       CALL Convert2Curvilinear(Mesh%geometry,Mesh%bcenter,posvec,posvec)
+       CALL Mesh%geometry%Convert2Curvilinear(Mesh%bcenter,posvec,posvec)
        ! subtract the result from the position vector:
        ! this gives you the curvilinear components of all vectors pointing
        ! from the point mass to the bary center of any cell on the mesh
