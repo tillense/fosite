@@ -127,9 +127,9 @@ MODULE physics_eulerisotherm_mod
     CONTAINS
     PROCEDURE :: AssignMArray_0
   END TYPE
-!  INTERFACE statevector_eulerisotherm
-!    MODULE PROCEDURE CreateStateVector
-!  END INTERFACE
+  INTERFACE statevector_eulerisotherm
+    MODULE PROCEDURE CreateStateVector
+  END INTERFACE
   INTERFACE SetFlux
     MODULE PROCEDURE SetFlux1d, SetFlux2d, SetFlux3d
   END INTERFACE
@@ -143,8 +143,7 @@ MODULE physics_eulerisotherm_mod
    PUBLIC :: &
        ! types
        physics_eulerisotherm, &
-       statevector_eulerisotherm, &
-       CreateStateVector_eulerisotherm
+       statevector_eulerisotherm
   !--------------------------------------------------------------------------!
 
 CONTAINS
@@ -282,8 +281,7 @@ CONTAINS
     ALLOCATE(statevector_eulerisotherm::new_sv)
     SELECT TYPE(sv => new_sv)
     TYPE IS (statevector_eulerisotherm)
-!       sv = statevector_eulerisotherm(this,flavour,num)
-      CALL CreateStateVector_eulerisotherm(this,sv,flavour,num)
+      sv = statevector_eulerisotherm(this,flavour,num)
     END SELECT
   END SUBROUTINE new_statevector
 
@@ -2045,61 +2043,8 @@ CONTAINS
     TYPE(statevector_eulerisotherm) :: new_sv
     !-------------------------------------------------------------------!
     IF (.NOT.Physics%Initialized()) &
-      CALL Physics%Error("physics_eulerisotherm::CreateStatevector", "Physics not initialized.")
-
-    ! create a new empty compound of marrays
-    new_sv = marray_compound(num)
-    IF (PRESENT(flavour)) THEN
-      SELECT CASE(flavour)
-      CASE(PRIMITIVE,CONSERVATIVE)
-        new_sv%flavour = flavour
-      CASE DEFAULT
-        new_sv%flavour = UNDEFINED
-      END SELECT
-    END IF
-    SELECT CASE(new_sv%flavour)
-    CASE(PRIMITIVE)
-      ! allocate memory for density and velocity mesh arrays
-      ALLOCATE(new_sv%density,new_sv%velocity)
-      IF (PRESENT(num).AND.num.GT.0) THEN
-        ! create a bunch of scalars and vectors
-        new_sv%density  = marray_base(num)              ! num scalars
-        new_sv%velocity = marray_base(num,Physics%VDIM) ! num vectors
-      ELSE
-        new_sv%density  = marray_base()                 ! one scalar
-        new_sv%velocity = marray_base(Physics%VDIM)     ! one vector
-      END IF
-      ! append to compound
-      CALL new_sv%AppendMArray(new_sv%density)
-      CALL new_sv%AppendMArray(new_sv%velocity)
-    CASE(CONSERVATIVE)
-      ! allocate memory for density and momentum mesh arrays
-      ALLOCATE(new_sv%density,new_sv%momentum)
-      IF (PRESENT(num).AND.num.GT.0) THEN
-        ! create a bunch of scalars and vectors
-        new_sv%density  = marray_base(num)              ! num scalars
-        new_sv%momentum = marray_base(num,Physics%VDIM) ! num vectors
-      ELSE
-        new_sv%density  = marray_base()                 ! one scalar
-        new_sv%momentum = marray_base(Physics%VDIM)     ! one vector
-      END IF
-      ! append to compound
-      CALL new_sv%AppendMArray(new_sv%density)
-      CALL new_sv%AppendMArray(new_sv%momentum)
-    CASE DEFAULT
-      CALL Physics%Warning("physics_eulerisotherm::CreateStateVector", "Empty state vector created.")
-    END SELECT
-  END FUNCTION CreateStateVector
-
-  SUBROUTINE CreateStateVector_eulerisotherm(Physics,new_sv,flavour,num)
-    IMPLICIT NONE
-    !-------------------------------------------------------------------!
-    CLASS(physics_eulerisotherm), INTENT(IN) :: Physics
-    TYPE(statevector_eulerisotherm), INTENT(INOUT) :: new_sv
-    INTEGER, OPTIONAL, INTENT(IN) :: flavour,num
-    !-------------------------------------------------------------------!
-    IF (.NOT.Physics%Initialized()) &
-      CALL Physics%Error("physics_eulerisotherm::CreateStatevector", "Physics not initialized.")
+      CALL Physics%Error("physics_eulerisotherm::CreateStatevector", &
+                         "Physics not initialized.")
 
     ! create a new empty compound of marrays
     new_sv = marray_compound(num)
@@ -2141,10 +2086,10 @@ CONTAINS
       CALL new_sv%AppendMArray(new_sv%density)
       CALL new_sv%AppendMArray(new_sv%momentum)
     CASE DEFAULT
-      CALL Physics%Warning("physics_eulerisotherm::CreateStateVector_eulerisotherm", &
+      CALL Physics%Warning("physics_eulerisotherm::CreateStateVector", &
                            "Empty state vector created.")
     END SELECT
-  END SUBROUTINE CreateStateVector_eulerisotherm
+  END FUNCTION CreateStateVector
 
   !> assigns one state vector to another state vector
   SUBROUTINE AssignMArray_0(this,ma)
