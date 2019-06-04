@@ -51,7 +51,6 @@ MODULE physics_eulerisotherm_mod
   IMPLICIT NONE
   !--------------------------------------------------------------------------!
   PRIVATE
-  INTEGER, PARAMETER           :: num_var = 3          ! number of variables !
   CHARACTER(LEN=32), PARAMETER :: problem_name = "Euler isotherm"
   !--------------------------------------------------------------------------!
   TYPE,  EXTENDS(physics_base) :: physics_eulerisotherm
@@ -538,7 +537,7 @@ CONTAINS
     !------------------------------------------------------------------------!
     ! compute minimal and maximal wave speeds at cell centers
     SELECT TYPE(p => pvar)
-    TYPE IS(statevector_eulerisotherm)
+    CLASS IS(statevector_eulerisotherm)
 !NEC$ SHORTLOOP
       m = 1
       DO n=1,Mesh%NDIMS
