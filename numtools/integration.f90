@@ -406,7 +406,7 @@ CONTAINS
     res(1,1) = 0.5 * (fkt(xl,plist) + fkt(xr,plist))
     ! and in between
     DO i=1,n-1
-       res(1,1) = res(1,1) + fkt(i*h,plist)
+       res(1,1) = res(1,1) + fkt(xl+i*h,plist)
     END DO
     res(1,1) = res(1,1) * h
 
@@ -417,7 +417,7 @@ CONTAINS
        n = 2 * n
        ! sum up contributions due to the new points
        DO i=1,n-1,2
-          res(j,1) = res(j,1) + fkt(i*h,plist)
+          res(j,1) = res(j,1) + fkt(xl+i*h,plist)
        END DO
        res(j,1) = 0.5 * res(j-1,1) +  h*res(j,1)
        ! extrapolation
