@@ -84,7 +84,6 @@ PROGRAM riemann1d
   REAL               :: CSISO = 0.0      ! isothermal sound speed (test no. 6)
   !--------------------------------------------------------------------------!
   CLASS(fosite), ALLOCATABLE     :: Sim
-  CLASS(marray_compound), POINTER :: pvar_exact
   CHARACTER(LEN=64)  :: verbose_tap_output
   INTEGER            :: ic,sd,dir_min,dir_max
   REAL, DIMENSION(:,:), ALLOCATABLE :: sigma
@@ -128,11 +127,8 @@ PROGRAM riemann1d
       ! setup the simulation
       CALL Sim%Setup()
 
-      ! create state vector for exact solution
-      CALL Sim%Physics%new_statevector(pvar_exact,PRIMITIVE)
-
       ! set initial conditions and run the simulation
-      CALL Run(Sim,pvar_exact,ic,sd)
+      CALL Run(Sim,ic,sd)
 
       IF (Sim%aborted) THEN
         sigma(ic,sd) = HUGE(1.0)
@@ -145,7 +141,6 @@ PROGRAM riemann1d
         END IF
       END IF
 
-      CALL pvar_exact%Destroy()
       CALL Sim%Finalize()
       DEALLOCATE(Sim)
 
@@ -315,12 +310,12 @@ CONTAINS
              "datafile" / datafile)
   END SUBROUTINE MakeConfig
 
-  SUBROUTINE Run(this,pvar,ic,dir)
+  SUBROUTINE Run(this,ic,dir)
     USE solutions
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(fosite), INTENT(INOUT) :: this
-    CLASS(marray_compound), POINTER :: pvar
+!     CLASS(marray_compound), POINTER :: pvar
     INTEGER, INTENT(IN)          :: ic,dir
     !------------------------------------------------------------------------!
     ! Local variable declaration
