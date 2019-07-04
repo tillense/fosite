@@ -5,5 +5,6 @@ add_library(numtools
   fftw.f90
   integration.f90
   solutions.f90
+  sedov.f90
   rngs.f90
 )
