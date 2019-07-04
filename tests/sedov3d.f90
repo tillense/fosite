@@ -41,7 +41,6 @@ PROGRAM sedov3d
   ! simulation parameters
   REAL, PARAMETER    :: TSIM    = 1.0         ! simulation stop time
   REAL, PARAMETER    :: GAMMA   = 1.4         ! ratio of specific heats
-  REAL, PARAMETER    :: R       = 1.033       ! scaling parameter: 1.0 for 2D, 1.033 for 3D
   ! initial condition (dimensionless units)
   REAL, PARAMETER    :: RHO0    = 1.0         ! ambient density
   REAL, PARAMETER    :: P0      = 1.0E-05     ! ambient pressure
@@ -85,6 +84,7 @@ TAP_PLAN(4)
 
   CALL MakeConfig(Sim, Sim%config)
   CALL Sim%Setup()
+  ALLOCATE(sigma(Sim%Physics%VNUM))
 
   CALL InitData(Sim%Mesh, Sim%Physics, Sim%Timedisc)
   CALL Run(Sim%Mesh, Sim%Physics, Sim%Timedisc)
@@ -92,7 +92,6 @@ TAP_PLAN(4)
   ok = .NOT.Sim%aborted
   ! compare with exact solution if requested
   IF (ASSOCIATED(Sim%Timedisc%solution)) THEN
-    ALLOCATE(sigma(Sim%Physics%VNUM))
     DO n=1,Sim%Physics%VNUM
       ! use L1 norm to estimate the deviation from the exact solution:
       !   Σ |pvar - pvar_exact| / Σ |pvar_exact|
@@ -127,7 +126,6 @@ TAP_PLAN(4)
   VEL = Sim%Physics%XVELOCITY
   PRE = Sim%Physics%PRESSURE
 
-!   PRINT *,sigma(:)
 #ifdef PARALLEL
   IF (Sim%GetRank().EQ.0) THEN
 #endif
@@ -138,57 +136,13 @@ TAP_CHECK_SMALL(sigma(VEL),4.0E-02,"radial velocity deviation < 4%")
 ! skip azimuthal velocity deviation, because exact value is 0
 TAP_CHECK_SMALL(sigma(PRE),5.0E-02,"pressure deviation < 5%")
 TAP_DONE
+!   PRINT *,sigma(:)
 #ifdef PARALLEL
   END IF
 #endif
 
-! #ifdef PARALLEL
-!   ALLOCATE(pvar(Sim%Mesh%IMIN:Sim%Mesh%IMAX),pvar_all(Sim%GetNumProcs()*(Sim%Mesh%IMAX-Sim%Mesh%IMIN+1)))
-!   ALLOCATE(radius(Sim%Mesh%IMIN:Sim%Mesh%IMAX),radius_all(Sim%GetNumProcs()*(Sim%Mesh%IMAX-Sim%Mesh%IMIN+1)))
-!   pvar(:) = Sim%Timedisc%pvar%data4d(Sim%Mesh%IMIN:SIM%Mesh%IMAX,1,1,1)
-!   radius(:)= Sim%Mesh%radius%center(Sim%Mesh%IMIN:Sim%Mesh%IMAX,1,1)
-!  
-!   ! Compare results with analytical solution. Check only for correct shock velocity
-!   ! even if the full analytical solution is implemented
-!   IF (ASSOCIATED(Sim%Timedisc%solution)) THEN
-!     CALL sedov(GAMMA,E1,RHO0,P0,TSIM,3, SIM%Mesh%radius%bcenter(1:XRES,1,1), &
-!                Sim%Timedisc%solution)
-!   ELSE
-!     sigma(ic,sd) = 0.0
-!   END IF
-! 
-!   
-!   !The shock location is where the density gradient is greatest
-!   CALL MPI_Gather(pvar,int(Sim%Mesh%IMAX-Sim%Mesh%IMIN+1),MPI_DOUBLE, &
-!     pvar_all, int(Sim%Mesh%IMAX-Sim%Mesh%IMIN+1),MPI_DOUBLE,0,MPI_COMM_WORLD,err)
-!   CALL MPI_Gather(radius,int(Sim%Mesh%IMAX-Sim%Mesh%IMIN+1),MPI_DOUBLE, &
-!     radius_all, int(Sim%Mesh%IMAX-Sim%Mesh%IMIN+1),MPI_DOUBLE,0,MPI_COMM_WORLD,err)
-! 
-!  IF(Sim%GetRank().EQ.0) THEN 
-!   DO i=1,XRES-1
-!     pvar_diff(i) = pvar_all(i)-pvar_all(i+1)
-!   END DO
-!   rshock = radius_all(MAXLOC(pvar_diff,DIM=1))
-!   
-!   !analytical shock position
-!   Rt = R*(E1*TSIM**2/RHO0)**0.2
-! 
-!   !Check whether analytical solution is within +/- one cell of simulated shock
-!   TAP_CHECK((Rt.LT.rshock+Sim%Mesh%dx).AND.(Rt.GT.rshock-Sim%Mesh%dx),"Shock velocity correct")
-! END IF
-! #else
-!   DO i=1,XRES
-!       pvar_diff(i) = Sim%Timedisc%pvar%data4d(i,1,1,1)-Sim%Timedisc%pvar%data4d(i+1,1,1,1)
-!   END DO
-!   Rshock = Sim%Mesh%radius%center(MAXLOC(pvar_diff,DIM=1),1,1)
-!   
-!   !analytical shock position
-!   Rt = R*(E1*TSIM**2/RHO0)**0.2
-! 
-!   TAP_CHECK((Rt.LT.rshock+Sim%Mesh%dx).AND.(Rt.GT.rshock-Sim%Mesh%dx),"Shock velocity correct")
-! #endif
+  IF (ALLOCATED(sigma)) DEALLOCATE(sigma)
   CALL Sim%Finalize()
-!   TAP_DONE
   DEALLOCATE(Sim)
 
 CONTAINS
