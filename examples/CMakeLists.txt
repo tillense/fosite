@@ -1,7 +1,7 @@
 set (EXES
   #  KHI
   #  acousticwave
-  #  agndisk
+    agndisk
   #  betadisk1d
   #  bindisk
   #  bowshock
@@ -29,7 +29,7 @@ set (EXES
   #  shearingbox
   #  statdisk
   #  TCI
-  #  ttauridisk
+    ttauridisk
   #  vortex2d_sphere
   #  wind3d
 )
