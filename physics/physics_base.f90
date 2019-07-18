@@ -58,6 +58,7 @@ MODULE physics_base_mod
   USE mesh_base_mod
   USE marray_base_mod
   USE marray_compound_mod
+  USE marray_cellvector_mod
   USE common_dict
   IMPLICIT NONE
   !--------------------------------------------------------------------------!
@@ -164,10 +165,12 @@ MODULE physics_base_mod
     PROCEDURE (CalculateBoundaryDataY),      DEFERRED :: CalculateBoundaryDataY
     PROCEDURE (CalculateBoundaryDataZ),      DEFERRED :: CalculateBoundaryDataZ
     ! far field boundaries
-!   PROCEDURE ::  CalculatePrim2RiemannX
-!   PROCEDURE ::  CalculatePrim2RiemannY
-!   PROCEDURE ::  CalculateRiemann2PrimX
-!   PROCEDURE ::  CalculateRiemann2PrimY
+   PROCEDURE (CalculatePrim2RiemannX),       DEFERRED :: CalculatePrim2RiemannX
+   PROCEDURE (CalculatePrim2RiemannY),       DEFERRED :: CalculatePrim2RiemannY
+   PROCEDURE (CalculatePrim2RiemannZ),       DEFERRED :: CalculatePrim2RiemannZ
+   PROCEDURE (CalculateRiemann2PrimX),       DEFERRED :: CalculateRiemann2PrimX
+   PROCEDURE (CalculateRiemann2PrimY),       DEFERRED :: CalculateRiemann2PrimY
+   PROCEDURE (CalculateRiemann2PrimZ),       DEFERRED :: CalculateRiemann2PrimZ
 !   PROCEDURE ::  SGSSources
 !   PROCEDURE ::  CalculateSGSTensor
 !   PROCEDURE :: GetSoundSpeed_adiabatic
@@ -321,7 +324,7 @@ MODULE physics_base_mod
     PURE SUBROUTINE Masks(this,Mesh,reflX,reflY,reflZ)
       IMPORT physics_base, mesh_base
       CLASS(physics_base),           INTENT(IN)  :: this
-      CLASS(mesh_base),              INTENT(IN)  :: Mesh       
+      CLASS(mesh_base),              INTENT(IN)  :: Mesh
       LOGICAL, DIMENSION(this%VNUM), INTENT(OUT) :: reflX,reflY,reflZ
     END SUBROUTINE
     PURE SUBROUTINE CalculateCharSystemX(this,Mesh,i1,i2,pvar,lambda,xvar)
@@ -377,6 +380,87 @@ MODULE physics_base_mod
      INTEGER,                INTENT(IN)    :: k1,k2
      REAL,DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,this%VNUM), INTENT(IN)   :: xvar
      CLASS(marray_compound), INTENT(INOUT) :: pvar
+   END SUBROUTINE
+   PURE SUBROUTINE CalculatePrim2RiemannX(this,Mesh,i,pvar,lambda,Rinv)
+      IMPORT physics_base, mesh_base, marray_compound
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(physics_base), INTENT(IN) :: this
+    CLASS(mesh_base),       INTENT(IN) :: Mesh
+    INTEGER,                INTENT(IN) :: i
+    CLASS(marray_compound), INTENT(IN) :: pvar
+    REAL,                   INTENT(OUT), &
+      DIMENSION(Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,this%VNUM) &
+                                       :: lambda
+    REAL,                   INTENT(OUT), &
+      DIMENSION(Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,this%VNUM) &
+                                       :: Rinv
+    END SUBROUTINE
+    PURE SUBROUTINE CalculatePrim2RiemannY(this,Mesh,j,pvar,lambda,Rinv)
+      IMPORT physics_base, mesh_base, marray_compound
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(physics_base), INTENT(IN) :: this
+    CLASS(mesh_base),       INTENT(IN) :: Mesh
+    INTEGER,                INTENT(IN) :: j
+    CLASS(marray_compound), INTENT(IN) :: pvar
+    REAL,                   INTENT(OUT), &
+      DIMENSION(Mesh%IMIN:Mesh%IMAX,Mesh%KMIN:Mesh%KMAX,this%VNUM) &
+                                       :: lambda
+    REAL,                   INTENT(OUT), &
+      DIMENSION(Mesh%IMIN:Mesh%IMAX,Mesh%KMIN:Mesh%KMAX,this%VNUM) &
+                                       :: Rinv
+     END SUBROUTINE
+     PURE SUBROUTINE CalculatePrim2RiemannZ(this,Mesh,k,pvar,lambda,Rinv)
+      IMPORT physics_base, mesh_base, marray_compound
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(physics_base), INTENT(IN) :: this
+    CLASS(mesh_base),       INTENT(IN) :: Mesh
+    INTEGER,                INTENT(IN) :: k
+    CLASS(marray_compound), INTENT(IN) :: pvar
+    REAL,                   INTENT(OUT), &
+      DIMENSION(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,this%VNUM) &
+                                       :: lambda
+    REAL,                   INTENT(OUT), &
+      DIMENSION(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,this%VNUM) &
+                                       :: Rinv
+     END SUBROUTINE
+     PURE SUBROUTINE CalculateRiemann2PrimX(this,Mesh,i,Rinv,pvar)
+      IMPORT physics_base, mesh_base, marray_compound
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(physics_base), INTENT(IN) :: this
+    CLASS(mesh_base),       INTENT(IN) :: Mesh
+    INTEGER,                INTENT(IN) :: i
+    REAL,                   INTENT(IN), &
+      DIMENSION(Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,this%VNUM) &
+                                       :: Rinv
+    CLASS(marray_compound), INTENT(INOUT) :: pvar
+  END SUBROUTINE
+  PURE SUBROUTINE CalculateRiemann2PrimY(this,Mesh,j,Rinv,pvar)
+      IMPORT physics_base, mesh_base, marray_compound
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(physics_base), INTENT(IN) :: this
+    CLASS(mesh_base),       INTENT(IN) :: Mesh
+    INTEGER,                INTENT(IN) :: j
+    REAL,                   INTENT(IN), &
+      DIMENSION(Mesh%IMIN:Mesh%IMAX,Mesh%KMIN:Mesh%KMAX,this%VNUM) &
+                                       :: Rinv
+    CLASS(marray_compound), INTENT(INOUT) :: pvar
+   END SUBROUTINE
+   PURE SUBROUTINE CalculateRiemann2PrimZ(this,Mesh,k,Rinv,pvar)
+      IMPORT physics_base, mesh_base, marray_compound
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(physics_base), INTENT(IN) :: this
+    CLASS(mesh_base),       INTENT(IN) :: Mesh
+    INTEGER,                INTENT(IN) :: k
+    REAL,                   INTENT(IN), &
+      DIMENSION(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,this%VNUM) &
+                                       :: Rinv
+    CLASS(marray_compound), INTENT(INOUT) :: pvar
    END SUBROUTINE
    SUBROUTINE Finalize(this)
      IMPORT physics_base

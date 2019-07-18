@@ -56,6 +56,7 @@ MODULE boundary_generic_mod
   USE boundary_fixed_mod
   USE boundary_noslip_mod
   USE boundary_shearing_mod
+  USE boundary_farfield_mod
   USE physics_base_mod
   USE common_dict
   !--------------------------------------------------------------------------!
@@ -191,6 +192,8 @@ CONTAINS
         ALLOCATE(boundary_axis::this%Boundary(dir)%p)
       CASE(CUSTOM)
         ALLOCATE(boundary_custom::this%Boundary(dir)%p)
+      CASE(FARFIELD)
+        ALLOCATE(boundary_farfield::this%Boundary(dir)%p)
       CASE(FIXED)
         ALLOCATE(boundary_fixed::this%Boundary(dir)%p)
       CASE(NO_GRADIENTS)
@@ -218,6 +221,8 @@ CONTAINS
         CALL obj%InitBoundary_axis(Mesh,Physics,dir,config)
       TYPE IS (boundary_custom)
         CALL obj%InitBoundary_custom(Mesh,Physics,dir,config)
+      TYPE IS (boundary_farfield)
+        CALL obj%InitBoundary_farfield(Mesh,Physics,dir,config)
       TYPE IS (boundary_fixed)
         CALL obj%InitBoundary_fixed(Mesh,Physics,dir,config)
       TYPE IS (boundary_nogradients)

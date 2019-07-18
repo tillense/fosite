@@ -106,10 +106,12 @@ MODULE physics_eulerisotherm_mod
     PROCEDURE :: CalculateBoundaryDataX         ! for absorbing boundaries
     PROCEDURE :: CalculateBoundaryDataY         ! for absorbing boundaries
     PROCEDURE :: CalculateBoundaryDataZ         ! for absorbing boundaries
-!    PROCEDURE :: CalcPrim2RiemannX_eulerisotherm         ! for farfield boundaries
-!    PROCEDURE :: CalcPrim2RiemannY_eulerisotherm         ! for farfield boundaries
-!    PROCEDURE :: CalcRiemann2PrimX_eulerisotherm         ! for farfield boundaries
-!    PROCEDURE :: CalcRiemann2PrimY_eulerisotherm         ! for farfield boundaries
+    PROCEDURE :: CalculatePrim2RiemannX         ! for farfield boundaries
+    PROCEDURE :: CalculatePrim2RiemannY         ! for farfield boundaries
+    PROCEDURE :: CalculatePrim2RiemannZ         ! for farfield boundaries
+    PROCEDURE :: CalculateRiemann2PrimX         ! for farfield boundaries
+    PROCEDURE :: CalculateRiemann2PrimY         ! for farfield boundaries
+    PROCEDURE :: CalculateRiemann2PrimZ         ! for farfield boundaries
 !    PROCEDURE :: CalcRoeAverages_eulerisotherm           ! for advanced wavespeeds
 !    PROCEDURE :: ExternalSources_eulerisotherm
     PROCEDURE :: ReflectionMasks                      ! for reflecting boundaries
@@ -1457,7 +1459,7 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(physics_eulerisotherm),  INTENT(IN)  :: this
-    CLASS(mesh_base),              INTENT(IN)  :: Mesh       
+    CLASS(mesh_base),              INTENT(IN)  :: Mesh
     LOGICAL, DIMENSION(this%VNUM), INTENT(OUT) :: reflX,reflY,reflZ
     !------------------------------------------------------------------------!
     reflX(:) = .FALSE.
@@ -1499,7 +1501,7 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(physics_eulerisotherm),  INTENT(IN)  :: this
-    CLASS(mesh_base),              INTENT(IN)  :: Mesh       
+    CLASS(mesh_base),              INTENT(IN)  :: Mesh
     LOGICAL, DIMENSION(this%VNUM), INTENT(OUT) :: reflX,reflY,reflZ
     !------------------------------------------------------------------------!
     INTEGER :: aidx
@@ -2014,6 +2016,373 @@ CONTAINS
     END SELECT
   END SUBROUTINE CalculateBoundaryDataZ
 
+  !> Conversion from primitive to riemann invariants for farfield boundaries
+  !\todo NOT VERIFIED
+  PURE SUBROUTINE CalculatePrim2RiemannX(this,Mesh,i,pvar,lambda,Rinv)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(physics_eulerisotherm), INTENT(IN) :: this
+    CLASS(mesh_base),       INTENT(IN) :: Mesh
+    INTEGER,                INTENT(IN) :: i
+    CLASS(marray_compound), INTENT(IN) :: pvar
+    REAL,                   INTENT(OUT), &
+      DIMENSION(Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,this%VNUM) &
+                                       :: lambda
+    REAL,                   INTENT(OUT), &
+      DIMENSION(Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,this%VNUM) &
+                                       :: Rinv
+    !------------------------------------------------------------------------!
+    SELECT TYPE(p => pvar)
+    TYPE IS(statevector_eulerisotherm)
+      SELECT CASE(this%VDIM)
+      CASE(1) ! 1D
+        CALL SetEigenValues1d( &
+          this%bccsound%data3d(i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX), &
+          p%velocity%data4d(i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,1), &
+          lambda(Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,1), &
+          lambda(Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,2))
+        ! compute Riemann invariants
+        CALL Prim2Riemann1d( &
+          this%bccsound%data3d(i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX), &
+          p%density%data3d(i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX), &
+          p%velocity%data4d(i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,1), &
+          Rinv(Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,1), &
+          Rinv(Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,2))
+      CASE(2) ! 2D
+        CALL SetEigenValues2d( &
+          this%bccsound%data3d(i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX), &
+          p%velocity%data4d(i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,1), &
+          lambda(Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,1), &
+          lambda(Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,2), &
+          lambda(Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,3))
+        ! compute Riemann invariants
+        CALL Prim2Riemann2d( &
+          this%bccsound%data3d(i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX), &
+          p%density%data3d(i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX), &
+          p%velocity%data4d(i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,1), &
+          p%velocity%data4d(i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,2), &
+          Rinv(Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,1), &
+          Rinv(Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,2), &
+          Rinv(Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,3))
+      CASE(3) ! 3D
+        ! compute eigenvalues at i
+        CALL SetEigenValues3d( &
+          this%bccsound%data3d(i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX), &
+          p%velocity%data4d(i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,1), &
+          lambda(Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,1), &
+          lambda(Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,2), &
+          lambda(Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,3), &
+          lambda(Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,4))
+        ! compute Riemann invariants
+        CALL Prim2Riemann3d( &
+          this%bccsound%data3d(i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX), &
+          p%density%data3d(i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX), &
+          p%velocity%data4d(i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,1), &
+          p%velocity%data4d(i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,2), &
+          p%velocity%data4d(i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,3), &
+          Rinv(Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,1), &
+          Rinv(Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,2), &
+          Rinv(Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,3), &
+          Rinv(Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,4))
+      END SELECT
+    END SELECT
+  END SUBROUTINE CalculatePrim2RiemannX
+
+
+  !> Conversion from primitive to riemann invariants for farfield boundaries
+  !\todo NOT VERIFIED
+  PURE SUBROUTINE CalculatePrim2RiemannY(this,Mesh,j,pvar,lambda,Rinv)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(physics_eulerisotherm), INTENT(IN) :: this
+    CLASS(mesh_base),       INTENT(IN) :: Mesh
+    INTEGER,                INTENT(IN) :: j
+    CLASS(marray_compound), INTENT(IN) :: pvar
+    REAL,                   INTENT(OUT), &
+      DIMENSION(Mesh%IMIN:Mesh%IMAX,Mesh%KMIN:Mesh%KMAX,this%VNUM) &
+                                       :: lambda
+    REAL,                   INTENT(OUT), &
+      DIMENSION(Mesh%IMIN:Mesh%IMAX,Mesh%KMIN:Mesh%KMAX,this%VNUM) &
+                                       :: Rinv
+    !------------------------------------------------------------------------!
+    SELECT TYPE(p => pvar)
+    TYPE IS(statevector_eulerisotherm)
+      SELECT CASE(this%VDIM)
+      CASE(1) ! 1D
+         ! compute eigenvalues at j
+        CALL SetEigenValues1d( &
+          this%bccsound%data3d(Mesh%IMIN:Mesh%IMAX,j,Mesh%KMIN:Mesh%KMAX), &
+          p%velocity%data4d(Mesh%IMIN:Mesh%IMAX,j,Mesh%KMIN:Mesh%KMAX,1), &
+          lambda(Mesh%IMIN:Mesh%IMAX,Mesh%KMIN:Mesh%KMAX,1), &
+          lambda(Mesh%IMIN:Mesh%IMAX,Mesh%KMIN:Mesh%KMAX,2))
+        ! compute Riemann invariants
+        CALL Prim2Riemann1d( &
+          this%bccsound%data3d(Mesh%IMIN:Mesh%IMAX,j,Mesh%KMIN:Mesh%KMAX), &
+          p%density%data3d(Mesh%IMIN:Mesh%IMAX,j,Mesh%KMIN:Mesh%KMAX), &
+          p%velocity%data4d(Mesh%IMIN:Mesh%IMAX,j,Mesh%KMIN:Mesh%KMAX,1), &
+          Rinv(Mesh%IMIN:Mesh%IMAX,Mesh%KMIN:Mesh%KMAX,1), &
+          Rinv(Mesh%IMIN:Mesh%IMAX,Mesh%KMIN:Mesh%KMAX,2))
+      CASE(2) ! 2D
+        ! compute eigenvalues at j
+        CALL SetEigenValues2d( &
+          this%bccsound%data3d(Mesh%IMIN:Mesh%IMAX,j,Mesh%KMIN:Mesh%KMAX), &
+          p%velocity%data4d(Mesh%IMIN:Mesh%IMAX,j,Mesh%KMIN:Mesh%KMAX,2), &
+          lambda(Mesh%IMIN:Mesh%IMAX,Mesh%KMIN:Mesh%KMAX,1), &
+          lambda(Mesh%IMIN:Mesh%IMAX,Mesh%KMIN:Mesh%KMAX,2), &
+          lambda(Mesh%IMIN:Mesh%IMAX,Mesh%KMIN:Mesh%KMAX,3))
+        ! compute Riemann invariants
+        CALL Prim2Riemann2d( &
+          this%bccsound%data3d(Mesh%IMIN:Mesh%IMAX,j,Mesh%KMIN:Mesh%KMAX), &
+          p%density%data3d(Mesh%IMIN:Mesh%IMAX,j,Mesh%KMIN:Mesh%KMAX), &
+          p%velocity%data4d(Mesh%IMIN:Mesh%IMAX,j,Mesh%KMIN:Mesh%KMAX,2), &
+          p%velocity%data4d(Mesh%IMIN:Mesh%IMAX,j,Mesh%KMIN:Mesh%KMAX,1), &
+          Rinv(Mesh%IMIN:Mesh%IMAX,Mesh%KMIN:Mesh%KMAX,1), &
+          Rinv(Mesh%IMIN:Mesh%IMAX,Mesh%KMIN:Mesh%KMAX,2), &
+          Rinv(Mesh%IMIN:Mesh%IMAX,Mesh%KMIN:Mesh%KMAX,3))
+      CASE(3) ! 3D
+        ! compute eigenvalues at j
+        CALL SetEigenValues3d( &
+          this%bccsound%data3d(Mesh%IMIN:Mesh%IMAX,j,Mesh%KMIN:Mesh%KMAX), &
+          p%velocity%data4d(Mesh%IMIN:Mesh%IMAX,j,Mesh%KMIN:Mesh%KMAX,2), &
+          lambda(Mesh%IMIN:Mesh%IMAX,Mesh%KMIN:Mesh%KMAX,1), &
+          lambda(Mesh%IMIN:Mesh%IMAX,Mesh%KMIN:Mesh%KMAX,2), &
+          lambda(Mesh%IMIN:Mesh%IMAX,Mesh%KMIN:Mesh%KMAX,3), &
+          lambda(Mesh%IMIN:Mesh%IMAX,Mesh%KMIN:Mesh%KMAX,4))
+        ! compute Riemann invariants
+        CALL Prim2Riemann3d( &
+          this%bccsound%data3d(Mesh%IMIN:Mesh%IMAX,j,Mesh%KMIN:Mesh%KMAX), &
+          p%density%data3d(Mesh%IMIN:Mesh%IMAX,j,Mesh%KMIN:Mesh%KMAX), &
+          p%velocity%data4d(Mesh%IMIN:Mesh%IMAX,j,Mesh%KMIN:Mesh%KMAX,2), &
+          p%velocity%data4d(Mesh%IMIN:Mesh%IMAX,j,Mesh%KMIN:Mesh%KMAX,3), &
+          p%velocity%data4d(Mesh%IMIN:Mesh%IMAX,j,Mesh%KMIN:Mesh%KMAX,1), &
+          Rinv(Mesh%IMIN:Mesh%IMAX,Mesh%KMIN:Mesh%KMAX,1), &
+          Rinv(Mesh%IMIN:Mesh%IMAX,Mesh%KMIN:Mesh%KMAX,2), &
+          Rinv(Mesh%IMIN:Mesh%IMAX,Mesh%KMIN:Mesh%KMAX,3), &
+          Rinv(Mesh%IMIN:Mesh%IMAX,Mesh%KMIN:Mesh%KMAX,4))
+      END SELECT
+    END SELECT
+  END SUBROUTINE CalculatePrim2RiemannY
+
+
+  !> Conversion from primitive to riemann invariants for farfield boundaries
+  !\todo NOT VERIFIED
+  PURE SUBROUTINE CalculatePrim2RiemannZ(this,Mesh,k,pvar,lambda,Rinv)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(physics_eulerisotherm), INTENT(IN) :: this
+    CLASS(mesh_base),       INTENT(IN) :: Mesh
+    INTEGER,                INTENT(IN) :: k
+    CLASS(marray_compound), INTENT(IN) :: pvar
+    REAL,                   INTENT(OUT), &
+      DIMENSION(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,this%VNUM) &
+                                       :: lambda
+    REAL,                   INTENT(OUT), &
+      DIMENSION(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,this%VNUM) &
+                                       :: Rinv
+    !------------------------------------------------------------------------!
+    SELECT TYPE(p => pvar)
+    TYPE IS(statevector_eulerisotherm)
+      SELECT CASE(this%VDIM)
+      CASE(1) ! 1D
+        ! compute eigenvalues at k
+        CALL SetEigenValues1d( &
+          this%bccsound%data3d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k), &
+          p%velocity%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k,1), &
+          lambda(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,1), &
+          lambda(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,2))
+        ! compute Riemann invariants
+        CALL Prim2Riemann1d( &
+          this%bccsound%data3d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k), &
+          p%density%data3d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k), &
+          p%velocity%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k,1), &
+          Rinv(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,1), &
+          Rinv(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,2))
+      CASE(2) ! 2D
+        ! compute eigenvalues at k
+        CALL SetEigenValues2d( &
+          this%bccsound%data3d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k), &
+          p%velocity%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k,2), &
+          lambda(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,1), &
+          lambda(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,2), &
+          lambda(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,3))
+        ! compute Riemann invariants
+        CALL Prim2Riemann2d( &
+          this%bccsound%data3d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k), &
+          p%density%data3d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k), &
+          p%velocity%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k,2), &
+          p%velocity%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k,1), &
+          Rinv(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,1), &
+          Rinv(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,2), &
+          Rinv(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,3))
+
+      CASE(3) ! 3D
+        ! compute eigenvalues at k
+        CALL SetEigenValues3d( &
+          this%bccsound%data3d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k), &
+          p%velocity%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k,3), &
+          lambda(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,1), &
+          lambda(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,2), &
+          lambda(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,3), &
+          lambda(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,4))
+        ! compute Riemann invariants
+        CALL Prim2Riemann3d( &
+          this%bccsound%data3d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k), &
+          p%density%data3d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k), &
+          p%velocity%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k,3), &
+          p%velocity%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k,1), &
+          p%velocity%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k,2), &
+          Rinv(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,1), &
+          Rinv(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,2), &
+          Rinv(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,3), &
+          Rinv(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,4))
+      END SELECT
+    END SELECT
+  END SUBROUTINE CalculatePrim2RiemannZ
+
+
+  !> Convert Riemann invariants to primitives for farfield boundaries
+  !\todo NOT VERIFIED
+  PURE SUBROUTINE CalculateRiemann2PrimX(this,Mesh,i,Rinv,pvar)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(physics_eulerisotherm), INTENT(IN) :: this
+    CLASS(mesh_base),       INTENT(IN) :: Mesh
+    INTEGER,                INTENT(IN) :: i
+    REAL,                   INTENT(IN), &
+      DIMENSION(Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,this%VNUM) &
+                                       :: Rinv
+    CLASS(marray_compound), INTENT(INOUT) :: pvar
+    !------------------------------------------------------------------------!
+    SELECT TYPE(p => pvar)
+    TYPE IS(statevector_eulerisotherm)
+      SELECT CASE(this%VDIM)
+      CASE(1) ! 1D
+        CALL Riemann2Prim1d( &
+          this%bccsound%data3d(i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX), &
+          Rinv(Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,1), &
+          Rinv(Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,2), &
+          p%density%data3d(i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX), &
+          p%velocity%data4d(i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,1))
+      CASE(2) ! 2D
+        CALL Riemann2Prim2d( &
+          this%bccsound%data3d(i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX), &
+          Rinv(Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,1), &
+          Rinv(Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,2), &
+          Rinv(Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,3), &
+          p%density%data3d(i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX), &
+          p%velocity%data4d(i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,1), &
+          p%velocity%data4d(i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,2))
+      CASE(3) ! 3D
+        CALL Riemann2Prim3d( &
+          this%bccsound%data3d(i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX), &
+          Rinv(Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,1), &
+          Rinv(Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,2), &
+          Rinv(Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,3), &
+          Rinv(Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,4), &
+          p%density%data3d(i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX), &
+          p%velocity%data4d(i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,1), &
+          p%velocity%data4d(i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,2), &
+          p%velocity%data4d(i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,3))
+      END SELECT
+    END SELECT
+  END SUBROUTINE CalculateRiemann2PrimX
+
+
+  !> Convert Riemann invariants to primitives for farfield boundaries
+  !\todo NOT VERIFIED
+  PURE SUBROUTINE CalculateRiemann2PrimY(this,Mesh,j,Rinv,pvar)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(physics_eulerisotherm), INTENT(IN) :: this
+    CLASS(mesh_base),       INTENT(IN) :: Mesh
+    INTEGER,                INTENT(IN) :: j
+    REAL,                   INTENT(IN), &
+      DIMENSION(Mesh%IMIN:Mesh%IMAX,Mesh%KMIN:Mesh%KMAX,this%VNUM) &
+                                       :: Rinv
+    CLASS(marray_compound), INTENT(INOUT) :: pvar
+    !------------------------------------------------------------------------!
+    SELECT TYPE(p => pvar)
+    TYPE IS(statevector_eulerisotherm)
+      SELECT CASE(this%VDIM)
+      CASE(1) ! 1D
+        CALL Riemann2Prim1d( &
+          this%bccsound%data3d(Mesh%IMIN:Mesh%IMAX,j,Mesh%KMIN:Mesh%KMAX), &
+          Rinv(Mesh%IMIN:Mesh%IMAX,Mesh%KMIN:Mesh%KMAX,1), &
+          Rinv(Mesh%IMIN:Mesh%IMAX,Mesh%KMIN:Mesh%KMAX,2), &
+          p%density%data3d(Mesh%IMIN:Mesh%IMAX,j,Mesh%KMIN:Mesh%KMAX), &
+          p%velocity%data4d(Mesh%IMIN:Mesh%IMAX,j,Mesh%KMIN:Mesh%KMAX,1))
+      CASE(2) ! 2D
+        CALL Riemann2Prim2d( &
+          this%bccsound%data3d(Mesh%IMIN:Mesh%IMAX,j,Mesh%KMIN:Mesh%KMAX), &
+          Rinv(Mesh%IMIN:Mesh%IMAX,Mesh%KMIN:Mesh%KMAX,1), &
+          Rinv(Mesh%IMIN:Mesh%IMAX,Mesh%KMIN:Mesh%KMAX,2), &
+          Rinv(Mesh%IMIN:Mesh%IMAX,Mesh%KMIN:Mesh%KMAX,3), &
+          p%density%data3d(Mesh%IMIN:Mesh%IMAX,j,Mesh%KMIN:Mesh%KMAX), &
+          p%velocity%data4d(Mesh%IMIN:Mesh%IMAX,j,Mesh%KMIN:Mesh%KMAX,2), &
+          p%velocity%data4d(Mesh%IMIN:Mesh%IMAX,j,Mesh%KMIN:Mesh%KMAX,1))
+      CASE(3) ! 3D
+        CALL Riemann2Prim3d( &
+          this%bccsound%data3d(Mesh%IMIN:Mesh%IMAX,j,Mesh%KMIN:Mesh%KMAX), &
+          Rinv(Mesh%IMIN:Mesh%IMAX,Mesh%KMIN:Mesh%KMAX,1), &
+          Rinv(Mesh%IMIN:Mesh%IMAX,Mesh%KMIN:Mesh%KMAX,2), &
+          Rinv(Mesh%IMIN:Mesh%IMAX,Mesh%KMIN:Mesh%KMAX,3), &
+          Rinv(Mesh%IMIN:Mesh%IMAX,Mesh%KMIN:Mesh%KMAX,4), &
+          p%density%data3d(Mesh%IMIN:Mesh%IMAX,j,Mesh%KMIN:Mesh%KMAX), &
+          p%velocity%data4d(Mesh%IMIN:Mesh%IMAX,j,Mesh%KMIN:Mesh%KMAX,2), &
+          p%velocity%data4d(Mesh%IMIN:Mesh%IMAX,j,Mesh%KMIN:Mesh%KMAX,3), &
+          p%velocity%data4d(Mesh%IMIN:Mesh%IMAX,j,Mesh%KMIN:Mesh%KMAX,1))
+      END SELECT
+    END SELECT
+  END SUBROUTINE CalculateRiemann2PrimY
+
+
+  !> Convert Riemann invariants to primitives for farfield boundaries
+  !\todo NOT VERIFIED
+  PURE SUBROUTINE CalculateRiemann2PrimZ(this,Mesh,k,Rinv,pvar)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(physics_eulerisotherm), INTENT(IN) :: this
+    CLASS(mesh_base),       INTENT(IN) :: Mesh
+    INTEGER,                INTENT(IN) :: k
+    REAL,                   INTENT(IN), &
+      DIMENSION(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,this%VNUM) &
+                                       :: Rinv
+    CLASS(marray_compound), INTENT(INOUT) :: pvar
+    !------------------------------------------------------------------------!
+    SELECT TYPE(p => pvar)
+    TYPE IS(statevector_eulerisotherm)
+      SELECT CASE(this%VDIM)
+      CASE(1) ! 1D
+        CALL Riemann2Prim1d( &
+          this%bccsound%data3d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k), &
+          Rinv(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,1), &
+          Rinv(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,2), &
+          p%density%data3d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k), &
+          p%velocity%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k,1))
+      CASE(2) ! 2D
+        CALL Riemann2Prim2d( &
+          this%bccsound%data3d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k), &
+          Rinv(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,1), &
+          Rinv(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,2), &
+          Rinv(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,3), &
+          p%density%data3d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k), &
+          p%velocity%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k,2), &
+          p%velocity%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k,1))
+      CASE(3) ! 3D
+        CALL Riemann2Prim3d( &
+          this%bccsound%data3d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k), &
+          Rinv(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,1), &
+          Rinv(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,2), &
+          Rinv(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,3), &
+          Rinv(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,4), &
+          p%density%data3d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k), &
+          p%velocity%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k,3), &
+          p%velocity%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k,1), &
+          p%velocity%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k,2))
+      END SELECT
+    END SELECT
+  END SUBROUTINE CalculateRiemann2PrimZ
+
   !> \public Destructor of the physics_eulerisotherm class
   SUBROUTINE Finalize(this)
     IMPLICIT NONE
@@ -2356,6 +2725,95 @@ CONTAINS
     CALL SetBoundaryData2d(delta,cs,rho1,u1,v1,xvar1,xvar2,xvar4,rho2,u2,v2)
     w2   = w1 + delta*xvar3
   END SUBROUTINE SetBoundaryData3d
+
+  ! \todo NOT VERIFIED
+  !! only for farfield boundary conditions
+  ELEMENTAL SUBROUTINE Prim2Riemann1d(cs,rho,vx,Rminus,Rplus)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    REAL, INTENT(IN)  :: cs,rho,vx
+    REAL, INTENT(OUT) :: Rminus,Rplus
+    !------------------------------------------------------------------------!
+    REAL              :: cslnrho
+    !------------------------------------------------------------------------!
+    cslnrho = cs*LOG(rho)
+    ! compute 1st Riemann invariant (R+)
+    Rplus = vx + cslnrho
+    ! compute 2st Riemann invariant (R-)
+    Rminus = vx - cslnrho
+  END SUBROUTINE Prim2Riemann1d
+
+
+  ! \todo NOT VERIFIED
+  !! only for farfield boundary conditions
+  ELEMENTAL SUBROUTINE Prim2Riemann2d(cs,rho,vx,vy,Rminus,Rvt,Rplus)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    REAL, INTENT(IN)  :: cs,rho,vx,vy
+    REAL, INTENT(OUT) :: Rminus,Rvt,Rplus
+    !------------------------------------------------------------------------!
+    CALL Prim2Riemann1d(cs,rho,vx,Rminus,Rplus)
+    ! tangential velocities
+    Rvt = vy
+  END SUBROUTINE Prim2Riemann2d
+
+
+  ! \todo NOT VERIFIED
+  !! only for farfield boundary conditions
+  ELEMENTAL SUBROUTINE Prim2Riemann3d(cs,rho,vx,vy,vz,Rminus,Rvt,Rwt,Rplus)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    REAL, INTENT(IN)  :: cs,rho,vx,vy,vz
+    REAL, INTENT(OUT) :: Rminus,Rvt,Rwt,Rplus
+    !------------------------------------------------------------------------!
+    CALL Prim2Riemann2d(cs,rho,vx,vy,Rminus,Rvt,Rplus)
+    Rwt = vz
+  END SUBROUTINE Prim2Riemann3d
+
+  ! \todo NOT VERIFIED
+  !! only for farfield boundary conditions
+  ELEMENTAL SUBROUTINE Riemann2Prim1d(cs,Rminus,Rplus,rho,vx)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    REAL, INTENT(IN)  :: cs,Rminus,Rplus
+    REAL, INTENT(OUT) :: rho,vx
+    !------------------------------------------------------------------------!
+    ! normal velocity
+    vx = 0.5*(Rplus+Rminus)
+    ! density
+    rho = EXP(0.5*(Rplus-Rminus)/cs)
+  END SUBROUTINE Riemann2Prim1d
+
+  ! \todo NOT VERIFIED
+  !! only for farfield boundary conditions
+  ELEMENTAL SUBROUTINE Riemann2Prim2d(cs,Rminus,Rvt,Rplus,&
+       rho,vx,vy)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    REAL, INTENT(IN)  :: cs,Rminus,Rvt,Rplus
+    REAL, INTENT(OUT) :: rho,vx,vy
+    !------------------------------------------------------------------------!
+    ! tangential velocity
+    vy = Rvt
+
+    CALL Riemann2Prim1d(cs,Rminus,Rplus,rho,vx)
+  END SUBROUTINE Riemann2Prim2d
+
+
+  ! \todo NOT VERIFIED
+  !! only for farfield boundary conditions
+  ELEMENTAL SUBROUTINE Riemann2Prim3d(cs,Rminus,Rvt,Rwt,Rplus,&
+       rho,vx,vy,vz)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    REAL, INTENT(IN)  :: cs,Rminus,Rvt,Rwt,Rplus
+    REAL, INTENT(OUT) :: rho,vx,vy,vz
+    !------------------------------------------------------------------------!
+    ! tangential velocity
+    vz = Rwt
+
+    CALL Riemann2Prim2d(cs,Rminus,Rvt,Rplus,rho,vx,vy)
+  END SUBROUTINE Riemann2Prim3d
 
   !> geometrical momentum source terms
   !! P is the either isothermal pressure rho*cs**2 or the real pressure.

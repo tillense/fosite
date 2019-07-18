@@ -11,7 +11,7 @@ add_library(boundary
   boundary_periodic.f90
   boundary_reflecting.f90
   boundary_shearing.f90
-#  boundary_farfield.f90
+  boundary_farfield.f90
 #  boundary_noh.f90
 #  boundary_extrapolation.f90
 #  boundary_folded.f90

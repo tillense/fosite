@@ -120,7 +120,7 @@ MODULE boundary_base_mod
 !                   NOH3D         = INT(Z'09'), & !< time-dependent inflow for 3D Noh problem
                   NOSLIP        = INT(Z'0A'), & !< reflecting, but with moving wall
                   CUSTOM        = INT(Z'0B'), & !< user defined
-!                   FARFIELD      = INT(Z'0C', & !< uses far-field data and Riemann invariants
+                  FARFIELD      = INT(Z'0C'), & !< uses far-field data and Riemann invariants
                   ABSORBING     = INT(Z'0D'), & !< vanishing characteristic pseudo-variables for incomming waves
 !                   DMR           = INT(Z'0E'), & !< ???
                   SHEARING      = INT(Z'0F')    !< periodic with shear for shearing sheet/box
@@ -137,7 +137,7 @@ MODULE boundary_base_mod
     FIXED, EXTRAPOLATION, &
 !     NOH2D, NOH3D, &
     NOSLIP, CUSTOM, &
-!     FARFIELD, &
+     FARFIELD, &
     ABSORBING, &
 !     DMR, &
     SHEARING
