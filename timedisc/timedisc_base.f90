@@ -1646,7 +1646,7 @@ CONTAINS
     !------------------------------------------------------------------------!
     ! determine step size of integer shift and length of remaining transport step
     ! first compute the whole step
-    this%delxy(:,:)  = this%w(:,:) * this%dt / Mesh%dlx%data3d(:,Mesh%JMIN,:)
+    this%delxy(:,:)  = this%w(:,:) * this%dt / Mesh%dly%data3d(:,Mesh%JMIN,:)
 
 #ifdef PARALLEL
     ! make sure all MPI processes use the same step if domain is decomposed
