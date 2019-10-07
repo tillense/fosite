@@ -111,6 +111,11 @@ ser_test_KHI2D:
     script:
        - ./ser_build/tests/KHI2D
 
+ser_test_KHI2D_sphere:
+    stage: test
+    script:
+       - ./ser_build/tests/KHI2D_sphere
+
 ser_test_KHI3D:
     stage: test
     script:

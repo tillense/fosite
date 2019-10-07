@@ -5,6 +5,7 @@ set (EXES
   gauss3d
   KHI3D
   KHI2D
+  KHI2D_sphere
   ode
   poiseuille
   pringle
