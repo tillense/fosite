@@ -20,7 +20,6 @@ set (EXES
   restart
   sgdisk
   shearingsheet
-  planet2d
   #  planeteu
   #  poiseuille
   #  restart

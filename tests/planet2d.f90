@@ -39,6 +39,7 @@
 PROGRAM planet2d
   USE fosite_mod
   USE common_dict
+#include "tap.h"
   IMPLICIT NONE
   !--------------------------------------------------------------------------!
   ! general constants                               !                        !
@@ -79,7 +80,7 @@ PROGRAM planet2d
   REAL, PARAMETER    :: GAMMA   = 1.4               ! ratio of specific heats!
   REAL, PARAMETER    :: P0      = 1.0E7             ! surf. press.      [Pa] !
   REAL, PARAMETER    :: MU      = 2.8586E-2         ! molar mass    [kg/mol] !
-  REAL, PARAMETER    :: T0      = 258.1             ! med. init. temp.   [K] !
+  REAL, PARAMETER    :: T0      = 258.1             ! mean equil. temp.  [K] !
   ! optical properties of the atmosphere
   REAL, PARAMETER    :: ALBEDO  = 0.306             ! albedo of the planet   !
   REAL, PARAMETER    :: INTENSITY = (Rstar/AU)**2 & ! intensity at 1 AU      !
@@ -92,16 +93,44 @@ PROGRAM planet2d
                      :: OFNAME  = 'planet2d'        !                        !
   !--------------------------------------------------------------------------!
   CLASS(fosite), ALLOCATABLE   :: Sim
+  CLASS(sources_base), POINTER :: sp => null()
+  CLASS(sources_planetcooling), POINTER  :: spcool => null()
+  REAL :: Tmean
+  LOGICAL            :: ok
   !--------------------------------------------------------------------------!
 
-ALLOCATE(Sim)
+  TAP_PLAN(1)
 
-CALL Sim%InitFosite()
-CALL MakeConfig(Sim, Sim%config)
-CALL Sim%Setup()
-CALL InitData(Sim%Mesh, Sim%Physics, Sim%Timedisc%pvar, Sim%Timedisc%cvar)
-CALL Sim%Run()
-CALL Sim%Finalize()
+  ALLOCATE(Sim)
+  CALL Sim%InitFosite()
+  CALL MakeConfig(Sim, Sim%config)
+  CALL Sim%Setup()
+  ! get pointer on planetary cooling source term
+  sp => Sim%Sources
+  DO
+    IF (ASSOCIATED(sp).EQV..FALSE.) RETURN
+    SELECT TYPE(sp)
+    CLASS IS(sources_planetcooling)
+      spcool => sp
+      EXIT
+    END SELECT
+    sp => sp%next
+  END DO
+  IF (.NOT.ASSOCIATED(spcool)) &
+    CALL Sim%Error("planet2d","planetary cooling sources not initialized")
+  ! set initial condition
+  CALL InitData(Sim%Mesh, Sim%Physics, Sim%Timedisc%pvar, Sim%Timedisc%cvar)
+  ! run simulation
+  CALL Sim%Run()
+  ! compute final global mean surface temperature using local surface temperatures
+  ! computed by the planetary cooling module
+  Tmean = SUM(spcool%T_s%data1d(:)*Sim%Mesh%volume%data1d(:),MASK=Sim%Mesh%without_ghost_zones%mask1d(:)) &
+    / SUM(Sim%Mesh%volume%data1d(:),MASK=Sim%Mesh%without_ghost_zones%mask1d(:))
+  CALL Sim%Finalize()
+  DEALLOCATE(Sim)
+
+  TAP_CHECK_CLOSE(T0,Tmean,T0*0.01,"deviation of final mean surface temperature from initial T0 < 1%")
+  TAP_DONE
 
 CONTAINS
 
@@ -235,8 +264,7 @@ CONTAINS
     ! Local variable declaration
     !------------------------------------------------------------------------!
     SELECT TYPE(p => pvar)
-    TYPE IS(statevector_euler)
-
+    CLASS IS(statevector_euler)
       ! assuming hydrostatic equillibrium with constant gravitational
       ! acceleration yields constant column density, i.e. vertically integrated density,
       ! given by the ratio of mean surface pressure P0 and grav. acceleration GACC
@@ -253,6 +281,8 @@ CONTAINS
 
       ! vanishing velocities in comoving frame
       p%velocity%data1d(:) = 0.0
+    CLASS DEFAULT
+      CALL Mesh%Error("planet2d::InitData","state vector not supported")
     END SELECT
 
     CALL Physics%Convert2Conservative(pvar,cvar)

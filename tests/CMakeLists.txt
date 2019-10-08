@@ -7,6 +7,7 @@ set (EXES
   KHI2D
   KHI2D_sphere
   ode
+  planet2d
   poiseuille
   pringle
   riemann1d
