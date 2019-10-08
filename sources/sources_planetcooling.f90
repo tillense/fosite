@@ -26,33 +26,30 @@
 !----------------------------------------------------------------------------!
 !> \addtogroup sources
 !! - parameters of \link sources_planetcooling \endlink as key-values
+!! \warning use SI units for initialization parameters
 !! \key{cvis,REAL,safety factor for numerical stability, 0.9}
 !! \key{intensity,REAL,intensity of the star at 1 AU}
-!! \key{albedo,REAL,albedo of the planet}
-!! \key{distance,REAL,semi-major axis of planet-star}
-!! \key{mu,REAL,molar mass of planetary atmsophere}
-!! \key{T_0,REAL,initial surface temperature of the planet}
-!! \key{gacc,REAL,gravitational accelaration on the surface of the planet}
-!! \key{gamma,REAL,ratio of heats for planet}
+!! \key{albedo,REAL,albedo of planetary atmosphere}
+!! \key{distance,REAL,semi-major axis of planetary orbit}
+!! \key{T_0,REAL,long term equilibrium surface temperature of the planet}
+!! \key{gacc,REAL,gravitational accelaration on the planets surface}
 !----------------------------------------------------------------------------!
 !> \author Jannes Klee
-!> \author Tobias Illenseer
+!! \author Tobias Illenseer
 !!
-!! \brief source terms module for gray cooling of thin planet atmospheres
+!! \brief gray cooling of planetary atmospheres
 !!
-!! \warning use SI units
+!! Program and data initialization for gray cooling of geometrically thin
+!! planetary atmospheres. The cooling term is implemented as a sink in
+!! the energy equation and accounts for outgoing longwave radiation (OLR).
+!! For more details see \link updateplanetcooling \endlink .
+!!
+!! References:
+!! - \cite pierrehumbert2010 R. T. Pierrehumbert, Principles of Planetary Climate,
+!!     Cambridge University Press (2010)
 !!
 !! \extends sources_common
 !! \ingroup sources
-!!
-!! Program and data initialization for the cooling of a planet with a shallow
-!! atmosphere. The cooling term corresponds to the outgoing longwave
-!! radiation (OLR).
-!!
-!! References:
-!!
-!! \cite pierrehumbert2010
-!
 !----------------------------------------------------------------------------!
 MODULE sources_planetcooling_mod
   USE sources_base_mod
@@ -68,7 +65,7 @@ MODULE sources_planetcooling_mod
   PRIVATE
   !--------------------------------------------------------------------------!
   TYPE, EXTENDS(sources_base) :: sources_planetcooling
-    CHARACTER(LEN=32) :: source_name = "thin atmosphere cooling"
+    CHARACTER(LEN=32) :: source_name = "cooling of planetary atmosphere"
     TYPE(marray_base) :: Qcool          !< energy term due planetary cooling
     TYPE(marray_base) :: T_s            !< temperature at the surface
     TYPE(marray_base) :: rho_s          !< density at the surface
@@ -80,6 +77,7 @@ MODULE sources_planetcooling_mod
     REAL              :: gacc           !< gravitational acceleration at surface
     REAL              :: gamma,mu       !< gas properties in 3D at surface
     REAL              :: tau_inf        !< optical depth in infinity
+    REAL              :: const1, const2 !< two constants
   CONTAINS
     PROCEDURE :: InitSources_planetcooling
     PROCEDURE :: InfoSources
@@ -96,7 +94,7 @@ MODULE sources_planetcooling_mod
 
 CONTAINS
 
-  !> \public Constructor of the cooling module for a planetary atmosphere.
+  !> \public Constructor of the cooling module for a planetary atmosphere
   SUBROUTINE InitSources_planetcooling(this,Mesh,Physics,Fluxes,config,IO)
     USE physics_euler_mod, ONLY : physics_euler
     USE constants_si_mod, ONLY : constants_si
@@ -149,10 +147,6 @@ CONTAINS
     CALL GetAttr(config,"T_0", this%T_0)
     ! gravitational acceleration
     CALL GetAttr(config, "gacc", this%gacc)
-    ! ratio of specific heats (3D surface value)
-    CALL GetAttr(config, "gamma", this%gamma)
-    ! molar mass on surface
-    CALL GetAttr(config, "mu", this%mu)
 
     ! set initial time < 0
     this%time = -1.0
@@ -163,12 +157,15 @@ CONTAINS
     this%P_s%data1d(:)   = 0.0
 
     ! initial calculation of optical thickness
-    intensity =  (this%intensity/4.)*(Physics%Constants%AU/this%distance)**(2.)
-    this%tau_inf= (((1.-this%albedo)*intensity/Physics%Constants%SB)&
-             **(-0.25)*Gamma(4.*(Physics%Constants%RG/Physics%Constants%RG)&
-             *(this%gamma-1.)/this%gamma))**(0.25)*this%T_0&
-             **(this%gamma/(this%gamma-1.))
-
+    SELECT TYPE(phys => Physics)
+    CLASS IS(physics_euler)
+      intensity = (this%intensity/4.)*(phys%Constants%AU/this%distance)**(2.)
+      this%tau_inf= (this%T_0 * (Gamma(1.0+4.*(phys%gamma-1.)/phys%gamma) &
+        / ((1.-this%albedo)*intensity/phys%Constants%SB))**0.25)**(phys%gamma/(phys%gamma-1.))
+      this%const1 = phys%mu/(phys%gamma*phys%Constants%RG)
+      this%const2 = phys%Constants%SB*this%tau_inf**(-4.*(phys%gamma-1.)/phys%gamma) &
+                  *Gamma(1.0+4.*(phys%gamma-1.)/phys%gamma)
+    END SELECT
     CALL this%SetOutput(Mesh,Physics,config,IO)
 
     ! call InitSources in base
@@ -194,10 +191,9 @@ CONTAINS
     TYPE IS (statevector_euler)
       s%density%data1d(:)   = 0.0
       s%momentum%data1d(:) = 0.0
-
+      ! update the cooling function
       CALL this%UpdatePlanetCooling(Mesh,Physics,time,pvar)
-
-      ! radiative heating by the central stars
+      ! add sink in the energy equation
       s%energy%data1d(:) = -this%Qcool%data1d(:)
     END SELECT
 
@@ -213,9 +209,9 @@ CONTAINS
     REAL, PARAMETER   :: AU      = 1.49597870691E+11    ! astr. unit [m]     !
     !------------------------------------------------------------------------!
     WRITE (param_str,'(ES8.2)') (this%intensity/4.)*(AU/this%distance)**(2.)
-    CALL this%Info("            intensity:         " // TRIM(param_str))
+    CALL this%Info("            intensity:         " // TRIM(param_str) // " W/m^2")
     WRITE (param_str,'(ES8.2)') this%T_0
-    CALL this%Info("            equil. temp. [K]:  " // TRIM(param_str))
+    CALL this%Info("            mean equil. temp. :" // TRIM(param_str) // " K")
     WRITE (param_str,'(ES8.2)') this%tau_inf
     CALL this%Info("            opt. depth:        " // TRIM(param_str))
     WRITE (param_str,'(ES8.2)') this%albedo
@@ -255,12 +251,13 @@ CONTAINS
   !> Updates the cooling for a given time
   !!
   !! The cooling term is in its essence a modified Stefan-Boltzman law, but
-  !! it includes many assumptions about the considered atmosphere:
+  !! it includes many assumptions about the considered atmosphere
+  !! (see \cite pierrehumbert2010 199 pp.):
   !!  - all heating/cooling processes are within the troposphere
   !!  - the atmosphere is plane-parallel
-  !!  - dry-adiabatic
+  !!  - the vertical stratification is dry-adiabatic
   !!  - all the greenhouse gases are integrated and assumed to be in infrared
-  !!    - a not to small optical depth \f$ \tau_{\infty} \f$ (\f$ \geq 5 \f$)
+  !!  - a not to small optical depth \f$ \tau_{\infty} \f$ (\f$ \geq 5 \f$)
   !!    (in infrared)
   !!
   !! This two-stream approximation leads to the outgoing-longwave radiation
@@ -287,42 +284,30 @@ CONTAINS
     !------------------------------------------------------------------------!
     INTEGER           :: i,j,k
     REAL              :: Qcool
-!    REAL, PARAMETER   :: AU      = 1.49597870691E+11    ! astronomical unit [m]
     REAL              :: const1,const2       ! needed due to performance issues
     !------------------------------------------------------------------------!
-    const1 = this%mu*(1.+(this%gamma-1.)/this%gamma)/Physics%Constants%RG
-    const2 = Physics%Constants%SB*this%tau_inf**(-4.*(this%gamma-1.)/this%gamma) &
-                *Gamma(4.*(this%gamma-1.)/this%gamma)
+    SELECT TYPE(phys => Physics)
+    CLASS IS(physics_euler)
+      SELECT TYPE(p => pvar)
+      CLASS IS(statevector_euler)
+        ! calculation of cooling source
+        IF (time.NE.this%time) THEN
+          ! calculate planet-surface temperature using integrated
+          ! pressure and density
+          this%T_s%data1d(:) = this%const1 * p%pressure%data1d(:)/p%density%data1d(:)
 
-    SELECT TYPE(p => pvar)
-    CLASS IS(statevector_euler)
-      ! calculation of cooling source
-      IF (time.NE.this%time) THEN
-        DO k=Mesh%KMIN,Mesh%KMAX
-          DO j=Mesh%JMIN,Mesh%JMAX
-            DO i=Mesh%IMIN,Mesh%IMAX
-               ! calculate surface density and pressure
-               ! (irrelevant for calculation)
-               this%P_s%data3d(i,j,k)   = p%density%data3d(i,j,k)*this%gacc
-               this%RHO_s%data3d(i,j,k) = this%P_s%data3d(i,j,k)*this%mu/(Physics%Constants%RG*this%T_s%data3d(i,j,k))
+          ! calculate surface density and pressure
+          ! (irrelevant for calculation)
+          this%P_s%data1d(:) = p%density%data1d(:)*this%gacc
+          this%RHO_s%data1d(:) = phys%mu/(phys%Constants%RG) &
+            *this%P_s%data1d(:)/this%T_s%data1d(:)
 
-               !--------------------------------------------------------------!
-               ! calculate cooling source                                     !
-               !--------------------------------------------------------------!
-               ! basic concept of the model in "Principles of Planetary
-               ! Climate" from Raymond T. Pierrehumbert 199ff
+          ! cooling source
+          this%Qcool%data1d(:) = this%const2*this%T_s%data1d(:)**4
 
-               ! calculate planet-surface temperature from initial conditions
-               this%T_s%data3d(i,j,k) = p%pressure%data3d(i,j,k)*const1/p%density%data3d(i,j,k)
-
-               ! cooling source
-               this%Qcool%data3d(i,j,k) = const2*this%T_s%data3d(i,j,k)**(4.)
-
-            END DO
-          END DO
-        END DO
-        this%time=time
-      END IF
+          this%time=time
+        END IF
+      END SELECT
     END SELECT
   END SUBROUTINE UpdatePlanetCooling
 
@@ -334,6 +319,8 @@ CONTAINS
   !! 2. surface temperature: \f$ T_{\mathrm{s}} \f$
   !! 3. surface pressure: \f$ P_{\mathrm{s}} \f$
   !! 4. surface density: \f$ \varrho_{\mathrm{s}} \f$
+  !!
+  !! \todo allocate output arrays P_s and RHO_s only if requested
   SUBROUTINE SetOutput(this,Mesh,Physics,config,IO)
     IMPLICIT NONE
     !------------------------------------------------------------------------!

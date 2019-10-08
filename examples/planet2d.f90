@@ -5,6 +5,8 @@
 !#                                                                           #
 !# Copyright (C) 2006-2019                                                   #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
+!# Jannes Klee         <jklee@astrophysik.uni-kiel.de>                       #
+!# Jubin Lirawi      <jlirawi@astrophysik.uni-kiel.de>                       #
 !#                                                                           #
 !# This program is free software; you can redistribute it and/or modify      #
 !# it under the terms of the GNU General Public License as published by      #
@@ -25,55 +27,69 @@
 
 !----------------------------------------------------------------------------!
 !> \example planet2d.f90
-
+!!
+!! \author Tobias Illenseer
+!! \author Jannes Klee
+!! \author Jubin Lirawi
+!!
+!! \brief initialisation of a 2D planetary atmosphere simulation
+!!
+!! \warning use SI units
 !----------------------------------------------------------------------------!
 PROGRAM planet2d
   USE fosite_mod
   USE common_dict
   IMPLICIT NONE
   !--------------------------------------------------------------------------!
-  ! general constants
+  ! general constants                               !                        !
   REAL, PARAMETER    :: GN      = 6.6742D-11        ! Newtons grav. constant !
-  REAL, PARAMETER    :: CC      = 2.99792458D+8     ! speed of light         !
+  REAL, PARAMETER    :: CC      = 2.99792458D+8     ! speed of light   [m/s] !
   REAL, PARAMETER    :: RG      = 8.31447           ! molar gas constant     !
-  REAL, PARAMETER    :: AU      = 1.49597870691E+11 ! astronomical unit [m]  !
-  REAL, PARAMETER    :: YEAR    = 3.15576E+7        ! Julian year [sec]      !
-  REAL, PARAMETER    :: DAY     = 8.6400E+4         ! Day [sec]              !
-  REAL, PARAMETER    :: ERAD    = 6.37E+6           ! radius of earth        !
-  ! simulation parameter
-  REAL, PARAMETER    :: TSIM    = 10*DAY            ! simulation stop time   !
-  INTEGER, PARAMETER :: XRES    = 1                 ! theta-resolution       !
-  INTEGER, PARAMETER :: YRES    = 32                ! phi-resolution         !
-  INTEGER, PARAMETER :: ZRES    = 32                ! phi-resolution         !
-  ! geometrical parameter
-  REAL, PARAMETER    :: GPAR    = 1.0*ERAD          ! planet-radius          !
-  REAL, PARAMETER    :: THETA0  = 0.00              ! axis-plane-angle       !
-  REAL, PARAMETER    :: PHI0    = 0.0               !                        !
-!  REAL, PARAMETER    :: OMEGA   = -2.99E-7         ! ang. rotation [rad/s]  !
-  REAL, PARAMETER    :: OMEGA   = 0.0               ! ang. rotation [rad/s]  !
-!  REAL, PARAMETER    :: FSUN    = -6.229E-7        ! freq.(!) day-night[/s] !
-  REAL, PARAMETER    :: FSUN    = 0.0               ! freq.(!) day-night[/s] !
-  REAL, PARAMETER    :: RD      = 1*AU              ! distance star-planet   !
-                                                    ! planet in AU           !
-  REAL, PARAMETER    :: PLANET_YEAR = YEAR          ! trop. yr of the planet !
-  ! gaseous parameter
+  REAL, PARAMETER    :: SBconst = 5.670367D-8       ! Stefan-Boltzmann const !
+  REAL, PARAMETER    :: AU      = 1.49597870691E+11 ! astronomical unit  [m] !
+  REAL, PARAMETER    :: YEAR    = 3.15576E+7        ! Julian year        [s] !
+  REAL, PARAMETER    :: DAY     = 8.6400E+4         ! Day                [s] !
+  REAL, PARAMETER    :: REARTH  = 6.371E+6          ! radius of earth    [m] !
+  REAL, PARAMETER    :: RJUP    = 71.492E+6         ! radius of jupiter  [m] !
+  REAL, PARAMETER    :: RSUN    = 6.957E+8          ! radius of the sun  [m] !
+  REAL, PARAMETER    :: MEARTH  = 5.9723D+24        ! mass of the earth [kg] !
+  ! planetary parameters                            !                        !
+  REAL, PARAMETER    :: TYEAR   = 4.05 * DAY        ! tropical year      [s] !
+  REAL, PARAMETER    :: RPLANET = 0.788*REARTH      ! planetary radius   [m] !
+  REAL, PARAMETER    :: THETA0  = 0.0               ! axis-plane-angle [rad] !
+  REAL, PARAMETER    :: PHI0    = 0.0               !                  [rad] !
+  REAL, PARAMETER    :: OMEGA   = 2*PI/TYEAR        ! ang. rotation  [rad/s] !
+  REAL, PARAMETER    :: FSUN    = OMEGA/(2*PI) - &  ! freq.(!) day-night[/s] !
+                                     1.0/TYEAR      !                        !
+  REAL, PARAMETER    :: MASS    = 0.297*MEARTH      ! mass of the planet [kg]!
+  REAL, PARAMETER    :: GACC    = GN*MASS/RPLANET**2! grav. accel.  [m/s**2] !
+  ! orbital parameters                              !                        !
+  REAL, PARAMETER    :: DPLANET = 0.02219*AU        ! distance           [m] !
+  REAL, PARAMETER    :: SM_AXIS = 0.02219*AU        ! semi major axis    [m] !
+  REAL, PARAMETER    :: ECCENT  = 0.0               ! numerical eccentricity !
+  ! stellar parameters                              !                        !
+  REAL, PARAMETER    :: RSTAR   = 0.121*RSUN        ! radius of the star [m] !
+  REAL, PARAMETER    :: TSTAR   = 2511              ! eff. temperature   [K] !
+  ! simulation parameters                           !                        !
+  REAL, PARAMETER    :: TSIM    = 50 * TYEAR        ! simulation stop time   !
+  INTEGER, PARAMETER :: XRES    = 1                 ! radius-resolution [px] !
+  INTEGER, PARAMETER :: YRES    = 16                ! theta-resolution  [px] !
+  INTEGER, PARAMETER :: ZRES    = 32                ! phi-resolution    [px] !
+  ! gas properties of the atmosphere
   REAL, PARAMETER    :: GAMMA   = 1.4               ! ratio of specific heats!
-  REAL, PARAMETER    :: P0      = 1.014E+5          ! surf. press.[N/m**3]   !
-  REAL, PARAMETER    :: MU      = 2.897E-2          ! molar mass of atmosp.  !
-  REAL, PARAMETER    :: T_0     = 287.76            ! med. init. temp. [K]   !
-  REAL, PARAMETER    :: RHO0    = P0*MU/(T_0*RG)    ! surf. dens.[kg/m**3]   !
-  ! other atmospherical parameter
-  REAL, PARAMETER    :: ALBEDO  = 0.3               ! albedo of the planet   !
-  REAL, PARAMETER    :: INTENSITY= 1.4E+3           ! inten. at 1 AU         !
-  REAL, PARAMETER    :: HEIGHT  = 2.0E+4            ! height of the atmo.    !
-  ! other parameters                                ! opac.: dt/dp=-1/g*kappa!
-  REAL, PARAMETER    :: GACC    = 9.81              ! grav. accel. [m/s**2]  !
-  ! output parameters
+  REAL, PARAMETER    :: P0      = 1.0E7             ! surf. press.      [Pa] !
+  REAL, PARAMETER    :: MU      = 2.8586E-2         ! molar mass    [kg/mol] !
+  REAL, PARAMETER    :: T0      = 258.1             ! med. init. temp.   [K] !
+  ! optical properties of the atmosphere
+  REAL, PARAMETER    :: ALBEDO  = 0.306             ! albedo of the planet   !
+  REAL, PARAMETER    :: INTENSITY = (Rstar/AU)**2 & ! intensity at 1 AU      !
+                          * SBconst * Tstar**4      !               [W/m**2] !
+  ! output parameters                               !                        !
   INTEGER, PARAMETER :: ONUM    = 10                ! num. output data sets  !
   CHARACTER(LEN=256), PARAMETER &                   ! output data dir        !
-                     :: ODIR    = './'
+                     :: ODIR    = './'              !                        !
   CHARACTER(LEN=256), PARAMETER &                   ! output data file name  !
-                     :: OFNAME  = 'planet2d'
+                     :: OFNAME  = 'planet2d'        !                        !
   !--------------------------------------------------------------------------!
   CLASS(fosite), ALLOCATABLE   :: Sim
   !--------------------------------------------------------------------------!
@@ -92,131 +108,120 @@ CONTAINS
   SUBROUTINE MakeConfig(Sim, config)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(fosite)  :: Sim
-    TYPE(Dict_TYP),POINTER :: config
+    CLASS(fosite)           :: Sim
+    TYPE(Dict_TYP), POINTER :: config
     !------------------------------------------------------------------------!
     ! Local variable declaration
-    INTEGER           :: bc(4)
-    TYPE(Dict_TYP), POINTER :: mesh, physics, boundary, datafile, &
-                               timedisc, fluxes, heating, sources,&
-                               cooling, rotframe
-    REAL              :: x1,x2,y1,y2
+    TYPE(Dict_TYP), POINTER :: mesh, physics, boundary, datafile,  &
+                               timedisc, fluxes, heating, sources, &
+                               grav, pmass, cooling, rotframe
     !------------------------------------------------------------------------!
     !mesh settings
     mesh => Dict( &
-         "meshtype"         / MIDPOINT, &
-         "geometry"         / SPHERICAL_PLANET, &
-         "omega"            / OMEGA, &
-         "knum"             / XRES, &
-         "inum"             / YRES, &
-         "jnum"             / ZRES, &
-         "zmin"             / GPAR, &
-         "zmax"             / GPAR, &
-         "xmin"             / (0.01), &
-         "xmax"             / (PI-0.01), &
-         "ymin"             / (0.0), &
-         "ymax"             / (2.0*PI), &
-         "gparam"           / GPAR, &
-         "dz"               / HEIGHT, &
-         "output/rotation"  / 0, &
-         "output/volume"    / 1, &
-         "output/dAz"       / 1)
+         "meshtype"        / MIDPOINT, &
+         "geometry"        / SPHERICAL_PLANET, &
+         "decomposition"   / (/ 1, -1, 1/), &
+         "omega"           / OMEGA, &
+         "inum"            / YRES, &
+         "jnum"            / ZRES, &
+         "knum"            / XRES, &
+         "xmin"            / (0.05), &
+         "xmax"            / (PI-0.05), &
+         "ymin"            / (0.0), &
+         "ymax"            / (2.0*PI), &
+         "zmin"            / RPLANET, &
+         "zmax"            / RPLANET, &
+         "gparam"          / RPLANET, &
+         "output/rotation" / 0, &
+         "output/volume"   / 1, &
+         "output/dAz"      / 1)
 
     ! boundary conditions
     boundary => Dict( &
-         "western"          / REFLECTING, &
-         "eastern"          / REFLECTING, &
-         "southern"         / PERIODIC, &
-         "northern"         / PERIODIC, &
-         "bottomer"         / REFLECTING, &
-         "topper"           / REFLECTING)
+         "western"         / REFLECTING, &
+         "eastern"         / REFLECTING, &
+         "southern"        / PERIODIC, &
+         "northern"        / PERIODIC, &
+         "bottomer"        / REFLECTING, &
+         "topper"          / REFLECTING)
 
     ! physics settings
     physics => Dict( &
-         "problem"          / EULER, &
-         "gamma"            / GAMMA, &
-         "dpmax"            / 1.0)
+         "problem"         / EULER, &
+         "mu"              / MU, &
+         "gamma"           / GAMMA)
 
     ! flux calculation and reconstruction method
     fluxes => Dict( &
-         "fluxtype"         / KT, &
-         "order"            / LINEAR, &
-!         "variables"        / CONSERVATIVE, &
-         "variables"        / PRIMITIVE, &
-         "limiter"          / VANLEER)
+         "fluxtype"        / KT, &
+         "order"           / LINEAR, &
+!          "variables"       / CONSERVATIVE, &
+         "variables"       / PRIMITIVE, &
+         "limiter"         / VANLEER)
 
     ! rotating frame for a sphere
     rotframe => Dict( &
-         "stype"            / ROTATING_FRAME, &
-         "gparam"           / GPAR, &
-         "issphere"         / 1, &
-         "x"                / 0.0, &
-         "y"                / 0.0)
+         "stype"           / ROTATING_FRAME, &
+         "gparam"          / RPLANET, &
+         "issphere"        / 1, &
+         "x"               / 0.0, &
+         "y"               / 0.0)
 
     ! cooling in infrared
     cooling => Dict( &
-         "stype"            / PLANET_COOLING, &
-         "output/Qcool"     / 1, &
-         "output/T_s"       / 1, &
-         "output/RHO_s"     / 1, &
-         "distance"         / RD, &
-         "output/P_s"       / 1, &
-         "albedo"           / ALBEDO, &
-         "mu"               / MU, &
-         "intensity"        / INTENSITY, &
-         "dz"               / HEIGHT, &
-         "T_0"              / T_0, &
-         "cvis"             / 0.1, &
-         "gacc"             / GACC, &
-         "gamma"            / GAMMA)
+         "stype"           / PLANET_COOLING, &
+         "output/Qcool"    / 1, &
+         "output/T_s"      / 1, &
+         "output/RHO_s"    / 1, &
+         "output/P_s"      / 1, &
+         "distance"        / DPLANET, &
+         "albedo"          / ALBEDO, &
+         "intensity"       / INTENSITY, &
+         "T_0"             / T0, &
+         "cvis"            / 0.1, &
+         "gacc"            / GACC)
 
     ! heating by a star
     heating => Dict( &
-         "stype"            / PLANET_HEATING, &
-         "output/Qstar"     / 1, &
-         "distance"         / RD, &
-         "year"             / PLANET_YEAR, &
-         "theta0"           / THETA0, &
-         "phi0"             / PHI0, &
-         "omegasun"         / FSUN, &
-!          "R_planet"       / GPAR, &
-         "albedo"           / ALBEDO, &
-         "mu"               / MU, &
-         "intensity"        / INTENSITY,&
-         "dz"               / HEIGHT, &
-!          "a_eff"          / 5.35e-7, &
-         "cvis"             / 0.1,&
-         "gacc"             / GACC, &
-         "gamma"            / GAMMA)
+         "stype"           / PLANET_HEATING, &
+         "output/Qstar"    / 1, &
+         "distance"        / DPLANET, &
+         "year"            / TYEAR, &
+         "theta0"          / THETA0, &
+         "phi0"            / PHI0, &
+         "omegasun"        / FSUN, &
+         "albedo"          / ALBEDO, &
+         "intensity"       / INTENSITY,&
+         "cvis"            / 0.1)
 
     sources => Dict( &
-         "rotframe"         / rotframe, &
-         "cooling"          / cooling, &
-         "heating"          / heating)
+         "rotframe"        / rotframe, &
+         "cooling"         / cooling, &
+         "heating"         / heating)
 
     ! time discretization settings
     timedisc => Dict( &
-         "method"           / MODIFIED_EULER, &
-         "order"            / 3, &
-         "cfl"              / 0.4, &
-         "stoptime"         / TSIM, &
-         "dtlimit"          / 1.0E-15, &
-         "maxiter"          / 1000000)
+         "method"          / SSPRK,   &
+         "cfl"             / 0.4,     &
+         "stoptime"        / TSIM,    &
+         "tol_rel"         / 0.0095,  &
+         "dtlimit"         / 1.0E-15, &
+         "maxiter"         / 1000000000)
 
     datafile => Dict(&
-         "fileformat"       / VTK, &
-         "filename"         / (TRIM(ODIR) // TRIM(OFNAME)), &
-         "count"            / ONUM)
+         "fileformat"      / VTK, &
+         "filename"        / (TRIM(ODIR) // TRIM(OFNAME)), &
+         "count"           / ONUM)
 
     config => Dict( &
-         "mesh"             / mesh, &
-         "physics"          / physics, &
-         "boundary"         / boundary, &
-         "fluxes"           / fluxes, &
-         "timedisc"         / timedisc, &
-         "sources"          / sources, &
-!         "logfile"          / logfile, &
-         "datafile"         / datafile)
+         "mesh"            / mesh,     &
+         "physics"         / physics,  &
+         "boundary"        / boundary, &
+         "fluxes"          / fluxes,   &
+         "timedisc"        / timedisc, &
+         "sources"         / sources,  &
+!        "logfile"         / logfile,  &
+         "datafile"        / datafile)
   END SUBROUTINE MakeConfig
 
 
@@ -228,68 +233,30 @@ CONTAINS
     CLASS(marray_compound), POINTER, INTENT(INOUT) :: pvar,cvar
     !------------------------------------------------------------------------!
     ! Local variable declaration
-    INTEGER           :: i,j
-    REAL              :: theta1,phi1,theta2,phi2,vtheta,vphi,xlen,SIGMA
-    REAL              :: R0,P1,PHISTART,THETASTART
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM) :: dv
     !------------------------------------------------------------------------!
-    ! some starting constants
-    PHISTART   = 0.0
-    THETASTART = PI/3.
-    P1 = P0-40.0E+2
-    R0 = 0.4*GPAR
-    SIGMA   = 1.0E+5
-
-    ! different starting condition
     SELECT TYPE(p => pvar)
     TYPE IS(statevector_euler)
-      p%density%data1d(:)   = P0/GACC
-      p%pressure%data1d(:)  = Physics%Constants%RG* &
-        p%density%data1d(:)*T_0/(MU*(1.+(GAMMA-1.)/GAMMA))
-      !------------------------------------------------------------------------!
-      !------------------- random velocity distribution -----------------------!
-      CALL RANDOM_NUMBER (dv)
-      p%data4d(:,:,:,Physics%XVELOCITY) = &
-           p%data4d(:,:,:,Physics%XVELOCITY) + (dv(:,:,:,1)-0.5)*2.
-      p%data4d(:,:,:,Physics%YVELOCITY) = &
-           p%data4d(:,:,:,Physics%YVELOCITY) + (dv(:,:,:,2)-0.5)*2.
+
+      ! assuming hydrostatic equillibrium with constant gravitational
+      ! acceleration yields constant column density, i.e. vertically integrated density,
+      ! given by the ratio of mean surface pressure P0 and grav. acceleration GACC
+      p%density%data1d(:) = P0/GACC
+
+      ! assuming hydrostic equillibrium between pressure forces and
+      ! inertial forces in the rotating frame and constant mean surface
+      ! temperature T0 yields the initial condition for the 2D vertically
+      ! integrated pressure
+!       p%pressure%data1d(:) = GAMMA*Physics%Constants%RG * T0 / MU
+      p%pressure%data3d(:,:,1) = (GAMMA*Physics%Constants%RG * T0 / MU &
+          + (RPLANET* OMEGA)**2 / 2 * (1.0/3.0 - COS(Mesh%bcenter(:,:,1,1))**2))
+      p%pressure%data1d(:) = p%pressure%data1d(:) * p%density%data1d(:)
+
+      ! vanishing velocities in comoving frame
+      p%velocity%data1d(:) = 0.0
     END SELECT
 
-    !------------------------------------------------------------------------!
-    !--------------------- rotframe test ------------------------------------!
-!     !    (velocity strips along latitude)
-!     xlen = ABS(Mesh%xmax-Mesh%xmin)
-!     WHERE ((Mesh%bcenter(:,:,1).GT.(Mesh%xmin+0.37*xlen)).AND. &
-!          (Mesh%bcenter(:,:,1).LT.(Mesh%xmin+0.4*xlen)))
-!        Timedisc%pvar(:,:,Physics%YVELOCITY) = -80.0
-!     ELSEWHERE ((Mesh%bcenter(:,:,1).LT.(Mesh%xmin+(PI-0.37*xlen))).AND. &
-!          (Mesh%bcenter(:,:,1).GT.(Mesh%xmin+(PI-0.4*xlen))))
-!        Timedisc%pvar(:,:,Physics%YVELOCITY) = +80.0
-!     ELSEWHERE ((Mesh%bcenter(:,:,1).LT.(Mesh%xmin+(PI-0.2*xlen))).AND. &
-!          (Mesh%bcenter(:,:,1).GT.(Mesh%xmin+(PI-0.23*xlen))))
-!        Timedisc%pvar(:,:,Physics%YVELOCITY) = -80.0
-!     ELSEWHERE ((Mesh%bcenter(:,:,1).GT.(Mesh%xmin+0.2*xlen)).AND. &
-!          (Mesh%bcenter(:,:,1).LT.(Mesh%xmin+0.23*xlen)))
-!        Timedisc%pvar(:,:,Physics%YVELOCITY) = +80.0
-!     END WHERE
-!
-    !------------------------------------------------------------------------!
-    !---------------------- low density area --------------------------------!
-!     WHERE ((Mesh%bcenter(:,:,1).LE.(THETASTART+R0/GPAR)).AND.&
-!           (Mesh%bcenter(:,:,2).GE.(PHISTART-R0/GPAR/SIN(THETASTART))).AND.&
-!           (Mesh%bcenter(:,:,1).GE.(THETASTART-R0/GPAR)).AND.&
-!           (Mesh%bcenter(:,:,2).LE.(PHISTART+R0/GPAR/SIN(THETASTART))))
-!        ! behind the shock front
-!        Timedisc%pvar(:,:,Physics%PRESSURE)  = P1
-!     ELSEWHERE
-!       Timedisc%pvar(:,:,Physics%PRESSURE)  = SIGMA*&
-!               Timedisc%pvar(:,:,Physics%DENSITY)**GAMMA
-!
-!     END WHERE
-    !------------------------------------------------------------------------!
-
     CALL Physics%Convert2Conservative(pvar,cvar)
-    CALL Mesh%Info(" DATA-----> initial condition: 2D planetary")
+    CALL Mesh%Info(" DATA-----> initial condition: 2D planetary atmosphere")
 
   END SUBROUTINE InitData
 

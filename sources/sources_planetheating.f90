@@ -81,7 +81,7 @@ MODULE sources_planetheating_mod
   PRIVATE
   !--------------------------------------------------------------------------!
   TYPE, EXTENDS(sources_base) :: sources_planetheating
-    CHARACTER(LEN=32) :: source_name = "thin atmosphere heating"
+    CHARACTER(LEN=32) :: source_name = "heating of planetary atmosphere"
     TYPE(marray_base) :: Qstar          !< energy term due to stellar cooling
     TYPE(marray_base) :: T_s            !< surface temperature (black body)
     TYPE(marray_base) :: cos1,sin1      !< helping arrays for precomputation
@@ -216,22 +216,22 @@ CONTAINS
     !------------------------------------------------------------------------!
     tmp_out = this%year/(3.6e3*24*365)
     WRITE (param_str,'(ES8.2)') tmp_out
-    CALL this%Info("            sid. year [yr]:        " // TRIM(param_str))
+    CALL this%Info("            sid. year:         " // TRIM(param_str) // " yr")
 
     tmp_out = 1./(this%omegasun*3.6e3*24.0)
     WRITE (param_str,'(ES8.2)') ABS(tmp_out)
-    CALL this%Info("            day [d]:               " // TRIM(param_str))
+    CALL this%Info("            day:               " // TRIM(param_str) // " d")
 
     tmp_out = this%distance/AU
     WRITE (param_str,'(ES8.2)') tmp_out
-    CALL this%Info("            distance [au]:         " // TRIM(param_str))
+    CALL this%Info("            distance:          " // TRIM(param_str) // " au")
 
     tmp_out = this%sm_axis/AU
     WRITE (param_str,'(ES8.2)') tmp_out
-    CALL this%Info("            semi-major axis [au:]: " // TRIM(param_str))
+    CALL this%Info("            semi-major axis:   " // TRIM(param_str) // " au")
 
     WRITE (param_str,'(ES8.2)') this%eccentricity
-    CALL this%Info("            eccentricity:          " // TRIM(param_str))
+    CALL this%Info("            eccentricity:      " // TRIM(param_str))
   END SUBROUTINE InfoSources
 
 
