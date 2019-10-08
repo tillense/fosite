@@ -86,6 +86,11 @@ par_test_bondi2d:
     script:
         - mpirun -n 2 ./par_build/tests/bondi2d
 
+ser_test_planet2d:
+    stage: test
+    script:
+        - ./ser_build/tests/planet2d
+
 ser_test_poiseuille:
     stage: test
     script:
