@@ -108,7 +108,7 @@ PROGRAM planet2d
   ! get pointer on planetary cooling source term
   sp => Sim%Sources
   DO
-    IF (ASSOCIATED(sp).EQV..FALSE.) RETURN
+    IF (.NOT.ASSOCIATED(sp)) EXIT 
     SELECT TYPE(sp)
     CLASS IS(sources_planetcooling)
       spcool => sp

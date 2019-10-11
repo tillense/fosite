@@ -340,12 +340,12 @@ CONTAINS
     INTEGER           :: i,j,k,dir,ig
     REAL,DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX) :: r,r1,r2,r3
     CLASS(sources_base), POINTER :: sp
-    CLASS(sources_gravity), POINTER :: gp
+    CLASS(sources_gravity), POINTER :: gp => null()
     !------------------------------------------------------------------------!
     r = Mesh%radius%bcenter
     sp => Sources
     DO
-      IF (ASSOCIATED(sp).EQV..FALSE.) RETURN
+      IF (.NOT.ASSOCIATED(sp)) EXIT 
       SELECT TYPE(sp)
       CLASS IS(sources_gravity)
         gp => sp

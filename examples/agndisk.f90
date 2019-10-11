@@ -320,7 +320,7 @@ CONTAINS
     !------------------------------------------------------------------------!
     ! Local variable declaration
     CLASS(sources_base), POINTER :: sp
-    CLASS(sources_gravity), POINTER :: gp
+    CLASS(sources_gravity), POINTER :: gp => null()
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,2) :: dv
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX)   :: velo_periodic
     REAL              :: s,z,tau,lambda,tau1,tau2,dPs,dPz,s1,s2,z1,z2,P0,rho0,cs_inf
@@ -335,7 +335,7 @@ CONTAINS
 
     sp => Sources
     DO
-      IF (ASSOCIATED(sp).EQV..FALSE.) RETURN
+      IF (.NOT.ASSOCIATED(sp)) EXIT 
       SELECT TYPE(sp)
       CLASS IS(sources_gravity)
         gp => sp

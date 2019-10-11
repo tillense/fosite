@@ -299,7 +299,7 @@ CONTAINS
     !------------------------------------------------------------------------!
     ! Local variable declaration
     CLASS(sources_base), POINTER :: sp
-    CLASS(sources_gravity), POINTER :: gp
+    CLASS(sources_gravity), POINTER :: gp => null()
     CLASS(geometry_base), ALLOCATABLE :: geo_cyl
     TYPE(Dict_TYP), POINTER :: geo_config
     INTEGER           :: i,j,k
@@ -333,7 +333,7 @@ CONTAINS
     ! get gravitational acceleration
     sp => Sim%Sources
     DO
-      IF (ASSOCIATED(sp).EQV..FALSE.) RETURN
+      IF (.NOT.ASSOCIATED(sp)) EXIT 
       SELECT TYPE(sp)
       CLASS IS(sources_gravity)
         gp => sp

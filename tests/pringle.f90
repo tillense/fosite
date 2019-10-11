@@ -389,7 +389,7 @@ CONTAINS
     !------------------------------------------------------------------------!
     ! Local variable declaration
     CLASS(sources_base), POINTER :: sp
-    CLASS(sources_gravity), POINTER :: gp
+    CLASS(sources_gravity), POINTER :: gp => null()
     INTEGER           :: i,j,k
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,3) &
                       :: posvec,ephi
@@ -440,7 +440,7 @@ CONTAINS
     ! get gravitational acceleration
     sp => Sim%Sources
     DO
-      IF (ASSOCIATED(sp).EQV..FALSE.) RETURN
+      IF (.NOT.ASSOCIATED(sp)) EXIT 
       SELECT TYPE(sp)
       CLASS IS(sources_gravity)
         gp => sp

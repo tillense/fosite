@@ -272,7 +272,7 @@ CONTAINS
     !------------------------------------------------------------------------!
     ! Local variable declaration
     CLASS(sources_base), POINTER :: sp
-    CLASS(sources_gravity), POINTER :: gp
+    CLASS(sources_gravity), POINTER :: gp => null()
     INTEGER           :: i,j,k
 #ifdef PARALLEL
     INTEGER           :: ierror
@@ -335,7 +335,7 @@ CONTAINS
 
     sp => Sources
     DO
-      IF (ASSOCIATED(sp).EQV..FALSE.) RETURN
+      IF (.NOT.ASSOCIATED(sp)) EXIT 
       SELECT TYPE(sp)
       CLASS IS(sources_gravity)
         gp => sp

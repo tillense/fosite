@@ -119,7 +119,9 @@ CONTAINS
         "western" / CUSTOM, &
         "eastern" / CUSTOM, &
         "southern" / PERIODIC, &
-        "northern" / PERIODIC)
+        "northern" / PERIODIC, &
+        "bottomer" / REFLECTING, &
+        "topper" / REFLECTING)
 
     pmass => Dict( &
         "gtype" / POINTMASS, &
@@ -195,8 +197,6 @@ CONTAINS
                       :: dvr, dvphi, x, y, phi, r
     REAL              :: h, kappa
     INTEGER           :: dir,j,ig,i,k
-    CLASS(sources_base), POINTER :: sp
-    CLASS(sources_gravity), POINTER :: gp
     !------------------------------------------------------------------------!
     x = Mesh%bccart(:,:,:,1)
     y = Mesh%bccart(:,:,:,2)
@@ -206,18 +206,6 @@ CONTAINS
 !      CALL SetPotential_euler2Dia(Physics,Mesh,-GN * MCENTRAL / Mesh%radius%bcenter)
 !      CALL SetPotential_euler2Dia(Physics,Mesh,-GN * MCENTRAL / Mesh%radius%faces)
     END IF
-
-    ! get gravitational acceleration
-    sp => Sim%Sources
-    DO
-      IF (ASSOCIATED(sp).EQV..FALSE.) RETURN
-      SELECT TYPE(sp)
-      CLASS IS(sources_gravity)
-        gp => sp
-        EXIT
-      END SELECT
-      sp => sp%next
-    END DO
 
     SELECT TYPE (pvar => Timedisc%pvar)
     CLASS IS(statevector_euler)

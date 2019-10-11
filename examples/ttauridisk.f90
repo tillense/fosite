@@ -242,7 +242,7 @@ CONTAINS
     !------------------------------------------------------------------------!
     ! Local variable declaration
     CLASS(sources_base), POINTER :: sp
-    CLASS(sources_gravity), POINTER :: gp
+    CLASS(sources_gravity), POINTER :: gp => null()
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,2) :: dv
     REAL              :: s,z,tau,lambda,tau1,tau2,dPs,dPz,s1,s2,z1,z2,P0,rho0,cs_inf
     REAL              :: mdisk,am
@@ -255,7 +255,7 @@ CONTAINS
     !------------------------------------------------------------------------!
     sp => Sources
     DO
-      IF (ASSOCIATED(sp).EQV..FALSE.) RETURN
+      IF (.NOT.ASSOCIATED(sp)) EXIT 
       SELECT TYPE(sp)
       CLASS IS(sources_gravity)
         gp => sp
@@ -263,7 +263,7 @@ CONTAINS
       END SELECT
       sp => sp%next
     END DO
-    IF (.NOT.ASSOCIATED(sp)) CALL Physics%Error("mestel::InitData","no gravity term initialized")
+    IF (.NOT.ASSOCIATED(gp)) CALL Physics%Error("mestel::InitData","no gravity term initialized")
 
     ! initial condition (computational domain)
     ! the total disk mass is proportional to the central pressure;
