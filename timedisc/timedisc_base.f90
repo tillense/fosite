@@ -44,8 +44,8 @@
 !!      substep,1}
 !! \key{checkdata,INTEGER,bitmask to verify data validity/integrity,CHECK_ALL}
 !! \key{pmin,REAL,pressure minimum to check if CHECK_PMIN has been enabled,TINY(REAL)}
-!! \key{pmin,REAL,temperature minimum to check if CHECK_TMIN has been enabled,TINY(REAL)}
-!! \key{pmin,REAL,density minimum to check if CHECK_RHOMIN has been enabled,TINY(REAL)}
+!! \key{tmin,REAL,temperature minimum to check if CHECK_TMIN has been enabled,TINY(REAL)}
+!! \key{rhomin,REAL,density minimum to check if CHECK_RHOMIN has been enabled,TINY(REAL)}
 !----------------------------------------------------------------------------!
 !> \author Tobias Illenseer
 !! \author Björn Sperling
