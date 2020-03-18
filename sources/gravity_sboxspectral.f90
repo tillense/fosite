@@ -98,7 +98,8 @@ MODULE gravity_sboxspectral_mod
     REAL(C_DOUBLE), POINTER          :: mass2D(:,:)    !< temporary variable
     COMPLEX(C_DOUBLE_COMPLEX), POINTER &
                                      :: Fmass2D(:,:)   !< temporary variable
-    REAL, DIMENSION(:,:,:), POINTER  :: Fmass2D_real   !< temporary variable
+    REAL, DIMENSION(:,:,:), POINTER  :: Fmass2D_real & !< temporary variable
+                                        => null()
     INTEGER(C_INTPTR_T)              :: local_joff
     REAL,DIMENSION(:), POINTER       :: kx             !< wave numbers for FFT (x)
     REAL,DIMENSION(:), POINTER       :: ky             !< wave numbers for FFT (y)
