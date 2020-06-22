@@ -185,8 +185,7 @@ find_library(
   FFTW_LIB
 	NAMES fftw3 aslfftw3
 	DOC "Fastest Fourier Transform of the West."
-  HINTS /opt/nec/ve/nlc/1.0.0/musl/lib/ ${FFTW_DIR}/lib
-  HINTS /opt/nec/ve/nlc/1.0.0/lib/ ${FFTW_DIR}/lib
+  HINTS ${VE_LIBRARY_PATH} ${NVE_NLC_PATH}/lib ${NVE_NLC_PATH}/musl/lib/ ${FFTW_DIR}/lib
 )
 
 if(PARALLEL)
@@ -194,8 +193,7 @@ if(PARALLEL)
     FFTWMPI_LIB
 	  NAMES fftw3_mpi aslfftw3_mpi
     DOC "Distributed parallel implementation of FFTW."
-    HINTS /opt/nec/ve/nlc/1.0.0/musl/lib/ ${FFTW_DIR}/lib
-    HINTS /opt/nec/ve/nlc/1.0.0/lib/ ${FFTW_DIR}/lib
+    HINTS ${VE_LIBRARY_PATH} ${NEV_NLC_PATH}/lib ${NVE_NLC_PATH}/musl/lib ${FFTW_DIR}/lib
   )
 endif()
 
@@ -213,11 +211,11 @@ find_path(
   NAMES ${fftw_incfiles}
 )
 if (CMAKE_SYSTEM_NAME MATCHES "(.*)SX-Aurora")
-  set (FFTW_INCLUDE /opt/nec/ve/nlc/1.0.0/include/)
+  set (FFTW_INCLUDE ${NVE_NLC_PATH}/include/)
   if (NOT PARALLEL)
-    set (ASL_INCLUDE /opt/nec/ve/nlc/1.0.0/include/mod)
+    set (ASL_INCLUDE ${NVE_NLC_PATH}/include/mod)
   elseif (PARALLEL)
-    set (ASL_INCLUDE /opt/nec/ve/nlc/1.0.0/include/mod_mpi)
+    set (ASL_INCLUDE ${NVE_NLC_PATH}/include/mod_mpi)
   endif()
   message(STATUS "ASL headers: ${ASL_INCLUDE}")
 endif()
