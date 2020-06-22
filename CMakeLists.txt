@@ -193,7 +193,7 @@ if(PARALLEL)
     FFTWMPI_LIB
 	  NAMES fftw3_mpi aslfftw3_mpi
     DOC "Distributed parallel implementation of FFTW."
-    HINTS ${VE_LIBRARY_PATH} ${NEV_NLC_PATH}/lib ${NVE_NLC_PATH}/musl/lib ${FFTW_DIR}/lib
+    HINTS ${VE_LIBRARY_PATH} ${NVE_NLC_PATH}/lib ${NVE_NLC_PATH}/musl/lib ${FFTW_DIR}/lib
   )
 endif()
 
