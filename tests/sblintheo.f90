@@ -96,13 +96,15 @@ PROGRAM sblintheo
   INTEGER, PARAMETER :: XRES       = 128            ! amount of cells in x-  !
   INTEGER, PARAMETER :: YRES       = 128            ! y-direction (rho/phi)  !
   INTEGER, PARAMETER :: ZRES       = 1
+  REAL, PARAMETER :: THICKNESS     = 0e-5           ! small value or zero for!
+                                                    !   razor thin disks     !
   REAL               :: DOMAINX    = 40.0           ! domain size [GEOM]     !
   REAL               :: DOMAINY    = 40.0           ! domain size [GEOM]     !
   ! number of output time steps
   INTEGER, PARAMETER :: ONUM       = 10
   ! output directory and output name
   CHARACTER(LEN=256), PARAMETER :: ODIR   = "./"
-  CHARACTER(LEN=256), PARAMETER :: OFNAME = "sblintheo_finite_dz"
+  CHARACTER(LEN=256), PARAMETER :: OFNAME = "sblintheo"
   !--------------------------------------------------------------------------!
   CLASS(fosite), ALLOCATABLE :: Sim
   REAL               :: maximum
@@ -150,10 +152,8 @@ CONTAINS
     XMAX       = +0.5*DOMAINX
     YMIN       = -0.5*DOMAINY
     YMAX       = +0.5*DOMAINY
-!     ZMIN       = 0.0
-!     ZMAX       = 0.0
-    ZMIN       = -0.00001*DOMAINX
-    ZMAX       = +0.00001*DOMAINX
+    ZMIN       = -0.5*THICKNESS*DOMAINX
+    ZMAX       = +0.5*THICKNESS*DOMAINX
 
     ! physics settings
     physics =>  Dict(&

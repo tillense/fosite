@@ -83,7 +83,8 @@ PROGRAM sblintheo
   REAL, PARAMETER    :: OMEGA      = 1.0            ! rotation at fid. point !
   REAL, PARAMETER    :: SIGMA0     = 1.0            ! mean surf.dens.        !
   REAL, PARAMETER    :: DELSIGMA   = SIGMA0*5.0e-4  ! disturbance            !
-  REAL, PARAMETER    :: TSIM       = 10.0/OMEGA     ! simulation time        !
+  REAL, PARAMETER    :: TSIM       = 4.54845485/OMEGA ! simulation time (first maximum) !
+!   REAL, PARAMETER    :: TSIM       = 10.0/OMEGA     ! simulation time        !
   REAL, PARAMETER    :: GAMMA      = 1.4            ! dep. on vert. struct.  !
   REAL, PARAMETER    :: Q          = 1.5            ! shearing parameter     !
   ! set (initial) speed of sound using the Toomre criterion and 
@@ -91,16 +92,18 @@ PROGRAM sblintheo
   ! used to set the initial pressure (see InitData) whereas in isothermal
   ! simulations this is constant throughout the simulation
   REAL, PARAMETER    :: SOUNDSPEED = PI*GN*SIGMA0/OMEGA ! det. by. Toomre    !
+  REAL, PARAMETER    :: HEIGHT     = SOUNDSPEED/OMEGA ! (initial) scale height
 !   INTEGER, PARAMETER :: PHYS       = EULER
   INTEGER, PARAMETER :: PHYS       = EULER_ISOTHERM
   ! mesh settings
   INTEGER, PARAMETER :: MGEO       = CARTESIAN
-  INTEGER, PARAMETER :: XRES       = 60            ! amount of cells in x-  !
-  INTEGER, PARAMETER :: YRES       = 60            ! y-direction (rho/phi)  !
-  INTEGER, PARAMETER :: ZRES       = 30
+  INTEGER, PARAMETER :: XRES       = 64             ! amount of cells in x-  !
+  INTEGER, PARAMETER :: YRES       = 64             ! y-direction (rho/phi)  !
+  INTEGER, PARAMETER :: ZRES       = 16             ! and z-direction        !
+  ! extent of computational domain
   REAL               :: DOMAINX    = 40.0           ! domain size [GEOM]     !
   REAL               :: DOMAINY    = 40.0           ! domain size [GEOM]     !
-  REAL               :: DOMAINZ    = 20.0           ! domain size [GEOM]     !
+  REAL               :: DOMAINZ    = 10.0           ! domain size [GEOM]     !
   ! number of output time steps
   INTEGER, PARAMETER :: ONUM       = 10
   ! output directory and output name
@@ -230,7 +233,7 @@ CONTAINS
 
     ! initialize data input/output
     datafile => Dict( &
-              "fileformat"    / XDMF, &
+              "fileformat"    / VTK, &
               "filename"      / (TRIM(ODIR) // TRIM(OFNAME)), &
               "count"         / ONUM)
 
@@ -255,53 +258,46 @@ CONTAINS
     CLASS(marray_compound), POINTER, INTENT(INOUT) :: pvar,cvar
     !------------------------------------------------------------------------!
     ! local variable declaration
-    REAL              :: kx, ky, kz, h
+    REAL              :: kx, ky, kz
     !------------------------------------------------------------------------!
 
     !---------------------- linear theory test ------------------------------!
     kx = -2*(2*PI/DOMAINX)
     ky = 2*PI/DOMAINY
     kz = 2*PI/DOMAINZ
-    h  = SOUNDSPEED/Mesh%OMEGA
 
     ! initial condition
     SELECT TYPE(p => pvar)
     TYPE IS(statevector_eulerisotherm)
+      ! zero all velocity components
+      p%velocity%data1d(:) = 0.0
       IF(Mesh%shear_dir.EQ.2)THEN
         p%density%data3d(:,:,:) = (SIGMA0 &
           + DELSIGMA*COS(kx*Mesh%bcenter(:,:,:,1) &
-                       + ky*Mesh%bcenter(:,:,:,2)))/(SQRT(2*PI)*h) &
-                    *EXP(-0.5*(Mesh%bcenter(:,:,:,3)/h)**2)
-        p%velocity%data2d(:,1) = 0.0
+                       + ky*Mesh%bcenter(:,:,:,2)))/(SQRT(2*PI)*HEIGHT) &
+                    *EXP(-0.5*(Mesh%bcenter(:,:,:,3)/HEIGHT)**2)
         p%velocity%data4d(:,:,:,2) = -Q*OMEGA*Mesh%bcenter(:,:,:,1)
-        p%velocity%data2d(:,3) = 0.0
       ELSE IF(Mesh%shear_dir.EQ.1)THEN
         p%density%data3d(:,:,:) = (SIGMA0 &
           + DELSIGMA*COS(kx*Mesh%bcenter(:,:,:,2) &
-                       - ky*Mesh%bcenter(:,:,:,1)))/(SQRT(2*PI)*h) &
-                    *EXP(-0.5*(Mesh%OMEGA/SOUNDSPEED*Mesh%bcenter(:,:,:,3))**2)
+                       - ky*Mesh%bcenter(:,:,:,1)))/(SQRT(2*PI)*HEIGHT) &
+                    *EXP(-0.5*(Mesh%bcenter(:,:,:,3)/HEIGHT)**2)
         p%velocity%data4d(:,:,:,1) = Q*OMEGA*Mesh%bcenter(:,:,:,2)
-        p%velocity%data2d(:,2) = 0.0
-        p%velocity%data2d(:,3) = 0.0
       END IF
       p%density%data1d(:) = p%density%data1d(:) / Mesh%dz
     TYPE IS(statevector_euler) ! non-isothermal HD
       IF(Mesh%shear_dir.EQ.2)THEN
         p%density%data3d(:,:,:) = (SIGMA0 &
           + DELSIGMA*COS(kx*Mesh%bcenter(:,:,:,1) &
-                       + ky*Mesh%bcenter(:,:,:,2)))/(SQRT(2*PI)*h) &
-                    *EXP(-0.5*(Mesh%OMEGA/SOUNDSPEED*Mesh%bcenter(:,:,:,3))**2)
-        p%velocity%data2d(:,1) = 0.0
+                       + ky*Mesh%bcenter(:,:,:,2)))/(SQRT(2*PI)*HEIGHT) &
+                    *EXP(-0.5*(Mesh%bcenter(:,:,:,3)/HEIGHT)**2)
         p%velocity%data4d(:,:,:,2) = -Q*OMEGA*Mesh%bcenter(:,:,:,1)
-        p%velocity%data2d(:,3) = 0.0
       ELSE IF(Mesh%shear_dir.EQ.1)THEN
         p%density%data3d(:,:,:) = (SIGMA0 &
           + DELSIGMA*COS(kx*Mesh%bcenter(:,:,:,2) &
-                       - ky*Mesh%bcenter(:,:,:,1)))/(SQRT(2*PI)*h) &
-                    *EXP(-0.5*(Mesh%OMEGA/SOUNDSPEED*Mesh%bcenter(:,:,:,3))**2)
+                       - ky*Mesh%bcenter(:,:,:,1)))/(SQRT(2*PI)*HEIGHT) &
+                    *EXP(-0.5*(Mesh%bcenter(:,:,:,3)/HEIGHT)**2)
         p%velocity%data4d(:,:,:,1) = Q*OMEGA*Mesh%bcenter(:,:,:,2)
-        p%velocity%data2d(:,2) = 0.0
-        p%velocity%data2d(:,3) = 0.0
       END IF
       p%density%data1d(:) = p%density%data1d(:) / Mesh%dz
       p%pressure%data1d(:) = SOUNDSPEED**2 / GAMMA * p%density%data1d(:)
