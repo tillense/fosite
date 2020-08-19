@@ -130,9 +130,9 @@ MODULE gravity_sboxspectral_mod
     PROCEDURE :: CalcPotential
     PROCEDURE :: FFT_Forward
     PROCEDURE :: FFT_Backward
-#endif
     PROCEDURE :: SetBoundaryData
     PROCEDURE :: FieldShift
+#endif
   END TYPE
 
   !--------------------------------------------------------------------------!
@@ -263,7 +263,9 @@ MODULE gravity_sboxspectral_mod
     IF (err.NE.0) &
         CALL this%Error("InitGravity_sboxspectral","Memory allocation failed.")
 
+#ifdef HAVE_FFTW
     this%local_joff = 0
+#endif
 
     ! use special allocation pattern from fftw when using MPI in order to
     ! assure good alignment
@@ -1078,6 +1080,7 @@ CALL ftrace_region_end("foward FFT")
   !! with \f$ t_p = \text{NINT}(q\Omega t) / (q\Omega) \f$. In order to map
   !! the continuous shift at the discrete field linear interpolation is used,
   !! and assumes periodic behaviour along the y-direction.
+#ifdef HAVE_FFTW
   SUBROUTINE FieldShift(this,Mesh,Physics,delt,field,shifted_field)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
@@ -1132,6 +1135,7 @@ CALL ftrace_region_end("foward FFT")
       END DO
     END IF
   END SUBROUTINE FieldShift
+#endif
 
   !> \public Closes the gravity term of the shearingsheet spectral solver.
   SUBROUTINE Finalize(this)
