@@ -286,7 +286,7 @@ CONTAINS
         p%pressure%data1d(:) = p%pressure%data1d(:) / Mesh%dz
       END IF
     CLASS DEFAULT
-      CALL Physics%Error("shear::InitData","only (non-)isothermal HD supported")
+      CALL Physics%Error("sblintheo::InitData","only (non-)isothermal HD supported")
     END SELECT
 
     CALL Physics%Convert2Conservative(pvar,cvar)
