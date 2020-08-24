@@ -283,6 +283,17 @@ endif()
 add_subdirectory(examples)
 add_subdirectory(tests)
 
+# add directory with user defined simulation setups
+set(SIMULATION_PATH "" CACHE PATH "Add directories with user defined simulation setups")
+foreach (dir ${SIMULATION_PATH})
+  if (EXISTS "${dir}/CMakeLists.txt")
+    get_filename_component(fncomp "${dir}" NAME)
+    message("-- found simulation source path ${dir}")
+    message("-- adding simulation binary path ${CMAKE_BINARY_DIR}/simulations/${fncomp}")
+    add_subdirectory(${dir} ${CMAKE_BINARY_DIR}/simulations/${fncomp})
+  endif()
+endforeach(dir)
+
 #--------------------- doxygen documentation ----------------------------------#
 option(BUILD_DOC "Build documentation" ON)
 
