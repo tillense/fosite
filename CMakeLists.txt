@@ -48,17 +48,20 @@ if (PARALLEL MATCHES "ON")
   endif()
   if (CMAKE_SYSTEM_NAME MATCHES "SX-Aurora")
     set(CMAKE_Fortran_COMPILER ${MPI_Fortran_COMPILER})
+    enable_language (Fortran)
   else()
-    set(CMAKE_Fortran_COMPILER mpifort)
+    enable_language (Fortran)
+    find_package(MPI REQUIRED)
     message(WARNING
       "There is a known problem causing segfaults with OpenMPI \
       (experienced with version 3.1.3), depending on the amount of processes \
       used. If you experience any problems with OpenMPI \
       please consider to try another version or the MPICH implementation.")
   endif()
+else (PARALLEL MATCHES "ON")
+  enable_language (Fortran)
 endif()
 
-enable_language (Fortran)
 # workaround for unknown compiler ID NEC
 if (CMAKE_Fortran_COMPILER MATCHES "(.*)nfort")
   message(STATUS "Fortran compiler ID set to NEC")
