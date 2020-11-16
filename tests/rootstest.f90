@@ -91,9 +91,9 @@ PROGRAM rootstest
   LOGICAL           :: verbose_results = .FALSE.
   !--------------------------------------------------------------------------!
   ! some information
-  WRITE (*,"(A)") "========================================================="
-  WRITE (*,"(A)") "          << Testing root finding algorithms >>          "
-  WRITE (*,"(A)") "========================================================="
+  WRITE (*,"(A)") "====================================================================="
+  WRITE (*,"(A)") "                << Testing root finding algorithms >>                "
+  WRITE (*,"(A)") "====================================================================="
   
   
   TAP_PLAN((NUM_METHODS-1)*NUM_TESTS)
@@ -107,7 +107,7 @@ PROGRAM rootstest
     ! initial guess: arithmetic mean of boundary values
     xm = 0.5*(bounds(1,k)+bounds(2,k))
     PRINT '(A,I2,A,2(ES10.2))', "Test #",k,"  Search Interval: ",bounds(1,k),bounds(2,k)
-    PRINT '(A)', "---------------------------------------------------------"
+    PRINT '(A)', "---------------------------------------------------------------------"
     IF (verbose_results) PRINT '(A20,ES27.19)', "reference result", ref_roots(k)
     DO i=1,NUM_METHODS
       SELECT CASE(i)
@@ -141,12 +141,13 @@ PROGRAM rootstest
           ! this test never yields the required accuracy, see \cite engeln2011
           dx_acc = 1.0E-5
         END IF
-        WRITE (tap_message,'(A16,A11,ES9.2,A3,ES9.2)') method_name(i), ": dx_rel = ", dx_rel, " < ", dx_acc
+        WRITE (tap_message,'(A16,A11,ES9.2,A3,ES9.2,A7,I4)') method_name(i), ": dx_rel = ", &
+                dx_rel, " < ", dx_acc, " iter = ", iter
         TAP_CHECK(dx_rel.LE.dx_acc,tap_message)
         
       END IF
     END DO
-    PRINT '(A)', "---------------------------------------------------------"
+    PRINT '(A)', "---------------------------------------------------------------------"
   END DO
 
   TAP_DONE
