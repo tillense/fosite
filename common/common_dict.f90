@@ -254,8 +254,10 @@ CONTAINS
     END DO
     res => parent
 
-    IF(c.EQV..TRUE..AND..NOT.ASSOCIATED(res)) &
-      CALL this%Error("FindPath","Create was activated, so res should be associated.")
+    IF(c.EQV..TRUE.) THEN
+      IF (.NOT.ASSOCIATED(res)) &
+        CALL this%Error("FindPath","Create was activated, so res should be associated.")
+    END IF
   END FUNCTION FindPath
 
   !> Set the dictionary 'value' as child at the path 'key' relative to 'root'.
