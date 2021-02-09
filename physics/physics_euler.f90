@@ -934,7 +934,7 @@ CONTAINS
         ! compute characteristic variables using cell mean values of adjacent
         ! cells to calculate derivatives and the isothermal speed of sound
         ! at the intermediate cell face
-        CALL SetCharVars3d(this%fcsound%data4d(Mesh%IMIN:Mesh%IMAX,jR,Mesh%KMIN:Mesh%KMAX,SOUTH), &
+        CALL SetCharVars3d(this%gamma, &
               p%density%data3d(Mesh%IMIN:Mesh%IMAX,jL,Mesh%KMIN:Mesh%KMAX), &
               p%density%data3d(Mesh%IMIN:Mesh%IMAX,jR,Mesh%KMIN:Mesh%KMAX), &
               p%velocity%data4d(Mesh%IMIN:Mesh%IMAX,jL,Mesh%KMIN:Mesh%KMAX,2), &
