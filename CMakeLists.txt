@@ -36,13 +36,13 @@ option(PARALLEL "PARALLEL" OFF)
 option(MPI_USE_SENDRECV "MPI_USE_SENDRECV" ON)
 if (PARALLEL MATCHES "ON")
   message(STATUS "Configuring parallel build using MPI")
+  find_program(CMAKE_Fortran_COMPILER NAMES ENV{FC} ${MPI_Fortran_COMPILER} mpiifort mpinfort mpifort mpif90)
   if (CMAKE_SYSTEM_NAME MATCHES "SX-Aurora")
     set(CMAKE_Fortran_COMPILER ${MPI_Fortran_COMPILER})
     enable_language (Fortran)
   else()
     enable_language (Fortran)
-    find_package(MPI REQUIRED)
-    set(CMAKE_Fortran_COMPILER ${MPI_Fortran_COMPILER})
+    find_package(MPI REQUIRED COMPONENTS Fortran)
     message(WARNING
       "There is a known problem causing segfaults with OpenMPI \
       (experienced with version 3.1.3), depending on the amount of processes \
