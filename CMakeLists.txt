@@ -1,5 +1,5 @@
 # CMake project file for FOSITE
-cmake_minimum_required (VERSION 2.8.10)
+cmake_minimum_required (VERSION 3.14.1)
 project (FOSITE NONE)
 
 # detect git
