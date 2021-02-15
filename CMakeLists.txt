@@ -146,9 +146,17 @@ else()
   set(GSL_FOUND CACHE BOOL FALSE)
 endif()
 if(GSL_FOUND)
-  set(FGSL_SOURCE_DIR ${CMAKE_SOURCE_DIR}/contrib/fgsl) 
-  set(FGSL_BINARY_DIR ${CMAKE_BINARY_DIR}/contrib/fgsl) 
-  include_directories(${GSL_INCLUDE_DIRS} ${FGSL_BINARY_DIR}/include/fgsl)
+  set(FGSL_SOURCE_DIR ${CMAKE_SOURCE_DIR}/contrib/fgsl)
+  set(FGSL_INSTALL_DIR ${CMAKE_BINARY_DIR}/contrib/fgsl)
+  set(FGSL_LIBRARY_DIR ${FGSL_INSTALL_DIR}/lib)
+  get_filename_component(gsl_library_suffix ${GSL_LIBRARY} LAST_EXT)
+  # check whether we use static linking for GSL
+  if (${gsl_library_suffix} MATCHES ".a")
+	  set(FGSL_LIBRARY ${FGSL_LIBRARY_DIR}/libfgsl.a)
+  else()
+	  set(FGSL_LIBRARY ${FGSL_LIBRARY_DIR}/libfgsl.so)
+  endif()
+  include_directories(${GSL_INCLUDE_DIRS} ${FGSL_INSTALL_DIR}/include/fgsl)
   # add gsl fortran interface as external project
   if(NOT EXISTS "${FGSL_SOURCE_DIR}/configure.ac")
     message(STATUS "fgsl: found empty source dir -> fetching code")
@@ -167,16 +175,16 @@ if(GSL_FOUND)
   endif()
   include(ExternalProject)
   ExternalProject_Add(fgsl
-    PREFIX ${FGSL_BINARY_DIR}
-    SOURCE_DIR ${FGSL_BINARY_DIR}/src
+    PREFIX ${FGSL_INSTALL_DIR}
+    SOURCE_DIR ${FGSL_INSTALL_DIR}/src
     BUILD_IN_SOURCE 0
-    BINARY_DIR ${FGSL_BINARY_DIR}/build
-    INSTALL_DIR ${FGSL_BINARY_DIR}
-    DOWNLOAD_DIR ${FGSL_BINARY_DIR}
-    STAMP_DIR ${FGSL_BINARY_DIR}/stamp
-    TMP_DIR ${FGSL_BINARY_DIR}/tmp
-    DOWNLOAD_COMMAND  ${CMAKE_COMMAND} -E remove_directory "${FGSL_BINARY_DIR}/src" && ${CMAKE_COMMAND} -E create_symlink "${FGSL_SOURCE_DIR}" "${FGSL_BINARY_DIR}/src"
-    CONFIGURE_COMMAND ../src/configure -q --prefix=${FGSL_BINARY_DIR}
+    BINARY_DIR ${FGSL_INSTALL_DIR}/build
+    INSTALL_DIR ${FGSL_INSTALL_DIR}
+    DOWNLOAD_DIR ${FGSL_INSTALL_DIR}
+    STAMP_DIR ${FGSL_INSTALL_DIR}/stamp
+    TMP_DIR ${FGSL_INSTALL_DIR}/tmp
+    DOWNLOAD_COMMAND  ${CMAKE_COMMAND} -E remove_directory "${FGSL_INSTALL_DIR}/src" && ${CMAKE_COMMAND} -E create_symlink "${FGSL_SOURCE_DIR}" "${FGSL_INSTALL_DIR}/src"
+    CONFIGURE_COMMAND ../src/configure -q --prefix=${FGSL_INSTALL_DIR}
     BUILD_COMMAND make
     INSTALL_COMMAND make install)
   add_definitions(-DHAVE_FGSL)
@@ -265,7 +273,7 @@ target_link_libraries(fosite ${LIBDIRS})
 
 # add gsl
 if(GSL_FOUND)
-  target_link_libraries(fosite ${GSL_LIBRARIES} ${FGSL_BINARY_DIR}/lib/libfgsl.a)
+  target_link_libraries(fosite ${GSL_LIBRARIES} ${FGSL_LIBRARY})
   add_dependencies(numtools fgsl)
 endif()
 
