@@ -309,7 +309,7 @@ CONTAINS
     CHARACTER(LEN=MAX_CHAR_LEN)    :: fpath      !< fpath file path
     !INTEGER                        :: fcycles    !< fcycles number of file cycles
     INTEGER                        :: unit       !<  unit fortran i/o unit number
-    LOGICAL                        :: success
+!    LOGICAL                        :: success
     CHARACTER(LEN=32)              :: timestamp
     INTEGER                        :: count_def, fcycles_def, dtwall_def
     INTEGER                        :: cartcoords
@@ -397,10 +397,10 @@ CONTAINS
 
     ! print some information
     CALL this%Info(" FILEIO---> file name:         " // TRIM(this%GetFilename()))
-    IF (success) THEN
+ !   IF (success) THEN
        WRITE (timestamp,'(ES10.4)') Timedisc%time
        CALL this%Info("            time stamp:        " // TRIM(timestamp))
-    END IF
+ !   END IF
 
     ! time for next output
     IF (Timedisc%time.GT.0.0) CALL this%IncTime()

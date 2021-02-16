@@ -58,7 +58,7 @@ CONTAINS
     !------------------------------------------------------------------------!
     CLASS(constants_geometrical), INTENT(INOUT) :: this
     !------------------------------------------------------------------------!
-    REAL                                        :: C, GN, KB, NA, SB, KE
+    REAL                                        :: C, GN, KB, SB, KE
     !------------------------------------------------------------------------!
     ! numerical values of physical constants in geometrical units (c = G = 1)
     this%C  = 1.0                                   ! lightspeed             !
@@ -71,7 +71,6 @@ CONTAINS
     C  = this%constants_SI%C
     GN = this%constants_SI%GN
     KB = this%constants_SI%KB
-    NA = this%constants_SI%NA
     SB = this%constants_SI%SB
     KE = this%constants_SI%KE
     this%cf_time = C                 ! i.e. 1 sec [SI] = 3e8 m [geometrical] !
