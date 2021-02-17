@@ -196,6 +196,12 @@ MODULE gravity_spectral_mod
              STAT=err)
 
     CALL GetAttr(config, "green", this%green, 1)
+    SELECT CASE(this%green)
+    CASE(1,2,3)
+      ! ok -> do nothing
+    CASE DEFAULT
+      CALL this%Error("InitGravity_spectral","type of Green's function should be one of 1,2,3")
+    END SELECT
 
     CALL GetAttr(config, "sigma", this%sigma, 0.05)
     this%height1D(:) = this%sigma
