@@ -150,13 +150,8 @@
 !!    Christian-Albrechts Universität Kiel, CAU Kiel, 2016.
 !!    http://macau.uni-kiel.de/receive/dissertation_diss_00019153.
 !----------------------------------------------------------------------------!
-!#define HAVE_FGSL
 PROGRAM orbitingcylinders
   USE fosite_mod
-#ifdef HAVE_FGSL
-  USE fgsl
-#endif
-  USE functions, ONLY : Ei,Bessel_I0,Bessel_I1,Bessel_K0,Bessel_K1,Bessel_K0e
   IMPLICIT NONE
   !--------------------------------------------------------------------------!
   ! problem setup
@@ -170,7 +165,6 @@ PROGRAM orbitingcylinders
   REAL, PARAMETER :: GN          = 1.
   REAL, PARAMETER :: P0          = 1.
   REAL, PARAMETER :: P           = 10.
-  REAL, PARAMETER :: t           = P*P0
 
   REAL, PARAMETER :: flaring     = 0.05
   REAL, PARAMETER :: RG          = 8.31
@@ -186,43 +180,66 @@ PROGRAM orbitingcylinders
   !--------------------------------------------------------------------------!
   CLASS(fosite), ALLOCATABLE :: Sim
   INTEGER :: green
-  REAL, DIMENSION(:,:,:), POINTER :: numpot, anapot
+  CHARACTER(LEN=1)  :: str
+  REAL, DIMENSION(2) :: pot_err
+  REAL, DIMENSION(:,:,:), POINTER :: numpot => null(), anapot => null()
   !--------------------------------------------------------------------------!
 
-  ALLOCATE(Sim)
-  DO green=3,3
-
-
+  DO green=1,3
+    ALLOCATE(Sim)
     CALL Sim%InitFosite()
-    CALL MakeConfig(Sim, Sim%config)
+    ! basic configuration for all tests
+    CALL MakeConfig(Sim,Sim%config)
 
-    SELECT CASE(green)
-    CASE(3)
-      CALL SetAttr(Sim%config, "/mesh/rmin", 0.2)
-      CALL SetAttr(Sim%config, "/mesh/rmax", 1.8)
-      CALL SetAttr(Sim%config, "/mesh/inum", 64)
-      CALL SetAttr(Sim%config, "/mesh/jnum", 192)
-    END SELECT
-
-    CALL Sim%Setup()
-    CALL InitData(Sim%Timedisc,Sim%Mesh,Sim%Physics,Sim%Sources)
+    ! set data file name and Green's function type
+    WRITE(str,'(I1)') green
+    CALL SetAttr(Sim%config, "/datafile/filename",("orbitingcylinders-test" // str))
+    CALL SetAttr(Sim%config, "/sources/grav/self/green",green)
 
     SELECT CASE(green)
     CASE(1,2)
-      CALL Sim%FirstStep()
-      print *,"max local relative error: ",MAXVAL(ABS((numpot-anapot)/anapot))
-      print *,"global relative error: ",SUM(ABS(numpot-anapot))/SUM(ABS(anapot))
+      CALL SetAttr(Sim%config, "/timedisc/stoptime",1e-5*P0)
+      CALL SetAttr(Sim%config, "/datafile/count",1)
+    CASE(3)
+      CALL SetAttr(Sim%config, "/mesh/xmin", 0.2)
+      CALL SetAttr(Sim%config, "/mesh/xmax", 1.8)
+      CALL SetAttr(Sim%config, "/mesh/inum", 64)
+      CALL SetAttr(Sim%config, "/mesh/jnum", 192)
+      CALL SetAttr(Sim%config, "/timedisc/stoptime",P*P0)
+      CALL SetAttr(Sim%config, "/datafile/count",ONUM)
+    END SELECT
+
+    CALL Sim%Setup()
+    CALL InitData(Sim%Timedisc,Sim%Mesh,Sim%Physics,Sim%Fluxes,Sim%Sources)
+    CALL Sim%FirstStep()
+
+    SELECT CASE(green)
+    CASE(1,2)
+!       CALL Sim%Datafile%WriteDataset(Sim%Mesh,Sim%Physics,Sim%Fluxes,&
+!                           Sim%Timedisc,Sim%config,Sim%IO)
+      ! compute max of local/global relative error
+      pot_err(1) = MAXVAL(ABS((numpot(:,:,:)-anapot(:,:,:))/anapot(:,:,:)), &
+         MASK=Sim%Mesh%without_ghost_zones%mask3d(:,:,:))
+      pot_err(2) = SUM(ABS(numpot-anapot),MASK=Sim%Mesh%without_ghost_zones%mask3d(:,:,:)) &
+             /SUM(ABS(anapot),MASK=Sim%Mesh%without_ghost_zones%mask3d(:,:,:))
+      Sim%aborted=.FALSE.
+      CALL Sim%Finalize()
+      PRINT *,"max local relative error: ", pot_err(1)
+      PRINT *,"global relative error: ", pot_err(2)
     CASE(3)
       CALL Sim%Run()
       CALL Sim%Finalize()
     END SELECT
+
+    DEALLOCATE(Sim)
   END DO
-  DEALLOCATE(Sim)
+
+  IF (ASSOCIATED(anapot)) DEALLOCATE(anapot)
 
 
 CONTAINS
 
-  SUBROUTINE MakeConfig(Sim, config)
+  SUBROUTINE MakeConfig(Sim,config)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(fosite), INTENT(INOUT) :: Sim
@@ -232,7 +249,6 @@ CONTAINS
     TYPE(Dict_TYP),POINTER :: mesh,boundary,timedisc,datafile,&
                               fluxes,physics,grav,rotframe,sources
     !------------------------------------------------------------------------!
-    CHARACTER(LEN=1)  :: str
     !------------------------------------------------------------------------!
     physics => Dict( &
         "problem" / EULER,&
@@ -281,7 +297,7 @@ CONTAINS
         "stype" / GRAVITY, &
         "output/accel" / 1, &
         "self/gtype" / SPECTRAL, &
-        "self/green" / green, &
+        "self/green" / 1, &
         "self/sigma" / sigma)
 !        "self/output/potential" / 1)
 
@@ -304,16 +320,13 @@ CONTAINS
 !        "order" / 5, &
         "tol_rel" / 1.0E-3, &
         "cfl" / 0.3, &
-        "stoptime" / t, &
+        "stoptime" / P0, &
         "dtlimit" / 1.0E-10, &
-        "maxiter" / 2000000000, &
-        "output/solution" / 1)
-
-    WRITE(str,'(I1)')green
+        "maxiter" / 2000000000)
 
     datafile => Dict( &
-        "fileformat" / VTK, &
-        "filename" / ("orbitingcylinders_" // str), &
+        "fileformat" / XDMF, &
+        "filename" / "orbitingcylinders", &
         "count" / ONUM)
 
     config => Dict( &
@@ -328,109 +341,132 @@ CONTAINS
   END SUBROUTINE MakeConfig
 
 
-  SUBROUTINE InitData(Timedisc,Mesh,Physics,Sources)
+  SUBROUTINE InitData(Timedisc,Mesh,Physics,Fluxes,Sources)
+#ifdef HAVE_FGSL
+    USE fgsl
+#endif
+    USE functions, ONLY : Ei,Bessel_I0,Bessel_I1,Bessel_K0,Bessel_K1,Bessel_K0e
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(timedisc_base), INTENT(INOUT) :: Timedisc
     CLASS(mesh_base),     INTENT(IN)    :: Mesh
     CLASS(physics_base),  INTENT(INOUT) :: Physics
+    CLASS(fluxes_base),   INTENT(IN)    :: Fluxes
     CLASS(sources_base),  POINTER       :: Sources
     !------------------------------------------------------------------------!
     ! Local variable declaration
     INTEGER           :: i,j,k,dir,ig
-    REAL,DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX) :: r,r1,r2,r3
+    REAL,DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX) :: r1,r2,r3
+    REAL, DIMENSION(:,:,:), POINTER :: r
     CLASS(sources_base), POINTER :: sp
-    CLASS(sources_gravity), POINTER :: gp => null()
+    CLASS(gravity_base), POINTER :: gp => null()
     !------------------------------------------------------------------------!
-    r = Mesh%radius%bcenter
+    r => Mesh%radius%bcenter
     sp => Sources
     DO
       IF (.NOT.ASSOCIATED(sp)) EXIT 
       SELECT TYPE(sp)
       CLASS IS(sources_gravity)
-        gp => sp
+        gp => sp%glist%GetGravityPointer(SPECTRAL)
         EXIT
       END SELECT
       sp => sp%next
     END DO
+    IF (.NOT.ASSOCIATED(gp)) CALL Physics%Error("orbitingcylinders::InitData","no spectral gravity solver initialized")
 
-
-    anapot => Timedisc%solution%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,1)
-    numpot => gp%glist%pot(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,1)
+    numpot => sp%pot%data4d(:,:,:,1)
+    IF (.NOT.ASSOCIATED(anapot)) ALLOCATE(anapot(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX))
 
     SELECT CASE(green)
     CASE(1)
-      r1 = rsq(Mesh,Mesh%radius%bcenter,x1)
-      r2 = rsq(Mesh,Mesh%radius%bcenter,x3)
-      r3 = rsq(Mesh,Mesh%radius%bcenter,x4)
-      Timedisc%pvar%data4d(:,:,:,Physics%DENSITY) &
-        = 2.0 / (2.*PI*sigma**2) * EXP(-SQRT(r1)/sigma) &
-        + 0.5 / (2.*PI*sigma**2) * EXP(-SQRT(r2)/sigma) &
-        + 1.0 / (2.*PI*sigma**2) * EXP(-SQRT(r3)/sigma)
+      SELECT TYPE (pvar => Timedisc%pvar)
+      CLASS IS(statevector_euler)
+        r1(:,:,:) = rsq1(r(:,:,:),Mesh%curv%bcenter(:,:,:,2),x1(1),x1(2))
+        r2(:,:,:) = rsq1(r(:,:,:),Mesh%curv%bcenter(:,:,:,2),x3(1),x3(2))
+        r3(:,:,:) = rsq1(r(:,:,:),Mesh%curv%bcenter(:,:,:,2),x4(1),x4(2))
+        pvar%density%data3d(:,:,:) &
+        = 2.0 / (2.*PI*sigma**2) * EXP(-SQRT(r1(:,:,:))/sigma) &
+        + 0.5 / (2.*PI*sigma**2) * EXP(-SQRT(r2(:,:,:))/sigma) &
+        + 1.0 / (2.*PI*sigma**2) * EXP(-SQRT(r3(:,:,:))/sigma)
+        pvar%pressure%data1d(:) = 1.0
+        pvar%velocity%data1d(:) = 0.0
 
-      r1 = SQRT(rsq(Mesh,Mesh%radius%faces(:,:,:,1),x1)) / (2.*sigma)
-      r2 = SQRT(rsq(Mesh,Mesh%radius%faces(:,:,:,1),x3)) / (2.*sigma)
-      r3 = SQRT(rsq(Mesh,Mesh%radius%faces(:,:,:,1),x4)) / (2.*sigma)
-      DO k=Mesh%KGMIN,Mesh%KGMAX
-        DO j=Mesh%JGMIN,Mesh%JGMAX
-          DO i=Mesh%IGMIN,Mesh%IGMAX
-            Timedisc%solution%data4d(i,j,k,1) &
+        IF (ASSOCIATED(anapot)) THEN
+          r1(:,:,:) = SQRT(rsq1(Mesh%radius%faces(:,:,:,1),Mesh%curv%faces(:,:,:,1,2),x1(1),x1(2))) / (2.*sigma)
+          r2(:,:,:) = SQRT(rsq1(Mesh%radius%faces(:,:,:,1),Mesh%curv%faces(:,:,:,1,2),x3(1),x3(2))) / (2.*sigma)
+          r3(:,:,:) = SQRT(rsq1(Mesh%radius%faces(:,:,:,1),Mesh%curv%faces(:,:,:,1,2),x4(1),x4(2))) / (2.*sigma)
+          DO k=Mesh%KGMIN,Mesh%KGMAX
+            DO j=Mesh%JGMIN,Mesh%JGMAX
+              DO i=Mesh%IGMIN,Mesh%IGMAX
+                anapot(i,j,k) &
 #ifdef HAVE_FGSL
-           = -2.0 * r1(i,j,k)/sigma*(fgsl_sf_bessel_ic0(r1(i,j,k))*fgsl_sf_bessel_kc1(r1(i,j,k))&
+                = -2.0 * r1(i,j,k)/sigma*(fgsl_sf_bessel_ic0(r1(i,j,k))*fgsl_sf_bessel_kc1(r1(i,j,k))&
                     -fgsl_sf_bessel_ic1(r1(i,j,k))*fgsl_sf_bessel_kc0(r1(i,j,k))) &
-             -0.5 * r2(i,j,k)/sigma*(fgsl_sf_bessel_ic0(r2(i,j,k))*fgsl_sf_bessel_kc1(r2(i,j,k))&
+                -0.5 * r2(i,j,k)/sigma*(fgsl_sf_bessel_ic0(r2(i,j,k))*fgsl_sf_bessel_kc1(r2(i,j,k))&
                     -fgsl_sf_bessel_ic1(r2(i,j,k))*fgsl_sf_bessel_kc0(r2(i,j,k))) &
-             -1.0 * r3(i,j,k)/sigma*(fgsl_sf_bessel_ic0(r3(i,j,k))*fgsl_sf_bessel_kc1(r3(i,j,k))&
+                -1.0 * r3(i,j,k)/sigma*(fgsl_sf_bessel_ic0(r3(i,j,k))*fgsl_sf_bessel_kc1(r3(i,j,k))&
                     -fgsl_sf_bessel_ic1(r3(i,j,k))*fgsl_sf_bessel_kc0(r3(i,j,k)))
 #else
-           = -2.0 * r1(i,j,k)/sigma*(BESSEL_I0(r1(i,j,k))*BESSEL_K1(r1(i,j,k))&
+                = -2.0 * r1(i,j,k)/sigma*(BESSEL_I0(r1(i,j,k))*BESSEL_K1(r1(i,j,k))&
                     -BESSEL_I1(r1(i,j,k))*BESSEL_K0(r1(i,j,k))) &
-             -0.5 * r2(i,j,k)/sigma*(BESSEL_I0(r2(i,j,k))*BESSEL_K1(r2(i,j,k))&
+                -0.5 * r2(i,j,k)/sigma*(BESSEL_I0(r2(i,j,k))*BESSEL_K1(r2(i,j,k))&
                     -BESSEL_I1(r2(i,j,k))*BESSEL_K0(r2(i,j,k))) &
-             -1.0 * r3(i,j,k)/sigma*(BESSEL_I0(r3(i,j,k))*BESSEL_K1(r3(i,j,k))&
+                -1.0 * r3(i,j,k)/sigma*(BESSEL_I0(r3(i,j,k))*BESSEL_K1(r3(i,j,k))&
                     -BESSEL_I1(r3(i,j,k))*BESSEL_K0(r3(i,j,k)))
 #endif
+              END DO
+            END DO
           END DO
-        END DO
-      END DO
-
-      Timedisc%pvar%data4d(:,:,:,Physics%PRESSURE) = 1.0
-      Timedisc%pvar%data4d(:,:,:,Physics%XVELOCITY) = 0.0
-      Timedisc%pvar%data4d(:,:,:,Physics%YVELOCITY) = 0.0
+        END IF
+      END SELECT
+      SELECT TYPE(sp)
+      CLASS IS(sources_gravity)
+        CALL sp%UpdateGravity(Mesh,Physics,Fluxes,Timedisc%pvar,0.0,0.0)
+      END SELECT
     CASE(2)
-      r1 = rsq(Mesh,Mesh%radius%bcenter,x1)
-      r2 = rsq(Mesh,Mesh%radius%bcenter,x3)
-      r3 = rsq(Mesh,Mesh%radius%bcenter,x4)
-      Timedisc%pvar%data4d(:,:,:,Physics%DENSITY) &
-        = 2.0 / (2.*PI*sigma**2) * EXP(-r1/(2.*sigma**2)) &
-        + 0.5 / (2.*PI*sigma**2) * EXP(-r2/(2.*sigma**2)) &
-        + 1.0 / (2.*PI*sigma**2) * EXP(-r3/(2.*sigma**2))
+      SELECT TYPE (pvar => Timedisc%pvar)
+      CLASS IS(statevector_euler)
+        r1(:,:,:) = rsq1(r(:,:,:),Mesh%curv%bcenter(:,:,:,2),x1(1),x1(2))
+        r2(:,:,:) = rsq1(r(:,:,:),Mesh%curv%bcenter(:,:,:,2),x3(1),x3(2))
+        r3(:,:,:) = rsq1(r(:,:,:),Mesh%curv%bcenter(:,:,:,2),x4(1),x4(2))
+        pvar%density%data3d(:,:,:) &
+        = 2.0 / (2.*PI*sigma**2) * EXP(-r1(:,:,:)/(2.*sigma**2)) &
+        + 0.5 / (2.*PI*sigma**2) * EXP(-r2(:,:,:)/(2.*sigma**2)) &
+        + 1.0 / (2.*PI*sigma**2) * EXP(-r3(:,:,:)/(2.*sigma**2))
+        pvar%pressure%data1d(:) = 1.0
+        pvar%velocity%data1d(:) = 0.0
 
-      r1 = rsq(Mesh,Mesh%radius%faces(:,:,:,1),x1)
-      r2 = rsq(Mesh,Mesh%radius%faces(:,:,:,1),x3)
-      r3 = rsq(Mesh,Mesh%radius%faces(:,:,:,1),x4)
-
-      Timedisc%solution%data4d(:,:,:,1) &
-        = - 2.0 / SQRT(r1) * ERF(SQRT(r1 / 2.) / sigma) &
-          - 0.5 / SQRT(r2) * ERF(SQRT(r2 / 2.) / sigma) &
-          - 1.0 / SQRT(r3) * ERF(SQRT(r3 / 2.) / sigma)
-      Timedisc%pvar%data4d(:,:,:,Physics%PRESSURE) = 1.0
-      Timedisc%pvar%data4d(:,:,:,Physics%XVELOCITY) = 0.0
-      Timedisc%pvar%data4d(:,:,:,Physics%YVELOCITY) = 0.0
+        IF (ASSOCIATED(anapot)) THEN
+          r1(:,:,:) = rsq1(Mesh%radius%faces(:,:,:,1),Mesh%curv%faces(:,:,:,1,2),x1(1),x1(2))
+          r2(:,:,:) = rsq1(Mesh%radius%faces(:,:,:,1),Mesh%curv%faces(:,:,:,1,2),x3(1),x3(2))
+          r3(:,:,:) = rsq1(Mesh%radius%faces(:,:,:,1),Mesh%curv%faces(:,:,:,1,2),x4(1),x4(2))
+          anapot(:,:,:) &
+          = - 2.0 / SQRT(r1(:,:,:)) * ERF(SQRT(r1(:,:,:) / 2.) / sigma) &
+            - 0.5 / SQRT(r2(:,:,:)) * ERF(SQRT(r2(:,:,:) / 2.) / sigma) &
+            - 1.0 / SQRT(r3(:,:,:)) * ERF(SQRT(r3(:,:,:) / 2.) / sigma)
+        END IF
+      END SELECT
+      SELECT TYPE(sp)
+      CLASS IS(sources_gravity)
+        CALL sp%UpdateGravity(Mesh,Physics,Fluxes,Timedisc%pvar,0.0,0.0)
+      END SELECT
     CASE(3)
-      r1 = rsq(Mesh,Mesh%curv%bcenter,x1)
-      r2 = rsq(Mesh,Mesh%curv%bcenter,x2)
-      Timedisc%pvar%data4d(:,:,:,Physics%DENSITY)  = 0.02/(3.2*PI) &
-        + 0.99 * (  EXP(-0.5*(r1/sigma**2))/(2.*PI*sigma**2) &
-                  + EXP(-0.5*(r2/sigma**2))/(2.*PI*sigma**2))
+      SELECT TYPE (pvar => Timedisc%pvar)
+      CLASS IS(statevector_euler)
+        r1(:,:,:) = rsq1(r(:,:,:),Mesh%curv%bcenter(:,:,:,2),x1(1),x1(2))
+        r2(:,:,:) = rsq1(r(:,:,:),Mesh%curv%bcenter(:,:,:,2),x2(1),x2(2))
+        pvar%density%data3d(:,:,:)  = 0.02/(3.2*PI) &
+          + 0.99 * (  EXP(-0.5*(r1(:,:,:)/sigma**2))/(2.*PI*sigma**2) &
+                  + EXP(-0.5*(r2(:,:,:)/sigma**2))/(2.*PI*sigma**2))
 
-      Timedisc%pvar%data4d(:,:,:,Physics%PRESSURE) = 0.02/(3.2*PI) &
-        + GN / (2.*PI*sigma**2) &
-           * (  Ei(-(r1/sigma**2)) - Ei(-0.5*(r1/sigma**2)) &
-              + Ei(-(r2/sigma**2)) - Ei(-0.5*(r2/sigma**2)))
+        pvar%pressure%data3d(:,:,:) = 0.02/(3.2*PI) &
+          + GN / (2.*PI*sigma**2) &
+             * (  Ei(-(r1(:,:,:)/sigma**2)) - Ei(-0.5*(r1(:,:,:)/sigma**2)) &
+              + Ei(-(r2(:,:,:)/sigma**2)) - Ei(-0.5*(r2(:,:,:)/sigma**2)))
 
-      Timedisc%pvar%data4d(:,:,:,Physics%XVELOCITY) = 0.0
-      Timedisc%pvar%data4d(:,:,:,Physics%YVELOCITY) = r - r*omega
+        pvar%velocity%data4d(:,:,:,1) = 0.0
+        pvar%velocity%data4d(:,:,:,2) = r(:,:,:)*(1.0 - omega)
+      END SELECT
     END SELECT
 
     DO dir=WEST,EAST
@@ -468,5 +504,14 @@ CONTAINS
     !------------------------------------------------------------------------!
     res = r**2 + x(1)**2 - 2.*r*x(1) * COS(Mesh%curv%bcenter(:,:,:,2)-x(2))
   END FUNCTION rsq
+
+  ELEMENTAL FUNCTION rsq1(r,phi,r0,phi0) RESULT(res)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    REAL, INTENT(IN) :: r, phi, r0, phi0
+    REAL :: res
+    !------------------------------------------------------------------------!
+    res = r**2 + r0**2 - 2.*r*r0 * COS(phi-phi0)
+  END FUNCTION rsq1
 
 END PROGRAM orbitingcylinders
