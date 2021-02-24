@@ -136,7 +136,7 @@ PROGRAM rootstest
       ! exclude Regular Falsi from check
       IF (i.NE.2) THEN
       
-        dx_acc = DEFAULT_ACCURACY
+        dx_acc = DEFAULT_ACCURACY/ABS(ref_roots(k))
         IF (k.EQ.12) THEN
           ! this test never yields the required accuracy, see \cite engeln2011
           dx_acc = 1.0E-5
