@@ -90,14 +90,18 @@ CONTAINS
         CASE(PLANET_COOLING)
           ALLOCATE(sources_planetcooling::newsrc)
         CASE(ROTATING_FRAME)
-          tmpsrc => this%GetSourcesPointer(ROTATING_FRAME)
-          IF (ASSOCIATED(tmpsrc)) &
-            CALL this%Error("sources_generic::new_sources","only one rotating frame source term allowed")
+          IF (ASSOCIATED(this)) THEN
+            tmpsrc => this%GetSourcesPointer(ROTATING_FRAME)
+            IF (ASSOCIATED(tmpsrc)) &
+              CALL this%Error("sources_generic::new_sources","only one rotating frame source term allowed")
+          END IF
           ALLOCATE(sources_rotframe::newsrc)
         CASE(SHEARBOX)
-          tmpsrc => this%GetSourcesPointer(SHEARBOX)
-          IF (ASSOCIATED(tmpsrc)) &
-            CALL this%Error("sources_generic::new_sources","only one shearing box source term allowed")
+          IF (ASSOCIATED(this)) THEN
+            tmpsrc => this%GetSourcesPointer(SHEARBOX)
+            IF (ASSOCIATED(tmpsrc)) &
+              CALL this%Error("sources_generic::new_sources","only one shearing box source term allowed")
+          END IF
           ALLOCATE(sources_shearbox::newsrc)
         CASE(VISCOSITY)
           ALLOCATE(sources_viscosity::newsrc)
