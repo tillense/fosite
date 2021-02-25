@@ -349,14 +349,15 @@ CONTAINS
     DO i=1,this%m
       IF (i == 1) THEN
         WRITE (sformat,'(A)') '(ES12.3,A)'
+        WRITE (buffer,fmt=sformat) this%c(i), " | "
       ELSE
-        WRITE (sformat,'(A,I1,A)') '(ES12.3,A,',i-1,'ES12.3)'
+        WRITE (sformat,'(A,I1,A)') '(ES12.3,A,',i-1,'(ES12.3))'
+        WRITE (buffer,fmt=sformat) this%c(i), " | " , this%a(i,1:i-1)
       END IF
-      WRITE (buffer,fmt=sformat) this%c(i), " | " , this%a(i,1:i-1)
       CALL this%Info(buffer)
     END DO
     CALL this%Info(repeat("-",(this%m+1)*12+4))
-    WRITE (sformat,'(A,I1,A)') '(A,',this%m,'ES12.3)'
+    WRITE (sformat,'(A,I1,A)') '(A,',this%m,'(ES12.3))'
     WRITE (buffer,fmt=sformat) " high order  | ", this%b_high(:)
     CALL this%Info(buffer)
     WRITE (buffer,fmt=sformat) "  low order  | ", this%b_low(:)
