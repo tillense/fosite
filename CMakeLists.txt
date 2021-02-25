@@ -18,12 +18,12 @@ else()
   add_definitions("-DVERSION=\"0.8.2\"") 
 endif()
 
-# make sure that the default is a RELEASE
-if (NOT CMAKE_BUILD_TYPE)
-  set (CMAKE_BUILD_TYPE RELEASE CACHE STRING
-      "Choose the type of build, options are: None Debug Release Profiling."
-      FORCE)
-endif (NOT CMAKE_BUILD_TYPE)
+# check and set the build type
+set (CMAKE_BUILD_TYPE_NAMES RELEASE DEBUG PROFILING)
+set (CMAKE_BUILD_TYPE RELEASE CACHE STRING "Should be one of RELEASE, DEBUG, PROFILING; default: RELEASE")
+if (NOT CMAKE_BUILD_TYPE IN_LIST CMAKE_BUILD_TYPE_NAMES)
+  message(FATAL_ERROR "Unknown build type, should be one of RELEASE, DEBUG, PROFILING")
+endif()
 
 # default installation
 get_filename_component (default_prefix ".." ABSOLUTE)
