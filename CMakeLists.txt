@@ -37,8 +37,8 @@ option(MPI_USE_SENDRECV "MPI_USE_SENDRECV" ON)
 if (PARALLEL MATCHES "ON")
   message(STATUS "Configuring parallel build using MPI ...")
   if(NOT MPI_Fortran_COMPILER)
-    set(MPI_Fortran_COMPILER_NAMES $ENV{FC} mpiifort mpinfort mpifort mpif90)
-    find_program(MPI_Fortran_COMPILER NAMES MPI_Fortran_COMPILER_NAMES PATHS ${MPI_DIR}/bin $ENV{MPI_DIR}/bin $ENV{MPI_HOME}/bin DOC "MPI Fortran compiler wrapper")
+    unset(MPI_Fortran_COMPILER CACHE)
+    find_program(MPI_Fortran_COMPILER NAMES $ENV{FC} mpiifort mpinfort mpifort mpif90 PATHS ${MPI_DIR} ENV MPI_HOME PATH_SUFFIXES bin DOC "MPI Fortran compiler wrapper")
   endif()
   set(CMAKE_Fortran_COMPILER ${MPI_Fortran_COMPILER})
   enable_language (Fortran)
@@ -58,11 +58,14 @@ if (PARALLEL MATCHES "ON")
       used. If you experience any problems with OpenMPI \
       please consider other versions or MPI implementations like, e.g., MPICH.")
   add_definitions(-DPARALLEL)
+  set(MPI_LIBRARY_SUFFIX "_mpi") # used, e.g., for ASL and FFTW libraries
+
   if(MPI_USE_SENDRECV MATCHES "ON")
     add_definitions(-DMPI_USE_SENDRECV)
   endif()
 else (PARALLEL MATCHES "ON")
   enable_language (Fortran)
+  set(MPI_LIBRARY_SUFFIX "") # no MPI suffix for serial builds
 endif()
 
 # workaround for unknown compiler ID NEC
@@ -152,15 +155,33 @@ endif ()#(CMAKE_SYSTEM_NAME MATCHES "(.*)SX-AURORA")
 MARK_AS_ADVANCED(CMAKE_Fortran_FLAGS_PROFILING
     CMAKE_EXE_LINKER_FLAGS_PROFILING)
 
+# create target fosite
 
+#----------------------- search ASL ------------------------------------------#
+find_library(ASL_LIB NAMES "asl${MPI_LIBRARY_SUFFIX}_sequential" DOC "NEC ASL library"
+  HINTS ${ASL_DIR} ${FFTW_DIR} ${VE_LIBRARY_PATH} ${NVE_NLC_PATH} ENV NLC_HOME PATH_SUFFIXES lib lib64)
+if (NOT ASL_LIB MATCHES ASL_LIB-NOTFOUND)
+  message(STATUS "Found NEC ASL library: ${ASL_LIB}")
+  find_path(ASL_MODULE_PATH NAMES asl_unified.mod DOC "ASL Fortran module path"
+    HINTS ${ASL_DIR} ${FFTW_DIR} ${VE_LIBRARY_PATH} ${NVE_NLC_PATH} ENV NLC_HOME
+    PATH_SUFFIXES include/mod${MPI_LIBRARY_SUFFIX})
+  if (NOT ASL_MODULE_PATH MATCHES ASL_MODULE_PATH-NOTFOUND)
+    message(STATUS "Found NEC ASL Fortran module in: ${ASL_MODULE_PATH}")
+    include_directories(${ASL_MODULE_PATH})
+  endif()
+  set(FFTW_NAME_PREFIX "asl")
+  set(ASL_FOUND TRUE)
+else()
+  set(FFTW_NAME_PREFIX "")
+  set(ASL_FOUND FALSE)
+endif()
+
+  
 #----------------------- search GSL ------------------------------------------#
 option(USE_GSL "Add GSL/FGSL support" OFF)
 if(USE_GSL MATCHES ON)
-  find_package(GSL)
-else()
-  set(GSL_FOUND CACHE BOOL FALSE)
-endif()
-if(GSL_FOUND)
+  find_package(GSL REQUIRED)
+
   set(FGSL_SOURCE_DIR ${CMAKE_SOURCE_DIR}/contrib/fgsl)
   set(FGSL_INSTALL_DIR ${CMAKE_BINARY_DIR}/contrib/fgsl)
   set(FGSL_LIBRARY_DIR ${FGSL_INSTALL_DIR}/lib)
@@ -199,71 +220,67 @@ if(GSL_FOUND)
     STAMP_DIR ${FGSL_INSTALL_DIR}/stamp
     TMP_DIR ${FGSL_INSTALL_DIR}/tmp
     DOWNLOAD_COMMAND  ${CMAKE_COMMAND} -E remove_directory "${FGSL_INSTALL_DIR}/src" && ${CMAKE_COMMAND} -E create_symlink "${FGSL_SOURCE_DIR}" "${FGSL_INSTALL_DIR}/src"
-    CONFIGURE_COMMAND ../src/configure -q --prefix=${FGSL_INSTALL_DIR}
+    CONFIGURE_COMMAND ../src/configure FC=${CMAKE_Fortran_COMPILER} -q --prefix=${FGSL_INSTALL_DIR}
     BUILD_COMMAND make
     INSTALL_COMMAND make install)
-  add_definitions(-DHAVE_FGSL)
+
+   add_compile_definitions(HAVE_FGSL)
+else()
+  set(GSL_FOUND FALSE)
 endif()
 
 #----------------------- search FFTW -----------------------------------------#
-set(CMAKE_FIND_ROOT_PATH ${FFTW_DIR})
-
-# search for library
-find_library(
-  FFTW_LIB
-	NAMES fftw3 aslfftw3
-	DOC "Fastest Fourier Transform of the West."
-  HINTS ${VE_LIBRARY_PATH} ${NVE_NLC_PATH}/lib ${NVE_NLC_PATH}/musl/lib/ ${FFTW_DIR}/lib
-)
-
-if(PARALLEL)
-  find_library(
-    FFTWMPI_LIB
-	  NAMES fftw3_mpi aslfftw3_mpi
-    DOC "Distributed parallel implementation of FFTW."
-    HINTS ${VE_LIBRARY_PATH} ${NVE_NLC_PATH}/lib ${NVE_NLC_PATH}/musl/lib ${FFTW_DIR}/lib
-  )
-endif()
-
-#end search for libraries
-
-# search for headers
-if(NOT PARALLEL)
-  set (fftw_incfiles fftw3.f03)
-elseif(PARALLEL)
-  set (fftw_incfiles fftw3-mpi.f03)
-endif()
-
-find_path(
-  FFTW_INCLUDE
-  NAMES ${fftw_incfiles}
-)
-if (CMAKE_SYSTEM_NAME MATCHES "(.*)SX-Aurora")
-  set (FFTW_INCLUDE ${NVE_NLC_PATH}/include/)
-  if (NOT PARALLEL)
-    set (ASL_INCLUDE ${NVE_NLC_PATH}/include/mod)
-  elseif (PARALLEL)
-    set (ASL_INCLUDE ${NVE_NLC_PATH}/include/mod_mpi)
+option(USE_FFTW "Add FFTW support" OFF)
+if(USE_FFTW MATCHES ON)
+  # on NEC SX-Aurora fftw is linked with the asl library
+  if (CMAKE_SYSTEM_NAME MATCHES "(.*)SX-Aurora" AND NOT ASL_FOUND)
+    message(FATAL_ERROR "FFTW support requested but no ASL library found.")
   endif()
-  message(STATUS "ASL headers: ${ASL_INCLUDE}")
-endif()
-# end search for headers
 
-if(NOT FFTW_LIB)
-  message(WARNING "No FFTW Library found.")
+  # find FFTW library
+  find_library(FFTW_LIB NAMES ${FFTW_NAME_PREFIX}fftw3 DOC "FFTW library"
+    HINTS ${FFTW_DIR} ${VE_LIBRARY_PATH} ${NVE_NLC_PATH} ENV FFTW_DIR
+    PATH_SUFFIXES lib lib64
+    REQUIRED)
+  message(STATUS "Found FFTW library: ${FFTW_LIB}")
+
+  # find FFTW MPI library for parallel build
+  if(PARALLEL MATCHES ON)
+    set(FFTW_FORTRAN_MODULE_NAME "fftw3-mpi.f03")
+    find_library(FFTW_MPI_LIB NAMES ${FFTW_NAME_PREFIX}fftw3${MPI_LIBRARY_SUFFIX} DOC "FFTW MPI library"
+      HINTS ${FFTW_DIR} ${VE_LIBRARY_PATH} ${NVE_NLC_PATH} ENV FFTW_DIR
+      PATH_SUFFIXES lib lib64
+      REQUIRED)
+    message(STATUS "Found FFTW MPI library: ${FFTW_MPI_LIB}")
+  else()
+    set(FFTW_FORTRAN_MODULE_NAME "fftw3.f03")
+  endif()
+
+  # find FFTW Fortran module
+  find_path(FFTW_MODULE_PATH NAMES ${FFTW_NAME_PREFIX}${FFTW_FORTRAN_MODULE_NAME} DOC "FFTW Fortran module path"
+    HINTS ${FFTW_DIR} ${VE_LIBRARY_PATH} ${NVE_NLC_PATH} ENV FFTW_DIR
+    PATH_SUFFIXES include
+    REQUIRED)
+  message(STATUS "Found FFTW Fortran module: ${FFTW_MODULE_PATH}/${FFTW_NAME_PREFIX}${FFTW_FORTRAN_MODULE_NAME}")
+  include_directories(${FFTW_MODULE_PATH})
+  add_compile_definitions(HAVE_FFTW)
+
+# if (CMAKE_SYSTEM_NAME MATCHES "(.*)SX-Aurora")
+#   set (FFTW_INCLUDE ${NVE_NLC_PATH}/include/)
+#   if (NOT PARALLEL)
+#     set (ASL_INCLUDE ${NVE_NLC_PATH}/include/mod)
+#   elseif (PARALLEL)
+#     set (ASL_INCLUDE ${NVE_NLC_PATH}/include/mod_mpi)
+#   endif()
+#   message(STATUS "ASL headers: ${ASL_INCLUDE}")
+# endif()
+
+  set(FFTW_FOUND TRUE)
 else()
-  if(NOT FFTW_INCLUDE)
-    message(WARNING "No FFTW header file found.")
-  endif()
-  message(STATUS "FFTW library: ${FFTW_LIB}")
-  if(PARALLEL)
-    message(STATUS "FFTW MPI library: ${FFTWMPI_LIB}")
-  endif()
-  message(STATUS "FFTW headers: ${FFTW_INCLUDE}")
-  add_definitions(-DHAVE_FFTW)
+  set(FFTW_FOUND FALSE)
 endif()
 
-#---------------------- set include & link -----------------------------------#
+#---------------------- add fosite subdirs  -----------------------------------#
 # build executables
 set (LIBDIRS numtools common boundary fluxes io mesh physics sources timedisc )
 
@@ -272,19 +289,19 @@ foreach (p ${LIBDIRS})
 endforeach (p)
 include_directories(/.$(CMAKE_BINARY_DIR))
 include_directories(/.$(CMAKE_SOURCE_DIR)/common) #because of tap.h
-if(FFTW_INCLUDE)
-  include_directories(${FFTW_INCLUDE})
-endif()
-if(ASL_INCLUDE)
-  include_directories(${ASL_INCLUDE})
-endif()
 
 foreach (p ${LIBDIRS})
   add_subdirectory (${p})
 endforeach (p)
 
+# create target fosite
 add_library(fosite fosite.f90)
 target_link_libraries(fosite ${LIBDIRS})
+
+# add asl
+if(ASL_FOUND)
+  target_link_libraries(fosite ${ASL_LIB})
+endif()
 
 # add gsl
 if(GSL_FOUND)
@@ -293,21 +310,18 @@ if(GSL_FOUND)
 endif()
 
 # add fftw
-if (NOT CMAKE_SYSTEM_NAME MATCHES "(.*)SX-Aurora")
-  if(FFTW_LIB)
-    target_link_libraries(fosite ${FFTW_LIB})
-    if(PARALLEL)
-      target_link_libraries(fosite ${FFTWMPI_LIB} m)
-    endif()
+if(FFTW_FOUND)
+  target_link_libraries(fosite ${FFTW_LIB})
+  if(PARALLEL MATCHES ON)
+    target_link_libraries(fosite ${FFTW_MPI_LIB})
   endif()
 else()
-  if(NOT PARALLEL)
-    target_link_libraries(fosite ${FFTW_LIB} asl_sequential)
-  else()
-    target_link_libraries(fosite ${FFTWMPI_LIB} asl_mpi_sequential)
-  endif()
+  message(WARNING "FFTW support DISABLED! \
+    The gravity spectral solvers will not be available. \
+    Add -DUSE_FFTW=ON to the cmake command line to enable FFTW support.")
 endif()
 
+#--------------------- add paths for standard simulation setups----------------#
 add_subdirectory(examples)
 add_subdirectory(tests)
 
