@@ -231,6 +231,11 @@ endif()
 
 #----------------------- search FFTW -----------------------------------------#
 option(USE_FFTW "Add FFTW support" OFF)
+if(IS_DIRECTORY ${FFTW_DIR})
+  set(USE_FFTW ON)
+else()
+  message(FATAL_ERROR "${FFTW_DIR} should be a directory!")
+endif()
 if(USE_FFTW MATCHES ON)
   # on NEC SX-Aurora fftw is linked with the asl library
   if (CMAKE_SYSTEM_NAME MATCHES "(.*)SX-Aurora" AND NOT ASL_FOUND)
