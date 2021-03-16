@@ -53,197 +53,128 @@ PROGRAM ode_test
   REAL, PARAMETER    :: R0   = 3.0E-2
   ! mesh settings
   INTEGER, PARAMETER :: MGEO = CARTESIAN   ! geometry
-!  INTEGER, PARAMETER :: MGEO = CYLINDRICAL   ! geometry
-!!$  INTEGER, PARAMETER :: MGEO = POLAR
-!!$  INTEGER, PARAMETER :: MGEO = LOGPOLAR
-!!$  INTEGER, PARAMETER :: MGEO = TANPOLAR
-!!$  INTEGER, PARAMETER :: MGEO = SINHPOLAR
-  INTEGER, PARAMETER :: XRES = 100         ! x-resolution
-  INTEGER, PARAMETER :: YRES = 100         ! y-resolution
-  INTEGER, PARAMETER :: ZRES = 1           ! z-resolution
-  REAL, PARAMETER    :: RMIN = 1.0E-3      ! inner radius for polar grids
-  REAL, PARAMETER    :: RMAX = 0.3         ! outer radius
-  REAL, PARAMETER    :: GPAR = 0.2         ! geometry scaling parameter     !
+  INTEGER, PARAMETER :: RES  = 100         ! x- & y-resolution
   ! output parameters
   INTEGER, PARAMETER :: ONUM = 5          ! number of output data sets
   CHARACTER(LEN=256), PARAMETER &          ! output data dir
                      :: ODIR = './'
   CHARACTER(LEN=256), PARAMETER &          ! output data file name
                      :: OFNAME = 'ode'
+  ! ode solvers
+  INTEGER, PARAMETER :: NUM_TESTS = 5
   !--------------------------------------------------------------------------!
   CLASS(fosite),ALLOCATABLE      :: Sim
   !--------------------------------------------------------------------------!
-  INTEGER, PARAMETER    :: NUM = 5 ! last ODE-solver
-  INTEGER               :: ode, i
-  CHARACTER(LEN=256),DIMENSION(NUM) :: odename
-  REAL,DIMENSION(NUM)   :: time
+  INTEGER               :: k
+  REAL,DIMENSION(NUM_TESTS)   :: time
   CHARACTER(LEN=256)    :: PREFIX, buffer
   !--------------------------------------------------------------------------!
 
-  TAP_PLAN(NUM)
-DO ode=1,NUM
-  ALLOCATE(SIM)
-  CALL Sim%InitFosite()
+  TAP_PLAN(NUM_TESTS)
 
-  write(PREFIX,'((A),(I2.2),(A),(I2.2))') "_ode-",ode,"_geo-",MGEO
-  CALL MakeConfig(Sim, Sim%config,ode)
+  DO k=1,NUM_TESTS
+    ALLOCATE(Sim)
+    CALL Sim%InitFosite()
 
-!  CALL PrintDict(Sim%config)
-  CALL Sim%Setup()
-  ! set initial condition
-  CALL InitData(Sim%Mesh, Sim%Physics, Sim%Timedisc)
+    CALL MakeConfig(Sim, Sim%config)
 
-  CALL Sim%Run()
+    ! specific test settings
+    SELECT CASE(k)
+    CASE(1) ! Modified Euler, Order 3
+      CALL SetAttr(Sim%config, "/timedisc/method", MODIFIED_EULER)
+      CALL SetAttr(Sim%config, "/timedisc/order", 3)
+      CALL SetAttr(Sim%config, "/datafile/filename", (TRIM(ODIR) // TRIM(OFNAME) // "-mdeu3") )
+    CASE(2) ! RK-Fehlberg, Order 5
+      CALL SetAttr(Sim%config, "/timedisc/method", RK_FEHLBERG)
+      CALL SetAttr(Sim%config, "/timedisc/order", 5)
+      CALL SetAttr(Sim%config, "/datafile/filename", (TRIM(ODIR) // TRIM(OFNAME) // "-rkfeh5") )
+    CASE(3) ! Cash-Karp, Order 5
+      CALL SetAttr(Sim%config, "/timedisc/method", CASH_KARP)
+      CALL SetAttr(Sim%config, "/timedisc/order", 5)
+      CALL SetAttr(Sim%config, "/datafile/filename", (TRIM(ODIR) // TRIM(OFNAME) // "-cshka5") )
+    CASE(4) ! Dormand-Prince, Order 5
+      CALL SetAttr(Sim%config, "/timedisc/method", DORMAND_PRINCE)
+      CALL SetAttr(Sim%config, "/timedisc/order", 5)
+      CALL SetAttr(Sim%config, "/datafile/filename", (TRIM(ODIR) // TRIM(OFNAME) // "-drmpr5") )
+    CASE(5) ! SSPRK, Order 5
+      CALL SetAttr(Sim%config, "/timedisc/method", SSPRK)
+      CALL SetAttr(Sim%config, "/timedisc/order", 5)
+      CALL SetAttr(Sim%config, "/datafile/filename", (TRIM(ODIR) // TRIM(OFNAME) // "-ssprk5") )
+    CASE DEFAULT
+      CALL Sim%Error("ode","Unknown test number!")
+    END SELECT
 
-  CALL Sim%ComputeRunTime()
-  time(ode) = Sim%run_time
-  odename(ode) = Sim%Timedisc%GetName()
+  !  CALL PrintDict(Sim%config)
+    CALL Sim%Setup()
+    ! set initial condition
+    CALL InitData(Sim%Mesh, Sim%Physics, Sim%Timedisc)
 
-  TAP_CHECK(.TRUE.,"Simulation finished")
-  IF(ode.NE.NUM) THEN
-    CALL Sim%Finalize()
-    Deallocate(Sim)
-  END IF
-END DO
-  CALL Sim%Info(repeat("*",64))
-  DO i=1,NUM
-    WRITE(buffer,'((a),(I2),(A),(F5.2))') "#", i, ". RUN, ODE solver:  " //TRIM(odename(i)) //", runtime: ", time(i)
-    CALL Sim%Info(buffer)
+    CALL Sim%Run()
+
+    CALL Sim%ComputeRunTime()
+    time(k) = Sim%run_time
+!     odename(ode) = Sim%Timedisc%GetName()
+
+    TAP_CHECK(.TRUE.,"Simulation finished")
+    IF(k.LT.NUM_TESTS) THEN
+      CALL Sim%Finalize(.FALSE.)
+      DEALLOCATE(Sim)
+    END IF
   END DO
-  CALL Sim%Info(repeat("*",64))
+!   CALL Sim%Info(repeat("*",64))
+!   DO i=1,NUM
+!     WRITE(buffer,'((a),(I2),(A),(F5.2))') "#", i, ". RUN, ODE solver:  " //TRIM(odename(i)) //", runtime: ", time(i)
+!     CALL Sim%Info(buffer)
+!   END DO
+!   CALL Sim%Info(repeat("*",64))
 
   CALL Sim%Finalize()
-  Deallocate(Sim)
+  DEALLOCATE(Sim)
 
   TAP_DONE
 
 CONTAINS
 
- SUBROUTINE MakeConfig(Sim, config, i)
+ SUBROUTINE MakeConfig(Sim, config)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(Fosite)  :: Sim
     TYPE(Dict_TYP),POINTER :: config
-    INTEGER           :: i
     !------------------------------------------------------------------------!
     ! Local variable declaration
-    INTEGER           :: bc(6)
     TYPE(Dict_TYP), POINTER :: mesh, physics, boundary, datafile, &
                                timedisc, fluxes
-    REAL              :: x1,x2,y1,y2,z1,z2
     !------------------------------------------------------------------------!
-    INTENT(IN)        :: i
     INTENT(INOUT)     :: Sim
     !------------------------------------------------------------------------!
-    ! mesh settings and boundary conditions
-    SELECT CASE(MGEO)
-    CASE(CARTESIAN)
-       x1 =-RMAX
-       x2 = RMAX
-       y1 =-RMAX 
-       y2 = RMAX
-       z1 = 0.0
-       z2 = 0.0
-!     CASE(POLAR)
-!       x1 = RMIN
-!       x2 = RMAX
-!       y1 = 0.0
-!       y2 = 2*PI   
-     CASE(CYLINDRICAL)
-       x1 = RMIN
-       x2 = RMAX
-       y1 = 0.0
-       y2 = 2*PI
-       z1 = 0.0
-       z2 = 0.0
-!    CASE(LOGPOLAR)
-!       x1 = LOG(RMIN/GPAR)
-!       x2 = LOG(RMAX/GPAR)
-!       y1 = 0.0 
-!       y2 = 2*PI       
-!    CASE(TANPOLAR)
-!       x1 = ATAN(RMIN/GPAR)
-!       x2 = ATAN(RMAX/GPAR)
-!       y1 = 0.0 
-!       y2 = 2*PI       
-!    CASE(SINHPOLAR)
-!       x1 = RMIN/GPAR
-!       x1 = LOG(x1+SQRT(1.0+x1*x1))  ! = ASINH(RMIN/GPAR))
-!       x2 = RMAX/GPAR
-!       x2 = LOG(x2+SQRT(1.0+x2*x2))  ! = ASINH(RMAX/GPAR))
-!       y1 = 0.0 
-!       y2 = 2*PI       
-    CASE DEFAULT
-       CALL Sim%Error("InitProgram","mesh geometry not supported for 2D Sedov explosion")
-    END SELECT
     ! mesh settings
     mesh => Dict("meshtype" / MIDPOINT, &
-           "geometry" / MGEO, &
-           "inum"     / XRES, &
-           "jnum"     / YRES, &
-           "knum"     / ZRES, &
-           "xmin"     / x1, &
-           "xmax"     / x2, &
-           "ymin"     / y1, &
-           "ymax"     / y2, &
-           "zmin"     / z1, &
-           "zmax"     / z2, &
-           "gparam"   / GPAR)
-
-    ! mesh settings and boundary conditions
-    SELECT CASE(MGEO)
-    CASE(CARTESIAN)
-       bc(WEST)  = NO_GRADIENTS
-       bc(EAST)  = NO_GRADIENTS
-       bc(SOUTH) = NO_GRADIENTS
-       bc(NORTH) = NO_GRADIENTS
-       bc(BOTTOM)= NO_GRADIENTS
-       bc(TOP)   = NO_GRADIENTS
-    CASE(CYLINDRICAL)
-       bc(WEST)  = NO_GRADIENTS
-       bc(EAST)  = NO_GRADIENTS
-       bc(SOUTH) = PERIODIC
-       bc(NORTH) = PERIODIC
-       bc(BOTTOM)= NO_GRADIENTS
-       bc(TOP)   = NO_GRADIENTS
-!     CASE(POLAR)
-!       bc(WEST)  = NO_GRADIENTS
-!       bc(EAST)  = NO_GRADIENTS
-!       bc(SOUTH) = PERIODIC
-!       bc(NORTH) = PERIODIC
-!    CASE(LOGPOLAR)
-!       bc(WEST)  = NO_GRADIENTS
-!       bc(EAST)  = NO_GRADIENTS
-!       bc(SOUTH) = PERIODIC
-!       bc(NORTH) = PERIODIC
-!    CASE(TANPOLAR)
-!       bc(WEST)  = NO_GRADIENTS
-!       bc(EAST)  = NO_GRADIENTS
-!       bc(SOUTH) = PERIODIC
-!       bc(NORTH) = PERIODIC
-!    CASE(SINHPOLAR)
-!       bc(WEST)  = NO_GRADIENTS
-!       bc(EAST)  = NO_GRADIENTS
-!       bc(SOUTH) = PERIODIC
-!       bc(NORTH) = PERIODIC
-    CASE DEFAULT
-       CALL Sim%Error("InitProgram","mesh geometry not supported for 2D Sedov explosion")
-    END SELECT
+           "geometry" / CARTESIAN, &
+           "inum"     / RES, &
+           "jnum"     / RES, &
+           "knum"     / 1, &
+           "xmin"     / (-0.3), &
+           "xmax"     / 0.3, &
+           "ymin"     / (-0.3), &
+           "ymax"     / 0.3, &
+           "zmin"     / 0.0, &
+           "zmax"     / 0.0, &
+           "gparam"   / 1.0)
 
     ! boundary conditions
-    boundary => Dict("western" / bc(WEST), &
-               "eastern" / bc(EAST), &
-               "southern" / bc(SOUTH), &
-               "northern" / bc(NORTH), &
-               "bottomer" / bc(BOTTOM), &
-               "topper"   / bc(TOP))
+    boundary => Dict("western" / NO_GRADIENTS, &
+               "eastern" / NO_GRADIENTS, &
+               "southern" / NO_GRADIENTS, &
+               "northern" / NO_GRADIENTS, &
+               "bottomer" / NO_GRADIENTS, &
+               "topper"   / NO_GRADIENTS)
 
     ! physics settings
     physics => Dict("problem" / EULER, &
               "gamma"   / GAMMA)                 ! ratio of specific heats        !
 
     ! flux calculation and reconstruction method
-    fluxes => Dict("order"     / LINEAR, &
+    fluxes => Dict("order" / LINEAR, &
              "fluxtype"  / KT, &
              "variables" / CONSERVATIVE, &        ! vars. to use for reconstruction!
              "limiter"   / MONOCENT, &    ! one of: minmod, monocent,...   !
@@ -251,7 +182,7 @@ CONTAINS
 
     ! time discretization settings
     timedisc => Dict( &
-           "method"   / i, &
+           "method"   / MODIFIED_EULER, & ! overwritten in main program
            "cfl"      / 0.3, &
            "ShowButcherTableau" / 1, &
            "stoptime" / TSIM, &
@@ -264,7 +195,7 @@ CONTAINS
     ! initialize data input/output
     datafile => Dict("fileformat" / VTK, &
 !    datafile => Dict("fileformat" / GNUPLOT, "filecycles" / 0, &
-               "filename"   / (TRIM(ODIR) // TRIM(OFNAME) //TRIM(PREFIX)), &
+               "filename"   / (TRIM(ODIR) // TRIM(OFNAME)), & ! overwritte in main program
                "count"      / ONUM)
 
     config => Dict("mesh" / mesh, &
@@ -280,42 +211,42 @@ CONTAINS
     USE physics_euler_mod, ONLY : physics_euler
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(Physics_base) :: Physics
-    CLASS(Mesh_base)    :: Mesh
-    CLASS(Timedisc_base):: Timedisc
+    CLASS(physics_base),  INTENT(IN)    :: Physics
+    CLASS(mesh_base),     INTENT(IN)    :: Mesh
+    CLASS(timedisc_base), INTENT(INOUT) :: Timedisc
     !------------------------------------------------------------------------!
     ! Local variable declaration
-    INTEGER           :: n
-    REAL              :: P1
-    !------------------------------------------------------------------------!
-    INTENT(IN)        :: Mesh,Physics
-    INTENT(INOUT)     :: Timedisc
+    INTEGER                             :: n
+    REAL                                :: P1
     !------------------------------------------------------------------------!
     ! isothermal modules are excluded
     SELECT TYPE (phys => Physics)
     CLASS IS(physics_euler)
-      ! peak pressure
-      n  = 2 ! 3 for 3D
-      P1 = 3.*(phys%gamma - 1.0)*E1 / ((n + 1)*PI*R0**n)
+      SELECT TYPE (pvar => Timedisc%pvar)
+      CLASS IS(statevector_euler)
+        ! uniform density everywhere
+        pvar%density%data1d(:)  = RHO0
+        ! vanishing initial velocities
+        pvar%velocity%data1d(:) = 0.0
+        ! set initial peak pressure P1 inside sphere with radius R0 centered on the origin
+        n  = 2 ! 2 for 2D
+        P1 = 3.*(phys%gamma - 1.0)*E1 / ((n + 1)*PI*R0**n)
+        WHERE (Mesh%radius%bcenter(:,:,:).LE.R0)
+          ! behind the shock front
+          pvar%pressure%data3d(:,:,:)  = P1
+        ELSEWHERE
+          ! in front of the shock front (ambient medium)
+          pvar%pressure%data3d(:,:,:)  = P0
+        END WHERE
+      CLASS DEFAULT
+        ! abort
+        CALL phys%Error("ode:InitData","statevector must be of class euler")
+      END SELECT
     CLASS DEFAULT
       ! abort
-      CALL phys%Error("InitData","physics not supported")
+      CALL phys%Error("ode:InitData","physics not supported")
     END SELECT
 
-    ! uniform density
-    Timedisc%pvar%data4d(:,:,:,Physics%DENSITY)   = RHO0
-    ! vanishing initial velocities
-    Timedisc%pvar%data4d(:,:,:,Physics%XVELOCITY) = 0.
-    Timedisc%pvar%data4d(:,:,:,Physics%YVELOCITY) = 0.
-    ! pressure
-    WHERE ((Mesh%bccart(:,:,:,1)**2 + Mesh%bccart(:,:,:,2)**2 + Mesh%bccart(:,:,:,3)**2).LE.R0**2)
-       ! behind the shock front
-       Timedisc%pvar%data4d(:,:,:,Physics%PRESSURE)  = P1
-    ELSEWHERE
-       ! in front of the shock front (ambient medium)
-       Timedisc%pvar%data4d(:,:,:,Physics%PRESSURE)  = P0
-    END WHERE
-     
     CALL Physics%Convert2Conservative(Timedisc%pvar,Timedisc%cvar)
     CALL Mesh%Info(" DATA-----> initial condition: 2D Sedov explosion")
 
