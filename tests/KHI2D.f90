@@ -52,7 +52,7 @@ PROGRAM KHI
   REAL, PARAMETER    :: P1   = P0          !   pressure
   ! mesh settings
   INTEGER, PARAMETER :: MGEO = CARTESIAN   ! geometry of the mesh
-  INTEGER, PARAMETER :: RES  = 50          ! resolution
+  INTEGER, PARAMETER :: RES  = 64          ! resolution
   REAL, PARAMETER    :: XYZLEN= 1.0        ! spatial extend
   ! output file parameter
   INTEGER, PARAMETER :: ONUM = 10          ! number of output data sets
@@ -76,6 +76,10 @@ PROGRAM KHI
   ! simulate KHI with initial x-velocity along x-direction
   CALL Sim%InitFosite()
   CALL MakeConfig(Sim,Sim%config)
+#ifdef PARALLEL
+  ! decompose computational domain along x-direction only
+  CALL SetAttr(Sim%config, "/mesh/decomposition", (/-1,1,1/))
+#endif
   CALL Sim%Setup()
   CALL InitData(Sim%Mesh, Sim%Physics, Sim%Timedisc)
   ! store transposed initial data
@@ -86,20 +90,27 @@ PROGRAM KHI
   CALL Sim%Physics%new_statevector(pvar,PRIMITIVE)
   CALL TransposeData(Sim%Mesh,Sim%Timedisc%pvar,pvar,"xy")
   ! finish the simulation
-  CALL Sim%Finalize()
+  CALL Sim%Finalize(mpifinalize_=.FALSE.)
   DEALLOCATE(Sim)
   
-  ! simulate KHI with initial y-velocity along y-direction
+  ! simulate KHI with transposed initial data from the previous run
   ALLOCATE(Sim)
   CALL Sim%InitFosite()
   CALL MakeConfig(Sim, Sim%config)
-  CALL SetAttr(Sim%config, "/datafile/filename", (TRIM(ODIR) // TRIM(OFNAME) // "_rotate"))
+  CALL SetAttr(Sim%config, "/datafile/filename", (TRIM(ODIR) // TRIM(OFNAME) // "_transposed"))
+#ifdef PARALLEL
+  ! decompose computational domain along y-direction only
+  CALL SetAttr(Sim%config, "/mesh/decomposition", (/1,-1,1/))
+#endif
   CALL Sim%Setup()
   Sim%Timedisc%pvar%data1d(:) = pvar_init%data1d(:)
   CALL Sim%Physics%Convert2Conservative(Sim%Timedisc%pvar,Sim%Timedisc%cvar)
   CALL Sim%Run()
   ! compare results
-  sigma = SQRT(SUM((Sim%Timedisc%pvar%data4d(:,:,:,:)-pvar%data4d(:,:,:,:))**2)/SIZE(pvar%data4d))
+  ! IMPORTANT: Use arrays with collapsed 1st and 2nd dimension here! Since pvar has the shape
+  ! from the previous run (with already transposed data) the comparison would fail if the
+  ! resolution in these dimensions differ. This is of particular importance for parallel tests.
+  sigma = SQRT(SUM((Sim%Timedisc%pvar%data3d(:,:,:)-pvar%data3d(:,:,:))**2)/SIZE(pvar%data3d))
 
   CALL pvar%Destroy()
   CALL Sim%Finalize()
@@ -277,9 +288,13 @@ CONTAINS
     CLASS(mesh_base), INTENT(IN)            :: Mesh
     CLASS(marray_compound), INTENT(INOUT)   :: pvar_in,pvar_out
     CHARACTER(LEN=2), INTENT(IN)            :: dir
+    REAL,DIMENSION(1:SIZE(pvar_in%data3d,DIM=1)),TARGET :: data1d
+    REAL,POINTER,CONTIGUOUS,DIMENSION(:,:)  :: tpdata2d
     !------------------------------------------------------------------------!
     INTEGER :: k
     !------------------------------------------------------------------------!
+    ! set pointer with transposed dimensions
+    tpdata2d(Mesh%JGMIN:Mesh%JGMAX,Mesh%IGMIN:Mesh%IGMAX) => data1d
     SELECT TYPE(pin => pvar_in)
     TYPE IS(statevector_euler) ! non-isothermal HD
       SELECT TYPE(pout => pvar_out)
@@ -289,14 +304,18 @@ CONTAINS
           ! transpose x-y directions
           DO k=Mesh%KGMIN,Mesh%KGMAX
             ! simply transpose the 1st and 2nd indices ...
-            pout%density%data3d(:,:,k) = TRANSPOSE(pin%density%data3d(:,:,k))
-            pout%pressure%data3d(:,:,k) = TRANSPOSE(pin%pressure%data3d(:,:,k))
+            tpdata2d(:,:) = TRANSPOSE(pin%density%data3d(:,:,k))
+            pout%density%data2d(:,k) = data1d(:)
+            tpdata2d(:,:) = TRANSPOSE(pin%pressure%data3d(:,:,k))
+            pout%pressure%data2d(:,k) = data1d(:)
             ! ... and exchange x- and y-velocities
-            pout%velocity%data4d(:,:,k,1) = TRANSPOSE(pin%velocity%data4d(:,:,k,2))
-            pout%velocity%data4d(:,:,k,2) = TRANSPOSE(pin%velocity%data4d(:,:,k,1))
+            tpdata2d(:,:) = TRANSPOSE(pin%velocity%data4d(:,:,k,2))
+            pout%velocity%data3d(:,k,1) = data1d(:)
+            tpdata2d(:,:) = TRANSPOSE(pin%velocity%data4d(:,:,k,1))
+            pout%velocity%data3d(:,k,2) = data1d(:)
           END DO
         CASE DEFAULT
-          CALL Mesh%Error("KHI2D::TransposeData","directions must be one of 'xy','xz' or 'yz'")
+          CALL Mesh%Error("KHI2D::TransposeData","only transposition of x- and y-direction supported")
         END SELECT
       END SELECT
     END SELECT

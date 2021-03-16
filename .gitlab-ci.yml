@@ -117,6 +117,11 @@ ser_test_KHI2D:
     script:
        - ./ser_build/tests/KHI2D
 
+par_test_KHI2D:
+    stage: test
+    script:
+       - mpirun -n 2 ./par_build/tests/KHI2D
+
 ser_test_KHI2D_sphere:
     stage: test
     script:
