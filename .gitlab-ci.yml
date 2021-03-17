@@ -92,6 +92,16 @@ ser_test_planet2d:
     script:
         - ./ser_build/tests/planet2d
 
+ser_test_ode:
+    stage: test
+    script:
+        - ./ser_build/tests/ode
+
+par_test_ode:
+    stage: test
+    script:
+        - mpirun -n 2 ./par_build/tests/ode
+
 ser_test_poiseuille:
     stage: test
     script:
