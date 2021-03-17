@@ -1,9 +1,9 @@
 !#############################################################################
 !#                                                                           #
 !# fosite - 3D hydrodynamical simulation program                             #
-!# module: sedov2d.f90                                                       #
+!# module: ode.f90                                                           #
 !#                                                                           #
-!# Copyright (C) 2006-2012, 2013                                             #
+!# Copyright (C) 2006-2021                                                   #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
 !# Björn Sperling   <sperling@astrophysik.uni-kiel.de>                       #
 !#                                                                           #
@@ -25,7 +25,7 @@
 !#############################################################################
 
 !----------------------------------------------------------------------------!
-!> \test ode test using a 2D sedov explosion
+!> \test time stepping methods using 2D sedov explosion simulation
 !! \author Tobias Illenseer
 !! \author Björn Sperling
 
@@ -53,7 +53,7 @@ PROGRAM ode_test
   REAL, PARAMETER    :: R0   = 3.0E-2
   ! mesh settings
   INTEGER, PARAMETER :: MGEO = CARTESIAN   ! geometry
-  INTEGER, PARAMETER :: RES  = 100         ! x- & y-resolution
+  INTEGER, PARAMETER :: RES  = 64         ! x- & y-resolution
   ! output parameters
   INTEGER, PARAMETER :: ONUM = 5          ! number of output data sets
   CHARACTER(LEN=256), PARAMETER &          ! output data dir
@@ -61,13 +61,11 @@ PROGRAM ode_test
   CHARACTER(LEN=256), PARAMETER &          ! output data file name
                      :: OFNAME = 'ode'
   ! ode solvers
-  INTEGER, PARAMETER :: NUM_TESTS = 5
+  INTEGER, PARAMETER :: NUM_TESTS = 8
   !--------------------------------------------------------------------------!
   CLASS(fosite),ALLOCATABLE      :: Sim
-  !--------------------------------------------------------------------------!
   INTEGER               :: k
-  REAL,DIMENSION(NUM_TESTS)   :: time
-  CHARACTER(LEN=256)    :: PREFIX, buffer
+  CHARACTER(LEN=80)     :: testinfo(NUM_TESTS)
   !--------------------------------------------------------------------------!
 
   TAP_PLAN(NUM_TESTS)
@@ -80,23 +78,35 @@ PROGRAM ode_test
 
     ! specific test settings
     SELECT CASE(k)
-    CASE(1) ! Modified Euler, Order 3
+    CASE(1) ! Modified Euler, Order 2
+      CALL SetAttr(Sim%config, "/timedisc/method", MODIFIED_EULER)
+      CALL SetAttr(Sim%config, "/timedisc/order", 2)
+      CALL SetAttr(Sim%config, "/datafile/filename", (TRIM(ODIR) // TRIM(OFNAME) // "-mdeu2") )
+    CASE(2) ! Modified Euler, Order 3
       CALL SetAttr(Sim%config, "/timedisc/method", MODIFIED_EULER)
       CALL SetAttr(Sim%config, "/timedisc/order", 3)
       CALL SetAttr(Sim%config, "/datafile/filename", (TRIM(ODIR) // TRIM(OFNAME) // "-mdeu3") )
-    CASE(2) ! RK-Fehlberg, Order 5
+    CASE(3) ! RK-Fehlberg, Order 3
+      CALL SetAttr(Sim%config, "/timedisc/method", RK_FEHLBERG)
+      CALL SetAttr(Sim%config, "/timedisc/order", 3)
+      CALL SetAttr(Sim%config, "/datafile/filename", (TRIM(ODIR) // TRIM(OFNAME) // "-rkfeh3") )
+    CASE(4) ! RK-Fehlberg, Order 5
       CALL SetAttr(Sim%config, "/timedisc/method", RK_FEHLBERG)
       CALL SetAttr(Sim%config, "/timedisc/order", 5)
       CALL SetAttr(Sim%config, "/datafile/filename", (TRIM(ODIR) // TRIM(OFNAME) // "-rkfeh5") )
-    CASE(3) ! Cash-Karp, Order 5
+    CASE(5) ! Cash-Karp, Order 5
       CALL SetAttr(Sim%config, "/timedisc/method", CASH_KARP)
       CALL SetAttr(Sim%config, "/timedisc/order", 5)
       CALL SetAttr(Sim%config, "/datafile/filename", (TRIM(ODIR) // TRIM(OFNAME) // "-cshka5") )
-    CASE(4) ! Dormand-Prince, Order 5
+    CASE(6) ! Dormand-Prince, Order 5
       CALL SetAttr(Sim%config, "/timedisc/method", DORMAND_PRINCE)
       CALL SetAttr(Sim%config, "/timedisc/order", 5)
       CALL SetAttr(Sim%config, "/datafile/filename", (TRIM(ODIR) // TRIM(OFNAME) // "-drmpr5") )
-    CASE(5) ! SSPRK, Order 5
+    CASE(7) ! SSPRK, Order 5
+      CALL SetAttr(Sim%config, "/timedisc/method", SSPRK)
+      CALL SetAttr(Sim%config, "/timedisc/order", 3)
+      CALL SetAttr(Sim%config, "/datafile/filename", (TRIM(ODIR) // TRIM(OFNAME) // "-ssprk3") )
+    CASE(8) ! SSPRK, Order 5
       CALL SetAttr(Sim%config, "/timedisc/method", SSPRK)
       CALL SetAttr(Sim%config, "/timedisc/order", 5)
       CALL SetAttr(Sim%config, "/datafile/filename", (TRIM(ODIR) // TRIM(OFNAME) // "-ssprk5") )
@@ -111,24 +121,30 @@ PROGRAM ode_test
 
     CALL Sim%Run()
 
-    CALL Sim%ComputeRunTime()
-    time(k) = Sim%run_time
-!     odename(ode) = Sim%Timedisc%GetName()
+    IF (.NOT. Sim%aborted) THEN
+      TAP_CHECK(.TRUE.,"Simulation finished")
+      CALL Sim%ComputeRunTime()
+      WRITE(testinfo(k),'(A,I3,A38,A,I2,A11,F5.2,A2)') "#", k, &
+        ". ODE solver: " // ADJUSTL(Sim%Timedisc%GetName()) // ", ", &
+        "order", Sim%Timedisc%GetOrder(), ", runtime: ", Sim%run_time, " s"
+    ELSE
+      WRITE(testinfo(k),'(A)') "#", k, ". ODE solver:  " // ADJUSTL(Sim%Timedisc%GetName()) // "FAILED"
+    END IF
 
-    TAP_CHECK(.TRUE.,"Simulation finished")
     IF(k.LT.NUM_TESTS) THEN
       CALL Sim%Finalize(.FALSE.)
       DEALLOCATE(Sim)
     END IF
   END DO
-!   CALL Sim%Info(repeat("*",64))
-!   DO i=1,NUM
-!     WRITE(buffer,'((a),(I2),(A),(F5.2))') "#", i, ". RUN, ODE solver:  " //TRIM(odename(i)) //", runtime: ", time(i)
-!     CALL Sim%Info(buffer)
-!   END DO
-!   CALL Sim%Info(repeat("*",64))
 
+  ! print test summary
   CALL Sim%Finalize()
+  CALL Sim%Info(REPEAT("*",67))
+  DO k=1,NUM_TESTS
+    CALL Sim%Info(testinfo(k))
+  END DO
+  CALL Sim%Info(REPEAT("*",67))
+
   DEALLOCATE(Sim)
 
   TAP_DONE
