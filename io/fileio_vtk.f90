@@ -3,7 +3,7 @@
 !# fosite - 3D hydrodynamical simulation program                             #
 !# module: fileio_vtk.f90                                                    #
 !#                                                                           #
-!# Copyright (C) 2010-2017                                                   #
+!# Copyright (C) 2010-2021                                                   #
 !# Björn Sperling   <sperling@astrophysik.uni-kiel.de>                       #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
 !# Jannes Klee      <jklee@astrophysik.uni-kiel.de>                          #
@@ -361,39 +361,13 @@ CONTAINS
     CLASS(fileio_vtk), INTENT(INOUT) :: this     !< \param [in,out] this fileio type
     INTEGER                          :: realsize !< \param [out] realsize size of real (byte)
     !------------------------------------------------------------------------!
-    CHARACTER(LEN=4)                 :: cTIPO4
-    CHARACTER(LEN=8)                 :: cTIPO8
-    CHARACTER(LEN=16)                :: cTIPO16
-    REAL                             :: rTIPO1, rTIPO2
-    INTEGER                          :: k,iTIPO
+    REAL                             :: real_number
     !------------------------------------------------------------------------!
     INTENT(OUT)                      :: realsize
     !------------------------------------------------------------------------!
-
-    !endianness
-    k = BIT_SIZE(iTIPO)/8
-    !HOW big is a REAL?
-    rTIPO1 = ACOS(0.0)
-    cTIPO4 = transfer(rTIPO1,cTIPO4)
-    rTIPO2 = transfer(cTIPO4,rTIPO2)
-    IF (rTIPO2 == rTIPO1) THEN
-       realsize = 4
-    ELSE
-       cTIPO8 = transfer(rTIPO1,cTIPO8)
-       rTIPO2 = transfer(cTIPO8,rTIPO2)
-       IF (rTIPO2 == rTIPO1) THEN
-          realsize = 8
-       ELSE
-          cTIPO16 = transfer(rTIPO1,cTIPO16)
-          rTIPO2 = transfer(cTIPO16,rTIPO2)
-          IF (rTIPO2 == rTIPO1) THEN
-             realsize = 16
-          ELSE
-             CALL this%Error("GetPrecision_vtk", "Could not estimate size of float type")
-          END IF
-       END IF
-    END IF
-
+    ! size of default real numbers in bytes
+    ! Fortran 2008 standard function!
+    realsize = STORAGE_SIZE(real_number)/8
   END SUBROUTINE GetPrecision
 
   !> \public Determines the endianness of the system
