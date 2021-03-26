@@ -147,12 +147,12 @@ MODULE mesh_base_mod
     TYPE(marray_cellvector) :: curv, &     !< curvilinear coordinates
                                cart        !< cartesian coordinates
     REAL, DIMENSION(:,:,:,:), POINTER :: &
-                         center, &       !< geometrical centers
-                         bcenter, &      !< bary centers
-                         bccart          !< cartesian bary centers
+                         center => null(),&!< geometrical centers
+                         bcenter=> null(),&!< bary centers
+                         bccart => null()  !< cartesian bary centers
     REAL, DIMENSION(:,:,:,:,:), POINTER :: &
-                         fccart, &       !< cartesian face centered positions
-                         ccart           !< cartesian corner positions
+                         fccart=> null(), &!< cartesian face centered positions
+                         ccart => null()   !< cartesian corner positions
     !> \name
     !! #### line, area and volume elements
     TYPE(marray_base) :: dlx,dly,dlz, &        !< cell centered line elements
@@ -173,9 +173,9 @@ MODULE mesh_base_mod
     !> \name
     !! #### other geometrial quantities
     REAL, DIMENSION(:,:), POINTER :: &
-                         rotation        !< rotation angle of local curvilinear orthonormal frames
+                         rotation => null()!< rotation angle of local curvilinear orthonormal frames
     REAL, DIMENSION(:,:,:,:,:,:), POINTER :: &
-                         weights         !< interpolation weights
+                         weights  => null()!<interpolation weights
 #ifdef PARALLEL
     !> \name Variables in Parallel Mode
     INTEGER                    :: MAXINUM,MAXJNUM,MAXKNUM !< max. of local INUM,JNUM
@@ -488,7 +488,7 @@ CONTAINS
     CALL InitMeshProperties(this%IGMIN,this%IGMAX,this%JGMIN,this%JGMAX,this%KGMIN,this%KGMAX)
 
     ! create selection for the internal region
-    this%without_ghost_zones = selection_base((/this%IMIN,this%IMAX,this%JMIN,this%JMAX,this%KMIN,this%KMAX/))
+!     this%without_ghost_zones = selection_base((/this%IMIN,this%IMAX,this%JMIN,this%JMAX,this%KMIN,this%KMAX/))
 
     ! coordinate differences in each direction
     this%dx = (this%xmax - this%xmin) / this%INUM
@@ -534,7 +534,7 @@ CONTAINS
     this%curv = marray_cellvector()
     this%center  => this%curv%RemapBounds(this%curv%center)
     this%bcenter => this%curv%RemapBounds(this%curv%bcenter)
-
+return
     ! create mesh arrays for scale factors
     this%hx = marray_cellscalar()
     this%hy = marray_cellscalar()
@@ -1511,33 +1511,33 @@ CONTAINS
 
 
     CALL this%curv%Destroy()
-    CALL this%hx%Destroy()
-    CALL this%hy%Destroy()
-    CALL this%hz%Destroy()
-    CALL this%sqrtg%Destroy()
-    CALL this%cxyx%Destroy()
-    CALL this%cxzx%Destroy()
-    CALL this%cyxy%Destroy()
-    CALL this%cyzy%Destroy()
-    CALL this%czxz%Destroy()
-    CALL this%czyz%Destroy()
-
-    CALL this%volume%Destroy()
-    CALL this%dxdydV%Destroy()
-    CALL this%dydzdV%Destroy()
-    CALL this%dzdxdV%Destroy()
-
-    CALL this%dlx%Destroy()
-    CALL this%dly%Destroy()
-    CALL this%dlz%Destroy()
-
-    CALL this%cart%Destroy()
-    CALL this%radius%Destroy()
-    CALL this%posvec%Destroy()
+!     CALL this%hx%Destroy()
+!     CALL this%hy%Destroy()
+!     CALL this%hz%Destroy()
+!     CALL this%sqrtg%Destroy()
+!     CALL this%cxyx%Destroy()
+!     CALL this%cxzx%Destroy()
+!     CALL this%cyxy%Destroy()
+!     CALL this%cyzy%Destroy()
+!     CALL this%czxz%Destroy()
+!     CALL this%czyz%Destroy()
+!
+!     CALL this%volume%Destroy()
+!     CALL this%dxdydV%Destroy()
+!     CALL this%dydzdV%Destroy()
+!     CALL this%dzdxdV%Destroy()
+!
+!     CALL this%dlx%Destroy()
+!     CALL this%dly%Destroy()
+!     CALL this%dlz%Destroy()
+!
+!     CALL this%cart%Destroy()
+!     CALL this%radius%Destroy()
+!     CALL this%posvec%Destroy()
 
     IF (ASSOCIATED(this%rotation)) DEALLOCATE(this%rotation)
 
-    CALL this%without_ghost_zones%Destroy()
+!     CALL this%without_ghost_zones%Destroy()
 
     CALL CloseMeshProperties
 

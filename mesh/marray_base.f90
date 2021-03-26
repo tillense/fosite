@@ -35,6 +35,7 @@
 !----------------------------------------------------------------------------!
 MODULE marray_base_mod
   IMPLICIT NONE
+#define DEBUG 2
   !--------------------------------------------------------------------------!
   PRIVATE
   !> \name Public Attributes
@@ -59,6 +60,7 @@ MODULE marray_base_mod
      PROCEDURE :: Everything
      PROCEDURE :: Destroy_selection
      GENERIC :: Destroy => Destroy_selection
+     FINAL   :: Destructor_selection
   END TYPE selection_base
   !> basic mesh array class
   TYPE :: marray_base
@@ -69,6 +71,7 @@ MODULE marray_base_mod
     REAL, POINTER, CONTIGUOUS :: data4d(:,:,:,:) => null()
     REAL, POINTER, CONTIGUOUS :: data5d(:,:,:,:,:) => null()
     CONTAINS
+    PROCEDURE :: Init
     PROCEDURE :: AssignPointers
     PROCEDURE :: RemapBounds_0
     PROCEDURE :: RemapBounds_1
@@ -82,6 +85,8 @@ MODULE marray_base_mod
     PROCEDURE :: AssignMArray_5
     GENERIC   :: ASSIGNMENT (=) => AssignMArray_0 , AssignMArray_1, AssignMArray_2, &
                                 AssignMArray_3 , AssignMArray_4, AssignMArray_5
+    PROCEDURE :: ShapesMatch
+    GENERIC   :: OPERATOR(.MATCH.) => ShapesMatch
     PROCEDURE :: AddMArray_0
     PROCEDURE :: AddMArray_1
     PROCEDURE :: AddMArray_2
@@ -99,6 +104,7 @@ MODULE marray_base_mod
     GENERIC   :: OPERATOR (*) => MultMArray_0, MultMArray_1, MultMArray_2, &
                                  MultMArray_3, MultMArray_4, MultMArray_5
     PROCEDURE :: Destroy
+    FINAL     :: Destructor
   END TYPE
   INTERFACE marray_base
     MODULE PROCEDURE CreateMArray
@@ -123,23 +129,85 @@ MODULE marray_base_mod
     !-------------------------------------------------------------------!
     INTEGER :: err
     !-------------------------------------------------------------------!
-    IF (IDX_INIT) THEN
-      IF (PRESENT(m)) THEN
-        new_ma%DIMS(1) = m
-        IF (PRESENT(n)) THEN
-          new_ma%DIMS(2) = n
-          new_ma%RANK = 2
-        ELSE
-          new_ma%DIMS(2) = 1
-          new_ma%RANK = 1
+    IF (new_ma%Init(m,n)) return ! immediately return if successful
+    ! something went wrong
+#ifdef DEBUG
+    PRINT *,"ERROR in marray_base::CreateMArray: marray initialization failed"
+    STOP 1
+#endif
+  END FUNCTION CreateMArray
+
+  !> basic initialization of mesh array class
+  FUNCTION Init(this,m,n) RESULT(success)
+    !-------------------------------------------------------------------!
+    CLASS(marray_base), INTENT(INOUT) :: this
+    INTEGER, OPTIONAL, INTENT(IN) :: m,n
+    !-------------------------------------------------------------------!
+    LOGICAL :: success
+    INTEGER :: err
+    !-------------------------------------------------------------------!
+#if DEBUG > 1
+    PRINT *,"DEBUG INFO in marray_base::Init: marray initialization"
+#endif
+    success = .FALSE.
+    IF (.NOT.IDX_INIT) return ! with success == .false.
+    ! check input parameter
+    ! ATTENTION: m=0 and n=0 is permitted to allow for creation of empty
+    ! mesh_arrays which is required, e.g., during initialization of compounds
+    IF (PRESENT(m)) THEN
+      IF (m.LT.0) THEN
+#ifdef DEBUG
+        PRINT *,"ERROR in marray_base::Init: 1st dimension of mesh array should be >= 0"
+#endif
+        return ! with success == .false.
+      END IF
+      this%DIMS(1) = m
+      IF (PRESENT(n)) THEN
+        IF (n.LT.0) THEN
+#ifdef DEBUG
+          PRINT *,"ERROR in marray_base::Init: 2nd dimension of mesh array should be >= 0"
+#endif
+          return ! with success == .false.
         END IF
+        this%DIMS(2) = n
+        this%RANK = 2
       ELSE
-        new_ma%DIMS(:) = 1
-        new_ma%RANK = 0
+        this%DIMS(2) = 1
+        this%RANK = 1
+      END IF
+    ELSE
+      this%DIMS(:) = 1
+      this%RANK = 0
+    END IF
+
+    IF (.NOT.ASSOCIATED(this%data1d)) THEN
+#if DEBUG > 1
+      PRINT '(A,I2,A,2(I4))',"  creating marray with rank ",this%RANK," and dimensions ",this%DIMS(1:2)
+#endif
+      ! allocate memory for data1d array
+      ALLOCATE(this%data1d(INUM*JNUM*KNUM*this%DIMS(1)*this%DIMS(2)),STAT=err)
+      IF (err.NE.0) THEN
+#ifdef DEBUG
+        PRINT *,"ERROR in marray_base::Init: memory allocation failed for data1d array"
+#endif
+        return ! with success == .false.
+      END IF
+    ELSE
+      IF (SIZE(this%data1d).NE.INUM*JNUM*KNUM*this%DIMS(1)*this%DIMS(2)) THEN
+#ifdef DEBUG
+        PRINT *,"ERROR in marray_base::Init: data1d array size mismatch"
+#endif
+        return ! with success == .false.
       END IF
     END IF
-  END FUNCTION CreateMArray
-  
+    ! assign the 2d,3d,... pointers
+    IF (SIZE(this%data1d).GT.0) THEN ! do not try pointer assignment with zero-size data1d array
+      IF (.NOT.this%AssignPointers()) return ! pointer assignment failed -> return immediately
+    END IF
+    ! report success
+    success=.TRUE.
+  END FUNCTION Init
+
   !> sets global mesh properties
   !!
   !! This subroutine should be called only once in MeshInit.
@@ -174,31 +242,40 @@ MODULE marray_base_mod
   END SUBROUTINE CloseMeshProperties
   
   !> \public assign pointers of different shapes to the 1D data
-  SUBROUTINE AssignPointers(this)
+  FUNCTION AssignPointers(this) RESULT(success)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(marray_base),INTENT(INOUT) :: this
+    LOGICAL :: success
     !------------------------------------------------------------------------!
-    IF (ASSOCIATED(this%data1d).AND.SIZE(this%data1d).GT.0) THEN
-      SELECT CASE(this%RANK)
-      CASE(0)
-        this%data2d(1:INUM*JNUM,KGMIN:KGMAX) => this%data1d
-        this%data3d(IGMIN:IGMAX,JGMIN:JGMAX,KGMIN:KGMAX) => this%data1d
-        this%data4d(IGMIN:IGMAX,JGMIN:JGMAX,KGMIN:KGMAX,1:1) => this%data1d
-        this%data5d(IGMIN:IGMAX,JGMIN:JGMAX,KGMIN:KGMAX,1:1,1:1) => this%data1d
-      CASE(1)
-        this%data2d(1:INUM*JNUM*KNUM,1:this%DIMS(1)) => this%data1d
-        this%data3d(1:INUM*JNUM,KGMIN:KGMAX,1:this%DIMS(1)) => this%data1d
-        this%data4d(IGMIN:IGMAX,JGMIN:JGMAX,KGMIN:KGMAX,1:this%DIMS(1)) => this%data1d
-        this%data5d(IGMIN:IGMAX,JGMIN:JGMAX,KGMIN:KGMAX,1:this%DIMS(1),1:1) => this%data1d
-      CASE(2)
-        this%data2d(1:INUM*JNUM*KNUM*this%DIMS(1),1:this%DIMS(2)) => this%data1d
-        this%data3d(1:INUM*JNUM*KNUM,1:this%DIMS(1),1:this%DIMS(2)) => this%data1d
-        this%data4d(1:INUM*JNUM,KGMIN:KGMAX,1:this%DIMS(1),1:this%DIMS(2)) => this%data1d
-        this%data5d(IGMIN:IGMAX,JGMIN:JGMAX,KGMIN:KGMAX,1:this%DIMS(1),1:this%DIMS(2)) => this%data1d
-      END SELECT
-    END IF
-  END SUBROUTINE AssignPointers
+#if DEBUG > 1
+    PRINT *,"DEBUG INFO in marray_base::AssignPointers: assign 2d,3d,... pointers"
+#endif
+    success=.FALSE.
+    IF (.NOT.ASSOCIATED(this%data1d).OR.SIZE(this%data1d).EQ.0) return
+    ! assign pointers depending on rank
+    SELECT CASE(this%RANK)
+    CASE(0)
+      this%data2d(1:INUM*JNUM,KGMIN:KGMAX) => this%data1d
+      this%data3d(IGMIN:IGMAX,JGMIN:JGMAX,KGMIN:KGMAX) => this%data1d
+      this%data4d(IGMIN:IGMAX,JGMIN:JGMAX,KGMIN:KGMAX,1:1) => this%data1d
+      this%data5d(IGMIN:IGMAX,JGMIN:JGMAX,KGMIN:KGMAX,1:1,1:1) => this%data1d
+    CASE(1)
+      this%data2d(1:INUM*JNUM*KNUM,1:this%DIMS(1)) => this%data1d
+      this%data3d(1:INUM*JNUM,KGMIN:KGMAX,1:this%DIMS(1)) => this%data1d
+      this%data4d(IGMIN:IGMAX,JGMIN:JGMAX,KGMIN:KGMAX,1:this%DIMS(1)) => this%data1d
+      this%data5d(IGMIN:IGMAX,JGMIN:JGMAX,KGMIN:KGMAX,1:this%DIMS(1),1:1) => this%data1d
+    CASE(2)
+      this%data2d(1:INUM*JNUM*KNUM*this%DIMS(1),1:this%DIMS(2)) => this%data1d
+      this%data3d(1:INUM*JNUM*KNUM,1:this%DIMS(1),1:this%DIMS(2)) => this%data1d
+      this%data4d(1:INUM*JNUM,KGMIN:KGMAX,1:this%DIMS(1),1:this%DIMS(2)) => this%data1d
+      this%data5d(IGMIN:IGMAX,JGMIN:JGMAX,KGMIN:KGMAX,1:this%DIMS(1),1:this%DIMS(2)) => this%data1d
+    CASE DEFAULT
+      return ! wrong rank
+    END SELECT
+    ! report success
+    success=.TRUE.
+  END FUNCTION AssignPointers
 
   !> \public remap lower bounds in the first 3 dimensions of rank 0 mesh arrays
   !!
@@ -256,58 +333,67 @@ MODULE marray_base_mod
     CLASS(marray_base),INTENT(INOUT) :: this
     CLASS(marray_base),INTENT(IN)    :: ma
     !------------------------------------------------------------------------!
-    INTEGER :: err
+    LOGICAL :: success = .FALSE.
     !------------------------------------------------------------------------!
-    IF (ASSOCIATED(ma%data1d)) THEN
-      ! copy meta data
-      this%RANK    = ma%RANK
-      this%DIMS(:) = ma%DIMS(:)
-      IF (ASSOCIATED(this%data1d)) THEN
-        IF (SIZE(this%data1d).EQ.0) THEN
-          ! this%data1d allocated with size zero
-          DEALLOCATE(this%data1d)
-          ! allocate and assign data
-          ALLOCATE(this%data1d(SIZE(ma%data1d,1)),SOURCE=ma%data1d,STAT=err)
-          IF (err.NE.0) THEN
-            PRINT *,"ERROR in marray_base::AssignMArray_0: memory allocation failed"
-            STOP 1
-          END IF
-        ELSE IF (SIZE(this%data1d).EQ.SIZE(ma%data1d)) THEN
-          ! just copy the data
-          this%data1d(:) = ma%data1d(:)
-        ELSE
-          !> \todo improve error handling for mesh arrays
-          PRINT *,"ERROR in marray_base::AssignMArray_0: size of input and output do not match"
-          STOP 1
-        END IF
-      ELSE
-        ! allocate and copy data
-        ALLOCATE(this%data1d(SIZE(ma%data1d,1)),SOURCE=ma%data1d,STAT=err)
-        IF (err.NE.0) THEN
-          PRINT *,"ERROR in marray_base::AssignMArray_0: memory allocation failed"
-          STOP 1
-        END IF
-      END IF
-      CALL this%AssignPointers()
-    ELSE IF ((.NOT.ASSOCIATED(ma%data1d)).AND.(ma%RANK.GE.0)) THEN
-      this%RANK    = ma%RANK
-      this%DIMS(:) = ma%DIMS(:)
-      ! just allocate data of newly created marray without copying
-      ALLOCATE(this%data1d(INUM*JNUM*KNUM*this%DIMS(1)*this%DIMS(2)),STAT=err)
-      IF (err.NE.0) THEN
-        PRINT *,"ERROR in marray_base::AssignMArray_0: memory allocation failed"
-        STOP 1
-      END IF
-      CALL this%AssignPointers()
-    ELSE IF (ASSOCIATED(this%data1d)) THEN
-      ! both of same type ma%data1d not associated, but this%data1d associated
-      PRINT *,"ERROR in marray_base::AssignMArray_0: ma%data1d not associated but this%data1d is"
-      STOP 1
-    ELSE
-      ! both of same type, but none of the data1d arrays allocated
-      PRINT *,"ERROR in marray_base::AssignMArray_0: ma%data1d and this%data1d not associated"
-      STOP 1
+#if DEBUG > 1
+    PRINT *,"DEBUG INFO in marray_base::AssignMArray_0: marray assignment"
+#endif
+    IF (.NOT.ASSOCIATED(ma%data1d).OR.ma%rank.LT.0) THEN
+#ifdef DEBUG
+      PRINT *,"ERROR in marray_base::AssignMArray_0: rhs of assignment not initialized"
+#endif
+      return
     END IF
+
+    IF (.NOT.ASSOCIATED(this%data1d)) THEN
+      ! lhs of assignment uninitialized -> initialize new mesh array
+      ! ATTENTION: finalization of derived types works different for
+      !   GNU Fortran, hence to prevent memory leaks, one has to point
+      !   the data1d array of the lhs (this%data1d) to the already associated
+      !   data1d array of the rhs (ma%data1d).
+      !   Other compilers, e.g., ifort (intel) & nfort (NEC) require generation
+      !   of a new marray with data1d array which is destroyed on exit.
+#ifdef __GFORTRAN__
+      this%RANK = ma%RANK
+      this%DIMS(:) = ma%DIMS(:)
+      this%data1d => ma%data1d
+      IF (this%AssignPointers()) return ! pointer assignment ok -> return immediately
+#else
+      SELECT CASE(ma%RANK)
+      CASE(0)
+        success = this%Init()
+      CASE(1)
+        success = this%Init(m=ma%DIMS(1))
+      CASE(2)
+        success = this%Init(m=ma%DIMS(1),n=ma%DIMS(2))
+      CASE DEFAULT
+#ifdef DEBUG
+        PRINT *,"ERROR in marray_base::AssignMArray_0: rank > 2 currently not supported"
+#endif
+        return
+      END SELECT
+#endif
+    END IF
+
+    IF (.NOT.(this.MATCH.ma)) THEN
+#ifdef DEBUG
+      PRINT *,"ERROR in marray_base::AssignMArray_0: shape mismatch"
+#endif
+      return
+    END IF
+    IF (SIZE(this%data1d).NE.SIZE(ma%data1d)) THEN
+#ifdef DEBUG
+      PRINT *,"ERROR in marray_base::AssignMArray_0: size mismatch of data1d array"
+#endif
+      return
+    END IF
+    ! copy data
+    this%data1d(:) = ma%data1d(:)
+    IF (this%AssignPointers()) return ! pointer assignment ok -> return immediately
+    ! something bad happend
+#ifdef DEBUG
+      PRINT *,"ERROR in marray_base::AssignMArray_0: final pointer reassignment failed for lhs"
+#endif
   END SUBROUTINE AssignMArray_0
   
   !> assign 1D fortran array to mesh array
@@ -362,6 +448,20 @@ MODULE marray_base_mod
     !------------------------------------------------------------------------!
     this%data5d(:,:,:,:,:) = a(:,:,:,:,:)
   END SUBROUTINE AssignMArray_5
+
+  PURE FUNCTION ShapesMatch(this,ma) RESULT(res)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(marray_base),INTENT(IN) :: this, ma
+    !------------------------------------------------------------------------!
+    LOGICAL                       :: res
+    !------------------------------------------------------------------------!
+    res = .FALSE.
+    IF (this%rank.NE.ma%rank) return
+    IF (SIZE(this%dims).NE.SIZE(ma%dims)) return
+    IF (.NOT.ALL(this%dims(:).EQ.ma%dims(:))) return
+    res = .TRUE.
+  END FUNCTION ShapesMatch
 
   !> add 2 mesh arrays
   PURE FUNCTION AddMArray_0(a,b) RESULT(c)
@@ -503,17 +603,30 @@ MODULE marray_base_mod
     c(:,:,:,:,:) = a%data5d(:,:,:,:,:) * b(:,:,:,:,:)
   END FUNCTION MultMArray_5
 
-  !> deconstructor of the mesh array
+  !> polymorphic destructor of all mesh_array classes
   SUBROUTINE Destroy(this)
     IMPLICIT NONE
     !-------------------------------------------------------------------!
     CLASS(marray_base) :: this
     !-------------------------------------------------------------------!
+#if DEBUG > 1
+    PRINT *,"DEBUG INFO in marray_base::Destroy: deallocating data1d"
+#endif
     IF (ASSOCIATED(this%data1d)) DEALLOCATE(this%data1d)
-    NULLIFY(this%data1d,this%data2d,this%data3d,this%data4d,this%data5d)
-    this%RANK = 0
-    this%DIMS = 0
+    NULLIFY(this%data1d,this%data2d,this%data3d,this%data4d)
+    this%rank    =-1
+    this%dims(:) = 0
   END SUBROUTINE Destroy
+
+  !> actual destructor of mesh_array - this is called automatically if
+  !! deallocate is invoked
+  SUBROUTINE Destructor(this)
+    IMPLICIT NONE
+    !-------------------------------------------------------------------!
+    TYPE(marray_base) :: this
+    !-------------------------------------------------------------------!
+    CALL this%Destroy()
+  END SUBROUTINE Destructor
 
   FUNCTION CreateSelection(idx) RESULT(new_sel)
     IMPLICIT NONE
@@ -584,7 +697,7 @@ MODULE marray_base_mod
     this%mask1d(:) = .TRUE.
   END SUBROUTINE Everything
 
-  !> deconstructor of the mesh array
+  !> destructor of all selection classes
   SUBROUTINE Destroy_selection(this)
     IMPLICIT NONE
     !-------------------------------------------------------------------!
@@ -593,5 +706,14 @@ MODULE marray_base_mod
     IF (ASSOCIATED(this%mask3d)) DEALLOCATE(this%mask3d)
     NULLIFY(this%mask1d,this%mask2d)
   END SUBROUTINE Destroy_selection
+
+  !> actual destructor of selection_base
+  SUBROUTINE Destructor_selection(this)
+    IMPLICIT NONE
+    !-------------------------------------------------------------------!
+    TYPE(selection_base) :: this
+    !-------------------------------------------------------------------!
+    CALL this%Destroy_selection()
+  END SUBROUTINE Destructor_selection
 
 END MODULE marray_base_mod

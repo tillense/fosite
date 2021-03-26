@@ -3,7 +3,7 @@
 !# fosite - 3D hydrodynamical simulation program                             #
 !# module: marray_cellvector.f90                                             #
 !#                                                                           #
-!# Copyright (C) 2018                                                        #
+!# Copyright (C) 2018,2021                                                   #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
 !#                                                                           #
 !# This program is free software; you can redistribute it and/or modify      #
@@ -33,6 +33,7 @@
 MODULE marray_cellvector_mod
   USE marray_base_mod
   IMPLICIT NONE
+#define DEBUG 2
   !--------------------------------------------------------------------------!
   PRIVATE
   !> data types and methods
@@ -44,6 +45,8 @@ MODULE marray_cellvector_mod
                                          corners         !< cell corners
     CONTAINS
     PROCEDURE :: AssignPointers
+    PROCEDURE :: Destroy
+    FINAL     :: Destructor
   END TYPE
   INTERFACE marray_cellvector
     MODULE PROCEDURE CreateMArray_cellvector
@@ -58,23 +61,58 @@ CONTAINS
     !-------------------------------------------------------------------!
     TYPE(marray_cellvector) :: new_cv
     !-------------------------------------------------------------------!
-    ! only set rank & dims - allocation is done, when cellvector is assigned (with =)
-    new_cv%DIMS(1) = 1+1+6+8
-    new_cv%DIMS(2) = 3
-    new_cv%RANK = 2
+#if DEBUG > 1
+    PRINT *,"DEBUG INFO in marray_cellvector::CreateMArray_cellvector: new cellvector"
+#endif
+    ! 1 center + 1 bcenter + 6 faces + 8 corners = 16
+    IF (new_cv%Init(16,3)) return ! immediately return if successful
+#ifdef DEBUG
+    PRINT *,"ERROR in marray_cellvector::CreateMArray: cellvector initialization failed"
+    STOP 1
+#endif
   END FUNCTION CreateMArray_cellvector
   
-  SUBROUTINE AssignPointers(this)
+  FUNCTION AssignPointers(this) RESULT(success)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(marray_cellvector),INTENT(INOUT) :: this
+    LOGICAL :: success
     !------------------------------------------------------------------------!
-    CALL this%marray_base%AssignPointers()
+#if DEBUG > 1
+    PRINT *,"DEBUG INFO in marray_cellvector::AssignPointers: assigning pointers"
+#endif
+    success = this%marray_base%AssignPointers()
     ! assign array pointers
-    this%center  => this%RemapBounds(this%data5d(:,:,:,1,:))
-    this%bcenter => this%RemapBounds(this%data5d(:,:,:,2,:))
-    this%faces   => this%RemapBounds(this%data5d(:,:,:,3:8,:))
-    this%corners => this%RemapBounds(this%data5d(:,:,:,9:16,:))    
-  END SUBROUTINE AssignPointers
-  
+    IF (success) THEN
+      this%center  => this%RemapBounds(this%data5d(:,:,:,1,:))
+      this%bcenter => this%RemapBounds(this%data5d(:,:,:,2,:))
+      this%faces   => this%RemapBounds(this%data5d(:,:,:,3:8,:))
+      this%corners => this%RemapBounds(this%data5d(:,:,:,9:16,:))
+#ifdef DEBUG
+    ELSE
+      PRINT *,"ERROR in marray_cellvector::AssignPointers: pointer assignment failed"
+#endif
+    END IF
+  END FUNCTION AssignPointers
+
+  !> polymorphic destructor of all mesh_cellvector classes
+  SUBROUTINE Destroy(this)
+    IMPLICIT NONE
+    !-------------------------------------------------------------------!
+    CLASS(marray_cellvector) :: this
+    !-------------------------------------------------------------------!
+    CALL this%marray_base%Destroy() ! call inherited destructor
+    NULLIFY(this%center,this%bcenter,this%faces,this%corners)
+  END SUBROUTINE Destroy
+
+  !> actual destructor of mesh_cellvector - this is called automatically if
+  !! deallocate is invoked
+  SUBROUTINE Destructor(this)
+    IMPLICIT NONE
+    !-------------------------------------------------------------------!
+    TYPE(marray_cellvector) :: this
+    !-------------------------------------------------------------------!
+    CALL this%Destroy() ! call inherited marray destructor
+  END SUBROUTINE Destructor
+
 END MODULE marray_cellvector_mod

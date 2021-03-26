@@ -33,6 +33,7 @@
 MODULE marray_cellscalar_mod
   USE marray_base_mod
   IMPLICIT NONE
+#define DEBUG 1
   !--------------------------------------------------------------------------!
   PRIVATE
   !> data types and methods
@@ -44,6 +45,8 @@ MODULE marray_cellscalar_mod
                                          corners         !< cell corners
     CONTAINS
     PROCEDURE :: AssignPointers
+    PROCEDURE :: Destroy
+    FINAL     :: Destructor
   END TYPE
   INTERFACE marray_cellscalar
     MODULE PROCEDURE CreateMArray_cellscalar
@@ -58,23 +61,58 @@ CONTAINS
     !-------------------------------------------------------------------!
     TYPE(marray_cellscalar) :: new_cs
     !-------------------------------------------------------------------!
-    ! only set rank & dims - allocation is done, when cellvector is assigned (with =)
-    new_cs%DIMS(1) = 1+1+6+8
-    new_cs%DIMS(2) = 1
-    new_cs%RANK = 1
+#if DEBUG > 1
+    PRINT *,"DEBUG INFO in marray_cellscalar::CreateMArray_cellscalar: creating new cellscalar"
+#endif
+    ! 1 center + 1 bcenter + 6 faces + 8 corners = 16
+    IF (new_cs%Init(16)) return ! immediately return if successful
+#ifdef DEBUG
+    PRINT *,"ERROR in marray_cellscalar::CreateMArray: cellscalar initialization failed"
+    STOP 1
+#endif
   END FUNCTION CreateMArray_cellscalar
   
-  SUBROUTINE AssignPointers(this)
+  FUNCTION AssignPointers(this) RESULT(success)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(marray_cellscalar),INTENT(INOUT) :: this
+    LOGICAL :: success
     !------------------------------------------------------------------------!
-    CALL this%marray_base%AssignPointers()
-    ! assign array pointers
-    this%center  => this%RemapBounds(this%data4d(:,:,:,1))
-    this%bcenter => this%RemapBounds(this%data4d(:,:,:,2))
-    this%faces   => this%RemapBounds(this%data4d(:,:,:,3:8))
-    this%corners => this%RemapBounds(this%data4d(:,:,:,9:16))    
-  END SUBROUTINE AssignPointers
-  
+#if DEBUG > 1
+    PRINT *,"DEBUG INFO in marray_cellscalar::AssignPointers: assigning pointers"
+#endif
+    success = this%marray_base%AssignPointers()
+    IF (success) THEN
+      ! assign array pointers
+      this%center  => this%RemapBounds(this%data4d(:,:,:,1))
+      this%bcenter => this%RemapBounds(this%data4d(:,:,:,2))
+      this%faces   => this%RemapBounds(this%data4d(:,:,:,3:8))
+      this%corners => this%RemapBounds(this%data4d(:,:,:,9:16))
+#ifdef DEBUG
+    ELSE
+      PRINT *,"ERROR in marray_cellscalar::AssignPointers: pointer assignment failed"
+#endif
+    END IF
+  END FUNCTION AssignPointers
+
+  !> polymorphic destructor of all mesh_cellscalar classes
+  SUBROUTINE Destroy(this)
+    IMPLICIT NONE
+    !-------------------------------------------------------------------!
+    CLASS(marray_cellscalar) :: this
+    !-------------------------------------------------------------------!
+    CALL this%marray_base%Destroy() ! call inherited destructor
+    NULLIFY(this%center,this%bcenter,this%faces,this%corners)
+  END SUBROUTINE Destroy
+
+  !> actual destructor of mesh_cellscalar - this is called automatically if
+  !! deallocate is invoked
+  SUBROUTINE Destructor(this)
+    IMPLICIT NONE
+    !-------------------------------------------------------------------!
+    TYPE(marray_cellscalar) :: this
+    !-------------------------------------------------------------------!
+    CALL this%Destroy()
+  END SUBROUTINE Destructor
+
 END MODULE marray_cellscalar_mod
