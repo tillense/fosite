@@ -81,7 +81,6 @@ CONTAINS
 
     ! basic mesh and geometry initialization
     CALL this%InitMesh(config, IO, MIDPOINT, mesh_name)
-return
     ! allocate memory for pointers that are specific for midpoint fluxes
     ALLOCATE( &
            this%dAx(this%IGMIN:this%IGMAX,this%JGMIN:this%JGMAX,this%KGMIN:this%KGMAX,2), &
@@ -635,7 +634,7 @@ return
     !------------------------------------------------------------------------!
     CLASS(mesh_midpoint),INTENT(INOUT) :: this
     !------------------------------------------------------------------------!
-!     DEALLOCATE(this%dAx,this%dAy,this%dAz,this%dAxdydz,this%dAydzdx,this%dAzdxdy)
+    DEALLOCATE(this%dAx,this%dAy,this%dAz,this%dAxdydz,this%dAydzdx,this%dAzdxdy)
     CALL this%Finalize_base()
   END SUBROUTINE Finalize
 

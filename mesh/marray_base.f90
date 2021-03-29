@@ -35,7 +35,6 @@
 !----------------------------------------------------------------------------!
 MODULE marray_base_mod
   IMPLICIT NONE
-#define DEBUG 2
   !--------------------------------------------------------------------------!
   PRIVATE
   !> \name Public Attributes
@@ -51,14 +50,17 @@ MODULE marray_base_mod
      INTEGER           :: imin,imax                  !< selection in x-direction
      INTEGER           :: jmin,jmax                  !< selection in y-direction
      INTEGER           :: kmin,kmax                  !< selection in z-direction
-     LOGICAL, POINTER  :: mask1d(:)                  !< 1d selection mask
-     LOGICAL, POINTER  :: mask2d(:,:)                !< 2d selection mask
-     LOGICAL, POINTER, CONTIGUOUS :: mask3d(:,:,:)   !< 3d selection mask
+     LOGICAL, POINTER, CONTIGUOUS :: mask1d(:), &    !< 1d selection mask
+                                     mask2d(:,:), &  !< 2d selection mask
+                                     mask3d(:,:,:)   !< 3d selection mask
   CONTAINS
      !> \name Methods
+     PROCEDURE :: Init => Init_selection
+     PROCEDURE :: AssignSelection
      PROCEDURE :: Cuboid
      PROCEDURE :: Everything
      PROCEDURE :: Destroy_selection
+     GENERIC :: ASSIGNMENT (=) => AssignSelection
      GENERIC :: Destroy => Destroy_selection
      FINAL   :: Destructor_selection
   END TYPE selection_base
@@ -131,7 +133,7 @@ MODULE marray_base_mod
     !-------------------------------------------------------------------!
     IF (new_ma%Init(m,n)) return ! immediately return if successful
     ! something went wrong
-#ifdef DEBUG
+#ifdef DEBUG > 0
     PRINT *,"ERROR in marray_base::CreateMArray: marray initialization failed"
     STOP 1
 #endif
@@ -146,7 +148,7 @@ MODULE marray_base_mod
     LOGICAL :: success
     INTEGER :: err
     !-------------------------------------------------------------------!
-#if DEBUG > 1
+#if DEBUG > 2
     PRINT *,"DEBUG INFO in marray_base::Init: marray initialization"
 #endif
     success = .FALSE.
@@ -181,7 +183,7 @@ MODULE marray_base_mod
     END IF
 
     IF (.NOT.ASSOCIATED(this%data1d)) THEN
-#if DEBUG > 1
+#if DEBUG > 2
       PRINT '(A,I2,A,2(I4))',"  creating marray with rank ",this%RANK," and dimensions ",this%DIMS(1:2)
 #endif
       ! allocate memory for data1d array
@@ -248,7 +250,7 @@ MODULE marray_base_mod
     CLASS(marray_base),INTENT(INOUT) :: this
     LOGICAL :: success
     !------------------------------------------------------------------------!
-#if DEBUG > 1
+#if DEBUG > 2
     PRINT *,"DEBUG INFO in marray_base::AssignPointers: assign 2d,3d,... pointers"
 #endif
     success=.FALSE.
@@ -327,6 +329,9 @@ MODULE marray_base_mod
   END FUNCTION RemapBounds_2
 
   !> assigns one mesh array to another mesh array
+#ifndef DEBUG
+  PURE &
+#endif
   SUBROUTINE AssignMArray_0(this,ma)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
@@ -335,7 +340,7 @@ MODULE marray_base_mod
     !------------------------------------------------------------------------!
     LOGICAL :: success = .FALSE.
     !------------------------------------------------------------------------!
-#if DEBUG > 1
+#if DEBUG > 2
     PRINT *,"DEBUG INFO in marray_base::AssignMArray_0: marray assignment"
 #endif
     IF (.NOT.ASSOCIATED(ma%data1d).OR.ma%rank.LT.0) THEN
@@ -372,6 +377,12 @@ MODULE marray_base_mod
 #endif
         return
       END SELECT
+      IF (.NOT.success) THEN
+#ifdef DEBUG
+        PRINT *,"ERROR in marray_base::AssignMArray_0: marray initialization failed"
+#endif
+        return
+      END IF
 #endif
     END IF
 
@@ -397,49 +408,76 @@ MODULE marray_base_mod
   END SUBROUTINE AssignMArray_0
   
   !> assign 1D fortran array to mesh array
-  PURE SUBROUTINE AssignMArray_1(this,a)
+#ifndef DEBUG
+  PURE &
+#endif
+  SUBROUTINE AssignMArray_1(this,a)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(marray_base),INTENT(INOUT) :: this
     REAL, DIMENSION(INUM*JNUM*KNUM*this%DIMS(1)*this%DIMS(2)), INTENT(IN) :: a
     !------------------------------------------------------------------------!
+#if DEBUG > 2
+    PRINT *,"DEBUG INFO in marray_base::AssignMArray_1: assigning 1D Fortran array"
+#endif
     this%data1d(:) = a(:)
   END SUBROUTINE AssignMArray_1
 
   !> assign 2D fortran array to mesh array
-  PURE SUBROUTINE AssignMArray_2(this,a)
+#ifndef DEBUG
+  PURE &
+#endif
+  SUBROUTINE AssignMArray_2(this,a)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(marray_base),INTENT(INOUT) :: this
     REAL, DIMENSION(SIZE(this%data2d,1),SIZE(this%data2d,2)), INTENT(IN) :: a
     !------------------------------------------------------------------------!
+#if DEBUG > 2
+    PRINT *,"DEBUG INFO in marray_base::AssignMArray_2: assigning 2D Fortran array"
+#endif
     this%data2d(:,:) = a(:,:)
   END SUBROUTINE AssignMArray_2
 
   !> assign 3D fortran array to mesh array
-  PURE SUBROUTINE AssignMArray_3(this,a)
+#ifndef DEBUG
+  PURE &
+#endif
+  SUBROUTINE AssignMArray_3(this,a)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(marray_base),INTENT(INOUT) :: this
     REAL, DIMENSION(SIZE(this%data3d,1),SIZE(this%data3d,2),SIZE(this%data3d,3)), &
                           INTENT(IN) :: a
     !------------------------------------------------------------------------!
+#if DEBUG > 2
+    PRINT *,"DEBUG INFO in marray_base::AssignMArray_3: assigning 3D Fortran array"
+#endif
     this%data3d(:,:,:) = a(:,:,:)
   END SUBROUTINE AssignMArray_3
 
   !> assign 4D fortran array to mesh array
-  PURE SUBROUTINE AssignMArray_4(this,a)
+#ifndef DEBUG
+  PURE &
+#endif
+  SUBROUTINE AssignMArray_4(this,a)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(marray_base),INTENT(INOUT) :: this
     REAL, DIMENSION(SIZE(this%data4d,1),SIZE(this%data4d,2),SIZE(this%data4d,3), &
                 SIZE(this%data4d,4)), INTENT(IN) :: a
     !------------------------------------------------------------------------!
+#if DEBUG > 2
+    PRINT *,"DEBUG INFO in marray_base::AssignMArray_1: assigning 4D Fortran array"
+#endif
     this%data4d(:,:,:,:) = a(:,:,:,:)
   END SUBROUTINE AssignMArray_4
 
   !> assign 5D fortran array to mesh array
-  PURE SUBROUTINE AssignMArray_5(this,a)
+#ifndef DEBUG
+  PURE &
+#endif
+  SUBROUTINE AssignMArray_5(this,a)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(marray_base),INTENT(INOUT) :: this
@@ -534,29 +572,48 @@ MODULE marray_base_mod
   END FUNCTION AddMArray_5
 
   !> multiply 2 mesh arrays
-  PURE FUNCTION MultMArray_0(a,b) RESULT(c)
+#ifndef DEBUG
+  PURE &
+#endif
+  FUNCTION MultMArray_0(a,b) RESULT(c)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(marray_base),INTENT(IN) :: a,b
     REAL, DIMENSION(SIZE(a%data1d)) :: c
     !------------------------------------------------------------------------!
-    IF (SIZE(a%data1d).EQ.SIZE(b%data1d)) &
-        c(:) = a%data1d(:) * b%data1d(:)
+#if DEBUG > 2
+    PRINT *,"DEBUG INFO in marray_base::MultMArray_0: multiply 2 marrays"
+#endif
+#ifdef DEBUG
+    IF (.NOT.(a.MATCH.b)) THEN
+      PRINT *,"ERROR in marray_base::MultMArray_0: shape mismatch"
+    END IF
+#endif
+    c(:) = a%data1d(:) * b%data1d(:)
   END FUNCTION MultMArray_0
 
   !> multiply 1D fortran array and mesh arrays
-  PURE FUNCTION MultMArray_1(a,b) RESULT(c)
+#ifndef DEBUG
+  PURE &
+#endif
+  FUNCTION MultMArray_1(a,b) RESULT(c)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(marray_base),INTENT(IN) :: a
     REAL, DIMENSION(SIZE(a%data1d)),INTENT(IN) :: b
     REAL, DIMENSION(SIZE(a%data1d)) :: c
     !------------------------------------------------------------------------!
+#if DEBUG > 2
+    PRINT *,"DEBUG INFO in marray_base::MultMArray_0: multiply marray with 1d Fortran array"
+#endif
     c(:) = a%data1d(:) * b(:)
   END FUNCTION MultMArray_1
 
   !> multiply 2D fortran array and mesh arrays
-  PURE FUNCTION MultMArray_2(a,b) RESULT(c)
+#ifndef DEBUG
+  PURE &
+#endif
+  FUNCTION MultMArray_2(a,b) RESULT(c)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(marray_base),INTENT(IN) :: a
@@ -567,7 +624,10 @@ MODULE marray_base_mod
   END FUNCTION MultMArray_2
 
   !> multiply 3D fortran array and mesh arrays
-  PURE FUNCTION MultMArray_3(a,b) RESULT(c)
+#ifndef DEBUG
+  PURE &
+#endif
+  FUNCTION MultMArray_3(a,b) RESULT(c)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(marray_base),INTENT(IN) :: a
@@ -578,7 +638,10 @@ MODULE marray_base_mod
   END FUNCTION MultMArray_3
 
   !> multiply 4D fortran array and mesh arrays
-  PURE FUNCTION MultMArray_4(a,b) RESULT(c)
+#ifndef DEBUG
+  PURE &
+#endif
+  FUNCTION MultMArray_4(a,b) RESULT(c)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(marray_base),INTENT(IN) :: a
@@ -591,7 +654,10 @@ MODULE marray_base_mod
   END FUNCTION MultMArray_4
 
   !> multiply 5D fortran array and mesh arrays
-  PURE FUNCTION MultMArray_5(a,b) RESULT(c)
+#ifndef DEBUG
+  PURE &
+#endif
+  FUNCTION MultMArray_5(a,b) RESULT(c)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(marray_base),INTENT(IN) :: a
@@ -609,7 +675,7 @@ MODULE marray_base_mod
     !-------------------------------------------------------------------!
     CLASS(marray_base) :: this
     !-------------------------------------------------------------------!
-#if DEBUG > 1
+#if DEBUG > 2
     PRINT *,"DEBUG INFO in marray_base::Destroy: deallocating data1d"
 #endif
     IF (ASSOCIATED(this%data1d)) DEALLOCATE(this%data1d)
@@ -636,23 +702,112 @@ MODULE marray_base_mod
     !-------------------------------------------------------------------!
     INTEGER :: err
     !-------------------------------------------------------------------!
-    IF (IDX_INIT) THEN
-      ! allocate 1D mask array
-      ALLOCATE(new_sel%mask3d(IGMIN:IGMAX,JGMIN:JGMAX,KGMIN:KGMAX),STAT=err)
-      IF (err.NE.0) THEN
-        PRINT *,"ERROR in marray_base::CreateSelection: memory allocation failed"
-        STOP 1
-      END IF
-      ! create 2D & 3D pointers into the 1D mask array
-      new_sel%mask1d(1:INUM*JNUM*KNUM) => new_sel%mask3d
-      new_sel%mask2d(1:INUM*JNUM,KGMIN:KGMAX) => new_sel%mask3d
-      IF (PRESENT(idx)) THEN
-        CALL new_sel%Cuboid(idx(1),idx(2),idx(3),idx(4),idx(5),idx(6))
-      ELSE
-        CALL new_sel%Everything()
-      END IF
-    END IF
+    IF (new_sel%Init(idx)) return ! immediately return if successful
+#ifdef DEBUG
+    PRINT *,"ERROR in selection_base::CreateSelection: initialization failed"
+    STOP 1
+#endif
   END FUNCTION CreateSelection
+
+  !> basic initialization of selection
+  FUNCTION Init_selection(this,idx) RESULT(success)
+    !-------------------------------------------------------------------!
+    CLASS(selection_base), INTENT(INOUT) :: this
+    INTEGER, OPTIONAL    :: idx(6)
+    !-------------------------------------------------------------------!
+    LOGICAL :: success
+    INTEGER :: err
+    !-------------------------------------------------------------------!
+#if DEBUG > 2
+    PRINT *,"DEBUG INFO in marray_base::Init_selection: selection initialization"
+#endif
+    success = .FALSE.
+    IF (.NOT.IDX_INIT) return ! with success == .false.
+    ! allocate 1D mask array
+    ALLOCATE(this%mask1d(1:INUM*JNUM*KNUM),STAT=err)
+    IF (err.NE.0) THEN
+#ifdef DEBUG
+      PRINT *,"ERROR in marray_base::Init_selection: memory allocation failed"
+#endif
+      return ! with success == .false.
+    END IF
+    ! set 2D & 3D pointers
+    this%mask2d(1:INUM*JNUM,KGMIN:KGMAX) => this%mask1d
+    this%mask3d(IGMIN:IGMAX,JGMIN:JGMAX,KGMIN:KGMAX) => this%mask1d
+    IF (PRESENT(idx)) THEN
+      CALL this%Cuboid(idx(1),idx(2),idx(3),idx(4),idx(5),idx(6))
+    ELSE
+      CALL this%Everything()
+    END IF
+    ! report success
+    success=.TRUE.
+  END FUNCTION Init_selection
+
+  !> assigns one selection to another selection
+  SUBROUTINE AssignSelection(this,sel)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(selection_base),INTENT(INOUT) :: this
+    CLASS(selection_base),INTENT(IN)    :: sel
+    !------------------------------------------------------------------------!
+    LOGICAL :: success = .FALSE.
+    !------------------------------------------------------------------------!
+#if DEBUG > 2
+    PRINT *,"DEBUG INFO in marray_base::AssignSelection: selection assignment"
+#endif
+    IF (.NOT.ASSOCIATED(sel%mask1d)) THEN
+#ifdef DEBUG
+      PRINT *,"ERROR in marray_base::AssignSelection: rhs of assignment not initialized"
+#endif
+      return
+    END IF
+
+    IF (.NOT.ASSOCIATED(this%mask1d)) THEN
+      ! lhs of assignment uninitialized -> initialize new selection
+      ! ATTENTION: finalization of derived types works different for
+      !   GNU Fortran, hence to prevent memory leaks, one has to point
+      !   the mask1d array of the lhs (this%mask1d) to the already associated
+      !   mask1d array of the rhs (ma%mask1d).
+      !   Other compilers, e.g., ifort (intel) & nfort (NEC) require generation
+      !   of a new selection with mask1d array which is destroyed on exit.
+#ifdef __GFORTRAN__
+      this%imin = sel%imin
+      this%imax = sel%imax
+      this%jmin = sel%jmin
+      this%jmax = sel%jmax
+      this%kmin = sel%kmin
+      this%kmax = sel%kmax
+      this%mask1d => sel%mask1d
+      ! set 2D & 3D pointers
+      this%mask2d(1:INUM*JNUM,KGMIN:KGMAX) => this%mask1d
+      this%mask3d(IGMIN:IGMAX,JGMIN:JGMAX,KGMIN:KGMAX) => this%mask1d
+      ! immediately return
+      return
+#else
+      IF (.NOT.this%Init((/sel%imin,sel%imax,sel%jmin,sel%jmax,sel%kmin,sel%kmax/))) THEN
+#ifdef DEBUG
+        PRINT *,"ERROR in marray_base::AssignSelection: initialization failed"
+#endif
+        return
+      END IF
+#endif
+    ELSE
+      this%imin = sel%imin
+      this%imax = sel%imax
+      this%jmin = sel%jmin
+      this%jmax = sel%jmax
+      this%kmin = sel%kmin
+      this%kmax = sel%kmax
+    END IF
+    IF (.NOT.SIZE(this%mask1d).EQ.SIZE(sel%mask1d)) THEN
+#ifdef DEBUG
+      PRINT *,"ERROR in marray_base::AssignSelection: size mismatch"
+#endif
+      return
+    END IF
+    ! copy data
+    this%mask1d(:) = sel%mask1d(:)
+  END SUBROUTINE AssignSelection
 
   SUBROUTINE Cuboid(this,imin,imax,jmin,jmax,kmin,kmax)
     IMPLICIT NONE
@@ -703,8 +858,8 @@ MODULE marray_base_mod
     !-------------------------------------------------------------------!
     CLASS(selection_base) :: this
     !-------------------------------------------------------------------!
-    IF (ASSOCIATED(this%mask3d)) DEALLOCATE(this%mask3d)
-    NULLIFY(this%mask1d,this%mask2d)
+    IF (ASSOCIATED(this%mask1d)) DEALLOCATE(this%mask1d)
+    NULLIFY(this%mask2d,this%mask3d)
   END SUBROUTINE Destroy_selection
 
   !> actual destructor of selection_base

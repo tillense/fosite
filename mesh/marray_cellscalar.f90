@@ -33,7 +33,6 @@
 MODULE marray_cellscalar_mod
   USE marray_base_mod
   IMPLICIT NONE
-#define DEBUG 1
   !--------------------------------------------------------------------------!
   PRIVATE
   !> data types and methods
@@ -61,7 +60,7 @@ CONTAINS
     !-------------------------------------------------------------------!
     TYPE(marray_cellscalar) :: new_cs
     !-------------------------------------------------------------------!
-#if DEBUG > 1
+#if DEBUG > 2
     PRINT *,"DEBUG INFO in marray_cellscalar::CreateMArray_cellscalar: creating new cellscalar"
 #endif
     ! 1 center + 1 bcenter + 6 faces + 8 corners = 16
@@ -78,7 +77,7 @@ CONTAINS
     CLASS(marray_cellscalar),INTENT(INOUT) :: this
     LOGICAL :: success
     !------------------------------------------------------------------------!
-#if DEBUG > 1
+#if DEBUG > 2
     PRINT *,"DEBUG INFO in marray_cellscalar::AssignPointers: assigning pointers"
 #endif
     success = this%marray_base%AssignPointers()

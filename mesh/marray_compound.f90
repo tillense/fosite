@@ -36,7 +36,6 @@ MODULE marray_compound_mod
   USE marray_base_mod
   IMPLICIT NONE
   !--------------------------------------------------------------------------!
-#define DEBUG 2
   PRIVATE
   TYPE compound_item
     TYPE(marray_base), POINTER :: item => null()
@@ -113,7 +112,7 @@ CONTAINS
     TYPE(compound_item), POINTER :: p
     INTEGER :: m,n
     !------------------------------------------------------------------------!
-#if DEBUG > 1
+#if DEBUG > 2
     PRINT *,"DEBUG INFO in marray_compound::AssignPointers: assign pointers in each component of the compound"
 #endif
     ! set the multi-dim. pointers of the compound
@@ -137,6 +136,9 @@ CONTAINS
   END FUNCTION AssignPointers
 
   !> assigns one compound of mesh arrays to another compound of mesh arrays
+#ifndef DEBUG
+  PURE &
+#endif
   SUBROUTINE AssignMArray_0(this,ma)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
@@ -145,7 +147,7 @@ CONTAINS
     !------------------------------------------------------------------------!
     TYPE(compound_item), POINTER :: p
     !------------------------------------------------------------------------!
-#if DEBUG > 1
+#if DEBUG > 2
     PRINT *,"DEBUG INFO in marray_compound::AssignMArray_0: compound assignment called"
 #endif
     CALL this%marray_base%AssignMArray_0(ma)
@@ -181,7 +183,7 @@ CONTAINS
           END IF
         END IF
       END IF
-#if DEBUG > 1
+#if DEBUG > 2
       IF (ASSOCIATED(src%data1d).AND.SIZE(src%data1d).GT.0) &
         PRINT *,"DEBUG INFO marray_compound::AssignMArray_0 ma",src%data1d(LBOUND(src%data1d,1)),src%data1d(UBOUND(src%data1d,1))
       IF (ASSOCIATED(this%data1d).AND.SIZE(this%data1d).GT.0) &
@@ -284,7 +286,7 @@ CONTAINS
         STOP 1
       END IF
 #endif
-#if DEBUG > 1
+#if DEBUG > 2
       PRINT *,"DEBUG INFO in marray_compound::AppendMArray"
       PRINT '(3(A,I2),I2)',"  item no. ",this%num_entries, " appended to rank ",this%RANK," &
                           compound with dims ",this%DIMS(1:2)
@@ -400,7 +402,7 @@ CONTAINS
     !-------------------------------------------------------------------!
     TYPE(compound_item), POINTER :: p,q
     !-------------------------------------------------------------------!
-#if DEBUG > 1
+#if DEBUG > 2
     PRINT *,"DEBUG INFO in marray_compound::Destroy: deallocating compound components"
 #endif
     ! free list memory

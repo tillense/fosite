@@ -488,7 +488,7 @@ CONTAINS
     CALL InitMeshProperties(this%IGMIN,this%IGMAX,this%JGMIN,this%JGMAX,this%KGMIN,this%KGMAX)
 
     ! create selection for the internal region
-!     this%without_ghost_zones = selection_base((/this%IMIN,this%IMAX,this%JMIN,this%JMAX,this%KMIN,this%KMAX/))
+    this%without_ghost_zones = selection_base((/this%IMIN,this%IMAX,this%JMIN,this%JMAX,this%KMIN,this%KMAX/))
 
     ! coordinate differences in each direction
     this%dx = (this%xmax - this%xmin) / this%INUM
@@ -534,7 +534,7 @@ CONTAINS
     this%curv = marray_cellvector()
     this%center  => this%curv%RemapBounds(this%curv%center)
     this%bcenter => this%curv%RemapBounds(this%curv%bcenter)
-return
+
     ! create mesh arrays for scale factors
     this%hx = marray_cellscalar()
     this%hy = marray_cellscalar()
@@ -665,7 +665,13 @@ return
 
     ! get square root of determinant of the metric
     ! bary center values are overwritten below
+    ! ATTENTION: it seems that the intel compiler does not
+    ! assign the result of marray operations correctly
+#ifdef __INTEL_COMPILER
+    this%sqrtg%data1d = this%hx%data1d*(this%hy*this%hz)
+#else
     this%sqrtg = this%hx*(this%hy*this%hz)
+#endif
 
     ! create mesh array for cartesian coordinates
     this%cart = marray_cellvector()
@@ -1511,33 +1517,33 @@ return
 
 
     CALL this%curv%Destroy()
-!     CALL this%hx%Destroy()
-!     CALL this%hy%Destroy()
-!     CALL this%hz%Destroy()
-!     CALL this%sqrtg%Destroy()
-!     CALL this%cxyx%Destroy()
-!     CALL this%cxzx%Destroy()
-!     CALL this%cyxy%Destroy()
-!     CALL this%cyzy%Destroy()
-!     CALL this%czxz%Destroy()
-!     CALL this%czyz%Destroy()
-!
-!     CALL this%volume%Destroy()
-!     CALL this%dxdydV%Destroy()
-!     CALL this%dydzdV%Destroy()
-!     CALL this%dzdxdV%Destroy()
-!
-!     CALL this%dlx%Destroy()
-!     CALL this%dly%Destroy()
-!     CALL this%dlz%Destroy()
-!
-!     CALL this%cart%Destroy()
-!     CALL this%radius%Destroy()
-!     CALL this%posvec%Destroy()
+    CALL this%hx%Destroy()
+    CALL this%hy%Destroy()
+    CALL this%hz%Destroy()
+    CALL this%sqrtg%Destroy()
+    CALL this%cxyx%Destroy()
+    CALL this%cxzx%Destroy()
+    CALL this%cyxy%Destroy()
+    CALL this%cyzy%Destroy()
+    CALL this%czxz%Destroy()
+    CALL this%czyz%Destroy()
+
+    CALL this%volume%Destroy()
+    CALL this%dxdydV%Destroy()
+    CALL this%dydzdV%Destroy()
+    CALL this%dzdxdV%Destroy()
+
+    CALL this%dlx%Destroy()
+    CALL this%dly%Destroy()
+    CALL this%dlz%Destroy()
+
+    CALL this%cart%Destroy()
+    CALL this%radius%Destroy()
+    CALL this%posvec%Destroy()
 
     IF (ASSOCIATED(this%rotation)) DEALLOCATE(this%rotation)
 
-!     CALL this%without_ghost_zones%Destroy()
+    CALL this%without_ghost_zones%Destroy()
 
     CALL CloseMeshProperties
 
