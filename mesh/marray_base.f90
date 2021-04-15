@@ -50,9 +50,10 @@ MODULE marray_base_mod
      INTEGER           :: imin,imax                  !< selection in x-direction
      INTEGER           :: jmin,jmax                  !< selection in y-direction
      INTEGER           :: kmin,kmax                  !< selection in z-direction
-     LOGICAL, POINTER, CONTIGUOUS :: mask1d(:), &    !< 1d selection mask
-                                     mask2d(:,:), &  !< 2d selection mask
-                                     mask3d(:,:,:)   !< 3d selection mask
+     LOGICAL, POINTER, CONTIGUOUS :: &
+                           mask1d(:) => null(), &    !< 1d selection mask
+                           mask2d(:,:) => null(), &  !< 2d selection mask
+                           mask3d(:,:,:) => null()   !< 3d selection mask
   CONTAINS
      !> \name Methods
      PROCEDURE :: Init => Init_selection
@@ -86,7 +87,7 @@ MODULE marray_base_mod
     PROCEDURE :: AssignMArray_4
     PROCEDURE :: AssignMArray_5
     GENERIC   :: ASSIGNMENT (=) => AssignMArray_0 , AssignMArray_1, AssignMArray_2, &
-                                AssignMArray_3 , AssignMArray_4, AssignMArray_5
+                                   AssignMArray_3 , AssignMArray_4, AssignMArray_5
     PROCEDURE :: ShapesMatch
     GENERIC   :: OPERATOR(.MATCH.) => ShapesMatch
     PROCEDURE :: AddMArray_0
@@ -106,7 +107,7 @@ MODULE marray_base_mod
     GENERIC   :: OPERATOR (*) => MultMArray_0, MultMArray_1, MultMArray_2, &
                                  MultMArray_3, MultMArray_4, MultMArray_5
     PROCEDURE :: Destroy
-    FINAL     :: Destructor
+    FINAL     :: Finalize
   END TYPE
   INTERFACE marray_base
     MODULE PROCEDURE CreateMArray
@@ -133,7 +134,7 @@ MODULE marray_base_mod
     !-------------------------------------------------------------------!
     IF (new_ma%Init(m,n)) return ! immediately return if successful
     ! something went wrong
-#ifdef DEBUG > 0
+#ifdef DEBUG
     PRINT *,"ERROR in marray_base::CreateMArray: marray initialization failed"
     STOP 1
 #endif
@@ -329,9 +330,6 @@ MODULE marray_base_mod
   END FUNCTION RemapBounds_2
 
   !> assigns one mesh array to another mesh array
-#ifndef DEBUG
-  PURE &
-#endif
   SUBROUTINE AssignMArray_0(this,ma)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
@@ -403,7 +401,7 @@ MODULE marray_base_mod
     IF (this%AssignPointers()) return ! pointer assignment ok -> return immediately
     ! something bad happend
 #ifdef DEBUG
-      PRINT *,"ERROR in marray_base::AssignMArray_0: final pointer reassignment failed for lhs"
+    PRINT *,"ERROR in marray_base::AssignMArray_0: final pointer reassignment failed for lhs"
 #endif
   END SUBROUTINE AssignMArray_0
   
@@ -415,7 +413,7 @@ MODULE marray_base_mod
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(marray_base),INTENT(INOUT) :: this
-    REAL, DIMENSION(INUM*JNUM*KNUM*this%DIMS(1)*this%DIMS(2)), INTENT(IN) :: a
+    REAL, DIMENSION(SIZE(this%data1d)), INTENT(IN) :: a
     !------------------------------------------------------------------------!
 #if DEBUG > 2
     PRINT *,"DEBUG INFO in marray_base::AssignMArray_1: assigning 1D Fortran array"
@@ -468,7 +466,7 @@ MODULE marray_base_mod
                 SIZE(this%data4d,4)), INTENT(IN) :: a
     !------------------------------------------------------------------------!
 #if DEBUG > 2
-    PRINT *,"DEBUG INFO in marray_base::AssignMArray_1: assigning 4D Fortran array"
+    PRINT *,"DEBUG INFO in marray_base::AssignMArray_4: assigning 4D Fortran array"
 #endif
     this%data4d(:,:,:,:) = a(:,:,:,:)
   END SUBROUTINE AssignMArray_4
@@ -484,6 +482,9 @@ MODULE marray_base_mod
     REAL, DIMENSION(SIZE(this%data5d,1),SIZE(this%data5d,2),SIZE(this%data5d,3), &
                 SIZE(this%data5d,4),SIZE(this%data5d,5)), INTENT(IN) :: a
     !------------------------------------------------------------------------!
+#if DEBUG > 2
+    PRINT *,"DEBUG INFO in marray_base::AssignMArray_5: assigning 5D Fortran array"
+#endif
     this%data5d(:,:,:,:,:) = a(:,:,:,:,:)
   END SUBROUTINE AssignMArray_5
 
@@ -502,171 +503,237 @@ MODULE marray_base_mod
   END FUNCTION ShapesMatch
 
   !> add 2 mesh arrays
-  PURE FUNCTION AddMArray_0(a,b) RESULT(c)
+#ifndef DEBUG
+  PURE &
+#endif
+  FUNCTION AddMArray_0(this,that) RESULT(data1d)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(marray_base),INTENT(IN) :: a,b
-    REAL, DIMENSION(SIZE(a%data1d)) :: c
+    CLASS(marray_base),INTENT(IN) :: this,that
+    REAL, DIMENSION(SIZE(this%data1d)) :: data1d
     !------------------------------------------------------------------------!
-    IF (SIZE(a%data1d).EQ.SIZE(b%data1d)) &
-        c(:) = a%data1d(:) + b%data1d(:)
+#if DEBUG > 2
+    PRINT *,"DEBUG INFO in marray_base::AddMArray_0: adding 2 marrays"
+#endif
+#ifdef DEBUG
+    IF (.NOT.ASSOCIATED(this%data1d)) THEN
+      PRINT *,"ERROR in marray_base::MultMArray_0: 1nd argument not initialized"
+    END IF
+    IF (.NOT.ASSOCIATED(that%data1d)) THEN
+      PRINT *,"ERROR in marray_base::MultMArray_0: 2nd argument not initialized"
+    END IF
+    IF (.NOT.(this.MATCH.that)) THEN
+      PRINT *,"ERROR in marray_base::MultMArray_0: shape mismatch"
+    END IF
+#endif
+    data1d(:) = this%data1d(:) + that%data1d(:)
   END FUNCTION AddMArray_0
 
   !> add 1D fortran array and mesh array
-  PURE FUNCTION AddMArray_1(a,b) RESULT(c)
+#ifndef DEBUG
+  PURE &
+#endif
+  FUNCTION AddMArray_1(this,a) RESULT(b)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(marray_base),INTENT(IN) :: a
-    REAL, DIMENSION(SIZE(a%data1d)),INTENT(IN) :: b
-    REAL, DIMENSION(SIZE(a%data1d)) :: c
+    CLASS(marray_base),INTENT(IN) :: this
+    REAL, DIMENSION(SIZE(this%data1d)),INTENT(IN) :: a
+    REAL, DIMENSION(SIZE(this%data1d)) :: b
     !------------------------------------------------------------------------!
-    c(:) = a%data1d(:) + b(:)
+#if DEBUG > 2
+    PRINT *,"DEBUG INFO in marray_base::AddMArray_1: adding marray to 1d Fortran array"
+#endif
+    b(:) = this%data1d(:) + a(:)
   END FUNCTION AddMArray_1
 
   !> add 2D fortran array and mesh array
-  PURE FUNCTION AddMArray_2(a,b) RESULT(c)
+#ifndef DEBUG
+  PURE &
+#endif
+  FUNCTION AddMArray_2(this,a) RESULT(b)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(marray_base),INTENT(IN) :: a
-    REAL, DIMENSION(SIZE(a%data2d,1),SIZE(a%data2d,2)),INTENT(IN) :: b
-    REAL, DIMENSION(SIZE(a%data2d,1),SIZE(a%data2d,2)) :: c
+    CLASS(marray_base),INTENT(IN) :: this
+    REAL, DIMENSION(SIZE(this%data2d,1),SIZE(this%data2d,2)),INTENT(IN) :: a
+    REAL, DIMENSION(SIZE(this%data2d,1),SIZE(this%data2d,2)) :: b
     !------------------------------------------------------------------------!
-    c(:,:) = a%data2d(:,:) + b(:,:)
+#if DEBUG > 2
+    PRINT *,"DEBUG INFO in marray_base::AddMArray_2: adding marray to 2d Fortran array"
+#endif
+    b(:,:) = this%data2d(:,:) + a(:,:)
   END FUNCTION AddMArray_2
 
   !> add 3D fortran array and mesh array
-  PURE FUNCTION AddMArray_3(a,b) RESULT(c)
+#ifndef DEBUG
+  PURE &
+#endif
+  FUNCTION AddMArray_3(this,a) RESULT(b)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(marray_base),INTENT(IN) :: a
-    REAL, DIMENSION(SIZE(a%data3d,1),SIZE(a%data3d,2),SIZE(a%data3d,3)),INTENT(IN) :: b
-    REAL, DIMENSION(SIZE(a%data3d,1),SIZE(a%data3d,2),SIZE(a%data3d,3)) :: c
+    CLASS(marray_base),INTENT(IN) :: this
+    REAL, DIMENSION(SIZE(this%data3d,1),SIZE(this%data3d,2),SIZE(this%data3d,3)), &
+                       INTENT(IN) :: a
+    REAL, DIMENSION(SIZE(this%data3d,1),SIZE(this%data3d,2),SIZE(this%data3d,3)) :: b
     !------------------------------------------------------------------------!
-    c(:,:,:) = a%data3d(:,:,:) + b(:,:,:)
+#if DEBUG > 2
+    PRINT *,"DEBUG INFO in marray_base::AddMArray_3: adding marray to 3d Fortran array"
+#endif
+    b(:,:,:) = this%data3d(:,:,:) + a(:,:,:)
   END FUNCTION AddMArray_3
 
   !> add 4D fortran array and mesh array
-  PURE FUNCTION AddMArray_4(a,b) RESULT(c)
+#ifndef DEBUG
+  PURE &
+#endif
+  FUNCTION AddMArray_4(this,a) RESULT(b)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(marray_base),INTENT(IN) :: a
-    REAL, DIMENSION(SIZE(a%data4d,1),SIZE(a%data4d,2),SIZE(a%data4d,3), &
-          SIZE(a%data4d,4)),INTENT(IN) :: b
-    REAL, DIMENSION(SIZE(a%data4d,1),SIZE(a%data4d,2),SIZE(a%data4d,3), &
-          SIZE(a%data4d,4)) :: c
+    CLASS(marray_base),INTENT(IN) :: this
+    REAL, DIMENSION(SIZE(this%data4d,1),SIZE(this%data4d,2),SIZE(this%data4d,3), &
+          SIZE(this%data4d,4)),INTENT(IN) :: a
+    REAL, DIMENSION(SIZE(this%data4d,1),SIZE(this%data4d,2),SIZE(this%data4d,3), &
+          SIZE(this%data4d,4)) :: b
     !------------------------------------------------------------------------!
-    c(:,:,:,:) = a%data4d(:,:,:,:) + b(:,:,:,:)
+#if DEBUG > 2
+    PRINT *,"DEBUG INFO in marray_base::AddMArray_4: adding marray to 4d Fortran array"
+#endif
+    b(:,:,:,:) = this%data4d(:,:,:,:) + a(:,:,:,:)
   END FUNCTION AddMArray_4
 
   !> add 5D fortran array and mesh array
-  PURE FUNCTION AddMArray_5(a,b) RESULT(c)
+#ifndef DEBUG
+  PURE &
+#endif
+  FUNCTION AddMArray_5(this,a) RESULT(b)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(marray_base),INTENT(IN) :: a
-    REAL, DIMENSION(SIZE(a%data5d,1),SIZE(a%data5d,2),SIZE(a%data5d,3), &
-          SIZE(a%data5d,4),SIZE(a%data5d,5)),INTENT(IN) :: b
-    REAL, DIMENSION(SIZE(a%data5d,1),SIZE(a%data5d,2),SIZE(a%data5d,3), &
-          SIZE(a%data5d,4),SIZE(a%data5d,5)) :: c
+    CLASS(marray_base),INTENT(IN) :: this
+    REAL, DIMENSION(SIZE(this%data5d,1),SIZE(this%data5d,2),SIZE(this%data5d,3), &
+          SIZE(this%data5d,4),SIZE(this%data5d,5)),INTENT(IN) :: a
+    REAL, DIMENSION(SIZE(this%data5d,1),SIZE(this%data5d,2),SIZE(this%data5d,3), &
+          SIZE(this%data5d,4),SIZE(this%data5d,5)) :: b
     !------------------------------------------------------------------------!
-    c(:,:,:,:,:) = a%data5d(:,:,:,:,:) + b(:,:,:,:,:)
+#if DEBUG > 2
+    PRINT *,"DEBUG INFO in marray_base::AddMArray_5: adding marray to 5d Fortran array"
+#endif
+    b(:,:,:,:,:) = this%data5d(:,:,:,:,:) + a(:,:,:,:,:)
   END FUNCTION AddMArray_5
 
   !> multiply 2 mesh arrays
 #ifndef DEBUG
   PURE &
 #endif
-  FUNCTION MultMArray_0(a,b) RESULT(c)
+  FUNCTION MultMArray_0(this,that) RESULT(data1d)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(marray_base),INTENT(IN) :: a,b
-    REAL, DIMENSION(SIZE(a%data1d)) :: c
+    CLASS(marray_base),INTENT(IN) :: this
+    CLASS(marray_base), INTENT(IN) :: that
+    REAL, DIMENSION(SIZE(this%data1d)) :: data1d
     !------------------------------------------------------------------------!
 #if DEBUG > 2
     PRINT *,"DEBUG INFO in marray_base::MultMArray_0: multiply 2 marrays"
 #endif
 #ifdef DEBUG
-    IF (.NOT.(a.MATCH.b)) THEN
+    IF (.NOT.ASSOCIATED(this%data1d)) THEN
+      PRINT *,"ERROR in marray_base::MultMArray_0: 1nd argument not initialized"
+    END IF
+    IF (.NOT.ASSOCIATED(that%data1d)) THEN
+      PRINT *,"ERROR in marray_base::MultMArray_0: 2nd argument not initialized"
+    END IF
+    IF (.NOT.(this.MATCH.that)) THEN
       PRINT *,"ERROR in marray_base::MultMArray_0: shape mismatch"
     END IF
 #endif
-    c(:) = a%data1d(:) * b%data1d(:)
+    data1d(:) = this%data1d(:) * that%data1d(:)
   END FUNCTION MultMArray_0
 
   !> multiply 1D fortran array and mesh arrays
 #ifndef DEBUG
   PURE &
 #endif
-  FUNCTION MultMArray_1(a,b) RESULT(c)
+  FUNCTION MultMArray_1(this,a) RESULT(b)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(marray_base),INTENT(IN) :: a
-    REAL, DIMENSION(SIZE(a%data1d)),INTENT(IN) :: b
-    REAL, DIMENSION(SIZE(a%data1d)) :: c
+    CLASS(marray_base),INTENT(IN) :: this
+    REAL, DIMENSION(SIZE(this%data1d)),INTENT(IN) :: a
+    REAL, DIMENSION(SIZE(this%data1d)) :: b
     !------------------------------------------------------------------------!
 #if DEBUG > 2
-    PRINT *,"DEBUG INFO in marray_base::MultMArray_0: multiply marray with 1d Fortran array"
+    PRINT *,"DEBUG INFO in marray_base::MultMArray_1: multiply marray with 1d Fortran array"
 #endif
-    c(:) = a%data1d(:) * b(:)
+    b(:) = this%data1d(:) * a(:)
   END FUNCTION MultMArray_1
 
   !> multiply 2D fortran array and mesh arrays
 #ifndef DEBUG
   PURE &
 #endif
-  FUNCTION MultMArray_2(a,b) RESULT(c)
+  FUNCTION MultMArray_2(this,a) RESULT(b)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(marray_base),INTENT(IN) :: a
-    REAL, DIMENSION(SIZE(a%data2d,1),SIZE(a%data2d,2)),INTENT(IN) :: b
-    REAL, DIMENSION(SIZE(a%data2d,1),SIZE(a%data2d,2)) :: c
+    CLASS(marray_base),INTENT(IN) :: this
+    REAL, DIMENSION(SIZE(this%data2d,1),SIZE(this%data2d,2)),INTENT(IN) :: a
+    REAL, DIMENSION(SIZE(this%data2d,1),SIZE(this%data2d,2)) :: b
     !------------------------------------------------------------------------!
-    c(:,:) = a%data2d(:,:) * b(:,:)
+#if DEBUG > 2
+    PRINT *,"DEBUG INFO in marray_base::MultMArray_2: multiply marray with 2d Fortran array"
+#endif
+    b(:,:) = this%data2d(:,:) * a(:,:)
   END FUNCTION MultMArray_2
 
   !> multiply 3D fortran array and mesh arrays
 #ifndef DEBUG
   PURE &
 #endif
-  FUNCTION MultMArray_3(a,b) RESULT(c)
+  FUNCTION MultMArray_3(this,a) RESULT(b)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(marray_base),INTENT(IN) :: a
-    REAL, DIMENSION(SIZE(a%data3d,1),SIZE(a%data3d,2),SIZE(a%data3d,3)),INTENT(IN) :: b
-    REAL, DIMENSION(SIZE(a%data3d,1),SIZE(a%data3d,2),SIZE(a%data3d,3)) :: c
+    CLASS(marray_base),INTENT(IN) :: this
+    REAL, DIMENSION(SIZE(this%data3d,1),SIZE(this%data3d,2),SIZE(this%data3d,3)),INTENT(IN) :: a
+    REAL, DIMENSION(SIZE(this%data3d,1),SIZE(this%data3d,2),SIZE(this%data3d,3)) :: b
     !------------------------------------------------------------------------!
-    c(:,:,:) = a%data3d(:,:,:) * b(:,:,:)
+#if DEBUG > 2
+    PRINT *,"DEBUG INFO in marray_base::MultMArray_3: multiply marray with 3d Fortran array"
+#endif
+    b(:,:,:) =  this%data3d(:,:,:) * a(:,:,:)
   END FUNCTION MultMArray_3
 
   !> multiply 4D fortran array and mesh arrays
 #ifndef DEBUG
   PURE &
 #endif
-  FUNCTION MultMArray_4(a,b) RESULT(c)
+  FUNCTION MultMArray_4(this,a) RESULT(b)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(marray_base),INTENT(IN) :: a
-    REAL, DIMENSION(SIZE(a%data4d,1),SIZE(a%data4d,2),SIZE(a%data4d,3), &
-          SIZE(a%data4d,4)),INTENT(IN) :: b
-    REAL, DIMENSION(SIZE(a%data4d,1),SIZE(a%data4d,2),SIZE(a%data4d,3), &
-          SIZE(a%data4d,4)) :: c
+    CLASS(marray_base),INTENT(IN) :: this
+    REAL, DIMENSION(SIZE(this%data4d,1),SIZE(this%data4d,2),SIZE(this%data4d,3), &
+          SIZE(this%data4d,4)),INTENT(IN) :: a
+    REAL, DIMENSION(SIZE(this%data4d,1),SIZE(this%data4d,2),SIZE(this%data4d,3), &
+          SIZE(this%data4d,4)) :: b
     !------------------------------------------------------------------------!
-    c(:,:,:,:) = a%data4d(:,:,:,:) * b(:,:,:,:)
+#if DEBUG > 2
+    PRINT *,"DEBUG INFO in marray_base::MultMArray_4: multiply marray with 4d Fortran array"
+#endif
+    b(:,:,:,:) =  this%data4d(:,:,:,:) * a(:,:,:,:)
   END FUNCTION MultMArray_4
 
   !> multiply 5D fortran array and mesh arrays
 #ifndef DEBUG
   PURE &
 #endif
-  FUNCTION MultMArray_5(a,b) RESULT(c)
+  FUNCTION MultMArray_5(this,a) RESULT(b)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(marray_base),INTENT(IN) :: a
-    REAL, DIMENSION(SIZE(a%data5d,1),SIZE(a%data5d,2),SIZE(a%data5d,3), &
-          SIZE(a%data5d,4),SIZE(a%data5d,5)),INTENT(IN) :: b
-    REAL, DIMENSION(SIZE(a%data5d,1),SIZE(a%data5d,2),SIZE(a%data5d,3), &
-          SIZE(a%data5d,4),SIZE(a%data5d,5)) :: c
+    CLASS(marray_base),INTENT(IN) :: this
+    REAL, DIMENSION(SIZE(this%data5d,1),SIZE(this%data5d,2),SIZE(this%data5d,3), &
+          SIZE(this%data5d,4),SIZE(this%data5d,5)),INTENT(IN) :: a
+    REAL, DIMENSION(SIZE(this%data5d,1),SIZE(this%data5d,2),SIZE(this%data5d,3), &
+          SIZE(this%data5d,4),SIZE(this%data5d,5)) :: b
     !------------------------------------------------------------------------!
-    c(:,:,:,:,:) = a%data5d(:,:,:,:,:) * b(:,:,:,:,:)
+#if DEBUG > 2
+    PRINT *,"DEBUG INFO in marray_base::MultMArray_5: multiply marray with 5d Fortran array"
+#endif
+    b(:,:,:,:,:) =  this%data5d(:,:,:,:,:) * a(:,:,:,:,:)
   END FUNCTION MultMArray_5
 
   !> polymorphic destructor of all mesh_array classes
@@ -686,13 +753,13 @@ MODULE marray_base_mod
 
   !> actual destructor of mesh_array - this is called automatically if
   !! deallocate is invoked
-  SUBROUTINE Destructor(this)
+  SUBROUTINE Finalize(this)
     IMPLICIT NONE
     !-------------------------------------------------------------------!
     TYPE(marray_base) :: this
     !-------------------------------------------------------------------!
     CALL this%Destroy()
-  END SUBROUTINE Destructor
+  END SUBROUTINE Finalize
 
   FUNCTION CreateSelection(idx) RESULT(new_sel)
     IMPLICIT NONE

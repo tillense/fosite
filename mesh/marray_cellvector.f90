@@ -37,15 +37,17 @@ MODULE marray_cellvector_mod
   PRIVATE
   !> data types and methods
   TYPE, EXTENDS(marray_base) :: marray_cellvector
-    REAL, DIMENSION(:,:,:,:), POINTER   :: center, &     !< geometric center
-                                         bcenter         !< bary center
+    REAL, DIMENSION(:,:,:,:), POINTER &
+                             :: center => null(), &      !< geometric center
+                                bcenter => null()        !< bary center
 
-    REAL, DIMENSION(:,:,:,:,:), POINTER :: faces, &      !< cell face centers
-                                         corners         !< cell corners
+    REAL, DIMENSION(:,:,:,:,:), POINTER &
+                             :: faces => null(), &       !< cell face centers
+                                corners => null()        !< cell corners
     CONTAINS
     PROCEDURE :: AssignPointers
     PROCEDURE :: Destroy
-    FINAL     :: Destructor
+    FINAL     :: Finalize
   END TYPE
   INTERFACE marray_cellvector
     MODULE PROCEDURE CreateMArray_cellvector

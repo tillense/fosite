@@ -37,15 +37,17 @@ MODULE marray_cellscalar_mod
   PRIVATE
   !> data types and methods
   TYPE, EXTENDS(marray_base) :: marray_cellscalar
-    REAL, DIMENSION(:,:,:), POINTER   :: center, &       !< geometric center
-                                         bcenter         !< bary center
+    REAL, DIMENSION(:,:,:), POINTER :: &
+                                    center => null(), &  !< geometric center
+                                    bcenter=> null()     !< bary center
 
-    REAL, DIMENSION(:,:,:,:), POINTER :: faces, &        !< cell face centers
-                                         corners         !< cell corners
+    REAL, DIMENSION(:,:,:,:), POINTER :: &
+                                    faces => null(), &   !< cell face centers
+                                    corners => null()    !< cell corners
     CONTAINS
     PROCEDURE :: AssignPointers
     PROCEDURE :: Destroy
-    FINAL     :: Destructor
+    FINAL     :: Finalize
   END TYPE
   INTERFACE marray_cellscalar
     MODULE PROCEDURE CreateMArray_cellscalar
@@ -100,18 +102,21 @@ CONTAINS
     !-------------------------------------------------------------------!
     CLASS(marray_cellscalar) :: this
     !-------------------------------------------------------------------!
+#if DEBUG > 2
+    PRINT *,"DEBUG INFO in marray_cellscalar::Destroy: resetting data arrays"
+#endif
     CALL this%marray_base%Destroy() ! call inherited destructor
     NULLIFY(this%center,this%bcenter,this%faces,this%corners)
   END SUBROUTINE Destroy
 
   !> actual destructor of mesh_cellscalar - this is called automatically if
   !! deallocate is invoked
-  SUBROUTINE Destructor(this)
+  SUBROUTINE Finalize(this)
     IMPLICIT NONE
     !-------------------------------------------------------------------!
     TYPE(marray_cellscalar) :: this
     !-------------------------------------------------------------------!
     CALL this%Destroy()
-  END SUBROUTINE Destructor
+  END SUBROUTINE Finalize
 
 END MODULE marray_cellscalar_mod

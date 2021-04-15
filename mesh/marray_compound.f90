@@ -136,9 +136,6 @@ CONTAINS
   END FUNCTION AssignPointers
 
   !> assigns one compound of mesh arrays to another compound of mesh arrays
-#ifndef DEBUG
-  PURE &
-#endif
   SUBROUTINE AssignMArray_0(this,ma)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
@@ -185,9 +182,11 @@ CONTAINS
       END IF
 #if DEBUG > 2
       IF (ASSOCIATED(src%data1d).AND.SIZE(src%data1d).GT.0) &
-        PRINT *,"DEBUG INFO marray_compound::AssignMArray_0 ma",src%data1d(LBOUND(src%data1d,1)),src%data1d(UBOUND(src%data1d,1))
+        PRINT *,"DEBUG INFO marray_compound::AssignMArray_0 ma",src%data1d(LBOUND(src%data1d,1)), &
+                src%data1d(UBOUND(src%data1d,1))
       IF (ASSOCIATED(this%data1d).AND.SIZE(this%data1d).GT.0) &
-        PRINT *,"DEBUG INFO marray_compound::AssignMArray_0 this",this%data1d(LBOUND(this%data1d,1)),this%data1d(UBOUND(this%data1d,1))
+        PRINT *,"DEBUG INFO marray_compound::AssignMArray_0 this",this%data1d(LBOUND(this%data1d,1)), &
+                this%data1d(UBOUND(this%data1d,1))
 #endif
     CLASS DEFAULT
       ! do nothing, is this ok ???
@@ -284,12 +283,12 @@ CONTAINS
 #ifdef DEBUG
         PRINT *,"ERROR in marray_compound::AppendMArray: pointer assignment failed"
         STOP 1
-      END IF
 #endif
+      END IF
 #if DEBUG > 2
       PRINT *,"DEBUG INFO in marray_compound::AppendMArray"
-      PRINT '(3(A,I2),I2)',"  item no. ",this%num_entries, " appended to rank ",this%RANK," &
-                          compound with dims ",this%DIMS(1:2)
+      PRINT '(3(A,I2),I2)',"  item no. ",this%num_entries, " appended to rank ",this%RANK, &
+                          "compound with dims ",this%DIMS(1:2)
       PRINT '(A,I6,A,I2,A,2(I3))', "  size", SIZE(this%data1d), &
                         "    item%rank", ma%RANK, &
                         "    item%dims", ma%DIMS(:)
