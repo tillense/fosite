@@ -108,12 +108,12 @@ CONTAINS
 
   !> actual destructor of mesh_cellvector - this is called automatically if
   !! deallocate is invoked
-  SUBROUTINE Destructor(this)
+  SUBROUTINE Finalize(this)
     IMPLICIT NONE
     !-------------------------------------------------------------------!
     TYPE(marray_cellvector) :: this
     !-------------------------------------------------------------------!
     CALL this%Destroy() ! call inherited marray destructor
-  END SUBROUTINE Destructor
+  END SUBROUTINE Finalize
 
 END MODULE marray_cellvector_mod
