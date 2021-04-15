@@ -364,6 +364,22 @@ CONTAINS
     !> \todo check if min/max coordinates are compatible with
     !!       the restrictions imposed by the geometry
 
+    ! check for fargo timestepping
+    use_fargo = 0
+    IF(this%shear_dir.GT.0) use_fargo = 1
+    CALL GetAttr(config, "use_fargo", this%use_fargo, use_fargo)
+    ! enable fargo timestepping for polar geometries
+    ! 1 = calculated mean background velocity w
+    ! 2 = fixed user set background velocity w
+    ! 3 = shearingsheet fixed background velocity w
+    fargo = 0
+    IF (this%use_fargo.NE.0) THEN
+      IF(this%shear_dir.GT.0) fargo = 3
+      CALL GetAttr(config, "fargo", this%fargo, fargo)
+    ELSE
+      this%fargo = fargo
+    END IF
+
     ! check if rotational symmetry is assumed, i.e., if the azimuthal
     ! direction consists of only one cell and a full 2*PI range
     ! this%ROTSYM is either set to the direction of the azimuthal angle {1,2,3}
@@ -535,36 +551,6 @@ CONTAINS
     this%center  => this%curv%RemapBounds(this%curv%center)
     this%bcenter => this%curv%RemapBounds(this%curv%bcenter)
 
-    ! create mesh arrays for scale factors
-    this%hx = marray_cellscalar()
-    this%hy = marray_cellscalar()
-    this%hz = marray_cellscalar()
-
-    ! create mesh array for square root of determinant of metric
-    this%sqrtg = marray_cellscalar()
-
-    ! create mesh arrays for commutator coefficients
-    this%cxyx = marray_cellscalar()
-    this%cxzx = marray_cellscalar()
-    this%cyxy = marray_cellscalar()
-    this%cyzy = marray_cellscalar()
-    this%czxz = marray_cellscalar()
-    this%czyz = marray_cellscalar()
-
-    ! create mesh arrays for line and volume elements and related arrays
-    this%volume = marray_base()
-    this%dxdydV = marray_base()
-    this%dydzdV = marray_base()
-    this%dzdxdV = marray_base()
-    this%dlx = marray_base()
-    this%dly = marray_base()
-    this%dlz = marray_base()
-
-    ! nullify remaining mesh arrays
-    NULLIFY(this%dAx,this%dAy,this%dAz, &
-            this%dAxdydz,this%dAydzdx,this%dAzdxdy, &
-            this%rotation,this%weights)
-
     ! translation vectors for cell faces and cell corners
     ! (with respect to geometrical cell center)
     cfaces(1,1) = -0.5*mesh_dx   ! western  x coordinate
@@ -642,22 +628,12 @@ CONTAINS
     ! will be overwritten later
     this%curv%bcenter = this%curv%center
 
-    use_fargo = 0
-    IF(this%shear_dir.GT.0) use_fargo = 1
-    CALL GetAttr(config, "use_fargo", this%use_fargo, use_fargo)
-    ! enable fargo timestepping for polar geometries
-    ! 1 = calculated mean background velocity w
-    ! 2 = fixed user set background velocity w
-    ! 3 = shearingsheet fixed background velocity w
-    fargo = 0
-    IF (this%use_fargo.NE.0) THEN
-      IF(this%shear_dir.GT.0) fargo = 3
-      CALL GetAttr(config, "fargo", this%FARGO, fargo)
-    ELSE
-      this%fargo = fargo
-    END IF
-
     ! basic mesh initialization
+
+    ! create mesh arrays for scale factors
+    this%hx = marray_cellscalar()
+    this%hy = marray_cellscalar()
+    this%hz = marray_cellscalar()
 
     ! get geometrical scale factors for all cell positions
     ! bary center values are overwritten below
@@ -667,11 +643,30 @@ CONTAINS
     ! bary center values are overwritten below
     ! ATTENTION: it seems that the intel compiler does not
     ! assign the result of marray operations correctly
+    ! leading to segfaults in some cases
+    this%sqrtg = marray_cellscalar()
 #ifdef __INTEL_COMPILER
     this%sqrtg%data1d = this%hx%data1d*(this%hy*this%hz)
 #else
     this%sqrtg = this%hx*(this%hy*this%hz)
 #endif
+
+    ! create mesh arrays for commutator coefficients
+    this%cxyx = marray_cellscalar()
+    this%cxzx = marray_cellscalar()
+    this%cyxy = marray_cellscalar()
+    this%cyzy = marray_cellscalar()
+    this%czxz = marray_cellscalar()
+    this%czyz = marray_cellscalar()
+
+    ! create mesh arrays for line and volume elements and related arrays
+    this%volume = marray_base()
+    this%dxdydV = marray_base()
+    this%dydzdV = marray_base()
+    this%dzdxdV = marray_base()
+    this%dlx = marray_base()
+    this%dly = marray_base()
+    this%dlz = marray_base()
 
     ! create mesh array for cartesian coordinates
     this%cart = marray_cellvector()
@@ -689,6 +684,11 @@ CONTAINS
     ! create mesh array for position vector
     this%posvec = marray_cellvector()
     CALL this%geometry%PositionVector(this%curv,this%posvec)
+
+    ! nullify remaining (mesh) arrays
+    NULLIFY(this%dAx,this%dAy,this%dAz, &
+            this%dAxdydz,this%dAydzdx,this%dAzdxdy, &
+            this%rotation,this%weights)
 
 !    ! This is a quick hack for VTK and XDMF output on bipolar mesh.
 !    ! It maps infinite coordinates on the boundary in cart%corners to finite values.
