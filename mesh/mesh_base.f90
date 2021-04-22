@@ -1515,32 +1515,6 @@ CONTAINS
     END DO
 #endif
 
-
-    CALL this%curv%Destroy()
-    CALL this%hx%Destroy()
-    CALL this%hy%Destroy()
-    CALL this%hz%Destroy()
-    CALL this%sqrtg%Destroy()
-    CALL this%cxyx%Destroy()
-    CALL this%cxzx%Destroy()
-    CALL this%cyxy%Destroy()
-    CALL this%cyzy%Destroy()
-    CALL this%czxz%Destroy()
-    CALL this%czyz%Destroy()
-
-    CALL this%volume%Destroy()
-    CALL this%dxdydV%Destroy()
-    CALL this%dydzdV%Destroy()
-    CALL this%dzdxdV%Destroy()
-
-    CALL this%dlx%Destroy()
-    CALL this%dly%Destroy()
-    CALL this%dlz%Destroy()
-
-    CALL this%cart%Destroy()
-    CALL this%radius%Destroy()
-    CALL this%posvec%Destroy()
-
     IF (ASSOCIATED(this%rotation)) DEALLOCATE(this%rotation)
 
     CALL this%without_ghost_zones%Destroy()

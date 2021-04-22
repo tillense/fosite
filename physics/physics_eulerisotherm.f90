@@ -116,8 +116,7 @@ MODULE physics_eulerisotherm_mod
 !    PROCEDURE :: ExternalSources_eulerisotherm
     PROCEDURE :: ReflectionMasks                      ! for reflecting boundaries
     PROCEDURE :: AxisMasks
-
-    PROCEDURE     :: Finalize
+    PROCEDURE :: Finalize
   END TYPE
   TYPE, EXTENDS(marray_compound) :: statevector_eulerisotherm
     INTEGER :: flavour = UNDEFINED
@@ -127,6 +126,7 @@ MODULE physics_eulerisotherm_mod
                                momentum => null()
     CONTAINS
     PROCEDURE :: AssignMArray_0
+    FINAL     :: Finalize_statevector
   END TYPE
   INTERFACE statevector_eulerisotherm
     MODULE PROCEDURE CreateStateVector
@@ -271,7 +271,7 @@ CONTAINS
                     this%fcsound%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,:))
   END SUBROUTINE EnableOutput
 
-  !> \public allocate an initialize new isothermal state vector
+  !> \public allocate and initialize new isothermal state vector
   SUBROUTINE new_statevector(this,new_sv,flavour,num)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
@@ -279,6 +279,8 @@ CONTAINS
     CLASS(marray_compound), POINTER :: new_sv
     INTEGER, OPTIONAL, INTENT(IN)   :: flavour,num
     !------------------------------------------------------------------------!
+    IF (ASSOCIATED(new_sv)) &
+      CALL this%Error("physics_eulerisotherm::new_statevector","new statevector already associated")
     ALLOCATE(statevector_eulerisotherm::new_sv)
     SELECT TYPE(sv => new_sv)
     TYPE IS (statevector_eulerisotherm)
@@ -287,7 +289,10 @@ CONTAINS
   END SUBROUTINE new_statevector
 
   !> Sets soundspeeds at cell-centers
-  PURE SUBROUTINE SetSoundSpeeds_center(this,Mesh,bccsound)
+#ifndef DEBUG
+  PURE &
+#endif
+  SUBROUTINE SetSoundSpeeds_center(this,Mesh,bccsound)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(physics_eulerisotherm), INTENT(INOUT) :: this
@@ -299,7 +304,10 @@ CONTAINS
   END SUBROUTINE SetSoundSpeeds_center
 
   !> Sets soundspeeds at cell-faces
-  PURE SUBROUTINE SetSoundSpeeds_faces(this,Mesh,fcsound)
+#ifndef DEBUG
+  PURE &
+#endif
+  SUBROUTINE SetSoundSpeeds_faces(this,Mesh,fcsound)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(physics_eulerisotherm), INTENT(INOUT) :: this
@@ -2389,8 +2397,6 @@ CONTAINS
     !------------------------------------------------------------------------!
     CLASS(physics_eulerisotherm), INTENT(INOUT) :: this
     !------------------------------------------------------------------------!
-    CALL this%bccsound%Destroy() ! call destructor of the mesh array
-    CALL this%fcsound%Destroy()
     DEALLOCATE(this%bccsound,this%fcsound)
     CALL this%Finalize_base()
   END SUBROUTINE Finalize
@@ -2410,6 +2416,11 @@ CONTAINS
     INTEGER, OPTIONAL, INTENT(IN) :: flavour,num
     TYPE(statevector_eulerisotherm) :: new_sv
     !-------------------------------------------------------------------!
+    LOGICAL :: success = .FALSE.
+    !-------------------------------------------------------------------!
+#if DEBUG > 2
+    PRINT *,"DEBUG INFO in physics_eulerisotherm::CreateStateVector: creating new statevector_eulerisotherm"
+#endif
     IF (.NOT.Physics%Initialized()) &
       CALL Physics%Error("physics_eulerisotherm::CreateStatevector", &
                          "Physics not initialized.")
@@ -2435,10 +2446,10 @@ CONTAINS
       ELSE
         new_sv%density  = marray_base()                 ! one scalar
         new_sv%velocity = marray_base(Physics%VDIM)     ! one vector
-      END IF      
+      END IF
       ! append to compound
-      CALL new_sv%AppendMArray(new_sv%density)
-      CALL new_sv%AppendMArray(new_sv%velocity)
+      success = new_sv%AppendMArray(new_sv%density)
+      success = success .AND. new_sv%AppendMArray(new_sv%velocity)
     CASE(CONSERVATIVE)
       ! allocate memory for density and momentum mesh arrays
       ALLOCATE(new_sv%density,new_sv%momentum)
@@ -2451,12 +2462,14 @@ CONTAINS
         new_sv%momentum = marray_base(Physics%VDIM)     ! one vector
       END IF
       ! append to compound
-      CALL new_sv%AppendMArray(new_sv%density)
-      CALL new_sv%AppendMArray(new_sv%momentum)
+      success = new_sv%AppendMArray(new_sv%density)
+      success = success .AND. new_sv%AppendMArray(new_sv%momentum)
     CASE DEFAULT
-      CALL Physics%Warning("physics_eulerisotherm::CreateStateVector", &
-                           "Empty state vector created.")
+      success = .FALSE.
     END SELECT
+    IF (.NOT.success) &
+      CALL Physics%Error("physics_eulerisotherm::CreateStateVector", &
+                         "state vector initialization failed")
   END FUNCTION CreateStateVector
 
   !> assigns one state vector to another state vector
@@ -2466,6 +2479,9 @@ CONTAINS
     CLASS(statevector_eulerisotherm),INTENT(INOUT) :: this
     CLASS(marray_base),INTENT(IN)    :: ma
     !------------------------------------------------------------------------!
+#if DEBUG > 2
+    PRINT *,"DEBUG INFO in physics_eulerisotherm::AssignMArray_0: assigning state vectors"
+#endif
     CALL this%marray_compound%AssignMArray_0(ma)
     IF (SIZE(this%data1d).GT.0) THEN
       SELECT TYPE(src => ma)
@@ -2485,6 +2501,10 @@ CONTAINS
           this%momentum => this%GetItem(this%NextItem(this%FirstItem()))
         CASE DEFAULT
           ! error, this should not happen
+#ifdef DEBUG
+          PRINT *,"ERROR in physics_eulerisotherm::AssignMArray_0: unsupported flavour"
+          STOP 1
+#endif
         END SELECT
       CLASS DEFAULT
         ! error, this should not happen
@@ -2492,6 +2512,17 @@ CONTAINS
     END IF
   END SUBROUTINE AssignMArray_0
 
+  !> destructor of statevector_eulerisotherm
+  SUBROUTINE Finalize_statevector(this)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    TYPE(statevector_eulerisotherm),INTENT(INOUT) :: this
+    !------------------------------------------------------------------------!
+#if DEBUG > 2
+    PRINT *,"DEBUG INFO in physics_eulerisotherm::Finalize: cleanup statevector_eulerisotherm"
+#endif
+    NULLIFY(this%density,this%velocity,this%momentum)
+  END SUBROUTINE Finalize_statevector
 
 !----------------------------------------------------------------------------!
 !> \par elemental non-class subroutines / functions

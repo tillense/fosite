@@ -64,9 +64,10 @@ MODULE fluxes_base_mod
                                   :: Reconstruction  !< reconstruction method
      CLASS(marray_base), ALLOCATABLE &
                                   :: minwav,maxwav   !< min/max wave speeds
-     CLASS(marray_compound), POINTER :: prim, &      !< primitive/conservative
-                                        cons, &      !< state vectors on cell faces
-                                        pfluxes      !< physical fluxes
+     CLASS(marray_compound), POINTER &
+                                  :: prim =>null(),& !< primitive/conservative
+                                     cons =>null(),& !< state vectors on cell faces
+                                  pfluxes =>null()   !< physical fluxes
      !> \name
      !! #### various data fields
      REAL, DIMENSION(:,:,:,:), POINTER, CONTIGUOUS &
@@ -403,12 +404,7 @@ CONTAINS
     !------------------------------------------------------------------------!
     IF (.NOT.this%Initialized()) &
         CALL this%Error("CloseFluxes","not initialized")
-    CALL this%minwav%Destroy()
-    CALL this%maxwav%Destroy()
-    CALL this%prim%Destroy()
-    CALL this%cons%Destroy()
-    CALL this%pfluxes%Destroy()
-    DEALLOCATE(this%cons,this%prim,this%pfluxes,this%minwav,this%maxwav, &
+    DEALLOCATE(this%minwav,this%maxwav,this%prim,this%cons,this%pfluxes, &
          this%bxflux,this%byflux,this%bzflux,this%bxfold,this%byfold,this%bzfold)
     CALL this%Reconstruction%Finalize()
     DEALLOCATE(this%Reconstruction)

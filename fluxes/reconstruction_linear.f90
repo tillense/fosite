@@ -3,7 +3,7 @@
 !# fosite - 3D hydrodynamical simulation program                             #
 !# module: reconstruction_linear.f90                                         #
 !#                                                                           #
-!# Copyright (C) 2007-2017                                                   #
+!# Copyright (C) 2007-2021                                                   #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
 !# Björn Sperling   <sperling@astrophysik.uni-kiel.de>                       #
 !# Jannes Klee      <jklee@astrophysik.uni-kiel.de>                          #
@@ -626,8 +626,6 @@ CONTAINS
     !------------------------------------------------------------------------!
     CLASS(reconstruction_linear), INTENT(INOUT)  :: this
     !------------------------------------------------------------------------!
-    CALL this%slopes%Destroy()
-    CALL this%dx%Destroy()
     DEALLOCATE(this%slopes,this%dx)
 
     CALL this%Finalize_base()

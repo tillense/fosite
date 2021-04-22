@@ -73,7 +73,7 @@ MODULE marray_base_mod
     REAL, POINTER, CONTIGUOUS :: data3d(:,:,:) => null()
     REAL, POINTER, CONTIGUOUS :: data4d(:,:,:,:) => null()
     REAL, POINTER, CONTIGUOUS :: data5d(:,:,:,:,:) => null()
-    CONTAINS
+  CONTAINS
     PROCEDURE :: Init
     PROCEDURE :: AssignPointers
     PROCEDURE :: RemapBounds_0
@@ -106,7 +106,6 @@ MODULE marray_base_mod
     PROCEDURE :: MultMArray_5
     GENERIC   :: OPERATOR (*) => MultMArray_0, MultMArray_1, MultMArray_2, &
                                  MultMArray_3, MultMArray_4, MultMArray_5
-    PROCEDURE :: Destroy
     FINAL     :: Finalize
   END TYPE
   INTERFACE marray_base
@@ -255,27 +254,32 @@ MODULE marray_base_mod
     PRINT *,"DEBUG INFO in marray_base::AssignPointers: assign 2d,3d,... pointers"
 #endif
     success=.FALSE.
-    IF (.NOT.ASSOCIATED(this%data1d).OR.SIZE(this%data1d).EQ.0) return
+    IF (.NOT.ASSOCIATED(this%data1d)) return
     ! assign pointers depending on rank
-    SELECT CASE(this%RANK)
-    CASE(0)
-      this%data2d(1:INUM*JNUM,KGMIN:KGMAX) => this%data1d
-      this%data3d(IGMIN:IGMAX,JGMIN:JGMAX,KGMIN:KGMAX) => this%data1d
-      this%data4d(IGMIN:IGMAX,JGMIN:JGMAX,KGMIN:KGMAX,1:1) => this%data1d
-      this%data5d(IGMIN:IGMAX,JGMIN:JGMAX,KGMIN:KGMAX,1:1,1:1) => this%data1d
-    CASE(1)
-      this%data2d(1:INUM*JNUM*KNUM,1:this%DIMS(1)) => this%data1d
-      this%data3d(1:INUM*JNUM,KGMIN:KGMAX,1:this%DIMS(1)) => this%data1d
-      this%data4d(IGMIN:IGMAX,JGMIN:JGMAX,KGMIN:KGMAX,1:this%DIMS(1)) => this%data1d
-      this%data5d(IGMIN:IGMAX,JGMIN:JGMAX,KGMIN:KGMAX,1:this%DIMS(1),1:1) => this%data1d
-    CASE(2)
-      this%data2d(1:INUM*JNUM*KNUM*this%DIMS(1),1:this%DIMS(2)) => this%data1d
-      this%data3d(1:INUM*JNUM*KNUM,1:this%DIMS(1),1:this%DIMS(2)) => this%data1d
-      this%data4d(1:INUM*JNUM,KGMIN:KGMAX,1:this%DIMS(1),1:this%DIMS(2)) => this%data1d
-      this%data5d(IGMIN:IGMAX,JGMIN:JGMAX,KGMIN:KGMAX,1:this%DIMS(1),1:this%DIMS(2)) => this%data1d
-    CASE DEFAULT
-      return ! wrong rank
-    END SELECT
+    IF (SIZE(this%data1d).GT.0) THEN ! exclude initialized but empty marrays (see compounds)
+      SELECT CASE(this%RANK)
+      CASE(0)
+        this%data2d(1:INUM*JNUM,KGMIN:KGMAX) => this%data1d
+        this%data3d(IGMIN:IGMAX,JGMIN:JGMAX,KGMIN:KGMAX) => this%data1d
+        this%data4d(IGMIN:IGMAX,JGMIN:JGMAX,KGMIN:KGMAX,1:1) => this%data1d
+        this%data5d(IGMIN:IGMAX,JGMIN:JGMAX,KGMIN:KGMAX,1:1,1:1) => this%data1d
+      CASE(1)
+        this%data2d(1:INUM*JNUM*KNUM,1:this%DIMS(1)) => this%data1d
+        this%data3d(1:INUM*JNUM,KGMIN:KGMAX,1:this%DIMS(1)) => this%data1d
+        this%data4d(IGMIN:IGMAX,JGMIN:JGMAX,KGMIN:KGMAX,1:this%DIMS(1)) => this%data1d
+        this%data5d(IGMIN:IGMAX,JGMIN:JGMAX,KGMIN:KGMAX,1:this%DIMS(1),1:1) => this%data1d
+      CASE(2)
+        this%data2d(1:INUM*JNUM*KNUM*this%DIMS(1),1:this%DIMS(2)) => this%data1d
+        this%data3d(1:INUM*JNUM*KNUM,1:this%DIMS(1),1:this%DIMS(2)) => this%data1d
+        this%data4d(1:INUM*JNUM,KGMIN:KGMAX,1:this%DIMS(1),1:this%DIMS(2)) => this%data1d
+        this%data5d(IGMIN:IGMAX,JGMIN:JGMAX,KGMIN:KGMAX,1:this%DIMS(1),1:this%DIMS(2)) => this%data1d
+      CASE DEFAULT
+#ifdef DEBUG
+        PRINT *,"ERROR in marray_base::AssignPointers: rank must be in {0,1,2}"
+#endif
+        return ! wrong rank
+      END SELECT
+    END IF
     ! report success
     success=.TRUE.
   END FUNCTION AssignPointers
@@ -488,18 +492,14 @@ MODULE marray_base_mod
     this%data5d(:,:,:,:,:) = a(:,:,:,:,:)
   END SUBROUTINE AssignMArray_5
 
-  PURE FUNCTION ShapesMatch(this,ma) RESULT(res)
+  PURE FUNCTION ShapesMatch(this,that) RESULT(res)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(marray_base),INTENT(IN) :: this, ma
+    CLASS(marray_base),INTENT(IN) :: this, that
     !------------------------------------------------------------------------!
     LOGICAL                       :: res
     !------------------------------------------------------------------------!
-    res = .FALSE.
-    IF (this%rank.NE.ma%rank) return
-    IF (SIZE(this%dims).NE.SIZE(ma%dims)) return
-    IF (.NOT.ALL(this%dims(:).EQ.ma%dims(:))) return
-    res = .TRUE.
+    res = (this%rank.EQ.that%rank).AND.ALL(this%dims(:).EQ.that%dims(:))
   END FUNCTION ShapesMatch
 
   !> add 2 mesh arrays
@@ -736,29 +736,22 @@ MODULE marray_base_mod
     b(:,:,:,:,:) =  this%data5d(:,:,:,:,:) * a(:,:,:,:,:)
   END FUNCTION MultMArray_5
 
-  !> polymorphic destructor of all mesh_array classes
-  SUBROUTINE Destroy(this)
-    IMPLICIT NONE
-    !-------------------------------------------------------------------!
-    CLASS(marray_base) :: this
-    !-------------------------------------------------------------------!
-#if DEBUG > 2
-    PRINT *,"DEBUG INFO in marray_base::Destroy: deallocating data1d"
-#endif
-    IF (ASSOCIATED(this%data1d)) DEALLOCATE(this%data1d)
-    NULLIFY(this%data1d,this%data2d,this%data3d,this%data4d)
-    this%rank    =-1
-    this%dims(:) = 0
-  END SUBROUTINE Destroy
-
-  !> actual destructor of mesh_array - this is called automatically if
+  !> destructor of mesh arrays - this is called automatically if
   !! deallocate is invoked
   SUBROUTINE Finalize(this)
     IMPLICIT NONE
     !-------------------------------------------------------------------!
     TYPE(marray_base) :: this
     !-------------------------------------------------------------------!
-    CALL this%Destroy()
+    IF (ASSOCIATED(this%data1d)) THEN
+#if DEBUG > 2
+    PRINT *,"DEBUG INFO in marray_base::Finalize: deallocating data1d"
+#endif
+      DEALLOCATE(this%data1d)
+    END IF
+    NULLIFY(this%data1d,this%data2d,this%data3d,this%data4d,this%data5d)
+    this%rank    =-1
+    this%dims(:) = 0
   END SUBROUTINE Finalize
 
   FUNCTION CreateSelection(idx) RESULT(new_sel)
@@ -816,8 +809,6 @@ MODULE marray_base_mod
     !------------------------------------------------------------------------!
     CLASS(selection_base),INTENT(INOUT) :: this
     CLASS(selection_base),INTENT(IN)    :: sel
-    !------------------------------------------------------------------------!
-    LOGICAL :: success = .FALSE.
     !------------------------------------------------------------------------!
 #if DEBUG > 2
     PRINT *,"DEBUG INFO in marray_base::AssignSelection: selection assignment"

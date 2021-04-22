@@ -106,6 +106,7 @@ MODULE physics_euler_mod
                                energy => null()
     CONTAINS
     PROCEDURE :: AssignMArray_0
+    FINAL     :: Finalize_statevector
   END TYPE
   INTERFACE statevector_euler
     MODULE PROCEDURE CreateStateVector
@@ -220,7 +221,7 @@ CONTAINS
     CALL this%PrintConfiguration()
   END SUBROUTINE PrintConfiguration_euler
 
-  !> \public allocate an initialize new non-isothermal state vector
+  !> \public allocate and initialize new non-isothermal state vector
   SUBROUTINE new_statevector(this,new_sv,flavour,num)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
@@ -2228,6 +2229,8 @@ CONTAINS
     INTEGER, OPTIONAL, INTENT(IN) :: flavour,num
     TYPE(statevector_euler) :: new_sv
     !-------------------------------------------------------------------!
+    LOGICAL :: success = .FALSE.
+    !-------------------------------------------------------------------!
     ! call inherited function
     new_sv = statevector_eulerisotherm(Physics,flavour,num)
     ! add entries specific for euler physics
@@ -2241,7 +2244,7 @@ CONTAINS
         new_sv%pressure = marray_base(num)         ! one scalar
       END IF
       ! append to compound
-      CALL new_sv%AppendMArray(new_sv%pressure)
+      success = new_sv%AppendMArray(new_sv%pressure)
     CASE(CONSERVATIVE)
       ! allocate memory for energy mesh array
       ALLOCATE(new_sv%energy)
@@ -2251,10 +2254,13 @@ CONTAINS
         new_sv%energy = marray_base()              ! one scalar
       END IF
       ! append to compound
-      CALL new_sv%AppendMArray(new_sv%energy)
+      success = new_sv%AppendMArray(new_sv%energy)
     CASE DEFAULT
-      CALL Physics%Warning("physics_euler::CreateStateVector", "incomplete state vector")
+      success = .FALSE.
     END SELECT
+    IF (.NOT.success) &
+      CALL Physics%Error("physics_euler::CreateStateVector", &
+                         "state vector initialization failed")
   END FUNCTION CreateStateVector
 
   !> assigns one state vector to another state vector
@@ -2283,6 +2289,14 @@ CONTAINS
       END SELECT
     END IF
   END SUBROUTINE AssignMArray_0
+
+    !> actual destructor of the statevector_eulerisotherm type
+  SUBROUTINE Finalize_statevector(this)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    TYPE(statevector_euler),INTENT(INOUT) :: this
+    !------------------------------------------------------------------------!
+  END SUBROUTINE Finalize_statevector
 
 
 !----------------------------------------------------------------------------!

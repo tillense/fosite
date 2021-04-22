@@ -46,7 +46,6 @@ MODULE marray_cellvector_mod
                                 corners => null()        !< cell corners
     CONTAINS
     PROCEDURE :: AssignPointers
-    PROCEDURE :: Destroy
     FINAL     :: Finalize
   END TYPE
   INTERFACE marray_cellvector
@@ -96,24 +95,14 @@ CONTAINS
     END IF
   END FUNCTION AssignPointers
 
-  !> polymorphic destructor of all mesh_cellvector classes
-  SUBROUTINE Destroy(this)
-    IMPLICIT NONE
-    !-------------------------------------------------------------------!
-    CLASS(marray_cellvector) :: this
-    !-------------------------------------------------------------------!
-    CALL this%marray_base%Destroy() ! call inherited destructor
-    NULLIFY(this%center,this%bcenter,this%faces,this%corners)
-  END SUBROUTINE Destroy
-
-  !> actual destructor of mesh_cellvector - this is called automatically if
+  !> destructor of cellvectors - this is called automatically if
   !! deallocate is invoked
   SUBROUTINE Finalize(this)
     IMPLICIT NONE
     !-------------------------------------------------------------------!
     TYPE(marray_cellvector) :: this
     !-------------------------------------------------------------------!
-    CALL this%Destroy() ! call inherited marray destructor
+    NULLIFY(this%center,this%bcenter,this%faces,this%corners)
   END SUBROUTINE Finalize
 
 END MODULE marray_cellvector_mod

@@ -46,7 +46,6 @@ MODULE marray_cellscalar_mod
                                     corners => null()    !< cell corners
     CONTAINS
     PROCEDURE :: AssignPointers
-    PROCEDURE :: Destroy
     FINAL     :: Finalize
   END TYPE
   INTERFACE marray_cellscalar
@@ -96,27 +95,17 @@ CONTAINS
     END IF
   END FUNCTION AssignPointers
 
-  !> polymorphic destructor of all mesh_cellscalar classes
-  SUBROUTINE Destroy(this)
-    IMPLICIT NONE
-    !-------------------------------------------------------------------!
-    CLASS(marray_cellscalar) :: this
-    !-------------------------------------------------------------------!
-#if DEBUG > 2
-    PRINT *,"DEBUG INFO in marray_cellscalar::Destroy: resetting data arrays"
-#endif
-    CALL this%marray_base%Destroy() ! call inherited destructor
-    NULLIFY(this%center,this%bcenter,this%faces,this%corners)
-  END SUBROUTINE Destroy
-
-  !> actual destructor of mesh_cellscalar - this is called automatically if
+  !> destructor of cellscalar - this is called automatically if
   !! deallocate is invoked
   SUBROUTINE Finalize(this)
     IMPLICIT NONE
     !-------------------------------------------------------------------!
     TYPE(marray_cellscalar) :: this
     !-------------------------------------------------------------------!
-    CALL this%Destroy()
+#if DEBUG > 2
+    PRINT *,"DEBUG INFO in marray_cellscalar::Finalize: nullify pointers"
+#endif
+    NULLIFY(this%center,this%bcenter,this%faces,this%corners)
   END SUBROUTINE Finalize
 
 END MODULE marray_cellscalar_mod
