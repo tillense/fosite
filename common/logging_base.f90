@@ -1,7 +1,7 @@
 !#############################################################################
 !#                                                                           #
 !# fosite - 3D hydrodynamical simulation program                             #
-!# module: common_types.f90                                                  #
+!# module: loggin_base.f90                                                   #
 !#                                                                           #
 !# Copyright (C) 2006-2014                                                   #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
@@ -104,7 +104,7 @@ MODULE logging_base_mod
 
 CONTAINS
 
-  !> \public Constructor of common class.
+  !> \public Constructor of the base class.
   !!
   !! Sets the module type (number) and name. In addition it initializes
   !! other internal variables including those related to parallel execution
@@ -139,7 +139,7 @@ CONTAINS
           DEFAULT_MPI_REAL = MPI_REAL8
           DEFAULT_MPI_2REAL = MPI_2DOUBLE_PRECISION
        CASE DEFAULT
-          CALL Warning(this,"InitCommon","Cannot determine default MPI real types.")
+          CALL Warning(this,"InitLogging","Cannot determine default MPI real types.")
        END SELECT
     END IF
 #endif
