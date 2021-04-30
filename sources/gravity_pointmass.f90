@@ -3,7 +3,7 @@
 !# fosite - 3D hydrodynamical simulation program                             #
 !# module: gravity_pointmass.f90                                             #
 !#                                                                           #
-!# Copyright (C) 2007-2019                                                   #
+!# Copyright (C) 2007-2021                                                   #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
 !# Björn Sperling   <sperling@astrophysik.uni-kiel.de>                       #
 !# Jannes Klee      <jklee@astrophysik.uni-kiel.de>                          #
@@ -100,7 +100,7 @@ MODULE gravity_pointmass_mod
     PROCEDURE :: UpdateGravity_single
     PROCEDURE :: InfoGravity
     PROCEDURE :: CalcDiskHeight_single
-    PROCEDURE :: Finalize
+    FINAL     :: Finalize
   END TYPE
 
   !--------------------------------------------------------------------------!
@@ -456,7 +456,7 @@ CONTAINS
   SUBROUTINE Finalize(this)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(gravity_pointmass), INTENT(INOUT) :: this
+    TYPE(gravity_pointmass), INTENT(INOUT) :: this
     !------------------------------------------------------------------------!
     CHARACTER(LEN=128) :: buffer
     !------------------------------------------------------------------------!
@@ -475,7 +475,6 @@ CONTAINS
                this%accrate,this%massloss,this%pos)
 
     DEALLOCATE(this%potential)
-
     CALL this%Finalize_base()
   END SUBROUTINE Finalize
 

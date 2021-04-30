@@ -3,7 +3,7 @@
 !# fosite - 3D hydrodynamical simulation program                             #
 !# module: gravity_sboxspectral.f90                                          #
 !#                                                                           #
-!# Copyright (C) 2015-2019                                                   #
+!# Copyright (C) 2015-2021                                                   #
 !# Jannes Klee <jklee@astrophysik.uni-kiel.de>                               #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
 !#                                                                           #
@@ -87,30 +87,35 @@ MODULE gravity_sboxspectral_mod
     COMPLEX(C_DOUBLE_COMPLEX), DIMENSION(:,:), POINTER :: transformed
   END TYPE Field_TYP
 
-  TYPE, EXTENDS(gravity_spectral) :: gravity_sboxspectral
+  TYPE, EXTENDS(gravity_base) :: gravity_sboxspectral
 #ifdef HAVE_FFTW
     !> \name
     !!#### spectral poisson solver shearing box
+    TYPE(C_PTR)           :: plan_r2c                  !> plan for real to complex FT
+    TYPE(C_PTR)           :: plan_c2r                  !> plan for complex to real FT
     TYPE(Field_TYP), DIMENSION(:), ALLOCATABLE &       !< z-layered density/potential field
-                                     :: field          !<   and their fourier transformed counterparts
+                          :: field                     !<   and their fourier transformed counterparts
     REAL(C_DOUBLE), DIMENSION(:,:), POINTER, CONTIGUOUS &
-                                     :: Kxy2           !< length of wave vectors squared
+                          :: Kxy2 => null()            !< length of wave vectors squared
     COMPLEX(C_DOUBLE_COMPLEX), POINTER, CONTIGUOUS &
-                                     :: Fmass3D(:,:,:),& !< fourier transformed 3D mass density
-                                        Fsum3D(:,:,:), & !< sum used for reconstruction
-                                                         !<   of transformed potential (3D only)
-                                        qk(:,:,:)        !< weight factors (3D only)
+                          :: Fmass3D(:,:,:) => null(),&!< fourier transformed 3D mass density
+                             Fsum3D(:,:,:) => null(), &!< sum used for reconstruction
+                                                       !<   of transformed potential (3D only)
+                             qk(:,:,:) => null()       !< weight factors (3D only)
     REAL, DIMENSION(:,:,:), POINTER, CONTIGUOUS &
-                                     :: Fmass3D_real => null(), & !< just for output
-                                        den_ip         !< interpolated 3D density
+                          :: Fmass3D_real => null(), & !< just for output
+                             den_ip => null(), &       !< interpolated 3D density
+                             phi => null()             !< potential
     INTEGER(C_INTPTR_T)              :: local_joff
-    REAL,DIMENSION(:), POINTER       :: kx,ky          !< x/y wave numbers for FFT
+    REAL,DIMENSION(:), POINTER &
+                          :: kx => null(),ky => null() !< x/y wave numbers for FFT
     REAL                             :: shiftconst     !< constant for shift
     REAL                             :: maxKxy2        !< max
-    REAL, DIMENSION(:), POINTER      :: joff, jrem     !< shifting indices (in SB)
+    REAL, DIMENSION(:), POINTER &
+                          :: joff=>null(),jrem=>null() !< shifting indices (in SB)
     INTEGER                          :: order
 #ifdef PARALLEL
-    REAL, DIMENSION(:,:,:), POINTER  :: mpi_buf
+    REAL, DIMENSION(:,:,:), POINTER  :: mpi_buf => null()
     INTEGER(C_INTPTR_T)              :: C_INUM, C_JNUM
     INTEGER(C_INTPTR_T)              :: alloc_local, local_JNUM
     TYPE(C_PTR)                      :: fftw_real_pointer, &
@@ -125,7 +130,7 @@ MODULE gravity_sboxspectral_mod
 !     PROCEDURE :: InfoGravity
     PROCEDURE :: SetOutput
     PROCEDURE :: CalcDiskHeight_single
-    PROCEDURE :: Finalize
+    FINAL :: Finalize
 #ifdef HAVE_FFTW
     PROCEDURE :: CalcPotential
     PROCEDURE :: FFT_Forward
@@ -354,7 +359,6 @@ MODULE gravity_sboxspectral_mod
     ! cut-off value for wave numbers
     this%maxKxy2 = 0.5*MIN(PI/Mesh%dx,PI/Mesh%dy)**2
 
-    ! precompute shift constant
     SELECT CASE (Mesh%shear_dir)
     CASE(1)
       this%shiftconst = Mesh%Q*Mesh%OMEGA*(Mesh%ymax-Mesh%ymin)/Mesh%dx
@@ -1141,9 +1145,10 @@ CALL ftrace_region_end("foward FFT")
   SUBROUTINE Finalize(this)
    IMPLICIT NONE
    !------------------------------------------------------------------------!
-   CLASS(gravity_sboxspectral), INTENT(INOUT) :: this
+   TYPE(gravity_sboxspectral), INTENT(INOUT) :: this
    !------------------------------------------------------------------------!
 #ifdef HAVE_FFTW
+    ! Destroy plans
     CALL fftw_destroy_plan(this%plan_r2c)
     CALL fftw_destroy_plan(this%plan_c2r)
 #if defined(PARALLEL)
@@ -1153,6 +1158,9 @@ CALL ftrace_region_end("foward FFT")
 #else
     DEALLOCATE(this%Fmass3D,this%Fsum3D,this%field)
 #endif
+    ! Free all temporary memory of FFTW
+    CALL fftw_cleanup()
+
     ! Free memory
     IF (ASSOCIATED(this%Fmass3D_real)) DEALLOCATE(this%Fmass3D_real)
     DEALLOCATE(&
@@ -1164,6 +1172,7 @@ CALL ftrace_region_end("foward FFT")
                this%den_ip &
                )
 #endif
-    END SUBROUTINE Finalize
+    CALL this%Finalize_base()
+   END SUBROUTINE Finalize
 
 END MODULE gravity_sboxspectral_mod

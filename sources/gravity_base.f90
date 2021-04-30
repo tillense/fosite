@@ -68,7 +68,6 @@ MODULE gravity_base_mod
     PROCEDURE (CalcDiskHeight_single), DEFERRED :: CalcDiskHeight_single
     PROCEDURE :: GetGravityPointer
     PROCEDURE :: Finalize_base
-    PROCEDURE (Finalize), DEFERRED :: Finalize
   END TYPE gravity_base
 
   ABSTRACT INTERFACE
@@ -101,11 +100,6 @@ MODULE gravity_base_mod
       CLASS(physics_base), INTENT(IN)    :: Physics
       CLASS(marray_compound), INTENT(INOUT) :: pvar
       TYPE(marray_base),      INTENT(INOUT) :: bccsound,h_ext,height
-    END SUBROUTINE
-    SUBROUTINE Finalize(this)
-      IMPORT gravity_base
-      IMPLICIT NONE
-      CLASS(gravity_base), INTENT(INOUT) :: this
     END SUBROUTINE
   END INTERFACE
   ! flags for source terms
@@ -178,11 +172,9 @@ CONTAINS
   SUBROUTINE Finalize_base(this)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(gravity_base) :: this
+    CLASS(gravity_base), INTENT(INOUT) :: this
     !------------------------------------------------------------------------!
-    ! nothing intializaed
-    CALL this%accel%Destroy()
-    DEALLOCATE(this%accel)
+    IF (ALLOCATED(this%accel)) DEALLOCATE(this%accel)
   END SUBROUTINE Finalize_base
 
 END MODULE gravity_base_mod

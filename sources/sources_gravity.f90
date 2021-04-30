@@ -283,20 +283,13 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(sources_gravity), INTENT(INOUT) :: this
-    CLASS(gravity_base),    POINTER       :: gravptr
+    CLASS(gravity_base),    POINTER       :: gravptr,tmpptr
     !------------------------------------------------------------------------!
-    CALL this%pot%Destroy()
-    CALL this%accel%Destroy()
-    CALL this%height%Destroy()
-    CALL this%invheight2%Destroy()
-    CALL this%h_ext%Destroy()
-
     gravptr => this%glist
     DO WHILE (ASSOCIATED(gravptr))
-
-      CALL gravptr%Finalize()
-
+      tmpptr => gravptr
       gravptr => gravptr%next
+      DEALLOCATE(tmpptr)
     END DO
 
     CALL this%sources_c_accel%Finalize()

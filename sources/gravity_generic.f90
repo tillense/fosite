@@ -98,7 +98,7 @@ CONTAINS
            ! self-gravitation in flat geometries periodic in both dimensions
            CALL obj%InitGravity_sboxspectral(Mesh,Physics,grav,IOgrav)
         TYPE IS (gravity_spectral)
-           ! self-gravitation in flat geometries periodic in both dimensions
+           ! self-gravitation in flat polar geometries
            CALL obj%InitGravity_spectral(Mesh,Physics,grav,IOgrav)
         END SELECT
         IF(ASSOCIATED(IOgrav)) CALL SetAttr(IO, GetKey(dir), IOgrav)
@@ -106,12 +106,5 @@ CONTAINS
       dir => GetNext(dir)
     END DO
   END SUBROUTINE new_gravity
-
-  SUBROUTINE CloseGravity()
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    ! add new source term to beginning of
-    ! list of source terms
-  END SUBROUTINE CloseGravity
 
 END MODULE gravity_generic_mod

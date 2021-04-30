@@ -3,7 +3,7 @@
 !# fosite - 3D hydrodynamical simulation program                             #
 !# module: gravity_spectral.f90                                              #
 !#                                                                           #
-!# Copyright (C) 2011-2019                                                   #
+!# Copyright (C) 2011-2021                                                   #
 !# Manuel Jung <mjung@astrophysik.uni-kiel.de>                               #
 !# Jannes Klee <jklee@astrophysik.uni-kiel.de>                               #
 !#                                                                           #
@@ -104,7 +104,7 @@ MODULE gravity_spectral_mod
     PROCEDURE :: SetOutput
     PROCEDURE :: UpdateGravity_single
     PROCEDURE :: CalcDiskHeight_single
-    PROCEDURE :: Finalize
+    FINAL :: Finalize
 #ifdef HAVE_FFTW
     PROCEDURE :: CalcPotential
     PROCEDURE :: PrecomputeI
@@ -777,7 +777,7 @@ MODULE gravity_spectral_mod
   SUBROUTINE Finalize(this)
    IMPLICIT NONE
    !------------------------------------------------------------------------!
-   CLASS(gravity_spectral), INTENT(INOUT) :: this
+   TYPE(gravity_spectral), INTENT(INOUT) :: this
    !------------------------------------------------------------------------!
 #if defined(HAVE_FFTW)
     ! Destroy plans
@@ -803,7 +803,11 @@ MODULE gravity_spectral_mod
     CALL fftw_free(this%p_FI)
     CALL fftw_free(this%pFdensity)
     CALL fftw_free(this%pFphi)
+
+    ! Free all temporary memory of FFTW
+    CALL fftw_cleanup()
 #endif
-    END SUBROUTINE Finalize
+    CALL this%Finalize_base()
+   END SUBROUTINE Finalize
 
 END MODULE gravity_spectral_mod

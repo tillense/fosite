@@ -3,7 +3,7 @@
 !# fosite - 3D hydrodynamical simulation program                             #
 !# module: gravity_binary.f90                                                #
 !#                                                                           #
-!# Copyright (C) 2010-2019                                                   #
+!# Copyright (C) 2010-2021                                                   #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
 !# Björn Sperling   <sperling@astrophysik.uni-kiel.de>                       #
 !# Anna Feiler      <afeiler@astrophysik.uni-kiel.de>                        #
@@ -96,7 +96,7 @@ MODULE gravity_binary_mod
     PROCEDURE :: GetMass_primary
     PROCEDURE :: GetMass_secondary
     PROCEDURE :: CalcDiskHeight_single
-    PROCEDURE :: Finalize
+    FINAL :: Finalize
   END TYPE
 
   PUBLIC :: &
@@ -568,14 +568,13 @@ CONTAINS
   SUBROUTINE Finalize(this)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(gravity_binary), INTENT(INOUT) :: this
+    TYPE(gravity_binary), INTENT(INOUT) :: this
     !------------------------------------------------------------------------!
     DEALLOCATE(this%mass,this%mass2,this%pos,this%r0,this%omega2,this%omega,&
                this%r_prim,this%r_sec,this%posvec_prim,this%posvec_prim_tmp, &
                this%posvec_sec,this%posvec_sec_tmp,this%pot,&
                this%pot_prim,this%pot_sec,this%fr_prim,this%fr_sec,this%fposvec_prim, &
                this%fposvec_sec)
-
     CALL this%Finalize_base()
   END SUBROUTINE Finalize
 
