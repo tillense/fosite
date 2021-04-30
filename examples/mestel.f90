@@ -369,8 +369,6 @@ CONTAINS
     CALL Mesh%Info(" DATA-----> initial condition: Mestel's disk")
     CALL Mesh%Info("            disk mass:         " // TRIM(mdisk_str) // " M_sun")
 
-    CALL rands%Destroy()
-    CALL Sigma%Destroy()
     DEALLOCATE(rands,Sigma)
   END SUBROUTINE InitData
 
