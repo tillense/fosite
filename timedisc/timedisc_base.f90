@@ -3,7 +3,7 @@
 !# fosite - 3D hydrodynamical simulation program                             #
 !# module: timedisc_base.f90                                                 #
 !#                                                                           #
-!# Copyright (C) 2007-2018                                                   #
+!# Copyright (C) 2007-2021                                                   #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
 !# Björn Sperling   <sperling@astrophysik.uni-kiel.de>                       #
 !# Manuel Jung      <mjung@astrophysik.uni-kiel.de>                          #
@@ -84,11 +84,13 @@ PRIVATE
      !> \name Variables
      CLASS(boundary_generic), ALLOCATABLE :: Boundary  !< one for each boundary
      CLASS(marray_compound), POINTER  &
-                      :: pvar,cvar,ptmp,ctmp,cold, &   !< prim/cons state vectors
-                         src,geo_src, &                !< source terms
-                         rhs, &                        !< ODE right hand side
-                         cerr,cerr_max, &              !< error control & output
-                         solution                      !< analytical solution
+                      :: pvar => null(),cvar => null(), &     !< prim/cons state vectors
+                         ptmp => null(),ctmp => null(), &
+                         cold => null(), &
+                         src  => null(),geo_src => null(), &  !< source terms
+                         rhs => null(), &                     !< ODE right hand side
+                         cerr => null(),cerr_max => null(), & !< error control & output
+                         solution => null()                   !< analytical solution
      INTEGER          :: order                         !< time order
      REAL             :: cfl                           !< Courant number
      REAL             :: dt                            !< actual time step
@@ -126,9 +128,9 @@ PRIVATE
      REAL, DIMENSION(:), POINTER       :: gamma
      INTEGER                           :: pc               !< = 1 predictor-corrector
      !> numerical fluxes divided by dy or dx
-     REAL, DIMENSION(:,:,:,:), POINTER :: xfluxdydz,yfluxdzdx,zfluxdxdy
-     REAL, DIMENSION(:,:,:,:), POINTER :: amax            !< max. wave speeds
-     REAL, DIMENSION(:,:), POINTER     :: bflux           !< boundary fluxes for output
+     REAL, DIMENSION(:,:,:,:), POINTER :: xfluxdydz=>null(),yfluxdzdx=>null(),zfluxdxdy=>null()
+     REAL, DIMENSION(:,:,:,:), POINTER :: amax=>null()    !< max. wave speeds
+     REAL, DIMENSION(:,:), POINTER     :: bflux=>null()   !< boundary fluxes for output
      LOGICAL                           :: write_error     !< enable err writing
      INTEGER, DIMENSION(:,:), POINTER  :: shift=>null()   !< fargo annulus shift
      REAL, DIMENSION(:,:), POINTER     :: buf=>null()     !< fargo MPI buffer
@@ -264,7 +266,6 @@ CONTAINS
     CALL Physics%new_statevector(this%geo_src,CONSERVATIVE)
     CALL Physics%new_statevector(this%src,CONSERVATIVE)
     CALL Physics%new_statevector(this%rhs,CONSERVATIVE)
-    NULLIFY(this%cerr,this%cerr_max)
 
     ! initialize all variables
     this%pvar%data1d(:)    = 0.
@@ -2001,13 +2002,6 @@ CONTAINS
       velocity(:,:,:,k) = tmp%data3d(:,:,:) * ephi_projected%data4d(:,:,:,k)
     END DO
 
-    CALL accel%Destroy()
-    CALL dist_axis_projected%Destroy()
-    CALL ephi_projected%Destroy()
-    CALL posvec%Destroy()
-    CALL eomega%Destroy()
-    CALL tmpvec%Destroy()
-    CALL tmp%Destroy()
     DEALLOCATE(accel,dist_axis_projected,ephi_projected,posvec,eomega,tmpvec,tmp)
 
   CONTAINS
@@ -2035,29 +2029,14 @@ CONTAINS
     ! call boundary destructor
     CALL this%Boundary%Finalize()
 
-    CALL this%pvar%Destroy()
-    CALL this%ptmp%Destroy()
-    CALL this%cvar%Destroy()
-    CALL this%ctmp%Destroy()
-    CALL this%cold%Destroy()
-    CALL this%geo_src%Destroy()
-    CALL this%src%Destroy()
-    CALL this%rhs%Destroy()
-
     DEALLOCATE( &
-      this%pvar,this%cvar,this%ptmp,this%ctmp, &
+      this%pvar,this%cvar,this%ptmp,this%ctmp,this%cold, &
       this%geo_src,this%src,this%rhs, &
       this%xfluxdydz,this%yfluxdzdx,this%zfluxdxdy,this%amax,this%tol_abs,&
       this%dtmean,this%dtstddev,this%time)
 
-    IF (ASSOCIATED(this%cerr)) THEN
-      CALL this%cerr%Destroy()
-      DEALLOCATE(this%cerr)
-    END IF
-    IF (ASSOCIATED(this%cerr_max)) THEN
-      CALL this%cerr_max%Destroy()
-      DEALLOCATE(this%cerr_max)
-    END IF
+    IF (ASSOCIATED(this%cerr)) DEALLOCATE(this%cerr)
+    IF (ASSOCIATED(this%cerr_max)) DEALLOCATE(this%cerr_max)
     IF (ASSOCIATED(this%w)) DEALLOCATE(this%w)
     IF (ASSOCIATED(this%delxy))DEALLOCATE(this%delxy)
     IF (ASSOCIATED(this%shift))DEALLOCATE(this%shift)
@@ -2065,10 +2044,7 @@ CONTAINS
     IF(ASSOCIATED(this%buf))  DEALLOCATE(this%buf)
 #endif
     IF(ASSOCIATED(this%bflux)) DEALLOCATE(this%bflux)
-    IF(ASSOCIATED(this%solution)) THEN
-      CALL this%solution%Destroy()
-      DEALLOCATE(this%solution)
-    END IF
+    IF(ASSOCIATED(this%solution)) DEALLOCATE(this%solution)
   END SUBROUTINE Finalize_base
 
 

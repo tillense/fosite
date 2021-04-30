@@ -64,7 +64,7 @@ MODULE timedisc_rkfehlberg_mod
   !--------------------------------------------------------------------------!
   PRIVATE
   TYPE coeff_type
-    CLASS(marray_compound), POINTER :: p
+    CLASS(marray_compound), POINTER :: p => null()
   END TYPE coeff_type
   TYPE, EXTENDS (timedisc_modeuler) :: timedisc_rkfehlberg
      TYPE(coeff_type), DIMENSION(:), ALLOCATABLE :: coeff
@@ -377,7 +377,6 @@ CONTAINS
     !------------------------------------------------------------------------!
     DEALLOCATE(this%b_high,this%b_low,this%c,this%a)
     DO k=2,this%m
-      CALL this%coeff(k)%p%Destroy()
       DEALLOCATE(this%coeff(k)%p)
     END DO
     DEALLOCATE(this%coeff)
