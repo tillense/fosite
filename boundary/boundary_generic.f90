@@ -1083,6 +1083,7 @@ CONTAINS
     !------------------------------------------------------------------------!
     ! loop over all boundaries
     DO dir=1,6
+      CALL this%boundary(dir)%p%Finalize()
 #ifdef PARALLEL
       ! deallocate MPI send/recv buffers
       DEALLOCATE(this%boundary(dir)%p%sendbuf,this%boundary(dir)%p%recvbuf)
