@@ -279,8 +279,10 @@ CONTAINS
     CLASS(marray_compound), POINTER :: new_sv
     INTEGER, OPTIONAL, INTENT(IN)   :: flavour,num
     !------------------------------------------------------------------------!
+#ifdef DEBUG
     IF (ASSOCIATED(new_sv)) &
       CALL this%Error("physics_eulerisotherm::new_statevector","new statevector already associated")
+#endif
     ALLOCATE(statevector_eulerisotherm::new_sv)
     SELECT TYPE(sv => new_sv)
     TYPE IS (statevector_eulerisotherm)

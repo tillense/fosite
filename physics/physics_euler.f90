@@ -3,7 +3,7 @@
 !# fosite - 3D hydrodynamical simulation program                             #
 !# module: physics_euler.f90                                                 #
 !#                                                                           #
-!# Copyright (C) 2007-2019                                                   #
+!# Copyright (C) 2007-2021                                                   #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
 !# Björn Sperling   <sperling@astrophysik.uni-kiel.de>                       #
 !# Jannes Klee      <jklee@astrophysik.uni-kiel.de>                          #
@@ -229,6 +229,10 @@ CONTAINS
     CLASS(marray_compound), POINTER :: new_sv
     INTEGER, OPTIONAL, INTENT(IN)   :: flavour,num
     !------------------------------------------------------------------------!
+#ifdef DEBUG
+    IF (ASSOCIATED(new_sv)) &
+      CALL this%Error("physics_euler::new_statevector","new statevector already associated")
+#endif
     ALLOCATE(statevector_euler::new_sv)
     SELECT TYPE(sv => new_sv)
     TYPE IS (statevector_euler)
