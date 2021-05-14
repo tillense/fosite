@@ -85,11 +85,11 @@ MODULE fosite_mod
     !! #### Variables
     INTEGER                :: iter
     LOGICAL                :: aborted = .TRUE.    !< .FALSE. if stoptime is reached
-    DOUBLE PRECISION       :: wall_time           !< wall clock elapsed time
-    DOUBLE PRECISION       :: log_time            !< time for next log output
-    DOUBLE PRECISION       :: start_time          !< system clock start time
-    DOUBLE PRECISION       :: end_time            !< system clock end time
-    DOUBLE PRECISION       :: run_time            !< = end_time - start_time
+    DOUBLE PRECISION       :: wall_time  = 0.0    !< wall clock elapsed time
+    DOUBLE PRECISION       :: log_time   = 0.0    !< time for next log output
+    DOUBLE PRECISION       :: start_time = 0.0    !< system clock start time
+    DOUBLE PRECISION       :: end_time   = 0.0    !< system clock end time
+    DOUBLE PRECISION       :: run_time   = 0.0    !< = end_time - start_time
     INTEGER                :: start_count         !< system clock count
     CHARACTER(MAXLEN)      :: buffer
     !> \name
@@ -132,16 +132,17 @@ CONTAINS
     LOGICAL            :: already_initialized = .FALSE.
 #endif
     !--------------------------------------------------------------------------!
+    IF (this%Initialized()) THEN
+      CALL this%Warning("InitFosite","already initialized, trying to reset")
+      ! finalize fosite without finalizing MPI
+      CALL this%Finalize(.FALSE.)
+    END IF
 #ifdef PARALLEL
-    ! initialize MPI library for parallel execution, if Fosite is not initialized
-    IF(.NOT.this%Initialized()) &
-      CALL MPI_Initialized(already_initialized,this%ierror)
+    ! check whether MPI is already initialized
+    CALL MPI_Initialized(already_initialized,this%ierror)
     IF (.NOT.already_initialized) &
       CALL MPI_Init(this%ierror)
 #endif
-    !> if Fosite is already initialized, close it, but do not finalize MPI
-    IF(this%Initialized()) &
-      CALL this%Finalize(.FALSE.)
 
     CALL this%InitLogging(simtype,simname)
 
@@ -337,9 +338,9 @@ CONTAINS
 
     ! store initial data
     IF (this%Timedisc%time.EQ.0.0) THEN
-        CALL this%Datafile%WriteDataset(this%Mesh,this%Physics,this%Fluxes,&
+      CALL this%Datafile%WriteDataset(this%Mesh,this%Physics,this%Fluxes,&
                           this%Timedisc,this%config,this%IO)
-        IF (this%GetRank().EQ.0) CALL this%PrintInfo(0,0,0.0,0.0,0,this%Timedisc%n_adj)
+      CALL this%PrintInfo(0,0,0.0,0.0,0,this%Timedisc%n_adj)
     END IF
 
     IF(this%Timedisc%break) &
@@ -464,9 +465,10 @@ CONTAINS
     CLASS(fosite), INTENT(INOUT) :: this
     LOGICAL,OPTIONAL, INTENT(IN) :: mpifinalize_
     !--------------------------------------------------------------------------!
-    LOGICAL                      :: mpifinalize = .TRUE.
+#ifdef PARALLEL
+    LOGICAL                      :: mpifinalize
+#endif
     !--------------------------------------------------------------------------!
-    mpifinalize = .TRUE.
     CALL this%ComputeRunTime()
     CALL this%PrintBoundaryFluxes()
     CALL this%PrintSummary()
@@ -482,10 +484,12 @@ CONTAINS
 
     CALL Destroy_Sources(this%Sources)
 
-    CALL this%Physics%Finalize()
-    DEALLOCATE(this%Physics)
     CALL this%Fluxes%Finalize()
     DEALLOCATE(this%Fluxes)
+
+    CALL this%Physics%Finalize()
+    DEALLOCATE(this%Physics)
+
     CALL this%Mesh%Finalize()
     DEALLOCATE(this%Mesh)
 
@@ -496,10 +500,11 @@ CONTAINS
 #ifdef PARALLEL
     IF(PRESENT(mpifinalize_)) THEN
       mpifinalize = mpifinalize_
+    ELSE
+      mpifinalize = .TRUE.
     END IF
-    IF(mpifinalize) THEN
+    IF(mpifinalize) &
       CALL MPI_Finalize(this%ierror)
-    END IF
 #endif
   END SUBROUTINE Finalize
 
@@ -532,7 +537,7 @@ CONTAINS
     INTEGER            :: drt, c, c_rate, c_max
     !------------------------------------------------------------------------!
     INTENT(IN)         :: i,t,d
-    !--------------------------------------------------------------------------!
+    !------------------------------------------------------------------------!
     IF (this%GetRank().EQ.0) THEN
 
        SELECT CASE (dc)
