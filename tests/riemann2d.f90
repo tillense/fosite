@@ -3,7 +3,7 @@
 !# fosite - 3D hydrodynamical simulation program                             #
 !# module: riemann2d.f90                                                     #
 !#                                                                           #
-!# Copyright (C) 2006-2019                                                   #
+!# Copyright (C) 2006-2021                                                   #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
 !#                                                                           #
 !# This program is free software; you can redistribute it and/or modify      #
@@ -488,6 +488,7 @@ PROGRAM riemann2d
                      :: OFNAME = 'riemann2d'
   !--------------------------------------------------------------------------!
   CLASS(fosite),Dimension(:), ALLOCATABLE      :: Sim
+  LOGICAL :: mpifinalize = .FALSE.
   INTEGER                         :: ic
   !--------------------------------------------------------------------------!
 
@@ -511,7 +512,8 @@ PROGRAM riemann2d
      CALL InitData(Sim(ic)%Mesh, Sim(ic)%Physics, Sim(ic)%Timedisc, ic)
      CALL Sim(ic)%Run()
 
-     CALL Sim(ic)%Finalize()
+     IF (ic.EQ.ICNUM) mpifinalize=.TRUE.
+     CALL Sim(ic)%Finalize(mpifinalize)
      TAP_CHECK(.TRUE.,"Simulation finished")
 
   END DO

@@ -79,7 +79,12 @@ PROGRAM gauss3d
   CALL MakeConfig(Sim, Sim%config)
   CALL Sim%Setup()
   CALL InitData(Sim%Mesh, Sim%Physics, Sim%Timedisc)
-
+!     SELECT TYPE(pvar => Sim%Fluxes%prim)
+!     TYPE IS(statevector_eulerisotherm) ! isothermal HD
+!       PRINT *,pvar%density%data1d(1)
+!     CLASS DEFAULT
+!       PRINT *, "ERROR: wrong state vector"
+!     END SELECT
   CALL Sim%Run()
   ok = .NOT.Sim%aborted
   CALL Sim%Finalize()

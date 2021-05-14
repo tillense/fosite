@@ -3,7 +3,7 @@
 !# fosite - 3D hydrodynamical simulation program                             #
 !# module: vortex2d.f90                                                      #
 !#                                                                           #
-!# Copyright (C) 2006-2014                                                   #
+!# Copyright (C) 2006-2021                                                   #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
 !#                                                                           #
 !# This program is free software; you can redistribute it and/or modify      #
@@ -77,7 +77,7 @@ PROGRAM vortex3d
                      :: OFNAME = 'vortex3d'
   !--------------------------------------------------------------------------!
   CLASS(fosite),ALLOCATABLE :: Sim
-  CLASS(marray_compound), POINTER :: pvar_init
+  CLASS(marray_compound), POINTER :: pvar_init => null()
   REAL :: sigma
   !--------------------------------------------------------------------------!
 
@@ -94,7 +94,6 @@ PROGRAM vortex3d
   ! compare with initial condition
   sigma = SQRT(SUM((Sim%Timedisc%pvar%data1d(:)-pvar_init%data1d(:))**2)/SIZE(pvar_init%data1d))
   CALL Sim%Finalize()
-  CALL pvar_init%Destroy()
   DEALLOCATE(Sim,pvar_init)
   TAP_CHECK_SMALL(sigma,3.8E-2,"vortex3d")
   TAP_DONE

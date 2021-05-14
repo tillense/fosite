@@ -71,7 +71,7 @@ PROGRAM KHI
 
   ! allocate memory for dynamic types and arrays
   CALL RANDOM_SEED(size=n)
-  ALLOCATE(Sim,pvar,seed(n))
+  ALLOCATE(Sim,pvar,pvar_init,seed(n))
 
   ! simulate KHI with initial x-velocity along x-direction
   CALL Sim%InitFosite()
@@ -112,9 +112,8 @@ PROGRAM KHI
   ! resolution in these dimensions differ. This is of particular importance for parallel tests.
   sigma = SQRT(SUM((Sim%Timedisc%pvar%data3d(:,:,:)-pvar%data3d(:,:,:))**2)/SIZE(pvar%data3d))
 
-  CALL pvar%Destroy()
   CALL Sim%Finalize()
-  DEALLOCATE(pvar,seed,Sim)
+  DEALLOCATE(pvar,pvar_init,seed,Sim)
   TAP_CHECK_SMALL(sigma,TINY(sigma),"x-y symmetry test")
   TAP_DONE
 

@@ -3,7 +3,7 @@
 !# fosite - 3D hydrodynamical simulation program                             #
 !# module: riemann1d.f90                                                     #
 !#                                                                           #
-!# Copyright (C) 2006-2018                                                   #
+!# Copyright (C) 2006-2021                                                   #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
 !#                                                                           #
 !# This program is free software; you can redistribute it and/or modify      #
@@ -69,7 +69,7 @@ PROGRAM riemann1d
                               "Isothermal Noh problem          " /)
   !--------------------------------------------------------------------------!
   ! mesh settings
-  CHARACTER(LEN=3), PARAMETER :: TESTDIR  = "all" ! direction: x,y,z or all
+  CHARACTER(LEN=3), PARAMETER :: TESTDIR  = "x" !"all" ! direction: x,y,z or all
   INTEGER, PARAMETER :: RES  = 400       ! resolution
   ! output parameters
   INTEGER, PARAMETER :: ONUM = 1         ! number of output data sets
@@ -88,7 +88,8 @@ PROGRAM riemann1d
   INTEGER            :: ic,sd,dir_min,dir_max
   REAL, DIMENSION(:,:), ALLOCATABLE :: sigma
   REAL, PARAMETER    :: sigma_tol(TESTNUM) &
-                        = (/ 1.8E-2, 1.4E-2, 7.9E+0, 3.5E+1, 4.3E+0, 7.9E-2, 1.0E+0, 1.0E+0 /)
+                        = (/ 3.7E-3, 1.7E-2, 4.7E-2, 1.6E-2, 3.6E-2, 4.0E-3, 1.0E+0, 1.0E+0 /)
+  REAL               :: sum_numer, sum_denom
   !--------------------------------------------------------------------------!
 
   ! check whether we perform tests in all directions
@@ -107,19 +108,24 @@ PROGRAM riemann1d
     dir_min = 1
     dir_max = 1
   END SELECT
-  
-  TAP_PLAN(TESTNUM*(dir_max-dir_min+1))
 
-  ALLOCATE(sigma(TESTNUM,dir_min:dir_max))
+  ALLOCATE(Sim,sigma(TESTNUM,dir_min:dir_max))
+
+  ! initialize Fosite
+  CALL Sim%InitFosite()
+
+#ifdef PARALLEL
+  IF (Sim%GetRank().EQ.0) THEN
+#endif
+TAP_PLAN(TESTNUM*(dir_max-dir_min+1))
+#ifdef PARALLEL
+  END IF
+#endif
+
   ! loop over all tests
   DO ic=1,TESTNUM
     ! loop over selected directions
     DO sd=dir_min,dir_max
-    
-      ! initialize Fosite
-      ALLOCATE(Sim)
-      CALL Sim%InitFosite()
-      
       ! get configuration for the particular test and direction
       CALL MakeConfig(Sim, Sim%config,ic,sd)
 !       CALL PrintDict(config)
@@ -133,33 +139,50 @@ PROGRAM riemann1d
       IF (Sim%aborted) THEN
         sigma(ic,sd) = HUGE(1.0)
       ELSE
+        sigma(ic,sd) = 0.0 ! default
         IF (ASSOCIATED(Sim%Timedisc%solution)) THEN
-          sigma(ic,sd) = SQRT(SUM((Sim%Timedisc%pvar%data1d(:) &
-                          -Sim%Timedisc%solution%data1d(:))**2)/SIZE(Sim%Timedisc%pvar%data1d))
-        ELSE
-          sigma(ic,sd) = 0.0
+          ! use L1 norm to estimate the deviation from the exact solution:
+          !   Σ |pvar - pvar_exact| / Σ |pvar_exact|
+          sum_numer = SUM(ABS(Sim%Timedisc%pvar%data1d(:)-Sim%Timedisc%solution%data1d(:)), &
+                          Sim%Mesh%without_ghost_zones%mask1d(:))
+          sum_denom = SUM(ABS(Sim%Timedisc%solution%data1d(:)),Sim%Mesh%without_ghost_zones%mask1d(:))
+#ifdef PARALLEL
+          CALL MPI_Allreduce(MPI_IN_PLACE,sum_numer,1,DEFAULT_MPI_REAL,MPI_SUM,MPI_COMM_WORLD,Sim%ierror)
+          CALL MPI_Allreduce(MPI_IN_PLACE,sum_denom,1,DEFAULT_MPI_REAL,MPI_SUM,MPI_COMM_WORLD,Sim%ierror)
+#endif
+          IF (ABS(sum_denom).GT.4*TINY(sum_denom)) & ! avoid division by zero error
+            sigma(ic,sd) = sum_numer / sum_denom
         END IF
       END IF
 
-      CALL Sim%Finalize()
-      DEALLOCATE(Sim)
-
+      IF (ic.EQ.TESTNUM.AND.sd.EQ.dir_max) EXIT
+      ! reset fosite
+      CALL Sim%InitFosite()
     END DO
   END DO
 
   ! check results
   ! loop over all tests
+#ifdef PARALLEL
+  IF (Sim%GetRank().EQ.0) THEN
+#endif
   DO ic=1,TESTNUM
     ! loop over selected directions
     DO sd=dir_min,dir_max
-      WRITE (verbose_tap_output,'(A,ES8.2)') TRIM(TESTSTR(ic)) // " / " // ACHAR(119+sd) &
-        // " sigma = ", sigma(ic,sd)
+      WRITE (verbose_tap_output,'(A,ES8.2)') TESTSTR(ic) // " " // ACHAR(119+sd) &
+        // "-direction: " // " sigma = ", sigma(ic,sd)
 ! This line is long if expanded. So we can't indent it or it will be cropped.
 TAP_CHECK_SMALL(sigma(ic,sd),sigma_tol(ic),TRIM(verbose_tap_output))
     END DO
   END DO
 
 TAP_DONE
+#ifdef PARALLEL
+  END IF
+#endif
+
+CALL Sim%Finalize()
+DEALLOCATE(Sim)
 
 CONTAINS
 

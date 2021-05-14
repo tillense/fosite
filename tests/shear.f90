@@ -58,34 +58,35 @@ PROGRAM shear
   CHARACTER(LEN=256), PARAMETER :: OFNAME = "sbox"
   !--------------------------------------------------------------------------!
   CLASS(fosite), ALLOCATABLE :: Sim
-  CLASS(marray_compound), POINTER :: pvar,pvar_init
+  CLASS(marray_compound), POINTER :: pvar=>null(),pvar_init=>null()
   REAL               :: sigma
+  LOGICAL            :: ok
   !--------------------------------------------------------------------------!
   TAP_PLAN(1)
 
-  ! with west-east shear
+  ! with south-north shear
   ALLOCATE(Sim)
   CALL Sim%InitFosite()
   CALL MakeConfig(Sim, Sim%config)
   CALL Sim%Setup()
   CALL InitData(Sim%Mesh, Sim%Physics, Sim%Timedisc%pvar, Sim%Timedisc%cvar)
+#ifndef PARALLEL
   ! store transposed initial data
   CALL Sim%Physics%new_statevector(pvar_init,PRIMITIVE)
   CALL RotateData(Sim%Mesh,Sim%Timedisc%pvar,pvar_init,"xy")
+#endif
   CALL Sim%Run()
+  ok = .NOT.Sim%aborted
+#ifndef PARALLEL
   ! store transposed result of the first run
   CALL Sim%Physics%new_statevector(pvar,PRIMITIVE)
   CALL RotateData(Sim%Mesh,Sim%Timedisc%pvar,pvar,"xy")
-  ! finish the simulation
-  CALL Sim%Finalize()
-  DEALLOCATE(Sim)
 
-  ! simulate south-north shear
-  ALLOCATE(Sim)
+  ! simulate west-east shear
   CALL Sim%InitFosite()
   CALL MakeConfig(Sim, Sim%config)
   CALL SetAttr(Sim%config, "/datafile/filename", (TRIM(ODIR) // TRIM(OFNAME) // "_rotate"))
-  CALL SetAttr(Sim%config, "mesh/shearingbox", 1)
+  CALL SetAttr(Sim%config, "mesh/shearingbox", 2)
   CALL Sim%Setup()
   Sim%Timedisc%pvar%data1d(:) = pvar_init%data1d(:)
   CALL Sim%Physics%Convert2Conservative(Sim%Timedisc%pvar,Sim%Timedisc%cvar)
@@ -94,12 +95,17 @@ PROGRAM shear
   ! compare results
   sigma = SQRT(SUM((Sim%Timedisc%pvar%data4d(:,:,:,:)-pvar%data4d(:,:,:,:))**2)/ &
                     SIZE(pvar%data4d(:,:,:,:)))
-
-  CALL pvar%Destroy()
+  DEALLOCATE(pvar,pvar_init)
+#endif
   CALL Sim%Finalize()
-  DEALLOCATE(pvar,Sim)
+  DEALLOCATE(Sim)
 
+#ifndef PARALLEL
+  ! x-y symmetry test does not work in parallel, because west-east shearing is not implemented
   TAP_CHECK_SMALL(sigma,1e-13,"Shear x-y symmetry test")
+#else
+  TAP_CHECK(ok,"stoptime reached")
+#endif
   TAP_DONE
 
   CONTAINS
@@ -128,7 +134,8 @@ PROGRAM shear
     mesh =>     Dict(&
                 "meshtype"    / MIDPOINT, &
                 "geometry"    / MGEO, &
-                "shearingbox" / 2, &
+                "shearingbox" / 1, &
+                "decomposition" / (/1,-1,1/), & ! decompose along y-direction
                 "inum"        / RES_XY, &
                 "jnum"        / RES_XY, &
                 "knum"        / RES_Z, &
@@ -210,27 +217,30 @@ PROGRAM shear
     ! Test for shearing and boundary module
     ! initial condition
     SELECT TYPE(p => pvar)
-    TYPE IS(statevector_eulerisotherm) ! isothermal HD
+    CLASS IS(statevector_eulerisotherm) ! isothermal HD
       WHERE ((ABS(Mesh%bcenter(:,:,:,1)).LT.0.15*BOX_SIZE.AND. &
               ABS(Mesh%bcenter(:,:,:,2)).LT.0.15*BOX_SIZE))
         p%density%data3d(:,:,:) = SIGMA0
       ELSEWHERE
         p%density%data3d(:,:,:) = SIGMA0*1e-2
       END WHERE
-      p%velocity%data2d(:,1) = 0.0
-      p%velocity%data4d(:,:,:,2) = -Mesh%Q*Mesh%bcenter(:,:,:,1)*Mesh%Omega
-    TYPE IS(statevector_euler) ! non-isothermal HD
-      WHERE ((ABS(Mesh%bcenter(:,:,:,1)).LT.0.15*BOX_SIZE.AND. &
-              ABS(Mesh%bcenter(:,:,:,2)).LT.0.15*BOX_SIZE))
-        p%density%data3d(:,:,:) = SIGMA0
-      ELSEWHERE
-        p%density%data3d(:,:,:) = SIGMA0*1e-2
-      END WHERE
-      p%velocity%data2d(:,1) = 0.0
-      p%velocity%data4d(:,:,:,2) = -Mesh%Q*Mesh%bcenter(:,:,:,1)*Mesh%Omega
-      p%pressure%data1d(:) = 1e-1
+      SELECT CASE(Mesh%shear_dir)
+      CASE(1)
+        p%velocity%data2d(:,2) = 0.0
+        p%velocity%data4d(:,:,:,1) = Mesh%Q*Mesh%bcenter(:,:,:,2)*Mesh%Omega
+      CASE(2)
+        p%velocity%data2d(:,1) = 0.0
+        p%velocity%data4d(:,:,:,2) = -Mesh%Q*Mesh%bcenter(:,:,:,1)*Mesh%Omega
+      CASE DEFAULT
+        CALL Physics%Error("shear::InitData","shearing disabled or unsupported direction")
+      END SELECT
     CLASS DEFAULT
-      CALL Physics%Error("shear::InitData","only non-isothermal HD supported")
+      CALL Physics%Error("shear::InitData","only (non-)isothermal HD supported")
+    END SELECT
+
+    SELECT TYPE(p => pvar)
+    CLASS IS(statevector_euler) ! non-isothermal HD
+      p%pressure%data1d(:) = 1e-1
     END SELECT
 
     CALL Physics%Convert2Conservative(pvar,cvar)
@@ -248,27 +258,32 @@ PROGRAM shear
     !------------------------------------------------------------------------!
     INTEGER :: i,j,k
     !------------------------------------------------------------------------!
-    SELECT TYPE(pin => pvar_in)
-    TYPE IS(statevector_euler) ! non-isothermal HD
-      SELECT TYPE(pout => pvar_out)
-      TYPE IS(statevector_euler) ! non-isothermal HD
-        SELECT CASE(dir)
-        CASE("xy")
+    SELECT CASE(dir)
+    CASE("xy")
+      SELECT TYPE(pin => pvar_in)
+      CLASS IS(statevector_eulerisotherm) ! (non-)isothermal HD
+        SELECT TYPE(pout => pvar_out)
+        CLASS IS(statevector_eulerisotherm) ! (non-)isothermal HD
           ! rotate at middle of the field, because x' = -y in shearingsheet.
-          DO k = Mesh%KGMIN,Mesh%KGMAX
-            DO j = Mesh%JGMIN,Mesh%JGMAX
-              DO i = Mesh%IGMIN,Mesh%IGMAX
-                pout%density%data3d(i,j,k) = pin%density%data3d(Mesh%IGMAX-Mesh%IGMIN-j-2,i,k)
-                pout%pressure%data3d(i,j,k) = pin%pressure%data3d(Mesh%IGMAX-Mesh%IGMIN-j-2,i,k)
-                pout%velocity%data4d(i,j,k,1) = pin%velocity%data4d(Mesh%IGMAX-Mesh%IGMIN-j-2,i,k,2)
-                pout%velocity%data4d(i,j,k,2) = pin%velocity%data4d(Mesh%IGMAX-Mesh%IGMIN-j-2,i,k,1)
-              END DO
-            END DO
-          END DO
-        CASE DEFAULT
-          CALL Mesh%Error("shear::RotateData","directions must be one of 'xy','xz' or 'yz'")
+          FORALL(i=Mesh%IGMIN:Mesh%IGMAX,j=Mesh%JGMIN:Mesh%JGMAX,k=Mesh%KGMIN:Mesh%KGMAX)
+            pout%density%data3d(i,j,k) = pin%density%data3d(Mesh%IGMAX-Mesh%IGMIN-j-2,i,k)
+            pout%velocity%data4d(i,j,k,1) = pin%velocity%data4d(Mesh%IGMAX-Mesh%IGMIN-j-2,i,k,2)
+            pout%velocity%data4d(i,j,k,2) = -pin%velocity%data4d(Mesh%IGMAX-Mesh%IGMIN-j-2,i,k,1)
+          END FORALL
         END SELECT
       END SELECT
+      SELECT TYPE(pin => pvar_in)
+      CLASS IS(statevector_euler) ! non-isothermal HD
+        SELECT TYPE(pout => pvar_out)
+        CLASS IS(statevector_euler) ! non-isothermal HD
+          ! rotate at middle of the field, because x' = -y in shearingsheet.
+          FORALL(i=Mesh%IGMIN:Mesh%IGMAX,j=Mesh%JGMIN:Mesh%JGMAX,k=Mesh%KGMIN:Mesh%KGMAX)
+            pout%pressure%data3d(i,j,k) = pin%pressure%data3d(Mesh%IGMAX-Mesh%IGMIN-j-2,i,k)
+          END FORALL
+        END SELECT
+      END SELECT
+    CASE DEFAULT
+      CALL Mesh%Error("shear::RotateData","only 'xy'-plane is currently supported for rotating data")
     END SELECT
   END SUBROUTINE RotateData
 

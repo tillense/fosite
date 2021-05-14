@@ -3,7 +3,7 @@
 !# fosite - 3D hydrodynamical simulation program                             #
 !# module: poiseuille.f90                                                    #
 !#                                                                           #
-!# Copyright (C) 2006-2019                                                   #
+!# Copyright (C) 2006-2021                                                   #
 !# Bjoern Sperling  <sperling@astrophysik.uni-kiel.de>                       #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
 !#                                                                           #
@@ -32,6 +32,7 @@
 !----------------------------------------------------------------------------!
 PROGRAM poiseuille
   USE fosite_mod
+#include "tap.h"
   IMPLICIT NONE
   !--------------------------------------------------------------------------!
   ! simulation parameters
@@ -57,7 +58,11 @@ PROGRAM poiseuille
                      :: OFNAME = 'poiseuille'
   !--------------------------------------------------------------------------!
   CLASS(fosite),ALLOCATABLE   :: Sim
+  LOGICAL :: ok
   !--------------------------------------------------------------------------!
+
+TAP_PLAN(1)
+
   ALLOCATE(SIM)
   CALL SIM%InitFosite()
 
@@ -71,8 +76,14 @@ PROGRAM poiseuille
   CALL InitData(Sim%Mesh, Sim%Physics, Sim%Timedisc)
 
   CALL Sim%Run()
+  ok = .NOT.Sim%aborted
+
   CALL Sim%Finalize()
   DEALLOCATE(Sim)
+
+TAP_CHECK(ok,"stoptime reached")
+
+TAP_DONE
 
 CONTAINS
 
@@ -124,6 +135,7 @@ CONTAINS
     ! mesh settings
     mesh => Dict("meshtype" / MIDPOINT, &
            "geometry" / MGEO, &
+!            "decomposition" / (/1,-1,1/), &
            "inum"     / XRES, &
            "jnum"     / YRES, &
            "knum"     / ZRES, &
@@ -175,7 +187,7 @@ CONTAINS
 
     ! initialize data input/output
     datafile => Dict( &
-               "fileformat" / XDMF, &
+               "fileformat" / VTK, &
                "filename"   / (TRIM(ODIR) // TRIM(OFNAME)), &
                "count"      / ONUM)
 
@@ -199,12 +211,12 @@ CONTAINS
     INTENT(INOUT)     :: Timedisc
     !------------------------------------------------------------------------!
     ! initial condition
-    Timedisc%pvar%data4d(:,:,:,Physics%DENSITY)   = RHO0
-    Timedisc%pvar%data4d(:,:,:,Physics%XVELOCITY) = 0.
-    Timedisc%pvar%data4d(:,:,:,Physics%YVELOCITY) = 0.
-    Timedisc%pvar%data4d(:,:,:,Physics%ZVELOCITY) = 0.
-    Timedisc%pvar%data4d(:,:,:,Physics%PRESSURE) = PIN + (POUT-PIN)/LTUBE &
-         * Mesh%bccart(:,:,:,3)
+    SELECT TYPE(pvar => Timedisc%pvar)
+    CLASS IS(statevector_euler)
+      pvar%density%data1d(:)      = RHO0
+      pvar%pressure%data3d(:,:,:) = PIN + (POUT-PIN)/LTUBE * Mesh%bccart(:,:,:,3)
+      pvar%velocity%data1d(:)     = 0.0
+    END SELECT
 
     ! fixed boundary conditions
     ! inflow
