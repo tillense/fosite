@@ -3,7 +3,7 @@
 !# fosite - 3D hydrodynamical simulation program                             #
 !# module: sources_planetcooling.f90                                         #
 !#                                                                           #
-!# Copyright (C) 2011                                                        #
+!# Copyright (C) 2011-2021                                                   #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
 !# Jannes Klee      <jklee@astrophysik.uni-kiel.de>                          #
 !#                                                                           #
@@ -66,10 +66,11 @@ MODULE sources_planetcooling_mod
   !--------------------------------------------------------------------------!
   TYPE, EXTENDS(sources_base) :: sources_planetcooling
     CHARACTER(LEN=32) :: source_name = "cooling of planetary atmosphere"
-    TYPE(marray_base) :: Qcool          !< energy term due planetary cooling
-    TYPE(marray_base) :: T_s            !< temperature at the surface
-    TYPE(marray_base) :: rho_s          !< density at the surface
-    TYPE(marray_base) :: P_s            !< pressure at the surface
+    TYPE(marray_base), ALLOCATABLE &
+                      :: Qcool, &       !< energy term due planetary cooling
+                         T_s, &         !< temperature at the surface
+                         rho_s, &       !< density at the surface
+                         P_s            !< pressure at the surface
     REAL              :: T_0            !< equilibrium temperature
     REAL              :: distance       !< distance of the star
     REAL              :: intensity      !< intensity of the star at 1 au
@@ -85,7 +86,7 @@ MODULE sources_planetcooling_mod
     PROCEDURE :: ExternalSources_single
     PROCEDURE :: CalcTimestep_single
     PROCEDURE :: UpdatePlanetCooling
-    PROCEDURE :: Finalize
+    FINAL :: Finalize
   END TYPE
   PUBLIC :: &
        ! types
@@ -130,6 +131,7 @@ CONTAINS
       CALL this%Error("InitSources_planetheating","only SI units supported")
     END SELECT
 
+    ALLOCATE(this%Qcool,this%T_s,this%rho_s,this%P_s)
     this%Qcool = marray_base()
     this%T_s = marray_base()
     this%rho_s = marray_base()
@@ -363,13 +365,10 @@ CONTAINS
   SUBROUTINE Finalize(this)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(sources_planetcooling), INTENT(INOUT) :: this
+    TYPE(sources_planetcooling), INTENT(INOUT) :: this
     !------------------------------------------------------------------------!
-    CALL this%Qcool%Destroy()
-    CALL this%T_s%Destroy()
-    CALL this%P_s%Destroy()
-    CALL this%rho_s%Destroy()
+    DEALLOCATE(this%Qcool,this%T_s,this%rho_s,this%P_s)
+    CALL this%Finalize_base()
   END SUBROUTINE Finalize
-
 
 END MODULE sources_planetcooling_mod

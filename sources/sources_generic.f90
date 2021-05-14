@@ -183,7 +183,6 @@ CONTAINS
         srcptr => this
         IF (.NOT.ASSOCIATED(srcptr)) EXIT
         this => srcptr%next
-        CALL srcptr%Finalize()
         DEALLOCATE(srcptr)
       END DO
     END IF

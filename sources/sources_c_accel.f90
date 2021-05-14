@@ -3,7 +3,7 @@
 !# fosite - 3D hydrodynamical simulation program                             #
 !# module: sources_c_accel.f90                                               #
 !#                                                                           #
-!# Copyright (C) 2009-2019                                                   #
+!# Copyright (C) 2009-2021                                                   #
 !# Björn Sperling   <sperling@astrophysik.uni-kiel.de>                       #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
 !# Jannes Klee      <tillense@astrophysik.uni-kiel.de>                       #
@@ -48,13 +48,13 @@ MODULE sources_c_accel_mod
     CHARACTER(LEN=32) :: source_name = "constant acceleration"
 
   TYPE, EXTENDS(sources_base) :: sources_c_accel
-    TYPE(marray_base)                 :: accel          !< acceleration      !
+    TYPE(marray_base), ALLOCATABLE :: accel          !< acceleration      !
   CONTAINS
     PROCEDURE :: InitSources_c_accel
     PROCEDURE :: ExternalSources_single
     PROCEDURE :: CalcTimestep_single
     PROCEDURE :: InfoSources
-    PROCEDURE :: Finalize
+    FINAL :: Finalize
   END TYPE
 
   PUBLIC :: &
@@ -79,6 +79,7 @@ CONTAINS
     CALL this%InitLogging(stype,source_name)
     CALL this%InitSources(Mesh,Fluxes,Physics,config,IO)
 
+    ALLOCATE(this%accel)
     this%accel = marray_base(Physics%VDIM)
     this%accel%data1d(:) = 0.0
 
@@ -132,9 +133,10 @@ CONTAINS
   SUBROUTINE Finalize(this)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(sources_c_accel), INTENT(INOUT) :: this
+    TYPE(sources_c_accel), INTENT(INOUT) :: this
     !------------------------------------------------------------------------!
-    CALL this%accel%Destroy()
+    DEALLOCATE(this%accel)
+    CALL this%Finalize_base()
   END SUBROUTINE Finalize
 
 END MODULE sources_c_accel_mod

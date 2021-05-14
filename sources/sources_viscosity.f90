@@ -3,7 +3,7 @@
 !# fosite - 3D hydrodynamical simulation program                             #
 !# module: sources_viscosity.f90                                             #
 !#                                                                           #
-!# Copyright (C) 2008-2019                                                   #
+!# Copyright (C) 2008-2021                                                   #
 !# Bjoern Sperling <sperling@astrophysik.uni-kiel.de>                        #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
 !#                                                                           #
@@ -104,8 +104,7 @@ MODULE sources_viscosity_mod
     PROCEDURE :: UpdateViscosity
     PROCEDURE :: ExternalSources_single
     PROCEDURE :: CalcTimestep_single
-
-    PROCEDURE :: Finalize
+    FINAL :: Finalize
   END TYPE
   !--------------------------------------------------------------------------!
  PUBLIC :: &
@@ -210,8 +209,13 @@ CONTAINS
         CALL Mesh%geometry%Convert2Curvilinear(Mesh%curv%bcenter,this%ephir%data4d,this%ephir_tmp%data4d)
         ! reduce vector components to match Physics%VDIM
         IF (phys%VDIM.LT.3) THEN
-          CALL this%ephir%Destroy()
-          this%ephir = marray_base(phys%VDIM)
+          DEALLOCATE(this%ephir,STAT=err)
+          IF (err.EQ.0) THEN
+            ALLOCATE(this%ephir,STAT=err)
+            IF (err.EQ.0) this%ephir = marray_base(phys%VDIM)
+          END IF
+          IF (err.NE.0) &
+            CALL this%Error("InitSources_viscosity","Memory reallocation failed.")
         END IF
         ! copy vector components actually used
         l = 1
@@ -222,7 +226,6 @@ CONTAINS
           END IF
         END DO
         ! destroy temporary marray
-        CALL this%ephir_tmp%Destroy()
         DEALLOCATE(this%ephir_tmp)
       CLASS DEFAULT
         CALL this%Error("InitSources_viscosity",&
@@ -564,22 +567,16 @@ CONTAINS
     END IF
   END SUBROUTINE CalcTimestep_single
 
-
+  !> Destructor
   SUBROUTINE Finalize(this)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(Sources_viscosity),INTENT(INOUT) :: this
+    TYPE(sources_viscosity),INTENT(INOUT) :: this
     !------------------------------------------------------------------------!
-    IF (ALLOCATED(this%ephir)) THEN
-      CALL this%ephir%Destroy()
-      DEALLOCATE(this%ephir)
-    END IF
-    CALL this%dynvis%Destroy()
-    CALL this%kinvis%Destroy()
-    CALL this%bulkvis%Destroy()
+    IF (ALLOCATED(this%ephir)) DEALLOCATE(this%ephir)
     DEALLOCATE(this%dynvis,this%kinvis,this%bulkvis, &
                this%btxx,this%btyy,this%btzz,this%btxy,this%btxz,this%btyz)
+    CALL this%Finalize_base()
   END SUBROUTINE Finalize
-
 
 END MODULE sources_viscosity_mod

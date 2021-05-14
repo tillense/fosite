@@ -3,7 +3,7 @@
 !# fosite - 3D hydrodynamical simulation program                             #
 !# module: sources_rotframe.f90                                              #
 !#                                                                           #
-!# Copyright (C) 2010-2018                                                   #
+!# Copyright (C) 2010-2021                                                   #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
 !# Jannes Klee      <jklee@astrophysik.uni-kiel.de>                          #
 !#                                                                           #
@@ -50,16 +50,16 @@ MODULE sources_rotframe_mod
   PRIVATE
   CHARACTER(LEN=32), PARAMETER :: source_name = "inertial forces"
   TYPE, EXTENDS(sources_c_accel) :: sources_rotframe
-    TYPE(marray_base) :: cent                       !< rot. frame centrifugal
-    TYPE(marray_base) :: centproj                   !< rot.frame centr.3d->2d
-    TYPE(marray_base) :: cos1
+    TYPE(marray_base), ALLOCATABLE :: cent, &     !< rot. frame centrifugal
+                                      centproj, & !< rot.frame centr.3d->2d
+                                      cos1
     INTEGER           :: issphere
   CONTAINS
     PROCEDURE :: InitSources_rotframe
     PROCEDURE :: InfoSources
     PROCEDURE :: ExternalSources_single
     PROCEDURE :: Convert2RotatingFrame
-    PROCEDURE :: Finalize
+    FINAL :: Finalize
   END TYPE
 
   PUBLIC :: &
@@ -104,6 +104,7 @@ CONTAINS
       CALL this%Error("sources_rotframe::InitSources", &
          "Only 2D simulations working with rotating frame at the moment." )
 
+    ALLOCATE(this%accel,this%cent,this%centproj,this%cos1)
     this%accel = marray_base(Physics%VDIM)
     this%accel%data1d(:) = 0.
     this%cent = marray_base(3)
@@ -235,14 +236,11 @@ CONTAINS
   SUBROUTINE Finalize(this)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(sources_rotframe), INTENT(INOUT) :: this
+    TYPE(sources_rotframe), INTENT(INOUT) :: this
     !------------------------------------------------------------------------!
-    CALL this%accel%Destroy()
-    CALL this%cent%Destroy()
-    CALL this%centproj%Destroy()
-    CALL this%cos1%Destroy()
-
-    CALL this%sources_c_accel%Finalize()
+    DEALLOCATE(this%cent,this%centproj,this%cos1)
+    ! deallocation of this%accel is done in inherited destructor
+    ! which is called automatically
   END SUBROUTINE Finalize
 
 END MODULE sources_rotframe_mod

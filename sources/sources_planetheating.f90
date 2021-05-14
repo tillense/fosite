@@ -3,7 +3,7 @@
 !# fosite - 3D hydrodynamical simulation program                             #
 !# module: sources_planetheating.f90                                         #
 !#                                                                           #
-!# Copyright (C) 2013-2019                                                   #
+!# Copyright (C) 2013-2021                                                   #
 !# Jannes Klee <jklee@astrophysik.uni-kiel.de>                               #
 !#                                                                           #
 !# This program is free software; you can redistribute it and/or modify      #
@@ -82,9 +82,10 @@ MODULE sources_planetheating_mod
   !--------------------------------------------------------------------------!
   TYPE, EXTENDS(sources_base) :: sources_planetheating
     CHARACTER(LEN=32) :: source_name = "heating of planetary atmosphere"
-    TYPE(marray_base) :: Qstar          !< energy term due to stellar cooling
-    TYPE(marray_base) :: T_s            !< surface temperature (black body)
-    TYPE(marray_base) :: cos1,sin1      !< helping arrays for precomputation
+    TYPE(marray_base), ALLOCATABLE &
+                      :: Qstar, &       !< energy term due to stellar cooling
+                         T_s, &         !< surface temperature (black body)
+                         cos1,sin1      !< helping arrays for precomputation
     REAL              :: intensity      !< intensity of the star
     REAL              :: albedo         !< albedo of the star
     REAL              :: distance       !< distance of the star
@@ -101,7 +102,7 @@ MODULE sources_planetheating_mod
     PROCEDURE :: ExternalSources_single
     PROCEDURE :: CalcTimestep_single
     PROCEDURE :: UpdatePlanetHeating
-    PROCEDURE :: Finalize
+    FINAL :: Finalize
   END TYPE
   PUBLIC :: &
        ! types
@@ -146,6 +147,7 @@ CONTAINS
       CALL this%Error("InitSources_planetheating","only SI units supported")
     END SELECT
 
+    ALLOCATE(this%Qstar,this%T_s,this%cos1,this%sin1)
     this%Qstar = marray_base()
     this%T_s   = marray_base()
     this%cos1  = marray_base(2) !TODO check if 2 is really necessary
@@ -410,15 +412,14 @@ CONTAINS
   END SUBROUTINE SetOutput
 
 
-  !> Deallocation
+  !> Destructor
   SUBROUTINE Finalize(this)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(sources_planetheating), INTENT(INOUT) :: this
+    TYPE(sources_planetheating), INTENT(INOUT) :: this
     !------------------------------------------------------------------------!
-    CALL this%Qstar%Destroy()
-    CALL this%T_s%Destroy()
-    CALL this%cos1%Destroy()
-    CALL this%sin1%Destroy()
+    DEALLOCATE(this%Qstar,this%T_s,this%cos1,this%sin1)
+    CALL this%Finalize_base()
   END SUBROUTINE Finalize
+
 END MODULE sources_planetheating_mod

@@ -66,7 +66,7 @@ MODULE sources_gravity_mod
     PROCEDURE :: UpdateGravity
     PROCEDURE :: ExternalSources_single
     PROCEDURE :: CalcDiskHeight
-    PROCEDURE :: Finalize
+    FINAL :: Finalize
   END TYPE sources_gravity
   ABSTRACT INTERFACE
   END INTERFACE
@@ -93,6 +93,7 @@ CONTAINS
     CALL this%InitLogging(stype,source_name)
     CALL this%InitSources(Mesh,Fluxes,Physics,config,IO)
 
+    ALLOCATE(this%accel)
     this%accel = marray_base(Physics%VDIM)
     this%accel%data1d(:) = 0.
     this%pot = marray_base(4)
@@ -282,7 +283,7 @@ CONTAINS
   SUBROUTINE Finalize(this)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(sources_gravity), INTENT(INOUT) :: this
+    TYPE(sources_gravity),  INTENT(INOUT) :: this
     CLASS(gravity_base),    POINTER       :: gravptr,tmpptr
     !------------------------------------------------------------------------!
     gravptr => this%glist
@@ -291,8 +292,8 @@ CONTAINS
       gravptr => gravptr%next
       DEALLOCATE(tmpptr)
     END DO
-
-    CALL this%sources_c_accel%Finalize()
+    ! deallocation of this%accel is done in inherited destructor
+    ! which is called automatically
   END SUBROUTINE Finalize
 
 END MODULE sources_gravity_mod

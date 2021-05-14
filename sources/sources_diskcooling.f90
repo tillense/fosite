@@ -3,7 +3,7 @@
 !# fosite - 3D hydrodynamical simulation program                             #
 !# module: sources_diskcooling.f90                                           #
 !#                                                                           #
-!# Copyright (C) 2011-2019                                                   #
+!# Copyright (C) 2011-2021                                                   #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
 !# Jannes Klee      <jklee@astrophysik.uni-kiel.de>                          #
 !#                                                                           #
@@ -106,13 +106,13 @@ MODULE sources_diskcooling_mod
   TYPE, EXTENDS(sources_base) :: sources_diskcooling
     CHARACTER(LEN=32) :: source_name = "thin accretion disk cooling"
     CLASS(logging_base), ALLOCATABLE :: cooling
+    TYPE(marray_base), ALLOCATABLE  :: Qcool        !< energy sink due to cooling
+    TYPE(marray_base), ALLOCATABLE  :: ephir        !< azimuthal unit vector / radius
     REAL                            :: b_cool       !< cooling parameter (Gammie)
     REAL                            :: b_start      !< starting cooling
     REAL                            :: b_final      !< final cooling parameter
     REAL                            :: t_start      !< cooling starting time
     REAL                            :: dt_bdec      !< cooling decrease time
-    TYPE(marray_base) :: Qcool        !< energy sink due to cooling
-    TYPE(marray_base) :: ephir        !< azimuthal unit vector / radius
     REAL                            :: T_0          !< equilibrium temp
     REAL                            :: rho_0        !< minimum density
   CONTAINS
@@ -122,7 +122,7 @@ MODULE sources_diskcooling_mod
     PROCEDURE :: ExternalSources_single
     PROCEDURE :: CalcTimestep_single
     PROCEDURE :: UpdateCooling
-    PROCEDURE :: Finalize
+    FINAL :: Finalize
   END TYPE
   !--------------------------------------------------------------------------!
   PUBLIC :: &
@@ -189,25 +189,20 @@ CONTAINS
     ! get cooling method
     CALL GetAttr(config,"method",cooling_func)
     ALLOCATE(logging_base::this%cooling)
+    ALLOCATE(this%Qcool)
+    this%Qcool = marray_base()
+
     SELECT CASE(cooling_func)
     CASE(GRAY)
       IF (Physics%constants%GetType().NE.SI) &
          CALL this%Error("InitSources_diskcooling","only SI units supported for gray cooling")
       CALL this%cooling%InitLogging(GRAY,"gray cooling")
-
-      this%Qcool = marray_base()
-
     CASE(GAMMIE)
       CALL this%cooling%InitLogging(GAMMIE,"Gammie cooling")
-
-      this%Qcool = marray_base()
+      ALLOCATE(this%ephir)
       this%ephir = marray_base(2)
-
     CASE(GAMMIE_SB)
       CALL this%cooling%InitLogging(GAMMIE_SB,"Gammie cooling (SB)")
-
-      this%Qcool = marray_base()
-
     CASE DEFAULT
        CALL this%Error("UpdateCooling","Cooling function not supported!")
     END SELECT
@@ -500,17 +495,11 @@ CONTAINS
   SUBROUTINE Finalize(this)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(sources_diskcooling), INTENT(INOUT) :: this
+    TYPE(sources_diskcooling), INTENT(INOUT) :: this
     !------------------------------------------------------------------------!
-    SELECT CASE(this%cooling%GetType())
-    CASE(GRAY)
-      CALL this%Qcool%Destroy()
-    CASE(GAMMIE)
-      CALL this%Qcool%Destroy()
-      CALL this%ephir%Destroy()
-    CASE(GAMMIE_SB)
-      CALL this%Qcool%Destroy()
-    END SELECT
+    DEALLOCATE(this%Qcool)
+    IF (ALLOCATED(this%ephir))  DEALLOCATE(this%ephir)
+    CALL this%Finalize_base()
   END SUBROUTINE Finalize
 
 END MODULE sources_diskcooling_mod

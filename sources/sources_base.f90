@@ -3,7 +3,7 @@
 !# fosite - 3D hydrodynamical simulation program                             #
 !# module: sources_generic.f90                                               #
 !#                                                                           #
-!# Copyright (C) 2007-2019                                                   #
+!# Copyright (C) 2007-2021                                                   #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
 !# Björn Sperling   <sperling@astrophysik.uni-kiel.de>                       #
 !#                                                                           #
@@ -77,7 +77,6 @@ MODULE sources_base_mod
     PROCEDURE :: CalcTimestep
     PROCEDURE (CalcTimestep_single),    DEFERRED :: CalcTimestep_single
     PROCEDURE :: GetSourcesPointer
-    PROCEDURE (Finalize),               DEFERRED :: Finalize
     PROCEDURE :: Finalize_base
   END TYPE sources_base
   ABSTRACT INTERFACE
@@ -157,7 +156,7 @@ CONTAINS
     CLASS(physics_base), INTENT(IN)    :: Physics
     TYPE(Dict_TYP), POINTER            :: config, IO
     !------------------------------------------------------------------------!
-    CALL Physics%new_statevector(temp_sterm,CONSERVATIVE)
+    IF (.NOT.ASSOCIATED(temp_sterm)) CALL Physics%new_statevector(temp_sterm,CONSERVATIVE)
 
     CALL this%Info(" SOURCES--> source term:       " // this%GetName())
     CALL this%InfoSources(Mesh)
@@ -265,7 +264,6 @@ CONTAINS
         CALL this%Error("sources_base::Finalize_base","not initialized")
 
     IF(ASSOCIATED(temp_sterm)) THEN
-      IF (ASSOCIATED(temp_sterm%data1d)) CALL temp_sterm%Destroy()
       DEALLOCATE(temp_sterm)
       NULLIFY(temp_sterm)
     END IF

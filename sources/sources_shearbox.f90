@@ -3,7 +3,7 @@
 !# fosite - 3D hydrodynamical simulation program                             #
 !# module: sources_shearbox.f90                                              #
 !#                                                                           #
-!# Copyright (C) 2010-2018                                                   #
+!# Copyright (C) 2010-2021                                                   #
 !# Jannes Klee <jklee@astrophysik.uni-kiel.de>                               #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
 !#                                                                           #
@@ -73,7 +73,6 @@ MODULE sources_shearbox_mod
     PROCEDURE :: InitSources_shearbox
     PROCEDURE :: InfoSources
     PROCEDURE :: ExternalSources_single
-    PROCEDURE :: Finalize
   END TYPE
 
   PUBLIC :: &
@@ -121,6 +120,7 @@ CONTAINS
       CALL this%Error("InitSources_shearbox","mesh not supported")
     END SELECT
 
+    ALLOCATE(this%accel)
     this%accel = marray_base(Physics%VDIM)
     this%accel%data1d(:) = 0.
 
@@ -221,14 +221,5 @@ CONTAINS
                       "currently only Fargo transport type 3 is supported")
     END SELECT
   END SUBROUTINE ExternalSources_single
-
-  !> \public Closes the shearingsheet source term.
-  SUBROUTINE Finalize(this)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(sources_shearbox), INTENT(INOUT) :: this
-    !------------------------------------------------------------------------!
-    CALL this%accel%Destroy()
-  END SUBROUTINE Finalize
 
 END MODULE sources_shearbox_mod
