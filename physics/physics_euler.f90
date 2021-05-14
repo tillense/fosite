@@ -229,15 +229,14 @@ CONTAINS
     CLASS(marray_compound), POINTER :: new_sv
     INTEGER, OPTIONAL, INTENT(IN)   :: flavour,num
     !------------------------------------------------------------------------!
+    IF (ASSOCIATED(new_sv)) THEN
+      DEALLOCATE(new_sv)
 #ifdef DEBUG
-    IF (ASSOCIATED(new_sv)) &
-      CALL this%Error("physics_euler::new_statevector","new statevector already associated")
+      CALL this%Warning("physics_euler::new_statevector","new statevector already associated")
 #endif
+    END IF
     ALLOCATE(statevector_euler::new_sv)
-    SELECT TYPE(sv => new_sv)
-    TYPE IS (statevector_euler)
-      sv = statevector_euler(this,flavour,num)
-    END SELECT
+    new_sv = statevector_euler(this,flavour,num)
   END SUBROUTINE new_statevector
 
   !> Converts conservative to primitive variables on the whole mesh
@@ -2234,34 +2233,31 @@ CONTAINS
     TYPE(statevector_euler) :: new_sv
     !-------------------------------------------------------------------!
     LOGICAL :: success = .FALSE.
+    INTEGER :: err
     !-------------------------------------------------------------------!
     ! call inherited function
     new_sv = statevector_eulerisotherm(Physics,flavour,num)
     ! add entries specific for euler physics
-    SELECT CASE(flavour)
-    CASE(PRIMITIVE)
-      ! allocate memory for pressure mesh array
-      ALLOCATE(new_sv%pressure)
+    ALLOCATE(new_sv%pressure,STAT=err)
+    IF (err.EQ.0) THEN
       IF (PRESENT(num)) THEN
-        new_sv%pressure = marray_base(num)         ! num scalars
+        new_sv%pressure = marray_base(num)      ! num scalars
       ELSE
-        new_sv%pressure = marray_base(num)         ! one scalar
+        new_sv%pressure = marray_base()         ! one scalar
       END IF
-      ! append to compound
       success = new_sv%AppendMArray(new_sv%pressure)
-    CASE(CONSERVATIVE)
-      ! allocate memory for energy mesh array
-      ALLOCATE(new_sv%energy)
-      IF (PRESENT(num)) THEN
-        new_sv%energy = marray_base(num)           ! num scalars
-      ELSE
-        new_sv%energy = marray_base()              ! one scalar
-      END IF
-      ! append to compound
-      success = new_sv%AppendMArray(new_sv%energy)
-    CASE DEFAULT
-      success = .FALSE.
-    END SELECT
+      SELECT CASE(new_sv%flavour)
+      CASE(PRIMITIVE)
+        new_sv%energy => null()
+      CASE(CONSERVATIVE)
+        new_sv%energy => new_sv%pressure
+        new_sv%pressure => null()
+      CASE DEFAULT
+#ifdef DEBUG
+        PRINT *,"ERROR in physics_euler::CreateStateVector: unknown flavour"
+#endif
+      END SELECT
+    END IF
     IF (.NOT.success) &
       CALL Physics%Error("physics_euler::CreateStateVector", &
                          "state vector initialization failed")
@@ -2275,23 +2271,24 @@ CONTAINS
     CLASS(marray_base),INTENT(IN)    :: ma
     !------------------------------------------------------------------------!
     CALL this%statevector_eulerisotherm%AssignMArray_0(ma)
-    IF (SIZE(this%data1d).GT.0) THEN
-      SELECT TYPE(src => ma)
-      CLASS IS(statevector_euler)
-        SELECT CASE(this%flavour)
-        CASE(PRIMITIVE)
-          ! pressure is the third item
-          this%pressure => this%GetItem(this%NextItem(this%NextItem(this%FirstItem())))
-        CASE(CONSERVATIVE)
-          ! energy is the third item
-          this%energy => this%GetItem(this%NextItem(this%NextItem(this%FirstItem())))
-        CASE DEFAULT
-          ! error, this should not happen
-        END SELECT
-      CLASS DEFAULT
+    IF (SIZE(this%data1d).LE.0) RETURN ! empty compound
+    SELECT TYPE(src => ma)
+    CLASS IS(statevector_euler)
+      SELECT CASE(this%flavour)
+      CASE(PRIMITIVE)
+        ! pressure is the third item
+        this%pressure => this%GetItem(this%NextItem(this%NextItem(this%FirstItem())))
+      CASE(CONSERVATIVE)
+        ! energy is the third item
+        this%energy => this%GetItem(this%NextItem(this%NextItem(this%FirstItem())))
+      CASE DEFAULT
         ! error, this should not happen
       END SELECT
-    END IF
+    CLASS DEFAULT
+#ifdef DEBUG
+      PRINT *,"ERROR in physics_euler::AssignMArray_0: rhs not of class euler"
+#endif
+    END SELECT
   END SUBROUTINE AssignMArray_0
 
     !> actual destructor of the statevector_eulerisotherm type
@@ -2300,6 +2297,10 @@ CONTAINS
     !------------------------------------------------------------------------!
     TYPE(statevector_euler),INTENT(INOUT) :: this
     !------------------------------------------------------------------------!
+#if DEBUG > 2
+    PRINT *,"DEBUG INFO in physics_euler::Finalize: cleanup statevector"
+#endif
+    NULLIFY(this%pressure,this%energy)
   END SUBROUTINE Finalize_statevector
 
 

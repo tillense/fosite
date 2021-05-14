@@ -3,7 +3,7 @@
 !# fosite - 3D hydrodynamical simulation program                             #
 !# module: physics_eulerisotherm.f90                                         #
 !#                                                                           #
-!# Copyright (C) 2007-2018                                                   #
+!# Copyright (C) 2007-2021                                                   #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
 !# Björn Sperling   <sperling@astrophysik.uni-kiel.de>                       #
 !# Manuel Jung      <mjung@astrophysik.uni-kiel.de>                          #
@@ -279,15 +279,14 @@ CONTAINS
     CLASS(marray_compound), POINTER :: new_sv
     INTEGER, OPTIONAL, INTENT(IN)   :: flavour,num
     !------------------------------------------------------------------------!
+    IF (ASSOCIATED(new_sv)) THEN
+      DEALLOCATE(new_sv)
 #ifdef DEBUG
-    IF (ASSOCIATED(new_sv)) &
-      CALL this%Error("physics_eulerisotherm::new_statevector","new statevector already associated")
+      CALL this%Warning("physics_eulerisotherm::new_statevector","new statevector already associated")
 #endif
+    END IF
     ALLOCATE(statevector_eulerisotherm::new_sv)
-    SELECT TYPE(sv => new_sv)
-    TYPE IS (statevector_eulerisotherm)
-      sv = statevector_eulerisotherm(this,flavour,num)
-    END SELECT
+    new_sv = statevector_eulerisotherm(this,flavour,num)
   END SUBROUTINE new_statevector
 
   !> Sets soundspeeds at cell-centers
@@ -2419,9 +2418,10 @@ CONTAINS
     TYPE(statevector_eulerisotherm) :: new_sv
     !-------------------------------------------------------------------!
     LOGICAL :: success = .FALSE.
+    INTEGER :: err
     !-------------------------------------------------------------------!
 #if DEBUG > 2
-    PRINT *,"DEBUG INFO in physics_eulerisotherm::CreateStateVector: creating new statevector_eulerisotherm"
+    PRINT *,"DEBUG INFO in physics_eulerisotherm::CreateStateVector: creating statevector"
 #endif
     IF (.NOT.Physics%Initialized()) &
       CALL Physics%Error("physics_eulerisotherm::CreateStatevector", &
@@ -2437,10 +2437,9 @@ CONTAINS
         new_sv%flavour = UNDEFINED
       END SELECT
     END IF
-    SELECT CASE(new_sv%flavour)
-    CASE(PRIMITIVE)
-      ! allocate memory for density and velocity mesh arrays
-      ALLOCATE(new_sv%density,new_sv%velocity)
+    ! allocate memory for density and velocity mesh arrays
+    ALLOCATE(new_sv%density,new_sv%velocity,STAT=err)
+    IF (err.EQ.0) THEN
       ! create a bunch of scalars and vectors
       IF (PRESENT(num)) THEN
         new_sv%density  = marray_base(num)              ! num scalars
@@ -2452,22 +2451,21 @@ CONTAINS
       ! append to compound
       success = new_sv%AppendMArray(new_sv%density)
       success = success .AND. new_sv%AppendMArray(new_sv%velocity)
+#ifdef DEBUG
+    ELSE
+      PRINT *,"ERROR in physics_eulerisotherm::CreateStateVector: memory allocation failed"
+#endif
+    END IF
+    SELECT CASE(new_sv%flavour)
+    CASE(PRIMITIVE)
+      new_sv%momentum => null()
     CASE(CONSERVATIVE)
-      ! allocate memory for density and momentum mesh arrays
-      ALLOCATE(new_sv%density,new_sv%momentum)
-      ! create a bunch of scalars and vectors
-      IF (PRESENT(num)) THEN
-        new_sv%density  = marray_base(num)              ! num scalars
-        new_sv%momentum = marray_base(num,Physics%VDIM) ! num vectors
-      ELSE
-        new_sv%density  = marray_base()                 ! one scalar
-        new_sv%momentum = marray_base(Physics%VDIM)     ! one vector
-      END IF
-      ! append to compound
-      success = new_sv%AppendMArray(new_sv%density)
-      success = success .AND. new_sv%AppendMArray(new_sv%momentum)
+      new_sv%momentum => new_sv%velocity
+      new_sv%velocity => null()
     CASE DEFAULT
-      success = .FALSE.
+#ifdef DEBUG
+      PRINT *,"ERROR in physics_eulerisotherm::CreateStateVector: unknown flavour"
+#endif
     END SELECT
     IF (.NOT.success) &
       CALL Physics%Error("physics_eulerisotherm::CreateStateVector", &
@@ -2484,34 +2482,48 @@ CONTAINS
 #if DEBUG > 2
     PRINT *,"DEBUG INFO in physics_eulerisotherm::AssignMArray_0: assigning state vectors"
 #endif
-    CALL this%marray_compound%AssignMArray_0(ma)
-    IF (SIZE(this%data1d).GT.0) THEN
-      SELECT TYPE(src => ma)
-      CLASS IS(statevector_eulerisotherm)
-        ! copy flavour
-        this%flavour = src%flavour
-        ! set pointer to the data structures in the compound
-        !> \todo make this more generic, i.e. this should not depend
-        !! on the position in the list of compound items
-        this%density => this%GetItem(this%FirstItem()) ! density is the first item
-        SELECT CASE(this%flavour)
-        CASE(PRIMITIVE)
-          ! velocity is the second item
-          this%velocity => this%GetItem(this%NextItem(this%FirstItem()))
-        CASE(CONSERVATIVE)
-          ! momentum is the second item
-          this%momentum => this%GetItem(this%NextItem(this%FirstItem()))
-        CASE DEFAULT
-          ! error, this should not happen
+    SELECT TYPE(src => ma)
+    CLASS IS(marray_compound)
+      CALL this%marray_compound%AssignMArray_0(src)
+      IF (SIZE(this%data1d).LE.0) RETURN ! empty compound
+    CLASS DEFAULT
 #ifdef DEBUG
-          PRINT *,"ERROR in physics_eulerisotherm::AssignMArray_0: unsupported flavour"
-          STOP 1
+      PRINT *,"ERROR in physics_eulerisotherm::AssignMArray_0: rhs not of class compound"
+#else
+      RETURN
 #endif
-        END SELECT
-      CLASS DEFAULT
+    END SELECT
+    SELECT TYPE(src => ma)
+    CLASS IS(statevector_eulerisotherm)
+#if DEBUG > 2
+      PRINT *,"DEBUG INFO in physics_eulerisotherm::AssignMArray_0: restore component pointers"
+#endif
+      ! copy flavour
+      this%flavour = src%flavour
+      ! set pointer to the data structures in the compound
+      !> \todo make this more generic, i.e. this should not depend
+      !! on the position in the list of compound items
+      this%density => this%GetItem(this%FirstItem()) ! density is the first item
+      SELECT CASE(this%flavour)
+      CASE(PRIMITIVE)
+        ! velocity is the second item
+        this%velocity => this%GetItem(this%NextItem(this%FirstItem()))
+        this%momentum => null()
+      CASE(CONSERVATIVE)
+        ! momentum is the second item
+        this%momentum => this%GetItem(this%NextItem(this%FirstItem()))
+        this%velocity => null()
+      CASE DEFAULT
         ! error, this should not happen
+#ifdef DEBUG
+        PRINT *,"ERROR in physics_eulerisotherm::AssignMArray_0: unsupported flavour"
+#endif
       END SELECT
-    END IF
+    CLASS DEFAULT
+#ifdef DEBUG
+      PRINT *,"ERROR in physics_eulerisotherm::AssignMArray_0: rhs not of class eulerisotherm"
+#endif
+    END SELECT
   END SUBROUTINE AssignMArray_0
 
   !> destructor of statevector_eulerisotherm
@@ -2521,7 +2533,7 @@ CONTAINS
     TYPE(statevector_eulerisotherm),INTENT(INOUT) :: this
     !------------------------------------------------------------------------!
 #if DEBUG > 2
-    PRINT *,"DEBUG INFO in physics_eulerisotherm::Finalize: cleanup statevector_eulerisotherm"
+    PRINT *,"DEBUG INFO in physics_eulerisotherm::Finalize: cleanup statevector"
 #endif
     NULLIFY(this%density,this%velocity,this%momentum)
   END SUBROUTINE Finalize_statevector
