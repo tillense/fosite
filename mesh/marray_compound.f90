@@ -38,8 +38,8 @@ MODULE marray_compound_mod
   !--------------------------------------------------------------------------!
   PRIVATE
   TYPE compound_item
-    TYPE(marray_base), POINTER :: item => null()
     TYPE(compound_item), POINTER :: next => null()
+    TYPE(marray_base), POINTER :: item => null()
     INTEGER :: extent,entry_num
   END TYPE
   !> data types and methods
@@ -56,6 +56,7 @@ MODULE marray_compound_mod
     PROCEDURE :: NextItem
     PROCEDURE :: GetItem
     PROCEDURE :: AppendItem
+    PROCEDURE :: AssignItemPointers
     FINAL     :: Finalize
   END TYPE
   INTERFACE marray_compound
@@ -82,7 +83,7 @@ CONTAINS
     INTEGER, OPTIONAL, INTENT(IN) :: n
     !-------------------------------------------------------------------!
 #if DEBUG > 2
-    PRINT *,"DEBUG INFO in marray_compound::CreateMArray_compound: creating new compound of marrays"
+    PRINT *,"DEBUG INFO in marray_compound::CreateMArray_compound: creating new compound"
 #endif
     IF (PRESENT(n)) THEN
       ! create empty mesh array of rank 2 with first dimension set to n
@@ -104,29 +105,12 @@ CONTAINS
     CLASS(marray_compound),INTENT(INOUT) :: this
     LOGICAL :: success
     !------------------------------------------------------------------------!
-    TYPE(compound_item), POINTER :: p
-    INTEGER :: m,n
-    !------------------------------------------------------------------------!
 #if DEBUG > 2
-    PRINT *,"DEBUG INFO in marray_compound::AssignPointers: assign pointers in each component of the compound"
+    PRINT *,"DEBUG INFO in marray_compound::AssignPointers: restoring compound pointers"
 #endif
     ! set the multi-dim. pointers of the compound
     success = this%marray_base%AssignPointers()
-    IF (.NOT.success) return
-    ! go through the list of items and set the 1D
-    ! and multi-dim. pointers for each item
-    p => this%FirstItem()
-    m = 0
-    n = 0
-    DO WHILE (success.AND.ASSOCIATED(p))
-      m = m + n
-      n = p%extent
-      ! point to the 1D data segment in the new array
-      p%item%data1d(1:n) => this%data1d(m+1:m+n)
-      ! restore all multi-dim. pointers
-      success = p%item%AssignPointers()
-      p => this%NextItem(p)
-    END DO
+    IF (success) success = this%AssignItemPointers()
   END FUNCTION AssignPointers
 
   !> assigns one compound of mesh arrays to another compound of mesh arrays
@@ -137,39 +121,75 @@ CONTAINS
     CLASS(marray_base),INTENT(IN)    :: ma
     !------------------------------------------------------------------------!
     TYPE(compound_item), POINTER :: p,q
+#ifndef __GFORTRAN__
+    TYPE(marray_base), POINTER :: new_ma
+    INTEGER :: err
+#endif
     !------------------------------------------------------------------------!
 #if DEBUG > 2
     PRINT *,"DEBUG INFO in marray_compound::AssignMArray_0: compound assignment called"
 #endif
+    ! do basic marray assignment
+    CALL this%marray_base%AssignMArray_0(ma)
+    ! check if rhs is of compound class
     SELECT TYPE(src => ma)
     CLASS IS(marray_compound)
+      ! check if rhs is empty
       p => src%FirstItem()
       IF (.NOT.ASSOCIATED(p)) THEN
-        ! empty compound on rhs of assignment
+#if DEBUG > 2
+        PRINT *,"DEBUG INFO in marray_compound::AssignMArray_0: empty compound on rhs"
+#endif
 #ifdef DEBUG
-        IF (src%num_entries.GT.0) THEN
-          PRINT *, "ERROR in marray_compound::AssignMArray_0: unassigned item list on rhs but non-zero number of items"
+        IF (src%num_entries.GT.0.OR.SIZE(src%data1d).GT.0) THEN
+          PRINT *, "ERROR in marray_compound::AssignMArray_0: unassigned item list on rhs but compound not empty"
           STOP 1
         END IF
 #endif
         this%num_entries = 0
         NULLIFY(this%list)
-      ELSE
+      ELSE ! rhs is not empty
         q => this%FirstItem()
+        ! check if lhs is an empty compound
         IF (.NOT.ASSOCIATED(q)) THEN
-          ! p is associated but q isn't -> lhs of assignment is not initialized
+          ! p is associated but q isn't -> lhs of assignment should be an empty compound
+#if DEBUG > 2
+          PRINT *,"DEBUG INFO in marray_compound::AssignMArray_0: empty compound on lhs"
+#endif
+#ifdef DEBUG
+          IF (this%num_entries.GT.0) THEN
+            PRINT *, "ERROR in marray_compound::AssignMArray_0: empty compound on lhs expected"
+            STOP 1
+          END IF
+#endif
           ! ATTENTION: this part depends on the compiler, see comment in marray_base::AssignMArray_0
 #ifdef __GFORTRAN__
           this%num_entries = src%num_entries
           this%list => src%list
 #else
-          this%num_entries = 0
-          NULLIFY(this%list)
           DO WHILE (ASSOCIATED(p%item))
-            CALL this%AppendItem(p%item)
+            ALLOCATE(new_ma,SOURCE=p%item,STAT=err)
+            IF (err.NE.0) THEN
+#ifdef DEBUG
+              PRINT *,"ERROR in marray_compound::AssignMArray_0: memory allocation failed for new_ma"
+              STOP 1
+#else
+              return
+#endif
+            END IF
+            CALL this%AppendItem(new_ma)
             p => p%next
             IF (.NOT.ASSOCIATED(p)) EXIT
           END DO
+          ! assign all item pointers
+          IF (.NOT.this%AssignItemPointers()) THEN
+#ifdef DEBUG
+            PRINT *,"ERROR in marray_compound::AssignMArray_0: assignment of item pointers failed"
+            STOP 1
+#else
+            RETURN
+#endif
+          END IF
 #endif
         ELSE
           ! p and q are both associated
@@ -183,12 +203,12 @@ CONTAINS
           END IF
         END IF
       END IF
-      ! do basic assignment including AssignPointers
-      CALL this%marray_base%AssignMArray_0(ma)
     CLASS DEFAULT
 #ifdef DEBUG
       PRINT *, "ERROR in marray_compound::AssignMArray_0: rhs must be of class marray_compound"
       STOP 1
+#else
+      RETURN
 #endif
     END SELECT
   END SUBROUTINE AssignMArray_0
@@ -230,27 +250,30 @@ CONTAINS
   FUNCTION AppendMArray(this,ma) RESULT(success)
     IMPLICIT NONE
     !-------------------------------------------------------------------!
-    CLASS(marray_compound), INTENT(INOUT) :: this
+    CLASS(marray_compound) :: this
     TYPE(marray_base), POINTER :: ma
     LOGICAL :: success
     !-------------------------------------------------------------------!
     INTEGER :: m,n,err
     REAL, DIMENSION(:),POINTER,CONTIGUOUS :: data1d
     !-------------------------------------------------------------------!
+#if DEBUG > 2
+    PRINT *,"DEBUG INFO in marray_compound::AppendMArray: appending marray to compound"
+#endif
     success = .FALSE.
     ! some sanity checks
     IF (.NOT.(ASSOCIATED(ma%data1d).OR.SIZE(ma%data1d).EQ.0)) THEN
-      return ! immediately return if data1d of input marray is not associated or empty
 #ifdef DEBUG
       PRINT *,"ERROR in marray_compound::AppendMArray: input marray not associated of empty"
-      STOP 1
+#else
+      RETURN ! immediately return if data1d of input marray is not associated or empty
 #endif
     END IF
     IF (.NOT.ASSOCIATED(this%data1d)) THEN
-      return ! immediately return if data1d of compound is not associated
 #ifdef DEBUG
       PRINT *,"ERROR in marray_compound::AppendMArray: compound uninitialized"
-      STOP 1
+#else
+      RETURN ! immediately return if data1d of compound is not associated
 #endif
     END IF
 
@@ -265,8 +288,10 @@ CONTAINS
       ! check if the 1st dimension (excluding mesh dimensions) are the same for
       ! both compound and mesh array added to the compound
       IF (this%DIMS(1).NE.ma%DIMS(1)) THEN
+#ifdef DEBUG
         PRINT *,"ERROR in marray_compound::AppendMArray: this%dims(1) != ma%dims(1)"
-        STOP 1
+#endif
+        RETURN
       ELSE
         ! this%DIMS(1) remains the same
         this%DIMS(2) = this%DIMS(2) + ma%DIMS(2) ! extend the last dimension of the compound;
@@ -276,8 +301,8 @@ CONTAINS
       ! this should not happen
 #ifdef DEBUG
       PRINT *,"ERROR in marray_compound::AppendMArray: rank of compound marrays should be either 1 or 2"
-      STOP 1
 #endif
+      RETURN
     END SELECT
 
     ! determine size of compound data1d array
@@ -295,10 +320,10 @@ CONTAINS
       ! allocate new contiguous data block for old+new data and for meta data
       ALLOCATE(data1d(m+n),STAT=err)
       IF (err.NE.0) THEN
-        return ! immediatly return on failure
 #ifdef DEBUG
         PRINT *,"ERROR in marray_compound::AppendMArray: memory allocation failed"
-        STOP 1
+#else
+        RETURN ! immediatly return on failure
 #endif
       END IF
       ! copy the data, new data is appended to the old compound
@@ -313,10 +338,10 @@ CONTAINS
     END IF
     ! go through the whole compound and restore all 1D and multi-dim. pointers
     IF (.NOT.this%AssignPointers()) THEN
-      return ! immediatly return if assignment fails
 #ifdef DEBUG
       PRINT *,"ERROR in marray_compound::AppendMArray: pointer assignment failed"
-      STOP 1
+#else
+      RETURN ! immediatly return on failure
 #endif
     END IF
 #if DEBUG > 2
@@ -350,7 +375,7 @@ CONTAINS
   FUNCTION LastItem(this) RESULT(item)
     IMPLICIT NONE
     !-------------------------------------------------------------------!
-    CLASS(marray_compound) :: this
+    CLASS(marray_compound), INTENT(INOUT) :: this
     TYPE(compound_item), POINTER :: item
     !-------------------------------------------------------------------!
     item => this%list
@@ -414,7 +439,7 @@ CONTAINS
       ELSE
         ! list exists => create a new entry at the end
 #if DEBUG > 2
-        PRINT *,"DEBUG INFO in marray_compound::AppendItem: appending item to list of compound elements"
+        PRINT *,"DEBUG INFO in marray_compound::AppendItem: appending item to list of elements"
 #endif
         ALLOCATE(p%next,STAT=err)
         IF (err.NE.0) THEN
@@ -434,9 +459,39 @@ CONTAINS
     END IF
   END SUBROUTINE AppendItem
 
+  FUNCTION AssignItemPointers(this) RESULT(success)
+    IMPLICIT NONE
+    !-------------------------------------------------------------------!
+    CLASS(marray_compound) :: this
+    LOGICAL :: success
+    !-------------------------------------------------------------------!
+    TYPE(compound_item), POINTER :: p
+    INTEGER :: m,n
+    !------------------------------------------------------------------------!
+    ! go through the list of items and set the 1D
+    ! and multi-dim. pointers for each item
+    p => this%FirstItem()
+    m = 0
+    n = 0
+    success = .TRUE.
+    DO WHILE (success.AND.ASSOCIATED(p))
+#if DEBUG > 2
+      PRINT '(A,I2)'," DEBUG INFO in marray_compound::AssignItemPointers: restoring entry no. ", p%entry_num
+#endif
+      m = m + n
+      n = p%extent
+      ! point to the 1D data segment in the new array
+      p%item%data1d(1:n) => this%data1d(m+1:m+n)
+      ! restore all multi-dim. pointers
+      success = p%item%AssignPointers()
+      p => this%NextItem(p)
+    END DO
+  END FUNCTION AssignItemPointers
+
   !> destructor of compounds
   !! ATTENTION: the data array itself is deallocated by the inherited finalizer
   SUBROUTINE Finalize(this)
+    IMPLICIT NONE
     !-------------------------------------------------------------------!
     TYPE(marray_compound) :: this
     !-------------------------------------------------------------------!
@@ -448,13 +503,16 @@ CONTAINS
     ! free list memory
     p => this%FirstItem()
     DO WHILE (ASSOCIATED(p))
-      q => p%next
 #if DEBUG > 2
       PRINT '(A,I2)'," DEBUG INFO in marray_compound::Finalize: deleting entry no. ", p%entry_num
 #endif
+      q => p%next
       IF (ASSOCIATED(p%item)) THEN
+#if DEBUG > 2
+        PRINT '(A,I2)'," DEBUG INFO in marray_compound::Finalize: deallocating item data"
+#endif
         ! skip deallocation of the compound element data when invoking the finalizer of p%item
-        NULLIFY(p%item%data1d)
+        IF (ASSOCIATED(p%item%data1d)) NULLIFY(p%item%data1d)
         DEALLOCATE(p%item)
       END IF
       DEALLOCATE(p)

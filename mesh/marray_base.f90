@@ -340,7 +340,9 @@ MODULE marray_base_mod
     CLASS(marray_base),INTENT(INOUT) :: this
     CLASS(marray_base),INTENT(IN)    :: ma
     !------------------------------------------------------------------------!
-    LOGICAL :: success = .FALSE.
+#ifndef __GFORTRAN__
+    INTEGER :: err
+#endif
     !------------------------------------------------------------------------!
 #if DEBUG > 2
     PRINT *,"DEBUG INFO in marray_base::AssignMArray_0: marray assignment"
@@ -352,61 +354,51 @@ MODULE marray_base_mod
       return
     END IF
 
+    ! allways copy rank & shape
+    this%RANK = ma%RANK
+    this%DIMS(:) = ma%DIMS(:)
+    ! check whether lhs is already initialized
     IF (.NOT.ASSOCIATED(this%data1d)) THEN
       ! lhs of assignment uninitialized -> initialize new mesh array
       ! ATTENTION: finalization of derived types works different for
       !   GNU Fortran, hence to prevent memory leaks, one has to point
       !   the data1d array of the lhs (this%data1d) to the already associated
       !   data1d array of the rhs (ma%data1d).
-      !   Other compilers, e.g., ifort (intel) & nfort (NEC) require generation
-      !   of a new marray with data1d array which is destroyed on exit.
+      !   Other compilers, e.g., ifort (intel) & nfort (NEC) require allocation
+      !   of memory for new data1d array on the lhs, because ma on the rhs
+      !   is finalized on exit and the data1d array is deallocated
 #ifdef __GFORTRAN__
-      this%RANK = ma%RANK
-      this%DIMS(:) = ma%DIMS(:)
       this%data1d => ma%data1d
-      IF (this%AssignPointers()) return ! pointer assignment ok -> return immediately
 #else
-      SELECT CASE(ma%RANK)
-      CASE(0)
-        success = this%Init()
-      CASE(1)
-        success = this%Init(m=ma%DIMS(1))
-      CASE(2)
-        success = this%Init(m=ma%DIMS(1),n=ma%DIMS(2))
-      CASE DEFAULT
-#ifdef DEBUG
-        PRINT *,"ERROR in marray_base::AssignMArray_0: rank > 2 currently not supported"
-#endif
-        return
-      END SELECT
-      IF (.NOT.success) THEN
+      ALLOCATE(this%data1d,SOURCE=ma%data1d,STAT=err)
+      IF (err.NE.0) THEN
 #ifdef DEBUG
         PRINT *,"ERROR in marray_base::AssignMArray_0: marray initialization failed"
 #endif
         return
       END IF
 #endif
-    END IF
-
-    IF (.NOT.(this.MATCH.ma)) THEN
+      IF (.NOT.this%AssignPointers()) THEN
 #ifdef DEBUG
-      PRINT *,"ERROR in marray_base::AssignMArray_0: shape mismatch"
+        PRINT *,"ERROR in marray_base::AssignMArray_0: pointer reassignment failed"
 #endif
-      return
-    END IF
-    IF (SIZE(this%data1d).NE.SIZE(ma%data1d)) THEN
+      END IF
+    ELSE
+      IF (.NOT.(this.MATCH.ma)) THEN
 #ifdef DEBUG
-      PRINT *,"ERROR in marray_base::AssignMArray_0: size mismatch of data1d array"
+        PRINT *,"ERROR in marray_base::AssignMArray_0: shape mismatch"
 #endif
-      return
-    END IF
-    ! copy data
-    this%data1d(:) = ma%data1d(:)
-    IF (this%AssignPointers()) return ! pointer assignment ok -> return immediately
-    ! something bad happend
+        return
+      END IF
+      IF (SIZE(this%data1d).NE.SIZE(ma%data1d)) THEN
 #ifdef DEBUG
-    PRINT *,"ERROR in marray_base::AssignMArray_0: final pointer reassignment failed for lhs"
+        PRINT *,"ERROR in marray_base::AssignMArray_0: size mismatch of data1d array"
 #endif
+        return
+      END IF
+      ! copy data
+      this%data1d(:) = ma%data1d(:)
+    END IF
   END SUBROUTINE AssignMArray_0
   
   !> assign 1D fortran array to mesh array
