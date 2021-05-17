@@ -225,7 +225,7 @@ CONTAINS
     !------------------------------------------------------------------------!
     res = this%marray_base%ShapesMatch(ma)
     IF (.NOT.res) THEN
-#ifdef DEBUG > 1
+#if DEBUG > 1
       PRINT *,"WARNING in marray_compound::ShapesMatch: mismatch in marray_base"
 #endif
       RETURN
@@ -234,7 +234,7 @@ CONTAINS
     CLASS IS(marray_compound)
       res = this%num_entries.EQ.that%num_entries
       IF (.NOT.res) THEN
-#ifdef DEBUG > 2
+#if DEBUG > 2
         PRINT *,"DEBUG INFO in marray_compound::ShapesMatch: number of entries do not match"
 #endif
         RETURN
