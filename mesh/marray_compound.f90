@@ -224,24 +224,34 @@ CONTAINS
     LOGICAL                       :: res
     !------------------------------------------------------------------------!
     res = this%marray_base%ShapesMatch(ma)
+    IF (.NOT.res) THEN
+#ifdef DEBUG > 1
+      PRINT *,"WARNING in marray_compound::ShapesMatch: mismatch in marray_base"
+#endif
+      RETURN
+    END IF
     SELECT TYPE(that => ma)
     CLASS IS(marray_compound)
-      res = res.AND.(this%num_entries.EQ.that%num_entries)
+      res = this%num_entries.EQ.that%num_entries
+      IF (.NOT.res) THEN
+#ifdef DEBUG > 2
+        PRINT *,"DEBUG INFO in marray_compound::ShapesMatch: number of entries do not match"
+#endif
+        RETURN
+      END IF
       ! get pointers to the first items of the compound element lists
       p => this%FirstItem()
       q => that%FirstItem()
-      ! return mismatch, if one of the inputs compound list is associated but not the other
-      res = res.AND.(ASSOCIATED(p).XOR.ASSOCIATED(q))
-      IF (.NOT.res) return
-      ! compare all compound elements
       ! if both compound element lists are associated
       DO WHILE (ASSOCIATED(p))
         res = res.AND.ASSOCIATED(q)
-        IF (.NOT.res) EXIT ! p is associated, but q is not
+        IF (.NOT.res) RETURN ! p is associated, but q is not or extent mismatch
         res = res.AND.(p%extent.EQ.q%extent)
         p => p%next
         q => q%next
       END DO
+      ! if p isn't associated then q should not be associated as well
+      res = res.AND..NOT.ASSOCIATED(q)
     CLASS DEFAULT
       res = .FALSE.
     END SELECT
