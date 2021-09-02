@@ -382,6 +382,7 @@ MODULE marray_base_mod
 #ifdef DEBUG
         PRINT *,"ERROR in marray_base::AssignMArray_0: pointer reassignment failed"
 #endif
+        return
       END IF
     ELSE
       IF (.NOT.(this.MATCH.ma)) THEN
