@@ -88,7 +88,7 @@ PROGRAM riemann1d
   INTEGER            :: ic,sd,dir_min,dir_max
   REAL, DIMENSION(:,:), ALLOCATABLE :: sigma
   REAL, PARAMETER    :: sigma_tol(TESTNUM) &
-                        = (/ 3.7E-3, 1.7E-2, 4.7E-2, 1.6E-2, 3.6E-2, 4.0E-3, 1.0E+0, 1.0E+0 /)
+                        = (/ 3.7E-3, 1.7E-2, 4.7E-2, 1.6E-2, 3.6E-2, 5.0E-3, 1.0E+0, 1.0E+0 /)
   REAL               :: sum_numer, sum_denom
   !--------------------------------------------------------------------------!
 
