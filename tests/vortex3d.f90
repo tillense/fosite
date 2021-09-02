@@ -57,6 +57,8 @@ PROGRAM vortex3d
                                            ! around [X0,Y0]
   ! mesh settings
   INTEGER, PARAMETER :: MGEO = CYLINDRICAL
+!  INTEGER, PARAMETER :: MGEO = LOGCYLINDRICAL
+!  INTEGER, PARAMETER :: MGEO = SPHERICAL
   INTEGER, PARAMETER :: XRES = 40          ! x-resolution
   INTEGER, PARAMETER :: YRES = 40          ! y-resolution
   INTEGER, PARAMETER :: ZRES = 1           ! z-resolution
@@ -122,6 +124,14 @@ CONTAINS
        x2 =  RMAX
        y1 = -RMAX
        y2 =  RMAX
+    IF (ZRES.GT.1) THEN
+      z1 =  ZMIN
+      z2 =  ZMAX
+    ELSE
+      z1 = 0
+      z2 = 0
+    END IF
+
        bc(WEST)   = NO_GRADIENTS
        bc(EAST)   = NO_GRADIENTS
        bc(SOUTH)  = NO_GRADIENTS
@@ -133,15 +143,24 @@ CONTAINS
        x2 = RMAX
        y1 =  0.0
        y2 =  2.0*PI
+    IF (ZRES.GT.1) THEN
+      z1 =  ZMIN
+      z2 =  ZMAX
+    ELSE
+      z1 = 0
+      z2 = 0
+    END IF
        bc(WEST)   = NO_GRADIENTS
        bc(EAST)   = NO_GRADIENTS
        bc(SOUTH)  = PERIODIC
        bc(NORTH)  = PERIODIC
        bc(BOTTOM) = NO_GRADIENTS
        bc(TOP)    = NO_GRADIENTS
-    CASE DEFAULT
-       CALL Sim%Error("vortex3d::MakeConfig","geometry currently not supported")
-    END SELECT
+    CASE(LOGCYLINDRICAL)
+       x1 = LOG(RMIN/GPAR)
+       x2 = LOG(RMAX/GPAR)
+       y1 =  0.0
+       y2 =  2.0*PI
     IF (ZRES.GT.1) THEN
       z1 =  ZMIN
       z2 =  ZMAX
@@ -150,11 +169,37 @@ CONTAINS
       z2 = 0
     END IF
 
+       bc(WEST)   = NO_GRADIENTS
+       bc(EAST)   = NO_GRADIENTS
+       bc(SOUTH)  = PERIODIC
+       bc(NORTH)  = PERIODIC
+       bc(BOTTOM) = NO_GRADIENTS
+       bc(TOP)    = NO_GRADIENTS
+
+    CASE(SPHERICAL)
+       x1 = RMIN
+       x2 = RMAX
+       y1 = PI/2.0
+       y2 = PI/2.0
+       z1 = 0.0
+       z2 = 2.*PI
+       bc(WEST)  = AXIS
+       bc(EAST)  = NOSLIP
+       bc(SOUTH) = NO_GRADIENTS
+       bc(NORTH) = NO_GRADIENTS
+       bc(BOTTOM)= PERIODIC
+       bc(TOP)   = PERIODIC
+    CASE DEFAULT
+       CALL Sim%Error("vortex3d::MakeConfig","geometry currently not supported")
+    END SELECT
+
     !mesh settings
     mesh => Dict( &
               "meshtype" / MIDPOINT, &
               "geometry" / MGEO,     &
               "omega"    / OMEGA,    &
+              "use_fargo"/ 0,        &
+              "fargo"    / 0,        &
               "inum"     / XRES,     &
               "jnum"     / YRES,     &
               "knum"     / ZRES,     &
@@ -222,6 +267,7 @@ CONTAINS
          "stoptime" / TSIM,             &
          "dtlimit"  / 1.0E-4,           &
          "maxiter"  / 1000000,          &
+         "rhstype"  / 0,                &
 !          "output/fluxes" / 1,          &
          "output/iangularmomentum" / 1, &
          "output/rothalpy" / 1          )

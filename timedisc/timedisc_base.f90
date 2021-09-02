@@ -154,6 +154,7 @@ PRIVATE
     PROCEDURE           :: GetCFL
     PROCEDURE           :: FargoAdvectionX
     PROCEDURE           :: FargoAdvectionY
+    PROCEDURE           :: FargoAdvectionZ
     PROCEDURE           :: CalcBackgroundVelocity
     PROCEDURE (SolveODE), DEFERRED :: SolveODE
     PROCEDURE           :: Finalize_base
@@ -223,6 +224,7 @@ CONTAINS
     USE physics_euler_mod, ONLY : physics_euler
     USE geometry_cylindrical_mod, ONLY: geometry_cylindrical
     USE geometry_logcylindrical_mod, ONLY: geometry_logcylindrical
+    USE geometry_spherical_mod, ONLY: geometry_spherical
     USE geometry_cartesian_mod, ONLY: geometry_cartesian
     IMPLICIT NONE
     !------------------------------------------------------------------------!
@@ -317,9 +319,9 @@ CONTAINS
 
     ! rhs type. 0 = default, 1 = conserve angular momentum
     CALL GetAttr(config, "rhstype", this%rhstype, 0)
-    IF (this%rhstype.NE.0.AND.Physics%VDIM.NE.2) THEN
-      CALL this%Error("InitTimedisc", "Alternative rhstype only works in 2D.")
-    END IF
+!    IF (this%rhstype.NE.0.AND.Physics%VDIM.NE.2) THEN
+!      CALL this%Error("InitTimedisc", "Alternative rhstype only works in 2D.")
+!    END IF
 
     ! time step friction parameter for PI-Controller
     CALL GetAttr(config, "beta", this%beta, 0.08)
@@ -366,7 +368,7 @@ CONTAINS
          SELECT TYPE(geo=>Mesh%Geometry)
          TYPE IS(geometry_cylindrical)
             IF (Mesh%JNUM.LT.2) CALL this%Error("InitTimedisc", &
-              "fargo advection needs more the one cell in y-direction")
+              "fargo advection needs more than one cell in y-direction")
             ! allocate data arrays used for fargo
             ALLOCATE( &
                      this%w(Mesh%IGMIN:Mesh%IGMAX,Mesh%KGMIN:Mesh%KGMAX), &
@@ -382,7 +384,7 @@ CONTAINS
 
          TYPE IS(geometry_logcylindrical)
             IF (Mesh%JNUM.LT.2) CALL this%Error("InitTimedisc", &
-              "fargo advection needs more the one cell in y-direction")
+              "fargo advection needs more than one cell in y-direction")
             ! allocate data arrays used for fargo
             ALLOCATE( &
                      this%w(Mesh%IGMIN:Mesh%IGMAX,Mesh%KGMIN:Mesh%KGMAX), &
@@ -395,6 +397,22 @@ CONTAINS
             IF (err.NE.0) THEN
                CALL this%Error("InitTimedisc", "Unable to allocate memory for fargo advection.")
             END IF
+         TYPE IS(geometry_spherical)
+            IF (Mesh%KNUM.LT.2) CALL this%Error("InitTimedisc", &
+              "fargo advection needs more than one cell in phi-direction")
+            ! allocate data arrays used for fargo
+            ALLOCATE( &
+                     this%w(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX), &
+                     this%delxy(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX), &
+                     this%shift(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX), &
+#ifdef PARALLEL
+                     this%buf(Physics%VNUM+Physics%PNUM,1:Mesh%MINJNUM), & !!! NOT CHANGED, because not clear where used !
+#endif
+                     STAT = err)
+            IF (err.NE.0) THEN
+               CALL this%Error("InitTimedisc", "Unable to allocate memory for fargo advection.")
+            END IF
+
          TYPE IS(geometry_cartesian) ! in cartesian fargo shift can be chosen in either x- or y-direction
             IF(Mesh%shear_dir.EQ.2) THEN
                ALLOCATE( &
@@ -434,6 +452,7 @@ CONTAINS
          Mesh%FARGO = 0
          CALL this%Warning("InitTimedisc","fargo has been disabled, because the physics is not supported.")
       END SELECT
+
       ! initialize background velocity field w
       SELECT CASE(Mesh%FARGO)
       CASE(1,2) ! set to 0;
@@ -649,6 +668,8 @@ CONTAINS
     IF (Mesh%FARGO.GT.0) THEN
        IF (Mesh%shear_dir.EQ.1.AND.Mesh%FARGO.EQ.3) THEN
           CALL Physics%SubtractBackgroundVelocityX(Mesh,this%w,this%pvar,this%cvar)
+        ELSE IF(Mesh%FARGO.NE.3.AND.Mesh%geometry%GetType().EQ.spherical) THEN
+          CALL Physics%SubtractBackgroundVelocityZ(Mesh,this%w,this%pvar,this%cvar)
        ELSE
           CALL Physics%SubtractBackgroundVelocityY(Mesh,this%w,this%pvar,this%cvar)
        END IF
@@ -706,6 +727,8 @@ CONTAINS
     IF (Mesh%FARGO.GT.0) THEN
       IF (Mesh%shear_dir.EQ.1) THEN
         CALL this%FargoAdvectionX(Fluxes,Mesh,Physics,Sources)
+      ELSE IF(MEsh%geometry%GetType().EQ.SPHERICAL) THEN
+        CALL this%FargoAdvectionZ(Fluxes,Mesh,Physics,Sources)
       ELSE
         CALL this%FargoAdvectionY(Fluxes,Mesh,Physics,Sources)
       END IF
@@ -1009,6 +1032,8 @@ CONTAINS
   SUBROUTINE ComputeRHS(this,Mesh,Physics,Sources,Fluxes,time,dt,pvar,cvar,checkdatabm,rhs)
     USE physics_euler_mod, ONLY : physics_euler,statevector_euler
     USE physics_eulerisotherm_mod, ONLY : physics_eulerisotherm
+    USE geometry_spherical_mod, ONLY: geometry_spherical
+    USE geometry_cylindrical_mod, ONLY: geometry_cylindrical
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(timedisc_base), INTENT(INOUT) :: this
@@ -1025,15 +1050,19 @@ CONTAINS
     REAL                                :: t
     REAL                                :: phi,wp
     REAL, DIMENSION(:,:,:,:), POINTER   :: pot
-    CLASS(sources_base),      POINTER   :: sp
-    CLASS(sources_gravity),   POINTER   :: grav
+    CLASS(sources_base),      POINTER   :: sp => NULL()
+    CLASS(sources_gravity),   POINTER   :: grav => NULL()
     !------------------------------------------------------------------------!
     t = time
     SELECT CASE(Mesh%FARGO)
     CASE(1,2)
         ! transform to real velocity, i.e. v_residual + w_background,
         ! before setting the boundary conditions
-        CALL Physics%AddBackgroundVelocityY(Mesh,this%w,pvar,cvar)
+        IF(Mesh%geometry%GetType().EQ.spherical) THEN
+          CALL Physics%AddBackgroundVelocityZ(Mesh,this%w,pvar,cvar)
+        ELSE
+          CALL Physics%AddBackgroundVelocityY(Mesh,this%w,pvar,cvar)
+        END IF
     CASE(3)
         ! boundary conditions are set for residual velocity in shearing box simulations
         ! usually it's not necessary to subtract the background velocity here, but
@@ -1115,7 +1144,11 @@ CONTAINS
         ! add fargo source terms to geometrical source terms
         CALL Physics%AddFargoSources(Mesh,this%w,pvar,cvar,this%geo_src)
         ! subtract background velocity
-        CALL Physics%SubtractBackgroundVelocityY(Mesh,this%w,pvar,cvar)
+        IF(Mesh%geometry%GetType().EQ.spherical) THEN
+          CALL Physics%SubtractBackgroundVelocityZ(Mesh,this%w,pvar,cvar)
+        ELSE
+          CALL Physics%SubtractBackgroundVelocityY(Mesh,this%w,pvar,cvar)
+        END IF
     CASE(3)
         ! background velocity field has already been subtracted (do nothing);
         ! fargo specific source terms are handled in the shearing box source
@@ -1185,7 +1218,7 @@ CONTAINS
       !! restucture the timedisc module
       sp => Sources
       DO
-        IF (ASSOCIATED(sp).EQV..FALSE.) RETURN
+        IF (ASSOCIATED(sp).EQV..FALSE.) EXIT
         SELECT TYPE(sp)
         CLASS IS(sources_gravity)
           grav => sp
@@ -1205,6 +1238,8 @@ CONTAINS
 
       phi = 0.
 
+    SELECT TYPE(geo => Mesh%geometry)
+    TYPE IS(geometry_cylindrical)  
       DO k=Mesh%KMIN-Mesh%KP1,Mesh%KMAX
         DO j=Mesh%JMIN-Mesh%JP1,Mesh%JMAX
 !NEC$ IVDEP
@@ -1225,7 +1260,8 @@ CONTAINS
               = (this%xfluxdydz(i,j,k,Physics%YMOMENTUM) &
                 + wp * this%xfluxdydz(i,j,k,Physics%DENSITY)) * Mesh%hy%faces(i+1,j,k,1)
 
-            wp = this%w(i,k) + Mesh%radius%bcenter(i,j,k)*Mesh%OMEGA
+            wp = this%w(i,k) + Mesh%hy%bcenter(i,j,k)*Mesh%OMEGA
+!            wp = this%w(i,k) + Mesh%radius%bcenter(i,j,k)*Mesh%OMEGA
             IF(Physics%PRESSURE.GT.0) THEN
               this%yfluxdzdx(i,j,k,Physics%ENERGY) &
                 = this%yfluxdzdx(i,j,k,Physics%ENERGY) &
@@ -1240,6 +1276,24 @@ CONTAINS
             this%yfluxdzdx(i,j,k,Physics%YMOMENTUM) &
               = this%yfluxdzdx(i,j,k,Physics%YMOMENTUM) &
                 + wp * this%yfluxdzdx(i,j,k,Physics%DENSITY)
+
+            wp = this%w(i,k) + Mesh%hy%bcenter(i,j,k)*Mesh%OMEGA
+!            wp = this%w(i,k) + Mesh%radius%bcenter(i,j,k)*Mesh%OMEGA
+            IF(Physics%PRESSURE.GT.0) THEN
+              this%zfluxdxdy(i,j,k,Physics%ENERGY) &
+                = this%zfluxdxdy(i,j,k,Physics%ENERGY) &
+                 + wp * ( 0.5 * wp * this%zfluxdxdy(i,j,k,Physics%DENSITY) &
+                 + this%zfluxdxdy(i,j,k,Physics%YMOMENTUM))
+              IF (have_potential) THEN
+                this%zfluxdxdy(i,j,k,Physics%ENERGY) = this%zfluxdxdy(i,j,k,Physics%ENERGY) &
+                  + pot(i,j,k,4)*this%zfluxdxdy(i,j,k,Physics%DENSITY)
+              END IF
+            END IF
+
+            this%zfluxdxdy(i,j,k,Physics%YMOMENTUM) &
+              = this%zfluxdxdy(i,j,k,Physics%YMOMENTUM) &
+                + wp * this%zfluxdxdy(i,j,k,Physics%DENSITY)
+
           END DO
         END DO
       END DO
@@ -1251,14 +1305,40 @@ CONTAINS
           DO j=Mesh%JMIN,Mesh%JMAX
 !NEC$ IVDEP
             DO i=Mesh%IMIN,Mesh%IMAX
-              wp = pvar%data4d(i,j,k,Physics%YVELOCITY) + this%w(i,k) + Mesh%radius%bcenter(i,j,k)*Mesh%OMEGA
+              wp = pvar%data4d(i,j,k,Physics%YVELOCITY) + this%w(i,k) + Mesh%hy%bcenter(i,j,k)*Mesh%OMEGA
+!              wp = pvar%data4d(i,j,k,Physics%YVELOCITY) + this%w(i,k) + Mesh%radius%bcenter(i,j,k)*Mesh%OMEGA
+              !old
               this%geo_src%data4d(i,j,k,Physics%XMOMENTUM) &
                 = pvar%data4d(i,j,k,Physics%DENSITY) * wp**2 * Mesh%cyxy%bcenter(i,j,k) &
                   + pvar%data4d(i,j,k,Physics%DENSITY) * pvar%data4d(i,j,k,Physics%XVELOCITY) * wp * Mesh%cxyx%bcenter(i,j,k)
 
+   !           this%geo_src%data4d(i,j,k,Physics%XMOMENTUM) &
+   !              = pvar%data4d(i,j,k,Physics%DENSITY) * wp * (wp*Mesh%cyxy%bcenter(i,j,k) - &
+   !                                                         pvar%data4d(i,j,k,Physics%XVELOCITY) * Mesh%cxyx%bcenter(i,j,k))  &
+   !               + cvar%data4d(i,j,k,Physics%ZVELOCITY) * (pvar%data4d(i,j,k,Physics%ZVELOCITY)*Mesh%czxz%bcenter(i,j,k) - &
+   !                                                         pvar%data4d(i,j,k,Physics%XVELOCITY) * Mesh%cxzx%bcenter(i,j,k))
+!    GetGeometricalSourceX = my * (cyxy*vy - cxyx*vx) + mz * (czxz*vz - cxzx*vx) &
+!                            + (cyxy + czxz) * P
+
+              !old
               this%geo_src%data4d(i,j,k,Physics%YMOMENTUM) &
                 = cvar%data4d(i,j,k,Physics%XMOMENTUM) &
                   * ( pvar%data4d(i,j,k,Physics%XVELOCITY) * Mesh%cxyx%center(i,j,k) )
+    !          this%geo_src%data4d(i,j,k,Physics%YMOMENTUM) &
+    !            = cvar%data4d(i,j,k,Physics%XMOMENTUM) &
+    !              * ( pvar%data4d(i,j,k,Physics%XVELOCITY) * Mesh%cxyx%center(i,j,k) - wp * Mesh%cyxy%center(i,j,k) ) &
+    !            + cvar%data4d(i,j,k,Physics%ZMOMENTUM) &
+    !              * ( pvar%data4d(i,j,k,Physics%ZVELOCITY) * Mesh%czyz%center(i,j,k) - wp * Mesh%cyzy%center(i,j,k) )
+!    GetGeometricalSourceY = mz * (czyz*vz - cyzy*vy) + mx * (cxyx*vx - cyxy*vy) &
+!                            + (cxyx + czyz) * P
+
+              IF(Physics%ZMOMENTUM.GT.0) &
+              this%geo_src%data4d(i,j,k,Physics%ZMOMENTUM) &
+                = cvar%data4d(i,j,k,Physics%XMOMENTUM) &
+                  * ( pvar%data4d(i,j,k,Physics%XVELOCITY) * Mesh%cxzx%center(i,j,k) - pvar%data4d(i,j,k,Physics%ZVELOCITY) *  Mesh%czxz%center(i,j,k) ) &
+                + pvar%data4d(i,j,k,Physics%DENSITY)*wp* ( wp*Mesh%cyzy%center(i,j,k) - pvar%data4d(i,j,k,Physics%ZVELOCITY) * Mesh%czyz%center(i,j,k) )
+!    GetGeometricalSourceZ = mx * (cxzx*vx - czxz*vz) + my * (cyzy*vy - czyz*vz) &
+!                            + (cxzx + cyzy) * P
 
               IF(Physics%PRESSURE.GT.0) THEN
                 this%geo_src%data4d(i,j,k,Physics%XMOMENTUM) &
@@ -1269,6 +1349,12 @@ CONTAINS
                   = this%geo_src%data4d(i,j,k,Physics%YMOMENTUM) &
                     + pvar%data4d(i,j,k,Physics%PRESSURE) &
                       *( Mesh%cxyx%center(i,j,k) + Mesh%czyz%center(i,j,k) )
+              IF(Physics%ZMOMENTUM.GT.0) &
+                this%geo_src%data4d(i,j,k,Physics%ZMOMENTUM) &
+                  = this%geo_src%data4d(i,j,k,Physics%ZMOMENTUM) &
+                    + pvar%data4d(i,j,k,Physics%PRESSURE) &
+                      *( Mesh%cxzx%center(i,j,k) + Mesh%cyzy%center(i,j,k) )
+
                 this%geo_src%data4d(i,j,k,Physics%ENERGY) = 0.
               ELSE
 
@@ -1280,6 +1366,12 @@ CONTAINS
                   = this%geo_src%data4d(i,j,k,Physics%YMOMENTUM) &
                     + pvar%data4d(i,j,k,Physics%DENSITY)*phys%bccsound%data3d(i,j,k)**2 &
                       *( Mesh%cxyx%center(i,j,k) + Mesh%czyz%center(i,j,k) )
+              IF(Physics%ZMOMENTUM.GT.0) &
+                this%geo_src%data4d(i,j,k,Physics%ZMOMENTUM) &
+                  = this%geo_src%data4d(i,j,k,Physics%ZMOMENTUM) &
+                    + pvar%data4d(i,j,k,Physics%DENSITY)*phys%bccsound%data3d(i,j,k)**2 &
+                      *( Mesh%cxzx%center(i,j,k) + Mesh%cyzy%center(i,j,k) )
+
               END IF
             END DO
           END DO
@@ -1298,14 +1390,17 @@ CONTAINS
             DO i=Mesh%IMIN,Mesh%IMAX
               ! update right hand side of ODE
               IF(l.EQ.Physics%YMOMENTUM) THEN
-                rhs%data4d(i,j,k,l) = Mesh%dydzdV%data3d(i,j,k)*(this%xfluxdydz(i,j,k,l) - this%xfluxdydz(i-1,j,k,l)) &
+                rhs%data4d(i,j,k,l) = Mesh%dydzdV%data3d(i,j,k)*(this%xfluxdydz(i,j,k,l) - this%xfluxdydz(i-Mesh%IP1,j,k,l)) &
                              / Mesh%hy%center(i,j,k)
               ELSE
-                rhs%data4d(i,j,k,l) = Mesh%dydzdV%data3d(i,j,k)*(this%xfluxdydz(i,j,k,l) - this%xfluxdydz(i-1,j,k,l))
+                rhs%data4d(i,j,k,l) = Mesh%dydzdV%data3d(i,j,k)*(this%xfluxdydz(i,j,k,l) - this%xfluxdydz(i-Mesh%IP1,j,k,l))
               END IF
               ! time step update
               rhs%data4d(i,j,k,l) = rhs%data4d(i,j,k,l) &
-                           + Mesh%dzdxdV%data3d(i,j,k)*(this%yfluxdzdx(i,j,k,l) - this%yfluxdzdx(i,j-1,k,l))
+                           + Mesh%dzdxdV%data3d(i,j,k)*(this%yfluxdzdx(i,j,k,l) - this%yfluxdzdx(i,j-Mesh%JP1,k,l))
+              IF(Physics%ZMOMENTUM.GT.0) &
+              rhs%data4d(i,j,k,l) = rhs%data4d(i,j,k,l) &
+                           + Mesh%dxdydV%data3d(i,j,k)*(this%zfluxdxdy(i,j,k,l) - this%zfluxdxdy(i,j,k-Mesh%KP1,l))
             END DO
           END DO
         END DO
@@ -1330,6 +1425,205 @@ CONTAINS
           END DO
         END DO
       END DO
+
+    TYPE IS(geometry_spherical)  
+      DO k=Mesh%KMIN-Mesh%KP1,Mesh%KMAX
+        DO j=Mesh%JMIN-Mesh%JP1,Mesh%JMAX
+!NEC$ IVDEP
+          DO i=Mesh%IMIN-Mesh%IP1,Mesh%IMAX
+            wp = 0.5*(this%w(i,j)+this%w(i+1,j)) + Mesh%hz%faces(i+1,j,k,1)*Mesh%OMEGA
+            IF(Physics%PRESSURE.GT.0) THEN
+              this%xfluxdydz(i,j,k,Physics%ENERGY) &
+                = this%xfluxdydz(i,j,k,Physics%ENERGY) &
+                  + wp * (0.5 * wp * this%xfluxdydz(i,j,k,Physics%DENSITY) &
+                  + this%xfluxdydz(i,j,k,Physics%ZMOMENTUM))
+              IF (have_potential) THEN
+                this%xfluxdydz(i,j,k,Physics%ENERGY) = this%xfluxdydz(i,j,k,Physics%ENERGY) &
+                  + pot(i,j,k,2)*this%xfluxdydz(i,j,k,Physics%DENSITY)
+              END IF
+            END IF
+
+            this%xfluxdydz(i,j,k,Physics%ZMOMENTUM) &
+              = (this%xfluxdydz(i,j,k,Physics%ZMOMENTUM) &
+                + wp * this%xfluxdydz(i,j,k,Physics%DENSITY)) * Mesh%hz%faces(i+1,j,k,1)
+
+            wp = this%w(i,j) + Mesh%hz%bcenter(i,j,k)*Mesh%OMEGA
+!            wp = this%w(i,j) + Mesh%radius%bcenter(i,j,k)*Mesh%OMEGA
+            IF(Physics%PRESSURE.GT.0) THEN
+              this%yfluxdzdx(i,j,k,Physics%ENERGY) &
+                = this%yfluxdzdx(i,j,k,Physics%ENERGY) &
+                 + wp * ( 0.5 * wp * this%yfluxdzdx(i,j,k,Physics%DENSITY) &
+                 + this%yfluxdzdx(i,j,k,Physics%ZMOMENTUM))
+              IF (have_potential) THEN
+                this%yfluxdzdx(i,j,k,Physics%ENERGY) = this%yfluxdzdx(i,j,k,Physics%ENERGY) &
+                  + pot(i,j,k,3)*this%yfluxdzdx(i,j,k,Physics%DENSITY)
+              END IF
+            END IF
+
+            this%yfluxdzdx(i,j,k,Physics%ZMOMENTUM) &
+              = (this%yfluxdzdx(i,j,k,Physics%ZMOMENTUM) &
+                + wp * this%yfluxdzdx(i,j,k,Physics%DENSITY)) * Mesh%hz%faces(i,j+1,k,1)
+
+            wp = this%w(i,j) + Mesh%hz%bcenter(i,j,k)*Mesh%OMEGA
+!            wp = this%w(i,j) + Mesh%radius%bcenter(i,j,k)*Mesh%OMEGA
+            IF(Physics%PRESSURE.GT.0) THEN
+              this%zfluxdxdy(i,j,k,Physics%ENERGY) &
+                = this%zfluxdxdy(i,j,k,Physics%ENERGY) &
+                 + wp * ( 0.5 * wp * this%zfluxdxdy(i,j,k,Physics%DENSITY) &
+                 + this%zfluxdxdy(i,j,k,Physics%ZMOMENTUM))
+              IF (have_potential) THEN
+                this%zfluxdxdy(i,j,k,Physics%ENERGY) = this%zfluxdxdy(i,j,k,Physics%ENERGY) &
+                  + pot(i,j,k,4)*this%zfluxdxdy(i,j,k,Physics%DENSITY)
+              END IF
+            END IF
+
+            this%zfluxdxdy(i,j,k,Physics%ZMOMENTUM) &
+              = this%zfluxdxdy(i,j,k,Physics%ZMOMENTUM) &
+                + wp * this%zfluxdxdy(i,j,k,Physics%DENSITY)
+
+          END DO
+        END DO
+      END DO
+
+      ! set isothermal sound speeds
+      SELECT TYPE (phys => Physics)
+      CLASS IS (physics_eulerisotherm)
+        DO k=Mesh%KMIN,Mesh%KMAX
+          DO j=Mesh%JMIN,Mesh%JMAX
+!NEC$ IVDEP
+            DO i=Mesh%IMIN,Mesh%IMAX
+              wp = pvar%data4d(i,j,k,Physics%ZVELOCITY) + this%w(i,j) + Mesh%hz%bcenter(i,j,k)*Mesh%OMEGA
+!              wp = pvar%data4d(i,j,k,Physics%ZVELOCITY) + this%w(i,j) + Mesh%radius%bcenter(i,j,k)*Mesh%OMEGA
+              !old
+!              this%geo_src%data4d(i,j,k,Physics%XMOMENTUM) &
+!                = pvar%data4d(i,j,k,Physics%DENSITY) * wp**2 * Mesh%cyxy%bcenter(i,j,k) &
+!                  + pvar%data4d(i,j,k,Physics%DENSITY) * pvar%data4d(i,j,k,Physics%XVELOCITY) * wp * Mesh%cxyx%bcenter(i,j,k)
+
+              this%geo_src%data4d(i,j,k,Physics%XMOMENTUM) &
+                 = cvar%data4d(i,j,k,Physics%YMOMENTUM) * (pvar%data4d(i,j,k,Physics%YVELOCITY)*Mesh%cyxy%bcenter(i,j,k) - &
+                                                            pvar%data4d(i,j,k,Physics%XVELOCITY) * Mesh%cxyx%bcenter(i,j,k))  &
+                  + pvar%data4d(i,j,k,Physics%DENSITY)*wp * (wp*Mesh%czxz%bcenter(i,j,k) - &
+                                                            pvar%data4d(i,j,k,Physics%XVELOCITY) * Mesh%cxzx%bcenter(i,j,k))
+!    GetGeometricalSourceX = my * (cyxy*vy - cxyx*vx) + mz * (czxz*vz - cxzx*vx) &
+!                            + (cyxy + czxz) * P
+
+              !old
+!              this%geo_src%data4d(i,j,k,Physics%YMOMENTUM) &
+!                = cvar%data4d(i,j,k,Physics%XMOMENTUM) &
+!                  * ( pvar%data4d(i,j,k,Physics%XVELOCITY) * Mesh%cxyx%center(i,j,k) )
+              this%geo_src%data4d(i,j,k,Physics%YMOMENTUM) &
+                = cvar%data4d(i,j,k,Physics%XMOMENTUM) &
+                  * ( pvar%data4d(i,j,k,Physics%XVELOCITY) * Mesh%cxyx%center(i,j,k) - pvar%data4d(i,j,k,Physics%YVELOCITY) * Mesh%cyxy%center(i,j,k) ) &
+                + pvar%data4d(i,j,k,Physics%DENSITY) * wp &
+                  * ( wp * Mesh%czyz%center(i,j,k) - pvar%data4d(i,j,k,Physics%YVELOCITY) * Mesh%cyzy%center(i,j,k) )
+!    GetGeometricalSourceY = mz * (czyz*vz - cyzy*vy) + mx * (cxyx*vx - cyxy*vy) &
+!                            + (cxyx + czyz) * P
+
+              IF(Physics%ZMOMENTUM.GT.0) &
+              this%geo_src%data4d(i,j,k,Physics%ZMOMENTUM) &
+                = cvar%data4d(i,j,k,Physics%XMOMENTUM) &
+                  * ( pvar%data4d(i,j,k,Physics%XVELOCITY) * Mesh%cxzx%center(i,j,k) - wp *  Mesh%czxz%center(i,j,k) ) &
+                + cvar%data4d(i,j,k,Physics%YMOMENTUM) &
+                  * ( pvar%data4d(i,j,k,Physics%YVELOCITY) * Mesh%cyzy%center(i,j,k) -  wp * Mesh%czyz%center(i,j,k) )
+!    GetGeometricalSourceZ = mx * (cxzx*vx - czxz*vz) + my * (cyzy*vy - czyz*vz) &
+!                            + (cxzx + cyzy) * P
+
+              IF(Physics%PRESSURE.GT.0) THEN
+                this%geo_src%data4d(i,j,k,Physics%XMOMENTUM) &
+                  = this%geo_src%data4d(i,j,k,Physics%XMOMENTUM) &
+                   +pvar%data4d(i,j,k,Physics%PRESSURE) &
+                      *( Mesh%cyxy%center(i,j,k) + Mesh%czxz%center(i,j,k) )
+                this%geo_src%data4d(i,j,k,Physics%YMOMENTUM) &
+                  = this%geo_src%data4d(i,j,k,Physics%YMOMENTUM) &
+                    + pvar%data4d(i,j,k,Physics%PRESSURE) &
+                      *( Mesh%cxyx%center(i,j,k) + Mesh%czyz%center(i,j,k) )
+              IF(Physics%ZMOMENTUM.GT.0) &
+                this%geo_src%data4d(i,j,k,Physics%ZMOMENTUM) &
+                  = this%geo_src%data4d(i,j,k,Physics%ZMOMENTUM) &
+                    + pvar%data4d(i,j,k,Physics%PRESSURE) &
+                      *( Mesh%cxzx%center(i,j,k) + Mesh%cyzy%center(i,j,k) )
+
+                this%geo_src%data4d(i,j,k,Physics%ENERGY) = 0.
+              ELSE
+
+                this%geo_src%data4d(i,j,k,Physics%XMOMENTUM) &
+                 = this%geo_src%data4d(i,j,k,Physics%XMOMENTUM) &
+                   +pvar%data4d(i,j,k,Physics%DENSITY)*phys%bccsound%data3d(i,j,k)**2 &
+                      * ( Mesh%cyxy%center(i,j,k) + Mesh%czxz%center(i,j,k) )
+                this%geo_src%data4d(i,j,k,Physics%YMOMENTUM) &
+                  = this%geo_src%data4d(i,j,k,Physics%YMOMENTUM) &
+                    + pvar%data4d(i,j,k,Physics%DENSITY)*phys%bccsound%data3d(i,j,k)**2 &
+                      *( Mesh%cxyx%center(i,j,k) + Mesh%czyz%center(i,j,k) )
+              IF(Physics%ZMOMENTUM.GT.0) &
+                this%geo_src%data4d(i,j,k,Physics%ZMOMENTUM) &
+                  = this%geo_src%data4d(i,j,k,Physics%ZMOMENTUM) &
+                    + pvar%data4d(i,j,k,Physics%DENSITY)*phys%bccsound%data3d(i,j,k)**2 &
+                      *( Mesh%cxzx%center(i,j,k) + Mesh%cyzy%center(i,j,k) )
+
+              END IF
+            END DO
+          END DO
+        END DO
+
+      CLASS DEFAULT
+        ! abort
+      END SELECT
+
+
+!NEC$ NOVECTOR
+      DO l=1,Physics%VNUM+Physics%PNUM
+!NEC$ OUTERLOOP_UNROLL(8)
+        DO k=Mesh%KMIN,Mesh%KMAX
+          DO j=Mesh%JMIN,Mesh%JMAX
+!NEC$ IVDEP
+            DO i=Mesh%IMIN,Mesh%IMAX
+              ! update right hand side of ODE
+              IF(l.EQ.Physics%ZMOMENTUM) THEN
+                rhs%data4d(i,j,k,l) = Mesh%dydzdV%data3d(i,j,k)*(this%xfluxdydz(i,j,k,l) - this%xfluxdydz(i-Mesh%IP1,j,k,l)) &
+                             / Mesh%hz%center(i,j,k)
+              ELSE
+                rhs%data4d(i,j,k,l) = Mesh%dydzdV%data3d(i,j,k)*(this%xfluxdydz(i,j,k,l) - this%xfluxdydz(i-Mesh%IP1,j,k,l))
+              END IF
+              ! time step update
+              IF(l.EQ.Physics%ZMOMENTUM) THEN
+                rhs%data4d(i,j,k,l) = rhs%data4d(i,j,k,l) &
+                           + Mesh%dzdxdV%data3d(i,j,k)*(this%yfluxdzdx(i,j,k,l) - this%yfluxdzdx(i,j-Mesh%JP1,k,l)) &
+                            / Mesh%hz%center(i,j,k)
+              ELSE
+                rhs%data4d(i,j,k,l) = rhs%data4d(i,j,k,l) &
+                           + Mesh%dzdxdV%data3d(i,j,k)*(this%yfluxdzdx(i,j,k,l) - this%yfluxdzdx(i,j-Mesh%JP1,k,l))
+              END IF
+              IF(Physics%ZMOMENTUM.GT.0) &
+              rhs%data4d(i,j,k,l) = rhs%data4d(i,j,k,l) &
+                           + Mesh%dxdydV%data3d(i,j,k)*(this%zfluxdxdy(i,j,k,l) - this%zfluxdxdy(i,j,k-Mesh%KP1,l))
+            END DO
+          END DO
+        END DO
+      END DO
+
+      DO k=Mesh%KMIN,Mesh%KMAX
+        DO j=Mesh%JMIN,Mesh%JMAX
+!NEC$ IVDEP
+          DO i=Mesh%IMIN,Mesh%IMAX
+            wp = this%w(i,j) + Mesh%radius%bcenter(i,j,k) * Mesh%OMEGA
+            rhs%data4d(i,j,k,Physics%ZMOMENTUM) = rhs%data4d(i,j,k,Physics%ZMOMENTUM) &
+              - wp * rhs%data4d(i,j,k,Physics%DENSITY)
+            IF(Physics%PRESSURE.GT.0) THEN
+              rhs%data4d(i,j,k,Physics%ENERGY) = rhs%data4d(i,j,k,Physics%ENERGY) &
+                - wp*( rhs%data4d(i,j,k,Physics%ZMOMENTUM) &
+                       + 0.5 * wp* rhs%data4d(i,j,k,Physics%DENSITY))
+              IF (have_potential) THEN
+                rhs%data4d(i,j,k,Physics%ENERGY) = &
+                rhs%data4d(i,j,k,Physics%ENERGY) - pot(i,j,k,1) * rhs%data4d(i,j,k,Physics%DENSITY)
+              END IF
+            END IF
+          END DO
+        END DO
+      END DO
+
+    END SELECT
+
+
 
 !NEC$ NOVECTOR
       DO l=1,Physics%VNUM+Physics%PNUM
@@ -1772,46 +2066,256 @@ CONTAINS
 
   END SUBROUTINE FargoAdvectionY
 
+  !> \public Calculates the linear transport step in Fargo Scheme along z-axis \cite mignone2012 .
+  !!
+  !! The linear transport calculation is done by operator splitting. This
+  !! yields an equation
+  !! \f[
+  !!    \frac{\partial q}{\partial t} + \mathbf{w}\cdot \nabla q = 0,
+  !! \f]
+  !! which can be descritized as
+  !! \f[
+  !!    q_j^{n+1}=q_j^{n}+ \frac{1}{\Delta y} \left(
+  !!            \int_{y_{j+\frac{1}{2}}-w\Delta t}^{y_{j+\frac{1}{2}}}
+  !!            q_j^{n}(\xi)\mathrm{d}\xi -
+  !!            \int_{y_{j-\frac{1}{2}}-w\Delta t}^{y_{j-\frac{1}{2}}}
+  !!            q_j^{n}(\xi)\mathrm{d}\xi \right).
+  !! \f]
+  !!
+  !! FargoAdvectionY does the advection step along the x-axis with
+  !! \f$ \mathbf{w} = w \mathbf{e_y} \f$.
+  SUBROUTINE FargoAdvectionZ(this,Fluxes,Mesh,Physics,Sources)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(timedisc_base), INTENT(INOUT) :: this
+    CLASS(fluxes_base),   INTENT(INOUT) :: Fluxes
+    CLASS(mesh_base),     INTENT(IN)    :: Mesh
+    CLASS(physics_base),  INTENT(INOUT) :: Physics
+    CLASS(sources_base),  POINTER       :: Sources
+    !------------------------------------------------------------------------!
+    INTEGER              :: i,j,k,l
+#ifdef PARALLEL
+    CHARACTER(LEN=80)    :: str
+    INTEGER              :: status(MPI_STATUS_SIZE)
+    INTEGER              :: ierror
+    REAL                 :: mpi_buf(2*Mesh%GNUM)
+    REAL, DIMENSION(Mesh%JMIN:Mesh%JMAX) :: buf
+#endif
+    !------------------------------------------------------------------------!
+    ! determine step size of integer shift and length of remaining transport step
+    ! first compute the whole step
+    this%delxy(:,:)  = this%w(:,:) * this%dt / Mesh%dlz%data3d(:,:,Mesh%KMIN)
+
+#ifdef PARALLEL
+    ! make sure all MPI processes use the same step if domain is decomposed
+    ! along the y-direction (can be different due to round-off errors)
+    IF (Mesh%dims(3).GT.1) THEN
+      CALL MPI_Allreduce(MPI_IN_PLACE,this%delxy,(Mesh%IGMAX-Mesh%IGMIN+1)*(Mesh%JGMAX-Mesh%JGMIN+1), &
+                         DEFAULT_MPI_REAL,MPI_MIN,Mesh%Kcomm,ierror)
+    END IF
+#endif
+
+    ! then subdivide into integer shift and remaining linear advection step
+!NEC$ COLLAPSE
+    DO j = Mesh%JGMIN,Mesh%JGMAX
+!NEC$ IVDEP
+      DO i = Mesh%IGMIN,Mesh%IGMAX
+        this%shift(i,j) = NINT(this%delxy(i,j))
+        this%delxy(i,j)  = this%delxy(i,j)-DBLE(this%shift(i,j))
+      END DO
+    END DO
+
+!NEC$ SHORTLOOP
+    DO l=1,Physics%VNUM+Physics%PNUM
+      this%dq%data3d(:,:,Mesh%KGMIN) = this%cvar%data4d(:,:,Mesh%KGMIN+1,l) - this%cvar%data4d(:,:,Mesh%KGMIN,l)
+!NEC$ IVDEP
+      DO k=Mesh%KGMIN+1,Mesh%KGMAX-1
+        this%dq%data3d(:,:,k) = this%cvar%data4d(:,:,k+1,l)-this%cvar%data4d(:,:,k,l)
+        ! apply minmod limiter
+        WHERE (SIGN(1.0,this%dq%data3d(:,:,k-1))*SIGN(1.0,this%dq%data3d(:,:,k)).GT.0)
+          this%dql%data3d(:,:,k) = SIGN(MIN(ABS(this%dq%data3d(:,:,k-1)),ABS(this%dq%data3d(:,:,k))),this%dq%data3d(:,:,k-1))
+        ELSEWHERE
+          this%dql%data3d(:,:,k) = 0.
+        END WHERE
+      END DO
+!NEC$ IVDEP
+      DO k=Mesh%KMIN-1,Mesh%KMAX
+        WHERE(this%delxy(:,:).GT.0.)
+          this%flux%data3d(:,:,k) = this%cvar%data4d(:,:,k,l) + .5 * this%dql%data3d(:,:,k) * (1. - this%delxy(:,:))
+        ELSEWHERE
+          this%flux%data3d(:,:,k) = this%cvar%data4d(:,:,k+1,l) - .5*this%dql%data3d(:,:,k+1)*(1. + this%delxy(:,:))
+        END WHERE
+        this%cvar%data4d(:,:,k,l) = this%cvar%data4d(:,:,k,l) - this%delxy(:,:)*(this%flux%data3d(:,:,k) - this%flux%data3d(:,:,k-1))
+      END DO
+    END DO
+
+
+!#ifdef PARALLEL
+!    ! We only need to do something, if we (also) are dealing with domain decomposition in
+!    ! the second (phi) direction
+!    IF(PAR_DIMS.GT.1) THEN
+!        DO i=GMIN1,GMAX1
+!          IF(this%shift(i,k).GT.0) THEN
+!            DO l=1,Physics%VNUM+Physics%PNUM
+!              IF(Mesh%SN_shear) THEN
+!                this%buf(k,1:this%shift(i)) = this%cvar%data4d(MAX2-this%shift(i)+1:MAX2,i,k)
+!              ELSE
+!                this%buf(k,1:this%shift(i)) = this%cvar%data4d(i,MAX2-this%shift(i)+1:MAX2,k)
+!              END IF
+!            END DO
+!            CALL MPI_Sendrecv_replace(&
+!              this%buf,&
+!              this%shift(i)*Physics%VNUM, &
+!              DEFAULT_MPI_REAL, &
+!              Mesh%neighbor(EAST), i+Mesh%GNUM, &
+!              Mesh%neighbor(WEST), i+Mesh%GNUM, &
+!              Mesh%comm_cart, status, ierror)
+!            DO k=1,Physics%VNUM
+!              IF(Mesh%SN_shear) THEN
+!                this%cvar%data4d(MAX2-this%shift(i)+1:MAX2,i,k) = this%buf(k,1:this%shift(i))
+!              ELSE
+!                this%cvar%data4d(i,MAX2-this%shift(i)+1:MAX2,k) = this%buf(k,1:this%shift(i))
+!              END IF
+!            END DO
+!          ELSE IF(this%shift(i).LT.0) THEN
+!            DO k=1,Physics%VNUM
+!              IF(Mesh%SN_shear) THEN
+!                this%buf(k,1:-this%shift(i)) = this%cvar%data4d(MIN2:MIN2-this%shift(i)-1,i,k)
+!              ELSE
+!                this%buf(k,1:-this%shift(i)) = this%cvar%data4d(i,MIN2:MIN2-this%shift(i)-1,k)
+!              END IF
+!            END DO
+!            CALL MPI_Sendrecv_replace(&
+!              this%buf,&
+!              -this%shift(i)*Physics%VNUM, &
+!              DEFAULT_MPI_REAL, &
+!              Mesh%neighbor(EAST), i+Mesh%GNUM, &
+!              Mesh%neighbor(WEST), i+Mesh%GNUM, &
+!              Mesh%comm_cart, status, ierror)
+!            DO k=1,Physics%VNUM
+!              IF (Mesh%SN_shear) THEN
+!                this%cvar%data4d(MIN2:MIN2-this%shift(i)-1,i,k) = this%buf(k,1:-this%shift(i))
+!              ELSE
+!                this%cvar%data4d(i,MIN2:MIN2-this%shift(i)-1,k) = this%buf(k,1:-this%shift(i))
+!              END IF
+!            END DO
+!          END IF
+!        END DO
+!      END DO
+!    END IF
+!#endif
+
+    ! Integer shift along x- or y-direction
+!NEC$ SHORTLOOP
+    DO l=1,Physics%VNUM+Physics%PNUM
+!NEC$ IVDEP
+      DO j=Mesh%JGMIN,Mesh%JGMAX
+!NEC$ IVDEP
+        DO i=Mesh%IGMIN,Mesh%IGMAX
+          this%cvar%data4d(i,j,Mesh%KMIN:Mesh%KMAX,l) &
+            = CSHIFT(this%cvar%data4d(i,j,Mesh%KMIN:Mesh%KMAX,l),-this%shift(i,j),1)
+        END DO
+      END DO
+    END DO
+
+    ! convert conservative to primitive variables
+    CALL Physics%Convert2Primitive(this%cvar,this%pvar)
+    ! Calculate RHS after the Advection Step
+    CALL this%ComputeRHS(Mesh,Physics,Sources,Fluxes,this%time,0.,this%pvar,this%cvar,&
+                    this%checkdatabm,this%rhs)
+
+    this%cold%data1d(:) = this%cvar%data1d(:)
+
+
+  END SUBROUTINE FargoAdvectionZ
+
 
   !> \public Calculates new background velocity for fargo advection
   !!
   !! \attention Only works when velocity is shifted in second direction.
-  SUBROUTINE CalcBackgroundVelocity(this,Mesh,Physics,pvar,cvar,w)
+  SUBROUTINE CalcBackgroundVelocity(this,Mesh,Physics,pvar,cvar,dir,w)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(timedisc_base), INTENT(INOUT) :: this
     CLASS(mesh_base),     INTENT(IN)    :: Mesh
     CLASS(physics_base),  INTENT(INOUT) :: Physics
     CLASS(marray_compound), INTENT(INOUT) :: pvar,cvar
+    INTEGER,              INTENT(IN)    :: dir
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%KGMIN:Mesh%KGMAX), &
                           INTENT(OUT)   :: w
     !------------------------------------------------------------------------!
     REAL              :: wi
-    INTEGER           :: i,k
+    INTEGER           :: i,j,k
 #ifdef PARALLEL
     INTEGER           :: ierror
 #endif
     !------------------------------------------------------------------------!
-    ! make sure we are using true, i.e. non-selenoidal, quantities
-    CALL Physics%AddBackgroundVelocityY(Mesh,w,pvar,cvar)
-    SELECT TYPE(p => pvar)
-    CLASS IS(statevector_eulerisotherm)
-      DO k=Mesh%KGMIN,Mesh%KGMAX
-        DO i=Mesh%IGMIN,Mesh%IGMAX
-          ! some up all yvelocities along the y-direction
-          wi = SUM(p%velocity%data4d(i,Mesh%JMIN:Mesh%JMAX,k,2))
+    SELECT CASE(dir)
+    CASE(1)
+      ! make sure we are using true, i.e. non-selenoidal, quantities
+      CALL Physics%AddBackgroundVelocityX(Mesh,w,pvar,cvar)
+      SELECT TYPE(p => pvar)
+      CLASS IS(statevector_eulerisotherm)
+        DO k=Mesh%KMIN,Mesh%KMAX
+          DO j=Mesh%JMIN,Mesh%JMAX
+            ! some up all xvelocities along the x-direction
+            wi = SUM(p%velocity%data4d(Mesh%IMIN:Mesh%IMAX,j,k,1))
 #ifdef PARALLEL
-          ! extend the sum over all partitions
-          IF(Mesh%dims(2).GT.1) THEN
-            CALL MPI_AllReduce(MPI_IN_PLACE, wi, 1, DEFAULT_MPI_REAL, MPI_SUM, &
-                                Mesh%Jcomm, ierror)
-          END IF
+            ! extend the sum over all partitions
+            IF(Mesh%dims(1).GT.1) THEN
+              CALL MPI_AllReduce(MPI_IN_PLACE, wi, 1, DEFAULT_MPI_REAL, MPI_SUM, &
+                                Mesh%Icomm, ierror)
+            END IF
 #endif
-          ! set new background velocity to the arithmetic mean of the
-          ! yvelocity field along the y-direction
-          w(i,k) = wi / Mesh%JNUM
+            ! set new background velocity to the arithmetic mean of the
+            ! xvelocity field along the x-direction
+            w(j,k) = wi / Mesh%INUM
+          END DO
         END DO
-      END DO
+      END SELECT
+    CASE(2)  
+      CALL Physics%AddBackgroundVelocityY(Mesh,w,pvar,cvar)
+      SELECT TYPE(p => pvar)
+      CLASS IS(statevector_eulerisotherm)
+        DO k=Mesh%KMIN,Mesh%KMAX
+          DO i=Mesh%IMIN,Mesh%IMAX
+            ! some up all yvelocities along the y-direction
+            wi = SUM(p%velocity%data4d(i,Mesh%JMIN:Mesh%JMAX,k,2))
+#ifdef PARALLEL
+            ! extend the sum over all partitions
+            IF(Mesh%dims(2).GT.1) THEN
+              CALL MPI_AllReduce(MPI_IN_PLACE, wi, 1, DEFAULT_MPI_REAL, MPI_SUM, &
+                                  Mesh%Jcomm, ierror)
+            END IF
+#endif
+            ! set new background velocity to the arithmetic mean of the
+            ! yvelocity field along the y-direction
+            w(i,k) = wi / Mesh%JNUM
+          END DO
+        END DO
+      END SELECT
+
+    CASE(3)
+      CALL Physics%AddBackgroundVelocityZ(Mesh,w,pvar,cvar)
+      SELECT TYPE(p => pvar)
+      CLASS IS(statevector_eulerisotherm)
+        DO j=Mesh%JMIN,Mesh%JMAX
+          DO i=Mesh%IMIN,Mesh%IMAX
+            ! some up all zvelocities along the z-direction
+            wi = SUM(p%velocity%data4d(i,j,Mesh%KMIN:Mesh%KMAX,3))
+#ifdef PARALLEL
+            ! extend the sum over all partitions
+            IF(Mesh%dims(3).GT.1) THEN
+              CALL MPI_AllReduce(MPI_IN_PLACE, wi, 1, DEFAULT_MPI_REAL, MPI_SUM, &
+                                  Mesh%Kcomm, ierror)
+            END IF
+#endif
+            ! set new background velocity to the arithmetic mean of the
+            ! yvelocity field along the y-direction
+            w(i,j) = wi / Mesh%KNUM
+          END DO
+        END DO
+      END SELECT
     END SELECT
   END SUBROUTINE CalcBackgroundVelocity
 

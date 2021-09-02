@@ -22,7 +22,7 @@ set (EXES
   shear
   specialfunctions
   vortex3d
-#  collapse
+  collapse
 #  noh2d
 #  noh3d
   riemann3d

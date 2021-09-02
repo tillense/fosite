@@ -257,10 +257,11 @@ CONTAINS
 
 
   SUBROUTINE FirstStep(this)
+    USE geometry_spherical_mod, ONLY: geometry_spherical
     IMPLICIT NONE
     !--------------------------------------------------------------------------!
     CLASS(fosite), INTENT(INOUT) :: this
-    INTEGER                      :: datetime(8)
+    INTEGER                      :: datetime(8),dir
     !--------------------------------------------------------------------------!
     IF(.NOT.this%Initialized()) &
       CALL this%Error("fosite::FirstStep","Sim is uninitialized")
@@ -307,8 +308,14 @@ CONTAINS
        ! make sure there is valid data at least in the i-ghost cells
        CALL this%Timedisc%Boundary%CenterBoundary(this%Mesh,this%Physics,&
                              0.0,this%Timedisc%pvar,this%Timedisc%cvar)
+       SELECT TYPE(geo => this%Mesh%geometry)
+       TYPE IS(geometry_spherical)
+         dir =3
+       CLASS DEFAULT
+         dir=2
+       END SELECT
        CALL this%Timedisc%CalcBackgroundVelocity(this%Mesh,this%Physics, &
-                             this%Timedisc%pvar,this%Timedisc%cvar,this%Timedisc%w)
+                             this%Timedisc%pvar,this%Timedisc%cvar,dir,this%Timedisc%w)
     END IF
 
     ! do a complete update of all data
