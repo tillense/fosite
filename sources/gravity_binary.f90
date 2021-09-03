@@ -139,7 +139,7 @@ CONTAINS
     END SELECT
 
     ALLOCATE(&
-         this%mass,this%mass2,this%pos(3,2),this%r0(3), &
+         this%mass,this%massloss,this%accrate,this%mass2,this%pos(3,2),this%r0(3), &
          this%omega2(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,2), &
          this%omega(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
          this%r_prim(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX),&
@@ -200,6 +200,8 @@ CONTAINS
 
     ! reset mass flux
     this%mdot = 0.0
+    this%massloss = 0.0
+    this%accrate = 0.0
 
     ! set period
     this%period = 2.*PI*SQRT(this%semaaxis/(this%mass+this%mass2)/Physics%constants%GN)*this%semaaxis
@@ -570,11 +572,9 @@ CONTAINS
     !------------------------------------------------------------------------!
     TYPE(gravity_binary), INTENT(INOUT) :: this
     !------------------------------------------------------------------------!
-    DEALLOCATE(this%mass,this%mass2,this%pos,this%r0,this%omega2,this%omega,&
-               this%r_prim,this%r_sec,this%posvec_prim,this%posvec_prim_tmp, &
-               this%posvec_sec,this%posvec_sec_tmp,this%pot,&
-               this%pot_prim,this%pot_sec,this%fr_prim,this%fr_sec,this%fposvec_prim, &
-               this%fposvec_sec)
+    DEALLOCATE(this%r0,this%r_sec,this%posvec_sec,this%posvec_sec_tmp,&
+               this%pot_prim,this%pot_sec,this%fr_sec,this%fposvec_sec,this%mass2)
+
     CALL this%Finalize_base()
   END SUBROUTINE Finalize
 

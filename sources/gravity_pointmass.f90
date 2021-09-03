@@ -474,7 +474,7 @@ CONTAINS
                this%posvec_prim,this%posvec_prim_tmp,this%fposvec_prim,this%mass, &
                this%accrate,this%massloss,this%pos)
 
-    DEALLOCATE(this%potential)
+    IF (ALLOCATED(this%potential)) DEALLOCATE(this%potential)
     CALL this%Finalize_base()
   END SUBROUTINE Finalize
 
