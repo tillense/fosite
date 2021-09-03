@@ -3,7 +3,7 @@
 !# fosite - 3D hydrodynamical simulation program                             #
 !# module: sources_gravity.f90                                               #
 !#                                                                           #
-!# Copyright (C) 2014-2018                                                   #
+!# Copyright (C) 2014-2021                                                   #
 !# Björn Sperling   <sperling@astrophysik.uni-kiel.de>                       #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
 !# Jannes Klee      <jklee@astrophysik.uni-kiel.de>                          #
@@ -108,41 +108,47 @@ CONTAINS
       this%addtoenergy = .TRUE.
     END IF
 
-    ! enable update of disk scale height if requested
-    CALL GetAttr(config, "update_disk_height", i, 0)
-    IF (i.EQ.1) THEN
-      !> \todo check if this is really sufficient, what we really need is
+    ! initialize gravity
+    CALL new_gravity(this%glist,Mesh,Fluxes,Physics,config,IO)
+
+    ! activate output of scale height if requested (default: disabled)
+    CALL GetAttr(config, "output/height", valwrite, 0)
+
+    ! this parameter is usually set automatically depending on other
+    ! settings (see sources_generic), but if output of height
+    ! is enabled, computation of disk height is activated as well
+    ! (works only 1D/2D accretion disk simulations with flat geometry)
+    IF (valwrite.EQ.1) CALL SetAttr(config, "update_disk_height", 1)
+    CALL GetAttr(config, "update_disk_height",valwrite, 0)
+
+    IF (valwrite.EQ.1) THEN
+      !> \todo check if this is sufficient, what we really need is
       !! to check whether the geometry is flat or not
       IF (Physics%VDIM.EQ.2) THEN
         this%update_disk_height = .TRUE.
-
         this%height = marray_base()
         this%h_ext= marray_base()
         this%invheight2 = marray_base()
         this%height%data1d = 0.0
         this%h_ext%data1d = 0.0
         this%invheight2%data1d = 0.0
+
+        IF (valwrite.EQ.1) THEN
+           CALL SetAttr(IO, "height", &
+             this%height%data3d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX))
+        END IF
       ELSE
-        CALL this%Error("InitGravity", "DiskHeight is only supported in 2D")
+        CALL this%Error("InitGravity", "Computation of disk scale height is only supported in 1D/2D flat geometries")
       END IF
     ELSE
        this%update_disk_height = .FALSE.
     END IF
 
-    ! initialize gravity
-    CALL new_gravity(this%glist,Mesh,Fluxes,Physics,config,IO)
-
-    CALL GetAttr(config, "output/height", valwrite, 0)
+    ! activate output of gravitational acceleration
+    CALL GetAttr(config, "output/accel", valwrite, 0)
     IF (valwrite .EQ. 1) THEN
-       CALL SetAttr(config, "update_disk_height", 1)
-       IF (.NOT.ASSOCIATED(this%height%data1d)) THEN
-          ALLOCATE(this%height%data3d(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
-                   STAT=err)
-          IF (err.NE.0) CALL this%Error("SetOutput", &
-                                   "Memory allocation failed for this%height!")
-       END IF
-       CALL SetAttr(IO, "height", &
-         this%height%data3d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX))
+       CALL SetAttr(IO, "accel", &
+          this%accel%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,1:Physics%VDIM))
     END IF
 
   END SUBROUTINE InitSources_gravity
@@ -239,14 +245,14 @@ CONTAINS
     LOGICAL                      :: has_external_potential = .FALSE.
     !------------------------------------------------------------------------!
     ! reset inverse scale height^2
+    this%invheight2%data1d(:) = 0.0
     ! go through all gravity terms in the list
     grav_ptr => this%glist
     DO WHILE(ASSOCIATED(grav_ptr))
       SELECT TYPE (grav => grav_ptr)
       CLASS IS (gravity_pointmass)
-!CDIR IEXPAND
         CALL grav%CalcDiskHeight_single(Mesh,Physics,pvar,Physics%bccsound,this%h_ext,this%height)
-        this%invheight2%data1d(:) = this%invheight2%data1d(:) + 1./this%h_ext%data1d(:)**2
+        this%invheight2%data1d(:) = this%invheight2%data1d(:) + 1./this%height%data1d(:)**2
         has_external_potential = .TRUE.
       CLASS IS (gravity_spectral)
         selfgrav_ptr => grav_ptr
