@@ -743,22 +743,22 @@ MODULE gravity_spectral_mod
       END DO
     END DO
 
-!NEC$ collapse
-    ! disk height with external potential
-!NEC$ collapse
-!    DO k=Mesh%KGMIN,Mesh%KGMAX
-!      DO j=Mesh%JGMIN,Mesh%JGMAX
-!        DO i=Mesh%IGMIN,Mesh%IGMAX
-!          cs2 = bccsound(i,j,k)**2
-!          p = SQRTTWOPI*Physics%Constants%GN*pvar(i,j,k,Physics%DENSITY)*h_ext(i,j,k)/cs2
-!          q = 1. + this%tmp2D(i,j)*h_ext(i,j,k)**2/cs2
-!          ! return the new disk height
-!          height(i,j,k) = h_ext(i,j,k) / (p+SQRT(q+p*p))
-!        END DO
-!      END DO
-!    END DO
-       ! pure self-gravitating disk without external potential
-!NEC$ collapse
+    IF (ASSOCIATED(h_ext%data1d).AND.(h_ext.MATCH.height).AND. &
+       (MINVAL(h_ext%data1d,MASK=Mesh%without_ghost_zones%mask1d(:)).GT.0.0)) THEN
+      ! disk height with external potential
+      DO k=Mesh%KGMIN,Mesh%KGMAX
+        DO j=Mesh%JGMIN,Mesh%JGMAX
+          DO i=Mesh%IGMIN,Mesh%IGMAX
+            cs2 = bccsound%data3d(i,j,k)**2
+            p = SQRTTWOPI*Physics%Constants%GN*pvar%data4d(i,j,k,Physics%DENSITY)*h_ext%data3d(i,j,k)/cs2
+            q = 1. + this%tmp2D(i,j)*h_ext%data3d(i,j,k)**2/cs2
+            ! return the new disk height
+            height%data3d(i,j,k) = h_ext%data3d(i,j,k) / (p+SQRT(q+p*p))
+          END DO
+        END DO
+      END DO
+    ELSE
+      ! pure self-gravitating disk without external potential
       DO k=Mesh%KGMIN,Mesh%KGMAX
         DO j=Mesh%JGMIN,Mesh%JGMAX
           DO i=Mesh%IGMIN,Mesh%IGMAX
@@ -770,6 +770,7 @@ MODULE gravity_spectral_mod
           END DO
         END DO
       END DO
+    END IF
 #endif
   END SUBROUTINE CalcDiskHeight_single
 
