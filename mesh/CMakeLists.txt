@@ -24,7 +24,7 @@ add_library(mesh
   #geometry_sinhtanh.f90
   #geometry_lncoshcylindrical.f90
   #geometry_sinhspherical.f90
-  #geometry_tancylindrical.f90
+  geometry_tancylindrical.f90
   #geometry_channel.f90
   #geometry_elliptic.f90
   #geometry_sinhcartesian.f90

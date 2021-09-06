@@ -353,7 +353,7 @@ MODULE geometry_base_mod
 !  INTEGER, PARAMETER :: BIPOLAR           = 29
   INTEGER, PARAMETER :: CYLINDRICAL       = 30
   INTEGER, PARAMETER :: LOGCYLINDRICAL    = 31
-!  INTEGER, PARAMETER :: TANCYLINDRICAL    = 32
+  INTEGER, PARAMETER :: TANCYLINDRICAL    = 32
 !  INTEGER, PARAMETER :: LNCOSHCYLINDRICAL = 33
   INTEGER, PARAMETER :: SPHERICAL         = 40
   INTEGER, PARAMETER :: LOGSPHERICAL      = 41
@@ -368,7 +368,7 @@ MODULE geometry_base_mod
        geometry_base, &
        PI, &
        CARTESIAN, &
-       CYLINDRICAL, LOGCYLINDRICAL, &
+       CYLINDRICAL, LOGCYLINDRICAL, TANCYLINDRICAL, &
        SPHERICAL, LOGSPHERICAL, SPHERICAL_PLANET
   !--------------------------------------------------------------------------!
 
