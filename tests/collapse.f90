@@ -66,9 +66,9 @@ PROGRAM collapse
   ! mesh settings
 !  INTEGER, PARAMETER :: MGEO = SPHERICAL   ! geometry of the mesh
   INTEGER, PARAMETER :: MGEO = CYLINDRICAL
-!!$  INTEGER, PARAMETER :: MGEO = TANCYLINDRICAL
-  INTEGER, PARAMETER :: XRES = 80          ! x-resolution
-  INTEGER, PARAMETER :: YRES = 1          ! y-resolution
+!  INTEGER, PARAMETER :: MGEO = TANCYLINDRICAL
+  INTEGER, PARAMETER :: XRES = 150          ! x-resolution
+  INTEGER, PARAMETER :: YRES = 1 !XRES          ! y-resolution
   INTEGER, PARAMETER :: ZRES = XRES           ! z-resolution
   REAL, PARAMETER    :: RMAX = 1.5         ! size of comput. domain in [RSPH]
   REAL, PARAMETER    :: GPAR = 0.5*RSPH    ! geometry scaling parameter
@@ -77,7 +77,7 @@ PROGRAM collapse
   CHARACTER(LEN=256), PARAMETER &          ! output data dir
                      :: ODIR = './'
   CHARACTER(LEN=256), PARAMETER &          ! output data file name
-                     :: OFNAME = 'collapse_cyl_rhs1_200'
+                     :: OFNAME = 'collapse_cyl_rhs1_150'
   !--------------------------------------------------------------------------!
   REAL               :: TAU                ! free-fall time scale
   REAL               :: RHO0               ! initial density of the sphere
@@ -152,11 +152,13 @@ PROGRAM collapse
 !       x1 = 2.*x2/(XRES+2)          ! x_min = 2*dx
 !       y1 = -0.5*PI
 !       y2 = 0.5*PI
-!    CASE(TANCYLINDRICAL)
-!       x1 = ATAN(-RMAX*RSPH/GPAR)
-!       x2 = ATAN(RMAX*RSPH/GPAR)
-!       y1 = 0.0
-!       y2 = RMAX*RSPH
+    CASE(TANCYLINDRICAL)
+       x1 = ATAN(-RMAX*RSPH/GPAR)
+       x2 = ATAN(RMAX*RSPH/GPAR)
+       y2 = RMAX*RSPH
+       y1 = 2.*y2 / (YRES+2)        ! x_min = 2*dx
+       z1 = 0.0
+       z2 = 2.*PI
 !    CASE(SINHSPHERICAL)
 !       x2 = RMAX*RSPH/GPAR
 !       x2 = LOG(x2+SQRT(x2**2+1.0)) ! = ASINH(RMAX*RSPH/GPAR)
@@ -183,21 +185,22 @@ PROGRAM collapse
            "zmin"     / z1, &
            "zmax"     / z2, &
            "output/radius" / 1, &
+           "output/volume" / 1, &
            "gparam"   / GPAR)
     ! mesh settings and boundary conditions
     SELECT CASE(MGEO)
     CASE(SPHERICAL)
-       bc(WEST)  = CUSTOM !REFLECTING !ABSORBING
+       bc(WEST)  = REFLECTING !ABSORBING
        bc(EAST)  = REFLECTING !ABSORBING
-       bc(SOUTH) = AXIS
-       bc(NORTH) = AXIS
+       bc(SOUTH) = REFLECTING !AXIS
+       bc(NORTH) = REFLECTING !AXIS
        bc(BOTTOM)= PERIODIC
        bc(TOP)   = PERIODIC
 !       sgbc = SPHERMULTEXPAN        ! use spherical multipole expansion for BC
                                     !   in the multigrid poisson solver
     CASE(CYLINDRICAL)
        bc(WEST)  = REFLECTING !ABSORBING
-       bc(EAST)  = ABSORBING
+       bc(EAST)  = REFLECTING !ABSORBING
        bc(SOUTH) = PERIODIC
        bc(NORTH) = PERIODIC
        bc(BOTTOM)= REFLECTING !AXIS
@@ -209,11 +212,13 @@ PROGRAM collapse
 !       bc(SOUTH) = AXIS
 !       bc(NORTH) = AXIS
 !       sgbc = CYLINMULTEXPAN        ! cylindrical multipole expansion
-!    CASE(TANCYLINDRICAL)
-!       bc(WEST)  = ABSORBING
-!       bc(EAST)  = ABSORBING
-!       bc(SOUTH) = AXIS
-!       bc(NORTH) = NO_GRADIENTS
+    CASE(TANCYLINDRICAL)
+       bc(WEST)  = REFLECTING !ABSORBING
+       bc(EAST)  = REFLECTING !ABSORBING
+       bc(SOUTH) = REFLECTING !AXIS
+       bc(NORTH) = REFLECTING !NO_GRADIENTS
+       bc(BOTTOM)= PERIODIC
+       bc(TOP)   = PERIODIC
 !       sgbc = CYLINMULTEXPAN        ! cylindrical multipole expansion
 !    CASE(SINHSPHERICAL)
 !       bc(WEST)  = ABSORBING
@@ -342,6 +347,10 @@ PROGRAM collapse
       Timedisc%pvar%data4d(:,:,:,Physics%XVELOCITY) = 0.
       Timedisc%pvar%data4d(:,:,:,Physics%ZVELOCITY) = 0.
       Timedisc%pvar%data4d(:,:,:,Physics%YVELOCITY) = (OMEGA-OMEGA_FRAME) * Mesh%hy%bcenter(:,:,:)
+    ELSE IF(MGEO.EQ.TANCYLINDRICAL) THEN
+      Timedisc%pvar%data4d(:,:,:,Physics%XVELOCITY) = 0.
+      Timedisc%pvar%data4d(:,:,:,Physics%YVELOCITY) = 0.
+      Timedisc%pvar%data4d(:,:,:,Physics%ZVELOCITY) = (OMEGA-OMEGA_FRAME) * Mesh%hz%bcenter(:,:,:)
     END IF
     
 !    IF (Physics%GetType().EQ.EULER3D_ROTAMT) THEN
