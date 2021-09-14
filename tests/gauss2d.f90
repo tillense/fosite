@@ -126,7 +126,7 @@ CONTAINS
        bc(BOTTOM) = NO_GRADIENTS
        bc(TOP)    = NO_GRADIENTS
     CASE DEFAULT
-       CALL Error(Sim%Physics,"InitProgram","geometry not supported for this test")
+       CALL Sim%Error("InitProgram","geometry not supported for this test")
     END SELECT
 
     !mesh settings

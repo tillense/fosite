@@ -241,7 +241,7 @@ CONTAINS
        CALL SetAttr(timedisc, "output/rhs", 0)
        CALL SetAttr(timedisc, "output/external_sources", 0)
     CASE DEFAULT
-       CALL Error(Sim,"MakeConfig","Physics model not supported.")
+       CALL Sim%Error("MakeConfig","Physics model not supported.")
     END SELECT
 
     ! data file settings

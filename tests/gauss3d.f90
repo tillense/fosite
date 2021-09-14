@@ -167,7 +167,7 @@ CONTAINS
        bc(BOTTOM)= PERIODIC
        bc(TOP)   = PERIODIC
     CASE DEFAULT
-       CALL Error(Sim%Physics,"InitProgram","geometry not supported for this test")
+       CALL Sim%Error("InitProgram","geometry not supported for this test")
     END SELECT
 
     !mesh settings
