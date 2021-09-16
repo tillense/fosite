@@ -215,7 +215,7 @@ CONTAINS
     CLASS(fluxes_base),          INTENT(IN)    :: Fluxes
     CLASS(marray_compound),      INTENT(INOUT) :: pvar,cvar
     REAL, INTENT(IN)              :: time
-    REAL, INTENT(OUT)             :: dt
+    REAL, INTENT(INOUT)           :: dt
     INTEGER, INTENT(OUT)          :: dtcause
     !------------------------------------------------------------------------!
     CLASS(Sources_base), POINTER :: srcptr
