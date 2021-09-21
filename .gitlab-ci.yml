@@ -1,6 +1,7 @@
 before_script:
     - module load cmake/3.19.4
     - module load gfortran/6.2
+    - module load doxygen/1.8.14
     - module load mpich/3.4.1
     - module load fftw/3.3.8-mpich3
 
