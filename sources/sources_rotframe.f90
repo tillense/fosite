@@ -261,28 +261,29 @@ CONTAINS
     CLASS(sources_rotframe), INTENT(IN)    :: this
     CLASS(mesh_base),        INTENT(IN)    :: Mesh
     CLASS(physics_base),     INTENT(IN)    :: Physics
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
-                             INTENT(INOUT) :: pvar
+    CLASS(marray_compound),  INTENT(INOUT) :: pvar
     !------------------------------------------------------------------------!
     ! Convert velocities to the rotating frame
-    SELECT TYPE(geo => MEsh%Geometry)
+    SELECT TYPE(geo => Mesh%Geometry)
     TYPE IS(geometry_spherical_planet)
       IF (this%issphere.EQ.1) THEN
-        pvar(:,:,:,Physics%XVELOCITY) = pvar(:,:,:,Physics%XVELOCITY)
-        pvar(:,:,:,Physics%YVELOCITY) = pvar(:,:,:,Physics%YVELOCITY) - &
+        ! no change in pvar(:,:,:,Physics%XVELOCITY)
+        pvar%data4d(:,:,:,Physics%YVELOCITY) = pvar%data4d(:,:,:,Physics%YVELOCITY) - &
                               Mesh%OMEGA*SIN(Mesh%bcenter(:,:,:,1))*this%gparam
       END IF
     TYPE IS(geometry_cylindrical)
-      pvar(:,:,:,Physics%XVELOCITY) = pvar(:,:,:,Physics%XVELOCITY) + &
+      pvar%data4d(:,:,:,Physics%XVELOCITY) = pvar%data4d(:,:,:,Physics%XVELOCITY) + &
                                       Mesh%OMEGA * this%cent%data4d(:,:,:,2)
-      pvar(:,:,:,Physics%YVELOCITY) = pvar(:,:,:,Physics%YVELOCITY) - &
+      pvar%data4d(:,:,:,Physics%YVELOCITY) = pvar%data4d(:,:,:,Physics%YVELOCITY) - &
                                       Mesh%OMEGA * this%cent%data4d(:,:,:,1)
-      pvar(:,:,:,Physics%ZVELOCITY) = pvar(:,:,:,Physics%ZVELOCITY)
+      pvar%data4d(:,:,:,Physics%ZVELOCITY) = pvar%data4d(:,:,:,Physics%ZVELOCITY)
     TYPE IS(geometry_spherical)
-      pvar(:,:,:,Physics%XVELOCITY) = pvar(:,:,:,Physics%XVELOCITY)
-      pvar(:,:,:,Physics%YVELOCITY) = pvar(:,:,:,Physics%YVELOCITY)
-      pvar(:,:,:,Physics%ZVELOCITY) = pvar(:,:,:,Physics%ZVELOCITY) - &
+      pvar%data4d(:,:,:,Physics%XVELOCITY) = pvar%data4d(:,:,:,Physics%XVELOCITY)
+      pvar%data4d(:,:,:,Physics%YVELOCITY) = pvar%data4d(:,:,:,Physics%YVELOCITY)
+      pvar%data4d(:,:,:,Physics%ZVELOCITY) = pvar%data4d(:,:,:,Physics%ZVELOCITY) - &
                                       Mesh%OMEGA * this%centproj%data4d(:,:,:,1)
+    CLASS DEFAULT
+      ! this should not happen (see InitSources_rotframe)
     END SELECT
   END SUBROUTINE Convert2RotatingFrame
 
