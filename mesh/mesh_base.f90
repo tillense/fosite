@@ -172,7 +172,7 @@ MODULE mesh_base_mod
     TYPE(marray_cellvector) :: posvec      !< curvilinear position vector
     !> \name
     !! #### other geometrial quantities
-    REAL, DIMENSION(:,:), POINTER :: &
+    REAL, DIMENSION(:,:,:), POINTER :: &
                          rotation => null()!< rotation angle of local curvilinear orthonormal frames
     REAL, DIMENSION(:,:,:,:,:,:), POINTER :: &
                          weights  => null()!<interpolation weights
@@ -820,7 +820,7 @@ CONTAINS
     CALL GetAttr(config, "output/rotation", writefields, 0)
     IF(writefields.EQ.1) THEN
         CALL CalculateRotation(this)
-        CALL SetAttr(IO,"rotation",this%rotation(this%IMIN:this%IMAX,this%JMIN:this%JMAX))
+        CALL SetAttr(IO,"rotation",this%rotation(this%IMIN:this%IMAX,this%JMIN:this%JMAX,this%KMIN:this%KMAX))
     END IF
 
     CALL GetAttr(config, "output/dl", writefields, 0)
@@ -895,10 +895,11 @@ CONTAINS
     !------------------------------------------------------------------------!
     CLASS(mesh_base) :: this   !< \param [in,out] this all mesh data
     !------------------------------------------------------------------------!
+    INTEGER          :: k
     INTEGER          :: status
     REAL,DIMENSION(this%IGMIN:this%IGMAX,this%JGMIN:this%JGMAX,this%KGMIN:this%KGMAX,3) :: cart,curv
     !------------------------------------------------------------------------!
-        ALLOCATE(this%rotation(this%IGMIN:this%IGMAX,this%JGMIN:this%JGMAX), &
+        ALLOCATE(this%rotation(this%IGMIN:this%IGMAX,this%JGMIN:this%JGMAX,this%KGMIN:this%KGMAX), &
                  STAT=status)
         IF(status.NE.0) &
             CALL this%Error("CalculateRotation", "Couldn't allocate memory")
@@ -907,7 +908,7 @@ CONTAINS
         cart(:,:,:,2) = 0.
         cart(:,:,:,3) = 0.
         CALL this%geometry%Convert2Curvilinear(this%bcenter, cart, curv)
-        this%rotation(:,:) = ATAN2(curv(:,:,1,2),curv(:,:,1,1))  !!/todo{3D}
+        this%rotation(:,:,:) = ATAN2(curv(:,:,:,2),curv(:,:,:,1))  !!/todo{3D}
   END SUBROUTINE CalculateRotation
 
   !> \public Check if a given coordinate pair represents an internal point
