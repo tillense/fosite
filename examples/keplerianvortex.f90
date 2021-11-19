@@ -111,7 +111,7 @@ CONTAINS
         "zmax" / 0.0, &
         "decomposition" / (/ 1, -1/), &
         "output/volume" / 1,&
-        "output/bh" / 1,&
+        "output/bh" / 0,&
         "output/rotation" / 1,&
         "output/dl" / 1)
 
@@ -168,7 +168,7 @@ CONTAINS
 
 
     datafile => Dict( &
-        "fileformat" / XDMF, &
+        "fileformat" / VTK, &
         "filename" / "keplerianvortex", &
         "count" / ONUM)
 
