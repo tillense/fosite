@@ -356,7 +356,7 @@ CONTAINS
         pvar%velocity%data4d(:,:,:,n) = domega(:,:,:)*dist_axis(:,:,:)*ephi(:,:,:,n)
       END DO
     END SELECT
-Timedisc%w(:,:) = 0.0
+
     CALL Physics%Convert2Conservative(Timedisc%pvar,Timedisc%cvar)
 
 !     ! compute curvilinear components of constant background velocity field
