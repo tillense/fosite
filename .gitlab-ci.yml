@@ -164,6 +164,16 @@ ser_test_rootstest:
     script:
        - ./ser_build/tests/rootstest
 
+set_test_vortex3d:
+    stage: test
+    script:
+       - ./ser_build/tests/vortex3d
+
+par_test_vortex3d:
+    stage: test
+    script:
+       - mpirun -n 2 ./par_build/tests/vortex3d
+
 deploy_github:
     stage: deploy
     script:

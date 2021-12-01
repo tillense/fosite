@@ -24,7 +24,7 @@
 !#############################################################################
 
 !----------------------------------------------------------------------------!
-!> \test 3D isentropic vortex
+!> \test 3D isothermal/isentropic vortex
 !! \author Tobias Illenseer
 !!
 !! References:
@@ -57,8 +57,6 @@ PROGRAM vortex3d
                                            ! around [X0,Y0]
   ! mesh settings
   INTEGER, PARAMETER :: MGEO = CYLINDRICAL
-!  INTEGER, PARAMETER :: MGEO = LOGCYLINDRICAL
-!  INTEGER, PARAMETER :: MGEO = SPHERICAL
   INTEGER, PARAMETER :: XRES = 40          ! x-resolution
   INTEGER, PARAMETER :: YRES = 40          ! y-resolution
   INTEGER, PARAMETER :: ZRES = 1           ! z-resolution
@@ -80,25 +78,74 @@ PROGRAM vortex3d
   !--------------------------------------------------------------------------!
   CLASS(fosite),ALLOCATABLE :: Sim
   CLASS(marray_compound), POINTER :: pvar_init => null()
-  REAL :: sigma
+  REAL, DIMENSION(:), ALLOCATABLE :: sum_numer, sum_denom, sigma
+  LOGICAL :: ok
+  INTEGER :: n,DEN,VEL
   !--------------------------------------------------------------------------!
-
-  TAP_PLAN(1)
 
   ALLOCATE(Sim)
   CALL Sim%InitFosite()
+
+#ifdef PARALLEL
+  IF (Sim%GetRank().EQ.0) THEN
+#endif
+TAP_PLAN(3)
+#ifdef PARALLEL
+  END IF
+#endif
+
   CALL MakeConfig(Sim, Sim%config)
   CALL Sim%Setup()
   CALL InitData(Sim%Mesh, Sim%Physics, Sim%Timedisc)
   CALL Sim%Physics%new_statevector(pvar_init,PRIMITIVE)
-  pvar_init = Sim%Timedisc%pvar
+  pvar_init%data1d(:) = Sim%Timedisc%pvar%data1d(:)
   CALL Sim%Run()
-  ! compare with initial condition
-  sigma = SQRT(SUM((Sim%Timedisc%pvar%data1d(:)-pvar_init%data1d(:))**2)/SIZE(pvar_init%data1d))
+  ok = .NOT.Sim%aborted
+
+  ALLOCATE(sum_numer(Sim%Physics%VNUM),sum_denom(Sim%Physics%VNUM),sigma(Sim%Physics%VNUM))
+  ! use L1 norm to estimate the deviation from the exact stationary solution given
+  ! in the initial condition:
+  !   Σ |pvar - pvar_exact| / Σ |pvar_exact|
+  DO n=1,Sim%Physics%VNUM
+    sum_numer(n) = SUM(ABS(Sim%Timedisc%pvar%data2d(:,n)-pvar_init%data2d(:,n)),MASK=Sim%Mesh%without_ghost_zones%mask1d)
+    sum_denom(n) = SUM(ABS(pvar_init%data2d(:,n)),MASK=Sim%Mesh%without_ghost_zones%mask1d)
+  END DO
+! PRINT *,"Rank: ",Sim%GetRank(),ACHAR(10),"numer=",sum_numer,ACHAR(10),"denom=",sum_denom,ACHAR(10),"sigma=",sigma
+
+#ifdef PARALLEL
+  IF (Sim%GetRank().GT.0) THEN
+    CALL MPI_Reduce(sum_numer,sum_numer,Sim%Physics%VNUM,DEFAULT_MPI_REAL,MPI_SUM,0,MPI_COMM_WORLD,Sim%ierror)
+    CALL MPI_Reduce(sum_denom,sum_denom,Sim%Physics%VNUM,DEFAULT_MPI_REAL,MPI_SUM,0,MPI_COMM_WORLD,Sim%ierror)
+  ELSE
+    CALL MPI_Reduce(MPI_IN_PLACE,sum_numer,Sim%Physics%VNUM,DEFAULT_MPI_REAL,MPI_SUM,0,MPI_COMM_WORLD,Sim%ierror)
+    CALL MPI_Reduce(MPI_IN_PLACE,sum_denom,Sim%Physics%VNUM,DEFAULT_MPI_REAL,MPI_SUM,0,MPI_COMM_WORLD,Sim%ierror)
+  END IF
+#endif
+  WHERE (ABS(sum_denom(:)).LE.2*TINY(sum_denom))
+    sigma(:) = 0.0
+  ELSEWHERE
+    sigma(:) = sum_numer(:) / sum_denom(:)
+  END WHERE
+
+  DEN = Sim%Physics%DENSITY
+  VEL = Sim%Physics%YVELOCITY
+
+#ifdef PARALLEL
+  IF (Sim%GetRank().EQ.0) THEN
+#endif
+PRINT *,"numer=",sum_numer,ACHAR(10)," denom=",sum_denom,ACHAR(10)," sigma=",sigma
+TAP_CHECK(ok,"stoptime reached")
+TAP_CHECK_SMALL(sigma(DEN),1.0E-02,"density deviation < 1%")
+TAP_CHECK_SMALL(sigma(VEL),1.0E-01,"azimuthal velocity deviation < 10%")
+! skip radial velocity deviation, because the exact value is 0
+TAP_DONE
+#ifdef PARALLEL
+  END IF
+#endif
+
   CALL Sim%Finalize()
-  DEALLOCATE(Sim,pvar_init)
-  TAP_CHECK_SMALL(sigma,3.8E-2,"vortex3d")
-  TAP_DONE
+  DEALLOCATE(Sim,pvar_init,sum_numer,sum_denom,sigma)
+
 
 CONTAINS
 
@@ -119,76 +166,24 @@ CONTAINS
     !------------------------------------------------------------------------!
     ! mesh settings and boundary conditions
     SELECT CASE(MGEO)
-    CASE(CARTESIAN)
-       x1 = -RMAX
-       x2 =  RMAX
-       y1 = -RMAX
-       y2 =  RMAX
-    IF (ZRES.GT.1) THEN
-      z1 =  ZMIN
-      z2 =  ZMAX
-    ELSE
-      z1 = 0
-      z2 = 0
-    END IF
-
-       bc(WEST)   = NO_GRADIENTS
-       bc(EAST)   = NO_GRADIENTS
-       bc(SOUTH)  = NO_GRADIENTS
-       bc(NORTH)  = NO_GRADIENTS
-       bc(BOTTOM) = NO_GRADIENTS
-       bc(TOP)    = NO_GRADIENTS
     CASE(CYLINDRICAL)
-       x1 = RMIN
-       x2 = RMAX
-       y1 =  0.0
-       y2 =  2.0*PI
-    IF (ZRES.GT.1) THEN
-      z1 =  ZMIN
-      z2 =  ZMAX
-    ELSE
-      z1 = 0
-      z2 = 0
-    END IF
-       bc(WEST)   = NO_GRADIENTS
-       bc(EAST)   = NO_GRADIENTS
-       bc(SOUTH)  = PERIODIC
-       bc(NORTH)  = PERIODIC
-       bc(BOTTOM) = NO_GRADIENTS
-       bc(TOP)    = NO_GRADIENTS
-    CASE(LOGCYLINDRICAL)
-       x1 = LOG(RMIN/GPAR)
-       x2 = LOG(RMAX/GPAR)
-       y1 =  0.0
-       y2 =  2.0*PI
-    IF (ZRES.GT.1) THEN
-      z1 =  ZMIN
-      z2 =  ZMAX
-    ELSE
-      z1 = 0
-      z2 = 0
-    END IF
-
-       bc(WEST)   = NO_GRADIENTS
-       bc(EAST)   = NO_GRADIENTS
-       bc(SOUTH)  = PERIODIC
-       bc(NORTH)  = PERIODIC
-       bc(BOTTOM) = NO_GRADIENTS
-       bc(TOP)    = NO_GRADIENTS
-
-    CASE(SPHERICAL)
-       x1 = RMIN
-       x2 = RMAX
-       y1 = PI/2.0
-       y2 = PI/2.0
-       z1 = 0.0
-       z2 = 2.*PI
-       bc(WEST)  = AXIS
-       bc(EAST)  = NOSLIP
-       bc(SOUTH) = NO_GRADIENTS
-       bc(NORTH) = NO_GRADIENTS
-       bc(BOTTOM)= PERIODIC
-       bc(TOP)   = PERIODIC
+      x1 = RMIN
+      x2 = RMAX
+      y1 =  0.0
+      y2 =  2.0*PI
+      IF (ZRES.GT.1) THEN
+        z1 =  ZMIN
+        z2 =  ZMAX
+      ELSE
+        z1 = 0
+        z2 = 0
+      END IF
+      bc(WEST)   = AXIS
+      bc(EAST)   = REFLECTING
+      bc(SOUTH)  = PERIODIC
+      bc(NORTH)  = PERIODIC
+      bc(BOTTOM) = PERIODIC
+      bc(TOP)    = PERIODIC
     CASE DEFAULT
        CALL Sim%Error("vortex3d::MakeConfig","geometry currently not supported")
     END SELECT
@@ -199,7 +194,8 @@ CONTAINS
               "geometry" / MGEO,     &
               "omega"    / OMEGA,    &
               "use_fargo"/ 0,        &
-              "fargo"    / 0,        &
+              "fargo"    / 1,        &
+              "decomposition"   / (/ -1, 1, -1/), & ! do not decompose along 2nd dimension with FARGO!
               "inum"     / XRES,     &
               "jnum"     / YRES,     &
               "knum"     / ZRES,     &
@@ -267,10 +263,7 @@ CONTAINS
          "stoptime" / TSIM,             &
          "dtlimit"  / 1.0E-4,           &
          "maxiter"  / 1000000,          &
-         "rhstype"  / 0,                &
-!          "output/fluxes" / 1,          &
-         "output/iangularmomentum" / 1, &
-         "output/rothalpy" / 1          )
+         "rhstype"  / 0)
 
     ! initialize data input/output
     datafile => Dict(&
@@ -363,7 +356,7 @@ CONTAINS
         pvar%velocity%data4d(:,:,:,n) = domega(:,:,:)*dist_axis(:,:,:)*ephi(:,:,:,n)
       END DO
     END SELECT
-
+Timedisc%w(:,:) = 0.0
     CALL Physics%Convert2Conservative(Timedisc%pvar,Timedisc%cvar)
 
 !     ! compute curvilinear components of constant background velocity field
