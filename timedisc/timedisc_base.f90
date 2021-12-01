@@ -1296,20 +1296,24 @@ CONTAINS
 
               this%geo_src%data4d(i,j,k,Physics%XMOMENTUM) &
                  = pvar%data4d(i,j,k,Physics%DENSITY) * wp * (wp*Mesh%cyxy%bcenter(i,j,k) - &
-                                                            pvar%data4d(i,j,k,Physics%XVELOCITY) * Mesh%cxyx%bcenter(i,j,k))  &
-                  + cvar%data4d(i,j,k,Physics%ZVELOCITY) * (pvar%data4d(i,j,k,Physics%ZVELOCITY)*Mesh%czxz%bcenter(i,j,k) - &
-                                                            pvar%data4d(i,j,k,Physics%XVELOCITY) * Mesh%cxzx%bcenter(i,j,k))
+                                                            pvar%data4d(i,j,k,Physics%XVELOCITY) * Mesh%cxyx%bcenter(i,j,k))
 
               !cyxy and cyzy are eleminated due to the modified divergence operator
               this%geo_src%data4d(i,j,k,Physics%YMOMENTUM) &
-                = cvar%data4d(i,j,k,Physics%XMOMENTUM) * ( pvar%data4d(i,j,k,Physics%XVELOCITY) * Mesh%cxyx%center(i,j,k)) &
-                + cvar%data4d(i,j,k,Physics%ZMOMENTUM) * ( pvar%data4d(i,j,k,Physics%ZVELOCITY) * Mesh%czyz%center(i,j,k))
+                = cvar%data4d(i,j,k,Physics%XMOMENTUM) * ( pvar%data4d(i,j,k,Physics%XVELOCITY) * Mesh%cxyx%center(i,j,k))
 
-              IF(Physics%ZMOMENTUM.GT.0) &
-              this%geo_src%data4d(i,j,k,Physics%ZMOMENTUM) &
-                = cvar%data4d(i,j,k,Physics%XMOMENTUM) &
-                  * ( pvar%data4d(i,j,k,Physics%XVELOCITY) * Mesh%cxzx%center(i,j,k) - pvar%data4d(i,j,k,Physics%ZVELOCITY) *  Mesh%czxz%center(i,j,k) ) &
-                + pvar%data4d(i,j,k,Physics%DENSITY)*wp* ( wp*Mesh%cyzy%center(i,j,k) - pvar%data4d(i,j,k,Physics%ZVELOCITY) * Mesh%czyz%center(i,j,k) )
+              IF(Physics%ZMOMENTUM.GT.0) THEN
+                this%geo_src%data4d(i,j,k,Physics%XMOMENTUM) = this%geo_src%data4d(i,j,k,Physics%XMOMENTUM) &
+                  + cvar%data4d(i,j,k,Physics%ZVELOCITY) * (pvar%data4d(i,j,k,Physics%ZVELOCITY)*Mesh%czxz%bcenter(i,j,k) - &
+                                                            pvar%data4d(i,j,k,Physics%XVELOCITY) * Mesh%cxzx%bcenter(i,j,k))
+                this%geo_src%data4d(i,j,k,Physics%YMOMENTUM) = this%geo_src%data4d(i,j,k,Physics%YMOMENTUM) &
+                  + cvar%data4d(i,j,k,Physics%ZMOMENTUM) * ( pvar%data4d(i,j,k,Physics%ZVELOCITY) * Mesh%czyz%center(i,j,k))
+                this%geo_src%data4d(i,j,k,Physics%ZMOMENTUM) = cvar%data4d(i,j,k,Physics%XMOMENTUM) &
+                  * ( pvar%data4d(i,j,k,Physics%XVELOCITY) * Mesh%cxzx%center(i,j,k) &
+                    - pvar%data4d(i,j,k,Physics%ZVELOCITY) *  Mesh%czxz%center(i,j,k) ) &
+                  + pvar%data4d(i,j,k,Physics%DENSITY)*wp* ( wp*Mesh%cyzy%center(i,j,k) &
+                  - pvar%data4d(i,j,k,Physics%ZVELOCITY) * Mesh%czyz%center(i,j,k) )
+              END IF
 
               IF(Physics%PRESSURE.GT.0) THEN
                 this%geo_src%data4d(i,j,k,Physics%XMOMENTUM) &
