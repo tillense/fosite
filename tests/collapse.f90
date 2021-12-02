@@ -47,11 +47,11 @@ PROGRAM collapse
   !--------------------------------------------------------------------------!
   REAL, PARAMETER    :: GN        = 6.6742E-11     ! [m^3/kg/s^2]
   ! simulation parameters
-  REAL, PARAMETER    :: TSIM      = 1.0E-0!/1000. ! simulation time in terms of the
+  REAL, PARAMETER    :: TSIM      = 1.0E-0 ! simulation time in terms of the
                                            !   free-fall time [TAU]
   REAL, PARAMETER    :: GAMMA     = 1.4    ! ratio of specific heats
-  REAL, PARAMETER    :: MASS      = 1.0E+2 ! mass of spheroid
-  REAL, PARAMETER    :: CENTMASS  = 1.0E+2 ! central pointmass (0.0 to disable)
+  REAL, PARAMETER    :: MASS      = 1.0E+0 ! mass of spheroid
+  REAL, PARAMETER    :: CENTMASS  = 1.0E+2 ! central pointmass
   REAL, PARAMETER    :: RSPH      = 30.0   ! semi-minor axis of the spheroid
   REAL, PARAMETER    :: ECC       = 0.0    ! eccentricity (0.0 is sphere)
   REAL, PARAMETER    :: VOL0      = 4*PI/3 * RSPH*RSPH*RSPH / (1.-ECC*ECC)
@@ -86,13 +86,16 @@ PROGRAM collapse
   CLASS(fosite),ALLOCATABLE   :: Sim
   LOGICAL  :: ok
   !--------------------------------------------------------------------------!
-
-  TAP_PLAN(1)
-
-! multigrid not implemented for MPI runs
-#ifndef PARALLEL
   ALLOCATE(SIM)
   CALL Sim%InitFosite()
+
+#ifdef PARALLEL
+  IF (Sim%GetRank().EQ.0) THEN
+#endif
+TAP_PLAN(1)
+#ifdef PARALLEL
+  END IF
+#endif
 
   CALL MakeConfig(Sim, Sim%config)
 
@@ -106,13 +109,18 @@ PROGRAM collapse
   CALL Sim%Run()
   ok = .NOT.Sim%aborted
 
-  CALL Sim%Finalize()
-
-  TAP_CHECK(ok,"Finished simulation")
-#else
-  TAP_CHECK(.TRUE.,"Nothing to do for MPI runs.")
+#ifdef PARALLEL
+  IF (Sim%GetRank().EQ.0) THEN
 #endif
+  TAP_CHECK(ok,"Finished simulation")
   TAP_DONE
+#ifdef PARALLEL
+  END IF
+#endif
+
+  CALL Sim%Finalize()
+  DEALLOCATE(Sim)
+
 
   CONTAINS
 
@@ -199,12 +207,12 @@ PROGRAM collapse
 !       sgbc = SPHERMULTEXPAN        ! use spherical multipole expansion for BC
                                     !   in the multigrid poisson solver
     CASE(CYLINDRICAL)
-       bc(WEST)  = REFLECTING !ABSORBING
+       bc(WEST)  = AXIS       !ABSORBING
        bc(EAST)  = REFLECTING !ABSORBING
        bc(SOUTH) = PERIODIC
        bc(NORTH) = PERIODIC
-       bc(BOTTOM)= REFLECTING !AXIS
-       bc(TOP)   = REFLECTING !ABSORBING
+       bc(BOTTOM)= REFLECTING
+       bc(TOP)   = REFLECTING
 !       sgbc = CYLINMULTEXPAN        ! cylindrical multipole expansion
 !    CASE(OBLATE_SPHEROIDAL)
 !       bc(WEST)  = ABSORBING
@@ -255,8 +263,8 @@ PROGRAM collapse
     fluxes => Dict("order"     / LINEAR, &
              "fluxtype"  / KT, &
              "variables" / PRIMITIVE, &   ! vars. to use for reconstruction!
-             "limiter"   / MONOCENT, &    ! one of: minmod, monocent,...   !
-             "theta"     / 1.8)          ! optional parameter for limiter !
+             "limiter"   / VANLEER, &    ! one of: minmod, monocent,...   !
+             "theta"     / 1.3)          ! optional parameter for limiter !
 
     ! source term due to a point mass
     pmass => Dict("gtype" / POINTMASS, &        ! grav. accel. of a point mass   !
@@ -283,15 +291,11 @@ PROGRAM collapse
 !       sources => Dict("rotframe" / rotframe)
     END IF
 
+    ! enable gravity
+    grav => Dict("stype" / GRAVITY, &
+                "point" / pmass)
 
-    IF (CENTMASS.GT.TINY(CENTMASS)) THEN
-      grav => Dict("stype" / GRAVITY, & 
-!                   "self" / selfgravity, &
-                   "point" / pmass)
-    ELSE 
-      grav => Dict("stype" / GRAVITY, & 
-                   "self" / selfgravity)
-    END IF
+!     CALL SetAttr(grav, "self", selfgravity)  ! currently not supported because the multigird solver is not working
 
     ! time discretization settings
     timedisc => Dict( &
@@ -305,8 +309,8 @@ PROGRAM collapse
 
     ! initialize data input/output
     datafile => Dict( &
-!           "fileformat" / VTK, &
-           "fileformat" / BINARY, &
+           "fileformat" / VTK, &
+!            "fileformat" / XDMF, &
            "filename"   / (TRIM(ODIR) // TRIM(OFNAME)), &
            "count"      / ONUM)
 
@@ -330,57 +334,41 @@ PROGRAM collapse
     !------------------------------------------------------------------------!
     CHARACTER(LEN=64) :: value
     INTEGER           :: i,j,k
+    TYPE(marray_base) :: ez,posvec
     !------------------------------------------------------------------------!
     INTENT(IN)        :: Mesh,Physics
     INTENT(INOUT)     :: Timedisc
     !------------------------------------------------------------------------!
+    ! compute curvilinear components of vertical unit vector e_z
+    ez = marray_base(3)
+    ! set cartesian components
+    ez%data2d(:,1:2) = 0.0
+    ez%data2d(:,3)   = 1.0
+    ! convert to curvilinear components
+    CALL Mesh%geometry%Convert2Curvilinear(Mesh%bcenter,ez%data4d,ez%data4d)
 
-    IF(MGEO.EQ.SPHERICAL) THEN
+    ! bary center position vector
+    posvec = marray_base(3)
+    posvec%data4d = Mesh%posvec%bcenter
+
+    SELECT TYPE(pvar => Timedisc%pvar)
+    TYPE IS(statevector_euler) ! non-isothermal HD
+      ! density
+      WHERE (Mesh%radius%data2d(:,2).LE.RSPH) ! bary center values collapsed to data1d
+        pvar%density%data1d(:) = RHO0
+      ELSEWHERE
+        pvar%density%data1d(:) = RHO0 * ETA_RHO
+      END WHERE
       ! velocities
-      Timedisc%pvar%data4d(:,:,:,Physics%XVELOCITY) = 0.
-      Timedisc%pvar%data4d(:,:,:,Physics%YVELOCITY) = 0.
-      ! angular velocity (angular velocity) * (axis distance)
-      ! axis distance in 2.5D rotationally symmetric coordinates
-      ! is always given by the scale factor hz
-      Timedisc%pvar%data4d(:,:,:,Physics%ZVELOCITY) = (OMEGA-OMEGA_FRAME) * Mesh%hz%bcenter(:,:,:)
-    ELSE IF(MGEO.EQ.CYLINDRICAL) THEN
-      Timedisc%pvar%data4d(:,:,:,Physics%XVELOCITY) = 0.
-      Timedisc%pvar%data4d(:,:,:,Physics%ZVELOCITY) = 0.
-      Timedisc%pvar%data4d(:,:,:,Physics%YVELOCITY) = (OMEGA-OMEGA_FRAME) * Mesh%hy%bcenter(:,:,:)
-    ELSE IF(MGEO.EQ.TANCYLINDRICAL) THEN
-      Timedisc%pvar%data4d(:,:,:,Physics%XVELOCITY) = 0.
-      Timedisc%pvar%data4d(:,:,:,Physics%YVELOCITY) = 0.
-      Timedisc%pvar%data4d(:,:,:,Physics%ZVELOCITY) = (OMEGA-OMEGA_FRAME) * Mesh%hz%bcenter(:,:,:)
-    END IF
-    
-!    IF (Physics%GetType().EQ.EULER3D_ROTAMT) THEN
-!       ! specific angular momentum
-!       Timedisc%pvar(:,:,Physics%ZVELOCITY) = &
-!            Timedisc%pvar(:,:,Physics%ZVELOCITY)*Mesh%hz%bcenter(:,:)
-!    END IF
+      pvar%velocity = (OMEGA-OMEGA_FRAME) * (ez.x.posvec)
+      ! pressure
+      pvar%pressure%data1d(:) = P0
+    CLASS DEFAULT
+      CALL Sim%Error("collapse::InitData","physics not supported in this setup")
+    END SELECT
 
-    ! density
-!    DO k=Mesh%KGMIN, Mesh%KGMAX
-!      DO j=Mesh%JGMIN, Mesh%JGMAX
-!        DO i=Mesh%IGMIN, MEsh%IGMAX
-!          IF(Mesh%radius%bcenter(i,j,k).LE.RSPH) THEN
-!            Timedisc%pvar%data4d(i,j,k,Physics%DENSITY) = RHO0
-!          ELSE
-!            Timedisc%pvar%data4d(i,j,k,Physics%DENSITY) = RHO0 * ETA_RHO
-!          END IF
-!        END DO
-!      END DO
-!    END DO
-    WHERE (Mesh%radius%bcenter(:,:,:).LE.RSPH)
-       Timedisc%pvar%data4d(:,:,:,Physics%DENSITY) = RHO0
-    ELSEWHERE
-       Timedisc%pvar%data4d(:,:,:,Physics%DENSITY) = RHO0 * ETA_RHO
-    END WHERE
-
-    ! pressure
-    Timedisc%pvar%data4d(:,:,:,Physics%PRESSURE) = P0
-   
     CALL Physics%Convert2Conservative(Timedisc%pvar,Timedisc%cvar)
+
     CALL Mesh%Info(" DATA-----> initial condition: " // &
          "Homogenious density with uniform angular frequency")
     IF (CENTMASS.GT.TINY(CENTMASS)) THEN
@@ -402,6 +390,7 @@ PROGRAM collapse
     WRITE (value,"(E12.4)") TAU
     CALL Mesh%Info("                               " // &
           "free-fall time:            " //trim(value))
+
     SELECT TYPE(bwest => Timedisc%Boundary%Boundary(WEST)%p)
     CLASS IS(boundary_custom)
       IF(MGEO.EQ.SPHERICAL) THEN
@@ -439,7 +428,6 @@ PROGRAM collapse
         btop%data(:,:,1,:) = Timedisc%pvar%data4d(:,:,Mesh%KMAX,:)
         btop%data(:,:,2,:) = Timedisc%pvar%data4d(:,:,Mesh%KMAX,:)
     END SELECT
-
 
   END SUBROUTINE InitData
 
