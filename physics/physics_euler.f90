@@ -2270,24 +2270,30 @@ CONTAINS
     CLASS(statevector_euler),INTENT(INOUT) :: this
     CLASS(marray_base),INTENT(IN)    :: ma
     !------------------------------------------------------------------------!
+#if DEBUG > 2
+    PRINT *,"DEBUG INFO in physics_euler::AssignMArray_0: assigning 2 state vectors"
+#endif
     CALL this%statevector_eulerisotherm%AssignMArray_0(ma)
     IF (SIZE(this%data1d).LE.0) RETURN ! empty compound
     SELECT TYPE(src => ma)
     CLASS IS(statevector_euler)
+#if DEBUG > 2
+      PRINT *,"DEBUG INFO in physics_euler::AssignMArray_0: restoring pressure/energy pointers"
+#endif
       SELECT CASE(this%flavour)
       CASE(PRIMITIVE)
         ! pressure is the third item
         this%pressure => this%GetItem(this%NextItem(this%NextItem(this%FirstItem())))
+        this%energy => null()
       CASE(CONSERVATIVE)
         ! energy is the third item
         this%energy => this%GetItem(this%NextItem(this%NextItem(this%FirstItem())))
+        this%pressure => null()
       CASE DEFAULT
         ! error, this should not happen
       END SELECT
     CLASS DEFAULT
-#ifdef DEBUG
-      PRINT *,"ERROR in physics_euler::AssignMArray_0: rhs not of class euler"
-#endif
+      ! do nothing: ma may not be of type euler, i.e. during initialization (see CreateStatevector)
     END SELECT
   END SUBROUTINE AssignMArray_0
 
