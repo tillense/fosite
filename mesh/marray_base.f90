@@ -106,6 +106,8 @@ MODULE marray_base_mod
     PROCEDURE :: MultMArray_5
     GENERIC   :: OPERATOR (*) => MultMArray_0, MultMArray_1, MultMArray_2, &
                                  MultMArray_3, MultMArray_4, MultMArray_5
+    PROCEDURE :: CrossProduct_0
+    GENERIC   :: OPERATOR (.x.) => CrossProduct_0
     FINAL     :: Finalize
   END TYPE
   INTERFACE marray_base
@@ -728,6 +730,55 @@ MODULE marray_base_mod
 #endif
     b(:,:,:,:,:) =  this%data5d(:,:,:,:,:) * a(:,:,:,:,:)
   END FUNCTION MultMArray_5
+
+  !> compute outer (vector) product of 2 marrays
+  !! works only, if last dimension has size 3!
+#ifndef DEBUG
+  PURE &
+#endif
+    FUNCTION CrossProduct_0(this,that) RESULT(data2d)
+    !------------------------------------------------------------------------!
+    CLASS(marray_base),INTENT(IN) :: this
+    CLASS(marray_base), INTENT(IN) :: that
+    REAL, DIMENSION(SIZE(this%data2d,DIM=1),3) :: data2d
+    !------------------------------------------------------------------------!
+#if DEBUG > 2
+    PRINT *,"DEBUG INFO in marray_base::CrossProduct_0: compute cross product of two 3D vector like marrays"
+#endif
+#ifdef DEBUG
+    IF (.NOT.ASSOCIATED(this%data1d)) THEN
+      PRINT *,"ERROR in marray_base::CrossProduct_0: 1nd argument not initialized"
+    END IF
+    IF (.NOT.ASSOCIATED(that%data1d)) THEN
+      PRINT *,"ERROR in marray_base::CrossProduct_0: 2nd argument not initialized"
+    END IF
+#endif
+    IF (.NOT.(this.MATCH.that)) THEN
+#ifdef DEBUG
+      PRINT *,"ERROR in marray_base::CrossProduct_0: shape mismatch"
+#endif
+      RETURN
+    END IF
+    IF (this%DIMS(this%RANK).NE.3) THEN
+#ifdef DEBUG
+      PRINT *,"ERROR in marray_base::CrossProduct_0: not a 3D vector"
+#endif
+      RETURN
+    END IF
+    data2d(:,1) = axb1(this%data2d(:,2),this%data2d(:,3),that%data2d(:,2),that%data2d(:,3))
+    data2d(:,2) = axb1(this%data2d(:,3),this%data2d(:,1),that%data2d(:,3),that%data2d(:,1))
+    data2d(:,3) = axb1(this%data2d(:,1),this%data2d(:,2),that%data2d(:,1),that%data2d(:,2))
+
+    CONTAINS
+      ELEMENTAL FUNCTION axb1(a2,a3,b2,b3)
+        IMPLICIT NONE
+        !------------------------------------------------------------------------!
+        REAL, INTENT(IN)  :: a2,a3,b2,b3
+        REAL :: axb1
+        !------------------------------------------------------------------------!
+        axb1 = a2*b3 - a3*b2
+      END FUNCTION axb1
+  END FUNCTION CrossProduct_0
 
   !> destructor of mesh arrays - this is called automatically if
   !! deallocate is invoked
