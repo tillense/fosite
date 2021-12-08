@@ -737,7 +737,7 @@ CONTAINS
         ALLOCATE(this%invRscale(Mesh%IMIN:Mesh%IMAX,Mesh%GJNUM,Mesh%KMIN:Mesh%KMAX), &
               STAT=err)
       CASE(BOTTOM,TOP)
-        ALLOCATE(this%invRscale(Mesh%IMIN:Mesh%IMAX,Mesh%KGMIN:Mesh%JMAX,Mesh%GKNUM), &
+        ALLOCATE(this%invRscale(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%GKNUM), &
               STAT=err)
       END SELECT
       IF (err.NE.0) CALL this%Error("SetCustomBoundaries","Unable to allocate memory.")
