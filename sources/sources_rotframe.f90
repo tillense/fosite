@@ -50,11 +50,11 @@ MODULE sources_rotframe_mod
   PRIVATE
   CHARACTER(LEN=32), PARAMETER :: source_name = "inertial forces"
   TYPE, EXTENDS(sources_c_accel) :: sources_rotframe
-    TYPE(marray_base), ALLOCATABLE :: cent, &     !< rot. frame centrifugal
-                                      centproj, & !< rot.frame centr.3d->2d
-                                      cos1, &
-                                      sin1, &
-                                      Omez        !< Omega*ez
+    TYPE(marray_base), POINTER :: caccel => null(),  & !< rot. frame centrifugal accel
+                                  vphi => null(), &    !< rot. frame azimuthal velocity
+                                  twoOmega
+    TYPE(marray_base), ALLOCATABLE :: cos1, &
+                                      sin1
     INTEGER           :: issphere
   CONTAINS
     PROCEDURE :: InitSources_rotframe
@@ -86,6 +86,7 @@ CONTAINS
     CLASS(fluxes_base),   INTENT(IN) :: Fluxes
     TYPE(Dict_TYP),          POINTER :: config, IO
     !------------------------------------------------------------------------!
+    TYPE(marray_base), POINTER :: caccel3D => null(), vphi3D => null(), Omez => null()
     INTEGER           :: stype
     !------------------------------------------------------------------------!
     CALL GetAttr(config, "stype", stype)
@@ -101,101 +102,101 @@ CONTAINS
        CALL this%Error("sources_rotframe::InitSources","physics not supported")
     END SELECT
 
-    IF (Mesh%FARGO.GT.0) &
-      CALL this%Error("sources_rotframe::InitSources", &
-         "rotating frame with FARGO seems broken, don't use it together")
+!     IF (Mesh%FARGO.GT.0) &
+!       CALL this%Error("sources_rotframe::InitSources", &
+!          "rotating frame with FARGO seems broken, don't use it together")
 
     CALL GetAttr(config, "gparam", this%gparam, 1.0)
     CALL GetAttr(config, "issphere", this%issphere, 0)
 
-    ALLOCATE(this%accel,this%cent,this%centproj,this%cos1,this%sin1,this%Omez)
+    ALLOCATE(this%accel,this%cos1,this%sin1,caccel3D,vphi3D,Omez)
     this%accel = marray_base(Physics%VDIM)
     this%accel%data1d(:) = 0.
 
     ! compute centrifugal acceleration for rotation around vertical direction
     ! with center of rotation in r_0, i.e. -Omega**2 * ez x (ez x (r-r_0))
-    this%cent = marray_base(3)  ! 3D centrifugal acceleration
-    this%Omez = marray_base(3)  ! = Omega*ez
+    caccel3D = marray_base(3)   ! 3D centrifugal acceleration
+    vphi3D   = marray_base(3)   ! 3D azimuthal velocity caused by rotating frame
+    Omez     = marray_base(3)   ! 3D angular velocity of rotating frame (= Omega*ez)
     ! set cartesian components of shifted center of rotation, i.e. r_0x, r_0y, r_0z,
     ! using this%cent as temporary storage
-    this%cent%data2d(:,1) = Mesh%rotcent(1)
-    this%cent%data2d(:,2) = Mesh%rotcent(2)
-    this%cent%data2d(:,3) = Mesh%rotcent(3)
+    caccel3D%data2d(:,1) = Mesh%rotcent(1)
+    caccel3D%data2d(:,2) = Mesh%rotcent(2)
+    caccel3D%data2d(:,3) = Mesh%rotcent(3)
     ! compute curvilinear components of shift vector
-    CALL Mesh%Geometry%Convert2Curvilinear(Mesh%bcenter,this%cent%data4d,this%cent%data4d)
+    CALL Mesh%Geometry%Convert2Curvilinear(Mesh%bcenter,caccel3D%data4d,caccel3D%data4d)
     ! subtract the result from the position vector:
     ! this gives you the curvilinear components of all vectors pointing
     ! from the center of rotation to the bary center of any cell on the mesh,
     ! i.e. r-r_0
-    this%cent%data4d(:,:,:,:) = Mesh%posvec%bcenter(:,:,:,:) - this%cent%data4d(:,:,:,:)
+    caccel3D%data4d(:,:,:,:) = Mesh%posvec%bcenter(:,:,:,:) - caccel3D%data4d(:,:,:,:)
     ! set cartesian components of Omega*ez within computational domain
-    this%Omez%data2d(:,1:2) = 0.0  ! no x and y component
+    Omez%data2d(:,1:2) = 0.0  ! no x and y component
     WHERE (Mesh%without_ghost_zones%mask1d(:))
-      this%Omez%data2d(:,3) = Mesh%Omega
+      Omez%data2d(:,3) = Mesh%Omega
     ELSEWHERE
-      this%Omez%data2d(:,3) = 0.0
+      Omez%data2d(:,3) = 0.0
     END WHERE
     ! compute curvinlinear components of Omega*ez with respect to the given geometry of the mesh
-    CALL Mesh%Geometry%Convert2Curvilinear(Mesh%bcenter,this%Omez%data4d,this%Omez%data4d)
-    ! compute curvilinear components of the centrifual acceleration
-    this%cent = this%Omez.x.this%cent ! = Omega*ez x (r-r0)
-    this%cent = this%cent.x.this%Omez ! = -Omega**2 * ez x (ez x (r-r0) = (Omega*ez x (r-r0)) x Omega*ez
+    CALL Mesh%Geometry%Convert2Curvilinear(Mesh%bcenter,Omez%data4d,Omez%data4d)
+    ! compute curvilinear components of the local azimuthal velocity caused by the rotating frame
+    ! and the centrifual acceleration
+    vphi3D = Omez.x.caccel3D ! = Omega*ez x (r-r0)
+    caccel3D = vphi3D.x.Omez ! = -Omega**2 * ez x (ez x (r-r0) = (Omega*ez x (r-r0)) x Omega*ez
 
     ! set the projected components of the centrifugal acceleration
-    this%centproj = marray_base(Physics%VDIM) ! dimensionality of velocity vector
+    IF (Physics%VDIM.LT.3) THEN
+      ALLOCATE(this%caccel,this%vphi)
+      this%caccel = marray_base(Physics%VDIM) ! dimensionality of velocity vector
+      this%vphi   = marray_base(Physics%VDIM)
+      IF(Physics%VDIM.EQ.2) THEN
+        ALLOCATE(this%twoOmega)
+        this%twoOmega = marray_base(1)  ! = 2*Omega*(ez*e_perp)) = 2*projection of Omega onto 3rd suppressed dimension
+      END IF
+    END IF
     SELECT CASE(Mesh%VECTOR_COMPONENTS)
     CASE(VECTOR_X) ! 1D momentum in x-direction (1st curvilinear direction)
       ! vy = vz = my = mz = 0
-      this%centproj%data2d(:,1) = this%cent%data2d(:,1)
+      this%caccel%data2d(:,1) = caccel3D%data2d(:,1)
+      this%vphi%data2d(:,1)   = vphi3D%data2d(:,1)
     CASE(VECTOR_Y) ! 1D momentum in y-direction (2nd curvilinear direction)
       ! vx = vz = mx = mz = 0
-      this%centproj%data2d(:,1) = this%cent%data2d(:,2)
+      this%caccel%data2d(:,1) = caccel3D%data2d(:,2)
+      this%vphi%data2d(:,1)   = vphi3D%data2d(:,2)
     CASE(VECTOR_Z) ! 1D momentum in z-direction (3rd curvilinear direction)
       ! vx = vy = mx = my = 0
-      this%centproj%data2d(:,1) = this%cent%data2d(:,3)
+      this%caccel%data2d(:,1) = caccel3D%data2d(:,3)
+      this%vphi%data2d(:,1)   = vphi3D%data2d(:,3)
     CASE(IOR(VECTOR_X,VECTOR_Y)) ! 2D momentum in x-y-plane
       ! vz = mz = 0
-      this%centproj%data2d(:,1:2) = this%cent%data2d(:,1:2)
+      this%caccel%data2d(:,1:2) = caccel3D%data2d(:,1:2)
+      this%vphi%data2d(:,1:2)   = vphi3D%data2d(:,1:2)
+      this%twoOmega%data1d(:)   = 2*Omez%data2d(:,3)
     CASE(IOR(VECTOR_X,VECTOR_Z)) ! 2D momentum in x-z-plane
       ! vy = my = 0
-      this%centproj%data2d(:,1) = this%cent%data2d(:,1)
-      this%centproj%data2d(:,2) = this%cent%data2d(:,3)
+      this%caccel%data2d(:,1) = caccel3D%data2d(:,1)
+      this%vphi%data2d(:,1)   = vphi3D%data2d(:,1)
+      this%caccel%data2d(:,2) = caccel3D%data2d(:,3)
+      this%vphi%data2d(:,2)   = vphi3D%data2d(:,3)
+      ! the minus is because e1 and e3 become the new 2D
+      ! curvilinear basis vectors and we must flip the direction of e2
+      ! in order to retain a right handed triad and hence
+      ! we must project Omez onto -e2 instead of e2
+      this%twoOmega%data1d(:)   = -2*Omez%data2d(:,2)
     CASE(IOR(VECTOR_Y,VECTOR_Z)) ! 2D momentum in y-z-plane
       ! vx = mx = 0
-      this%centproj%data2d(:,1:2) = this%cent%data2d(:,2:3)
+      this%caccel%data2d(:,1:2) = caccel3D%data2d(:,2:3)
+      this%vphi%data2d(:,1:2)   = vphi3D%data2d(:,2:3)
+      this%twoOmega%data1d(:)   = 2*Omez%data2d(:,1)
     CASE DEFAULT
-      ! full 3D case: centproj = cent
-      this%centproj = this%cent
+      ! full 3D case: caccel = caccel3D
+      this%caccel => caccel3D
+      this%vphi => vphi3D
+      this%twoOmega => Omez
+      this%twoOmega%data1d(:) = 2.0*this%twoOmega%data1d(:)
     END SELECT
+    IF(Physics%VDIM.LT.3) DEALLOCATE(caccel3D,vphi3D,Omez)
 
-    ! define position vectors
-    ! for planetery atmosphere no shift of axis possible
-    ! (for a planet reasonable)
-    SELECT TYPE(geo => Mesh%geometry)
-    TYPE IS(geometry_spherical_planet)
-      IF (this%issphere.EQ.1) THEN
-!         this%centproj = marray_base(3)
-!         this%centproj%data1d(:) = 0.
-        this%cos1 = marray_base(3)
-        this%cos1%data1d(:) = 0.
- 
-!         this%centproj%data4d(:,:,:,1) = this%gparam*SIN(Mesh%bcenter(:,:,:,1))*&
-!                                 COS(Mesh%bcenter(:,:,:,1))
-        ! for better performance
-        this%cos1%data4d(:,:,:,1)  = COS(Mesh%bcenter(:,:,:,1))
-        this%cos1%data4d(:,:,:,2)  = COS(Mesh%bcenter(:,:,:,2))
-      END IF
-    TYPE IS(geometry_spherical)
-        this%cos1 = marray_base()
-        this%cos1%data3d(:,:,:) = COS(Mesh%bcenter(:,:,:,2))
-        this%sin1 = marray_base()
-        this%sin1%data3d(:,:,:) = SIN(Mesh%bcenter(:,:,:,2))
-!         this%centproj = marray_base()
-!         this%centproj%data4d(:,:,:,1) = Mesh%radius%bcenter(:,:,:)*&
-!                                 this%Sin1%data3d(:,:,:)
-      CLASS DEFAULT
-        CALL this%Error('Sources:Sources_rotframe','Geometry not supported at the moment')    
-    END SELECT
   END SUBROUTINE InitSources_rotframe
 
 
@@ -213,9 +214,7 @@ CONTAINS
 
 
   SUBROUTINE ExternalSources_single(this,Mesh,Physics,Fluxes,Sources,time,dt,pvar,cvar,sterm)
-    USE geometry_cylindrical_mod, ONLY: geometry_cylindrical
-    USE geometry_spherical_mod, ONLY: geometry_spherical
-    USE geometry_spherical_planet_mod, ONLY: geometry_spherical_planet
+    USE physics_eulerisotherm_mod, ONLY : statevector_eulerisotherm
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(sources_rotframe), INTENT(INOUT) :: this
@@ -228,69 +227,83 @@ CONTAINS
     !------------------------------------------------------------------------!
     INTEGER       :: i,j,k
     !------------------------------------------------------------------------!
-    SELECT TYPE(geo => Mesh%Geometry)
-    TYPE IS(geometry_spherical_planet)
-      ! Two cases due to different angles between angular velocity to mesh
-      ! 1. only a projected part plays role for bianglespherical geometry
-      IF (this%issphere.EQ.1) THEN
-!NEC$ outerloop_unroll(8)
-        DO k=Mesh%KMIN,Mesh%KMAX
-         DO j=Mesh%JMIN,Mesh%JMAX
-!NEC$ ivdep
-            DO i=Mesh%IMIN,Mesh%IMAX
-              this%accel%data4d(i,j,k,1) = Mesh%OMEGA*(Mesh%OMEGA*&
-                     this%centproj%data4d(i,j,k,1) + 2.0*this%cos1%data4d(i,j,k,1)*&
-                     pvar%data4d(i,j,k,Physics%YVELOCITY))
-              this%accel%data4d(i,j,k,2) = -Mesh%OMEGA*2.0*this%cos1%data4d(i,j,k,1)*&
-                     pvar%data4d(i,j,k,Physics%XVELOCITY)
-            END DO
-          END DO
-        END DO
-      END IF
-    TYPE IS(geometry_cylindrical)
-    ! 2. OMEGA is directing in z direction
-!NEC$ outerloop_unroll(8)
-        DO k=Mesh%KMIN,Mesh%KMAX
-          DO j=Mesh%JMIN,Mesh%JMAX
-!NEC$ ivdep
-            DO i=Mesh%IMIN,Mesh%IMAX
-              ! components of centrifugal and coriolis acceleration
-              this%accel%data4d(i,j,k,1) = Mesh%OMEGA*(Mesh%OMEGA*this%cent%data4d(i,j,k,1) &
-                   + 2.0*pvar%data4d(i,j,k,Physics%YVELOCITY))
-              this%accel%data4d(i,j,k,2) = -Mesh%OMEGA*2.0*pvar%data4d(i,j,k,Physics%XVELOCITY)
-              this%accel%data4d(i,j,k,3) = 0.0
-            END DO
-          END DO
-        END DO
-    TYPE IS(geometry_spherical)
-      ! 2. OMEGA is directing in z direction
-!NEC$ outerloop_unroll(8)
-        DO k=Mesh%KMIN,Mesh%KMAX
-          DO j=Mesh%JMIN,Mesh%JMAX
-!NEC$ ivdep
-            DO i=Mesh%IMIN,Mesh%IMAX
-              this%accel%data4d(i,j,k,1) = Mesh%Omega*(Mesh%Omega* &
-                     this%sin1%data3d(i,j,k)*this%centproj%data4d(i,j,k,1) &
-                     + 2.0*pvar%data4d(i,j,k,Physics%ZVELOCITY)*this%Sin1%data3d(i,j,k))
-              this%accel%data4d(i,j,k,2) = Mesh%Omega*(Mesh%Omega* &
-                     this%cos1%data3d(i,j,k)*this%centproj%data4d(i,j,k,1) &
-                     + 2.0*pvar%data4d(i,j,k,Physics%ZVELOCITY)*this%Cos1%data3d(i,j,k))
-              this%accel%data4d(i,j,k,3) = -2.0*Mesh%Omega*( &
-                          pvar%data4d(i,j,k,Physics%XVELOCITY)*this%Sin1%data3d(i,j,k) &
-                        + pvar%data4d(i,j,k,Physics%YVELOCITY)*this%Cos1%data3d(i,j,k))
-            END DO
-          END DO
-        END DO
+    SELECT TYPE(p => pvar)
+    CLASS IS(statevector_eulerisotherm)
+      SELECT CASE(Physics%VDIM)
+      CASE(1) ! 1D acceleration
+        ! no coriolis acceleration, because it is always perpendicular to the
+        ! velocity vector and hence causes no acceleration along this direction
+        this%accel = this%caccel
+      CASE(2) ! 2D acceleration
+        this%accel%data2d(:,1) = this%caccel%data2d(:,1) + this%twoOmega%data1d(:)*p%velocity%data2d(:,2)
+        this%accel%data2d(:,2) = this%caccel%data2d(:,2) - this%twoOmega%data1d(:)*p%velocity%data2d(:,1)
+      CASE(3) ! 3D acceleration
+        this%accel = this%caccel + (p%velocity.x.this%twoOmega) ! = caccel - 2*Omega x v
+      CASE DEFAULT
+        ! this should not happen
+      END SELECT
+    CLASS DEFAULT
+      ! do nothing
     END SELECT
+!     SELECT TYPE(geo => Mesh%Geometry)
+!     TYPE IS(geometry_spherical_planet)
+!       ! Two cases due to different angles between angular velocity to mesh
+!       ! 1. only a projected part plays role for bianglespherical geometry
+!       IF (this%issphere.EQ.1) THEN
+! !NEC$ outerloop_unroll(8)
+!         DO k=Mesh%KMIN,Mesh%KMAX
+!          DO j=Mesh%JMIN,Mesh%JMAX
+! !NEC$ ivdep
+!             DO i=Mesh%IMIN,Mesh%IMAX
+!               this%accel%data4d(i,j,k,1) = 2.0*Mesh%OMEGA*this%cos1%data4d(i,j,k,1)*&
+!                     pvar%data4d(i,j,k,Physics%YVELOCITY)
+!               this%accel%data4d(i,j,k,2) = -2.0*Mesh%OMEGA*this%cos1%data4d(i,j,k,1)*&
+!                     pvar%data4d(i,j,k,Physics%XVELOCITY)
+!             END DO
+!           END DO
+!         END DO
+!       END IF
+!     TYPE IS(geometry_cylindrical)
+!     ! 2. OMEGA is directing in z direction
+! !NEC$ outerloop_unroll(8)
+!         DO k=Mesh%KMIN,Mesh%KMAX
+!           DO j=Mesh%JMIN,Mesh%JMAX
+! !NEC$ ivdep
+!             DO i=Mesh%IMIN,Mesh%IMAX
+!               ! components of centrifugal and coriolis acceleration
+!               this%accel%data4d(i,j,k,1) = 2.0*Mesh%OMEGA*pvar%data4d(i,j,k,Physics%YVELOCITY)
+!               this%accel%data4d(i,j,k,2) = -2.0*Mesh%OMEGA*pvar%data4d(i,j,k,Physics%XVELOCITY)
+!               this%accel%data4d(i,j,k,3) = 0.0
+!             END DO
+!           END DO
+!         END DO
+! !     TYPE IS(geometry_spherical)
+! !       ! 2. OMEGA is directing in z direction
+! ! !NEC$ outerloop_unroll(8)
+! !         DO k=Mesh%KMIN,Mesh%KMAX
+! !           DO j=Mesh%JMIN,Mesh%JMAX
+! ! !NEC$ ivdep
+! !             DO i=Mesh%IMIN,Mesh%IMAX
+! !               this%accel%data4d(i,j,k,1) = Mesh%Omega*(Mesh%Omega* &
+! !                      this%sin1%data3d(i,j,k)*this%centproj%data4d(i,j,k,1) &
+! !                      + 2.0*pvar%data4d(i,j,k,Physics%ZVELOCITY)*this%Sin1%data3d(i,j,k))
+! !               this%accel%data4d(i,j,k,2) = Mesh%Omega*(Mesh%Omega* &
+! !                      this%cos1%data3d(i,j,k)*this%centproj%data4d(i,j,k,1) &
+! !                      + 2.0*pvar%data4d(i,j,k,Physics%ZVELOCITY)*this%Cos1%data3d(i,j,k))
+! !               this%accel%data4d(i,j,k,3) = -2.0*Mesh%Omega*( &
+! !                           pvar%data4d(i,j,k,Physics%XVELOCITY)*this%Sin1%data3d(i,j,k) &
+! !                         + pvar%data4d(i,j,k,Physics%YVELOCITY)*this%Cos1%data3d(i,j,k))
+! !             END DO
+! !           END DO
+! !         END DO
+!     END SELECT
 
     ! inertial forces source terms
     CALL Physics%ExternalSources(this%accel,pvar,cvar,sterm)
   END SUBROUTINE ExternalSources_single
 
   SUBROUTINE Convert2RotatingFrame(this,Mesh,Physics,pvar)
-    USE geometry_cylindrical_mod, ONLY: geometry_cylindrical
-    USE geometry_spherical_mod, ONLY: geometry_spherical
-    USE geometry_spherical_planet_mod, ONLY: geometry_spherical_planet
+    USE physics_eulerisotherm_mod, ONLY : statevector_eulerisotherm
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(sources_rotframe), INTENT(IN)    :: this
@@ -299,26 +312,11 @@ CONTAINS
     CLASS(marray_compound),  INTENT(INOUT) :: pvar
     !------------------------------------------------------------------------!
     ! Convert velocities to the rotating frame
-    SELECT TYPE(geo => Mesh%Geometry)
-    TYPE IS(geometry_spherical_planet)
-      IF (this%issphere.EQ.1) THEN
-        ! no change in pvar(:,:,:,Physics%XVELOCITY)
-        pvar%data4d(:,:,:,Physics%YVELOCITY) = pvar%data4d(:,:,:,Physics%YVELOCITY) - &
-                              Mesh%OMEGA*SIN(Mesh%bcenter(:,:,:,1))*this%gparam
-      END IF
-    TYPE IS(geometry_cylindrical)
-      pvar%data4d(:,:,:,Physics%XVELOCITY) = pvar%data4d(:,:,:,Physics%XVELOCITY) + &
-                                      Mesh%OMEGA * this%cent%data4d(:,:,:,2)
-      pvar%data4d(:,:,:,Physics%YVELOCITY) = pvar%data4d(:,:,:,Physics%YVELOCITY) - &
-                                      Mesh%OMEGA * this%cent%data4d(:,:,:,1)
-      pvar%data4d(:,:,:,Physics%ZVELOCITY) = pvar%data4d(:,:,:,Physics%ZVELOCITY)
-    TYPE IS(geometry_spherical)
-      pvar%data4d(:,:,:,Physics%XVELOCITY) = pvar%data4d(:,:,:,Physics%XVELOCITY)
-      pvar%data4d(:,:,:,Physics%YVELOCITY) = pvar%data4d(:,:,:,Physics%YVELOCITY)
-      pvar%data4d(:,:,:,Physics%ZVELOCITY) = pvar%data4d(:,:,:,Physics%ZVELOCITY) - &
-                                      Mesh%OMEGA * this%centproj%data4d(:,:,:,1)
+    SELECT TYPE (p => pvar)
+    TYPE IS(statevector_eulerisotherm)
+      p%velocity%data1d = p%velocity%data1d - this%vphi%data1d
     CLASS DEFAULT
-      ! this should not happen (see InitSources_rotframe)
+      ! nothing happens
     END SELECT
   END SUBROUTINE Convert2RotatingFrame
 
@@ -327,7 +325,8 @@ CONTAINS
     !------------------------------------------------------------------------!
     TYPE(sources_rotframe), INTENT(INOUT) :: this
     !------------------------------------------------------------------------!
-    DEALLOCATE(this%cent,this%centproj,this%cos1,this%sin1,this%Omez)
+    DEALLOCATE(this%caccel,this%vphi,this%cos1,this%sin1)
+    IF (ASSOCIATED(this%twoOmega)) DEALLOCATE(this%twoOmega)
     ! deallocation of this%accel is done in inherited destructor
     ! which is called automatically
   END SUBROUTINE Finalize
