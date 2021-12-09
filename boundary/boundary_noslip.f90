@@ -76,15 +76,15 @@ CONTAINS
     ! allocate memory for boundary data
     SELECT CASE(dir)
     CASE(WEST,EAST)
-       ALLOCATE(this%data(Mesh%GINUM,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,Physics%VNUM), &
+       ALLOCATE(this%data(1:Mesh%GINUM,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,Physics%VNUM), &
             STAT=err)
        this%data(:,:,:,:)=0.0
     CASE(SOUTH,NORTH)
-       ALLOCATE(this%data(Mesh%IMIN:Mesh%IMAX,Mesh%GJNUM,Mesh%KMIN:Mesh%KMAX,Physics%VNUM), &
+       ALLOCATE(this%data(Mesh%IMIN:Mesh%IMAX,1:Mesh%GJNUM,Mesh%KMIN:Mesh%KMAX,Physics%VNUM), &
             STAT=err)
        this%data(:,:,:,:)=0.0
     CASE(BOTTOM,TOP)
-       ALLOCATE(this%data(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%GKNUM, Physics%VNUM), &
+       ALLOCATE(this%data(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,1:Mesh%GKNUM, Physics%VNUM), &
              STAT=err)
        this%data(:,:,:,:)=0.0
     END SELECT
@@ -134,7 +134,7 @@ CONTAINS
        END DO
     CASE(EAST)
 !NEC$ UNROLL(4)
-       DO i=1,Mesh%GNUM
+       DO i=1,Mesh%GINUM
           ! vanishing density gradient at the boundary
           pvar%data4d(Mesh%IMAX+i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,Physics%DENSITY) &
                = pvar%data4d(Mesh%IMAX-i+1,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,Physics%DENSITY)
@@ -178,7 +178,7 @@ CONTAINS
        END DO
     CASE(NORTH)
 !NEC$ UNROLL(4)
-       DO j=1,Mesh%GNUM
+       DO j=1,Mesh%GJNUM
           ! vanishing density gradient at the boundary
           pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX+j,Mesh%KMIN:Mesh%KMAX,Physics%DENSITY) &
                = pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX-j+1,Mesh%KMIN:Mesh%KMAX,Physics%DENSITY)
