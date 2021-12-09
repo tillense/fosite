@@ -53,7 +53,7 @@ PROGRAM vortex3d
   REAL, PARAMETER    :: Y0      = 0.0
   REAL, PARAMETER    :: Z0      = 0.0
   REAL, PARAMETER    :: R0      = 1.0      ! size of vortex
-  REAL, PARAMETER    :: OMEGA   = 0.0      ! angular speed of rotational frame
+  REAL, PARAMETER    :: OMEGA   = 0.1      ! angular speed of rotational frame
                                            ! around [X0,Y0]
   ! mesh settings
   INTEGER, PARAMETER :: MGEO = CYLINDRICAL
@@ -133,19 +133,18 @@ TAP_PLAN(3)
 #ifdef PARALLEL
   IF (Sim%GetRank().EQ.0) THEN
 #endif
-PRINT *,"numer=",sum_numer,ACHAR(10)," denom=",sum_denom,ACHAR(10)," sigma=",sigma
+! PRINT *,"numer=",sum_numer,ACHAR(10)," denom=",sum_denom,ACHAR(10)," sigma=",sigma
+TAP_CHECK_SMALL(sigma(DEN),0.01,"density deviation < 1%")
+TAP_CHECK_SMALL(sigma(VEL),0.1,"azimuthal velocity deviation < 10%")
 TAP_CHECK(ok,"stoptime reached")
-TAP_CHECK_SMALL(sigma(DEN),1.0E-02,"density deviation < 1%")
-TAP_CHECK_SMALL(sigma(VEL),1.0E-01,"azimuthal velocity deviation < 10%")
-! skip radial velocity deviation, because the exact value is 0
 TAP_DONE
+! skip radial velocity deviation, because the exact value is 0
 #ifdef PARALLEL
   END IF
 #endif
 
   CALL Sim%Finalize()
   DEALLOCATE(Sim,pvar_init,sum_numer,sum_denom,sigma)
-
 
 CONTAINS
 
@@ -340,7 +339,7 @@ CONTAINS
       pvar%density%data3d(:,:,:)  = RHOINF * EXP(-0.5*(R0*domega(:,:,:)/CSISO)**2)
       ! velocities
       DO n=1,Physics%VDIM
-        pvar%velocity%data4d(:,:,:,n) = domega(:,:,:)*dist_axis(:,:,:)*ephi(:,:,:,n)
+        pvar%velocity%data4d(:,:,:,n) = (domega(:,:,:)-Mesh%OMEGA)*dist_axis(:,:,:)*ephi(:,:,:,n)
       END DO
     TYPE IS(statevector_euler) ! non-isothermal HD
       csinf = SQRT(GAMMA*PINF/RHOINF) ! sound speed at infinity (isentropic vortex)
@@ -353,7 +352,7 @@ CONTAINS
       pvar%pressure%data1d(:) = PINF * (pvar%density%data1d(:)/RHOINF)**GAMMA
       ! velocities
       DO n=1,Physics%VDIM
-        pvar%velocity%data4d(:,:,:,n) = domega(:,:,:)*dist_axis(:,:,:)*ephi(:,:,:,n)
+        pvar%velocity%data4d(:,:,:,n) = (domega(:,:,:)-Mesh%OMEGA)*dist_axis(:,:,:)*ephi(:,:,:,n)
       END DO
     END SELECT
 
