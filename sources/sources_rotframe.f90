@@ -73,11 +73,7 @@ CONTAINS
 
   !> \public Constructor of the rotating reference frame module
   SUBROUTINE InitSources_rotframe(this,Mesh,Physics,Fluxes,config,IO)
-    USE physics_euler_mod, ONLY: physics_euler
     USE physics_eulerisotherm_mod, ONLY: physics_eulerisotherm
-    USE geometry_cylindrical_mod, ONLY: geometry_cylindrical
-    USE geometry_spherical_mod, ONLY: geometry_spherical
-    USE geometry_spherical_planet_mod, ONLY: geometry_spherical_planet
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(sources_rotframe)          :: this
@@ -94,22 +90,13 @@ CONTAINS
     CALL this%InitSources(Mesh,Fluxes,Physics,config,IO)
 
     SELECT TYPE(Physics)
-    TYPE IS(physics_euler)
-      ! do nothing
-    TYPE IS(physics_eulerisotherm)
+    CLASS IS(physics_eulerisotherm)
       ! do nothing
     CLASS DEFAULT
        CALL this%Error("sources_rotframe::InitSources","physics not supported")
     END SELECT
 
-!     IF (Mesh%FARGO.GT.0) &
-!       CALL this%Error("sources_rotframe::InitSources", &
-!          "rotating frame with FARGO seems broken, don't use it together")
-
-    CALL GetAttr(config, "gparam", this%gparam, 1.0)
-    CALL GetAttr(config, "issphere", this%issphere, 0)
-
-    ALLOCATE(this%accel,this%cos1,this%sin1,caccel3D,vphi3D,Omez)
+    ALLOCATE(this%accel,caccel3D,vphi3D,Omez)
     this%accel = marray_base(Physics%VDIM)
     this%accel%data1d(:) = 0.
 
@@ -245,58 +232,6 @@ CONTAINS
     CLASS DEFAULT
       ! do nothing
     END SELECT
-!     SELECT TYPE(geo => Mesh%Geometry)
-!     TYPE IS(geometry_spherical_planet)
-!       ! Two cases due to different angles between angular velocity to mesh
-!       ! 1. only a projected part plays role for bianglespherical geometry
-!       IF (this%issphere.EQ.1) THEN
-! !NEC$ outerloop_unroll(8)
-!         DO k=Mesh%KMIN,Mesh%KMAX
-!          DO j=Mesh%JMIN,Mesh%JMAX
-! !NEC$ ivdep
-!             DO i=Mesh%IMIN,Mesh%IMAX
-!               this%accel%data4d(i,j,k,1) = 2.0*Mesh%OMEGA*this%cos1%data4d(i,j,k,1)*&
-!                     pvar%data4d(i,j,k,Physics%YVELOCITY)
-!               this%accel%data4d(i,j,k,2) = -2.0*Mesh%OMEGA*this%cos1%data4d(i,j,k,1)*&
-!                     pvar%data4d(i,j,k,Physics%XVELOCITY)
-!             END DO
-!           END DO
-!         END DO
-!       END IF
-!     TYPE IS(geometry_cylindrical)
-!     ! 2. OMEGA is directing in z direction
-! !NEC$ outerloop_unroll(8)
-!         DO k=Mesh%KMIN,Mesh%KMAX
-!           DO j=Mesh%JMIN,Mesh%JMAX
-! !NEC$ ivdep
-!             DO i=Mesh%IMIN,Mesh%IMAX
-!               ! components of centrifugal and coriolis acceleration
-!               this%accel%data4d(i,j,k,1) = 2.0*Mesh%OMEGA*pvar%data4d(i,j,k,Physics%YVELOCITY)
-!               this%accel%data4d(i,j,k,2) = -2.0*Mesh%OMEGA*pvar%data4d(i,j,k,Physics%XVELOCITY)
-!               this%accel%data4d(i,j,k,3) = 0.0
-!             END DO
-!           END DO
-!         END DO
-! !     TYPE IS(geometry_spherical)
-! !       ! 2. OMEGA is directing in z direction
-! ! !NEC$ outerloop_unroll(8)
-! !         DO k=Mesh%KMIN,Mesh%KMAX
-! !           DO j=Mesh%JMIN,Mesh%JMAX
-! ! !NEC$ ivdep
-! !             DO i=Mesh%IMIN,Mesh%IMAX
-! !               this%accel%data4d(i,j,k,1) = Mesh%Omega*(Mesh%Omega* &
-! !                      this%sin1%data3d(i,j,k)*this%centproj%data4d(i,j,k,1) &
-! !                      + 2.0*pvar%data4d(i,j,k,Physics%ZVELOCITY)*this%Sin1%data3d(i,j,k))
-! !               this%accel%data4d(i,j,k,2) = Mesh%Omega*(Mesh%Omega* &
-! !                      this%cos1%data3d(i,j,k)*this%centproj%data4d(i,j,k,1) &
-! !                      + 2.0*pvar%data4d(i,j,k,Physics%ZVELOCITY)*this%Cos1%data3d(i,j,k))
-! !               this%accel%data4d(i,j,k,3) = -2.0*Mesh%Omega*( &
-! !                           pvar%data4d(i,j,k,Physics%XVELOCITY)*this%Sin1%data3d(i,j,k) &
-! !                         + pvar%data4d(i,j,k,Physics%YVELOCITY)*this%Cos1%data3d(i,j,k))
-! !             END DO
-! !           END DO
-! !         END DO
-!     END SELECT
 
     ! inertial forces source terms
     CALL Physics%ExternalSources(this%accel,pvar,cvar,sterm)

@@ -438,6 +438,7 @@ CONTAINS
       ! initialize background velocity field w
       SELECT CASE(Mesh%FARGO)
       CASE(1,2) ! set to 0;
+        CALL this%Warning("InitTimedisc","There are some unresolved issues with the FARGO code, use with care!")
                 ! fargo advection type 1: w is computed in each time step (see FargoCalcVelocity)
                 ! fargo advection type 2: w is provided by the user, e.g. in InitData
         this%w(:,:) = 0.0
