@@ -26,8 +26,7 @@
 !----------------------------------------------------------------------------!
 !> \addtogroup sources
 !! - parameters of \link sources_rotframe_mod sources_rotframe \endlink as key-values
-!!  \key{gparam,REAL,geometry parameter (needed for bianglspherical
-!!       geometry - corresponds to the radius)}
+!!  \key{disable_centaccel,INTEGER,enable/disable (0|1) centrifugal acceleration,0)}
 !----------------------------------------------------------------------------!
 !> \author Tobias Illenseer
 !! \author Jannes Klee
@@ -53,9 +52,7 @@ MODULE sources_rotframe_mod
     TYPE(marray_base), POINTER :: caccel => null(),  & !< rot. frame centrifugal accel
                                   vphi => null(), &    !< rot. frame azimuthal velocity
                                   twoOmega
-    TYPE(marray_base), ALLOCATABLE :: cos1, &
-                                      sin1
-    INTEGER           :: issphere
+    LOGICAL   :: disable_centaccel
   CONTAINS
     PROCEDURE :: InitSources_rotframe
     PROCEDURE :: InfoSources
@@ -83,10 +80,19 @@ CONTAINS
     TYPE(Dict_TYP),          POINTER :: config, IO
     !------------------------------------------------------------------------!
     TYPE(marray_base), POINTER :: caccel3D => null(), vphi3D => null(), Omez => null()
-    INTEGER           :: stype
+    INTEGER           :: stype,disable_centaccel
     !------------------------------------------------------------------------!
     CALL GetAttr(config, "stype", stype)
     CALL this%InitLogging(stype,source_name)
+
+    disable_centaccel = 0
+    CALL GetAttr(config,"disable_centaccel",disable_centaccel)
+    IF (disable_centaccel.GT.0) THEN
+      this%disable_centaccel = .TRUE.
+    ELSE
+      this%disable_centaccel = .FALSE.
+    END IF
+
     CALL this%InitSources(Mesh,Fluxes,Physics,config,IO)
 
     SELECT TYPE(Physics)
@@ -95,6 +101,7 @@ CONTAINS
     CLASS DEFAULT
        CALL this%Error("sources_rotframe::InitSources","physics not supported")
     END SELECT
+
 
     ALLOCATE(this%accel,caccel3D,vphi3D,Omez)
     this%accel = marray_base(Physics%VDIM)
@@ -183,7 +190,7 @@ CONTAINS
       this%twoOmega%data1d(:) = 2.0*this%twoOmega%data1d(:)
     END SELECT
     IF(Physics%VDIM.LT.3) DEALLOCATE(caccel3D,vphi3D,Omez)
-
+    IF(this%disable_centaccel) DEALLOCATE(this%caccel)
   END SUBROUTINE InitSources_rotframe
 
 
@@ -197,6 +204,9 @@ CONTAINS
     !------------------------------------------------------------------------!
     WRITE (omega_str,'(ES9.2)') Mesh%OMEGA
     CALL this%Info("            angular velocity:  " // TRIM(omega_str))
+    IF (this%disable_centaccel) THEN
+      CALL this%Info("            centrifugal accel: " // "disabled")
+    END IF
   END SUBROUTINE InfoSources
 
 
@@ -220,12 +230,24 @@ CONTAINS
       CASE(1) ! 1D acceleration
         ! no coriolis acceleration, because it is always perpendicular to the
         ! velocity vector and hence causes no acceleration along this direction
-        this%accel = this%caccel
+        IF (.NOT.this%disable_centaccel) THEN
+          this%accel = this%caccel
+        END IF
+        ! otherwise do nothing, this%accel should be zero (see initialization)
       CASE(2) ! 2D acceleration
-        this%accel%data2d(:,1) = this%caccel%data2d(:,1) + this%twoOmega%data1d(:)*p%velocity%data2d(:,2)
-        this%accel%data2d(:,2) = this%caccel%data2d(:,2) - this%twoOmega%data1d(:)*p%velocity%data2d(:,1)
+        IF (this%disable_centaccel) THEN
+          this%accel%data2d(:,1) = this%twoOmega%data1d(:)*p%velocity%data2d(:,2)
+          this%accel%data2d(:,2) = this%twoOmega%data1d(:)*p%velocity%data2d(:,1)
+        ELSE
+          this%accel%data2d(:,1) = this%caccel%data2d(:,1) + this%twoOmega%data1d(:)*p%velocity%data2d(:,2)
+          this%accel%data2d(:,2) = this%caccel%data2d(:,2) - this%twoOmega%data1d(:)*p%velocity%data2d(:,1)
+        END IF
       CASE(3) ! 3D acceleration
-        this%accel = this%caccel + (p%velocity.x.this%twoOmega) ! = caccel - 2*Omega x v
+        IF (this%disable_centaccel) THEN
+          this%accel = p%velocity.x.this%twoOmega ! = -2*Omega x v
+        ELSE
+          this%accel = this%caccel + (p%velocity.x.this%twoOmega) ! = caccel - 2*Omega x v
+        END IF
       CASE DEFAULT
         ! this should not happen
       END SELECT
@@ -260,8 +282,10 @@ CONTAINS
     !------------------------------------------------------------------------!
     TYPE(sources_rotframe), INTENT(INOUT) :: this
     !------------------------------------------------------------------------!
-    DEALLOCATE(this%caccel,this%vphi,this%cos1,this%sin1)
+    DEALLOCATE(this%vphi)
+    IF (ASSOCIATED(this%caccel)) DEALLOCATE(this%caccel)
     IF (ASSOCIATED(this%twoOmega)) DEALLOCATE(this%twoOmega)
+    NULLIFY(this%vphi,this%caccel,this%twoOmega)
     ! deallocation of this%accel is done in inherited destructor
     ! which is called automatically
   END SUBROUTINE Finalize
