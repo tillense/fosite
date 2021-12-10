@@ -191,10 +191,7 @@ CONTAINS
     ! rotating frame for a sphere
     rotframe => Dict( &
          "stype"           / ROTATING_FRAME, &
-         "gparam"          / RPLANET, &
-         "issphere"        / 1, &
-         "x"               / 0.0, &
-         "y"               / 0.0)
+         "disable_centaccel" / 0)
 
     ! cooling in infrared
     cooling => Dict( &

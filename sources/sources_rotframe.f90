@@ -85,8 +85,7 @@ CONTAINS
     CALL GetAttr(config, "stype", stype)
     CALL this%InitLogging(stype,source_name)
 
-    disable_centaccel = 0
-    CALL GetAttr(config,"disable_centaccel",disable_centaccel)
+    CALL GetAttr(config,"disable_centaccel",disable_centaccel,0)
     IF (disable_centaccel.GT.0) THEN
       this%disable_centaccel = .TRUE.
     ELSE
