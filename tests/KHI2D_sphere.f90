@@ -3,7 +3,7 @@
 !# fosite - 3D hydrodynamical simulation program                             #
 !# module: KHI2D_sphere.f90                                                  #
 !#                                                                           #
-!# Copyright (C) 2006-2019                                                   #
+!# Copyright (C) 2006-2021                                                   #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
 !# Jubin Lirawi      <jlirawi@astrophysik.uni-kiel.de>                       #
 !# Lars Boesch       <lboesch@astrophysik.uni-kiel.de>                       #
@@ -44,6 +44,7 @@ PROGRAM KHI
   REAL, PARAMETER    :: TSIM  = 10.0            ! simulation time            !
   REAL, PARAMETER    :: GAMMA = 1.4             ! ratio of specific heats    !
   REAL, PARAMETER    :: RE    = 1.0E+4          ! Reynolds number (HUGE(RE) disables viscosity)
+  REAL, PARAMETER    :: OMEGA   = 0.1           ! angular speed of rotational frame
   ! initial condition                           !                            !
   REAL, PARAMETER    :: RHO0 = 1.0              ! outer region: density      !
   REAL, PARAMETER    :: V0   = 0.0              !   velocity                 !
@@ -53,8 +54,8 @@ PROGRAM KHI
   REAL, PARAMETER    :: P1   = P0               !   pressure                 !
   ! mesh settings                               !                            !
   INTEGER, PARAMETER :: MGEO = SPHERICAL_PLANET ! geometry of the mesh       !
-  INTEGER, PARAMETER :: XRES   = 32-4           ! x-resolution               !
-  INTEGER, PARAMETER :: YRES   = 64-4           ! y-resolution               !
+  INTEGER, PARAMETER :: XRES   = 50             ! x-resolution               !
+  INTEGER, PARAMETER :: YRES   = 100            ! y-resolution               !
   REAL, PARAMETER :: GPAR   = 1.0               ! radius of sphere           !
   ! output file parameter                       !                            !
   INTEGER, PARAMETER :: ONUM = 10               ! number of output data sets !
@@ -92,7 +93,7 @@ CONTAINS
     !------------------------------------------------------------------------!
     ! Local variable declaration
     TYPE(Dict_TYP), POINTER :: mesh, physics, boundary, datafile, &
-                               sources, timedisc, fluxes
+                               timedisc, fluxes, vis, rotframe
     REAL                    :: dynvis
     !------------------------------------------------------------------------!
     ! mesh settings
@@ -143,22 +144,28 @@ CONTAINS
                "topper"   / REFLECTING  &
     )
 
-    NULLIFY(sources)
+    NULLIFY(vis,rotframe)
     ! viscosity source term
     ! compute dynamic viscosity constant using typical scales and Reynolds number
-   dynvis = ABS(RHO0 * 2*PI * (V0-V1) / RE)
-   IF (dynvis.GT.TINY(1.0)) THEN
-      sources => Dict( &
-         "vis/stype"          /       VISCOSITY, &
-         "vis/vismodel"       /       MOLECULAR, &
-         "vis/dynconst"       /          dynvis, &
-         "vis/bulkconst"      / (-2./3.*dynvis), &
-         "vis/output/dynvis"  /               0, &
-         "vis/output/stress"  /               0, &
-         "vis/output/kinvis"  /               0, &
-         "vis/output/bulkvis" /               0  &
-      )
-   END IF
+    dynvis = ABS(RHO0 * 2*PI * (V0-V1) / RE)
+    IF (dynvis.GT.TINY(dynvis)) THEN
+        vis => Dict( &
+          "stype"          /       VISCOSITY, &
+          "vismodel"       /       MOLECULAR, &
+          "dynconst"       /          dynvis, &
+          "bulkconst"      / (-2./3.*dynvis), &
+          "output/dynvis"  /               0, &
+          "output/stress"  /               0, &
+          "output/kinvis"  /               0, &
+          "output/bulkvis" /               0  &
+        )
+    END IF
+    ! activate inertial forces due to rotating frame if OMEGA > 0
+    IF (OMEGA.GT.TINY(OMEGA)) THEN
+       rotframe => Dict("stype" / ROTATING_FRAME, &
+                        "disable_centaccel" / 1)
+       CALL SetAttr(mesh,"omega",OMEGA)
+    END IF
 
     ! time discretization settings
     timedisc => Dict( &
@@ -192,8 +199,10 @@ CONTAINS
              "timedisc" / timedisc, &
              "datafile" /  datafile &
     )
-    IF (ASSOCIATED(sources)) &
-       CALL SetAttr(config, "sources", sources)
+    IF (ASSOCIATED(vis)) &
+       CALL SetAttr(config, "sources/vis", vis)
+    IF (ASSOCIATED(rotframe)) &
+       CALL SetAttr(config, "sources/rotframe", rotframe)
   END SUBROUTINE MakeConfig
 
   SUBROUTINE InitData(Mesh,Physics,Timedisc)
@@ -204,6 +213,7 @@ CONTAINS
     CLASS(timedisc_base) :: Timedisc
     !------------------------------------------------------------------------!
     ! Local variable declaration
+    CLASS(sources_base), POINTER :: sp
     INTEGER              :: k,n,clock
     INTEGER, DIMENSION(:), ALLOCATABLE    :: seed
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,2) :: dv
@@ -235,6 +245,13 @@ CONTAINS
         pvar%velocity%data4d(:,:,:,1) = 0.0
         pvar%pressure%data3d(:,:,:)   = P1
       END WHERE
+      sp => Sim%Sources%GetSourcesPointer(ROTATING_FRAME)
+      IF (ASSOCIATED(sp)) THEN
+        SELECT TYPE(sp)
+        CLASS IS(sources_rotframe)
+          CALL sp%Convert2RotatingFrame(Mesh,Physics,pvar)
+        END SELECT
+      END IF
 
       ! add velocity perturbations
       pvar%velocity%data4d(:,:,:,1) = pvar%velocity%data4d(:,:,:,1) &
