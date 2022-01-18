@@ -236,7 +236,7 @@ CONTAINS
       CASE(2) ! 2D acceleration
         IF (this%disable_centaccel) THEN
           this%accel%data2d(:,1) = this%twoOmega%data1d(:)*p%velocity%data2d(:,2)
-          this%accel%data2d(:,2) = this%twoOmega%data1d(:)*p%velocity%data2d(:,1)
+          this%accel%data2d(:,2) = -this%twoOmega%data1d(:)*p%velocity%data2d(:,1)
         ELSE
           this%accel%data2d(:,1) = this%caccel%data2d(:,1) + this%twoOmega%data1d(:)*p%velocity%data2d(:,2)
           this%accel%data2d(:,2) = this%caccel%data2d(:,2) - this%twoOmega%data1d(:)*p%velocity%data2d(:,1)
