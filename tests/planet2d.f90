@@ -188,7 +188,13 @@ CONTAINS
          "variables"       / PRIMITIVE, &
          "limiter"         / VANLEER)
 
-    ! rotating frame for a sphere
+    ! rotating frame with disabled centrifugal forces
+    ! Rotating planets are usually in an equilibrium state in which
+    ! gravitational and centrifugal forces balance, so that the planet
+    ! becomes a spheroid instead of a sphere. On the spheroid the
+    ! tangential components of the centrifugal forces vanish and
+    ! one can account for the vertical component defining an
+    ! effective gravitational acceleration (in 3D simulations).
     rotframe => Dict( &
          "stype"           / ROTATING_FRAME, &
          "disable_centaccel" / 1)
@@ -246,7 +252,6 @@ CONTAINS
          "fluxes"          / fluxes,   &
          "timedisc"        / timedisc, &
          "sources"         / sources,  &
-!        "logfile"         / logfile,  &
          "datafile"        / datafile)
   END SUBROUTINE MakeConfig
 
@@ -262,19 +267,15 @@ CONTAINS
     !------------------------------------------------------------------------!
     SELECT TYPE(p => pvar)
     CLASS IS(statevector_euler)
-      ! assuming hydrostatic equillibrium with constant gravitational
+      ! assuming hydrostatic equillibrium with constant (effective) gravitational
       ! acceleration yields constant column density, i.e. vertically integrated density,
-      ! given by the ratio of mean surface pressure P0 and grav. acceleration GACC
+      ! given by the ratio of mean surface pressure P0 and (effective) grav. acceleration GACC
       p%density%data1d(:) = P0/GACC
 
-      ! assuming hydrostic equillibrium between pressure forces and
-      ! inertial forces in the rotating frame and constant mean surface
+      ! assuming hydrostic equillibrium with mean surface
       ! temperature T0 yields the initial condition for the 2D vertically
       ! integrated pressure
-!       p%pressure%data1d(:) = GAMMA*Physics%Constants%RG * T0 / MU
-      p%pressure%data3d(:,:,1) = (GAMMA*Physics%Constants%RG * T0 / MU &
-          + (RPLANET* OMEGA)**2 / 2 * (1.0/3.0 - COS(Mesh%bcenter(:,:,1,1))**2))
-      p%pressure%data1d(:) = p%pressure%data1d(:) * p%density%data1d(:)
+      p%pressure%data1d(:) = GAMMA*Physics%Constants%RG / MU * T0 * p%density%data1d(:)
 
       ! vanishing velocities in comoving frame
       p%velocity%data1d(:) = 0.0
