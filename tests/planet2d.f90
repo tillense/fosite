@@ -191,7 +191,7 @@ CONTAINS
     ! rotating frame for a sphere
     rotframe => Dict( &
          "stype"           / ROTATING_FRAME, &
-         "disable_centaccel" / 0)
+         "disable_centaccel" / 1)
 
     ! cooling in infrared
     cooling => Dict( &
