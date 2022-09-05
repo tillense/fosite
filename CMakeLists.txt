@@ -330,10 +330,10 @@ endif()
 
 # add fftw
 if(FFTW_FOUND)
-  target_link_libraries(fosite ${FFTW_LIB})
   if(PARALLEL MATCHES ON)
     target_link_libraries(fosite ${FFTW_MPI_LIB})
   endif()
+  target_link_libraries(fosite ${FFTW_LIB})
 else()
   message(WARNING "FFTW support DISABLED! \
     The gravity spectral solvers will not be available. \
