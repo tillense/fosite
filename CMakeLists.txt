@@ -126,7 +126,6 @@ elseif (CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
   add_compile_options("$<$<CONFIG:RELEASE>:-O3>")
   add_compile_options("$<$<CONFIG:PROFILING>:-O3 -pg>")
   add_compile_options("$<$<CONFIG:DEBUG>:-O0;-W1;-g;-debug;-C;-traceback>")
-  add_link_options("$<$<CONFIG:DEBUG>:-g;-debug;-C;-traceback>")
 elseif (CMAKE_Fortran_COMPILER_ID MATCHES "NEC")
   add_compile_options(-report-all -proginf -fdefault-real=8 -x f95-cpp-input)
   add_compile_options("$<$<CONFIG:RELEASE>:-finline-max-depth=5;-finline-max-function-size=150;-finline-functions;-floop-collapse>")
@@ -169,10 +168,6 @@ else ()#(CMAKE_SYSTEM_NAME MATCHES "(.*)SX-AURORA")
     add_definitions(-DVECTOR_LENGTH="1")
   endif()
 endif ()#(CMAKE_SYSTEM_NAME MATCHES "(.*)SX-AURORA")
-
-MARK_AS_ADVANCED(CMAKE_Fortran_FLAGS_PROFILING
-    CMAKE_EXE_LINKER_FLAGS_PROFILING)
-
 
 set(DEBUGLEVEL ERROR CACHE STRING "Set verbosity for debugging, possible values are: ERROR WARN INFO")
 if (CMAKE_BUILD_TYPE MATCHES "DEBUG")
