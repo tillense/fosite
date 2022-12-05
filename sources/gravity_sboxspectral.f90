@@ -250,17 +250,17 @@ MODULE gravity_sboxspectral_mod
 
     ALLOCATE( &
              this%phi(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
-             this%qk(Mesh%IMIN:Mesh%IMAX/2+1,Mesh%JMIN:Mesh%JMAX,0:Mesh%KNUM+1),&
+             this%qk(Mesh%IMIN/2+1:Mesh%IMAX/2+1,Mesh%JMIN:Mesh%JMAX,0:Mesh%KNUM+1),&
              this%field(Mesh%KMIN-Mesh%KP1:Mesh%KMAX+Mesh%KP1), &
 #ifndef PARALLEL
              ! allocate this field and set pointer references into z-slices (see below)
              ! in parallel mode initialization handled by FFTW (see below)
-             this%Fmass3D(Mesh%IMIN:Mesh%IMAX/2+1,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN-Mesh%KP1:Mesh%KMAX+Mesh%KP1), &
+             this%Fmass3D(Mesh%IMIN/2+1:Mesh%IMAX/2+1,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN-Mesh%KP1:Mesh%KMAX+Mesh%KP1), &
 #endif
 !!!! TODO: only allocate these for KNUM > 1
-             this%Fsum3D(Mesh%IMIN:Mesh%IMAX/2+1,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN-Mesh%KP1:Mesh%KMAX+Mesh%KP1), &
+             this%Fsum3D(Mesh%IMIN/2+1:Mesh%IMAX/2+1,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN-Mesh%KP1:Mesh%KMAX+Mesh%KP1), &
 !!!! END TODO
-             this%Kxy2(Mesh%IMIN:Mesh%IMAX/2+1,Mesh%JMIN:Mesh%JMAX), &
+             this%Kxy2(Mesh%IMIN/2+1:Mesh%IMAX/2+1,Mesh%JMIN:Mesh%JMAX), &
              this%kx(Mesh%INUM), &
              this%ky(Mesh%JNUM), &
              this%den_ip(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN-Mesh%KP1:Mesh%KMAX+Mesh%KP1), &
@@ -302,7 +302,7 @@ MODULE gravity_sboxspectral_mod
                    "serial mode")
     DO k=Mesh%KMIN-Mesh%KP1,Mesh%KMAX+Mesh%KP1
       this%field(k)%original => this%den_ip(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k)
-      this%field(k)%transformed => this%Fmass3D(Mesh%IMIN:Mesh%IMAX/2+1,Mesh%JMIN:Mesh%JMAX,k)
+      this%field(k)%transformed => this%Fmass3D(Mesh%IMIN/2+1:Mesh%IMAX/2+1,Mesh%JMIN:Mesh%JMAX,k)
     END DO
     this%plan_r2c = fftw_plan_dft_r2c_2d(Mesh%JMAX-Mesh%JMIN+1, &
                                          Mesh%IMAX-Mesh%IMIN+1,this%field(Mesh%KMIN)%original, &
@@ -584,7 +584,7 @@ CALL ftrace_region_end("forward_fft")
 !NEC$ IVDEP
       DO j = Mesh%JMIN,Mesh%JMAX
 !NEC$ IVDEP
-        DO i = Mesh%IMIN,Mesh%IMAX/2+1
+        DO i = Mesh%IMIN/2+1,Mesh%IMAX/2+1
           this%Kxy2(i,j) = (this%kx(i) + Mesh%Q*Mesh%OMEGA*this%ky(j)*delt)**2 + this%ky(j)**2
         END DO
       END DO
@@ -592,7 +592,7 @@ CALL ftrace_region_end("forward_fft")
 !NEC$ IVDEP
       DO j = Mesh%JMIN,Mesh%JMAX
 !NEC$ IVDEP
-        DO i = Mesh%IMIN,Mesh%IMAX/2+1
+        DO i = Mesh%IMIN/2+1,Mesh%IMAX/2+1
           this%Kxy2(i,j) = this%kx(i)**2 + (this%ky(j)-Mesh%Q*mesh%OMEGA*this%kx(i)*delt)**2
         END DO
       END DO
@@ -604,7 +604,7 @@ CALL ftrace_region_end("forward_fft")
       k=Mesh%KMIN
       DO j = Mesh%JMIN,Mesh%JMAX
 !NEC$ IVDEP
-        DO i = Mesh%IMIN,Mesh%IMAX/2+1
+        DO i = Mesh%IMIN/2+1,Mesh%IMAX/2+1
           IF ((this%Kxy2(i,j).LT.this%maxKxy2).AND.(this%Kxy2(i,j).GT. 0)) THEN
               this%field(k)%transformed(i,j-this%local_joff) = -2.*PI*Physics%Constants%GN &
                 *this%field(k)%transformed(i,j-this%local_joff)/SQRT(this%Kxy2(i,j))
@@ -630,7 +630,7 @@ CALL ftrace_region_end("forward_fft")
 !NEC$ IVDEP
         DO j = Mesh%JMIN,Mesh%JMAX
 !NEC$ IVDEP
-          DO i = Mesh%IMIN,Mesh%IMAX/2+1
+          DO i = Mesh%IMIN/2+1,Mesh%IMAX/2+1
             IF ((this%Kxy2(i,j).LT.this%maxKxy2).AND.(this%Kxy2(i,j).GT. 0)) THEN
               this%field(k)%transformed(i,j-this%local_joff) = -4.*PI*Physics%Constants%GN &
                 *(1.-this%qk(i,j,0))/this%Kxy2(i,j) * this%field(k)%transformed(i,j-this%local_joff)
@@ -663,7 +663,7 @@ CALL ftrace_region_end("forward_fft")
 !NEC$ IVDEP
           DO j = Mesh%JMIN,Mesh%JMAX
 !NEC$ IVDEP
-            DO i = Mesh%IMIN,Mesh%IMAX/2+1
+            DO i = Mesh%IMIN/2+1,Mesh%IMAX/2+1
               DO kk=k+1,Mesh%KMAX+Mesh%KP1
                 this%Fsum3D(i,j,k) = this%Fsum3D(i,j,k) + this%qk(i,j,ABS(k-kk)) &
                                    * this%field(kk)%transformed(i,j-this%local_joff)
@@ -675,7 +675,7 @@ CALL ftrace_region_end("forward_fft")
 !NEC$ IVDEP
           DO j = Mesh%JMIN,Mesh%JMAX
 !NEC$ IVDEP
-            DO i = Mesh%IMIN,Mesh%IMAX/2+1
+            DO i = Mesh%IMIN/2+1,Mesh%IMAX/2+1
               IF ((this%Kxy2(i,j).LT.this%maxKxy2).AND.(this%Kxy2(i,j).GT. 0)) THEN
                 this%field(k)%transformed(i,j-this%local_joff) = -4.*PI*Physics%Constants%GN &
                   * (1.-this%qk(i,j,0))/this%Kxy2(i,j) &
@@ -947,7 +947,7 @@ CALL ftrace_region_begin("forward FFT")
 !NEC$ IVDEP
         DO j = Mesh%JMIN,Mesh%JMAX
 !NEC$ IVDEP
-          DO i = Mesh%IMIN,Mesh%IMAX/2+1
+          DO i = Mesh%IMIN/2+1,Mesh%IMAX/2+1
             this%Fmass3D_real(2*i-1,j,k) = REAL(REAL(this%Fmass3D(i,j-this%local_joff,k)))
             this%Fmass3D_real(2*i,j,k)   = REAL(AIMAG(this%Fmass3D(i,j-this%local_joff,k)))
           END DO
