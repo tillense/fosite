@@ -99,7 +99,7 @@ PROGRAM shearingsheet
   ! simulation parameter
   REAL, PARAMETER    :: OMEGA      = 1.0            ! rotation at fid. point !
   REAL, PARAMETER    :: SIGMA0     = 1.0            ! mean surf.dens.        !
-  REAL, PARAMETER    :: TSIM       = 100./OMEGA     ! simulation time        !
+  REAL, PARAMETER    :: TSIM       = 20./OMEGA     ! simulation time        !
   REAL, PARAMETER    :: GAMMA      = 2.0            ! dep. on vert. struct.  !
   REAL, PARAMETER    :: BETA_C     = 10.0           ! cooling parameter      !
 !  REAL, PARAMETER    :: BETA_C     = 2.0           ! 2 -> collapse          !
@@ -107,13 +107,13 @@ PROGRAM shearingsheet
   ! mesh settings
   INTEGER, PARAMETER :: MGEO       = CARTESIAN
   INTEGER, PARAMETER :: SHEAR_DIRECTION = 1         ! enables shearingsheet with direcion !
-  INTEGER, PARAMETER :: XRES       = 1024           ! cells in x-direction   !
-  INTEGER, PARAMETER :: YRES       = 1024           ! cells in y-direction   !
+  INTEGER, PARAMETER :: XRES       = 252           ! cells in x-direction   !
+  INTEGER, PARAMETER :: YRES       = 252           ! cells in y-direction   !
   INTEGER, PARAMETER :: ZRES       = 1              ! cells in z-direction   !
-  REAL               :: DOMAINX    = 320.0          ! domain size [GEOM]     !
-  REAL               :: DOMAINY    = 320.0          ! domain size [GEOM]     !
+  REAL               :: DOMAINX    = 200.0          ! domain size [GEOM]     !
+  REAL               :: DOMAINY    = 200.0          ! domain size [GEOM]     !
   ! number of output time steps
-  INTEGER, PARAMETER :: ONUM       = 100
+  INTEGER, PARAMETER :: ONUM       = 20
   ! output directory and output name
   CHARACTER(LEN=256), PARAMETER :: ODIR   = "./"
   CHARACTER(LEN=256), PARAMETER :: OFNAME = "shearingsheet"
@@ -240,7 +240,7 @@ CONTAINS
 
     ! data i/o settings
     datafile => Dict(&
-                "fileformat"  / XDMF, &
+                "fileformat"  / VTK, &
                 "filepath"    / TRIM(ODIR), &
                 "filename"    / TRIM(OFNAME), &
                 "count"       / ONUM &
