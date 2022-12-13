@@ -93,8 +93,6 @@ CONTAINS
       IF (ndim.LT.1.AND.ndim.GT.3) &
         CALL this%Abort("CreateSedov: ndim must be one of {1,2,3}")
       this%ndim = ndim
-      ! default precision does not work in 1D,2D
-      IF (this%ndim.LT.3) this%eps = 1.0E-10
     END IF
     IF (PRESENT(gamma)) THEN
       IF (gamma.LE.1.0.OR.gamma.GT.5./3.) &
@@ -136,7 +134,7 @@ CONTAINS
     CLASS(sedov_typ), INTENT(INOUT) :: this
     !-------------------------------------------------------------------!
     INTEGER           :: err
-    REAL              :: gam,gam_p1,gam_m1,j,w,w2,w3,Vmin,V2,J1,J2
+    REAL              :: gam,gam_p1,gam_m1,j,w,w2,w3,J1,J2
 #ifdef DEBUG_OUTPUT
     INTEGER           :: i,inum
     REAL              :: V,dV,x1,x2,x3,x4,f,g,h,lambda,dlambda
@@ -163,11 +161,11 @@ CONTAINS
     this%plist(3)  = (j+2.0-w)*gam/(2.0+j*gam_m1) &        ! = alpha_1
                        *(2*(j*(2.0-gam)-w)/(gam*(j+2.0-w)**2)-this%plist(4))
     this%plist(5)  = (j-w)/(gam*(w2-w))                    ! = alpha_3
-    this%plist(6)  = (j+2-w)*(j-w)/(w3-w)*this%plist(3) ! = alpha_4
+    this%plist(6)  = (j+2-w)*(j-w)/(w3-w)*this%plist(3)    ! = alpha_4
     this%plist(7)  = (w*gam_p1-2*j)/(w3-w)                 ! = alpha_5
     this%plist(8)  = 0.25*(j+2-w)*gam_p1                   ! = a = dx1/dV
     this%plist(9)  = gam_p1/gam_m1                         ! = b
-    this%plist(10) = 0.5*gam*(j+2-w)                       ! = c
+    this%plist(10) = 0.5*gam*(j+2.0-w)                     ! = c = 1/Vmin
     this%plist(12) = 0.5*(2+j*gam_m1)                      ! = e
     this%plist(11) = 1.0 &                    ! = d = a/(a-e) = 1/(1-e/a)
                         /(1.0-this%plist(12)/this%plist(8))
@@ -181,32 +179,42 @@ CONTAINS
     this%plist(18) = 1.0
     this%plist(19) = 1.0
 
-    CALL this%ComputeEnergyIntegral()
+    this%Vmin = this%Vmin + 2*EPSILON(this%Vmin) ! avoid lambda(Vmin) -> infty
+
+    CALL this%ComputeEnergyIntegral(J1,J2)
 #ifdef DEBUG_OUTPUT
+    PRINT '(A)',"# " // REPEAT("=",77)
+    PRINT '(A)',"# Parameter:"
+    PRINT '(A)',"#       gamma      omega      dim        alpha       J1         J2"
+    PRINT '(A,6(F11.4))',"# ",this%gamma,this%omega,REAL(this%ndim),this%alpha,J1,J2
+    PRINT '(A)',"# " // REPEAT("-",77)
+    PRINT '(A,10(F10.4))',"# p1-p7  ",this%plist(1:7)
+    PRINT '(A,10(F10.4))',"# p8-p13 ",this%plist(8:13)
+    PRINT '(A,10(F10.4))',"# p14-p19",this%plist(14:19)
+    PRINT '(A)',"# " // REPEAT("=",77)
     inum = 20
     dV = (this%Vmax-this%Vmin)/inum
-    PRINT '(A)',"# lambda     V       f       g       h"
-    DO i=1,inum
-      V = this%Vmax-(i-1+0.5)*dV
+    PRINT '(A)',"#      lambda       V          f          g          h      dJ1/dlam   dJ2/dlam"
+    DO i=0,inum
+      V = this%Vmin+i*dV
       CALL funcd_lambda(V,this%plist,x1,x2,x3,lambda,dlambda)
       x4 = this%plist(9)*(1.0-this%plist(10)*V/this%plist(1))
       f = lambda*x1
       g = func_g(x1,x2,x3,x4,this%plist)
       h = func_h(x1,x2,x3,x4,this%plist)
-!       PRINT '(5(F8.4))',lambda,V,f,g,h
-      PRINT '(3(F8.4))',V,func_J1(V,this%plist),func_J2(V,this%plist)
+      PRINT '(A,7(F11.4))','# ',lambda,V,f,g,h,func_J1(V,this%plist),func_J2(V,this%plist)
     END DO
 #endif
   END SUBROUTINE InitParams
 
   !> compute the energy integral and set parameter alpha
-  SUBROUTINE ComputeEnergyIntegral(this)
+  SUBROUTINE ComputeEnergyIntegral(this,J1,J2)
     USE integration
     IMPLICIT NONE
     !-------------------------------------------------------------------!
     CLASS(sedov_typ), INTENT(INOUT) :: this
     !-------------------------------------------------------------------!
-    REAL              :: J1,J2
+    REAL, OPTIONAL, INTENT(OUT)     :: J1,J2
     !-------------------------------------------------------------------!
     ! compute energy integral
     J1 = integrate(func_J1,this%Vmin,this%Vmax,this%eps,this%plist,1)
@@ -215,12 +223,8 @@ CONTAINS
       ! 1D
       this%alpha = 0.5*(J1+1./(this%gamma-1.0)*J2)
     ELSE ! 2D and 3D
-      this%alpha = (this%ndim-1.0)*PI*(J1+2./(this%gamma-1.0)*J2)
+      this%alpha = (this%ndim-1)*PI*(J1+2./(this%gamma-1.0)*J2)
     END IF
-#ifdef DEBUG_OUTPUT
-    PRINT '(A,3(F8.4))',"# Parameter: gamma,w,j   ",this%gamma,this%omega,REAL(this%ndim)
-    PRINT '(A,3(F8.4))',"# Parameter: alpha,J1,J2 ",this%alpha,J1,J2
-#endif
   END SUBROUTINE ComputeEnergyIntegral
 
   !> compute the energy integral and set parameter alpha
@@ -269,7 +273,7 @@ CONTAINS
         CALL GetRoot_Newton(funcd,this%Vmin,this%Vmax,Vstar,error,this%plist)
 !         CALL GetRoot(func,this%Vmin,this%Vmax,Vstar,error,this%plist)
         CALL funcd_lambda(Vstar,this%plist,x1,x2,x3,lambda,dlambda)
-        x4 = this%plist(9)*(1.0-this%plist(10)*Vstar/this%plist(1))
+        x4 = this%plist(9)*(1.0-this%plist(10)*Vstar/this%gamma)
         Vshock = this%plist(2) * Rshock / t
         rho2   = this%plist(9) * this%rho0
         v2     = 2./(this%gamma+1.0) * Vshock
@@ -296,7 +300,7 @@ CONTAINS
     IF (.NOT.this%initialized) CALL this%Abort("sedov uninitialzed, aborting ...")
     Rshock = (this%E0/this%rho0*time*time/this%alpha)**(0.5*this%plist(2))
   END FUNCTION ShockPosition
-  
+
   !> prints configuration on the screen (stdout)
   SUBROUTINE PrintConfiguration(this)
     IMPLICIT NONE
@@ -402,10 +406,13 @@ CONTAINS
     REAL, INTENT(OUT) :: x1,x2,x3,lambda,dlambda
     !------------------------------------------------------------------------!
     x1 = plist(8)*V
-    x2 = plist(9)*(plist(10)*V-1.0)
+    x2 = plist(9)*MAX(0.0,plist(10)*V-1.0)  ! should be >=0, since V*p10 >= 1
     x3 = plist(11)*(1.0-plist(12)*V)
     lambda  = x1**(-plist(2)) * x2**(-plist(4)) * x3**(-plist(3))
-    dlambda = -lambda*(plist(2)/x1*plist(8) + plist(4)/x2*plist(13) + plist(3)/x3*plist(14))
+!    dlambda = -lambda*(plist(2)/x1*plist(8) + plist(4)/x2*plist(13) + plist(3)/x3*plist(14))
+    dlambda = -plist(2)*plist(8) * x1**(-plist(2)-1.0) * x2**(-plist(4)) * x3**(-plist(3)) &
+              -plist(4)*plist(13) * x1**(-plist(2)) * x2**(-plist(4)-1.0) * x3**(-plist(3)) &
+              -plist(3)*plist(14) * x1**(-plist(2)) * x2**(-plist(4)) * x3**(-plist(3)-1.0)
   END SUBROUTINE funcd_lambda
 
   PURE FUNCTION func_g(x1,x2,x3,x4,plist) RESULT(g)
