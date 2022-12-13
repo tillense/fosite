@@ -124,11 +124,10 @@ TAP_PLAN(4)
 TAP_CHECK(ok,"stoptime reached")
 ! These lines are very long if expanded. So we can't indent it or it will be cropped.
 TAP_CHECK_SMALL(sigma(DEN),4.0E-02,"density deviation < 4%")
-TAP_CHECK_SMALL(sigma(VEL),2.0E-02,"radial velocity deviation < 2%")
+TAP_CHECK_SMALL(sigma(VEL),4.0E-02,"radial velocity deviation < 4%")
 ! skip azimuthal velocity deviation, because exact value is 0
-TAP_CHECK_SMALL(sigma(PRE),6.0E-02,"pressure deviation < 6%")
+TAP_CHECK_SMALL(sigma(PRE),4.0E-02,"pressure deviation < 4%")
 TAP_DONE
-!   PRINT *,sigma(:)
 #ifdef PARALLEL
   END IF
 #endif
@@ -359,7 +358,7 @@ CONTAINS
     !------------------------------------------------------------------------!
     TYPE(sedov_typ), ALLOCATABLE :: sedov
     REAL :: T0,vr
-    REAL, DIMENSION(:,:,:,:), POINTER :: er
+    REAL, DIMENSION(:,:,:,:), ALLOCATABLE :: er
     INTEGER :: n,m,i,j,k
     !------------------------------------------------------------------------!
     IF (ASSOCIATED(Timedisc%solution)) THEN
