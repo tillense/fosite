@@ -66,8 +66,7 @@ PROGRAM sedov3d
                      :: OFNAME  = 'sedov3d'
   !-------------------------------------------------------------------------!
   CLASS(fosite), ALLOCATABLE  :: Sim
-  REAL, DIMENSION(:), ALLOCATABLE :: sigma
-  REAL :: sum_numer, sum_denom
+  REAL, DIMENSION(:), ALLOCATABLE :: sigma, sum_numer, sum_denom
   INTEGER :: n,DEN,VEL,PRE
   LOGICAL :: ok
   !-------------------------------------------------------------------------!
@@ -84,42 +83,34 @@ TAP_PLAN(4)
 
   CALL MakeConfig(Sim, Sim%config)
   CALL Sim%Setup()
-  ALLOCATE(sigma(Sim%Physics%VNUM))
+  ALLOCATE(sum_numer(Sim%Physics%VNUM),sum_denom(Sim%Physics%VNUM),sigma(Sim%Physics%VNUM))
+  sigma(:) = 0.0
 
   CALL InitData(Sim%Mesh, Sim%Physics, Sim%Timedisc)
   CALL Run(Sim%Mesh, Sim%Physics, Sim%Timedisc)
-
   ok = .NOT.Sim%aborted
+
   ! compare with exact solution if requested
   IF (ASSOCIATED(Sim%Timedisc%solution)) THEN
     DO n=1,Sim%Physics%VNUM
       ! use L1 norm to estimate the deviation from the exact solution:
       !   Σ |pvar - pvar_exact| / Σ |pvar_exact|
-      sum_numer = SUM(ABS(Sim%Timedisc%pvar%data4d(Sim%Mesh%IMIN:Sim%Mesh%IMAX,&
-                           Sim%Mesh%JMIN:Sim%Mesh%JMAX,Sim%Mesh%KMIN:Sim%Mesh%KMAX,n) &
-                        -Sim%Timedisc%solution%data4d(Sim%Mesh%IMIN:Sim%Mesh%IMAX,&
-                           Sim%Mesh%JMIN:Sim%Mesh%JMAX,Sim%Mesh%KMIN:Sim%Mesh%KMAX,n)))
-      sum_denom = SUM(ABS(Sim%Timedisc%solution%data4d(Sim%Mesh%IMIN:Sim%Mesh%IMAX,&
-                           Sim%Mesh%JMIN:Sim%Mesh%JMAX,Sim%Mesh%KMIN:Sim%Mesh%KMAX,n)))
-#ifdef PARALLEL
-      IF (Sim%GetRank().GT.0) THEN
-        CALL MPI_Reduce(sum_numer,sum_numer,1,DEFAULT_MPI_REAL,MPI_SUM,0,MPI_COMM_WORLD,Sim%ierror)
-        CALL MPI_Reduce(sum_denom,sum_denom,1,DEFAULT_MPI_REAL,MPI_SUM,0,MPI_COMM_WORLD,Sim%ierror)
-      ELSE
-        CALL MPI_Reduce(MPI_IN_PLACE,sum_numer,1,DEFAULT_MPI_REAL,MPI_SUM,0,MPI_COMM_WORLD,Sim%ierror)
-        CALL MPI_Reduce(MPI_IN_PLACE,sum_denom,1,DEFAULT_MPI_REAL,MPI_SUM,0,MPI_COMM_WORLD,Sim%ierror)
-#endif
-      IF (ABS(sum_denom).LE.2*TINY(sum_denom)) THEN
-        sigma(n) = 0.0
-      ELSE
-        sigma(n) = sum_numer / sum_denom
-      END IF
-#ifdef PARALLEL
-      END IF
-#endif
+      sum_numer(n) = SUM(ABS(Sim%Timedisc%pvar%data2d(:,n)-Sim%Timedisc%solution%data2d(:,n)), &
+                         MASK=Sim%Mesh%without_ghost_zones%mask1d)
+      sum_denom(n) = SUM(ABS(Sim%Timedisc%solution%data2d(:,n)),MASK=Sim%Mesh%without_ghost_zones%mask1d)
     END DO
-  ELSE
-    sigma(:) = 0.0
+#ifdef PARALLEL
+    IF (Sim%GetRank().GT.0) THEN
+      CALL MPI_Reduce(sum_numer,sum_numer,Sim%Physics%VNUM,DEFAULT_MPI_REAL,MPI_SUM,0,MPI_COMM_WORLD,Sim%ierror)
+      CALL MPI_Reduce(sum_denom,sum_denom,Sim%Physics%VNUM,DEFAULT_MPI_REAL,MPI_SUM,0,MPI_COMM_WORLD,Sim%ierror)
+    ELSE
+      CALL MPI_Reduce(MPI_IN_PLACE,sum_numer,Sim%Physics%VNUM,DEFAULT_MPI_REAL,MPI_SUM,0,MPI_COMM_WORLD,Sim%ierror)
+      CALL MPI_Reduce(MPI_IN_PLACE,sum_denom,Sim%Physics%VNUM,DEFAULT_MPI_REAL,MPI_SUM,0,MPI_COMM_WORLD,Sim%ierror)
+    END IF
+#endif
+    WHERE (ABS(sum_denom(:)).GT.2*TINY(sum_denom))
+      sigma(:) = sum_numer(:) / sum_denom(:)
+    END WHERE
   END IF
 
   DEN = Sim%Physics%DENSITY
@@ -141,9 +132,8 @@ TAP_DONE
   END IF
 #endif
 
-  IF (ALLOCATED(sigma)) DEALLOCATE(sigma)
   CALL Sim%Finalize()
-  DEALLOCATE(Sim)
+  DEALLOCATE(Sim,sigma,sum_numer,sum_denom)
 
 CONTAINS
 
