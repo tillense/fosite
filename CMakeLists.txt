@@ -103,8 +103,8 @@ if (CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
     message(STATUS "compiling with x86 advanced vector instructions (avx): " ${X86_VECTOR_EXTENSION})
   endif()
   add_compile_options("$<$<CONFIG:RELEASE>:-funroll-all-loops;-fno-f2c;-O3>")
-  add_compile_options("$<$<CONFIG:PROFILING>:-funroll-all-loops;-fno-f2c;-O3;-pg;-no-pie>")
-  add_compile_options("$<$<CONFIG:DEBUG>:-fno-f2c;-O2;-g;-fcheck=all;-Wall>")
+  add_compile_options("$<$<CONFIG:PROFILING>:-funroll-all-loops;-fno-f2c;-O3;-pg;-no-pie;-fopt-info-vec>")
+  add_compile_options("$<$<CONFIG:DEBUG>:-fno-f2c;-O2;-g;-fcheck=all;-Wall;-ffpe-trap=invalid,zero,overflow>")
 elseif (CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
   # intel Fortran compiler, i.e. ifort
   add_compile_options(-cpp -r8 -stand f08)
@@ -124,8 +124,8 @@ elseif (CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
     endif()
   endif()
   add_compile_options("$<$<CONFIG:RELEASE>:-O3>")
-  add_compile_options("$<$<CONFIG:PROFILING>:-O3 -pg>")
-  add_compile_options("$<$<CONFIG:DEBUG>:-O0;-W1;-g;-debug;-C;-traceback>")
+  add_compile_options("$<$<CONFIG:PROFILING>:-O3;-pg;-qopt-report=1 -qopt-report-phase=vec>")
+  add_compile_options("$<$<CONFIG:DEBUG>:-O0;-W1;-g;-debug;-C;-traceback;-fpe1>")
 elseif (CMAKE_Fortran_COMPILER_ID MATCHES "NEC")
   add_compile_options(-report-all -proginf -fdefault-real=8 -x f95-cpp-input)
   add_compile_options("$<$<CONFIG:RELEASE>:-finline-max-depth=5;-finline-max-function-size=150;-finline-functions;-floop-collapse>")
@@ -370,40 +370,41 @@ endforeach(dir)
 
 #--------------------- doxygen documentation ----------------------------------#
 option(BUILD_DOC "Build documentation" ON)
+if (BUILD_DOC MATCHES ON)
+  find_package(Doxygen 1.8.12)
+  if(DOXYGEN_FOUND)
+    set(DOXYGEN_IN ${CMAKE_CURRENT_SOURCE_DIR}/doc/Doxyfile.in)
+    set(DOXYGEN_OUT ${CMAKE_CURRENT_BINARY_DIR}/doc/Doxyfile)
 
-find_package(Doxygen 1.8.12)
-if(DOXYGEN_FOUND)
-  set(DOXYGEN_IN ${CMAKE_CURRENT_SOURCE_DIR}/doc/Doxyfile.in)
-  set(DOXYGEN_OUT ${CMAKE_CURRENT_BINARY_DIR}/doc/Doxyfile)
+    # a quite clumpsy way to replace the placeholders in the doxygen document in
+    # the right way but it was the fastest I found
+    # 1. use glob (generates a list with ; as deliminter which doxygen cannot read)
+    # 2. generate new custom string with every element in new line with \ at end
+    FILE(GLOB htmllist ${CMAKE_CURRENT_SOURCE_DIR}/doc/html/*.html)
+    foreach(line IN LISTS htmllist)
+      string(APPEND htmlplaceholder "${line} \\ \n")
+    endforeach()
+    FILE(GLOB jslist ${CMAKE_CURRENT_SOURCE_DIR}/doc/html/js/*.js)
+    foreach(line IN LISTS jslist)
+      string(APPEND jsplaceholder "${line} \\ \n")
+    endforeach()
+    FILE(GLOB fontlist ${CMAKE_CURRENT_SOURCE_DIR}/doc/html/fonts/*)
+    foreach(line IN LISTS fontlist)
+      string(APPEND fontplaceholder "${line} \\ \n")
+    endforeach()
 
-  # a quite clumpsy way to replace the placeholders in the doxygen document in
-  # the right way but it was the fastest I found
-  # 1. use glob (generates a list with ; as deliminter which doxygen cannot read)
-  # 2. generate new custom string with every element in new line with \ at end
-  FILE(GLOB htmllist ${CMAKE_CURRENT_SOURCE_DIR}/doc/html/*.html)
-  foreach(line IN LISTS htmllist)
-    string(APPEND htmlplaceholder "${line} \\ \n")
-  endforeach()
-  FILE(GLOB jslist ${CMAKE_CURRENT_SOURCE_DIR}/doc/html/js/*.js)
-  foreach(line IN LISTS jslist)
-    string(APPEND jsplaceholder "${line} \\ \n")
-  endforeach()
-  FILE(GLOB fontlist ${CMAKE_CURRENT_SOURCE_DIR}/doc/html/fonts/*)
-  foreach(line IN LISTS fontlist)
-    string(APPEND fontplaceholder "${line} \\ \n")
-  endforeach()
+    # copy doxygen file and replace all @strings@ within Doxygen.in
+    configure_file(${DOXYGEN_IN} ${DOXYGEN_OUT} @ONLY)
 
-  # copy doxygen file and replace all @strings@ within Doxygen.in
-  configure_file(${DOXYGEN_IN} ${DOXYGEN_OUT} @ONLY)
+    # add target "make doc"
+    add_custom_target(doc
+      # main command "doxygen Doxyfile" to run doxygen
+      WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/doc
+      COMMENT "Generating API documentation with Doxygen"
 
-  # add target "make doc"
-  add_custom_target(doc
-    # main command "doxygen Doxyfile" to run doxygen
-    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/doc
-    COMMENT "Generating API documentation with Doxygen"
+      COMMAND ${DOXYGEN_EXECUTABLE} ${DOXYGEN_OUT}
+      COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/doc/adjust_names.sh ${CMAKE_CURRENT_BINARY_DIR}
 
-    COMMAND ${DOXYGEN_EXECUTABLE} ${DOXYGEN_OUT}
-    COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/doc/adjust_names.sh ${CMAKE_CURRENT_BINARY_DIR}
-
-    VERBATIM)
-endif(DOXYGEN_FOUND)
+      VERBATIM)
+  endif(DOXYGEN_FOUND)
+endif()
