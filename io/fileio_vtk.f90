@@ -754,11 +754,10 @@ CONTAINS
     TYPE(Dict_TYP),       POINTER       :: Header   !< \param [in,out] IO I/O dictionary
     TYPE(Dict_TYP),       POINTER       :: IO       !< \param [in,out] IO I/O dictionary
     !------------------------------------------------------------------------!
-    INTEGER                             :: k,m
+    INTEGER                             :: i,j,k,m,l
     INTEGER                             :: n, offset
 #ifdef PARALLEL
     CHARACTER(LEN=256)                  :: basename
-    INTEGER                             :: i
 #endif
     !------------------------------------------------------------------------!
     ! this part is formerly from fileio_generic.f90
@@ -992,20 +991,28 @@ CONTAINS
     ! -----------------------------------------------------------------------!
     ! b) data fields
     !    (i)  size of data array in bytes (must be a 4 byte integer);
-    !         this is determined in GetOutputlist and storen in
+    !         this is determined in GetOutputlist and stored in
     !         this%output(:)%numbytes
     !    (ii) the data given by a list of pointers which is also
     !         generated in GetOutputlist
     ! loop over all output data fields
-    DO k = 1, this%cols
+    DO l = 1, this%cols
          ! reorganize the data to comply with VTK style ordering
-         n = SIZE(this%output(k)%p)  ! get first dimension
+         n = SIZE(this%output(l)%p(:))  ! get first dimension
          DO m=1,n
-            this%binout(m,:,:,:)=this%output(k)%p(m)%val(:,:,:)
+           DO k=1,Mesh%KMAX-Mesh%KMIN+1
+             DO j=1,Mesh%JMAX-Mesh%JMIN+1
+               DO i=1,Mesh%IMAX-Mesh%IMIN+1
+                 this%binout(m,Mesh%IMIN+i-1,Mesh%JMIN+j-1,Mesh%KMIN+k-1) &
+                   = this%output(l)%p(m)%val(i,j,k)
+               END DO
+             END DO
+           END DO
          END DO
-
-         WRITE(this%unit,IOSTAT=this%error_io) this%output(k)%numbytes, &
-            this%binout(1:n,:,:,:)
+         WRITE(this%unit,IOSTAT=this%error_io) this%output(l)%numbytes, &
+!            this%binout(1:n,:,:,:)
+            ((((this%binout(m,i,j,k),m=1,n),i=Mesh%IMIN,Mesh%IMAX), &
+                j=Mesh%JMIN,Mesh%JMAX),k=Mesh%KMIN,Mesh%KMAX)
 
          IF (this%error_io.GT.0) &
             CALL this%Error( "WriteDataset", "cannot write data")

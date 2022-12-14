@@ -76,7 +76,7 @@ CONTAINS
     CLASS(mesh_midpoint),INTENT(INOUT) :: this
     TYPE(Dict_TYP),POINTER             :: config,IO
     !------------------------------------------------------------------------!
-    INTEGER                            :: err
+    INTEGER                            :: i,j,k,err
     !------------------------------------------------------------------------!
 
     ! basic mesh and geometry initialization
@@ -94,53 +94,55 @@ CONTAINS
        CALL this%Error("InitMesh_midpoint", "Unable to allocate memory.")
     END IF
 
-    ! surface elements divided by dxdy or dydz or dzdx
-    ! perpendicular to x-direction
-    this%dAxdydz(:,:,:,1:2) = this%hy%faces(:,:,:,1:2)*this%hz%faces(:,:,:,1:2)
-    ! perpendicular to y-direction
-    this%dAydzdx(:,:,:,1:2) = this%hz%faces(:,:,:,3:4)*this%hx%faces(:,:,:,3:4)
-    ! perpendicular to z-direction
-    this%dAzdxdy(:,:,:,1:2) = this%hx%faces(:,:,:,5:6)*this%hy%faces(:,:,:,5:6)
+    DO CONCURRENT (i=this%IGMIN:this%IGMAX,j=this%JGMIN:this%JGMAX,k=this%KGMIN:this%KGMAX)
+      ! surface elements divided by dxdy or dydz or dzdx
+      ! perpendicular to x-direction
+      this%dAxdydz(i,j,k,1:2) = this%hy%faces(i,j,k,1:2)*this%hz%faces(i,j,k,1:2)
+      ! perpendicular to y-direction
+      this%dAydzdx(i,j,k,1:2) = this%hz%faces(i,j,k,3:4)*this%hx%faces(i,j,k,3:4)
+      ! perpendicular to z-direction
+      this%dAzdxdy(i,j,k,1:2) = this%hx%faces(i,j,k,5:6)*this%hy%faces(i,j,k,5:6)
 
-    ! surface elements
-    this%dAx(:,:,:,:) = this%dAxdydz(:,:,:,:)*this%dy*this%dz    ! perpendicular to x-direction
-    this%dAy(:,:,:,:) = this%dAydzdx(:,:,:,:)*this%dz*this%dx    ! perpendicular to y-direction
-    this%dAz(:,:,:,:) = this%dAzdxdy(:,:,:,:)*this%dx*this%dy    ! perpendicular to z-direction
+      ! surface elements
+      this%dAx(i,j,k,:) = this%dAxdydz(i,j,k,:)*this%dy*this%dz    ! perpendicular to x-direction
+      this%dAy(i,j,k,:) = this%dAydzdx(i,j,k,:)*this%dz*this%dx    ! perpendicular to y-direction
+      this%dAz(i,j,k,:) = this%dAzdxdy(i,j,k,:)*this%dx*this%dy    ! perpendicular to z-direction
 
-    ! volume elements = hx*hy*hz*dx*dy*dz
-    this%volume%data3d(:,:,:) = this%sqrtg%center(:,:,:)*this%dx*this%dy*this%dz
+      ! volume elements = hx*hy*hz*dx*dy*dz
+      this%volume%data3d(i,j,k) = this%sqrtg%center(i,j,k)*this%dx*this%dy*this%dz
 
-    ! inverse volume elements multiplied by dxdy or dydz or dzdx
-    this%dxdydV%data1d(:) = this%dx*this%dy/(this%volume%data1d(:)+TINY(this%dx))
-    this%dydzdV%data1d(:) = this%dy*this%dz/(this%volume%data1d(:)+TINY(this%dy))
-    this%dzdxdV%data1d(:) = this%dz*this%dx/(this%volume%data1d(:)+TINY(this%dz))
+      ! inverse volume elements multiplied by dxdy or dydz or dzdx
+      this%dxdydV%data3d(i,j,k) = this%dx*this%dy/(this%volume%data3d(i,j,k)+TINY(this%dx))
+      this%dydzdV%data3d(i,j,k) = this%dy*this%dz/(this%volume%data3d(i,j,k)+TINY(this%dy))
+      this%dzdxdV%data3d(i,j,k) = this%dz*this%dx/(this%volume%data3d(i,j,k)+TINY(this%dz))
 
-    ! commutator coefficients (geometric center values)
-    this%cyxy%center(:,:,:) = 0.5*(this%hz%faces(:,:,:,2)+this%hz%faces(:,:,:,1)) &
-         * (this%hy%faces(:,:,:,2)-this%hy%faces(:,:,:,1)) * this%dydzdV%data3d(:,:,:)
-    this%cyzy%center(:,:,:) = 0.5*(this%hx%faces(:,:,:,6)+this%hx%faces(:,:,:,5)) &
-         * (this%hy%faces(:,:,:,6)-this%hy%faces(:,:,:,5)) * this%dxdydV%data3d(:,:,:)
-    this%cxyx%center(:,:,:) = 0.5*(this%hz%faces(:,:,:,4)+this%hz%faces(:,:,:,3)) &
-         * (this%hx%faces(:,:,:,4)-this%hx%faces(:,:,:,3)) * this%dzdxdV%data3d(:,:,:)
-    this%cxzx%center(:,:,:) = 0.5*(this%hy%faces(:,:,:,6)+this%hy%faces(:,:,:,5)) &
-         * (this%hx%faces(:,:,:,6)-this%hx%faces(:,:,:,5)) * this%dxdydV%data3d(:,:,:)
-    this%czxz%center(:,:,:) = 0.5*(this%hy%faces(:,:,:,2)+this%hy%faces(:,:,:,1)) &
-         * (this%hz%faces(:,:,:,2)-this%hz%faces(:,:,:,1)) * this%dydzdV%data3d(:,:,:)
-    this%czyz%center(:,:,:) = 0.5*(this%hx%faces(:,:,:,4)+this%hx%faces(:,:,:,3)) &
-         * (this%hz%faces(:,:,:,4)-this%hz%faces(:,:,:,3)) * this%dzdxdV%data3d(:,:,:)
+      ! commutator coefficients (geometric center values)
+      this%cyxy%center(i,j,k) = 0.5*(this%hz%faces(i,j,k,2)+this%hz%faces(i,j,k,1)) &
+         * (this%hy%faces(i,j,k,2)-this%hy%faces(i,j,k,1)) * this%dydzdV%data3d(i,j,k)
+      this%cyzy%center(i,j,k) = 0.5*(this%hx%faces(i,j,k,6)+this%hx%faces(i,j,k,5)) &
+         * (this%hy%faces(i,j,k,6)-this%hy%faces(i,j,k,5)) * this%dxdydV%data3d(i,j,k)
+      this%cxyx%center(i,j,k) = 0.5*(this%hz%faces(i,j,k,4)+this%hz%faces(i,j,k,3)) &
+         * (this%hx%faces(i,j,k,4)-this%hx%faces(i,j,k,3)) * this%dzdxdV%data3d(i,j,k)
+      this%cxzx%center(i,j,k) = 0.5*(this%hy%faces(i,j,k,6)+this%hy%faces(i,j,k,5)) &
+         * (this%hx%faces(i,j,k,6)-this%hx%faces(i,j,k,5)) * this%dxdydV%data3d(i,j,k)
+      this%czxz%center(i,j,k) = 0.5*(this%hy%faces(i,j,k,2)+this%hy%faces(i,j,k,1)) &
+         * (this%hz%faces(i,j,k,2)-this%hz%faces(i,j,k,1)) * this%dydzdV%data3d(i,j,k)
+      this%czyz%center(i,j,k) = 0.5*(this%hx%faces(i,j,k,4)+this%hx%faces(i,j,k,3)) &
+         * (this%hz%faces(i,j,k,4)-this%hz%faces(i,j,k,3)) * this%dzdxdV%data3d(i,j,k)
 
-    ! set bary center values to geometric center values
-    this%cyxy%bcenter(:,:,:) = this%cyxy%center(:,:,:)
-    this%cyzy%bcenter(:,:,:) = this%cyzy%center(:,:,:)
-    this%cxyx%bcenter(:,:,:) = this%cxyx%center(:,:,:)
-    this%cxzx%bcenter(:,:,:) = this%cxzx%center(:,:,:)
-    this%czxz%bcenter(:,:,:) = this%czxz%center(:,:,:)
-    this%czyz%bcenter(:,:,:) = this%czyz%center(:,:,:)
+      ! set bary center values to geometric center values
+      this%cyxy%bcenter(i,j,k) = this%cyxy%center(i,j,k)
+      this%cyzy%bcenter(i,j,k) = this%cyzy%center(i,j,k)
+      this%cxyx%bcenter(i,j,k) = this%cxyx%center(i,j,k)
+      this%cxzx%bcenter(i,j,k) = this%cxzx%center(i,j,k)
+      this%czxz%bcenter(i,j,k) = this%czxz%center(i,j,k)
+      this%czyz%bcenter(i,j,k) = this%czyz%center(i,j,k)
 
-    ! center line elements
-    this%dlx%data3d(:,:,:) = this%hx%center(:,:,:)*this%dx
-    this%dly%data3d(:,:,:) = this%hy%center(:,:,:)*this%dy
-    this%dlz%data3d(:,:,:) = this%hz%center(:,:,:)*this%dz
+      ! center line elements
+      this%dlx%data3d(i,j,k) = this%hx%center(i,j,k)*this%dx
+      this%dly%data3d(i,j,k) = this%hy%center(i,j,k)*this%dy
+      this%dlz%data3d(i,j,k) = this%hz%center(i,j,k)*this%dz
+    END DO
   END SUBROUTINE InitMesh_midpoint
 
 
@@ -169,7 +171,7 @@ CONTAINS
       DO k=this%KGMIN+this%KP1,this%KGMAX-this%KP1
         DO j=this%JGMIN+this%JP1,this%JGMAX-this%JP1
 !NEC$ IVDEP
-          DO i=this%IGMIN+this%IP1,this%IGMAX-this%IP1
+          DO CONCURRENT (i=this%IGMIN+this%IP1:this%IGMAX-this%IP1)
             divv(i,j,k) = Divergence3D(&
                 this%dAxdydz(i,j,k,1),this%dAxdydz(i,j,k,2), &
                 this%dAydzdx(i,j,k,1),this%dAydzdx(i,j,k,2), &
@@ -187,7 +189,7 @@ CONTAINS
       DO k=this%KGMIN+this%KP1,this%KGMAX-this%KP1
         DO j=this%JGMIN+this%JP1,this%JGMAX-this%JP1
 !NEC$ IVDEP
-          DO i=this%IGMIN+this%IP1,this%IGMAX-this%IP1
+          DO CONCURRENT (i=this%IGMIN+this%IP1:this%IGMAX-this%IP1)
             ! we simply use the 3D tensor divergence and set the commutator coefficients
             ! and the off-diagonal tensor components to 0
             divv(i,j,k) = Divergence3D(&
@@ -207,7 +209,7 @@ CONTAINS
       DO k=this%KGMIN+this%KP1,this%KGMAX-this%KP1
         DO j=this%JGMIN+this%JP1,this%JGMAX-this%JP1
 !NEC$ IVDEP
-          DO i=this%IGMIN+this%IP1,this%IGMAX-this%IP1
+          DO CONCURRENT (i=this%IGMIN+this%IP1:this%IGMAX-this%IP1)
             ! we simply use the 3D tensor divergence and set the commutator coefficients
             ! and the off-diagonal tensor components to 0
             divv(i,j,k) = Divergence3D(&
@@ -292,7 +294,7 @@ CONTAINS
     DO k=this%KGMIN+this%KP1,this%KGMAX-this%KP1
        DO j=this%JGMIN+this%JP1,this%JGMAX-this%JP1
 !NEC$ IVDEP
-          DO i=this%IGMIN+this%IP1,this%IGMAX-this%IP1
+          DO CONCURRENT (i=this%IGMIN+this%IP1:this%IGMAX-this%IP1)
              ! x component of tensor divergence
              divTx(i,j,k) = Divergence3D(&
                   this%dAxdydz(i,j,k,1),this%dAxdydz(i,j,k,2), &
@@ -331,7 +333,7 @@ CONTAINS
       DO k=this%KGMIN+this%KP1,this%KGMAX-this%KP1
         DO j=this%JGMIN+this%JP1,this%JGMAX-this%JP1
   !NEC$ IVDEP
-          DO i=this%IGMIN+this%IP1,this%IGMAX-this%IP1
+          DO CONCURRENT (i=this%IGMIN+this%IP1:this%IGMAX-this%IP1)
             ! x component of tensor divergence
             divTx(i,j,k) = Divergence3D(&
                 this%dAxdydz(i,j,k,1),this%dAxdydz(i,j,k,2), &
@@ -372,7 +374,7 @@ CONTAINS
       DO k=this%KGMIN+this%KP1,this%KGMAX-this%KP1
         DO j=this%JGMIN+this%JP1,this%JGMAX-this%JP1
   !NEC$ IVDEP
-          DO i=this%IGMIN+this%IP1,this%IGMAX-this%IP1
+          DO CONCURRENT (i=this%IGMIN+this%IP1:this%IGMAX-this%IP1)
             ! y component of tensor divergence
             ! change input of Divergence3D according to the rules given in
             ! the comments (see below)
@@ -486,7 +488,7 @@ CONTAINS
     DO k=this%KGMIN+this%KP1,this%KGMAX-this%KP1
       DO j=this%JGMIN+this%JP1,this%JGMAX-this%JP1
 !NEC$ IVDEP
-        DO i=this%IGMIN+this%IP1,this%IGMAX-this%IP1
+        DO CONCURRENT (i=this%IGMIN+this%IP1:this%IGMAX-this%IP1)
           divv(i,j,k) = Divergence3D(&
               this%dAxdydz(i,j,k,1),this%dAxdydz(i,j,k,2), &
               this%dAydzdx(i,j,k,1),this%dAydzdx(i,j,k,2), &
@@ -528,7 +530,7 @@ CONTAINS
     DO k=this%KGMIN+this%KP1,this%KGMAX-this%KP1
        DO j=this%JGMIN+this%JP1,this%JGMAX-this%JP1
 !NEC$ IVDEP
-          DO i=this%IGMIN+this%IP1,this%IGMAX-this%IP1
+          DO CONCURRENT (i=this%IGMIN+this%IP1:this%IGMAX-this%IP1)
              ! x component of tensor divergence
              divTx(i,j,k) = Divergence3D(&
                   this%dAxdydz(i,j,k,1),this%dAxdydz(i,j,k,2), &

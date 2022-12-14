@@ -940,6 +940,8 @@ CONTAINS
     CLASS(fluxes_base),   INTENT(INOUT) :: Fluxes
     REAL                                :: time,dt
     !------------------------------------------------------------------------!
+    INTEGER                             :: i,j,k,l,m
+    !------------------------------------------------------------------------!
     INTENT(IN)                          :: time
     INTENT(INOUT)                       :: dt
     !------------------------------------------------------------------------!
@@ -947,9 +949,15 @@ CONTAINS
     ! This data has already been checked before in AcceptSolution
     CALL this%ComputeRHS(Mesh,Physics,Sources,Fluxes,time,dt,this%pvar, &
       this%cvar,CHECK_NOTHING,this%rhs)
-    Fluxes%bxflux(:,:,:,:) = Fluxes%bxfold(:,:,:,:)
-    Fluxes%byflux(:,:,:,:) = Fluxes%byfold(:,:,:,:)
-    Fluxes%bzflux(:,:,:,:) = Fluxes%bzfold(:,:,:,:)
+    DO CONCURRENT (j=Mesh%JGMIN:Mesh%JGMAX,k=Mesh%KGMIN:Mesh%KGMAX,l=1:2,m=1:Physics%VNUM)
+      Fluxes%bxflux(j,k,l,m) = Fluxes%bxfold(j,k,l,m)
+    END DO
+    DO CONCURRENT (k=Mesh%KGMIN:Mesh%KGMAX,i=Mesh%IGMIN:Mesh%IGMAX,l=1:2,m=1:Physics%VNUM)
+      Fluxes%byflux(k,i,l,m) = Fluxes%byfold(k,i,l,m)
+    END DO
+    DO CONCURRENT (i=Mesh%IGMIN:Mesh%IGMAX,j=Mesh%JGMIN:Mesh%JGMAX,l=1:2,m=1:Physics%VNUM)
+      Fluxes%bzflux(i,j,l,m) = Fluxes%bzfold(i,j,l,m)
+    END DO
     ! count adjustments for information
     this%n_adj = this%n_adj + 1
     this%dtcause = DTCAUSE_ERRADJ
@@ -970,7 +978,7 @@ CONTAINS
     CLASS(marray_compound),INTENT(INOUT):: cvar_high,cvar_low
     REAL               :: maxerr
     !------------------------------------------------------------------------!
-    INTEGER            :: l
+    INTEGER            :: i,l
 #ifdef PARALLEL
     INTEGER            :: ierror
 #endif
@@ -978,14 +986,19 @@ CONTAINS
     !------------------------------------------------------------------------!
 !NEC$ SHORTLOOP
     DO l=1,Physics%VNUM
-      ! compute the local error (including ghost zones)
-      this%cerr%data2d(:,l) = ABS(cvar_high%data2d(:,l)-cvar_low%data2d(:,l)) &
-                         / (this%tol_rel*ABS(cvar_high%data2d(:,l)) + this%tol_abs(l))
+      DO CONCURRENT (i=1:SIZE(this%cerr%data2d,DIM=1))
+        ! compute the local error (including ghost zones)
+        this%cerr%data2d(i,l) = ABS(cvar_high%data2d(i,l)-cvar_low%data2d(i,l)) &
+                         / (this%tol_rel*ABS(cvar_high%data2d(i,l)) + this%tol_abs(l))
+      END DO
       ! determine the global maximum on the whole grid except for ghost zones
       rel_err(l) = MAXVAL(this%cerr%data2d(:,l),MASK=Mesh%without_ghost_zones%mask1d(:))
       ! store the maximum between two output time steps
-      IF (this%write_error) &
-        this%cerr_max%data2d(:,l) = MAX(this%cerr_max%data2d(:,l),this%cerr%data2d(:,l))
+      IF (this%write_error) THEN
+        DO CONCURRENT (i=1:SIZE(this%cerr_max%data2d,DIM=1))
+          this%cerr_max%data2d(i,l) = MAX(this%cerr_max%data2d(i,l),this%cerr%data2d(i,l))
+        END DO
+      END IF
     END DO
 
     ! compute the maximum of all variables

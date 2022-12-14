@@ -264,7 +264,7 @@ CONTAINS
     TYPE(marray_base), POINTER :: ma
     LOGICAL :: success
     !-------------------------------------------------------------------!
-    INTEGER :: m,n,err
+    INTEGER :: m,n,i,err
     REAL, DIMENSION(:),POINTER,CONTIGUOUS :: data1d
     !-------------------------------------------------------------------!
 #if DEBUG > 2
@@ -337,8 +337,12 @@ CONTAINS
 #endif
       END IF
       ! copy the data, new data is appended to the old compound
-      data1d(1:m) = this%data1d(1:m)
-      data1d(m+1:m+n) = ma%data1d(1:n)
+      DO CONCURRENT (i=1:m)
+        data1d(i) = this%data1d(i)
+      END DO
+      DO CONCURRENT (i=1:n)
+        data1d(m+i) = ma%data1d(i)
+      END DO
       ! append ma to the list of items
       CALL this%AppendItem(ma)
       ! free old data

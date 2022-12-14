@@ -597,36 +597,31 @@ CONTAINS
     ccorners(8,2) = cfaces(4,2)
     ccorners(8,3) = cfaces(6,3)
     ! calculate coordinates (geometric centers)
-    DO k=this%KGMIN,this%KGMAX
-       DO j=this%JGMIN,this%JGMAX
-          DO i=this%IGMIN,this%IGMAX
-             ! geometrical cell centers
-             this%curv%center(i,j,k,1)    = this%xmin + (2*i-1)*0.5*mesh_dx    ! x coord
-             this%curv%center(i,j,k,2)    = this%ymin + (2*j-1)*0.5*mesh_dy    ! y coord
-             this%curv%center(i,j,k,3)    = this%zmin + (2*k-1)*0.5*mesh_dz    ! z coord
-             ! cell face centered positions
-             this%curv%faces(i,j,k,1,:)   = this%curv%center(i,j,k,:) + cfaces(1,:)   ! western
-             this%curv%faces(i,j,k,2,:)   = this%curv%center(i,j,k,:) + cfaces(2,:)   ! eastern
-             this%curv%faces(i,j,k,3,:)   = this%curv%center(i,j,k,:) + cfaces(3,:)   ! southern
-             this%curv%faces(i,j,k,4,:)   = this%curv%center(i,j,k,:) + cfaces(4,:)   ! northern
-             this%curv%faces(i,j,k,5,:)   = this%curv%center(i,j,k,:) + cfaces(5,:)   ! bottom
-             this%curv%faces(i,j,k,6,:)   = this%curv%center(i,j,k,:) + cfaces(6,:)   ! top
-             ! cell corner positions
-             this%curv%corners(i,j,k,1,:) = this%curv%center(i,j,k,:) + ccorners(1,:) ! bottom-south-west
-             this%curv%corners(i,j,k,2,:) = this%curv%center(i,j,k,:) + ccorners(2,:) ! bottom-south-east
-             this%curv%corners(i,j,k,3,:) = this%curv%center(i,j,k,:) + ccorners(3,:) ! bottom-north-west
-             this%curv%corners(i,j,k,4,:) = this%curv%center(i,j,k,:) + ccorners(4,:) ! bottom-north-east
-             this%curv%corners(i,j,k,5,:) = this%curv%center(i,j,k,:) + ccorners(5,:) ! top-south-west
-             this%curv%corners(i,j,k,6,:) = this%curv%center(i,j,k,:) + ccorners(6,:) ! top-south-east
-             this%curv%corners(i,j,k,7,:) = this%curv%center(i,j,k,:) + ccorners(7,:) ! top-north-west
-             this%curv%corners(i,j,k,8,:) = this%curv%center(i,j,k,:) + ccorners(8,:) ! top-north-east
-          END DO
-       END DO
+    DO CONCURRENT (i=this%IGMIN:this%IGMAX,j=this%JGMIN:this%JGMAX,k=this%KGMIN:this%KGMAX)
+      ! geometrical cell centers
+      this%curv%center(i,j,k,1)    = this%xmin + (2*i-1)*0.5*mesh_dx    ! x coord
+      this%curv%center(i,j,k,2)    = this%ymin + (2*j-1)*0.5*mesh_dy    ! y coord
+      this%curv%center(i,j,k,3)    = this%zmin + (2*k-1)*0.5*mesh_dz    ! z coord
+      ! set bary center curvilinear coordinates to geometric centers
+      !   will be overwritten later
+      this%curv%bcenter(i,j,k,:) = this%curv%center(i,j,k,:)
+      ! cell face centered positions
+      this%curv%faces(i,j,k,1,:)   = this%curv%center(i,j,k,:) + cfaces(1,:)   ! western
+      this%curv%faces(i,j,k,2,:)   = this%curv%center(i,j,k,:) + cfaces(2,:)   ! eastern
+      this%curv%faces(i,j,k,3,:)   = this%curv%center(i,j,k,:) + cfaces(3,:)   ! southern
+      this%curv%faces(i,j,k,4,:)   = this%curv%center(i,j,k,:) + cfaces(4,:)   ! northern
+      this%curv%faces(i,j,k,5,:)   = this%curv%center(i,j,k,:) + cfaces(5,:)   ! bottom
+      this%curv%faces(i,j,k,6,:)   = this%curv%center(i,j,k,:) + cfaces(6,:)   ! top
+      ! cell corner positions
+      this%curv%corners(i,j,k,1,:) = this%curv%center(i,j,k,:) + ccorners(1,:) ! bottom-south-west
+      this%curv%corners(i,j,k,2,:) = this%curv%center(i,j,k,:) + ccorners(2,:) ! bottom-south-east
+      this%curv%corners(i,j,k,3,:) = this%curv%center(i,j,k,:) + ccorners(3,:) ! bottom-north-west
+      this%curv%corners(i,j,k,4,:) = this%curv%center(i,j,k,:) + ccorners(4,:) ! bottom-north-east
+      this%curv%corners(i,j,k,5,:) = this%curv%center(i,j,k,:) + ccorners(5,:) ! top-south-west
+      this%curv%corners(i,j,k,6,:) = this%curv%center(i,j,k,:) + ccorners(6,:) ! top-south-east
+      this%curv%corners(i,j,k,7,:) = this%curv%center(i,j,k,:) + ccorners(7,:) ! top-north-west
+      this%curv%corners(i,j,k,8,:) = this%curv%center(i,j,k,:) + ccorners(8,:) ! top-north-east
     END DO
-
-    ! set bary center curvilinear coordinates to geometric centers
-    ! will be overwritten later
-    this%curv%bcenter = this%curv%center
 
     ! basic mesh initialization
 
@@ -646,7 +641,7 @@ CONTAINS
     ! leading to segfaults in some cases
     this%sqrtg = marray_cellscalar()
 #ifdef __INTEL_COMPILER
-    this%sqrtg%data1d = this%hx%data1d*(this%hy*this%hz)
+    this%sqrtg%data1d(:) = this%hx%data1d(:)*(this%hy%data1d(:)*this%hz%data1d(:))
 #else
     this%sqrtg = this%hx*(this%hy*this%hz)
 #endif

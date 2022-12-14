@@ -1990,7 +1990,7 @@ CONTAINS
         TYPE IS(statevector_euler)
           DO k=Mesh%KGMIN,Mesh%KGMAX
             DO j=Mesh%JGMIN,Mesh%JGMAX
-              DO i=Mesh%IGMIN,Mesh%IGMAX
+              DO CONCURRENT (i=Mesh%IGMIN:Mesh%IGMAX)
                 ! ATTENTION: don't change the order; on the RHS of the first
                 !            assignment there must be the old momentum
                 c%energy%data3d(i,j,k) = c%energy%data3d(i,j,k) &
@@ -2035,17 +2035,15 @@ CONTAINS
         SELECT TYPE(c => cvar)
         TYPE IS(statevector_euler)
           DO k=Mesh%KGMIN,Mesh%KGMAX
-            DO j=Mesh%JGMIN,Mesh%JGMAX
-              DO i=Mesh%IGMIN,Mesh%IGMAX
-                ! ATTENTION: don't change the order; on the RHS of the first
-                !            assignment there must be the old momentum
-                c%energy%data3d(i,j,k) = c%energy%data3d(i,j,k) &
+            DO CONCURRENT (i=Mesh%IGMIN:Mesh%IGMAX,j=Mesh%JGMIN:Mesh%JGMAX)
+              ! ATTENTION: don't change the order; on the RHS of the first
+              !            assignment there must be the old momentum
+              c%energy%data3d(i,j,k) = c%energy%data3d(i,j,k) &
                     + w(i,j)*(c%momentum%data4d(i,j,k,3) &
                     + 0.5*c%density%data3d(i,j,k)*w(i,j))
-                p%velocity%data4d(i,j,k,3) = p%velocity%data4d(i,j,k,3) + w(i,j)
-                c%momentum%data4d(i,j,k,3) = c%momentum%data4d(i,j,k,3) &
+              p%velocity%data4d(i,j,k,3) = p%velocity%data4d(i,j,k,3) + w(i,j)
+              c%momentum%data4d(i,j,k,3) = c%momentum%data4d(i,j,k,3) &
                     + c%density%data3d(i,j,k)*w(i,j)
-              END DO
             END DO
           END DO
           this%transformed_zvelocity = .FALSE.
@@ -2128,7 +2126,7 @@ CONTAINS
         TYPE IS(statevector_euler)
           DO k=Mesh%KGMIN,Mesh%KGMAX
             DO j=Mesh%JGMIN,Mesh%JGMAX
-              DO i=Mesh%IGMIN,Mesh%IGMAX
+              DO CONCURRENT (i=Mesh%IGMIN:Mesh%IGMAX)
                 ! ATTENTION: don't change the order; on the RHS of the first
                 !            assignment there must be the old momentum
                 c%energy%data3d(i,j,k) = c%energy%data3d(i,j,k) &
@@ -2173,17 +2171,15 @@ CONTAINS
         SELECT TYPE(c => cvar)
         TYPE IS(statevector_euler)
           DO k=Mesh%KGMIN,Mesh%KGMAX
-            DO j=Mesh%JGMIN,Mesh%JGMAX
-              DO i=Mesh%IGMIN,Mesh%IGMAX
-                ! ATTENTION: don't change the order; on the RHS of the first
-                !            assignment there must be the old momentum
-                c%energy%data3d(i,j,k) = c%energy%data3d(i,j,k) &
+            DO CONCURRENT (i=Mesh%IGMIN:Mesh%IGMAX,j=Mesh%JGMIN:Mesh%JGMAX)
+              ! ATTENTION: don't change the order; on the RHS of the first
+              !            assignment there must be the old momentum
+              c%energy%data3d(i,j,k) = c%energy%data3d(i,j,k) &
                     - w(i,j)*(c%momentum%data4d(i,j,k,3) &
                     - 0.5*c%density%data3d(i,j,k)*w(i,j))
-                p%velocity%data4d(i,j,k,3) = p%velocity%data4d(i,j,k,3) - w(i,j)
-                c%momentum%data4d(i,j,k,3) = c%momentum%data4d(i,j,k,3) &
+              p%velocity%data4d(i,j,k,3) = p%velocity%data4d(i,j,k,3) - w(i,j)
+              c%momentum%data4d(i,j,k,3) = c%momentum%data4d(i,j,k,3) &
                     - c%density%data3d(i,j,k)*w(i,j)
-              END DO
             END DO
           END DO
           this%transformed_zvelocity = .TRUE.
@@ -2199,12 +2195,18 @@ CONTAINS
     CLASS(physics_euler), INTENT(INOUT) :: this
     CLASS(statevector_euler),INTENT(INOUT) :: pvar
     !------------------------------------------------------------------------!
-    IF (pvar%density%RANK.EQ.0) THEN 
-      this%bccsound%data1d(:) = GetSoundSpeed(this%gamma, &
-            pvar%density%data1d(:),pvar%pressure%data1d(:))
+    INTEGER :: i
+    !------------------------------------------------------------------------!
+    IF (pvar%density%RANK.EQ.0) THEN
+      DO CONCURRENT (i=1:SIZE(this%bccsound%data1d))
+        this%bccsound%data1d(i) = GetSoundSpeed(this%gamma, &
+            pvar%density%data1d(i),pvar%pressure%data1d(i))
+      END DO
     ELSE
-      this%fcsound%data1d(:) = GetSoundSpeed(this%gamma, &
-            pvar%density%data1d(:),pvar%pressure%data1d(:))
+      DO CONCURRENT (i=1:SIZE(this%fcsound%data1d))
+        this%fcsound%data1d(i) = GetSoundSpeed(this%gamma, &
+            pvar%density%data1d(i),pvar%pressure%data1d(i))
+      END DO
     END IF
   END SUBROUTINE UpdateSoundSpeed
 

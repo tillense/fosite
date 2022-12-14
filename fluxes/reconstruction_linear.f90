@@ -102,7 +102,7 @@ CONTAINS
     TYPE(DICT_TYP),               POINTER       :: IO
     !------------------------------------------------------------------------!
     CHARACTER(LEN=60)                           :: key
-    INTEGER                                     :: err,limiter,valwrite,l,m
+    INTEGER                                     :: err,limiter,valwrite,i,j,k,l,m
     REAL                                        :: theta
     !------------------------------------------------------------------------!
     ! allocate memory for all arrays used in reconstruction_linear
@@ -156,18 +156,24 @@ CONTAINS
     m = 1
     IF (Mesh%INUM.GT.1) THEN
       ! reconstruct along x-direction
-      this%dx%data4d(:,:,:,m) = Mesh%curv%faces(:,:,:,1,1) - Mesh%curv%bcenter(:,:,:,1)
-      this%dx%data4d(:,:,:,m+1) = Mesh%curv%faces(:,:,:,2,1) - Mesh%curv%bcenter(:,:,:,1)
+      DO CONCURRENT (i=Mesh%IGMIN:Mesh%IGMAX,j=Mesh%JGMIN:Mesh%JGMAX,k=Mesh%KGMIN:Mesh%KGMAX)
+        this%dx%data4d(i,j,k,m) = Mesh%curv%faces(i,j,k,1,1) - Mesh%curv%bcenter(i,j,k,1)
+        this%dx%data4d(i,j,k,m+1) = Mesh%curv%faces(i,j,k,2,1) - Mesh%curv%bcenter(i,j,k,1)
+      END DO
       m = m + 2
     END IF
     IF (Mesh%JNUM.GT.1) THEN
-      this%dx%data4d(:,:,:,m) = Mesh%curv%faces(:,:,:,3,2) - Mesh%curv%bcenter(:,:,:,2)
-      this%dx%data4d(:,:,:,m+1) = Mesh%curv%faces(:,:,:,4,2) - Mesh%curv%bcenter(:,:,:,2)
+      DO CONCURRENT (i=Mesh%IGMIN:Mesh%IGMAX,j=Mesh%JGMIN:Mesh%JGMAX,k=Mesh%KGMIN:Mesh%KGMAX)
+        this%dx%data4d(i,j,k,m) = Mesh%curv%faces(i,j,k,3,2) - Mesh%curv%bcenter(i,j,k,2)
+        this%dx%data4d(i,j,k,m+1) = Mesh%curv%faces(i,j,k,4,2) - Mesh%curv%bcenter(i,j,k,2)
+      END DO
       m = m + 2
     END IF
     IF (Mesh%KNUM.GT.1) THEN
-      this%dx%data4d(:,:,:,m) = Mesh%curv%faces(:,:,:,5,3) - Mesh%curv%bcenter(:,:,:,3)
-      this%dx%data4d(:,:,:,m+1) = Mesh%curv%faces(:,:,:,6,3) - Mesh%curv%bcenter(:,:,:,3)
+      DO CONCURRENT (i=Mesh%IGMIN:Mesh%IGMAX,j=Mesh%JGMIN:Mesh%JGMAX,k=Mesh%KGMIN:Mesh%KGMAX)
+        this%dx%data4d(i,j,k,m) = Mesh%curv%faces(i,j,k,5,3) - Mesh%curv%bcenter(i,j,k,3)
+        this%dx%data4d(i,j,k,m+1) = Mesh%curv%faces(i,j,k,6,3) - Mesh%curv%bcenter(i,j,k,3)
+      END DO
     END IF
 
      CALL GetAttr(config, "output/slopes", valwrite, 0)
@@ -215,7 +221,7 @@ CONTAINS
     CLASS(marray_compound),       INTENT(INOUT) :: rvar
     CLASS(marray_compound),       INTENT(INOUT) :: rstates
     !------------------------------------------------------------------------!
-    INTEGER                                     :: l,n
+    INTEGER                                     :: i,l,n
     !------------------------------------------------------------------------!
     ! calculate slopes first
     CALL this%CalculateSlopes(Mesh,Physics,rvar)
@@ -225,8 +231,10 @@ CONTAINS
     DO l=1,Physics%VNUM
 !NEC$ SHORTLOOP
       DO n=1,Mesh%NFACES
-        rstates%data3d(:,n,l) = rvar%data2d(:,l) + &
-           this%slopes%data3d(:,((n+1)/2),l)*this%dx%data2d(:,n)
+        DO CONCURRENT (i=1:SIZE(rvar%data2d,DIM=1))
+          rstates%data3d(i,n,l) = rvar%data2d(i,l) + &
+             this%slopes%data3d(i,((n+1)/2),l)*this%dx%data2d(i,n)
+        END DO
       END DO
     END DO
   END SUBROUTINE CalculateStates
@@ -253,7 +261,7 @@ CONTAINS
           DO k=Mesh%KGMIN,Mesh%KGMAX
             DO j=Mesh%JGMIN,Mesh%JGMAX
 !NEC$ IVDEP
-              DO i=Mesh%IGMIN+Mesh%IP1,Mesh%IGMAX+Mesh%IM1
+              DO CONCURRENT (i=Mesh%IGMIN+Mesh%IP1:Mesh%IGMAX+Mesh%IM1)
                 this%slopes%data5d(i,j,k,m,l) = Mesh%invdx * minmod2_limiter(&
                    rvar%data4d(i,j,k,l) - rvar%data4d(i-1,j,k,l), &
                    rvar%data4d(i+1,j,k,l) - rvar%data4d(i,j,k,l))
@@ -303,7 +311,7 @@ CONTAINS
           DO k=Mesh%KGMIN,Mesh%KGMAX
             DO j=Mesh%JGMIN,Mesh%JGMAX
 !NEC$ IVDEP
-              DO i=Mesh%IGMIN+Mesh%IP1,Mesh%IGMAX+Mesh%IM1
+              DO CONCURRENT (i=Mesh%IGMIN+Mesh%IP1:Mesh%IGMAX+Mesh%IM1)
                 this%slopes%data5d(i,j,k,m,l) = Mesh%invdx * minmod3_limiter(&
                    this%limiter_param*(rvar%data4d(i,j,k,l) - rvar%data4d(i-1,j,k,l)),&
                    this%limiter_param*(rvar%data4d(i+1,j,k,l) - rvar%data4d(i,j,k,l)),&
@@ -355,7 +363,7 @@ CONTAINS
           DO k=Mesh%KGMIN,Mesh%KGMAX
             DO j=Mesh%JGMIN,Mesh%JGMAX
 !NEC$ IVDEP
-              DO i=Mesh%IGMIN+Mesh%IP1,Mesh%IGMAX+Mesh%IM1
+              DO CONCURRENT (i=Mesh%IGMIN+Mesh%IP1:Mesh%IGMAX+Mesh%IM1)
                 this%slopes%data5d(i,j,k,m,l) = Mesh%invdx * sweby_limiter(&
                    rvar%data4d(i,j,k,l) - rvar%data4d(i-1,j,k,l), &
                    rvar%data4d(i+1,j,k,l) - rvar%data4d(i,j,k,l),&
@@ -407,7 +415,7 @@ CONTAINS
           DO k=Mesh%KGMIN,Mesh%KGMAX
             DO j=Mesh%JGMIN,Mesh%JGMAX
 !NEC$ IVDEP
-              DO i=Mesh%IGMIN+Mesh%IP1,Mesh%IGMAX+Mesh%IM1
+              DO CONCURRENT (i=Mesh%IGMIN+Mesh%IP1:Mesh%IGMAX+Mesh%IM1)
                 this%slopes%data5d(i,j,k,m,l) = Mesh%invdx * sweby_limiter(&
                    rvar%data4d(i,j,k,l) - rvar%data4d(i-1,j,k,l), &
                    rvar%data4d(i+1,j,k,l) - rvar%data4d(i,j,k,l), 2.0)
@@ -456,7 +464,7 @@ CONTAINS
           DO k=Mesh%KGMIN,Mesh%KGMAX
             DO j=Mesh%JGMIN,Mesh%JGMAX
 !NEC$ IVDEP
-              DO i=Mesh%IGMIN+Mesh%IP1,Mesh%IGMAX+Mesh%IM1
+              DO CONCURRENT (i=Mesh%IGMIN+Mesh%IP1:Mesh%IGMAX+Mesh%IM1)
                 this%slopes%data5d(i,j,k,m,l) = Mesh%invdx * ospre_limiter(&
                    rvar%data4d(i,j,k,l) - rvar%data4d(i-1,j,k,l), &
                    rvar%data4d(i+1,j,k,l) - rvar%data4d(i,j,k,l))
@@ -528,7 +536,7 @@ CONTAINS
           DO k=Mesh%KGMIN,Mesh%KGMAX
             DO j=Mesh%JGMIN,Mesh%JGMAX
 !NEC$ IVDEP
-              DO i=Mesh%IGMIN+Mesh%IP1,Mesh%IGMAX+Mesh%IM1
+              DO CONCURRENT (i=Mesh%IGMIN+Mesh%IP1:Mesh%IGMAX+Mesh%IM1)
                 this%slopes%data5d(i,j,k,m,l) = Mesh%invdx * vanleer_limiter(&
                    rvar%data4d(i,j,k,l) - rvar%data4d(i-1,j,k,l), &
                    rvar%data4d(i+1,j,k,l) - rvar%data4d(i,j,k,l))
@@ -577,7 +585,7 @@ CONTAINS
           DO k=Mesh%KGMIN,Mesh%KGMAX
             DO j=Mesh%JGMIN,Mesh%JGMAX
 !NEC$ IVDEP
-              DO i=Mesh%IGMIN+Mesh%IP1,Mesh%IGMAX+Mesh%IM1
+              DO CONCURRENT (i=Mesh%IGMIN+Mesh%IP1:Mesh%IGMAX+Mesh%IM1)
                 this%slopes%data5d(i,j,k,m,l) = Mesh%invdx * nolimit_limiter(&
                    rvar%data4d(i,j,k,l) - rvar%data4d(i-1,j,k,l), &
                    rvar%data4d(i+1,j,k,l) - rvar%data4d(i,j,k,l))

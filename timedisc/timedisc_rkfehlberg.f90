@@ -202,10 +202,12 @@ CONTAINS
     DO m=1,this%m
         ! compute two solutions with different numerical orders
         ! y_n+1 = y_n + SUM(b_i*k_i) = y_n + SUM(b_i*dt*coeff_i)
-        this%ctmp%data1d(:) = this%ctmp%data1d(:) &
-                           - this%b_low(m)*dt*this%coeff(m)%p%data1d(:)
-        this%cvar%data1d(:) = this%cvar%data1d(:) &
-                           - this%b_high(m)*dt*this%coeff(m)%p%data1d(:)
+        DO CONCURRENT (i=1:SIZE(this%ctmp%data1d))
+          this%ctmp%data1d(i) = this%ctmp%data1d(i) &
+                           - this%b_low(m)*dt*this%coeff(m)%p%data1d(i)
+          this%cvar%data1d(i) = this%cvar%data1d(i) &
+                           - this%b_high(m)*dt*this%coeff(m)%p%data1d(i)
+        END DO
     END DO
 
     ! at the boundary the this%rhs contains the boundary fluxes
