@@ -206,6 +206,7 @@ CONTAINS
     CLASS(marray_compound), INTENT(INOUT) :: pvar
     REAL,                INTENT(IN)    :: time, dt
     !------------------------------------------------------------------------!
+    INTEGER                            :: i,j,k,l
     CLASS(gravity_base), POINTER       :: gravptr
     !------------------------------------------------------------------------!
     ! update acceleration of all gravity sources
@@ -219,11 +220,17 @@ CONTAINS
       CALL gravptr%UpdateGravity_single(Mesh,Physics,Fluxes,pvar,time,dt)
 
       ! add contribution to the overall gravitational acceleration
-      this%accel = this%accel + gravptr%accel
+      DO CONCURRENT (i=1:SIZE(this%accel%data1d))
+        this%accel%data1d(i) = this%accel%data1d(i) + gravptr%accel%data1d(i)
+      END DO
 
       ! add potential if available
-      IF(ASSOCIATED(gravptr%pot)) &
-        this%pot%data4d(:,:,:,:) = this%pot%data4d(:,:,:,:) + gravptr%pot(:,:,:,:)
+      IF(ASSOCIATED(gravptr%pot)) THEN
+        DO CONCURRENT (i=Mesh%IGMIN:Mesh%IGMAX,j=Mesh%JGMIN:Mesh%JGMAX, &
+                       k=Mesh%KGMIN:Mesh%KGMAX,l=1:SIZE(this%pot%data4d,DIM=4))
+          this%pot%data4d(i,j,k,l) = this%pot%data4d(i,j,k,l) + gravptr%pot(i,j,k,l)
+        END DO
+      END IF
 
       ! next source term
       gravptr => gravptr%next

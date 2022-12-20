@@ -1208,7 +1208,7 @@ CONTAINS
     CLASS(marray_base),       INTENT(IN)  :: accel
     CLASS(marray_compound), INTENT(INOUT) :: pvar,cvar,sterm
     !------------------------------------------------------------------------!
-    INTEGER :: n
+    INTEGER :: m,n
     !------------------------------------------------------------------------!
     SELECT TYPE(p => pvar)
     CLASS IS(statevector_eulerisotherm)
@@ -1216,10 +1216,12 @@ CONTAINS
       CLASS IS(statevector_eulerisotherm)
         SELECT TYPE(s => sterm)
         CLASS IS(statevector_eulerisotherm)
-          s%density%data1d(:) = 0.0
 !NEC$ UNROLL(3)
           DO n=1,this%VDIM
-            s%momentum%data2d(:,n) = c%density%data1d(:) * accel%data2d(:,n)
+            DO CONCURRENT (m=1:SIZE(c%density%data1d))
+              s%density%data1d(m) = 0.0
+              s%momentum%data2d(m,n) = c%density%data1d(m) * accel%data2d(m,n)
+            END DO
           END DO
         END SELECT
       END SELECT
@@ -1246,7 +1248,7 @@ CONTAINS
         TYPE IS(statevector_eulerisotherm)
           DO k=Mesh%KGMIN,Mesh%KGMAX
             DO j=Mesh%JGMIN,Mesh%JGMAX
-              DO i=Mesh%IGMIN,Mesh%IGMAX
+              DO CONCURRENT (i=Mesh%IGMIN:Mesh%IGMAX)
                 p%velocity%data4d(i,j,k,1) = p%velocity%data4d(i,j,k,1) + w(j,k)
                 c%momentum%data4d(i,j,k,1) = c%momentum%data4d(i,j,k,1) &
                     + c%density%data3d(i,j,k)*w(j,k)
@@ -1311,7 +1313,7 @@ CONTAINS
         TYPE IS(statevector_eulerisotherm)
           DO k=Mesh%KGMIN,Mesh%KGMAX
             DO j=Mesh%JGMIN,Mesh%JGMAX
-              DO i=Mesh%IGMIN,Mesh%IGMAX
+              DO CONCURRENT (i=Mesh%IGMIN:Mesh%IGMAX)
                 p%velocity%data4d(i,j,k,3) = p%velocity%data4d(i,j,k,3) + w(i,j)
                 c%momentum%data4d(i,j,k,3) = c%momentum%data4d(i,j,k,3) &
                     + c%density%data3d(i,j,k)*w(i,j)
@@ -1343,7 +1345,7 @@ CONTAINS
         TYPE IS(statevector_eulerisotherm)
           DO k=Mesh%KGMIN,Mesh%KGMAX
             DO j=Mesh%JGMIN,Mesh%JGMAX
-              DO i=Mesh%IGMIN,Mesh%IGMAX
+              DO CONCURRENT (i=Mesh%IGMIN:Mesh%IGMAX)
                 p%velocity%data4d(i,j,k,1) = p%velocity%data4d(i,j,k,1) - w(j,k)
                 c%momentum%data4d(i,j,k,1) = c%momentum%data4d(i,j,k,1) &
                     - c%density%data3d(i,j,k)*w(j,k)

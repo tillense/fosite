@@ -1845,6 +1845,8 @@ CONTAINS
     CLASS(marray_base),       INTENT(IN)  :: accel
     CLASS(marray_compound), INTENT(INOUT) :: pvar,cvar,sterm
     !------------------------------------------------------------------------!
+    INTEGER :: m
+    !------------------------------------------------------------------------!
     CALL this%physics_eulerisotherm%ExternalSources(accel,pvar,cvar,sterm)
     SELECT TYPE(p => pvar)
     TYPE IS(statevector_euler)
@@ -1852,7 +1854,9 @@ CONTAINS
       TYPE IS(statevector_euler)
         SELECT TYPE(s => sterm)
         TYPE IS(statevector_euler)
-          s%energy%data1d(:) = SUM(c%momentum%data2d(:,:) * accel%data2d(:,:),DIM=2)
+          DO CONCURRENT (m=1:SIZE(s%energy%data1d))
+            s%energy%data1d(m) = SUM(c%momentum%data2d(m,:) * accel%data2d(m,:))
+          END DO
         END SELECT
       END SELECT
     END SELECT
