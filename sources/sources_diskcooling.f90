@@ -72,6 +72,10 @@ MODULE sources_diskcooling_mod
   INTEGER, PARAMETER :: GRAY   = 1
   INTEGER, PARAMETER :: GAMMIE = 2
   INTEGER, PARAMETER :: GAMMIE_SB = 3
+  CHARACTER(LEN=28), PARAMETER, DIMENSION(3) :: &
+                        COOLING_NAME = (/ "Gray disk cooling          ", &
+                                          "Gammie disk cooling        ", &
+                                          "Gammie shearing box cooling" /)
   !--------------------------------------------------------------------------!
   REAL, PARAMETER :: SQRT_THREE = 1.73205080757
   REAL, PARAMETER :: SQRT_TWOPI = 2.50662827463
@@ -147,7 +151,7 @@ CONTAINS
     CLASS(fluxes_base),   INTENT(IN) :: Fluxes
     TYPE(Dict_TYP),       POINTER    :: config,IO
     !------------------------------------------------------------------------!
-    INTEGER :: stype
+    INTEGER :: stype,err
     INTEGER :: cooling_func
     !------------------------------------------------------------------------!
     CALL GetAttr(config, "stype", stype)
@@ -160,51 +164,51 @@ CONTAINS
       ! do nothing
     CLASS DEFAULT
       ! abort
-      CALL this%Error("InitSources_diskcooling","physics not supported")
+      CALL this%Error("sources_diskcooling::InitSources","physics not supported")
     END SELECT
 
-    SELECT CASE(cooling_func)
+    ! check for dimensions
+    IF (Physics%VDIM.GT.2) THEN
+      CALL this%Error("sources_diskcooling::InitSources","only 2D simulations supported")
+    END IF
+
+    ! get cooling method
+    CALL GetAttr(config,"method",cooling_func)
+    IF (cooling_func.LE.1.OR.cooling_func.GT.3) &
+      CALL this%Error("sources_diskcooling::InitSources","unknown cooling method")
+
+    ALLOCATE(logging_base::this%cooling,STAT=err)
+    IF (err.EQ.0) ALLOCATE(this%QCool,STAT=err)
+    IF (err.NE.0) CALL this%Error("sources_diskcooling::InitSources","memory allocation failed")
+    CALL this%cooling%InitLogging(cooling_func,COOLING_NAME(cooling_func))
+    this%Qcool = marray_base()
+
+    SELECT CASE(this%cooling%GetType())
+    CASE(GRAY)
+      ! check units, currently only SI units are supported
+      IF (Physics%constants%GetType().NE.SI) &
+         CALL this%Error("sources_diskcooling::InitSources","only SI units supported for gray cooling")
     CASE(GAMMIE)
       ! check for geometry
       SELECT TYPE (mgeo => Mesh%Geometry)
       CLASS IS(geometry_cylindrical)
-        ! do nothing
+        ALLOCATE(this%ephir)
+        this%ephir = marray_base(2)
+        this%ephir%data4d(:,:,:,1) = -Mesh%posvec%bcenter(:,:,:,2)/Mesh%radius%bcenter(:,:,:)**2
+        this%ephir%data4d(:,:,:,2) = Mesh%posvec%bcenter(:,:,:,1)/Mesh%radius%bcenter(:,:,:)**2
       CLASS DEFAULT
-        CALL this%Error("InitSources_diskcooling","geometry not supported")
+        CALL this%Error("sources_diskcooling::InitSources","geometry not supported")
       END SELECT
     CASE(GAMMIE_SB)
       SELECT TYPE (mgeo => Mesh%Geometry)
       TYPE IS(geometry_cartesian)
         ! do nothing
       CLASS DEFAULT
-        CALL this%Error("InitSources_diskcooling","geometry not supported")
+        CALL this%Error("sources_diskcooling::InitSources","geometry not supported")
       END SELECT
-    END SELECT
-
-    ! check for dimensions
-    IF (Physics%VDIM.GT.2) THEN
-      CALL this%Error("InitSources_diskcooling","only 2D simulations supported")
-    END IF
-
-    ! get cooling method
-    CALL GetAttr(config,"method",cooling_func)
-    ALLOCATE(logging_base::this%cooling)
-    ALLOCATE(this%Qcool)
-    this%Qcool = marray_base()
-
-    SELECT CASE(cooling_func)
-    CASE(GRAY)
-      IF (Physics%constants%GetType().NE.SI) &
-         CALL this%Error("InitSources_diskcooling","only SI units supported for gray cooling")
-      CALL this%cooling%InitLogging(GRAY,"gray cooling")
-    CASE(GAMMIE)
-      CALL this%cooling%InitLogging(GAMMIE,"Gammie cooling")
-      ALLOCATE(this%ephir)
-      this%ephir = marray_base(2)
-    CASE(GAMMIE_SB)
-      CALL this%cooling%InitLogging(GAMMIE_SB,"Gammie cooling (SB)")
     CASE DEFAULT
-       CALL this%Error("UpdateCooling","Cooling function not supported!")
+      ! this should not happen (see above)
+      CALL this%Error("sources_diskcooling::InitSources","unknown cooling method")
     END SELECT
 
     ! Courant number, i.e. safety factor for numerical stability
@@ -232,17 +236,8 @@ CONTAINS
     ! set initial time < 0
     this%time = -1.0
 
-    ! initialize arrays
+    ! initialize cooling function
     this%Qcool%data1d(:)  = 0.0
-    SELECT CASE(cooling_func)
-    CASE(GRAY)
-      ! do nothing
-    CASE(GAMMIE)
-      this%ephir%data4d(:,:,:,1) = -Mesh%posvec%bcenter(:,:,:,2)/Mesh%radius%bcenter(:,:,:)**2
-      this%ephir%data4d(:,:,:,2) = Mesh%posvec%bcenter(:,:,:,1)/Mesh%radius%bcenter(:,:,:)**2
-    CASE(GAMMIE_SB)
-      ! do nothing
-    END SELECT
 
     !initialise output
     CALL this%SetOutput(Mesh,config,IO)
