@@ -3,7 +3,7 @@
 !# fosite - 3D hydrodynamical simulation program                             #
 !# module: shearingsheet.f90                                                 #
 !#                                                                           #
-!# Copyright (C) 2015-2018                                                   #
+!# Copyright (C) 2015-2022                                                   #
 !# Jannes Klee      <jklee@astrophysik.uni-kiel.de>                          #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
 !#                                                                           #
@@ -107,8 +107,8 @@ PROGRAM shearingsheet
   ! mesh settings
   INTEGER, PARAMETER :: MGEO       = CARTESIAN
   INTEGER, PARAMETER :: SHEAR_DIRECTION = 1         ! enables shearingsheet with direcion !
-  INTEGER, PARAMETER :: XRES       = 252           ! cells in x-direction   !
-  INTEGER, PARAMETER :: YRES       = 252           ! cells in y-direction   !
+  INTEGER, PARAMETER :: XRES       = 256            ! cells in x-direction   !
+  INTEGER, PARAMETER :: YRES       = 256            ! cells in x-direction   !
   INTEGER, PARAMETER :: ZRES       = 1              ! cells in z-direction   !
   REAL               :: DOMAINX    = 200.0          ! domain size [GEOM]     !
   REAL               :: DOMAINY    = 200.0          ! domain size [GEOM]     !
@@ -264,64 +264,76 @@ CONTAINS
     CLASS(physics_base), INTENT(IN)  :: Physics
     CLASS(marray_compound), POINTER, INTENT(INOUT) :: pvar,cvar
     !------------------------------------------------------------------------!
+    INTEGER           :: i,j,k,err
     REAL              :: SOUNDSPEED
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX) &
-                      :: rands
+    REAL, ALLOCATABLE :: rands(:,:,:)
 #ifdef NECSXAURORA
     INTEGER :: rng, n
 #endif
     !------------------------ standard run ----------------------------------!
     SELECT TYPE(p => pvar)
     TYPE IS(statevector_euler)
-      ! constant initial density
-      p%density%data3d(:,:,:) = SIGMA0
-
       ! constant initial pressure determined by Q = 1
       SOUNDSPEED = PI*Physics%Constants%GN*SIGMA0/OMEGA ! Toomre-criterion
-      p%pressure%data3d(:,:,:) = 2.5**2*PI*PI* &
-                          Physics%Constants%GN**2.*SIGMA0**3./(GAMMA*OMEGA**2)
+      ! constant initial density
+      DO CONCURRENT (i=1:SIZE(p%density%data1d))
+        p%density%data1d(i) = SIGMA0
+        p%pressure%data1d(i) = 2.5**2*PI*PI* &
+            Physics%Constants%GN**2.*SIGMA0**3./(GAMMA*OMEGA**2)
+      END DO
+
 
       ! create random numbers for setup of initial velocities
 #ifndef NECSXAURORA
-    CALL InitRandSeed(Physics)
+      CALL InitRandSeed(Physics)
 #else
-    CALL asl_random_create(rng, ASL_RANDOMMETHOD_MT19937_64)
-    CALL asl_random_distribute_uniform(rng)
-    n = (Mesh%IGMAX-Mesh%IGMIN+1)*(Mesh%JGMAX-Mesh%JGMIN+1)*(Mesh%KGMAX-Mesh%KGMIN+1)
+      CALL asl_random_create(rng, ASL_RANDOMMETHOD_MT19937_64)
+      CALL asl_random_distribute_uniform(rng)
+      n = (Mesh%IGMAX-Mesh%IGMIN+1)*(Mesh%JGMAX-Mesh%JGMIN+1)*(Mesh%KGMAX-Mesh%KGMIN+1)
 #endif
+      ALLOCATE(rands(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX),STAT=err)
+      IF (err.NE.0) CALL Physics%Error("shearingsheet::InitData","Memory allocation failed")
+
       IF (Mesh%shear_dir.EQ.2) THEN
 #ifndef NECSXAURORA
         CALL RANDOM_NUMBER(rands)
 #else
         CALL asl_random_generate_d(rng, n, rands)
 #endif
-        rands = (rands-0.5)*0.1*SOUNDSPEED
-        p%velocity%data4d(:,:,:,1) = rands(:,:,:)
+        DO CONCURRENT (i=Mesh%IGMIN:Mesh%IGMAX,j=Mesh%JGMIN:Mesh%JGMAX,k=Mesh%KGMIN:Mesh%KGMAX)
+          p%velocity%data4d(i,j,k,1) = (rands(i,j,k)-0.5)*0.1*SOUNDSPEED
+        END DO
 
 #ifndef NECSXAURORA
         CALL RANDOM_NUMBER(rands)
 #else
         CALL asl_random_generate_d(rng, n, rands)
 #endif
-        rands = (rands-0.5)*0.1*SOUNDSPEED
-        p%velocity%data4d(:,:,:,2)  = -Q*OMEGA*Mesh%bcenter(:,:,:,1) + rands(:,:,:)
+        DO CONCURRENT (i=Mesh%IGMIN:Mesh%IGMAX,j=Mesh%JGMIN:Mesh%JGMAX,k=Mesh%KGMIN:Mesh%KGMAX)
+          p%velocity%data4d(i,j,k,2)  = -Q*OMEGA*Mesh%bcenter(i,j,k,1) &
+            + (rands(i,j,k)-0.5)*0.1*SOUNDSPEED
+        END DO
       ELSE IF (Mesh%shear_dir.EQ.1) THEN
 #ifndef NECSXAURORA
         CALL RANDOM_NUMBER(rands)
 #else
         CALL asl_random_generate_d(rng, n, rands)
 #endif
-        rands = (rands-0.5)*0.1*SOUNDSPEED
-        p%velocity%data4d(:,:,:,1) = Q*OMEGA*Mesh%bcenter(:,:,:,2) + rands(:,:,:)
+        DO CONCURRENT (i=Mesh%IGMIN:Mesh%IGMAX,j=Mesh%JGMIN:Mesh%JGMAX,k=Mesh%KGMIN:Mesh%KGMAX)
+          p%velocity%data4d(i,j,k,1)  = Q*OMEGA*Mesh%bcenter(i,j,k,2) &
+            + (rands(i,j,k)-0.5)*0.1*SOUNDSPEED
+        END DO
 
 #ifndef NECSXAURORA
         CALL RANDOM_NUMBER(rands)
 #else
         CALL asl_random_generate_d(rng, n, rands)
 #endif
-        rands = (rands-0.5)*0.1*SOUNDSPEED
-        p%velocity%data4d(:,:,:,2)  = rands(:,:,:)
+        DO CONCURRENT (i=Mesh%IGMIN:Mesh%IGMAX,j=Mesh%JGMIN:Mesh%JGMAX,k=Mesh%KGMIN:Mesh%KGMAX)
+          p%velocity%data4d(i,j,k,2) = (rands(i,j,k)-0.5)*0.1*SOUNDSPEED
+        END DO
       END IF
+      DEALLOCATE(rands)
     CLASS DEFAULT
       CALL Physics%Error("shear::InitData","only non-isothermal HD supported")
     END SELECT
