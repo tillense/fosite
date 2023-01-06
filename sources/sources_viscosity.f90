@@ -510,6 +510,11 @@ CONTAINS
   END SUBROUTINE ExternalSources_single
 
 
+  !> \public compute time step limit for advection-diffusion problems
+  !!
+  !! The limiting time step is computed according to the analysis of
+  !! \cite hindmarsh1984 (see also  \cite noye1989 ) for explicit Euler
+  !! time-stepping with an upwind scheme for the advective transport step.
   SUBROUTINE CalcTimestep_single(this,Mesh,Physics,Fluxes,pvar,cvar,time,dt)
     USE physics_eulerisotherm_mod, ONLY : physics_eulerisotherm, statevector_eulerisotherm
     USE physics_euler_mod, ONLY : physics_euler, statevector_euler
@@ -523,7 +528,7 @@ CONTAINS
     REAL, INTENT(IN)                      :: time
     REAL, INTENT(OUT)                     :: dt
     !------------------------------------------------------------------------!
-    REAL              :: invdt_x, invdt_y,invdt_z
+    REAL              :: invdt
     !------------------------------------------------------------------------!
     ! update dynamic and bulk viscosity
     CALL this%UpdateViscosity(Mesh,Physics,Fluxes,time,pvar,cvar)
@@ -534,34 +539,48 @@ CONTAINS
       this%kinvis%data1d(:) = this%dynvis%data1d(:) / p%density%data1d(:)
     END SELECT
 
-    ! x-direction
-    IF (Mesh%INUM.GT.1) THEN
-       invdt_x = MAXVAL(this%kinvis%data1d(:) / Mesh%dlx%data1d(:)**2, &
-                        MASK=Mesh%without_ghost_zones%mask1d(:))
+    ! compute maximum of inverse time for CFL condition
+    IF ((Mesh%JNUM.EQ.1).AND.(Mesh%KNUM.EQ.1)) THEN
+       ! 1D, only x-direction
+       invdt = MAXVAL((MAX(Fluxes%maxwav%data2d(:,1),-Fluxes%minwav%data2d(:,1))  &
+                         + 2*this%kinvis%data1d(:) / Mesh%dlx%data1d(:)) / Mesh%dlx%data1d(:))
+    ELSE IF ((Mesh%INUM.EQ.1).AND.(Mesh%KNUM.EQ.1)) THEN
+       ! 1D, only y-direction
+       invdt = MAXVAL((MAX(Fluxes%maxwav%data2d(:,1),-Fluxes%minwav%data2d(:,1))  &
+                         + 2*this%kinvis%data1d(:) / Mesh%dly%data1d(:)) / Mesh%dly%data1d(:))
+    ELSE IF ((Mesh%INUM.EQ.1).AND.(Mesh%JNUM.EQ.1)) THEN
+       ! 1D, only z-direction
+       invdt = MAXVAL((MAX(Fluxes%maxwav%data2d(:,1),-Fluxes%minwav%data2d(:,1))  &
+                         + 2*this%kinvis%data1d(:) / Mesh%dlz%data1d(:)) / Mesh%dlz%data1d(:))
+    ELSE IF ((Mesh%INUM.GT.1).AND.(Mesh%JNUM.GT.1).AND.(Mesh%KNUM.EQ.1)) THEN
+       ! 2D, x-y-plane
+       invdt = MAXVAL((MAX(Fluxes%maxwav%data2d(:,1),-Fluxes%minwav%data2d(:,1))  &
+                         + 2*this%kinvis%data1d(:) / Mesh%dlx%data1d(:)) / Mesh%dlx%data1d(:) &
+                    + (MAX(Fluxes%maxwav%data2d(:,2),-Fluxes%minwav%data2d(:,2))  &
+                         + 2*this%kinvis%data1d(:) / Mesh%dly%data1d(:)) / Mesh%dly%data1d(:))
+    ELSE IF ((Mesh%INUM.GT.1).AND.(Mesh%KNUM.GT.1).AND.(Mesh%JNUM.EQ.1)) THEN
+       ! 2D, x-z-plane
+       invdt = MAXVAL((MAX(Fluxes%maxwav%data2d(:,1),-Fluxes%minwav%data2d(:,1))  &
+                         + 2*this%kinvis%data1d(:) / Mesh%dlx%data1d(:)) / Mesh%dlx%data1d(:) &
+                    + (MAX(Fluxes%maxwav%data2d(:,2),-Fluxes%minwav%data2d(:,2))  &
+                         + 2*this%kinvis%data1d(:) / Mesh%dlz%data1d(:)) / Mesh%dlz%data1d(:))
+    ELSE IF ((Mesh%JNUM.GT.1).AND.(Mesh%KNUM.GT.1).AND.(Mesh%INUM.EQ.1)) THEN
+       ! 2D, y-z-plane
+       invdt = MAXVAL((MAX(Fluxes%maxwav%data2d(:,1),-Fluxes%minwav%data2d(:,1))  &
+                         + 2*this%kinvis%data1d(:) / Mesh%dly%data1d(:)) / Mesh%dly%data1d(:) &
+                    + (MAX(Fluxes%maxwav%data2d(:,2),-Fluxes%minwav%data2d(:,2))  &
+                         + 2*this%kinvis%data1d(:) / Mesh%dlz%data1d(:)) / Mesh%dlz%data1d(:))
     ELSE
-       ! set to zero, i.e. no limit in x-direction due to diffusion
-       invdt_x = 0.0
+       ! full 3D
+       invdt = MAXVAL((MAX(Fluxes%maxwav%data2d(:,1),-Fluxes%minwav%data2d(:,1))  &
+                         + 2*this%kinvis%data1d(:) / Mesh%dlx%data1d(:)) / Mesh%dlx%data1d(:) &
+                    + (MAX(Fluxes%maxwav%data2d(:,2),-Fluxes%minwav%data2d(:,2))  &
+                         + 2*this%kinvis%data1d(:) / Mesh%dly%data1d(:)) / Mesh%dly%data1d(:) &
+                    + (MAX(Fluxes%maxwav%data2d(:,3),-Fluxes%minwav%data2d(:,3))  &
+                         + 2*this%kinvis%data1d(:) / Mesh%dlz%data1d(:)) / Mesh%dlz%data1d(:))
     END IF
-    ! y-direction
-    IF (Mesh%JNUM.GT.1) THEN
-       invdt_y = MAXVAL(this%kinvis%data1d(:)  / Mesh%dly%data1d(:)**2, &
-                        MASK=Mesh%without_ghost_zones%mask1d(:))
-    ELSE
-       ! set to zero, i.e. no limit in y-direction due to diffusion
-       invdt_y = 0.0
-    END IF
-    ! z-direction
-    IF (Mesh%KNUM.GT.1) THEN
-       invdt_z = MAXVAL(this%kinvis%data1d(:)  / Mesh%dlz%data1d(:)**2, &
-                        MASK=Mesh%without_ghost_zones%mask1d(:))
-    ELSE
-       ! set to zero, i.e. no limit in z-direction due to diffusion
-       invdt_z = 0.0
-    END IF
-    ! largest time step due to diffusion
-    invdt_x = MAX(invdt_x, invdt_y,invdt_z)
-    IF (invdt_x.GT.TINY(invdt_x)) THEN
-       dt = this%cvis / invdt_x
+    IF (invdt.GT.TINY(invdt)) THEN
+       dt = this%cvis / invdt
     ELSE
        dt = HUGE(dt)
     END IF

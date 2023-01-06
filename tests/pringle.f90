@@ -72,11 +72,10 @@ PROGRAM pringle_test
   !> \remark #1: This test is very sensitive to mesh settings. If there are
   !!         not enough mesh points at small radii instabilities grow
   !!         starting at the inner boundary.
-  !! \remark #2: There is an unsolved stability issue with the viscous
-  !!         source term. The stability condition doesn't seem to be
-  !!         sufficient. Thus in case of high Reynolds numbers one has
-  !!         to adjust the viscous CFL number cvis to enforce smaller time
-  !!         steps and preserve stability.
+  !! \remark #2: The new implementation of the numerical stability criterion
+  !!         for advection-diffusion problems seems to work far better than
+  !!         before. However, it is sometimes necessary to adjust the viscous
+  !!         Courant number especially in very high Mach number flows MA~1000.
   !**************************************************************************!
   INTEGER, PARAMETER :: MGEO = CYLINDRICAL
 !   INTEGER, PARAMETER :: MGEO = LOGCYLINDRICAL
@@ -114,7 +113,11 @@ PROGRAM pringle_test
 #ifdef PARALLEL
   IF (Sim%GetRank().EQ.0) THEN
 #endif
+#ifdef HAVE_FGSL
 TAP_PLAN(4)
+#else
+TAP_PLAN(1)
+#endif
 #ifdef PARALLEL
   END IF
 #endif
@@ -195,10 +198,12 @@ TAP_PLAN(4)
 #endif
 TAP_CHECK(ok,"stoptime reached")
 ! These lines are very long if expanded. So we can't indent it or it will be cropped.
+#ifdef HAVE_FGSL
 TAP_CHECK_SMALL(sigma(DEN),5.0E-02,"density deviation < 5%")
 TAP_CHECK_SMALL(sigma(VX),8.0E-02,"radial velocity deviation < 8%")
 ! skip azimuthal velocity deviation, because exact value is 0
 TAP_CHECK_SMALL(sigma(VY),2.0E-04,"azimuthal velocity deviation < 0.02%")
+#endif
 TAP_DONE
 #ifdef PARALLEL
   END IF
@@ -244,9 +249,7 @@ CONTAINS
       bc(NORTH) = PERIODIC
       bc(BOTTOM) = NO_GRADIENTS
       bc(TOP)    = NO_GRADIENTS
-      !!! ATTENTION:  empirical formula found for standard parameters
-      !!!             seems to work for RMIN=0.05 and XRES <= 1000
-      cvis = (XRES/1207.0)**1.9
+      cvis = 0.3
     CASE(LOGCYLINDRICAL)
       x1 = LOG(RMIN/GPAR)
       x2 = LOG(RMAX/GPAR)
@@ -260,7 +263,7 @@ CONTAINS
       bc(NORTH) = PERIODIC
       bc(BOTTOM) = NO_GRADIENTS
       bc(TOP)    = NO_GRADIENTS
-      cvis = 0.1
+      cvis = 0.3
     CASE(SPHERICAL)
       x1 = RMIN
       x2 = RMAX
@@ -276,9 +279,7 @@ CONTAINS
       bc(NORTH) = NO_GRADIENTS
       bc(BOTTOM) = PERIODIC
       bc(TOP)    = PERIODIC
-      !!! ATTENTION:  empirical formula found for standard parameters
-      !!!             seems to work for RMIN=0.05 and XRES <= 1000
-      cvis = (XRES/1207.0)**1.9
+      cvis = 0.3
     CASE DEFAULT
       CALL Sim%Error("pringle::MakeConfig","mesh geometry not supported for Pringle disk")
     END SELECT
@@ -429,7 +430,7 @@ CONTAINS
     SELECT TYPE(bwest => Timedisc%Boundary%boundary(WEST)%p)
     CLASS IS (boundary_custom)
       CALL bwest%SetCustomBoundaries(Mesh,Physics, &
-        (/CUSTOM_NOGRAD,CUSTOM_EXTRAPOL,CUSTOM_KEPLER/))
+        (/CUSTOM_NOGRAD,CUSTOM_OUTFLOW,CUSTOM_KEPLER/))
     END SELECT
     SELECT TYPE(beast => Timedisc%Boundary%boundary(EAST)%p)
     CLASS IS (boundary_custom)
@@ -506,7 +507,7 @@ CONTAINS
     ! transform to conservative variables
     CALL Physics%Convert2Conservative(Timedisc%pvar,Timedisc%cvar)
 
-    CALL Mesh%Info(" DATA-----> initial condition: " // "pringle disk")
+    CALL Mesh%Info(" DATA-----> initial condition: " // "viscous spreading ring")
     WRITE(value,"(ES9.3)") TVIS
     CALL Mesh%Info("                               " // "viscous timescale:  " //TRIM(value))
     WRITE(value,"(ES9.3)") RE
