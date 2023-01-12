@@ -514,7 +514,8 @@ CONTAINS
   !!
   !! The limiting time step is computed according to the analysis of
   !! \cite hindmarsh1984 (see also  \cite noye1989 ) for explicit Euler
-  !! time-stepping with an upwind scheme for the advective transport step.
+  !! time-stepping with spatial upwinding for the advective transport step
+  !! (see eq. (99) in \cite hindmarsh1984 ).
   SUBROUTINE CalcTimestep_single(this,Mesh,Physics,Fluxes,pvar,cvar,time,dt)
     USE physics_eulerisotherm_mod, ONLY : physics_eulerisotherm, statevector_eulerisotherm
     USE physics_euler_mod, ONLY : physics_euler, statevector_euler
@@ -539,7 +540,7 @@ CONTAINS
       this%kinvis%data1d(:) = this%dynvis%data1d(:) / p%density%data1d(:)
     END SELECT
 
-    ! compute maximum of inverse time for CFL condition
+    ! compute maximum of inverse time step for combined advection-diffusion transport
     IF ((Mesh%JNUM.EQ.1).AND.(Mesh%KNUM.EQ.1)) THEN
        ! 1D, only x-direction
        invdt = MAXVAL((MAX(Fluxes%maxwav%data2d(:,1),-Fluxes%minwav%data2d(:,1))  &
