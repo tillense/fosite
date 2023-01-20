@@ -3,9 +3,10 @@
 !# fosite - 3D hydrodynamical simulation program                             #
 !# module: fileio_xdmf.f90                                                   #
 !#                                                                           #
-!# Copyright (C) 2013-2015                                                   #
+!# Copyright (C) 2013-2023                                                   #
 !# Manuel Jung <mjung@astrophysik.uni-kiel.de>                               #
 !# Jannes Klee <jklee@astrophysik.uni-kiel.de>                               #
+!# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
 !#                                                                           #
 !# This program is free software; you can redistribute it and/or modify      #
 !# it under the terms of the GNU General Public License as published by      #
@@ -26,6 +27,7 @@
 !----------------------------------------------------------------------------!
 !> \author Manuel Jung
 !! \author Jannes Klee
+!! \author Tobias Illenseer
 !!
 !! \brief module for XDMF file I/O
 !!
@@ -33,7 +35,15 @@
 !! heavy data in binary or hdf5 files. This implementation stores heavy data
 !! in binary files (See fileio_binary.f90).
 !!
+!! If the xdmf file fails loading in paraview [2] try validation using
+!!
+!! > `xmllint --noout --dtdvalid Xdmf.dtd <example_data_file.xmf>`
+!!
+!! with the dtd file from [3] .
+!!
 !! [1]: http://www.xdmf.org/index.php/XDMF_Model_and_Format
+!! [2]: https://www.paraview.org
+!! [3]: https://gitlab.kitware.com/xdmf/xdmf/blob/master/Xdmf.dtd
 !!
 !! \extends fileio_gnuplot
 !! \ingroup fileio
@@ -327,7 +337,7 @@ CONTAINS
       // 'AttributeType="' // TRIM(type) // '" ' &
       // 'Center="' // TRIM(center) // '">' // LF
 
-    CALL this%WriteDataItem(GetDimsStr(Mesh,dims), TRIM(filename), offset)
+    CALL this%WriteDataItem(GetDimsStr(dims), TRIM(filename), offset)
 
     WRITE(this%unit, IOSTAT=err)&
          '</Attribute>' // LF
@@ -349,7 +359,7 @@ CONTAINS
     CHARACTER(LEN=128)                :: dstr
     INTEGER                           :: err
     !------------------------------------------------------------------------!
-    dstr = GetDimsStr(Mesh,dims)
+    dstr = GetDimsStr(dims)
     WRITE(this%unit, IOSTAT=err)&
          '<Attribute Name="' // TRIM(name) // '" ' &
       // 'AttributeType="Vector" Center="Cell">' // LF&
@@ -377,29 +387,42 @@ CONTAINS
 
   !> Writes the mesh to file
   !!
-  SUBROUTINE WriteMeshXML(this,Mesh,filename,offset)
+  SUBROUTINE WriteMeshXML(this,Mesh,filename)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(fileio_xdmf), INTENT(INOUT) :: this     !< \param [in,out] this fileio type
     CLASS(mesh_base),   INTENT(IN)    :: Mesh     !< \param [in] mesh mesh type
     CHARACTER(LEN=*),   INTENT(IN)    :: filename !< \param [in] filename
-    INTEGER,            INTENT(INOUT) :: offset   !< \param [in,out] offset
     !------------------------------------------------------------------------!
     CHARACTER(LEN=64) :: dims
     CHARACTER(LEN=8)  :: inum, jnum, knum
     INTEGER           :: err
     !------------------------------------------------------------------------!
-    WRITE(inum,'(I8)') Mesh%INUM+1
-    WRITE(jnum,'(I8)') Mesh%JNUM+1
-    WRITE(knum,'(I8)') Mesh%KNUM+1
-    WRITE(dims,'(A,A,A,A,A)') TRIM(ADJUSTL(knum)), ' ',TRIM(ADJUSTL(jnum)), &
-                              ' ',TRIM(ADJUSTL(inum))
+!     WRITE(inum,'(I8)') Mesh%INUM+1
+!     WRITE(jnum,'(I8)') Mesh%JNUM+1
+!     WRITE(knum,'(I8)') Mesh%KNUM+1
+!     WRITE(dims,'(A,A,A,A,A)') TRIM(ADJUSTL(knum)), ' ',TRIM(ADJUSTL(jnum)), &
+!                               ' ',TRIM(ADJUSTL(inum))
+    SELECT CASE(Mesh%NDIMS)
+    CASE(1)
+        IF (Mesh%INUM.GT.1) dims = GetDimsStr( (/ Mesh%INUM+1 /) )
+        IF (Mesh%JNUM.GT.1) dims = GetDimsStr( (/ Mesh%JNUM+1 /) )
+        IF (Mesh%KNUM.GT.1) dims = GetDimsStr( (/ Mesh%KNUM+1 /) )
+    CASE(2)
+        IF (Mesh%INUM.EQ.1) dims = GetDimsStr( (/ Mesh%JNUM+1, Mesh%KNUM+1 /) )
+        IF (Mesh%JNUM.EQ.1) dims = GetDimsStr( (/ Mesh%INUM+1, Mesh%KNUM+1 /) )
+        IF (Mesh%KNUM.EQ.1) dims = GetDimsStr( (/ Mesh%INUM+1, Mesh%JNUM+1 /) )
+    CASE(3)
+        dims = GetDimsStr( (/ Mesh%INUM+1, Mesh%JNUM+1, Mesh%KNUM+1 /) )
+    CASE default
+      CALL this%Error("fileio_xdmf::WriteMeshXML","Mesh dimension should be 1,2,3")
+    END SELECT
 
 ! TODO 3D HACK should not be needed anymore, since now everything is 3D now
 ! \attention here was a bianglespherical hack
     WRITE(this%unit, IOSTAT=err) &
             '<Topology TopologyType="3DSMesh" ' &
-         // 'NumberOfElements="' // TRIM(dims) // '"/>' // LF &
+         // 'NumberOfElements=' // TRIM(dims) // '/>' // LF &
          // '<Geometry GeometryType="X_Y_Z">' // LF
     WRITE(this%unit, IOSTAT=err) &
          '<DataItem Reference="/Xdmf/Domain/Grid/Grid/Attribute[@Name='//"'/mesh/grid_x'"//']/DataItem[1]"/>' // LF &
@@ -468,7 +491,7 @@ CONTAINS
              '<Grid Name="step' // step // '" GridType="Uniform">' // LF &
           // '<Time Value="' // TRIM(time) // '" />' // LF
 
-        CALL this%WriteMeshXML(Mesh,filename,offset)
+        CALL this%WriteMeshXML(Mesh,filename)
         CALL this%WriteVector(Mesh,"/timedisc/velocity", &
                               (/Mesh%INUM,Mesh%JNUM,Mesh%KNUM/), &
                               "/timedisc/xvelocity","/timedisc/yvelocity", &
@@ -495,47 +518,58 @@ CONTAINS
   END SUBROUTINE WriteXMF
 
 
-  FUNCTION GetDimsStr(Mesh,dims) RESULT(res)
+  FUNCTION GetDimsStr(dims) RESULT(res)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(mesh_base),     INTENT(IN) :: Mesh
     INTEGER,DIMENSION(:), INTENT(IN) :: dims
     CHARACTER(LEN=128)               :: res
     !------------------------------------------------------------------------!
     INTEGER                          :: i, l
+    CHARACTER(LEN=128)               :: fmt
     CHARACTER(LEN=128), DIMENSION(:), ALLOCATABLE &
                                      :: buf
     !------------------------------------------------------------------------!
     l = SIZE(dims)
-    ALLOCATE(buf(l))
-    IF(l.GE.3) THEN
-      WRITE(buf(1),'(I8)') dims(3)
-      WRITE(buf(2),'(I8)') dims(2)
-      WRITE(buf(3),'(I8)') dims(1)
-      DO i=4,l
-        WRITE(buf(i),'(I8)') dims(i)
-      END DO
-      SELECT CASE(l)
-      CASE(2)
-        WRITE(res,'(A,A,A,A,A)') '"',TRIM(ADJUSTL(buf(1))),&
-          ' ',TRIM(ADJUSTL(buf(2))),'"'
-      CASE(3)
-        WRITE(res,'(A,A,A,A,A,A,A)') '"',TRIM(ADJUSTL(buf(1))),&
-          ' ',TRIM(ADJUSTL(buf(2))),' ',TRIM(ADJUSTL(buf(3))),'"'
-      CASE(4)
-        WRITE(res,'(A,A,A,A,A,A,A,A,A)') '"',TRIM(ADJUSTL(buf(1))),&
-          ' ',TRIM(ADJUSTL(buf(2))),' ',TRIM(ADJUSTL(buf(3))), &
-          ' ',TRIM(ADJUSTL(buf(4))),'"'
-      CASE(5)
-        WRITE(res,'(A,A,A,A,A,A,A,A,A,A,A)') '"',TRIM(ADJUSTL(buf(1))),&
-          ' ',TRIM(ADJUSTL(buf(2))),' ',TRIM(ADJUSTL(buf(3))), &
-          ' ',TRIM(ADJUSTL(buf(4))),' ',TRIM(ADJUSTL(buf(5))),'"'
-      END SELECT
+    IF (l.GT.0) THEN
+        ALLOCATE(buf(l))
+        WRITE(buf(1),'(A,I8)') '"', dims(1)
+        DO i=2,l
+            WRITE(buf(i),'(A,I8)') ' ',dims(i)
+        END DO
+        WRITE(fmt,'(A,I2,A)') '(', l+1, '(A))'
+        WRITE(res,fmt) buf(1:l), '"'
+        DEALLOCATE(buf)
     ELSE
-      WRITE(buf(1),'(I8)') dims(1)
-      WRITE(res,'(A,A,A)') '"',TRIM(ADJUSTL(buf(1))),'"'
+        res = ""
     END IF
-    DEALLOCATE(buf)
+!     IF(l.GE.3) THEN
+!       WRITE(buf(1),'(I8)') dims(3)
+!       WRITE(buf(2),'(I8)') dims(2)
+!       WRITE(buf(3),'(I8)') dims(1)
+!       DO i=4,l
+!         WRITE(buf(i),'(I8)') dims(i)
+!       END DO
+!       SELECT CASE(l)
+!       CASE(2)
+!         WRITE(res,'(A,A,A,A,A)') '"',TRIM(ADJUSTL(buf(1))),&
+!           ' ',TRIM(ADJUSTL(buf(2))),'"'
+!       CASE(3)
+!         WRITE(res,'(A,A,A,A,A,A,A)') '"',TRIM(ADJUSTL(buf(1))),&
+!           ' ',TRIM(ADJUSTL(buf(2))),' ',TRIM(ADJUSTL(buf(3))),'"'
+!       CASE(4)
+!         WRITE(res,'(A,A,A,A,A,A,A,A,A)') '"',TRIM(ADJUSTL(buf(1))),&
+!           ' ',TRIM(ADJUSTL(buf(2))),' ',TRIM(ADJUSTL(buf(3))), &
+!           ' ',TRIM(ADJUSTL(buf(4))),'"'
+!       CASE(5)
+!         WRITE(res,'(A,A,A,A,A,A,A,A,A,A,A)') '"',TRIM(ADJUSTL(buf(1))),&
+!           ' ',TRIM(ADJUSTL(buf(2))),' ',TRIM(ADJUSTL(buf(3))), &
+!           ' ',TRIM(ADJUSTL(buf(4))),' ',TRIM(ADJUSTL(buf(5))),'"'
+!       END SELECT
+!     ELSE
+!       WRITE(buf(1),'(I8)') dims(1)
+!       WRITE(res,'(A,A,A)') '"',TRIM(ADJUSTL(buf(1))),'"'
+!     END IF
+!     DEALLOCATE(buf)
   END FUNCTION GetDimsStr
 
   SUBROUTINE Finalize(this)

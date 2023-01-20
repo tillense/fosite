@@ -3,7 +3,10 @@
 !# fosite - 3D hydrodynamical simulation program                             #
 !# module: fileio_binary.f90                                                 #
 !#                                                                           #
-!# Copyright (C) 2015 Manuel Jung <mjung@astrophysik.uni-kiel.de>            #
+!# Copyright (C) 2015-2023                                                   #
+!# Manuel Jung <mjung@astrophysik.uni-kiel.de>                               #
+!# Jannes Klee      <jklee@astrophysik.uni-kiel.de>                          #
+!# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
 !#                                                                           #
 !# This program is free software; you can redistribute it and/or modify      #
 !# it under the terms of the GNU General Public License as published by      #
@@ -24,6 +27,7 @@
 !----------------------------------------------------------------------------!
 !> \author Manuel Jung
 !! \author Jannes Klee
+!! \author Tobias Illenseer
 !!
 !! \brief module for binary file I/O
 !!
@@ -82,8 +86,22 @@ MODULE fileio_binary_mod
   !--------------------------------------------------------------------------!
   PRIVATE
   CHARACTER, PARAMETER       :: LF = ACHAR(10)        !< line feed
+  !--------------------------------------------------------------------------!
+  !> FileIO binary class
   TYPE, EXTENDS(fileio_base) :: fileio_binary
+    !> \name Variables
+    LOGICAL                :: first       !< true if this is the first output
+    CHARACTER(LEN=12)      :: realfmt     !< real format string
+    CHARACTER(LEN=14)      :: endianness  !< endianness string
+    INTEGER                :: realsize    !< byte size of real numbers
+    INTEGER                :: intsize     !< byte size of integer numbers
+#ifdef PARALLEL
+    INTEGER                :: cfiletype   !< file data type for corner i/o
+#endif
+!     INTEGER, DIMENSION(:), POINTER :: &
+!                               disp        !< array of displacements
   CONTAINS
+    !> \name Methods
     PROCEDURE :: InitFileio_binary
     PROCEDURE :: WriteHeader
     !PROCEDURE :: ReadHeader
@@ -99,9 +117,10 @@ MODULE fileio_binary_mod
     PROCEDURE :: WriteNode
     PROCEDURE :: WriteKey
     PROCEDURE :: WriteDataAttributes
+    PROCEDURE :: GetPrecision
     PROCEDURE :: GetEndianness
-    PROCEDURE :: OpenFile
-    PROCEDURE :: CloseFile
+!     PROCEDURE :: OpenFile
+!     PROCEDURE :: CloseFile
   END TYPE
   !--------------------------------------------------------------------------!
   PUBLIC :: &
@@ -138,14 +157,14 @@ CONTAINS
     ! See: http://en.wikipedia.org/wiki/Endianness#Endianness_in_files_and_byte_swap
     ! II == Intel Format == Little Endian
     ! MM == Motorola Format == Big Endian
-    CALL GetEndianness(this, this%endianness, 'II','MM')
+    CALL this%GetEndianness(this%endianness, 'II','MM')
     this%realsize = SIZE(TRANSFER(r, mold))
     this%intsize = SIZE(TRANSFER(i, mold))
 
     IF(this%realsize.GT.8) &
       CALL this%Error("InitFileIO_binary","Only single and double precision are allowed")
 
-    WRITE(this%realfmt,'(A,I1,A)',IOSTAT=err) '"',this%realsize,'"'
+    WRITE(this%realfmt,'(A,I1,A)') '"',this%realsize,'"'
 
 #ifdef PARALLEL
     IF(Mesh%INUM.EQ.Mesh%IMAX) THEN
@@ -200,74 +219,73 @@ CONTAINS
 #endif
   END SUBROUTINE InitFileio_binary
 
-
-  !> \public Specific routine to open a file for binary I/O
-  !!
-  SUBROUTINE OpenFile(this,action)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(fileio_binary), INTENT(INOUT) :: this    !< \param [in,out] this fileio type
-    INTEGER                             :: action  !< \param [in] action mode of file access
-    !------------------------------------------------------------------------!
-#ifdef PARALLEL
-    INTEGER(KIND=MPI_OFFSET_KIND) :: offset  !< \param [in] offset offset for MPI
-#endif
-    !------------------------------------------------------------------------!
-    INTENT(IN)                    :: action
-    !------------------------------------------------------------------------!
-    SELECT CASE(action)
-    CASE(READONLY)
-#ifdef PARALLEL
-       CALL MPI_File_open(MPI_COMM_WORLD,this%GetFilename(),MPI_MODE_RDONLY, &
-            MPI_INFO_NULL,this%handle,this%error_io)
-        this%offset = 0
-        CALL MPI_File_seek(this%handle,this%offset,MPI_SEEK_SET,this%error_io)
-#else
-       OPEN(this%unit,FILE=this%GetFilename(),STATUS="OLD", &
-            ACCESS = 'STREAM' ,   &
-            ACTION="READ",POSITION="REWIND",IOSTAT=this%error_io)
-#endif
-    CASE(READEND)
-#ifdef PARALLEL
-       CALL MPI_File_open(MPI_COMM_WORLD,this%GetFilename(),IOR(MPI_MODE_RDONLY,&
-            MPI_MODE_APPEND),MPI_INFO_NULL,this%handle,this%error_io)
-       ! opening in append mode doesn't seem to work for pvfs2, hence ...
-       offset = 0
-       CALL MPI_File_seek(this%handle,offset,MPI_SEEK_END,this%error_io)
-       CALL MPI_File_sync(this%handle,this%error_io)
-#else
-       OPEN(this%unit,FILE=this%GetFilename(),STATUS="OLD", &
-            ACCESS = 'STREAM' ,   &
-            ACTION="READ",POSITION="APPEND",IOSTAT=this%error_io)
-#endif
-    CASE(REPLACE)
-#ifdef PARALLEL
-       CALL MPI_File_delete(this%GetFilename(),MPI_INFO_NULL,this%error_io)
-       CALL MPI_File_open(MPI_COMM_WORLD,this%GetFilename(),IOR(MPI_MODE_WRONLY,&
-            MPI_MODE_CREATE),MPI_INFO_NULL,this%handle,this%error_io)
-#else
-       OPEN(this%unit,FILE=this%GetFilename(),STATUS="REPLACE",&
-            ACCESS = 'STREAM' ,   &
-            ACTION="WRITE",POSITION="REWIND",IOSTAT=this%error_io)
-#endif
-    CASE(APPEND)
-#ifdef PARALLEL
-       CALL MPI_File_open(MPI_COMM_WORLD,this%GetFilename(),IOR(MPI_MODE_RDWR,&
-            MPI_MODE_APPEND),MPI_INFO_NULL,this%handle,this%error_io)
-       ! opening in append mode doesn't seem to work for pvfs2, hence ...
-       offset = 0
-       CALL MPI_File_seek(this%handle,offset,MPI_SEEK_END,this%error_io)
-       CALL MPI_File_sync(this%handle,this%error_io)
-#else
-       OPEN(this%unit,FILE=this%GetFilename(),STATUS="OLD",&
-            ACCESS = 'STREAM' ,   &
-            ACTION="READWRITE",POSITION="APPEND",IOSTAT=this%error_io)
-#endif
-    CASE DEFAULT
-       CALL this%Error("OpenFile","Unknown access mode.")
-    END SELECT
-  END SUBROUTINE OpenFile
-
+!   !> \public Specific routine to open a file for binary I/O
+!   !!
+!   SUBROUTINE OpenFile(this,action)
+!     IMPLICIT NONE
+!     !------------------------------------------------------------------------!
+!     CLASS(fileio_binary), INTENT(INOUT) :: this    !< \param [in,out] this fileio type
+!     INTEGER                             :: action  !< \param [in] action mode of file access
+!     !------------------------------------------------------------------------!
+! #ifdef PARALLEL
+!     INTEGER(KIND=MPI_OFFSET_KIND) :: offset  !< \param [in] offset offset for MPI
+! #endif
+!     !------------------------------------------------------------------------!
+!     INTENT(IN)                    :: action
+!     !------------------------------------------------------------------------!
+!     SELECT CASE(action)
+!     CASE(READONLY)
+! #ifdef PARALLEL
+!        CALL MPI_File_open(MPI_COMM_WORLD,this%GetFilename(),MPI_MODE_RDONLY, &
+!             MPI_INFO_NULL,this%handle,this%error_io)
+!         this%offset = 0
+!        CALL MPI_File_seek(this%handle,this%offset,MPI_SEEK_SET,this%error_io)
+! #else
+!        OPEN(this%unit,FILE=this%GetFilename(),STATUS="OLD", &
+!             ACCESS = 'STREAM' ,   &
+!             ACTION="READ",POSITION="REWIND",IOSTAT=this%error_io)
+! #endif
+!     CASE(READEND)
+! #ifdef PARALLEL
+!        CALL MPI_File_open(MPI_COMM_WORLD,this%GetFilename(),IOR(MPI_MODE_RDONLY,&
+!             MPI_MODE_APPEND),MPI_INFO_NULL,this%handle,this%error_io)
+!        ! opening in append mode doesn't seem to work for pvfs2, hence ...
+!        offset = 0
+!        CALL MPI_File_seek(this%handle,offset,MPI_SEEK_END,this%error_io)
+!        CALL MPI_File_sync(this%handle,this%error_io)
+! #else
+!        OPEN(this%unit,FILE=this%GetFilename(),STATUS="OLD", &
+!             ACCESS = 'STREAM' ,   &
+!             ACTION="READ",POSITION="APPEND",IOSTAT=this%error_io)
+! #endif
+!     CASE(REPLACE)
+! #ifdef PARALLEL
+!        CALL MPI_File_delete(this%GetFilename(),MPI_INFO_NULL,this%error_io)
+!        CALL MPI_File_open(MPI_COMM_WORLD,this%GetFilename(),IOR(MPI_MODE_WRONLY,&
+!             MPI_MODE_CREATE),MPI_INFO_NULL,this%handle,this%error_io)
+! #else
+!        OPEN(this%unit,FILE=this%GetFilename(),STATUS="REPLACE",&
+!             ACCESS = 'STREAM' ,   &
+!             ACTION="WRITE",POSITION="REWIND",IOSTAT=this%error_io)
+! #endif
+!     CASE(APPEND)
+! #ifdef PARALLEL
+!        CALL MPI_File_open(MPI_COMM_WORLD,this%GetFilename(),IOR(MPI_MODE_RDWR,&
+!             MPI_MODE_APPEND),MPI_INFO_NULL,this%handle,this%error_io)
+!        ! opening in append mode doesn't seem to work for pvfs2, hence ...
+!        offset = 0
+!        CALL MPI_File_seek(this%handle,offset,MPI_SEEK_END,this%error_io)
+!        CALL MPI_File_sync(this%handle,this%error_io)
+! #else
+!        OPEN(this%unit,FILE=this%GetFilename(),STATUS="OLD",&
+!             ACCESS = 'STREAM' ,   &
+!             ACTION="READWRITE",POSITION="APPEND",IOSTAT=this%error_io)
+! #endif
+!     CASE DEFAULT
+!        CALL this%Error("OpenFile","Unknown access mode.")
+!     END SELECT
+!   END SUBROUTINE OpenFile
+! 
   !> \public Write the file header
   !! The header is written in ASCII and is 13 Byte long.
   !! First a "magic" identifier is written, than the endianness (II=little,
@@ -684,10 +702,10 @@ CONTAINS
     END IF
 
     ! write data
-    CALL this%OpenFile(REPLACE)
+    CALL this%datafile%OpenFile(REPLACE)
     CALL this%WriteHeader(Mesh,Physics,Header,IO)
     CALL this%WriteDataAttributes(Mesh,IO)
-    CALL this%CloseFile()
+    CALL this%datafile%CloseFile()
     CALL this%IncTime()
 
 #ifdef PARALLEL
@@ -711,28 +729,49 @@ CONTAINS
 !    !------------------------------------------------------------------------!
 !  END SUBROUTINE ReadDataset_binary
 
+  !> \public Determines precision of real numbers in bytes
+  !!
+  !! Determines the precision (aka size) of a real number.
+  !! Single precision (4 bytes), double precision (8 bytes) and
+  !! quad precision (16 bytes) are possible results.
+  SUBROUTINE GetPrecision(this,realsize)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(fileio_binary), INTENT(INOUT) :: this     !< \param [in,out] this fileio type
+    INTEGER                          :: realsize !< \param [out] realsize size of real (byte)
+    !------------------------------------------------------------------------!
+    REAL                             :: real_number
+    !------------------------------------------------------------------------!
+    INTENT(OUT)                      :: realsize
+    !------------------------------------------------------------------------!
+    ! size of default real numbers in bytes
+    ! Fortran 2008 standard function!
+    realsize = STORAGE_SIZE(real_number)/8
+  END SUBROUTINE GetPrecision
+
   !> \public Determines the endianness of the system
   !!
   !! Determines the the endianess of the system (big or little endian)
   SUBROUTINE GetEndianness(this, res, littlestr, bigstr)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(fileio_binary), INTENT(INOUT) :: this         !< \param [in,out] this fileio type
-    CHARACTER(LEN=*)                    :: res          !< \param [out] res result string
-    CHARACTER(LEN=*)                    :: littlestr    !< \param [in] littlestr little endian str
-    CHARACTER(LEN=*)                    :: bigstr       !< \param [in] bigstr big endian str
+    CLASS(fileio_binary), INTENT(INOUT) :: this      !< \param [in,out] this fileio type
+    CHARACTER(LEN=*)                 :: res       !< \param [out] res result string
+    CHARACTER(LEN=*)                 :: littlestr !< \param [in] littlestr little endian str
+    CHARACTER(LEN=*)                 :: bigstr    !< \param [in] bigstr big endian str
     !------------------------------------------------------------------------!
-    INTEGER                             :: k,err,iTIPO
-    CHARACTER, POINTER                  :: cTIPO(:)
+    INTEGER                          :: k,iTIPO
+    CHARACTER, POINTER               :: cTIPO(:)
     !------------------------------------------------------------------------!
-    INTENT(OUT)                         :: res
+    INTENT(IN)                       :: littlestr, bigstr
+    INTENT(OUT)                      :: res
     !------------------------------------------------------------------------!
 
     !endianness
     k = BIT_SIZE(iTIPO)/8
-    ALLOCATE(cTIPO(k),STAT = err)
-       IF (err.NE.0) &
-         CALL this%Error("GetEndianness_binary", "Unable to allocate memory.")
+    ALLOCATE(cTIPO(k),STAT = this%error_io)
+       IF (this%error_io.NE.0) &
+         CALL this%Error("GetEndianness", "Unable to allocate memory.")
     cTIPO(1)='A'
     !cTIPO(2:k-1) = That's of no importance.
     cTIPO(k)='B'
@@ -740,10 +779,10 @@ CONTAINS
     iTIPO = transfer(cTIPO, iTIPO)
     DEALLOCATE(cTIPO)
     !Test of 'B'=b'01000010' ('A'=b'01000001')
-    IF (BTEST(iTIPO,1)) THEN ! big endian
-       write(res,'(A)',IOSTAT=err)bigstr
-    ELSE ! little endian
-       write(res,'(A)',IOSTAT=err)littlestr
+    IF (BTEST(iTIPO,1)) THEN
+       write(res,'(A)',IOSTAT=this%error_io)bigstr
+    ELSE
+       write(res,'(A)',IOSTAT=this%error_io)littlestr
     END IF
   END SUBROUTINE GetEndianness
 

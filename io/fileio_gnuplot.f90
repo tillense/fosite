@@ -3,7 +3,7 @@
 !# fosite - 3D hydrodynamical simulation program                             #
 !# module: fileio_gnuplot.f90                                                #
 !#                                                                           #
-!# Copyright (C) 2008-2017                                                   #
+!# Copyright (C) 2008-2023                                                   #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
 !# Björn Sperling   <sperling@astrophysik.uni-kiel.de>                       #
 !# Jannes Klee      <jklee@astrophysik.uni-kiel.de>                          #
@@ -53,16 +53,11 @@ MODULE fileio_gnuplot_mod
   IMPLICIT NONE
   !--------------------------------------------------------------------------!
   PRIVATE
-  ! exclude interface block from doxygen processing
-  !> \cond InterfaceBlock
-!  INTERFACE Error
-!     MODULE PROCEDURE Error_gnuplot, Error_common
-!  END INTERFACE
   ! Private Attributes section starts here:
-  !> \name some string lengths
+  !> some string lengths
   INTEGER, PARAMETER      :: HLEN = 10000         !< header length
   INTEGER, PARAMETER      :: DEFAULT_DECS = 5     !< default decimal places
-  !> \name some special strings
+  !> some special strings
   CHARACTER, PARAMETER    :: SP = ACHAR(32)       !< space
   CHARACTER, PARAMETER    :: LF = ACHAR(10)       !< line feed
   CHARACTER*2, PARAMETER  :: RECSEP = SP // SP    !< data record separator
@@ -72,12 +67,33 @@ MODULE fileio_gnuplot_mod
   CHARACTER(LEN=30), PARAMETER :: &
          header_string = "# Data output of fosite" // LINSEP
   CHARACTER(LEN=HLEN)  :: header_buf              !< buffer of header
-  !> \endcond
   !--------------------------------------------------------------------------!
+  !> FileIO gnuplot class
   TYPE, EXTENDS(fileio_base) :: fileio_gnuplot
-
+    !> \name Variables
+    CHARACTER(LEN=512)     :: heading     !< char buffer for heading (field data)
+    CHARACTER(LEN=512)     :: tsheading   !< char buffer for heading (time step data)
+    CHARACTER(LEN=64)      :: fmtstr      !< format string
+    CHARACTER(LEN=64)      :: linefmt     !< output line format string
+    INTEGER                :: COLS        !< number of output columns
+    INTEGER                :: TSCOLS      !< number of output columns for time step data
+    INTEGER                :: MAXCOLS     !< upper limit for output cols
+                                          !! (MAXCOLS < LEN(linebuf)/FLEN)
+    INTEGER                :: DECS        !< decimal places for real number output
+    INTEGER                :: FLEN        !< output field length
+    INTEGER                :: linelen     !< length of a line
+    INTEGER                :: tslinelen   !< length of a line for time step data
+#ifdef PARALLEL
+    !> \name Variables in parallel mode
+    INTEGER                :: blocknum    !< number of output blocks
+    INTEGER(KIND=MPI_ADDRESS_KIND) :: &
+                              realext, &  !< real data type extent
+                              intext      !< integer data type extent
+    CHARACTER, DIMENSION(:,:), POINTER :: &
+                              outbuf      !< output buffer
+#endif
   CONTAINS
-    ! methods
+    !> \name Methods
     PROCEDURE :: InitFileIO_gnuplot
     PROCEDURE :: Finalize
     PROCEDURE :: WriteHeader
@@ -85,128 +101,46 @@ MODULE fileio_gnuplot_mod
 !    PROCEDURE :: WriteTimestamp
 !    PROCEDURE :: ReadTimestamp
     PROCEDURE :: WriteDataset
-    PROCEDURE :: ReadDataset
-    PROCEDURE :: OpenFile
-    PROCEDURE :: CloseFile
-    PROCEDURE :: AdjustTimestep
-    PROCEDURE :: IncTime
-    PROCEDURE :: GetFilename
-    PROCEDURE :: GetFilestatus
+!     PROCEDURE :: ReadDataset
+    PROCEDURE :: GetOutputList
   END TYPE
 
   !> \}
   !--------------------------------------------------------------------------!
   PUBLIC :: &
        ! types
-       FileIO_TYP, &
-       ! constants
-       READONLY, READEND, REPLACE, APPEND, &
-       ASCII, BIN, &
-       FILE_EXISTS
+       fileio_gnuplot
  !--------------------------------------------------------------------------!
 
 CONTAINS
-
-  !> \public Generic constructor for file I/O
-  !!
-  !! Initilizes the file I/O type, filename and extension, stoptime,
-  !! number of outputs, number of files,
-  !! mode for parallel output (separate files), unit number
-  SUBROUTINE InitFileIO(this,Mesh,Physics,fmt,fmtname,fpath,filename,extension, &
-       stoptime,dtwall,count,fcycles,sepfiles,unit)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(fileio_base)  :: this            !< \param [in,out] this fileio type
-    CLASS(mesh_base)    :: Mesh            !< \param [in] Mesh mesh type
-    CLASS(physics_base) :: Physics         !< \param [in] Physics physics type
-    INTEGER             :: fmt             !< \param [in] fmt fileio type number
-    CHARACTER(LEN=*)    :: fmtname         !< \param [in] fmtname name of fileio
-    CHARACTER(LEN=*)    :: fpath           !< \param [in] fpath
-    CHARACTER(LEN=*)    :: filename        !< \param [in] filename
-    CHARACTER(LEN=*)    :: extension       !< \param [in] extension file extension
-    REAL                :: stoptime        !< \param [in] stoptime
-    INTEGER             :: dtwall          !< \param [in] dtwall wall clock time
-    INTEGER             :: count           !< \param [in] count number of outputs
-    INTEGER             :: fcycles         !< \param [in] fcycles file cycle number
-    LOGICAL             :: sepfiles        !< \param [in] sepfiles different files
-    INTEGER, OPTIONAL   :: unit            !< \param [in] unit fileio unit number
-    !------------------------------------------------------------------------!
-    INTENT(IN)    :: Mesh,Physics,fmt,fmtname,fpath,filename,extension,stoptime, &
-         dtwall,count,fcycles,sepfiles,unit
-    INTENT(INOUT) :: this
-    !------------------------------------------------------------------------!
-    ! basic FileIO initialization
-    CALL this%InitFileIO_common(fmt,fmtname,fpath,filename,extension,fcycles,sepfiles,unit)
-
-    this%stoptime = stoptime
-    this%dtwall   = dtwall
-    this%time     = 0.
-    this%count    = count
-    this%step     = 0
-    ! count the number of output columns, i.e. fields per data point
-
-#ifdef PARALLEL
-    ! check data type extents in files
-    ! first try to create a new dummy file
-    CALL MPI_File_open(MPI_COMM_WORLD,GetFilename(this),IOR(IOR(MPI_MODE_RDWR,&
-         MPI_MODE_CREATE),IOR(MPI_MODE_EXCL,MPI_MODE_DELETE_ON_CLOSE)),&
-         MPI_INFO_NULL,this%handle,this%error)
-    ! maybe file exists
-    IF (this%error.NE.0) CALL MPI_File_open(MPI_COMM_WORLD,GetFilename(this),&
-         MPI_MODE_RDONLY,MPI_INFO_NULL,this%handle,this%error)
-    ! then check the data type sizes
-    ! extent of integer in file
-    IF (this%error.EQ.0) CALL MPI_File_get_type_extent(this%handle,MPI_INTEGER,&
-         this%intext,this%error)
-    ! extent of real in file
-    IF (this%error.EQ.0) CALL MPI_File_get_type_extent(this%handle,DEFAULT_MPI_REAL,&
-         this%realext,this%error)
-    IF (this%error.NE.0) CALL Error(this,"InitFileIO","unable to check file properties")
-    CALL MPI_File_close(this%handle,this%error)
-#endif
-  END SUBROUTINE InitFileIO
-
 
   !> \public Constructor for the GNUPLOT file I/O
   !!
   !! Initilizes the file I/O type, filename, stoptime, number of outputs,
   !! number of files, unit number, config as a dict
-  SUBROUTINE InitFileIO_gnuplot(this,Mesh,Physics,IO,fmt,fpath,filename,stoptime,dtwall,&
-       count,fcycles,unit,config)
+  SUBROUTINE InitFileIO_gnuplot(this,Mesh,Physics,Timedisc,Sources,config,IO)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(fileio_base)              :: this     !< \param [in,out] this fileio type
-    CLASS(mesh_base)                :: Mesh     !< \param [in] Mesh mesh type
-    CLASS(physics_base)             :: Physics  !< \param [in] Physics Physics type
-    TYPE(Dict_TYP),POINTER          :: IO       !< \param [in] IO Dictionary for I/O
-    !> \param [in] config Dictionary with configuration
-    TYPE(Dict_TYP),POINTER,OPTIONAL :: config
-    INTEGER                         :: fmt      !< \param [in] fmt fileio type number
-    CHARACTER(LEN=*)                :: fpath    !< \param [in] fpath
-    CHARACTER(LEN=*)                :: filename !< \param [in] filename
-    REAL                            :: stoptime !< \param [in] stoptime
-    INTEGER                         :: dtwall   !< \param [in] dtwall wall clock time
-    INTEGER                         :: count    !< \param [in] count number of outputs
-    INTEGER                         :: fcycles  !< \param [in] fcycles file cycle number
-    INTEGER                         :: unit     !< \param [in] unit fileio unit number
+    CLASS(fileio_gnuplot),INTENT(INOUT)      :: this     !< \param [in,out] this fileio type
+    CLASS(mesh_base),    INTENT(IN)          :: Mesh     !< \param [in] Mesh mesh type
+    CLASS(physics_base), INTENT(IN)          :: Physics  !< \param [in] Physics physics type
+    CLASS(timedisc_base),INTENT(IN)          :: Timedisc !< \param [in] Timedisc timedisc type
+    CLASS(sources_base), INTENT(IN), POINTER :: Sources  !< \param [in] Sources sources type
+    TYPE(Dict_TYP),      INTENT(IN), POINTER :: config   !< \param [in] config dict with I/O configuration
+    TYPE(Dict_TYP),      INTENT(IN), POINTER :: IO       !< \param [in] IO dict with pointers to I/O arrays
     !------------------------------------------------------------------------!
     TYPE(Dict_TYP), POINTER                   :: node
-    REAL, DIMENSION(:,:), POINTER             :: dummy2
-    REAL, DIMENSION(:,:,:), POINTER           :: dummy3
+    CHARACTER(LEN=128),DIMENSION(4)           :: skip
+    REAL, DIMENSION(:,:,:,:), POINTER         :: dummy4
     INTEGER                                   :: cartcoords
     INTEGER                                   :: depth
-    INTEGER                                   :: err
+    INTEGER                                   :: n
 #ifdef PARALLEL
     INTEGER                                   :: i
     INTEGER, DIMENSION(Mesh%IMAX-Mesh%IMIN+1) :: blocklen,indices
 #endif
     !------------------------------------------------------------------------!
-    INTENT(IN)    :: Mesh,Physics,fmt,fpath,filename,stoptime,dtwall,count,fcycles,&
-                     unit
-    INTENT(INOUT) :: this
-    !------------------------------------------------------------------------!
-    CALL this%InitFileIO(Mesh,Physics,fmt,"GNUPLOT",fpath,filename,"dat",stoptime,&
-         dtwall,count,fcycles,.FALSE.,unit)
+    CALL this%InitFileio(Mesh,Physics,Timedisc,Sources,config,IO,"gnuplot","dat")
 
     CALL GetAttr(config, "/datafile/decimals", this%DECS, DEFAULT_DECS)
     ! compute length of character field for real number output
@@ -214,11 +148,14 @@ CONTAINS
     ! flen = 1 (sign) + 1 (one digit) + 1 (decimal point) + decs (decimal places)
     !      + 1 (E character) + 1 (sign of exponent) + 2 (exponent digits) + 2 (spaces)
     this%FLEN = this%DECS + 9
-    this%maxcols = len(this%linebuf)/this%FLEN-1
+    this%MAXCOLS = len(this%linebuf)/this%FLEN-1
 
-    ALLOCATE(this%output(this%maxcols),STAT=err)
-    IF (this%error.NE.0) &
-       CALL this%Error("InitFileIO_gnuplot","memory allocation failed for this%output")
+    ALLOCATE(this%output(this%MAXCOLS),STAT=this%err)
+    IF (this%err.EQ.0) &
+      ! create pointer to coordinate arrays depending on mesh dimensionality
+      ALLOCATE(this%output(1)%p(Mesh%NDIMS),STAT=this%err)
+    IF (this%err.NE.0) &
+      CALL this%Error("fileio_gnuplot::InitFileIO","memory allocation failed for this%output")
 
     ! check if cartesian coordinates are selected for output;
     ! default: curvilinear coordinates (0)
@@ -227,40 +164,40 @@ CONTAINS
     node => config
     CALL WriteHeaderString(header_buf,node,depth)
     IF (cartcoords.EQ.0) THEN
-       CALL GetAttr(IO,"/mesh/bary_curv",dummy3)
+       CALL GetAttr(IO,"/mesh/bary_curv",dummy4)
     ELSE
-       CALL GetAttr(IO,"/mesh/bary_centers",dummy3)
+       CALL GetAttr(IO,"/mesh/bary_centers",dummy4)
     END IF
-    ! pointer to sub-array: set lower bounds
-    ! use special function for bound remapping
-    IF (Mesh%INUM.EQ.1) THEN
-      ! use format string as temp
-      WRITE (this%fmtstr,'(A5,I2,A1)')'(A1,A',this%FLEN-3,')'
-      WRITE(this%linebuf,TRIM(this%fmtstr))'#','y'
-      this%output(1)%val => dummy3(:,:,2)
-      this%COLS = 1
-    ELSE IF (Mesh%JNUM.EQ.1) THEN
-      WRITE (this%fmtstr,'(A5,I2,A1)')'(A1,A',this%FLEN-3,')'
-      WRITE(this%linebuf,TRIM(this%fmtstr))'#','x'
-      this%output(1)%val => dummy3(:,:,1)
-      this%COLS = 1
-    ELSE
-      WRITE (this%fmtstr,'(A5,I2,A2,I2,A1)')'(A1,A',this%FLEN-3,',A',this%FLEN-1,')'
-      WRITE(this%linebuf,TRIM(this%fmtstr))'#','x','y'
-      this%output(1)%val => dummy3(:,:,1)
-      this%output(2)%val => dummy3(:,:,2)
-      this%COLS = 2
-    END IF
+    DO n=1,Mesh%NDIMS
+       this%output(1)%p(n)%val => dummy4(:,:,:,n)
+    END DO
+    
+    !!!!!! ATTENTION should be repaired
+!     IF (Mesh%INUM.EQ.1) THEN
+!       ! use format string as temp
+!       WRITE (this%fmtstr,'(A5,I2,A1)')'(A1,A',this%FLEN-3,')'
+!       WRITE(this%linebuf,TRIM(this%fmtstr))'#','y'
+!       this%COLS = 1
+!     ELSE IF (Mesh%JNUM.EQ.1) THEN
+!       WRITE (this%fmtstr,'(A5,I2,A1)')'(A1,A',this%FLEN-3,')'
+!       WRITE(this%linebuf,TRIM(this%fmtstr))'#','x'
+!       this%COLS = 1
+!     ELSE
+!       WRITE (this%fmtstr,'(A5,I2,A2,I2,A1)')'(A1,A',this%FLEN-3,',A',this%FLEN-1,')'
+!       WRITE(this%linebuf,TRIM(this%fmtstr))'#','x','y'
+!       this%COLS = 2
+!     END IF
 
     ! set output-pointer and count the number of output columns
     WRITE (this%fmtstr,'(A,I2,A1)')'(A',this%FLEN-1,')'
     node => IO
-    CALL this%GetOutputPointer(Mesh,node,this%COLS)
+    skip(1:4) = [CHARACTER(LEN=128) :: "bary_centers", "bary_curv", "corners", "time"]
+    CALL this%GetOutputList(Mesh,skip,node,this%COLS,this%TSCOLS)
 
     ! length of one output line
     this%linelen = this%COLS * this%FLEN
     IF (this%linelen.GT.LEN(this%linebuf)) &
-       CALL this%Error("InitFileIO_gnuplot", &
+       CALL this%Error("fileio_gnuplot::InitFileIO", &
           "linebuffer to small; reducing decimals or number of output fields may help")
 
     header_buf = TRIM(header_string) // TRIM(header_buf) // this%linebuf(1:this%linelen)
@@ -268,6 +205,7 @@ CONTAINS
     ! local domain size
     this%inum = Mesh%IMAX - Mesh%IMIN + 1
     this%jnum = Mesh%JMAX - Mesh%JMIN + 1
+    this%knum = Mesh%KMAX - Mesh%KMIN + 1
 
 !#ifdef PARALLEL
 !    ! create new data type handle for one line
@@ -370,324 +308,165 @@ CONTAINS
   !!
   !! Therefore it ignores all arrays with coordinates and checks if the data
   !! arrays are of the dimension of the mesh.
-  RECURSIVE SUBROUTINE GetOutputPointer(this,Mesh,node,k)
+  RECURSIVE SUBROUTINE GetOutputList(this,Mesh,skip,node,oarr,onum)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(fileio_base)      :: this  !< \param [in,out] this fileio type
-    CLASS(mesh_base)        :: Mesh  !< \param [in] mesh mesh type
-    TYPE(Dict_TYP), POINTER :: node  !< \param [in,out] node pointer to (sub-)dict
-    INTEGER                 :: k     !< \param [in,out] k number of data arrays
+    CLASS(fileio_gnuplot), INTENT(INOUT) :: this  !< \param [in,out] this fileio type
+    CLASS(mesh_base), INTENT(IN)         :: Mesh  !< \param [in] mesh mesh type
+    CHARACTER(LEN=128), DIMENSION(:), INTENT(IN) &
+                                         :: skip  !< \param [in] skip list of keys to skip
+    TYPE(Dict_TYP), POINTER              :: node  !< \param [in,out] node pointer to (sub-)dict
+    INTEGER, INTENT(INOUT)               :: oarr  !< \param [in,out] number of output arrays
+    INTEGER, INTENT(INOUT)               :: onum  !< \param [in,out] number of output numbers
     !------------------------------------------------------------------------!
-    TYPE(Dict_TYP), POINTER           :: dir
-    REAL, DIMENSION(:,:), POINTER     :: dummy2
-    REAL, DIMENSION(:,:,:), POINTER   :: dummy3
-    REAL, DIMENSION(:,:,:,:), POINTER :: dummy4
-    INTEGER, DIMENSION(4)             :: dims
-    INTEGER                           :: dim3,dim4,i,j
-    !------------------------------------------------------------------------!
-    INTENT(IN)    :: Mesh
-    INTENT(INOUT) :: this,k
+    TYPE(Dict_TYP), POINTER              :: dir
+    TYPE(Real_t), POINTER                :: dummy1
+    REAL, DIMENSION(:,:,:), POINTER      :: dummy3
+    REAL, DIMENSION(:,:,:,:), POINTER    :: dummy4
+    REAL, DIMENSION(:,:,:,:,:), POINTER  :: dummy5
+    INTEGER, DIMENSION(5)                :: dims
+    INTEGER                              :: m,n
     !------------------------------------------------------------------------!
     ! reset error code
-    this%error = 0
-    DO WHILE(ASSOCIATED(node))
+    this%err = 0
+    DO WHILE(ASSOCIATED(node).AND.this%err.EQ.0)
       ! check for directory and exclude any coordinates (these are handled elsewhere)
       IF(HasChild(node)) THEN
-      ! recursion
+        ! recursion
         CALL GetAttr(node,GetKey(node),dir)
-        CALL GetOutputPointer(this,Mesh,dir,k)
-      ELSE IF (HasData(node).AND. .NOT.(GetKey(node).EQ."bary_curv".OR. &
-        GetKey(node).EQ."bary_centers".OR.GetKey(node).EQ."corners")) THEN
-        WRITE(this%linebuf(k*this%FLEN:),TRIM(this%fmtstr))TRIM(GetKey(node))
-      ! value found!
-        SELECT CASE(GetDataType(node))
-        CASE(DICT_REAL_TWOD)
-          CALL GetAttr(node,GetKey(node),dummy2)
-          dims(1:2) = SHAPE(dummy2)
-          IF((dims(1).EQ.Mesh%IMAX-Mesh%IMIN+1).AND.&
-             (dims(2).EQ.Mesh%JMAX-Mesh%JMIN+1)) THEN
-            k = k+1
-            IF (k .GT. this%maxcols) THEN
-               this%error = 1
-               EXIT
-            END IF
-            this%output(k)%val=> dummy2
-          END IF
-        CASE(DICT_REAL_THREED)
-          CALL GetAttr(node,GetKey(node),dummy3)
-          dims(1:3) = SHAPE(dummy3)
-          IF((dims(1).EQ.Mesh%IMAX-Mesh%IMIN+1).AND.&
-             (dims(2).EQ.Mesh%JMAX-Mesh%JMIN+1)) THEN
-            dim3 = SIZE(dummy3, DIM = 3)
-            IF (k+dim3 .GT. this%maxcols) THEN
-               this%error = 1
-               EXIT
-            END IF
-            DO i=k+1, k+dim3
-              this%output(i)%val => dummy3(:,:,i-k)
-            END DO
-            k = k+dim3
-          END IF
-        CASE(DICT_REAL_FOURD)
-          CALL GetAttr(node,GetKey(node),dummy4)
-          dims(1:4) = SHAPE(dummy4)
-          IF((dims(1).EQ.Mesh%IMAX-Mesh%IMIN+1).AND.&
-             (dims(2).EQ.Mesh%JMAX-Mesh%JMIN+1)) THEN
-            dim3 = SIZE(dummy4, DIM = 3)
-            dim4 = SIZE(dummy4, DIM = 4)
-            IF (k+dim3*dim4 .GT. this%maxcols) THEN
-               this%error = 1
-               EXIT
-            END IF
-            DO j=1,dim4
-              DO i=1,dim3
-              this%output(k+j+(i-1)*dim4)%val => dummy4(:,:,i,j)
-              END DO
-            END DO
-            k = k+dim3*dim4
-          END IF
-        CASE DEFAULT
-          !do nothing (wrong type)
-        END SELECT
+        CALL GetOutputList(this,Mesh,skip,dir,oarr,onum)
+      ELSE IF (HasData(node).AND..NOT.ANY(skip(:) == GetKey(node))) THEN
+        ! check data properties
+!         SELECT CASE(GetDataType(node))
+!         CASE(DICT_REAL_THREED)
+!           ! real 3D array
+!           CALL GetAttr(node,GetKey(node),dummy3)
+!           dims(1:3) = SHAPE(dummy3)
+!           ! check if it has mesh dimensions
+!           IF((dims(1).EQ.Mesh%IMAX-Mesh%IMIN+1).AND.&
+!              (dims(2).EQ.Mesh%JMAX-Mesh%JMIN+1).AND.&
+!              (dims(3).EQ.Mesh%KMAX-Mesh%KMIN+1)) THEN
+!             oarr = oarr + 1
+!             IF (oarr .GT. this%MAXCOLS) THEN
+!                this%err = 1
+!                EXIT
+!             END IF
+!             this%output(oarr)%pval => dummy3
+!             this%output(oarr)%key => GetKey(node)
+!           END IF
+!         CASE(DICT_REAL_FOURD)
+!           ! real 4D array
+!           CALL GetAttr(node,GetKey(node),dummy4)
+!           dims(1:4) = SHAPE(dummy4)
+!           IF((dims(1).EQ.Mesh%IMAX-Mesh%IMIN+1).AND.&
+!              (dims(2).EQ.Mesh%JMAX-Mesh%JMIN+1).AND.&
+!              (dims(3).EQ.Mesh%KMAX-Mesh%KMIN+1)) THEN
+!             IF (oarr+dims(4) .GT. this%MAXCOLS) THEN
+!                this%err = 1
+!                EXIT
+!             END IF
+!             DO m=1,dims(4)
+!               this%output(oarr+m)%val => dummy4(:,:,:,m)
+!             END DO
+!             this%output(oarr+1)%key = GetKey(node)
+!             this%output(oarr+2:oarr+dims(4))%key = ""
+!             oarr = oarr + dims(4)
+!           END IF
+!         CASE(DICT_REAL_FIVED)
+!           ! real 5D array
+!           CALL GetAttr(node,GetKey(node),dummy5)
+!           dims(1:5) = SHAPE(dummy5)
+!           IF((dims(1).EQ.Mesh%IMAX-Mesh%IMIN+1).AND.&
+!              (dims(2).EQ.Mesh%JMAX-Mesh%JMIN+1).AND.&
+!              (dims(3).EQ.Mesh%KMAX-Mesh%KMIN+1)) THEN
+!             IF (oarr+dims(4)*dims(5) .GT. this%MAXCOLS) THEN
+!                this%err = 1
+!                EXIT
+!             END IF
+!             DO n=1,dims(5)
+!               DO m=1,dims(4)
+!                 this%output(oarr+n+(m-1)*dims(5))%val => dummy5(:,:,:,m,n)
+!               END DO
+!             END DO
+!             this%output(oarr+1)%key = GetKey(node)
+!             this%output(oarr+2:onum+dims(4)*dims(5))%key = ""
+!             oarr = oarr + dims(4)*dims(5)
+!           END IF          
+!         CASE(DICT_REAL_P)
+!           CALL GetAttr(node,GetKey(node),dummy1)
+!           IF (ASSOCIATED(dummy1%p)) THEN
+!              onum = onum + 1
+!              this%tsoutput(onum)%val => dummy1%p
+!              this%tsoutput(onum)%key = GetKey(node)
+!           END IF
+!         CASE DEFAULT
+!           !do nothing (wrong type)
+!         END SELECT
       END IF
       node=>GetNext(node)
     END DO
-    IF (this%error.NE.0) &
-         CALL Error(this,"GetOutputPointer_gnuplot","number of output fields exceeds upper limit")
-  END SUBROUTINE GetOutputPointer
+    IF (this%err.NE.0) &
+         CALL Error(this,"fileio_gnuplot::GetOutputList","number of output fields exceeds upper limit")
+  END SUBROUTINE GetOutputList
 
-
-  !> \public Adjust the current timestep
-  !!
-  !! Last timestep before output must fit to desired time for output.
- PURE SUBROUTINE AdjustTimestep(this,time,dt,dtcause)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(fileio_base) :: this    !< \param [in] this fileio type
-    REAL               :: time    !< \param [in,out] time
-    REAL               :: dt      !< \param [in,out] dt timestep
-    INTEGER            :: dtcause !< \param [in,out] dtcause cause of smallest dt
-    !------------------------------------------------------------------------!
-    INTENT(IN)         :: this
-    INTENT(INOUT)      :: time,dt,dtcause
-    !------------------------------------------------------------------------!
-    IF ((time+dt)/this%time.GT.1.0) THEN
-       dt = this%time - time
-       dtcause = DTCAUSE_FILEIO
-    ELSE IF((time+1.5*dt)/this%time.GT.1.0) THEN
-       dt = 0.5*(this%time - time)
-       dtcause = DTCAUSE_FILEIO
-    END IF
-  END SUBROUTINE AdjustTimestep
-
-  !> \public Increments the counter for timesteps and sets the time for next output
-  !!
-  PURE SUBROUTINE IncTime(this)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(fileio_base), INTENT(INOUT) :: this!< \param [in,out] this fileio type
-    !------------------------------------------------------------------------!
-    this%time = this%time + ABS(this%stoptime) / this%count
-    this%step = this%step + 1
-  END SUBROUTINE IncTime
-
-  !> \public Generic routine to open a file
-  !!
-  SUBROUTINE OpenFile(this,action,fformat)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(fileio_base) :: this               !< \param [in,out] this fileio type
-    INTEGER            :: action             !< \param [in] action mode of open
-    CHARACTER(LEN=*)   :: fformat            !< \param [in] fformat file format
-    !------------------------------------------------------------------------!
-#ifdef PARALLEL
-    INTEGER(KIND=MPI_OFFSET_KIND) :: offset!< \param [in] offset offset for MPI
-#endif
-    !------------------------------------------------------------------------!
-    INTENT(IN)       :: action,fformat
-    INTENT(INOUT)    :: this
-    !------------------------------------------------------------------------!
-    SELECT CASE(action)
-    CASE(READONLY)
-#ifdef PARALLEL
-       CALL MPI_File_open(MPI_COMM_WORLD,GetFilename(this),MPI_MODE_RDONLY, &
-            MPI_INFO_NULL,this%handle,this%error)
-        this%offset = 0
-        CALL MPI_File_seek(this%handle,this%offset,MPI_SEEK_SET,this%error)
-#else
-       OPEN(this%unit,FILE=GetFilename(this),FORM=fformat,STATUS="OLD", &
-            ACTION="READ",POSITION="REWIND",IOSTAT=this%error)
-       !REWIND (UNIT=this%unit,IOSTAT=this%error)
-#endif
-    CASE(READEND)
-#ifdef PARALLEL
-       CALL MPI_File_open(MPI_COMM_WORLD,GetFilename(this),IOR(MPI_MODE_RDONLY,&
-            MPI_MODE_APPEND),MPI_INFO_NULL,this%handle,this%error)
-       ! opening in append mode doesn't seem to work for pvfs2, hence ...
-       offset = 0
-       CALL MPI_File_seek(this%handle,offset,MPI_SEEK_END,this%error)
-       CALL MPI_File_sync(this%handle,this%error)
-#else
-       OPEN(this%unit,FILE=GetFilename(this),FORM=fformat,STATUS="OLD", &
-            ACTION="READ",POSITION="APPEND",IOSTAT=this%error)
-#endif
-    CASE(REPLACE)
-#ifdef PARALLEL
-       CALL MPI_File_delete(GetFilename(this),MPI_INFO_NULL,this%error)
-       CALL MPI_File_open(MPI_COMM_WORLD,GetFilename(this),IOR(MPI_MODE_WRONLY,&
-            MPI_MODE_CREATE),MPI_INFO_NULL,this%handle,this%error)
-#else
-       OPEN(this%unit,FILE=GetFilename(this),FORM=fformat,STATUS="REPLACE",&
-            ACTION="WRITE",POSITION="REWIND",IOSTAT=this%error)
-#endif
-    CASE(APPEND)
-#ifdef PARALLEL
-       CALL MPI_File_open(MPI_COMM_WORLD,GetFilename(this),IOR(MPI_MODE_RDWR,&
-            MPI_MODE_APPEND),MPI_INFO_NULL,this%handle,this%error)
-       ! opening in append mode doesn't seem to work for pvfs2, hence ...
-       offset = 0
-       CALL MPI_File_seek(this%handle,offset,MPI_SEEK_END,this%error)
-       CALL MPI_File_sync(this%handle,this%error)
-#else
-       OPEN(this%unit,FILE=GetFilename(this),FORM=fformat,STATUS="OLD",&
-            ACTION="READWRITE",POSITION="APPEND",IOSTAT=this%error)
-#endif
-    CASE DEFAULT
-       CALL Error(this,"OpenFile","Unknown access mode.")
-    END SELECT
-  END SUBROUTINE OpenFile
-
-
-  !> \public Specific routine to open a file for gnuplot I/O
-  !!
-  SUBROUTINE OpenFile_gnuplot(this,action)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(fileio_base) :: this   !< \param [in,out] this fileio type
-    INTEGER            :: action !< \param [in] action mode of file access
-    !------------------------------------------------------------------------!
-    INTENT(IN)         :: action
-    INTENT(INOUT)      :: this
-    !------------------------------------------------------------------------!
-    CALL this%OpenFile(action,ASCII)
-  END SUBROUTINE OpenFile_gnuplot
-
-
-  !> \public routine to close a file
-  !!
-  SUBROUTINE CloseFile_gnuplot(this)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(fileio_base) :: this  !< \param [in,out] this fileio type
-    !------------------------------------------------------------------------!
-    INTENT(INOUT)      :: this
-    !------------------------------------------------------------------------!
-#ifdef PARALLEL
-    CALL MPI_File_close(this%handle,this%error)
-#else
-    CLOSE(this%unit,IOSTAT=this%error)
-#endif
-  END SUBROUTINE CloseFile_gnuplot
 
   !> \public Writes the configuration as a header to the file
   !!
-  SUBROUTINE WriteHeader(this)
+  SUBROUTINE WriteHeader(this,Mesh,Physics,Header,IO)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(fileio_base) :: this  !< \param [in,out] this fileio type
+    CLASS(fileio_gnuplot), INTENT(INOUT) :: this      !< \param [in,out] this fileio type
+    CLASS(mesh_base),      INTENT(IN)    :: Mesh      !< \param [in] Mesh mesh type
+    CLASS(physics_base),   INTENT(IN)    :: Physics   !< \param [in] Physics physics type
+    TYPE(Dict_TYP), POINTER              :: Header,IO
     !------------------------------------------------------------------------!
-    INTENT(INOUT)      :: this
-    !------------------------------------------------------------------------!
-    IF (GetRank(this).EQ.0) THEN
+    IF (this%GetRank().EQ.0) THEN
 #ifdef PARALLEL
        CALL MPI_File_write(this%handle,TRIM(header_buf),LEN(TRIM(header_buf)), &
-            MPI_CHARACTER,this%status,this%error)
+            MPI_CHARACTER,this%status,this%err)
 #else
-       WRITE (this%unit,FMT='(A)',IOSTAT=this%error) TRIM(header_buf) !(1:HLEN-1)
+       WRITE (this%unit,FMT='(A)',IOSTAT=this%err) TRIM(header_buf) !(1:HLEN-1)
 #endif
     END IF
   END SUBROUTINE WriteHeader
 
-  !> \public Reads the header (not yet implemented)
-  !!
-  SUBROUTINE ReadHeader_gnuplot(this,success)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(fileio_base) :: this     !< \param [in,out] this fileio type
-    LOGICAL            :: success  !< \param [out] success
-    !------------------------------------------------------------------------!
-    INTENT(OUT)        :: success
-    INTENT(INOUT)      :: this
-    !------------------------------------------------------------------------!
-#ifdef PARALLEL
-    IF (GetRank(this).EQ.0) THEN
-    END IF
-#else
-#endif
-    success = .FALSE.
-  END SUBROUTINE ReadHeader_gnuplot
-
-  !> \public Writes the timestep (not yet implemented)
-  !!
-  SUBROUTINE WriteTimestamp_gnuplot(this,time)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(fileio_base) :: this   !< \param [in,out] this fileio type
-    REAL               :: time   !< \param [in] time
-    !------------------------------------------------------------------------!
-    INTENT(IN)         :: time
-    INTENT(INOUT)      :: this
-    !------------------------------------------------------------------------!
-    IF (GetRank(this).EQ.0) THEN
-#ifdef PARALLEL
-#else
-#endif
-    END IF
-!!$    CALL Warning(this,"WriteTimestamp_gnuplot",&
-!!$         "function is not implemented")
-  END SUBROUTINE WriteTimestamp_gnuplot
-
-  !> \public Reads the timestep (not yet implemented)
-  !!
-  SUBROUTINE ReadTimestamp_gnuplot(this,time)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(fileio_base) :: this  !< \param [in,out] this fileio type
-    REAL               :: time  !< \param [out] time
-    !------------------------------------------------------------------------!
-    INTENT(OUT)        :: time
-    INTENT(INOUT)      :: this
-    !------------------------------------------------------------------------!
-    IF (GetRank(this).EQ.0) THEN
-#ifdef PARALLEL
-#else
-#endif
-    END IF
-    time = 0.0
-!!$    CALL Warning(this,"ReadTimestamp_gnuplot",&
-!!$         "function is not implemented")
-  END SUBROUTINE ReadTimestamp_gnuplot
+!   !> \public Reads the header (not yet implemented)
+!   !!
+!   SUBROUTINE ReadHeader_gnuplot(this,success)
+!     IMPLICIT NONE
+!     !------------------------------------------------------------------------!
+!     CLASS(fileio_gnuplot) :: this     !< \param [in,out] this fileio type
+!     LOGICAL            :: success  !< \param [out] success
+!     !------------------------------------------------------------------------!
+!     INTENT(OUT)        :: success
+!     !------------------------------------------------------------------------!
+! #ifdef PARALLEL
+!     IF (GetRank(this).EQ.0) THEN
+!     END IF
+! #else
+! #endif
+!     success = .FALSE.
+!   END SUBROUTINE ReadHeader_gnuplot
 
   !> \public Writes all desired data arrays to a file
   !!
-  SUBROUTINE WriteDataset(this,Mesh)
+  SUBROUTINE WriteDataset(this,Mesh,Physics,Fluxes,Timedisc,Header,IO)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(fileio_base) :: this !< \param [in,out] this fileio type
-    CLASS(mesh_base)   :: Mesh !< \param [in] mesh mesh type
-    !------------------------------------------------------------------------!
-    INTEGER             :: i,j,k,l
+    CLASS(fileio_gnuplot), INTENT(INOUT) :: this      !< \param [in,out] this fileio type
+    CLASS(mesh_base), INTENT(IN)        :: Mesh      !< \param [in] mesh mesh type
+    CLASS(physics_base), INTENT(INOUT)  :: Physics   !< \param [in] physics physics type
+    CLASS(fluxes_base), INTENT(IN)      :: Fluxes    !< \param [in] fluxes fluxes type
+    CLASS(timedisc_base), INTENT(IN)    :: Timedisc  !< \param [in] timedisc timedisc type
+    TYPE(Dict_TYP), POINTER             :: Header,IO !< \param [in,out] IO I/O dictionary
+    INTEGER             :: i,j,k,m,l
 #ifdef PARALLEL
     INTEGER(KIND=MPI_OFFSET_KIND) :: offset
     INTEGER                       :: request
 #endif
     !------------------------------------------------------------------------!
-    INTENT(IN)    :: Mesh
-    INTENT(INOUT) :: this
-    !------------------------------------------------------------------------!
-
     IF (ASSOCIATED(Timedisc%w)) THEN
-      IF (Mesh%FARGO.EQ.3.AND.Mesh%SN_shear) THEN
+      IF (Mesh%FARGO.EQ.3.AND.Mesh%shear_dir.EQ.1) THEN
         CALL Physics%AddBackgroundVelocityX(Mesh,Timedisc%w,Timedisc%pvar,Timedisc%cvar)
       ELSE IF(Mesh%geometry%GetType().EQ.SPHERICAL) THEN
         CALL Physics%AddBackgroundVelocityZ(Mesh,Timedisc%w,Timedisc%pvar,Timedisc%cvar)
@@ -695,7 +474,6 @@ CONTAINS
         CALL Physics%AddBackgroundVelocityY(Mesh,Timedisc%w,Timedisc%pvar,Timedisc%cvar)
       END IF
     END IF
-
 
 #ifdef PARALLEL
     ! be sure to write at the end by getting the offset from the file's size
@@ -717,42 +495,57 @@ CONTAINS
     WRITE (this%unit,FMT='(A)',ADVANCE='NO') LF
 #endif
 
-    DO k=1,this%cols
+    DO l=1,this%cols
       ! trim the data for gnuplot output
-      WHERE (ABS(this%output(k)%val(:,:)).LT.MAX(TINY(this%output(k)%val(:,:)),1.0D-99))
-        this%output(k)%val(:,:) = 0.0E+00
-      END WHERE
+      DO m=1,SIZE(this%output(l)%p)
+        WHERE (ABS(this%output(l)%p(m)%val(:,:,:)).LT.MAX(TINY(this%output(l)%p(m)%val),1.0D-99))
+          this%output(l)%p(m)%val(:,:,:) = 0.0E+00
+        END WHERE
+      END DO
     END DO
 
     ! start i,j from 1 to rank local size, because RemapBounds has not been
     ! used/cannot be used.
     DO i=1,this%inum
-       DO j=1,this%jnum
+      DO j=1,this%jnum
+        DO k=1,this%knum   
           ! write positions to line buffer
-          DO k=1,this%COLS-1
-             WRITE (this%linebuf((k-1)*this%FLEN+1:k*this%FLEN),TRIM(this%fmtstr)) &
-                   this%output(k)%val(i,j), RECSEP
+          DO m=1,this%COLS-1
+            DO l=1,SIZE(this%output(m)%p)
+              WRITE (this%linebuf((m-1)*this%FLEN+1:m*this%FLEN),TRIM(this%fmtstr)) &
+                     this%output(m)%p(l)%val(i,j,k), RECSEP
+            END DO
+          END DO
+          
+          m=this%COLS
+          DO l=1,SIZE(this%output(m)%p)-1
+            WRITE (this%linebuf((m-1)*this%FLEN+1:m*this%FLEN),TRIM(this%fmtstr)) &
+                   this%output(m)%p(l)%val(i,j,k), RECSEP
           END DO
 
+          l = SIZE(this%output(m)%p)
+          !!!!! ATTENTION this is still 2D code should be different in 3D
           IF ((j.EQ.Mesh%JNUM).AND.((Mesh%JNUM.GT.1).OR.(Mesh%INUM.EQ.i))) THEN
              ! finish the block
              WRITE (this%linebuf((this%COLS-1)*this%FLEN+1:this%linelen),TRIM(this%fmtstr)) &
-                  this%output(this%COLS)%val(i,j), BLKSEP
+                  this%output(m)%p(l)%val(i,j,k), BLKSEP
           ELSE
              ! finish the line
              WRITE (this%linebuf((this%COLS-1)*this%FLEN+1:this%linelen),TRIM(this%fmtstr)) &
-                  this%output(this%COLS)%val(i,j), LINSEP
+                  this%output(m)%p(l)%val(i,j,k), LINSEP
           END IF
 
 #ifdef PARALLEL
+!!!! ATTENTION parallel output broken
           ! write line buffer to output buffer
-          DO k=1,this%linelen
-             this%outbuf(k,j-1+Mesh%JMIN) = this%linebuf(k:k)
-          END DO
+!          DO m=1,this%linelen
+!             this%outbuf(m,j-1+Mesh%JMIN) = this%linebuf(m:m)
+!          END DO
 #else
           ! write line buffer to output file
           WRITE (this%unit,FMT=TRIM(this%linefmt),ADVANCE='YES') this%linebuf(1:this%linelen-1)
 #endif
+         END DO
        END DO
 #ifdef PARALLEL
        !*****************************************************************!
@@ -761,27 +554,27 @@ CONTAINS
 !!$            this%basictype, this%status, this%error)
        !*****************************************************************!
        ! so we use these two commands instead
-       CALL MPI_File_iwrite(this%handle,this%outbuf,this%bufsize,this%basictype,&
-            request,this%error)
-       CALL MPI_Wait(request,this%status,this%error)
+!        CALL MPI_File_iwrite(this%handle,this%outbuf,this%bufsize,this%basictype,&
+!             request,this%error)
+!        CALL MPI_Wait(request,this%status,this%error)
 #endif
     END DO
   END SUBROUTINE WriteDataset
 
-  !> \public Reads the data arrays from file (not yet implemented)
-  !!
-  SUBROUTINE ReadDataset_gnuplot(this,Mesh,Physics,Timedisc)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(fileio_base)   :: this     !< \param [in,out] this fileio type
-    CLASS(mesh_base)     :: Mesh     !< \param [in] mesh mesh type
-    CLASS(physics_base)  :: Physics  !< \param [in] physics physics type
-    CLASS(timedisc_base) :: Timedisc !< \param [in] timedisc timedisc type
-    !------------------------------------------------------------------------!
-    INTENT(IN)           :: Mesh,Physics,Timedisc
-    INTENT(INOUT)        :: this
-    !------------------------------------------------------------------------!
-  END SUBROUTINE ReadDataset_gnuplot
+!   !> \public Reads the data arrays from file (not yet implemented)
+!   !!
+!   SUBROUTINE ReadDataset(this,Mesh,Physics,Timedisc)
+!     IMPLICIT NONE
+!     !------------------------------------------------------------------------!
+!     CLASS(fileio_gnuplot)   :: this     !< \param [in,out] this fileio type
+!     CLASS(mesh_base)     :: Mesh     !< \param [in] mesh mesh type
+!     CLASS(physics_base)  :: Physics  !< \param [in] physics physics type
+!     CLASS(timedisc_base) :: Timedisc !< \param [in] timedisc timedisc type
+!     !------------------------------------------------------------------------!
+!     INTENT(IN)           :: Mesh,Physics,Timedisc
+!     INTENT(INOUT)        :: this
+!     !------------------------------------------------------------------------!
+!   END SUBROUTINE ReadDataset
 
 
   !> Closes the file I/O and calls a further error function
@@ -789,13 +582,13 @@ CONTAINS
   SUBROUTINE Error(this,modproc,msg)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(fileio_base), INTENT(INOUT) :: this    !< \param [in,out] this fileio type
+    CLASS(fileio_gnuplot), INTENT(INOUT) :: this    !< \param [in,out] this fileio type
     CHARACTER(LEN=*),  INTENT(IN)     :: modproc !< \param [in] modproc
     CHARACTER(LEN=*),  INTENT(IN)     :: msg     !< \param [in] msg error msg
     !------------------------------------------------------------------------!
-    IF (Initialized(this)) &
-         CALL this%CloseFile_gnuplot()
-    CALL this%Error_fileio(modproc,msg)
+    IF (this%Initialized()) &
+      CALL this%datafile%CloseFile()
+    CALL this%Error(modproc,msg)
   END SUBROUTINE Error
 
   !> \public Closes the file I/O
@@ -803,7 +596,7 @@ CONTAINS
   SUBROUTINE Finalize(this)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(fileio_gnuplot) :: this  !< \param [in,out] this fileio type
+    CLASS(fileio_gnuplot),INTENT(INOUT) :: this  !< \param [in,out] this fileio type
     !------------------------------------------------------------------------!
 #ifdef PARALLEL
     DEALLOCATE(this%outbuf)

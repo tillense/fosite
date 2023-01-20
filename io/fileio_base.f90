@@ -1,9 +1,9 @@
 !#############################################################################
 !#                                                                           #
 !# fosite - 3D hydrodynamical simulation program                             #
-!# module: fileio_generic.f90                                                #
+!# module: fileio_base.f90                                                   #
 !#                                                                           #
-!# Copyright (C) 2008-2014                                                   #
+!# Copyright (C) 2008-2023                                                   #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
 !# Björn Sperling   <sperling@astrophysik.uni-kiel.de>                       #
 !# Manuel Jung      <mjung@astrophysik.uni-kiel.de>                          #
@@ -100,9 +100,9 @@ MODULE fileio_base_mod
   END TYPE
 
   TYPE Output_TYP
-    REAL, DIMENSION(:,:), POINTER           :: val
     TYPE(ValPtr_TYP), DIMENSION(:), POINTER :: p
     CHARACTER(LEN=128)                      :: key
+    CHARACTER(LEN=1024)                     :: path
     INTEGER(KIND=4)                         :: numbytes
   END TYPE Output_TYP
 
@@ -112,62 +112,53 @@ MODULE fileio_base_mod
     CHARACTER(LEN=128)      :: key
   END TYPE TSOutput_TYP
 
-  !> FileIO class
+  !> class for Fortran file handle
+  TYPE, EXTENDS(logging_base) :: filehandle_fortran
+    !> \name Variables
+    INTEGER   :: fid                       !< unique ID for file access (Fortran i/o unit)
+    LOGICAL   :: textfile                  !< true for text, i.e. ascii stream
+    CHARACTER(LEN=FNAMLEN) :: filename     !< file name without extension
+    CHARACTER(LEN=FPATLEN) :: path         !< file path without filename
+    CHARACTER(LEN=FEXTLEN) :: extension    !< file name extension
+  CONTAINS
+    !> \name Methods
+    PROCEDURE :: InitFilehandle
+    PROCEDURE :: OpenFile
+    PROCEDURE :: CloseFile
+    PROCEDURE :: GetFilename
+    PROCEDURE :: GetBasename
+    PROCEDURE :: GetUnitNumber
+    PROCEDURE :: GetFormat
+    FINAL :: Finalize_fortran
+  END TYPE filehandle_fortran
+
+  !> class for MPI file handle
+  TYPE, EXTENDS(filehandle_fortran) :: filehandle_mpi
+  END TYPE filehandle_mpi
+
+  !> FileIO base class
   TYPE, ABSTRACT,EXTENDS(logging_base) :: fileio_base
      !> \name Variables
-     TYPE(logging_base)     :: format      !< i/o file format
+     CLASS(filehandle_fortran), ALLOCATABLE &
+                            :: datafile    !< file handle for data file
      CHARACTER(LEN=512)     :: linebuf     !< char buffer fo field data
      CHARACTER(LEN=512)     :: tslinebuf   !< char buffer for time step data
-     CHARACTER(LEN=FNAMLEN) :: filename    !< file name without extension
-     CHARACTER(LEN=FPATLEN) :: path        !< file path without filename
-     CHARACTER(LEN=FEXTLEN) :: extension   !< file name extension
      LOGICAL                :: cartcoords  !< output cartesian coordinates
      INTEGER                :: unit        !< i/o unit
-     INTEGER                :: error_io    !< i/o error code
      INTEGER                :: step        !< counter for output steps
      INTEGER                :: count       !< number of output steps
      INTEGER                :: cycles      !< number of output files
      INTEGER                :: dtwall      !< wall clock time difference
-     INTEGER                :: realsize    !< byte size of real numbers
-     INTEGER                :: intsize     !< byte size of integer numbers
      INTEGER                :: inum,jnum,& !< mesh extent
                                knum
 #ifndef PARALLEL
      INTEGER(KIND=8)        :: offset      !< header offset (MPI see below), must be 8 byte for VTK
 #endif
      REAL                   :: stoptime    !< final simulation time for data output
-     REAL                   :: starttime    !< final simulation time for data output
+     REAL                   :: starttime   !< initial simulation time for data output
      REAL                   :: time        !< output time
      REAL, DIMENSION(:,:,:,:), POINTER :: &
                                binout      !< binary data output buffer
-     !> \name
-     !!#### VTK specific variables
-     CHARACTER(LEN=32)      :: buf         !< buffer for character i/o
-     CHARACTER(LEN=12)      :: realfmt     !< real format string
-     CHARACTER(LEN=14)      :: endianness  !< endianness string
-     CHARACTER(LEN=14)      :: endian      !< endianness string
-     REAL, DIMENSION(:,:,:,:), POINTER :: &
-                                vtkcoords   !< VTK coordinate data
-     !> \name
-     !!#### GNUPLOT specific variables
-     CHARACTER(LEN=512)     :: heading     !< char buffer for heading (field data)
-     CHARACTER(LEN=512)     :: tsheading   !< char buffer for heading (time step data)
-     CHARACTER(LEN=64)      :: fmtstr      !< format string
-     CHARACTER(LEN=64)      :: linefmt     !< output line format string
-     INTEGER                :: COLS        !< number of output columns
-     INTEGER                :: TSCOLS      !< number of output columns for time step data
-     INTEGER                :: MAXCOLS     !< upper limit for output cols
-                                           !! (MAXCOLS < LEN(linebuf)/FLEN)
-     INTEGER                :: DECS        !< decimal places for real number output
-     INTEGER                :: FLEN        !< output field length
-     INTEGER                :: linelen     !< length of a line
-     INTEGER                :: tslinelen   !< length of a line for time step data
-#ifdef HAVE_HDF5_MOD
-     !> \name
-     !!#### HDF specific variables
-     INTEGER(HID_T)         :: fid         !< file id
-     INTEGER(HID_T)         :: xferid      !< xfer id
-#endif
      TYPE(Output_TYP),DIMENSION(:), POINTER :: &
                                output      !< list of output fields
      TYPE(TSOutput_TYP),DIMENSION(:), POINTER :: &
@@ -186,37 +177,17 @@ MODULE fileio_base_mod
      INTEGER, DIMENSION(MPI_STATUS_SIZE) :: &
                                status      !< MPI i/o status record
      INTEGER(KIND=MPI_OFFSET_KIND) :: offset !< skip header bytes
-     !> \name
-     !!#### GNUPLOT specific variables
-     INTEGER                :: blocknum    !< number of output blocks
-     INTEGER(KIND=MPI_ADDRESS_KIND) :: &
-                               realext, &  !< real data type extent
-                               intext      !< integer data type extent
-     CHARACTER, DIMENSION(:,:), POINTER :: &
-                               outbuf      !< output buffer
-     !> \name
-     !!#### BINARY specific variables
-     LOGICAL                :: first       !< true if this is the first output
-     !> \name
-     !!#### VTK specific variables
-     CHARACTER(LEN=64), DIMENSION(:), POINTER :: &
-                               extent      !< extent of all pieces in VTK
-     !!#### BINARY specific variables
-     INTEGER                :: cfiletype   !< file data type for corner i/o
-     INTEGER, DIMENSION(:), POINTER :: &
-                               disp        !< array of displacements
 #endif
   CONTAINS
-    ! methods
+    !> \name Methods
     PROCEDURE :: InitFileio
     PROCEDURE (WriteHeader), DEFERRED :: WriteHeader
     PROCEDURE (WriteDataset), DEFERRED:: WriteDataset
     PROCEDURE :: AdjustTimestep
+    PROCEDURE (Finalize), DEFERRED          :: Finalize
     PROCEDURE :: Finalize_base
-    PROCEDURE (Finalize), DEFERRED    :: Finalize
-    PROCEDURE :: GetFilename
-    PROCEDURE :: GetBasename
-    PROCEDURE :: MakeMultstr
+!     PROCEDURE :: GetFilename
+!     PROCEDURE :: MakeMultstr
     PROCEDURE :: IncTime
   END TYPE fileio_base
 
@@ -255,13 +226,12 @@ MODULE fileio_base_mod
   INTEGER, PARAMETER :: READEND  = 2       !< readonly access at end
   INTEGER, PARAMETER :: REPLACE  = 3       !< read/write access replacing file
   INTEGER, PARAMETER :: APPEND   = 4       !< read/write access at end
-  !> \name
-  !! #### file formats
-  CHARACTER(LEN=9), PARAMETER :: ASCII = "formatted"   !< for ASCII data
-  CHARACTER(LEN=11), PARAMETER :: BIN  = "unformatted" !< for BINARY data
   !> \}
 
-  ! file formats
+  !> basic file formats
+  INTEGER, PARAMETER :: FORTRANFILE = 1
+  INTEGER, PARAMETER :: MPIFILE = 2
+  !> file I/O types
   INTEGER, PARAMETER :: BINARY  = 1
   INTEGER, PARAMETER :: GNUPLOT = 2
   INTEGER, PARAMETER :: VTK     = 4
@@ -271,27 +241,79 @@ MODULE fileio_base_mod
   !--------------------------------------------------------------------------!
   INTEGER, SAVE :: lastunit = 10
 
+  INTERFACE filehandle_fortran
+    MODULE PROCEDURE CreateFilehandle
+  END INTERFACE
   !--------------------------------------------------------------------------!
   PUBLIC :: &
        ! types
        fileio_base, Output_TYP, TSOutput_TYP, ValPtr_TYP, &
+       filehandle_fortran, &
        ! constants
        BINARY, GNUPLOT, VTK, XDMF, &
-       READONLY, READEND, REPLACE, APPEND, &
 #ifdef PARALLEL
+       filehandle_mpi, &
        DEFAULT_MPI_REAL,&
 #endif
+       READONLY, READEND, REPLACE, APPEND
 !       FILE_EXISTS, &
-       ASCII, BIN
 
 
 CONTAINS
 
 
+  !> constructor for Fortran file handle
+  FUNCTION CreateFilehandle(filename,path,extension,textfile) RESULT(new_fh)
+    IMPLICIT NONE
+    !-------------------------------------------------------------------!
+    TYPE(filehandle_fortran) :: new_fh
+    CHARACTER(LEN=*), INTENT(IN) :: filename !< \param [in] filename file name without extension
+    CHARACTER(LEN=*), INTENT(IN) :: path     !< \param [in] path file path without filename
+    CHARACTER(LEN=*), OPTIONAL, INTENT(IN) :: extension !< \param [in] extension file name extension
+    LOGICAL, OPTIONAL, INTENT(IN)      :: textfile !< \param [in] textfile true for text data
+    !-------------------------------------------------------------------!
+    CALL new_fh%InitFilehandle(filename,path,extension,textfile)
+  END FUNCTION CreateFilehandle
+
+  !> basic initialization of Fortran file handle
+  SUBROUTINE InitFilehandle(this,filename,path,extension,textfile)
+    IMPLICIT NONE
+    !-------------------------------------------------------------------!
+    CLASS(filehandle_fortran), INTENT(INOUT) :: this !< \param [inout] this file handle class
+    CHARACTER(LEN=*), INTENT(IN) :: filename !< \param [in] filename file name without extension
+    CHARACTER(LEN=*), INTENT(IN) :: path     !< \param [in] path file path without filename
+    CHARACTER(LEN=*), OPTIONAL, INTENT(IN) :: extension !< \param [in] extension file name extension
+    LOGICAL, OPTIONAL, INTENT(IN)      :: textfile !< \param [in] textfile true for text data
+    !-------------------------------------------------------------------!
+    IF (.NOT.this%Initialized()) CALL this%InitLogging(FORTRANFILE,"fortran")
+    ! check file name length
+    IF (LEN_TRIM(filename).GT.FNAMLEN) &
+       CALL this%Error("fileio_base::InitFilehandle","file name too long")
+    this%filename = filename
+    ! check file path length
+    IF (LEN_TRIM(path).GT.FPATLEN) &
+       CALL this%Error("fileio_base::InitFilehandle","file path too long")
+    this%path = path
+    ! check file name extension
+    IF (PRESENT(extension)) THEN
+      IF (LEN_TRIM(extension).GT.FEXTLEN-1) &
+        CALL this%Error("fileio_base::InitFilehandle","file name extension too long")
+      this%extension = extension
+    ELSE
+      this%extension = "dat"
+    END IF
+    IF (PRESENT(textfile)) THEN
+      this%textfile = textfile
+    ELSE
+      this%textfile = .TRUE. ! default is textfile
+    END IF
+    ! format string for writing file names with explicit time step
+    WRITE (cycfmt, "('(A,I',I1,'.',I1,',A)')") FCYCLEN-1,FCYCLEN-1
+  END SUBROUTINE InitFilehandle
+ 
   !> \public Generic constructor for file I/O
   !!
-  SUBROUTINE InitFileIO(this,Mesh,Physics,Timedisc,Sources,config,IO, &
-                        fmtname,fext)
+  SUBROUTINE InitFileIO(this,Mesh,Physics,Timedisc,Sources,config,IO,fmtname,fext)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(fileio_base),  INTENT(INOUT) :: this     !< \param [in,out] this fileio type
@@ -336,6 +358,9 @@ CONTAINS
     CALL GetAttr(config, "filename"  , fname)
     fpath = ""
     CALL GetAttr(config, "filepath"  , fpath, fpath)
+    IF (.NOT.this%datafile%Initialized()) THEN
+      CALL this%datafile%InitFilehandle(fname,fpath,fext)
+    END IF
     CALL GetAttr(config, "unit"      , unit , lastunit+1)
     lastunit = unit
     CALL GetAttr(config, "walltime"  , this%walltime, HUGE(1.0))
@@ -355,18 +380,6 @@ CONTAINS
     ! check cycles
     IF (fcycles_def.GT.MAXCYCLES) &
        CALL this%Error("InitFileIO","file cycles exceed limits")
-    ! check file name length
-    IF (LEN_TRIM(fname).GT.FNAMLEN) &
-       CALL this%Error("InitFileIO","file name too long")
-    ! check file path length
-    IF (LEN_TRIM(fpath).GT.FPATLEN) &
-       CALL this%Error("InitFileIO","file path too long")
-    ! check file name extension
-    IF (LEN_TRIM(fext).GT.FEXTLEN-1) &
-       CALL this%Error("InitFileIO","file name extension too long")
-
-    ! format string for writing file names with explicit time step
-    WRITE (cycfmt, "('(A,I',I1,'.',I1,',A)')") FCYCLEN-1,FCYCLEN-1
 
 #ifdef PARALLEL
     ! turn on multiple file output if requested
@@ -378,9 +391,6 @@ CONTAINS
     END IF
 #endif
 
-    this%path      = TRIM(fpath)
-    this%filename  = TRIM(fname)
-    this%extension = TRIM(fext)
     this%cycles    = fcycles_def
     this%unit      = unit
     this%stoptime  = stoptime_def
@@ -388,7 +398,7 @@ CONTAINS
     this%dtwall    = dtwall_def
     this%count     = count_def
     this%offset    = 0
-    this%error_io  = 0
+    this%err       = 0
 
     CALL Getattr(config, "step", this%step, 0)
 
@@ -396,7 +406,7 @@ CONTAINS
     this%time = Timedisc%time
 
     ! print some information
-    CALL this%Info(" FILEIO---> file name:         " // TRIM(this%GetFilename()))
+    CALL this%Info(" FILEIO---> file type:         " // TRIM(this%GetName()))
  !   IF (success) THEN
        WRITE (timestamp,'(ES10.4)') Timedisc%time
        CALL this%Info("            time stamp:        " // TRIM(timestamp))
@@ -405,6 +415,26 @@ CONTAINS
     ! time for next output
     IF (Timedisc%time.GT.0.0) CALL this%IncTime()
     IF (ASSOCIATED(oldconfig)) CALL DeleteDict(oldconfig)
+!!!!! old fosite code, may be obsolete
+! #ifdef PARALLEL
+!     ! check data type extents in files
+!     ! first try to create a new dummy file
+!     CALL MPI_File_open(MPI_COMM_WORLD,GetFilename(this),IOR(IOR(MPI_MODE_RDWR,&
+!          MPI_MODE_CREATE),IOR(MPI_MODE_EXCL,MPI_MODE_DELETE_ON_CLOSE)),&
+!          MPI_INFO_NULL,this%handle,this%error)
+!     ! maybe file exists
+!     IF (this%error.NE.0) CALL MPI_File_open(MPI_COMM_WORLD,GetFilename(this),&
+!          MPI_MODE_RDONLY,MPI_INFO_NULL,this%handle,this%error)
+!     ! then check the data type sizes
+!     ! extent of integer in file
+!     IF (this%error.EQ.0) CALL MPI_File_get_type_extent(this%handle,MPI_INTEGER,&
+!          this%intext,this%error)
+!     ! extent of real in file
+!     IF (this%error.EQ.0) CALL MPI_File_get_type_extent(this%handle,DEFAULT_MPI_REAL,&
+!          this%realext,this%error)
+!     IF (this%error.NE.0) CALL Error(this,"InitFileIO","unable to check file properties")
+!     CALL MPI_File_close(this%handle,this%error)
+! #endif
   END SUBROUTINE InitFileIO
 
   !> \public Increments the counter for timesteps and sets the time for next output
@@ -442,76 +472,85 @@ CONTAINS
   END SUBROUTINE AdjustTimestep
 
 
-  !> \public Get a file label (multiples files in parallel mode)
-  !! without filenumber => use GetRank; with filenumber < 0 => empty label
-  !! \result file label
-  FUNCTION MakeMultstr(this,fn) RESULT (multstr)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(fileio_base), INTENT(IN) :: this !< \param [in,out] this fileio type
-    INTEGER, OPTIONAL,  INTENT(IN) :: fn       !< \param [in] fn number of file
-    CHARACTER(LEN=FMLTLEN)         :: multstr
-    !------------------------------------------------------------------------!
-#ifdef PARALLEL
-    INTEGER                        :: fn_l
-    CHARACTER(LEN=32)              :: mextfmt
-#endif
-    !------------------------------------------------------------------------!
-#ifdef PARALLEL
-    IF (PRESENT(fn)) THEN
-      fn_l = fn
-    ELSE
-      fn_l = this%GetRank()
-    END IF
-    ! with fn < 0 you can suppress a label
-    IF (this%multfiles .AND. fn_l .GE. 0) THEN
-        WRITE (mextfmt, "('(A2,I',I1,'.',I1,')')") FMLTLEN-2,FMLTLEN-2
-
-        WRITE (multstr, mextfmt) "-r", fn_l
-    ELSE
-      multstr = ""
-    END IF
-#else
-    multstr = ""
-#endif
-  END FUNCTION MakeMultstr
+!   !> \public Get a file label (multiples files in parallel mode)
+!   !! without filenumber => use GetRank; with filenumber < 0 => empty label
+!   !! \result file label
+!   FUNCTION MakeMultstr(this,fn) RESULT (multstr)
+!     IMPLICIT NONE
+!     !------------------------------------------------------------------------!
+!     CLASS(filehandle_fortran), INTENT(IN) :: this !< \param [in,out] this fileio type
+!     INTEGER, OPTIONAL,  INTENT(IN) :: fn       !< \param [in] fn number of file
+!     CHARACTER(LEN=FMLTLEN)         :: multstr
+!     !------------------------------------------------------------------------!
+! #ifdef PARALLEL
+!     INTEGER                        :: fn_l
+!     CHARACTER(LEN=32)              :: mextfmt
+! #endif
+!     !------------------------------------------------------------------------!
+! #ifdef PARALLEL
+!     IF (PRESENT(fn)) THEN
+!       fn_l = fn
+!     ELSE
+!       fn_l = this%GetRank()
+!     END IF
+!     ! with fn < 0 you can suppress a label
+!     IF (this%multfiles .AND. fn_l .GE. 0) THEN
+!         WRITE (mextfmt, "('(A2,I',I1,'.',I1,')')") FMLTLEN-2,FMLTLEN-2
+! 
+!         WRITE (multstr, mextfmt) "-r", fn_l
+!     ELSE
+!       multstr = ""
+!     END IF
+! #else
+!     multstr = ""
+! #endif
+!   END FUNCTION MakeMultstr
 
 
   !> \public Get the current file name without path
   !! e.g. important for vtk (pvts files)
   !! \result current file name
-  FUNCTION GetBasename(this,fn) RESULT (fname)
+  FUNCTION GetBasename(this,step,cycles) RESULT (fname)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(fileio_base), INTENT(IN) :: this !< \param [in] this fileio type
-    INTEGER, OPTIONAL, INTENT(IN)  :: fn   !< \param [in] fn number of file
-    CHARACTER(LEN=256)             :: fname
+    CLASS(filehandle_fortran), INTENT(IN) :: this   !< \param [in] this file handle
+    INTEGER, INTENT(IN)                   :: step   !< \param [in] step time step
+    INTEGER, OPTIONAL, INTENT(IN)         :: cycles !< \param [in] step number of file cycles
+    CHARACTER(LEN=256)                    :: fname
     !------------------------------------------------------------------------!
-    CHARACTER(LEN=FCYCLEN+2)       :: cycstr
+    INTEGER :: fnum
     !------------------------------------------------------------------------!
-    IF (this%cycles.GT.0) THEN
-       ! generate a file name with time step
-       WRITE (cycstr, FMT=TRIM(cycfmt)) "_", MODULO(this%step,this%cycles), "."
-       WRITE (fname,"(A,A,A,A)")  TRIM(this%filename),&
-              TRIM(MakeMultstr(this,fn)),TRIM(cycstr),TRIM(this%extension)
+    fnum = -1
+    IF (PRESENT(cycles)) THEN
+      IF (cycles.GT.0) &
+          ! determine file number based on current step and number of files,
+          ! i.e. cycles, at all
+        fnum = MODULO(step,cycles)
     ELSE
-       ! file name + extension
-       WRITE (fname,"(A,A,A,A)") TRIM(this%filename),&
-              TRIM(MakeMultstr(this,fn)),".",TRIM(this%extension)
+      ! if cycles are not given then fnum is given by the current step
+      fnum = step
+    END IF
+    IF (fnum.GT.-1) THEN
+      ! generate a file name with fnum appended
+      WRITE (fname, FMT=TRIM(cycfmt)) TRIM(this%filename) // "_", &
+         fnum, "." // TRIM(this%extension)
+    ELSE
+      ! do not append any number to the basic file name, just the extension
+      WRITE (fname,"(A)") TRIM(this%filename) // "." // TRIM(this%extension)
     END IF
   END FUNCTION GetBasename
 
-  !> \public Get the current file name
-  !! \result current file name
-  FUNCTION GetFilename(this,fn) RESULT (fname)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(fileio_base), INTENT(IN) :: this !< \param [in] this fileio type
-    INTEGER, OPTIONAL, INTENT(IN)  :: fn   !< \param [in] fn number of file
-    CHARACTER(LEN=256)             :: fname
-    !------------------------------------------------------------------------!
-    fname = TRIM(this%path) // TRIM(GetBasename(this,fn))
-  END FUNCTION GetFilename
+!   !> \public Get the current file name
+!   !! \result current file name
+!   FUNCTION GetFilename(this,fn) RESULT (fname)
+!     IMPLICIT NONE
+!     !------------------------------------------------------------------------!
+!     CLASS(fileio_base), INTENT(IN) :: this !< \param [in] this fileio type
+!     INTEGER, OPTIONAL, INTENT(IN)  :: fn   !< \param [in] fn number of file
+!     CHARACTER(LEN=256)             :: fname
+!     !------------------------------------------------------------------------!
+!     fname = TRIM(this%path) // TRIM(GetBasename(this,fn))
+!   END FUNCTION GetFilename
 
   !> \public Generic deconstructor of the file I/O
   !!
@@ -521,7 +560,145 @@ CONTAINS
     CLASS(fileio_base),INTENT(INOUT) :: this !< \param [in,out] this fileio type
     !------------------------------------------------------------------------!
     IF (.NOT.this%Initialized()) &
-        CALL this%Error("CloseFileIO","not initialized")
+        CALL this%Error("fileio_base::Finalize_base","FileIO not initialized")
   END SUBROUTINE Finalize_base
 
+  !> \public Open file to access Fortran stream
+  !!
+  SUBROUTINE OpenFile(this,action)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(filehandle_fortran), INTENT(INOUT):: this   !< \param [in,out] this fileio type
+    INTEGER,           INTENT(IN)           :: action !< \param [in] action mode of file access
+    !------------------------------------------------------------------------!
+    CHARACTER(LEN=32)  :: sta,act,pos,frm
+    !------------------------------------------------------------------------!
+    SELECT CASE(action)
+    CASE(READONLY)
+       sta = 'OLD'
+       act = 'READ'
+       pos = 'REWIND'
+    CASE(READEND)
+       sta = 'OLD'
+       act = 'READ'
+       pos = 'APPEND'
+    CASE(REPLACE)
+       sta = 'REPLACE'
+       act = 'WRITE'
+       pos = 'REWIND'
+    CASE(APPEND)
+       sta = 'OLD'
+       act = 'READWRITE'
+       pos = 'APPEND'
+    CASE DEFAULT
+       CALL this%Error("fileio_base::OpenFile_serial","Unknown access mode.")
+    END SELECT
+    OPEN(UNIT=this%GetUnitNumber(),FILE=this%GetFilename(),STATUS=TRIM(sta), &
+         ACCESS='STREAM',ACTION=TRIM(act),POSITION=TRIM(pos),FORM=this%GetFormat(), &
+         IOSTAT=this%err)
+  END SUBROUTINE OpenFile
+ 
+  !> \public Open file for input/ouput in parallel mode
+  !!
+!   SUBROUTINE OpenFile_parallel(this,action)
+!     IMPLICIT NONE
+!     !------------------------------------------------------------------------!
+!     CLASS(filehandle_mpi), INTENT(INOUT)    :: this   !< \param [in,out] this fileio type
+!     INTEGER,           INTENT(IN)           :: action !< \param [in] action mode of file access
+!     !------------------------------------------------------------------------!
+! #ifdef PARALLEL
+!     INTEGER(KIND=MPI_OFFSET_KIND) :: offset!< \param [in] offset offset for MPI
+! #endif
+!     !------------------------------------------------------------------------!
+!     SELECT CASE(action)
+! #ifdef PARALLEL
+!     CASE(READONLY)
+!        CALL MPI_File_open(MPI_COMM_WORLD,this%GetFilename(),MPI_MODE_RDONLY, &
+!             MPI_INFO_NULL,this%fid,this%err)
+!        this%offset = 0
+!        CALL MPI_File_seek(this%fid,this%offset,MPI_SEEK_SET,this%err)
+!     CASE(READEND)
+!        CALL MPI_File_open(MPI_COMM_WORLD,this%GetFilename(),IOR(MPI_MODE_RDONLY,&
+!             MPI_MODE_APPEND),MPI_INFO_NULL,this%fid,this%error)
+!        ! opening in append mode doesn't seem to work for pvfs2, hence ...
+!        offset = 0
+!        CALL MPI_File_seek(this%handle,offset,MPI_SEEK_END,this%error)
+!        CALL MPI_File_sync(this%handle,this%error)
+!     CASE(REPLACE)
+!        CALL MPI_File_delete(GetFilename(this),MPI_INFO_NULL,this%error)
+!        CALL MPI_File_open(MPI_COMM_WORLD,GetFilename(this),IOR(MPI_MODE_WRONLY,&
+!             MPI_MODE_CREATE),MPI_INFO_NULL,this%handle,this%error)
+!     CASE(APPEND)
+!        CALL MPI_File_open(MPI_COMM_WORLD,GetFilename(this),IOR(MPI_MODE_RDWR,&
+!             MPI_MODE_APPEND),MPI_INFO_NULL,this%handle,this%error)
+!        ! opening in append mode doesn't seem to work for pvfs2, hence ...
+!        offset = 0
+!        CALL MPI_File_seek(this%handle,offset,MPI_SEEK_END,this%error)
+!        CALL MPI_File_sync(this%handle,this%error)
+! #endif
+!     CASE DEFAULT
+!        ! abort with error if either the access mode is wrong or someone tries parallel i/o in serial mode
+!        CALL this%Error("fileio_base::OpenFile_parallel","Unknown access mode.")
+!     END SELECT
+!   END SUBROUTINE OpenFile_parallel
+
+  !> \public get Fortran i/o unit number
+  FUNCTION GetUnitNumber(this)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(filehandle_fortran), INTENT(INOUT) :: this  !< \param [in,out] this fileio type
+    !------------------------------------------------------------------------!
+    INTEGER :: GetUnitNumber
+    !------------------------------------------------------------------------!
+    GetUnitNumber = this%fid
+  END FUNCTION GetUnitNumber
+
+  !> \public get Fortran i/o format string
+  FUNCTION GetFormat(this)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(filehandle_fortran), INTENT(INOUT) :: this  !< \param [in,out] this fileio type
+    !------------------------------------------------------------------------!
+    CHARACTER(LEN=16) :: GetFormat
+    !------------------------------------------------------------------------!
+    IF (this%textfile) THEN
+      GetFormat = "FORMATTED"
+    ELSE
+      GetFormat = "UNFORMATTED"
+    END IF
+  END FUNCTION GetFormat
+
+  !> \public get file name of Fortran stream
+  FUNCTION GetFilename(this)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(filehandle_fortran), INTENT(INOUT) :: this  !< \param [in,out] this fileio type
+    !------------------------------------------------------------------------!
+    CHARACTER(LEN=256) :: GetFilename
+    !------------------------------------------------------------------------!
+!     GetFilename = TRIM(this%path) !// TRIM(GetBasename(this,fn))
+  END FUNCTION GetFilename
+
+  !> \public close Fortran stream
+  !!
+  SUBROUTINE CloseFile(this)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(filehandle_fortran), INTENT(INOUT) :: this  !< \param [in,out] this fileio type
+    !------------------------------------------------------------------------!
+! #ifdef PARALLEL
+!     CALL MPI_File_close(this%handle,this%err)
+! #else
+    CLOSE(UNIT=this%GetUnitNumber(),IOSTAT=this%err)
+! #endif
+  END SUBROUTINE CloseFile
+
+  !> \public destructor of Fortran stream handle
+  SUBROUTINE Finalize_fortran(this)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    TYPE(filehandle_fortran), INTENT(INOUT) :: this  !< \param [in,out] this fileio type
+    !------------------------------------------------------------------------!
+  END SUBROUTINE Finalize_fortran
+  
 END MODULE fileio_base_mod

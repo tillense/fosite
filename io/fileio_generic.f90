@@ -1,7 +1,7 @@
 !#############################################################################
 !#                                                                           #
 !# fosite - 3D hydrodynamical simulation program                             #
-!# module: mesh_generic.f90                                                  #
+!# module: fileio_generic.f90                                                #
 !#                                                                           #
 !# Copyright (C) 2016 Manuel Jung <mjung@astrophysik.uni-kiel.de>            #
 !#                                                                           #
@@ -32,9 +32,10 @@
 !----------------------------------------------------------------------------!
 MODULE fileio_generic_mod
   USE fileio_base_mod
-  USE fileio_vtk_mod
-  USE fileio_binary_mod
-  USE fileio_xdmf_mod
+  USE fileio_gnuplot_mod
+!   USE fileio_vtk_mod
+!   USE fileio_binary_mod
+!   USE fileio_xdmf_mod
   USE mesh_base_mod
   USE physics_base_mod
   USE timedisc_base_mod
@@ -60,24 +61,28 @@ CONTAINS
 
     ! allocate data
     SELECT CASE(fileformat)
-    CASE(VTK)
-      ALLOCATE(fileio_vtk::Fileio)
-    CASE(BINARY)
-      ALLOCATE(fileio_binary::Fileio)
-    CASE(XDMF)
-      ALLOCATE(fileio_xdmf::Fileio)
+    CASE(GNUPLOT)
+      ALLOCATE(fileio_gnuplot::Fileio)
+!     CASE(VTK)
+!       ALLOCATE(fileio_vtk::Fileio)
+!     CASE(BINARY)
+!       ALLOCATE(fileio_binary::Fileio)
+!     CASE(XDMF)
+!       ALLOCATE(fileio_xdmf::Fileio)
     CASE DEFAULT
-      CALL Fileio%Error("new_fileio","Unknown filetype.")
+      CALL Fileio%Error("fileio_generic::new_fileio","Unknown file format.")
     END SELECT
 
     ! call initialization
     SELECT TYPE(obj => Fileio)
-    TYPE IS (fileio_vtk)
-      CALL obj%InitFileio_vtk(Mesh,Physics,Timedisc,Sources,config,IO)
-    TYPE IS (fileio_binary)
-      CALL obj%InitFileio_binary(Mesh,Physics,Timedisc,Sources,config,IO)
-    TYPE IS (fileio_xdmf)
-      CALL obj%InitFileio_xdmf(Mesh,Physics,Timedisc,Sources,config,IO)
+    TYPE IS (fileio_gnuplot)
+      CALL obj%InitFileio_gnuplot(Mesh,Physics,Timedisc,Sources,config,IO)
+!     TYPE IS (fileio_vtk)
+!       CALL obj%InitFileio_vtk(Mesh,Physics,Timedisc,Sources,config,IO)
+!     TYPE IS (fileio_binary)
+!       CALL obj%InitFileio_binary(Mesh,Physics,Timedisc,Sources,config,IO)
+!     TYPE IS (fileio_xdmf)
+!       CALL obj%InitFileio_xdmf(Mesh,Physics,Timedisc,Sources,config,IO)
     END SELECT
   END SUBROUTINE
 END MODULE fileio_generic_mod

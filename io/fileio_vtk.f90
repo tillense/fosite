@@ -3,7 +3,7 @@
 !# fosite - 3D hydrodynamical simulation program                             #
 !# module: fileio_vtk.f90                                                    #
 !#                                                                           #
-!# Copyright (C) 2010-2021                                                   #
+!# Copyright (C) 2010-2023                                                   #
 !# Björn Sperling   <sperling@astrophysik.uni-kiel.de>                       #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
 !# Jannes Klee      <jklee@astrophysik.uni-kiel.de>                          #
@@ -51,6 +51,7 @@
 !----------------------------------------------------------------------------!
 MODULE fileio_vtk_mod
   USE fileio_base_mod
+  USE fileio_binary_mod
   USE geometry_base_mod
   USE mesh_base_mod
   USE physics_base_mod
@@ -84,33 +85,45 @@ MODULE fileio_vtk_mod
 !                                                            'bflux_NORTH ', &
 !                                                            'bflux_BOTTOM', &
 !                                                            'bflux_TOP   ' /)
-
   !--------------------------------------------------------------------------!
-  TYPE, EXTENDS(fileio_base) :: fileio_vtk
-    PRIVATE
-    INTEGER   :: IP1,JP1,KP1
-    CONTAINS
-    ! methods
+  !> File handle for PVD file
+  TYPE, EXTENDS(filehandle_fortran) :: filehandle_pvd
+  END TYPE filehandle_pvd
+
+  !> FileIO class for VTK output
+  TYPE, EXTENDS(fileio_binary) :: fileio_vtk
+    !> \name Variables
+    CHARACTER(LEN=32)      :: buf         !< buffer for character i/o
+    INTEGER                :: COLS        !< number of output columns
+    INTEGER                :: TSCOLS      !< number of output columns for time step data
+    INTEGER                :: IP1,JP1,KP1
+    REAL, DIMENSION(:,:,:,:), POINTER :: &
+                              vtkcoords   !< VTK coordinate data
+#ifdef PARALLEL
+    CHARACTER(LEN=64), DIMENSION(:), POINTER :: &
+                              extent      !< extent of all pieces in VTK
+#endif
+  CONTAINS
+    !> \name Methods
     PROCEDURE :: InitFileio_vtk
-    PROCEDURE :: OpenFile
-    PROCEDURE :: CloseFile
+    GENERIC :: OpenFile => OpenFile_serial
+    GENERIC :: CloseFile => CloseFile_serial
     PROCEDURE :: WriteHeader
     PROCEDURE :: ReadHeader
     PROCEDURE :: WriteTimestamp
     PROCEDURE :: WriteParaviewFile
     PROCEDURE :: ReadTimestamp
     PROCEDURE :: WriteDataset
-    PROCEDURE :: GetPrecision
     PROCEDURE :: GetOutputlist
-    PROCEDURE :: GetEndianness
     PROCEDURE :: Finalize
   END TYPE
   !--------------------------------------------------------------------------!
   PUBLIC :: &
     fileio_vtk
 
-  !--------------------------------------------------------------------------!
+
 CONTAINS
+
   !> \public Constructor for the VTK file I/O
   !!
   !! Initilizes the file I/O type, filename, stoptime, number of outputs,
@@ -300,7 +313,7 @@ CONTAINS
   SUBROUTINE WriteParaviewFile(this)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(fileio_vtk), INTENT(INOUT) :: this
+    CLASS(filehandle_pvd), INTENT(INOUT) :: this
     !------------------------------------------------------------------------!
     INTEGER                          :: k
     REAL                             :: ftime
@@ -310,103 +323,44 @@ CONTAINS
 #endif
     !------------------------------------------------------------------------!
     ! write a pvd-file: this is a "master" file of all timesteps of all ranks
-    CALL this%OpenFile(REPLACE,'pvd')
+    CALL this%OpenFile(REPLACE)
 
-    ! write vtk header
-    WRITE(this%unit+200,FMT='(A)',IOSTAT=this%error_io) &
-          '<?xml version="1.0"?>'//LF &
-          //'<VTKFile type="Collection" version="0.1" byte_order=' &
-          //this%endianness//'>'//LF &
-          //REPEAT(' ',2)//'<Collection>'
-
-    ! write entries for each time step
-    DO k=0,this%cycles-1
-       this%step=k  ! we need this to get the correct file name with time step appended
-                    ! ATTENTION: remember to reset the this%step (see below)
-       ftime = this%stoptime*k/(this%cycles-1)
-#ifdef PARALLEL
-       ! in parallel mode each node generates its own file
-       DO i=0,this%GetNumProcs()-1
-          basename=this%GetBasename(i)
-          IF (this%error_io.EQ. 0) WRITE(this%unit+200,FMT='(A,E11.5,A,I4.4,A)',IOSTAT=this%error_io) &
-             REPEAT(' ',4)//'<DataSet timestep="',&
-             ftime,'" part="', i ,'" file="'//TRIM(basename)//'"/>'
-       END DO
-#else
-       basename=this%GetBasename()
-       IF (this%error_io.EQ. 0) WRITE(this%unit+200,FMT='(A,E11.5,A)',IOSTAT=this%error_io) &
-          REPEAT(' ',4)//'<DataSet timestep="',ftime,'" part="0" file="' &
-                       //TRIM(basename)//'"/>'
-#endif
-    END DO
-    ! reset the step (see comment above)
-    this%step=0
-
-    IF (this%error_io.EQ. 0) WRITE(this%unit+200,FMT='(A)',IOSTAT=this%error_io) &
-             REPEAT(' ',2)//'</Collection>'//LF//'</VTKFile>'
-    IF (this%error_io.GT.0) CALL this%Error("InitFileIO_vtk","cannot write pvd-file")
-
-    CALL this%CloseFile('pvd')
+!     ! write vtk header
+!     WRITE(this%unit+200,FMT='(A)',IOSTAT=this%error_io) &
+!           '<?xml version="1.0"?>'//LF &
+!           //'<VTKFile type="Collection" version="0.1" byte_order=' &
+!           //this%endianness//'>'//LF &
+!           //REPEAT(' ',2)//'<Collection>'
+! 
+!     ! write entries for each time step
+!     DO k=0,this%cycles-1
+!        this%step=k  ! we need this to get the correct file name with time step appended
+!                     ! ATTENTION: remember to reset the this%step (see below)
+!        ftime = this%stoptime*k/(this%cycles-1)
+! #ifdef PARALLEL
+!        ! in parallel mode each node generates its own file
+!        DO i=0,this%GetNumProcs()-1
+!           basename=this%GetBasename(i)
+!           IF (this%error_io.EQ. 0) WRITE(this%unit+200,FMT='(A,E11.5,A,I4.4,A)',IOSTAT=this%error_io) &
+!              REPEAT(' ',4)//'<DataSet timestep="',&
+!              ftime,'" part="', i ,'" file="'//TRIM(basename)//'"/>'
+!        END DO
+! #else
+!        basename=this%GetBasename()
+!        IF (this%error_io.EQ. 0) WRITE(this%unit+200,FMT='(A,E11.5,A)',IOSTAT=this%error_io) &
+!           REPEAT(' ',4)//'<DataSet timestep="',ftime,'" part="0" file="' &
+!                        //TRIM(basename)//'"/>'
+! #endif
+!     END DO
+!     ! reset the step (see comment above)
+!     this%step=0
+! 
+!     IF (this%error_io.EQ. 0) WRITE(this%unit+200,FMT='(A)',IOSTAT=this%error_io) &
+!              REPEAT(' ',2)//'</Collection>'//LF//'</VTKFile>'
+!     IF (this%error_io.GT.0) CALL this%Error("fileio_vtk::WriteHeader_pvd","cannot write pvd-file")
+! 
+    CALL this%CloseFile()
   END SUBROUTINE WriteParaviewFile
-
-
-  !> \public Determines precision of real numbers in bytes
-  !!
-  !! Determines the precision (aka size) of a real number.
-  !! Single precision (4 bytes), double precision (8 bytes) and
-  !! quad precision (16 bytes) are possible results.
-  SUBROUTINE GetPrecision(this,realsize)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(fileio_vtk), INTENT(INOUT) :: this     !< \param [in,out] this fileio type
-    INTEGER                          :: realsize !< \param [out] realsize size of real (byte)
-    !------------------------------------------------------------------------!
-    REAL                             :: real_number
-    !------------------------------------------------------------------------!
-    INTENT(OUT)                      :: realsize
-    !------------------------------------------------------------------------!
-    ! size of default real numbers in bytes
-    ! Fortran 2008 standard function!
-    realsize = STORAGE_SIZE(real_number)/8
-  END SUBROUTINE GetPrecision
-
-  !> \public Determines the endianness of the system
-  !!
-  !! Determines the the endianess of the system (big or little endian)
-  SUBROUTINE GetEndianness(this, res, littlestr, bigstr)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(fileio_vtk), INTENT(INOUT) :: this      !< \param [in,out] this fileio type
-    CHARACTER(LEN=*)                 :: res       !< \param [out] res result string
-    CHARACTER(LEN=*)                 :: littlestr !< \param [in] littlestr little endian str
-    CHARACTER(LEN=*)                 :: bigstr    !< \param [in] bigstr big endian str
-    !------------------------------------------------------------------------!
-    INTEGER                          :: k,iTIPO
-    CHARACTER, POINTER               :: cTIPO(:)
-    !------------------------------------------------------------------------!
-    INTENT(IN)                       :: littlestr, bigstr
-    INTENT(OUT)                      :: res
-    !------------------------------------------------------------------------!
-
-    !endianness
-    k = BIT_SIZE(iTIPO)/8
-    ALLOCATE(cTIPO(k),STAT = this%error_io)
-       IF (this%error_io.NE.0) &
-         CALL this%Error("GetEndianness", "Unable to allocate memory.")
-    cTIPO(1)='A'
-    !cTIPO(2:k-1) = That's of no importance.
-    cTIPO(k)='B'
-
-    iTIPO = transfer(cTIPO, iTIPO)
-    DEALLOCATE(cTIPO)
-    !Test of 'B'=b'01000010' ('A'=b'01000001')
-    IF (BTEST(iTIPO,1)) THEN
-       write(res,'(A)',IOSTAT=this%error_io)bigstr
-    ELSE
-       write(res,'(A)',IOSTAT=this%error_io)littlestr
-    END IF
-  END SUBROUTINE GetEndianness
-
 
   !> Creates a list of all data arrays which will be written to file
   !!
@@ -506,115 +460,115 @@ CONTAINS
     END DO
   END SUBROUTINE GetOutputlist
 
-  !> \public Specific routine to open a file for vtk I/O
-  !!
-  SUBROUTINE OpenFile(this,action,ftype)
-     IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(fileio_vtk), INTENT(INOUT)        :: this   !< \param [in,out] this fileio type
-    INTEGER,           INTENT(IN)           :: action !< \param [in] action mode of file access
-    CHARACTER(LEN=*),  INTENT(IN), OPTIONAL :: ftype  !< \param [in] file type
-    !------------------------------------------------------------------------!
-    CHARACTER(LEN=32)  :: sta,act,pos,fext
-    !------------------------------------------------------------------------!
-    this%error_io=1
-    SELECT CASE(action)
-    CASE(READONLY)
-       sta = 'OLD'
-       act = 'READ'
-       pos = 'REWIND'
-    CASE(READEND)
-       sta = 'OLD'
-       act = 'READ'
-       pos = 'APPEND'
-    CASE(REPLACE)
-       sta = 'REPLACE'
-       act = 'WRITE'
-       pos = 'REWIND'
-    CASE(APPEND)
-       sta = 'OLD'
-       act = 'READWRITE'
-       pos = 'APPEND'
-    CASE DEFAULT
-       CALL this%Error("OpenFile","Unknown access mode.")
-    END SELECT
+!   !> \public Specific routine to open a file for vtk I/O
+!   !!
+!   SUBROUTINE OpenFile(this,action,ftype)
+!      IMPLICIT NONE
+!     !------------------------------------------------------------------------!
+!     CLASS(fileio_vtk), INTENT(INOUT)        :: this   !< \param [in,out] this fileio type
+!     INTEGER,           INTENT(IN)           :: action !< \param [in] action mode of file access
+!     CHARACTER(LEN=*),  INTENT(IN), OPTIONAL :: ftype  !< \param [in] file type
+!     !------------------------------------------------------------------------!
+!     CHARACTER(LEN=32)  :: sta,act,pos,fext
+!     !------------------------------------------------------------------------!
+!     this%error_io=1
+!     SELECT CASE(action)
+!     CASE(READONLY)
+!        sta = 'OLD'
+!        act = 'READ'
+!        pos = 'REWIND'
+!     CASE(READEND)
+!        sta = 'OLD'
+!        act = 'READ'
+!        pos = 'APPEND'
+!     CASE(REPLACE)
+!        sta = 'REPLACE'
+!        act = 'WRITE'
+!        pos = 'REWIND'
+!     CASE(APPEND)
+!        sta = 'OLD'
+!        act = 'READWRITE'
+!        pos = 'APPEND'
+!     CASE DEFAULT
+!        CALL this%Error("OpenFile","Unknown access mode.")
+!     END SELECT
+! 
+!     ! check file type to open
+!     IF (PRESENT(ftype)) THEN
+!        fext=TRIM(ftype)
+!     ELSE
+!        ! default
+!        fext='vts'
+!     END IF
+! 
+!     SELECT CASE(TRIM(fext))
+!     CASE('vts')
+!        ! open the VTS file
+!        OPEN(this%unit, FILE=this%GetFilename(),STATUS=TRIM(sta), &
+!             ACCESS = 'STREAM' ,   &
+!             ACTION=TRIM(act),POSITION=TRIM(pos),IOSTAT=this%error_io)
+! #ifdef PARALLEL
+!     CASE('pvts')
+!        ! open PVTS file (only parallel mode)
+!        IF (this%GetRank().EQ.0) THEN
+!           this%extension='pvts' ! change file name extension
+!           OPEN(this%unit+100, FILE=this%GetFilename(-1),STATUS=TRIM(sta), &
+!                FORM='FORMATTED',ACTION=TRIM(act),POSITION=TRIM(pos),IOSTAT=this%error_io)
+!           this%extension='vts' ! reset default extension
+!        END IF
+! #endif
+!     CASE('pvd')
+!        OPEN(this%unit+200, FILE=TRIM(this%filename)//'.'//TRIM(fext),STATUS=TRIM(sta), &
+!             FORM='FORMATTED',ACTION=TRIM(act),POSITION=TRIM(pos),IOSTAT=this%error_io)
+!     CASE DEFAULT
+!        CALL this%Error("OpenFile","Unknown file type")
+!     END SELECT
+! 
+!     IF (this%error_io.GT.0) &
+!        CALL this%Error("OpenFile","cannot open " // TRIM(this%extension) // "-file")
+!   END SUBROUTINE OpenFile
 
-    ! check file type to open
-    IF (PRESENT(ftype)) THEN
-       fext=TRIM(ftype)
-    ELSE
-       ! default
-       fext='vts'
-    END IF
-
-    SELECT CASE(TRIM(fext))
-    CASE('vts')
-       ! open the VTS file
-       OPEN(this%unit, FILE=this%GetFilename(),STATUS=TRIM(sta), &
-            ACCESS = 'STREAM' ,   &
-            ACTION=TRIM(act),POSITION=TRIM(pos),IOSTAT=this%error_io)
-#ifdef PARALLEL
-    CASE('pvts')
-       ! open PVTS file (only parallel mode)
-       IF (this%GetRank().EQ.0) THEN
-          this%extension='pvts' ! change file name extension
-          OPEN(this%unit+100, FILE=this%GetFilename(-1),STATUS=TRIM(sta), &
-               FORM='FORMATTED',ACTION=TRIM(act),POSITION=TRIM(pos),IOSTAT=this%error_io)
-          this%extension='vts' ! reset default extension
-       END IF
-#endif
-    CASE('pvd')
-       OPEN(this%unit+200, FILE=TRIM(this%filename)//'.'//TRIM(fext),STATUS=TRIM(sta), &
-            FORM='FORMATTED',ACTION=TRIM(act),POSITION=TRIM(pos),IOSTAT=this%error_io)
-    CASE DEFAULT
-       CALL this%Error("OpenFile","Unknown file type")
-    END SELECT
-
-    IF (this%error_io.GT.0) &
-       CALL this%Error("OpenFile","cannot open " // TRIM(this%extension) // "-file")
-  END SUBROUTINE OpenFile
-
-  !> \public Specific routine to close a file for vtk I/O
-  !!
-  SUBROUTINE CloseFile(this,ftype)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(fileio_vtk), INTENT(INOUT) :: this  !< \param [in,out] this fileio type
-    CHARACTER(LEN=*), OPTIONAL       :: ftype !< \param [in] file type
-    !------------------------------------------------------------------------!
-    CHARACTER(LEN=4)                 :: fext
-    !------------------------------------------------------------------------!
-    INTENT(IN)                       :: ftype
-    !------------------------------------------------------------------------!
-    this%error_io=1
-    ! check file type to open
-    IF (PRESENT(ftype)) THEN
-       fext=TRIM(ftype)
-    ELSE
-       ! default
-       fext='vts'
-    END IF
-
-    ! close file depending on the file type
-    SELECT CASE(TRIM(fext))
-    CASE('vts')
-       CLOSE(this%unit,IOSTAT=this%error_io)
-#ifdef PARALLEL
-    CASE('pvts')
-        IF (this%GetRank() .EQ. 0 ) THEN
-           CLOSE(this%unit+100,IOSTAT=this%error_io)
-        END IF
-#endif
-    CASE('pvd')
-        CLOSE(this%unit+200,IOSTAT=this%error_io)
-    CASE DEFAULT
-       CALL this%Error("OpenFile","Unknown file type")
-    END SELECT
-    ! set default extension
-
-    IF(this%error_io .NE. 0) &
-       CALL this%Error( "CloseFileIO", "cannot close "//TRIM(fext)//"-file")
-  END SUBROUTINE CloseFile
+!   !> \public Specific routine to close a file for vtk I/O
+!   !!
+!   SUBROUTINE CloseFile(this,ftype)
+!     IMPLICIT NONE
+!     !------------------------------------------------------------------------!
+!     CLASS(fileio_vtk), INTENT(INOUT) :: this  !< \param [in,out] this fileio type
+!     CHARACTER(LEN=*), OPTIONAL       :: ftype !< \param [in] file type
+!     !------------------------------------------------------------------------!
+!     CHARACTER(LEN=4)                 :: fext
+!     !------------------------------------------------------------------------!
+!     INTENT(IN)                       :: ftype
+!     !------------------------------------------------------------------------!
+!     this%error_io=1
+!     ! check file type to open
+!     IF (PRESENT(ftype)) THEN
+!        fext=TRIM(ftype)
+!     ELSE
+!        ! default
+!        fext='vts'
+!     END IF
+! 
+!     ! close file depending on the file type
+!     SELECT CASE(TRIM(fext))
+!     CASE('vts')
+!        CLOSE(this%unit,IOSTAT=this%error_io)
+! #ifdef PARALLEL
+!     CASE('pvts')
+!         IF (this%GetRank() .EQ. 0 ) THEN
+!            CLOSE(this%unit+100,IOSTAT=this%error_io)
+!         END IF
+! #endif
+!     CASE('pvd')
+!         CLOSE(this%unit+200,IOSTAT=this%error_io)
+!     CASE DEFAULT
+!        CALL this%Error("OpenFile","Unknown file type")
+!     END SELECT
+!     ! set default extension
+! 
+!     IF(this%error_io .NE. 0) &
+!        CALL this%Error( "CloseFileIO", "cannot close "//TRIM(fext)//"-file")
+!   END SUBROUTINE CloseFile
 
 !  !> Extract a subkey of a string (obsolete)
 !  !!
@@ -1024,21 +978,30 @@ CONTAINS
     CALL this%IncTime()
   END SUBROUTINE WriteDataset
 
-  !> \public Closes the file I/O
+  !> \public Destructor of VTK file I/O class
   !!
-  SUBROUTINE Finalize(this)
+  SUBROUTINE Finalize_vtk(this)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(fileio_vtk), INTENT(INOUT) :: this   !< \param [in,out] this fileio type
     !------------------------------------------------------------------------!
     INTEGER                          :: k
     !------------------------------------------------------------------------!
-    !------------------------------------------------------------------------!
     DO k=1,this%cols
        IF (ASSOCIATED(this%output(k)%p)) DEALLOCATE(this%output(k)%p)
     END DO
     DEALLOCATE(this%binout,this%vtkcoords,this%output,this%tsoutput,this%bflux)
     CALL this%Finalize_base()
-  END SUBROUTINE Finalize
+  END SUBROUTINE Finalize_vtk
+  
+  !> \public Destructor of PVD file I/O class
+  !!
+  SUBROUTINE Finalize_pvd(this)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(fileio_pvd), INTENT(INOUT) :: this   !< \param [in,out] this fileio type
+    !------------------------------------------------------------------------!
+    CALL this%Finalize_base()
+  END SUBROUTINE Finalize_pvd
 
 END MODULE fileio_vtk_mod
