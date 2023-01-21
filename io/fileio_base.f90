@@ -181,10 +181,10 @@ MODULE fileio_base_mod
   CONTAINS
     !> \name Methods
     PROCEDURE :: InitFileio
-    PROCEDURE (WriteHeader), DEFERRED :: WriteHeader
-    PROCEDURE (WriteDataset), DEFERRED:: WriteDataset
+    PROCEDURE (WriteHeader), DEFERRED  :: WriteHeader
+    PROCEDURE (WriteDataset), DEFERRED :: WriteDataset
     PROCEDURE :: AdjustTimestep
-    PROCEDURE (Finalize), DEFERRED          :: Finalize
+    PROCEDURE (Finalize), DEFERRED     :: Finalize
     PROCEDURE :: Finalize_base
 !     PROCEDURE :: GetFilename
 !     PROCEDURE :: MakeMultstr
@@ -309,6 +309,15 @@ CONTAINS
     END IF
     ! format string for writing file names with explicit time step
     WRITE (cycfmt, "('(A,I',I1,'.',I1,',A)')") FCYCLEN-1,FCYCLEN-1
+    ! set fortran i/o unit number to a unique number for each file handle
+    this%fid = lastunit + 1
+    lastunit = this%fid
+    ! try to generate the file
+    CALL this%OpenFile(REPLACE)
+    IF (this%err.EQ.0) &
+      CALL this%CloseFile()
+    IF (this%err.NE.0) &
+      CALL this%Error("fileio_base::InitFilehandle","Creating new file'" // this%GetFilename() // "' failed")
   END SUBROUTINE InitFilehandle
  
   !> \public Generic constructor for file I/O
@@ -339,6 +348,19 @@ CONTAINS
     REAL                           :: time
     TYPE(Dict_TYP),POINTER         :: oldconfig => null()
     !------------------------------------------------------------------------!
+    ! abort the file handle for datafile is not allocated
+    IF (.NOT.ALLOCATED(this%datafile)) &
+      CALL this%Error("fileio_base::InitFileIO","File handle for datafile not allocated, aborting ...")
+
+    ! get file name and path from dictionary
+    CALL GetAttr(config, "filename"  , fname)
+    fpath = ""
+    CALL GetAttr(config, "filepath"  , fpath, fpath)
+    ! do basic initialization of file handle for datafile
+    IF (.NOT.this%datafile%Initialized()) THEN
+      CALL this%datafile%InitFilehandle(fname,fpath,fext)
+    END IF
+
     ! wall clock time between successive outputs
     ! this is mainly intended for log file outputs
     CALL GetAttr(config, "dtwall" , dtwall_def, 3600) !default is one hour
@@ -355,12 +377,6 @@ CONTAINS
     ! stop time for output defaults to simulation stop time
     CALL GetAttr(config, "stoptime"  , stoptime_def, Timedisc%stoptime)
     CALL GetAttr(config, "fileformat", fileformat)
-    CALL GetAttr(config, "filename"  , fname)
-    fpath = ""
-    CALL GetAttr(config, "filepath"  , fpath, fpath)
-    IF (.NOT.this%datafile%Initialized()) THEN
-      CALL this%datafile%InitFilehandle(fname,fpath,fext)
-    END IF
     CALL GetAttr(config, "unit"      , unit , lastunit+1)
     lastunit = unit
     CALL GetAttr(config, "walltime"  , this%walltime, HUGE(1.0))

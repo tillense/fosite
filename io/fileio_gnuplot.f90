@@ -140,6 +140,12 @@ CONTAINS
     INTEGER, DIMENSION(Mesh%IMAX-Mesh%IMIN+1) :: blocklen,indices
 #endif
     !------------------------------------------------------------------------!
+    ! this has to be done before basic initialization of fileio
+#ifdef PARALLEL
+    ALLOCATE(filehandle_mpi::this%datafile)
+#else
+    ALLOCATE(filehandle_fortran::this%datafile)
+#endif
     CALL this%InitFileio(Mesh,Physics,Timedisc,Sources,config,IO,"gnuplot","dat")
 
     CALL GetAttr(config, "/datafile/decimals", this%DECS, DEFAULT_DECS)
