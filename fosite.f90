@@ -360,10 +360,14 @@ CONTAINS
     !--------------------------------------------------------------------------!
     CLASS(fosite), INTENT(INOUT) :: this
     !--------------------------------------------------------------------------!
+    CHARACTER(LEN=32)  :: str
+    !--------------------------------------------------------------------------!
     ! main loop
     DO WHILE((this%Timedisc%maxiter.LE.0).OR.(this%iter.LE.this%Timedisc%maxiter))
       IF(this%Step()) EXIT
     END DO
+    IF (this%iter.GE.this%Timedisc%maxiter) &
+      CALL this%Warning("fosite::Run","number of iterations exceeds limit")
   END SUBROUTINE Run
 
 

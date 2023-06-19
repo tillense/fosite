@@ -139,11 +139,16 @@ CONTAINS
           DEFAULT_MPI_REAL = MPI_REAL8
           DEFAULT_MPI_2REAL = MPI_2DOUBLE_PRECISION
        CASE DEFAULT
-          CALL Warning(this,"InitLogging","Cannot determine default MPI real types.")
+          CALL this%Warning("logging_base::InitLogging","Cannot determine default MPI real types.")
        END SELECT
     END IF
 #endif
+#ifndef DEBUG
     NAN_DEFAULT_REAL    = IEEE_VALUE(NAN_DEFAULT_REAL,IEEE_QUIET_NAN)
+#else
+    NAN_DEFAULT_REAL    = TINY(NAN_DEFAULT_REAL)
+    CALL this%Warning("logging_base::InitLogging","Setting numbers to NaN for testing disabled in debug mode")
+#endif
     this%err = 0
     this%isinitialized  = .TRUE.
   END SUBROUTINE InitLogging
