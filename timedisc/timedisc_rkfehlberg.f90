@@ -41,11 +41,11 @@
 !----------------------------------------------------------------------------!
 MODULE timedisc_rkfehlberg_mod
   USE timedisc_base_mod
+  USE timedisc_modeuler_mod
   USE mesh_base_mod
   USE fluxes_base_mod
   USE boundary_base_mod
   USE physics_base_mod
-  USE timedisc_modeuler_mod
   USE marray_base_mod
   USE marray_compound_mod
   USE sources_base_mod
@@ -169,11 +169,11 @@ CONTAINS
   SUBROUTINE SolveODE(this,Mesh,Physics,Sources,Fluxes,time,dt,err)
   IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(Timedisc_rkfehlberg), INTENT(INOUT) :: this
-    CLASS(Mesh_base),           INTENT(IN)    :: Mesh
-    CLASS(Physics_base),        INTENT(INOUT) :: Physics
-    CLASS(Fluxes_base),         INTENT(INOUT) :: Fluxes
+    CLASS(timedisc_rkfehlberg), INTENT(INOUT) :: this
+    CLASS(mesh_base),           INTENT(IN)    :: Mesh
+    CLASS(physics_base),        INTENT(INOUT) :: Physics
     CLASS(sources_base),        POINTER       :: Sources
+    CLASS(fluxes_base),         INTENT(INOUT) :: Fluxes
     REAL,                       INTENT(IN)    :: time
     REAL,                       INTENT(INOUT) :: dt,err
     !------------------------------------------------------------------------!

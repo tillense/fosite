@@ -130,7 +130,8 @@ CONTAINS
     CLASS(physics_base),      INTENT(INOUT) :: Physics
     CLASS(sources_base),      POINTER       :: Sources
     CLASS(fluxes_base),       INTENT(INOUT) :: Fluxes
-    REAL                                    :: time,dt,err
+    REAL,                     INTENT(IN)    :: time
+    REAL,                     INTENT(INOUT) :: dt, err
     !------------------------------------------------------------------------!
     INTEGER                                 :: n
     INTEGER                                 :: order
@@ -139,9 +140,6 @@ CONTAINS
       CLASS(marray_compound), POINTER :: var
     END TYPE var_typ
     TYPE(var_typ)                           :: p(4),c(4)
-    !------------------------------------------------------------------------!
-    INTENT(IN)                              :: time
-    INTENT(INOUT)                           :: dt,err
     !------------------------------------------------------------------------!
     t = time
     order = this%GetOrder()

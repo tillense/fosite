@@ -18,6 +18,17 @@ else()
   add_definitions("-DVERSION=\"0.8.2\"") 
 endif()
 
+# DIRTY HACK!!! For some reason cmake does not find libz although it is installed.
+# Seems to be a known bug, see https://askubuntu.com/questions/1244299/cmake-can-not-find-zlib-on-ubuntu-20-04
+set(ZLIB_LIBRARY "/usr/lib/x86_64-linux-gnu/libz.so")
+# check whether LLVM is available
+find_package(LLVM CONFIG)
+if(LLVM_FOUND)
+  message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
+  message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
+  set(CMAKE_Fortran_COMPILER "${LLVM_INSTALL_PREFIX}/bin/flang")
+endif()
+
 # check and set the build type
 set (CMAKE_BUILD_TYPE_NAMES RELEASE DEBUG PROFILING)
 set (CMAKE_BUILD_TYPE RELEASE CACHE STRING "Should be one of RELEASE, DEBUG, PROFILING; default: RELEASE")
@@ -135,6 +146,11 @@ elseif (CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
   add_compile_options("$<$<CONFIG:PROFILING>:-O3;-pg;-qopt-report=1 -qopt-report-phase=vec>")
   add_compile_options("$<$<CONFIG:DEBUG>:-O0;-W1;-g;-CB;-CS;-traceback>")
   add_link_options("$<$<CONFIG:DEBUG>:-g;-CB;-CS;-traceback>")
+elseif (CMAKE_Fortran_COMPILER_ID MATCHES "Flang")
+  add_compile_options(-fdefault-real-8 -Mpreprocess -Mextend -Mfreeform)
+  add_compile_options("$<$<CONFIG:RELEASE>:>")
+  add_compile_options("$<$<CONFIG:PROFILING>:-fprofile-instr-generate>")
+  add_compile_options("$<$<CONFIG:DEBUG>:-g;-Mstandard;-fsanitize=memory>")
 elseif (CMAKE_Fortran_COMPILER_ID MATCHES "NEC")
   add_compile_options(-report-all -proginf -fdefault-real=8 -x f95-cpp-input)
   add_compile_options("$<$<CONFIG:RELEASE>:-finline-max-depth=5;-finline-max-function-size=150;-finline-functions;-floop-collapse>")
@@ -142,7 +158,7 @@ elseif (CMAKE_Fortran_COMPILER_ID MATCHES "NEC")
   add_compile_options("$<$<CONFIG:PROFILING>:-finline-max-depth=5;-finline-max-function-size=150;-finline-functions;-floop-collapse;-ftrace>")
   add_link_options("$<$<CONFIG:RELEASE>:-proginf>")
   add_link_options("$<$<CONFIG:PROFILING>:-ftrace>")
-else (Fortran_COMPILER_NAME_ID MATCHES "GNU")
+else (CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
   # unknown compiler
   message (STATUS "Found unsupported Fortran compiler: " ${CMAKE_Fortran_COMPILER})
   add_compile_options("$<$<CONFIG:RELEASE>:>")
