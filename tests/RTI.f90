@@ -3,7 +3,7 @@
 !# fosite - 3D hydrodynamical simulation program                             #
 !# module: RTI.f90                                                           #
 !#                                                                           #
-!# Copyright (C) 2008-2018                                                   #
+!# Copyright (C) 2008-2023                                                   #
 !# Björn Sperling   <sperling@astrophysik.uni-kiel.de>                       #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
 !# Jannes Klee      <jklee@astrophysik.uni-kiel.de>                          #
@@ -30,7 +30,7 @@
 !! \author Tobias Illenseer
 !! \author Jannes Klee
 !!
-!! \todo implement 3D test in cartesian and cylindrical geometry with
+!! \todo implement 3D test in cylindrical geometry with
 !!       and without axial symmetry
 !!
 !! References:
@@ -105,9 +105,15 @@ PROGRAM RTI
     !------------------------------------------------------------------------!
     TYPE(Dict_TYP), POINTER  :: mesh, physics, boundary, datafile, &
                                 sources, timedisc, fluxes, caccel, vis
+    REAL                     :: zmax
     !------------------------------------------------------------------------!
     INTENT(INOUT)            :: Sim
     !------------------------------------------------------------------------!
+    IF (ZRES.GT.1) THEN
+      zmax = 0.5*WIDTH
+    ELSE
+      zmax = 0.0
+    END IF
     ! mesh settings
     mesh => Dict( &
               "meshtype"      / MIDPOINT,   &    ! use midpoint rule         !
@@ -115,16 +121,16 @@ PROGRAM RTI
               "inum"          / XRES,       &    ! resolution in x-direction !
               "jnum"          / YRES,       &    ! resolution in y-direction !
               "knum"          / ZRES,       &    ! resolution in z-direction !
-              "xmin"          / 0.,         &    ! minimum value in x-dir.   !
-              "xmax"          / WIDTH,      &    ! maximum value in x-dir.   !
+              "xmin"          / (-0.5*WIDTH), &  ! minimum value in x-dir.   !
+              "xmax"          / (0.5*WIDTH), &   ! maximum value in x-dir.   !
               "ymin"          / 0.,         &    ! minimum value in y-dir.   !
               "ymax"          / HEIGHT,     &    ! maximum value in y-dir.   !
-              "zmin"          / 0.,         &    ! minimum value in z-dir.   !
-              "zmax"          / 0.)              ! maximum value in z-dir.   !
+              "zmin"          / (-zmax),    &    ! minimum value in z-dir.   !
+              "zmax"          / zmax)            ! maximum value in z-dir.   !
 
     ! physics settings
     physics => Dict( &
-              "problem"       / EULER, &         ! standard 2D hydrodynamics !
+              "problem"       / EULER, &         ! standard hydrodynamics    !
               "gamma"         / 1.4)             ! ratio of specific heats   !
 
     ! flux calculation and reconstruction method
@@ -204,8 +210,10 @@ PROGRAM RTI
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX) &
                       :: y0
     !------------------------------------------------------------------------!
-    ! this marks the line between the two fluids
-    y0(:,:,:) = 0.5*Mesh%ymax + A0*COS(2*PI*Mesh%bcenter(:,:,:,1)/Mesh%xmax)
+    ! y-coordiante of the contact surface between the two fluids:
+    ! half of the height with a little dip on the axis (x=0,y=0)
+    y0(:,:,:) = 0.5*Mesh%ymax - A0*EXP(-0.5/(0.4*WIDTH)**2 &
+         * (Mesh%bcenter(:,:,:,1)**2+Mesh%bcenter(:,:,:,3)**2))
 
     ! initial hydrostatic stratification
     SELECT TYPE(p => pvar)
@@ -223,7 +231,7 @@ PROGRAM RTI
       ! velocity vanishes everywhere
       p%velocity%data1d(:) = 0.
     CLASS DEFAULT
-      CALL Physics%Error("shear::InitData","only non-isothermal HD supported")
+      CALL Physics%Error("RTI::InitData","only non-isothermal HD supported")
     END SELECT
 
     CALL Physics%Convert2Conservative(pvar,cvar)
