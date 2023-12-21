@@ -2489,7 +2489,7 @@ CONTAINS
       CALL this%marray_compound%AssignMArray_0(src)
       IF (SIZE(this%data1d).LE.0) THEN ! empty compound
 #if DEBUG > 2
-        PRINT *,"DEBUG INFO in physics_euler::AssignMArray_0: found empty compound on lhs"
+        PRINT *,"DEBUG INFO in physics_eulerisotherm::AssignMArray_0: found empty compound on lhs"
 #endif
         RETURN
       END IF
