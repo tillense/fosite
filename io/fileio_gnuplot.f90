@@ -130,7 +130,7 @@ CONTAINS
     TYPE(Dict_TYP),      INTENT(IN), POINTER :: IO       !< \param [in] IO dict with pointers to I/O arrays
     !------------------------------------------------------------------------!
     TYPE(Dict_TYP), POINTER                   :: node
-    CHARACTER(LEN=128),DIMENSION(4)           :: skip
+    CHARACTER(LEN=MAX_CHAR_LEN),DIMENSION(4)  :: skip
     REAL, DIMENSION(:,:,:,:), POINTER         :: dummy4
     INTEGER                                   :: cartcoords
     INTEGER                                   :: depth
@@ -178,17 +178,15 @@ CONTAINS
        ! requires 3 pointers, one for each cartesian coordinate
        ALLOCATE(this%output(1)%p(3),STAT=this%err)
     END IF
-    IF (this%err.EQ.0) &
+    IF (this%err.NE.0) &
        CALL this%Error("fileio_gnuplot::InitFileIO","memory allocation failed for this%output(1)%p")
 
     ! register coordinate array pointers for output
-    k = 1
     DO n=1,3
       this%output(1)%p(n)%val => dummy4(:,:,:,n)
     END DO
     WRITE(this%linebuf,'(A)') '# ' // 'x' // REPEAT(' ',this%FLEN-3) // 'y' // REPEAT(' ',this%FLEN-1) &
                                    // 'z' // REPEAT(' ',this%FLEN-1)
-    this%COLS = 3
     
     !!!!!! ATTENTION old code suppresses coordinate output in 1D/2D simulations
     !!!!!! if the coordinate does not vary along a specific dimension
@@ -207,11 +205,18 @@ CONTAINS
 !       this%COLS = 2
 !     END IF
 
-    ! set output-pointer and count the number of output columns
+    ! register scalars and arrays for output
     WRITE (this%fmtstr,'(A,I2,A1)')'(A',this%FLEN-1,')'
     node => IO
-    skip(1:4) = [CHARACTER(LEN=128) :: "bary_centers", "bary_curv", "corners", "time"]
-    CALL this%GetOutputList(Mesh,skip,node,this%COLS,this%TSCOLS)
+    skip(1:4) = [CHARACTER(LEN=MAX_CHAR_LEN) :: "bary_centers", "bary_curv", "corners", "time"]
+    k = 1
+    CALL this%GetOutputList(Mesh,node,k,this%TSCOLS,skip)
+
+    ! count number of output columns for array data
+    this%COLS = 0
+    DO n=1,k
+       this%COLS = this%COLS + SIZE(this%output(n)%p)
+    END DO
 
     ! length of one output line
     this%linelen = this%COLS * this%FLEN
@@ -331,19 +336,23 @@ CONTAINS
   !!
   !! Therefore it ignores all arrays with coordinates and checks if the data
   !! arrays are of the dimension of the mesh.
-  RECURSIVE SUBROUTINE GetOutputList(this,Mesh,skip,node,oarr,onum)
+  RECURSIVE SUBROUTINE GetOutputList(this,Mesh,node,oarr,onum,skip,prefix)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(fileio_gnuplot), INTENT(INOUT) :: this  !< \param [in,out] this fileio type
     CLASS(mesh_base), INTENT(IN)         :: Mesh  !< \param [in] mesh mesh type
-    CHARACTER(LEN=128), DIMENSION(:), INTENT(IN) &
-                                         :: skip  !< \param [in] skip list of keys to skip
     TYPE(Dict_TYP), POINTER              :: node  !< \param [in,out] node pointer to (sub-)dict
-    INTEGER, INTENT(INOUT)               :: oarr  !< \param [in,out] number of output arrays
-    INTEGER, INTENT(INOUT)               :: onum  !< \param [in,out] number of output numbers
+    INTEGER, INTENT(INOUT)               :: oarr  !< \param [in,out] oarr number of output arrays
+    INTEGER, INTENT(INOUT)               :: onum  !< \param [in,out] onum number of output numbers
+    CHARACTER(LEN=MAX_CHAR_LEN), DIMENSION(:), OPTIONAL, INTENT(IN) &
+                                         :: skip  !< \param [in] skip list of keys to skip
+    CHARACTER(LEN=*), OPTIONAL, INTENT(INOUT) &
+                                         :: prefix!<\param [in,out] prefix namespace (path) to sub-dict
     !------------------------------------------------------------------------!
     TYPE(Dict_TYP), POINTER              :: dir
-    TYPE(Real_t), POINTER                :: dummy1
+    CHARACTER(LEN=MAX_CHAR_LEN)          :: key
+    TYPE(real_t)                         :: dummy1
+    REAL, DIMENSION(:,:), POINTER        :: dummy2
     REAL, DIMENSION(:,:,:), POINTER      :: dummy3
     REAL, DIMENSION(:,:,:,:), POINTER    :: dummy4
     REAL, DIMENSION(:,:,:,:,:), POINTER  :: dummy5
@@ -351,15 +360,113 @@ CONTAINS
     INTEGER                              :: m,n
     !------------------------------------------------------------------------!
     ! reset error code
-    this%err = 0
-    DO WHILE(ASSOCIATED(node).AND.this%err.EQ.0)
-      ! check for directory and exclude any coordinates (these are handled elsewhere)
-      IF(HasChild(node)) THEN
-        ! recursion
-        CALL GetAttr(node,GetKey(node),dir)
-        CALL GetOutputList(this,Mesh,skip,dir,oarr,onum)
-      ELSE IF (HasData(node).AND..NOT.ANY(skip(:) == GetKey(node))) THEN
-        ! check data properties
+    DO WHILE(ASSOCIATED(node))
+       ! check if node is directory
+       IF(HasChild(node)) THEN
+          ! recursion
+          IF (PRESENT(prefix)) THEN
+             ! add prefix to key
+             key = TRIM(prefix)//'/'//TRIM(GetKey(node))
+          ELSE
+             key = '/'//TRIM(GetKey(node))
+          END IF
+          dir => GetChild(node)
+          IF (PRESENT(skip)) THEN
+             CALL GetOutputList(this,Mesh,dir,oarr,onum,skip,key)
+          ELSE
+             CALL GetOutputList(this,Mesh,dir,oarr,onum,prefix=key)
+          END IF
+       ELSE IF (HasData(node)) THEN
+          ! node contains data
+          IF (PRESENT(skip)) THEN
+             IF (ANY(skip(:) == GetKey(node))) THEN
+                ! skip entry and continue with next node
+                node=>GetNext(node)
+                CYCLE
+             END IF
+          END IF
+          ! check shape of data
+          dims = 0
+          SELECT CASE(GetDatatype(node))
+!           CASE(DICT_REAL_TWOD)
+!               CALL GetAttr(node,TRIM(GetKey(node)),dummy2)
+!               dims(1:2) = SHAPE(dummy2)
+!               dims(3:5) = 1
+          CASE(DICT_REAL_THREED)
+              CALL GetAttr(node,TRIM(GetKey(node)),dummy3)
+              dims(1:3) = SHAPE(dummy3)
+              dims(4:5) = 1
+          CASE(DICT_REAL_FOURD)
+              CALL GetAttr(node,TRIM(GetKey(node)),dummy4)
+              dims(1:4) = SHAPE(dummy4)
+              dims(5)   = 1
+          CASE(DICT_REAL_FIVED)
+              CALL GetAttr(node,TRIM(GetKey(node)),dummy5)
+              dims(1:5) = SHAPE(dummy5)
+          CASE(DICT_REAL_P)
+              CALL GetAttr(node,GetKey(node),dummy1)
+              IF (ASSOCIATED(dummy1%p)) THEN
+                onum=onum+1
+                IF (onum.GT.this%MAXCOLS-1) &
+                   CALL this%Error("fileio_gnuplot::GetOutputList", &
+                            "number of scalar output fields exceeds upper limit")
+                ! register number data for output
+                this%tsoutput(onum)%val => dummy1%p
+                this%tsoutput(onum)%key = TRIM(GetKey(node))
+                IF (PRESENT(prefix)) THEN
+                    this%tsoutput(onum)%key = TRIM(prefix) // '/' // this%tsoutput(onum)%key
+                END IF
+              END IF
+          CASE DEFAULT
+              CALL this%Warning("fileio_gnuplot::GetOutputList", &
+                       "'" // GetKey(node) // "'" // " registered for output," &
+                       // " but data type is currently not supported")
+          END SELECT
+          ! only register array data for output if it contains
+          ! mesh data
+          IF ((dims(1).EQ.(Mesh%IMAX-Mesh%IMIN+1)).AND.&
+             (dims(2).EQ.(Mesh%JMAX-Mesh%JMIN+1)).AND.&
+             (dims(3).EQ.(Mesh%KMAX-Mesh%KMIN+1))) THEN
+             ! count number of output columns currently registered
+             n=0
+             DO m=1,oarr
+                n = n + SIZE(this%output(m)%p)
+             END DO
+             ! check limit for output of array data
+             IF (n+dims(4)*dims(5).GT.this%MAXCOLS) &
+                CALL this%Error("fileio_gnuplot::GetOutputList", &
+                         "number of array output fields exceeds upper limit")
+             ! increase array output index
+             oarr = oarr + 1
+             ! store name of the output array
+             this%output(oarr)%key = TRIM(GetKey(node))
+             ! prepend prefix if present
+             IF (PRESENT(prefix)) THEN
+                this%output(oarr)%key = TRIM(prefix) // '/' // this%output(oarr)%key
+             END IF
+             ! allocate memory for pointer to output arrays
+             ALLOCATE(this%output(oarr)%p(dims(4)*dims(5)),STAT=this%err)
+             IF (this%err.NE.0) &
+                CALL this%Error( "fileio_gnuplot::GetOutputList", "Unable to allocate memory.")
+             ! set pointer to output arrays
+             IF (dims(4).EQ.1) THEN
+                ! 3D data
+                this%output(oarr)%p(1)%val => dummy3
+             ELSE IF (dims(5).EQ.1) THEN
+                ! 4D data (for example pvars - density,xvel,yvel)
+                DO n=1,dims(4)
+                   this%output(oarr)%p(n)%val => dummy4(:,:,:,n)
+                END DO
+             ELSE
+                ! 5D data, e.g., stress tensor components
+                DO n=1,dims(5)
+                   DO m=1,dims(4)
+                      this%output(oarr)%p(n+(m-1)*dims(5))%val => dummy5(:,:,:,m,n)
+                   END DO
+                END DO
+             END IF
+          END IF
+
 !         SELECT CASE(GetDataType(node))
 !         CASE(DICT_REAL_THREED)
 !           ! real 3D array
@@ -425,11 +532,9 @@ CONTAINS
 !         CASE DEFAULT
 !           !do nothing (wrong type)
 !         END SELECT
-      END IF
-      node=>GetNext(node)
+       END IF
+       node=>GetNext(node)
     END DO
-    IF (this%err.NE.0) &
-         CALL Error(this,"fileio_gnuplot::GetOutputList","number of output fields exceeds upper limit")
   END SUBROUTINE GetOutputList
 
 

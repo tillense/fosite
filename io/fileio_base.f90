@@ -117,7 +117,9 @@ MODULE fileio_base_mod
     !> \name Variables
     INTEGER   :: fid                       !< unique ID for file access (Fortran i/o unit)
     LOGICAL   :: textfile                  !< true for text, i.e. ascii stream
-    CHARACTER(LEN=FNAMLEN) :: filename     !< file name without extension
+    LOGICAL   :: onefile                   !< true if all data goes into one file
+    INTEGER   :: cycles                    !< number of files
+    CHARACTER(LEN=FNAMLEN) :: filename     !< file name without extension(s)
     CHARACTER(LEN=FPATLEN) :: path         !< file path without filename
     CHARACTER(LEN=FEXTLEN) :: extension    !< file name extension
   CONTAINS
@@ -276,7 +278,7 @@ CONTAINS
   END FUNCTION CreateFilehandle
 
   !> basic initialization of Fortran file handle
-  SUBROUTINE InitFilehandle(this,filename,path,extension,textfile)
+  SUBROUTINE InitFilehandle(this,filename,path,extension,textfile,onefile,cycles)
     IMPLICIT NONE
     !-------------------------------------------------------------------!
     CLASS(filehandle_fortran), INTENT(INOUT) :: this !< \param [inout] this file handle class
@@ -284,6 +286,8 @@ CONTAINS
     CHARACTER(LEN=*), INTENT(IN) :: path     !< \param [in] path file path without filename
     CHARACTER(LEN=*), OPTIONAL, INTENT(IN) :: extension !< \param [in] extension file name extension
     LOGICAL, OPTIONAL, INTENT(IN)      :: textfile !< \param [in] textfile true for text data
+    LOGICAL, OPTIONAL, INTENT(IN)      :: onefile  !< \param [in] onefile true if all data goes into one file
+    INTEGER, OPTIONAL, INTENT(IN)      :: cycles   !< \parma [in] cycles max number of files
     !-------------------------------------------------------------------!
     IF (.NOT.this%Initialized()) CALL this%InitLogging(FORTRANFILE,"fortran")
     ! check file name length
@@ -307,13 +311,27 @@ CONTAINS
     ELSE
       this%textfile = .TRUE. ! default is textfile
     END IF
+    IF (PRESENT(onefile)) THEN
+      this%onefile = onefile
+    ELSE
+      this%onefile = .FALSE. ! default is multiple data files (one for each time step)
+    END IF
+    IF (PRESENT(cycles)) THEN
+      this%cycles = cycles
+    ELSE
+      this%cycles = MAXCYCLES
+    END IF
     ! format string for writing file names with explicit time step
     WRITE (cycfmt, "('(A,I',I1,'.',I1,',A)')") FCYCLEN-1,FCYCLEN-1
     ! set fortran i/o unit number to a unique number for each file handle
     this%fid = lastunit + 1
     lastunit = this%fid
     ! try to generate the file
-    CALL this%OpenFile(REPLACE)
+    IF (this%onefile) THEN
+      CALL this%OpenFile(REPLACE)
+    ELSE
+      CALL this%OpenFile(REPLACE,step=0)
+    END IF
     IF (this%err.EQ.0) &
       CALL this%CloseFile()
     IF (this%err.NE.0) &
@@ -523,39 +541,6 @@ CONTAINS
 !   END FUNCTION MakeMultstr
 
 
-  !> \public Get the current file name without path
-  !! e.g. important for vtk (pvts files)
-  !! \result current file name
-  FUNCTION GetBasename(this,step,cycles) RESULT (fname)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(filehandle_fortran), INTENT(IN) :: this   !< \param [in] this file handle
-    INTEGER, INTENT(IN)                   :: step   !< \param [in] step time step
-    INTEGER, OPTIONAL, INTENT(IN)         :: cycles !< \param [in] step number of file cycles
-    CHARACTER(LEN=256)                    :: fname
-    !------------------------------------------------------------------------!
-    INTEGER :: fnum
-    !------------------------------------------------------------------------!
-    fnum = -1
-    IF (PRESENT(cycles)) THEN
-      IF (cycles.GT.0) &
-          ! determine file number based on current step and number of files,
-          ! i.e. cycles, at all
-        fnum = MODULO(step,cycles)
-    ELSE
-      ! if cycles are not given then fnum is given by the current step
-      fnum = step
-    END IF
-    IF (fnum.GT.-1) THEN
-      ! generate a file name with fnum appended
-      WRITE (fname, FMT=TRIM(cycfmt)) TRIM(this%filename) // "_", &
-         fnum, "." // TRIM(this%extension)
-    ELSE
-      ! do not append any number to the basic file name, just the extension
-      WRITE (fname,"(A)") TRIM(this%filename) // "." // TRIM(this%extension)
-    END IF
-  END FUNCTION GetBasename
-
 !   !> \public Get the current file name
 !   !! \result current file name
 !   FUNCTION GetFilename(this,fn) RESULT (fname)
@@ -581,11 +566,12 @@ CONTAINS
 
   !> \public Open file to access Fortran stream
   !!
-  SUBROUTINE OpenFile(this,action)
+  SUBROUTINE OpenFile(this,action,step)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(filehandle_fortran), INTENT(INOUT):: this   !< \param [in,out] this fileio type
     INTEGER,           INTENT(IN)           :: action !< \param [in] action mode of file access
+    INTEGER, OPTIONAL, INTENT(IN)           :: step   !< \param [in] step time step
     !------------------------------------------------------------------------!
     CHARACTER(LEN=32)  :: sta,act,pos,frm
     !------------------------------------------------------------------------!
@@ -609,7 +595,7 @@ CONTAINS
     CASE DEFAULT
        CALL this%Error("fileio_base::OpenFile_serial","Unknown access mode.")
     END SELECT
-    OPEN(UNIT=this%GetUnitNumber(),FILE=this%GetFilename(),STATUS=TRIM(sta), &
+    OPEN(UNIT=this%GetUnitNumber(),FILE=this%GetFilename(step),STATUS=TRIM(sta), &
          ACCESS='STREAM',ACTION=TRIM(act),POSITION=TRIM(pos),FORM=this%GetFormat(), &
          IOSTAT=this%err)
   END SUBROUTINE OpenFile
@@ -684,15 +670,41 @@ CONTAINS
     END IF
   END FUNCTION GetFormat
 
+  !> \public get the file name without path but with extension
+  !! and possibly with time step string; if step=-1 suppress the time step string
+  !! \result file name without path
+  FUNCTION GetBasename(this,step) RESULT (fname)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(filehandle_fortran), INTENT(IN) :: this   !< \param [in] this file handle
+    INTEGER, OPTIONAL, INTENT(IN)         :: step   !< \param [in] step time step
+    CHARACTER(LEN=256)                    :: fname
+    !------------------------------------------------------------------------!
+    IF (PRESENT(step)) THEN
+       IF (step.LT.0.OR.step.GE.MAXCYCLES) THEN
+          WRITE(fname,'(I6)') MAXCYCLES
+          CALL this%Error("filehandle_fortran::GetBasename","step must be >= 0 and < " // TRIM(fname))
+       END IF
+       ! determine file number based on current step and number of files,
+       ! i.e. cycles, and generate the file name with these extensions
+       WRITE(fname, FMT=TRIM(cycfmt)) TRIM(this%filename) // "_", &
+          MODULO(step,this%cycles), "." // TRIM(this%extension)
+    ELSE
+      ! no step given -> do not append any number to the basic file name, just the extension
+      WRITE (fname,"(A)") TRIM(this%filename) // "." // TRIM(this%extension)
+    END IF
+  END FUNCTION GetBasename
+
   !> \public get file name of Fortran stream
-  FUNCTION GetFilename(this)
+  FUNCTION GetFilename(this,step)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(filehandle_fortran), INTENT(INOUT) :: this  !< \param [in,out] this fileio type
+    INTEGER, OPTIONAL, INTENT(IN)            :: step  !< \param [in] step time step
     !------------------------------------------------------------------------!
     CHARACTER(LEN=256) :: GetFilename
     !------------------------------------------------------------------------!
-!     GetFilename = TRIM(this%path) !// TRIM(GetBasename(this,fn))
+    GetFilename = TRIM(this%path) // TRIM(GetBasename(this,step))
   END FUNCTION GetFilename
 
   !> \public close Fortran stream
