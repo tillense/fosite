@@ -134,7 +134,7 @@ CONTAINS
     REAL, DIMENSION(:,:,:,:), POINTER         :: dummy4
     INTEGER                                   :: cartcoords
     INTEGER                                   :: depth
-    INTEGER                                   :: n
+    INTEGER                                   :: n,k
 #ifdef PARALLEL
     INTEGER                                   :: i
     INTEGER, DIMENSION(Mesh%IMAX-Mesh%IMIN+1) :: blocklen,indices
@@ -156,29 +156,42 @@ CONTAINS
     this%FLEN = this%DECS + 9
     this%MAXCOLS = len(this%linebuf)/this%FLEN-1
 
+    ! this is for registering all arrays which are supposed to be written to the output file
     ALLOCATE(this%output(this%MAXCOLS),STAT=this%err)
-    IF (this%err.EQ.0) &
-      ! create pointer to coordinate arrays depending on mesh dimensionality
-      ALLOCATE(this%output(1)%p(Mesh%NDIMS),STAT=this%err)
     IF (this%err.NE.0) &
       CALL this%Error("fileio_gnuplot::InitFileIO","memory allocation failed for this%output")
 
     ! check if cartesian coordinates are selected for output;
     ! default: curvilinear coordinates (0)
     CALL GetAttr(config, "/datafile/cartcoords", cartcoords, 0)
-    depth = 1
-    node => config
-    CALL WriteHeaderString(header_buf,node,depth)
     IF (cartcoords.EQ.0) THEN
+       ! output curvilinear coordinates
        CALL GetAttr(IO,"/mesh/bary_curv",dummy4)
+       ! requires NDIMS pointers, one for each curvilinear coordinate, depending on the
+       ! dimensionality of the mesh
+       ALLOCATE(this%output(1)%p(3),STAT=this%err)
+      !!!!! only output necessary curvilinear coordinates; needs some addional checks below
+!        ALLOCATE(this%output(1)%p(Mesh%NDIMS),STAT=this%err)
     ELSE
+       ! output cartesian coordinates
        CALL GetAttr(IO,"/mesh/bary_centers",dummy4)
+       ! requires 3 pointers, one for each cartesian coordinate
+       ALLOCATE(this%output(1)%p(3),STAT=this%err)
     END IF
-    DO n=1,Mesh%NDIMS
-       this%output(1)%p(n)%val => dummy4(:,:,:,n)
+    IF (this%err.EQ.0) &
+       CALL this%Error("fileio_gnuplot::InitFileIO","memory allocation failed for this%output(1)%p")
+
+    ! register coordinate array pointers for output
+    k = 1
+    DO n=1,3
+      this%output(1)%p(n)%val => dummy4(:,:,:,n)
     END DO
+    WRITE(this%linebuf,'(A)') '# ' // 'x' // REPEAT(' ',this%FLEN-3) // 'y' // REPEAT(' ',this%FLEN-1) &
+                                   // 'z' // REPEAT(' ',this%FLEN-1)
+    this%COLS = 3
     
-    !!!!!! ATTENTION should be repaired
+    !!!!!! ATTENTION old code suppresses coordinate output in 1D/2D simulations
+    !!!!!! if the coordinate does not vary along a specific dimension
 !     IF (Mesh%INUM.EQ.1) THEN
 !       ! use format string as temp
 !       WRITE (this%fmtstr,'(A5,I2,A1)')'(A1,A',this%FLEN-3,')'
@@ -206,6 +219,10 @@ CONTAINS
        CALL this%Error("fileio_gnuplot::InitFileIO", &
           "linebuffer to small; reducing decimals or number of output fields may help")
 
+    ! get settings from config dictionary and store in header_buf
+    depth = 1
+    node => config
+    CALL WriteHeaderString(header_buf,node,depth)
     header_buf = TRIM(header_string) // TRIM(header_buf) // this%linebuf(1:this%linelen)
 
     ! local domain size

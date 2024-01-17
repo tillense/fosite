@@ -154,7 +154,7 @@ CONTAINS
   END SUBROUTINE InitLogging
 
 
-  !> \public Destructor of common class.
+  !> \public Destructor of logging_base class.
   !!
   SUBROUTINE Finalize(this)
     IMPLICIT NONE
