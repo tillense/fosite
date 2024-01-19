@@ -238,14 +238,14 @@ CONTAINS
 
     CALL GetAttr(this%config, "datafile", dir)
     IF(ASSOCIATED(dir)) THEN
-      CALL new_fileio(this%Datafile, this%Mesh, this%Physics, this%Timedisc,&
-                      this%Sources, dir,this%IO)!,this%config)
+      this%Datafile = new_fileio(this%Mesh, this%Physics, this%Timedisc,&
+                                 this%Sources,dir,this%IO)!,this%config)
     END IF
 
     CALL GetAttr(this%config, "logfile", dir)
     IF(ASSOCIATED(dir)) THEN
-      CALL new_fileio(this%Logfile, this%Mesh, this%Physics, this%Timedisc,&
-                      this%Sources,dir,this%IO)
+      this%Logfile = new_fileio(this%Mesh, this%Physics, this%Timedisc,&
+                                 this%Sources,dir,this%IO)!,this%config)
     END IF
 
     CALL SetAttr(this%config, "version", TRIM(VERSION))

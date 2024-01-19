@@ -94,7 +94,7 @@ MODULE fileio_gnuplot_mod
 #endif
   CONTAINS
     !> \name Methods
-    PROCEDURE :: InitFileIO_gnuplot
+    PROCEDURE :: InitFileIO_deferred
     PROCEDURE :: Finalize
     PROCEDURE :: WriteHeader
 !    PROCEDURE :: ReadHeader
@@ -118,7 +118,7 @@ CONTAINS
   !!
   !! Initilizes the file I/O type, filename, stoptime, number of outputs,
   !! number of files, unit number, config as a dict
-  SUBROUTINE InitFileIO_gnuplot(this,Mesh,Physics,Timedisc,Sources,config,IO)
+  SUBROUTINE InitFileIO_deferred(this,Mesh,Physics,Timedisc,Sources,config,IO)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(fileio_gnuplot),INTENT(INOUT)      :: this     !< \param [in,out] this fileio type
@@ -129,6 +129,7 @@ CONTAINS
     TYPE(Dict_TYP),      INTENT(IN), POINTER :: config   !< \param [in] config dict with I/O configuration
     TYPE(Dict_TYP),      INTENT(IN), POINTER :: IO       !< \param [in] IO dict with pointers to I/O arrays
     !------------------------------------------------------------------------!
+    TYPE(Output_TYP),DIMENSION(:),POINTER     :: poutput
     TYPE(Dict_TYP), POINTER                   :: node
     CHARACTER(LEN=MAX_CHAR_LEN),DIMENSION(4)  :: skip
     REAL, DIMENSION(:,:,:,:), POINTER         :: dummy4
@@ -146,7 +147,7 @@ CONTAINS
 #else
     ALLOCATE(filehandle_fortran::this%datafile)
 #endif
-    CALL this%InitFileio(Mesh,Physics,Timedisc,Sources,config,IO,"gnuplot","dat")
+    CALL this%InitFileio(Mesh,Physics,Timedisc,Sources,config,IO,"gnuplot")
 
     CALL GetAttr(config, "/datafile/decimals", this%DECS, DEFAULT_DECS)
     ! compute length of character field for real number output
@@ -185,8 +186,8 @@ CONTAINS
     DO n=1,3
       this%output(1)%p(n)%val => dummy4(:,:,:,n)
     END DO
-    WRITE(this%linebuf,'(A)') '# ' // 'x' // REPEAT(' ',this%FLEN-3) // 'y' // REPEAT(' ',this%FLEN-1) &
-                                   // 'z' // REPEAT(' ',this%FLEN-1)
+    this%output(1)%key = '# ' // 'x' // REPEAT(' ',this%FLEN-3) // 'y' // REPEAT(' ',this%FLEN-1) &
+                              // 'z' // REPEAT(' ',this%FLEN-1)
     
     !!!!!! ATTENTION old code suppresses coordinate output in 1D/2D simulations
     !!!!!! if the coordinate does not vary along a specific dimension
@@ -212,9 +213,16 @@ CONTAINS
     k = 1
     CALL this%GetOutputList(Mesh,node,k,this%TSCOLS,skip)
 
+    ! shrink this%output
+    poutput => this%output
+    ALLOCATE(this%output,SOURCE=poutput(1:k),STAT=this%err)
+    IF (this%err.NE.0) &
+      CALL this%Error("fileio_gnuplot::InitFileIO","memory allocation failed for this%output")
+    DEALLOCATE(poutput)
+
     ! count number of output columns for array data
     this%COLS = 0
-    DO n=1,k
+    DO n=1,SIZE(this%output)
        this%COLS = this%COLS + SIZE(this%output(n)%p)
     END DO
 
@@ -223,12 +231,6 @@ CONTAINS
     IF (this%linelen.GT.LEN(this%linebuf)) &
        CALL this%Error("fileio_gnuplot::InitFileIO", &
           "linebuffer to small; reducing decimals or number of output fields may help")
-
-    ! get settings from config dictionary and store in header_buf
-    depth = 1
-    node => config
-    CALL WriteHeaderString(header_buf,node,depth)
-    header_buf = TRIM(header_string) // TRIM(header_buf) // this%linebuf(1:this%linelen)
 
     ! local domain size
     this%inum = Mesh%IMAX - Mesh%IMIN + 1
@@ -267,7 +269,7 @@ CONTAINS
     WRITE (this%fmtstr,'(A3,I2,A,I2.2,A5)') '(ES', this%FLEN-2, '.', this%DECS,',A,A)'
     ! write format string for one output line
     WRITE (this%linefmt, '(A,I0,A)') "(A", this%linelen-1, ")"
-  END SUBROUTINE InitFileIO_gnuplot
+  END SUBROUTINE InitFileIO_deferred
 
 
   !> Creates a string with the configuration (from the dictionary)
@@ -548,12 +550,24 @@ CONTAINS
     CLASS(physics_base),   INTENT(IN)    :: Physics   !< \param [in] Physics physics type
     TYPE(Dict_TYP), POINTER              :: Header,IO
     !------------------------------------------------------------------------!
+    TYPE(Dict_TYP), POINTER              :: node
+    INTEGER                              :: depth
+    !------------------------------------------------------------------------!
     IF (this%GetRank().EQ.0) THEN
+       ! get settings from config dictionary and store in header_buf
+       depth = 1
+       node => Header
+       CALL WriteHeaderString(header_buf,node,depth)
+       header_buf = TRIM(header_string) // TRIM(header_buf)
+
 #ifdef PARALLEL
        CALL MPI_File_write(this%handle,TRIM(header_buf),LEN(TRIM(header_buf)), &
             MPI_CHARACTER,this%status,this%err)
 #else
-       WRITE (this%unit,FMT='(A)',IOSTAT=this%err) TRIM(header_buf) !(1:HLEN-1)
+       SELECT TYPE(df=>this%datafile)
+       CLASS IS(filehandle_fortran)
+         WRITE (df%fid,FMT='(A)',IOSTAT=this%err) TRIM(header_buf) !(1:HLEN-1)
+       END SELECT
 #endif
     END IF
   END SUBROUTINE WriteHeader
@@ -593,6 +607,26 @@ CONTAINS
     INTEGER                       :: request
 #endif
     !------------------------------------------------------------------------!
+    ! some sanity checks:
+    ! 1. no output data
+    IF (.NOT.ASSOCIATED(this%output)) RETURN
+
+    ! 2. uninitilized output data structure
+    DO l=1,SIZE(this%output)
+       IF (.NOT.ASSOCIATED(this%output(l)%p)) THEN
+          CALL this%Error("fileio_gnuplot::WriteDataset", &
+                          "this should not happen: output data pointer for " &
+                          // TRIM(this%output(l)%key) // " not associated")
+       ELSE
+          DO m=1,SIZE(this%output(l)%p)
+             IF (.NOT.ASSOCIATED(this%output(l)%p(m)%val)) &
+                CALL this%Error("fileio_gnuplot::WriteDataset", &
+                                "this should not happen: one of the data array pointers for " &
+                                // TRIM(this%output(l)%key) // " not associated")
+          END DO
+       END IF
+    END DO
+
     IF (ASSOCIATED(Timedisc%w)) THEN
       IF (Mesh%FARGO.EQ.3.AND.Mesh%shear_dir.EQ.1) THEN
         CALL Physics%AddBackgroundVelocityX(Mesh,Timedisc%w,Timedisc%pvar,Timedisc%cvar)
@@ -619,11 +653,14 @@ CONTAINS
     CALL MPI_File_set_view(this%handle,offset,this%basictype,this%filetype, &
          'native',MPI_INFO_NULL,this%error)
 #else
-    ! write _one_ line feed at the beginning of each time step
-    WRITE (this%unit,FMT='(A)',ADVANCE='NO') LF
+    SELECT TYPE(df=>this%datafile)
+    CLASS IS(filehandle_fortran)
+       ! write _one_ line feed at the beginning of each time step
+       WRITE (df%GetUnitNumber(),FMT='(A)',ADVANCE='NO') LF
+    END SELECT
 #endif
 
-    DO l=1,this%cols
+    DO l=1,SIZE(this%output)
       ! trim the data for gnuplot output
       DO m=1,SIZE(this%output(l)%p)
         WHERE (ABS(this%output(l)%p(m)%val(:,:,:)).LT.MAX(TINY(this%output(l)%p(m)%val),1.0D-99))
@@ -637,31 +674,30 @@ CONTAINS
     DO i=1,this%inum
       DO j=1,this%jnum
         DO k=1,this%knum   
-          ! write positions to line buffer
-          DO m=1,this%COLS-1
-            DO l=1,SIZE(this%output(m)%p)
-              WRITE (this%linebuf((m-1)*this%FLEN+1:m*this%FLEN),TRIM(this%fmtstr)) &
-                     this%output(m)%p(l)%val(i,j,k), RECSEP
+          ! write array data to line buffer
+          DO l=1,SIZE(this%output)-1
+            DO m=1,SIZE(this%output(l)%p)
+               WRITE (this%linebuf((l-1)*this%FLEN+1:l*this%FLEN),TRIM(this%fmtstr)) &
+                     this%output(l)%p(m)%val(i,j,k), RECSEP
             END DO
           END DO
-          
-          m=this%COLS
-          DO l=1,SIZE(this%output(m)%p)-1
-            WRITE (this%linebuf((m-1)*this%FLEN+1:m*this%FLEN),TRIM(this%fmtstr)) &
-                   this%output(m)%p(l)%val(i,j,k), RECSEP
+
+          l = SIZE(this%output)
+          DO m=1,SIZE(this%output(l)%p)-1
+             WRITE (this%linebuf((l-1)*this%FLEN+1:l*this%FLEN),TRIM(this%fmtstr)) &
+                   this%output(l)%p(m)%val(i,j,k), RECSEP
           END DO
 
-          l = SIZE(this%output(m)%p)
-          !!!!! ATTENTION this is still 2D code should be different in 3D
-          IF ((j.EQ.Mesh%JNUM).AND.((Mesh%JNUM.GT.1).OR.(Mesh%INUM.EQ.i))) THEN
-             ! finish the block
-             WRITE (this%linebuf((this%COLS-1)*this%FLEN+1:this%linelen),TRIM(this%fmtstr)) &
-                  this%output(m)%p(l)%val(i,j,k), BLKSEP
-          ELSE
-             ! finish the line
-             WRITE (this%linebuf((this%COLS-1)*this%FLEN+1:this%linelen),TRIM(this%fmtstr)) &
-                  this%output(m)%p(l)%val(i,j,k), LINSEP
-          END IF
+!           !!!!! ATTENTION this is still 2D code should be different in 3D
+!           IF ((j.EQ.Mesh%JNUM).AND.((Mesh%JNUM.GT.1).OR.(Mesh%INUM.EQ.i))) THEN
+!              ! finish the block
+!              WRITE (this%linebuf((this%COLS-1)*this%FLEN+1:this%linelen),TRIM(this%fmtstr)) &
+!                   this%output(m)%p(l)%val(i,j,k), BLKSEP
+!           ELSE
+!              ! finish the line
+!              WRITE (this%linebuf((this%COLS-1)*this%FLEN+1:this%linelen),TRIM(this%fmtstr)) &
+!                   this%output(m)%p(l)%val(i,j,k), LINSEP
+!           END IF
 
 #ifdef PARALLEL
 !!!! ATTENTION parallel output broken
@@ -671,7 +707,10 @@ CONTAINS
 !          END DO
 #else
           ! write line buffer to output file
-          WRITE (this%unit,FMT=TRIM(this%linefmt),ADVANCE='YES') this%linebuf(1:this%linelen-1)
+          SELECT TYPE(df=>this%datafile)
+          CLASS IS(filehandle_fortran)
+             WRITE (df%fid,FMT=TRIM(this%linefmt),ADVANCE='YES') this%linebuf(1:this%linelen-1)
+          END SELECT
 #endif
          END DO
        END DO

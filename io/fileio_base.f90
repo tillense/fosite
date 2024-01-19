@@ -131,6 +131,7 @@ MODULE fileio_base_mod
     PROCEDURE :: GetBasename
     PROCEDURE :: GetUnitNumber
     PROCEDURE :: GetFormat
+    PROCEDURE :: GetStatus
     FINAL :: Finalize_fortran
   END TYPE filehandle_fortran
 
@@ -146,7 +147,7 @@ MODULE fileio_base_mod
      CHARACTER(LEN=512)     :: linebuf     !< char buffer fo field data
      CHARACTER(LEN=512)     :: tslinebuf   !< char buffer for time step data
      LOGICAL                :: cartcoords  !< output cartesian coordinates
-     INTEGER                :: unit        !< i/o unit
+!      INTEGER                :: unit        !< i/o unit
      INTEGER                :: step        !< counter for output steps
      INTEGER                :: count       !< number of output steps
      INTEGER                :: cycles      !< number of output files
@@ -182,7 +183,9 @@ MODULE fileio_base_mod
 #endif
   CONTAINS
     !> \name Methods
-    PROCEDURE :: InitFileio
+    PROCEDURE (InitFileIO_deferred), DEFERRED   :: InitFileIO_deferred
+    PROCEDURE :: InitFileIO_base
+    GENERIC   :: InitFileIO => InitFileIO_base, InitFileIO_deferred
     PROCEDURE (WriteHeader), DEFERRED  :: WriteHeader
     PROCEDURE (WriteDataset), DEFERRED :: WriteDataset
     PROCEDURE :: AdjustTimestep
@@ -195,6 +198,18 @@ MODULE fileio_base_mod
 
   ! Interfaces
   ABSTRACT INTERFACE
+    SUBROUTINE InitFileIO_deferred(this,Mesh,Physics,Timedisc,Sources,config,IO)
+      IMPORT fileio_base,mesh_base,physics_base,fluxes_base,timedisc_base,sources_base,Dict_TYP
+      IMPLICIT NONE
+      !------------------------------------------------------------------------!
+      CLASS(fileio_base),  INTENT(INOUT) :: this
+      CLASS(mesh_base),    INTENT(IN)    :: Mesh
+      CLASS(physics_base), INTENT(IN)    :: Physics
+      CLASS(timedisc_base),INTENT(IN)    :: Timedisc
+      CLASS(sources_base), INTENT(IN), POINTER :: Sources
+      TYPE(Dict_TYP),      INTENT(IN), POINTER :: config
+      TYPE(Dict_TYP),      INTENT(IN), POINTER :: IO
+    END SUBROUTINE
     SUBROUTINE WriteDataset(this,Mesh,Physics,Fluxes,Timedisc,Header,IO)
       IMPORT fileio_base,mesh_base,physics_base,fluxes_base,timedisc_base,Dict_TYP
       IMPLICIT NONE
@@ -224,6 +239,7 @@ MODULE fileio_base_mod
   !> \name Public Attributes
   !! #### file status and access modes
 !  INTEGER, PARAMETER :: FILE_EXISTS = B'00000001' !< file status for existing files
+  INTEGER, PARAMETER :: CLOSED   = 0       !< file closed
   INTEGER, PARAMETER :: READONLY = 1       !< readonly access
   INTEGER, PARAMETER :: READEND  = 2       !< readonly access at end
   INTEGER, PARAMETER :: REPLACE  = 3       !< read/write access replacing file
@@ -246,7 +262,7 @@ MODULE fileio_base_mod
   INTERFACE filehandle_fortran
     MODULE PROCEDURE CreateFilehandle
   END INTERFACE
-  !--------------------------------------------------------------------------!
+    !--------------------------------------------------------------------------!
   PUBLIC :: &
        ! types
        fileio_base, Output_TYP, TSOutput_TYP, ValPtr_TYP, &
@@ -257,8 +273,7 @@ MODULE fileio_base_mod
        filehandle_mpi, &
        DEFAULT_MPI_REAL,&
 #endif
-       READONLY, READEND, REPLACE, APPEND
-!       FILE_EXISTS, &
+       CLOSED, READONLY, READEND, REPLACE, APPEND
 
 
 CONTAINS
@@ -278,7 +293,7 @@ CONTAINS
   END FUNCTION CreateFilehandle
 
   !> basic initialization of Fortran file handle
-  SUBROUTINE InitFilehandle(this,filename,path,extension,textfile,onefile,cycles)
+  SUBROUTINE InitFilehandle(this,filename,path,extension,textfile,onefile,cycles,unit)
     IMPLICIT NONE
     !-------------------------------------------------------------------!
     CLASS(filehandle_fortran), INTENT(INOUT) :: this !< \param [inout] this file handle class
@@ -288,6 +303,7 @@ CONTAINS
     LOGICAL, OPTIONAL, INTENT(IN)      :: textfile !< \param [in] textfile true for text data
     LOGICAL, OPTIONAL, INTENT(IN)      :: onefile  !< \param [in] onefile true if all data goes into one file
     INTEGER, OPTIONAL, INTENT(IN)      :: cycles   !< \parma [in] cycles max number of files
+    INTEGER, OPTIONAL, INTENT(IN)      :: unit     !< \parma [in] unit force fortran i/o unit number
     !-------------------------------------------------------------------!
     IF (.NOT.this%Initialized()) CALL this%InitLogging(FORTRANFILE,"fortran")
     ! check file name length
@@ -321,26 +337,29 @@ CONTAINS
     ELSE
       this%cycles = MAXCYCLES
     END IF
+    IF (PRESENT(unit)) THEN
+      IF (unit.EQ.lastunit) &
+         CALL this%Error("filehandle_fortran::InitFilehandle","fortran i/o unit number already assigned")
+      this%fid = unit
+    ELSE
+      this%fid = lastunit + 1
+    END IF
+    lastunit = this%fid
+
     ! format string for writing file names with explicit time step
     WRITE (cycfmt, "('(A,I',I1,'.',I1,',A)')") FCYCLEN-1,FCYCLEN-1
-    ! set fortran i/o unit number to a unique number for each file handle
-    this%fid = lastunit + 1
-    lastunit = this%fid
-    ! try to generate the file
-    IF (this%onefile) THEN
-      CALL this%OpenFile(REPLACE)
-    ELSE
-      CALL this%OpenFile(REPLACE,step=0)
-    END IF
+
+    ! try to generate new file
+    CALL this%OpenFile(REPLACE,step=0)
     IF (this%err.EQ.0) &
       CALL this%CloseFile()
     IF (this%err.NE.0) &
-      CALL this%Error("fileio_base::InitFilehandle","Creating new file'" // this%GetFilename() // "' failed")
+      CALL this%Error("fileio_base::InitFilehandle","Creating new file'" // this%GetFilename(0) // "' failed")
   END SUBROUTINE InitFilehandle
  
-  !> \public Generic constructor for file I/O
+  !> \public Basic FileIO initialization
   !!
-  SUBROUTINE InitFileIO(this,Mesh,Physics,Timedisc,Sources,config,IO,fmtname,fext)
+  SUBROUTINE InitFileIO_base(this,Mesh,Physics,Timedisc,Sources,config,IO,fmtname)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(fileio_base),  INTENT(INOUT) :: this     !< \param [in,out] this fileio type
@@ -351,7 +370,6 @@ CONTAINS
     TYPE(Dict_TYP),      INTENT(IN), POINTER :: config  !< \param [in] config dict with I/O configuration
     TYPE(Dict_TYP),      INTENT(IN), POINTER :: IO      !< \param [in] IO dict with pointers to I/O arrays
     CHARACTER(LEN=*),    INTENT(IN)    :: fmtname  !< format name
-    CHARACTER(LEN=*),    INTENT(IN)    :: fext     !< fext file name extension
     !------------------------------------------------------------------------!
     INTEGER                        :: fileformat !< fmt fileio type number
     CHARACTER(LEN=MAX_CHAR_LEN)    :: fname      !< fname file name
@@ -366,22 +384,17 @@ CONTAINS
     REAL                           :: time
     TYPE(Dict_TYP),POINTER         :: oldconfig => null()
     !------------------------------------------------------------------------!
-    ! abort the file handle for datafile is not allocated
+    CALL GetAttr(config, "fileformat", fileformat)
+    ! InitLogging after reading fileformat from config
+    CALL this%InitLogging(fileformat,fmtname)
+
     IF (.NOT.ALLOCATED(this%datafile)) &
-      CALL this%Error("fileio_base::InitFileIO","File handle for datafile not allocated, aborting ...")
+       CALL this%Error("fileio_base::InitFileIO_base","file handle of datafile not allocated")
 
     ! get file name and path from dictionary
     CALL GetAttr(config, "filename"  , fname)
     fpath = ""
     CALL GetAttr(config, "filepath"  , fpath, fpath)
-    ! do basic initialization of file handle for datafile
-    IF (.NOT.this%datafile%Initialized()) THEN
-      CALL this%datafile%InitFilehandle(fname,fpath,fext)
-    END IF
-
-    ! wall clock time between successive outputs
-    ! this is mainly intended for log file outputs
-    CALL GetAttr(config, "dtwall" , dtwall_def, 3600) !default is one hour
 
     ! number of output steps
     CALL GetAttr(config, "count" , count_def, 1)
@@ -391,12 +404,20 @@ CONTAINS
     ! fcycles = 1     : one data file, overwrite data
     ! fcycles = X > 1 : X data files
     CALL GetAttr(config, "filecycles", fcycles_def, count_def+1)
+    ! check cycles
+    IF (fcycles_def.GT.MAXCYCLES) &
+       CALL this%Error("InitFileIO","file cycles exceed limits")
+
+    ! fortran i/o unit
+    CALL GetAttr(config, "unit"      , unit , lastunit+1)
+
+!     CALL this%datafile%InitFilehandle(fname,fpath,extension,textfile,onefile,cycles,unit)
+    ! wall clock time between successive outputs
+    ! this is mainly intended for log file outputs
+    CALL GetAttr(config, "dtwall" , dtwall_def, 3600) !default is one hour
 
     ! stop time for output defaults to simulation stop time
     CALL GetAttr(config, "stoptime"  , stoptime_def, Timedisc%stoptime)
-    CALL GetAttr(config, "fileformat", fileformat)
-    CALL GetAttr(config, "unit"      , unit , lastunit+1)
-    lastunit = unit
     CALL GetAttr(config, "walltime"  , this%walltime, HUGE(1.0))
 
     ! mesh coordinates are cartesian by default (cartcoords == 1)
@@ -407,13 +428,6 @@ CONTAINS
     ELSE
       this%cartcoords = .TRUE.
     END IF
-
-    ! InitLogging after reading fileformat from config
-    CALL this%InitLogging(fileformat,fmtname)
-
-    ! check cycles
-    IF (fcycles_def.GT.MAXCYCLES) &
-       CALL this%Error("InitFileIO","file cycles exceed limits")
 
 #ifdef PARALLEL
     ! turn on multiple file output if requested
@@ -426,7 +440,6 @@ CONTAINS
 #endif
 
     this%cycles    = fcycles_def
-    this%unit      = unit
     this%stoptime  = stoptime_def
     this%starttime = Timedisc%time  ! from beginning of simulation
     this%dtwall    = dtwall_def
@@ -469,7 +482,7 @@ CONTAINS
 !     IF (this%error.NE.0) CALL Error(this,"InitFileIO","unable to check file properties")
 !     CALL MPI_File_close(this%handle,this%error)
 ! #endif
-  END SUBROUTINE InitFileIO
+  END SUBROUTINE InitFileIO_base
 
   !> \public Increments the counter for timesteps and sets the time for next output
   !!
@@ -571,7 +584,7 @@ CONTAINS
     !------------------------------------------------------------------------!
     CLASS(filehandle_fortran), INTENT(INOUT):: this   !< \param [in,out] this fileio type
     INTEGER,           INTENT(IN)           :: action !< \param [in] action mode of file access
-    INTEGER, OPTIONAL, INTENT(IN)           :: step   !< \param [in] step time step
+    INTEGER,           INTENT(IN)           :: step   !< \param [in] step time step
     !------------------------------------------------------------------------!
     CHARACTER(LEN=32)  :: sta,act,pos,frm
     !------------------------------------------------------------------------!
@@ -595,9 +608,12 @@ CONTAINS
     CASE DEFAULT
        CALL this%Error("fileio_base::OpenFile_serial","Unknown access mode.")
     END SELECT
-    OPEN(UNIT=this%GetUnitNumber(),FILE=this%GetFilename(step),STATUS=TRIM(sta), &
-         ACCESS='STREAM',ACTION=TRIM(act),POSITION=TRIM(pos),FORM=this%GetFormat(), &
-         IOSTAT=this%err)
+    this%err = 0
+    CALL this%CloseFile() ! make sure we don't open an already opened file
+    IF (this%err.EQ.0) &
+      OPEN(UNIT=this%GetUnitNumber(),FILE=this%GetFilename(step),STATUS=TRIM(sta), &
+           ACCESS='STREAM',ACTION=TRIM(act),POSITION=TRIM(pos),FORM=this%GetFormat(), &
+           IOSTAT=this%err)
   END SUBROUTINE OpenFile
  
   !> \public Open file for input/ouput in parallel mode
@@ -655,6 +671,51 @@ CONTAINS
     GetUnitNumber = this%fid
   END FUNCTION GetUnitNumber
 
+  !> \public get Fortran file status
+  FUNCTION GetStatus(this,step)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(filehandle_fortran), INTENT(INOUT) :: this  !< \param [in,out] this fileio type
+    INTEGER, OPTIONAL, INTENT(IN)            :: step  !< \param [in] step time step
+    !------------------------------------------------------------------------!
+    INTEGER :: GetStatus
+    LOGICAL :: ex,op
+    CHARACTER(LEN=64) :: act,pos
+    !------------------------------------------------------------------------!
+    GetStatus = -1 ! unknown / undefined / does not exist
+    ! check if file exist
+    INQUIRE(FILE=TRIM(this%GetFilename(step)),EXIST=ex,OPENED=op,ACTION=act,POSITION=pos,IOSTAT=this%err)
+    IF (this%err.NE.0) &
+       CALL this%Error("filehandle_fortran::GetStatus","serious failure during file inquirery")
+    IF (ex) THEN
+       ! file exists
+       IF (op) THEN
+          ! file is open
+          SELECT CASE(TRIM(act))
+          CASE("READ")
+            SELECT CASE(TRIM(pos))
+            CASE("REWIND")
+               GetStatus = READONLY
+            CASE("APPEND")
+               GetStatus = READEND
+            END SELECT
+          CASE("WRITE","READWRITE")
+            SELECT CASE(TRIM(pos))
+            CASE("REWIND")
+               GetStatus = REPLACE
+            CASE("APPEND")
+               GetStatus = APPEND
+            END SELECT
+          END SELECT
+       ELSE
+          ! file exists, but is closed
+          GetStatus = CLOSED
+       END IF
+    ELSE
+       ! file doesn't exist -> return negative number
+    END IF
+  END FUNCTION GetStatus
+
   !> \public get Fortran i/o format string
   FUNCTION GetFormat(this)
     IMPLICIT NONE
@@ -677,10 +738,14 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(filehandle_fortran), INTENT(IN) :: this   !< \param [in] this file handle
-    INTEGER, OPTIONAL, INTENT(IN)         :: step   !< \param [in] step time step
+    INTEGER, INTENT(IN)                   :: step   !< \param [in] step time step
     CHARACTER(LEN=256)                    :: fname
     !------------------------------------------------------------------------!
-    IF (PRESENT(step)) THEN
+    IF (this%onefile) THEN
+       ! all data goes into one file -> no extra string indicating time step
+       WRITE (fname,"(A)") TRIM(this%filename) // "." // TRIM(this%extension)
+    ELSE
+       ! insert extra string for each time step before the extension
        IF (step.LT.0.OR.step.GE.MAXCYCLES) THEN
           WRITE(fname,'(I6)') MAXCYCLES
           CALL this%Error("filehandle_fortran::GetBasename","step must be >= 0 and < " // TRIM(fname))
@@ -689,9 +754,6 @@ CONTAINS
        ! i.e. cycles, and generate the file name with these extensions
        WRITE(fname, FMT=TRIM(cycfmt)) TRIM(this%filename) // "_", &
           MODULO(step,this%cycles), "." // TRIM(this%extension)
-    ELSE
-      ! no step given -> do not append any number to the basic file name, just the extension
-      WRITE (fname,"(A)") TRIM(this%filename) // "." // TRIM(this%extension)
     END IF
   END FUNCTION GetBasename
 
@@ -700,7 +762,7 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(filehandle_fortran), INTENT(INOUT) :: this  !< \param [in,out] this fileio type
-    INTEGER, OPTIONAL, INTENT(IN)            :: step  !< \param [in] step time step
+    INTEGER, INTENT(IN)                      :: step  !< \param [in] step time step
     !------------------------------------------------------------------------!
     CHARACTER(LEN=256) :: GetFilename
     !------------------------------------------------------------------------!
@@ -717,7 +779,7 @@ CONTAINS
 ! #ifdef PARALLEL
 !     CALL MPI_File_close(this%handle,this%err)
 ! #else
-    CLOSE(UNIT=this%GetUnitNumber(),IOSTAT=this%err)
+    IF (this%GetStatus().GT.0) CLOSE(UNIT=this%GetUnitNumber(),IOSTAT=this%err)
 ! #endif
   END SUBROUTINE CloseFile
 

@@ -44,10 +44,10 @@ MODULE fileio_generic_mod
 
 CONTAINS
 
-  SUBROUTINE new_fileio(Fileio,Mesh,Physics,Timedisc,Sources,config,IO)
+  !> constructor for FileIO class
+  FUNCTION new_fileio(Mesh,Physics,Timedisc,Sources,config,IO) RESULT(new_fio)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(fileio_base), ALLOCATABLE           :: Fileio
     CLASS(mesh_base),     INTENT(IN)          :: Mesh
     CLASS(physics_base),  INTENT(IN)          :: Physics
     CLASS(timedisc_base), INTENT(IN)          :: Timedisc
@@ -55,6 +55,7 @@ CONTAINS
     TYPE(DICT_TYP),       INTENT(IN), POINTER :: config
     TYPE(DICT_TYP),       INTENT(IN), POINTER ::  IO
     !------------------------------------------------------------------------!
+    CLASS(fileio_base), ALLOCATABLE           :: new_fio
     INTEGER                                   :: fileformat
     !------------------------------------------------------------------------!
     CALL GetAttr(config,"fileformat",fileformat)
@@ -62,27 +63,19 @@ CONTAINS
     ! allocate data
     SELECT CASE(fileformat)
     CASE(GNUPLOT)
-      ALLOCATE(fileio_gnuplot::Fileio)
+      ALLOCATE(fileio_gnuplot::new_fio)
 !     CASE(VTK)
-!       ALLOCATE(fileio_vtk::Fileio)
+!       ALLOCATE(fileio_vtk::new_fio)
 !     CASE(BINARY)
-!       ALLOCATE(fileio_binary::Fileio)
+!       ALLOCATE(fileio_binary::new_fio)
 !     CASE(XDMF)
-!       ALLOCATE(fileio_xdmf::Fileio)
+!       ALLOCATE(fileio_xdmf::new_fio)
     CASE DEFAULT
-      CALL Fileio%Error("fileio_generic::new_fileio","Unknown file format.")
+      CALL Mesh%Error("fileio_base::CreateFileIO","Unknown file format.")
     END SELECT
 
     ! call initialization
-    SELECT TYPE(obj => Fileio)
-    TYPE IS (fileio_gnuplot)
-      CALL obj%InitFileio_gnuplot(Mesh,Physics,Timedisc,Sources,config,IO)
-!     TYPE IS (fileio_vtk)
-!       CALL obj%InitFileio_vtk(Mesh,Physics,Timedisc,Sources,config,IO)
-!     TYPE IS (fileio_binary)
-!       CALL obj%InitFileio_binary(Mesh,Physics,Timedisc,Sources,config,IO)
-!     TYPE IS (fileio_xdmf)
-!       CALL obj%InitFileio_xdmf(Mesh,Physics,Timedisc,Sources,config,IO)
-    END SELECT
-  END SUBROUTINE
+    CALL new_fio%InitFileIO(Mesh,Physics,Timedisc,Sources,config,IO)
+  END FUNCTION new_fileio
+
 END MODULE fileio_generic_mod
