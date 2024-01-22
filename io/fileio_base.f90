@@ -101,15 +101,15 @@ MODULE fileio_base_mod
 
   TYPE Output_TYP
     TYPE(ValPtr_TYP), DIMENSION(:), POINTER :: p
-    CHARACTER(LEN=128)                      :: key
+    CHARACTER(LEN=MAX_CHAR_LEN)             :: key
     CHARACTER(LEN=1024)                     :: path
     INTEGER(KIND=4)                         :: numbytes
   END TYPE Output_TYP
 
   !> output-pointer for time step scalar data (gnuplot)
   TYPE TSOutput_TYP
-    REAL, POINTER           :: val
-    CHARACTER(LEN=128)      :: key
+    REAL, POINTER                           :: val
+    CHARACTER(LEN=MAX_CHAR_LEN)             :: key
   END TYPE TSOutput_TYP
 
   !> class for Fortran file handle
@@ -150,7 +150,6 @@ MODULE fileio_base_mod
 !      INTEGER                :: unit        !< i/o unit
      INTEGER                :: step        !< counter for output steps
      INTEGER                :: count       !< number of output steps
-     INTEGER                :: cycles      !< number of output files
      INTEGER                :: dtwall      !< wall clock time difference
      INTEGER                :: inum,jnum,& !< mesh extent
                                knum
@@ -359,7 +358,7 @@ CONTAINS
  
   !> \public Basic FileIO initialization
   !!
-  SUBROUTINE InitFileIO_base(this,Mesh,Physics,Timedisc,Sources,config,IO,fmtname)
+  SUBROUTINE InitFileIO_base(this,Mesh,Physics,Timedisc,Sources,config,IO,fmtname,fext,textfile)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(fileio_base),  INTENT(INOUT) :: this     !< \param [in,out] this fileio type
@@ -369,27 +368,23 @@ CONTAINS
     CLASS(sources_base), INTENT(IN), POINTER :: Sources !< \param [in] Sources sources type
     TYPE(Dict_TYP),      INTENT(IN), POINTER :: config  !< \param [in] config dict with I/O configuration
     TYPE(Dict_TYP),      INTENT(IN), POINTER :: IO      !< \param [in] IO dict with pointers to I/O arrays
-    CHARACTER(LEN=*),    INTENT(IN)    :: fmtname  !< format name
+    CHARACTER(LEN=*),    INTENT(IN)    :: fmtname  !< \param [in] fmtname file format
+    CHARACTER(LEN=*),    INTENT(IN)    :: fext     !< \param [in] fext file extension
+    LOGICAL, OPTIONAL, INTENT(IN)      :: textfile !< \param [in] textfile true for text data
     !------------------------------------------------------------------------!
     INTEGER                        :: fileformat !< fmt fileio type number
     CHARACTER(LEN=MAX_CHAR_LEN)    :: fname      !< fname file name
     CHARACTER(LEN=MAX_CHAR_LEN)    :: fpath      !< fpath file path
-    !INTEGER                        :: fcycles    !< fcycles number of file cycles
     INTEGER                        :: unit       !<  unit fortran i/o unit number
-!    LOGICAL                        :: success
+    LOGICAL                        :: onefile
     CHARACTER(LEN=32)              :: timestamp
-    INTEGER                        :: count_def, fcycles_def, dtwall_def
-    INTEGER                        :: cartcoords
-    REAL                           :: stoptime_def
+    INTEGER                        :: maxsteps,cycles,dtwall,cartcoords
+    REAL                           :: stoptime
     REAL                           :: time
-    TYPE(Dict_TYP),POINTER         :: oldconfig => null()
     !------------------------------------------------------------------------!
     CALL GetAttr(config, "fileformat", fileformat)
     ! InitLogging after reading fileformat from config
     CALL this%InitLogging(fileformat,fmtname)
-
-    IF (.NOT.ALLOCATED(this%datafile)) &
-       CALL this%Error("fileio_base::InitFileIO_base","file handle of datafile not allocated")
 
     ! get file name and path from dictionary
     CALL GetAttr(config, "filename"  , fname)
@@ -397,28 +392,35 @@ CONTAINS
     CALL GetAttr(config, "filepath"  , fpath, fpath)
 
     ! number of output steps
-    CALL GetAttr(config, "count" , count_def, 1)
+    CALL GetAttr(config, "count" , this%count, 1)
 
     ! number of data files
-    ! fcycles = 0     : one data file, append data
-    ! fcycles = 1     : one data file, overwrite data
-    ! fcycles = X > 1 : X data files
-    CALL GetAttr(config, "filecycles", fcycles_def, count_def+1)
+    ! cycles = 0     : one data file, append data
+    ! cycles = 1     : one data file, overwrite data
+    ! cycles = X > 1 : X data files
+    CALL GetAttr(config, "filecycles", cycles, maxsteps+1)
     ! check cycles
-    IF (fcycles_def.GT.MAXCYCLES) &
+    IF (cycles.GT.MAXCYCLES) &
        CALL this%Error("InitFileIO","file cycles exceed limits")
 
+    IF (cycles.GT.1) THEN
+       onefile = .FALSE.
+    ELSE
+       onefile = .TRUE.
+    END IF
     ! fortran i/o unit
     CALL GetAttr(config, "unit"      , unit , lastunit+1)
 
-!     CALL this%datafile%InitFilehandle(fname,fpath,extension,textfile,onefile,cycles,unit)
     ! wall clock time between successive outputs
     ! this is mainly intended for log file outputs
-    CALL GetAttr(config, "dtwall" , dtwall_def, 3600) !default is one hour
+    CALL GetAttr(config, "dtwall" , this%dtwall, 3600) !default is one hour
 
     ! stop time for output defaults to simulation stop time
-    CALL GetAttr(config, "stoptime"  , stoptime_def, Timedisc%stoptime)
+    CALL GetAttr(config, "stoptime"  , this%stoptime, Timedisc%stoptime)
     CALL GetAttr(config, "walltime"  , this%walltime, HUGE(1.0))
+
+    ! initial step, usually 0 except for restarted simulations
+    CALL Getattr(config, "step", this%step, 0)
 
     ! mesh coordinates are cartesian by default (cartcoords == 1)
     ! set to 0 for curvilinear coordinates (currently supported in gnuplot and vtk)
@@ -429,39 +431,36 @@ CONTAINS
       this%cartcoords = .TRUE.
     END IF
 
+    ! initialize file handle for the data file
+    IF (.NOT.ALLOCATED(this%datafile)) &
+       CALL this%Error("fileio_base::InitFileIO_base","file handle of datafile not allocated")
+    CALL this%datafile%InitFilehandle(fname,fpath,fext,textfile,onefile,cycles,unit)
+
 #ifdef PARALLEL
     ! turn on multiple file output if requested
     IF (this%multfiles) THEN
        ! check number of parallel processes
        IF (this%GetNumProcs().GT.MAXMLTFILES) &
-          CALL this%Error("InitFileIO","number of processes for multiple file output exceeds limits")
+          CALL this%Error("fileio_base::InitFileIO_base","number of processes for multiple file output exceeds limits")
        fmextstr = this%MakeMultstr()
     END IF
 #endif
 
-    this%cycles    = fcycles_def
-    this%stoptime  = stoptime_def
-    this%starttime = Timedisc%time  ! from beginning of simulation
-    this%dtwall    = dtwall_def
-    this%count     = count_def
+    this%starttime = Timedisc%time  ! set to initial time defined in Timedisc
+    this%time      = this%starttime
     this%offset    = 0
     this%err       = 0
 
-    CALL Getattr(config, "step", this%step, 0)
-
-    ! compute the (actual) output time
-    this%time = Timedisc%time
+    ! time for next output
+    IF (Timedisc%time.GT.0.0) CALL this%IncTime()
 
     ! print some information
     CALL this%Info(" FILEIO---> file type:         " // TRIM(this%GetName()))
- !   IF (success) THEN
-       WRITE (timestamp,'(ES10.4)') Timedisc%time
-       CALL this%Info("            time stamp:        " // TRIM(timestamp))
- !   END IF
+    WRITE (timestamp,'(ES10.4)') Timedisc%time
+    CALL this%Info("            time stamp:        " // TRIM(timestamp))
+    IF (.NOT.this%cartcoords) &
+      CALL this%Info("    cruvilinear coords:        yes")
 
-    ! time for next output
-    IF (Timedisc%time.GT.0.0) CALL this%IncTime()
-    IF (ASSOCIATED(oldconfig)) CALL DeleteDict(oldconfig)
 !!!!! old fosite code, may be obsolete
 ! #ifdef PARALLEL
 !     ! check data type extents in files
@@ -606,7 +605,7 @@ CONTAINS
        act = 'READWRITE'
        pos = 'APPEND'
     CASE DEFAULT
-       CALL this%Error("fileio_base::OpenFile_serial","Unknown access mode.")
+       CALL this%Error("fileio_base::OpenFile","Unknown access mode.")
     END SELECT
     this%err = 0
     CALL this%CloseFile() ! make sure we don't open an already opened file
@@ -614,6 +613,8 @@ CONTAINS
       OPEN(UNIT=this%GetUnitNumber(),FILE=this%GetFilename(step),STATUS=TRIM(sta), &
            ACCESS='STREAM',ACTION=TRIM(act),POSITION=TRIM(pos),FORM=this%GetFormat(), &
            IOSTAT=this%err)
+    IF (this%err.NE.0) &
+      CALL this%Error("fileio_base::OpenFile","File opening failed.")
   END SUBROUTINE OpenFile
  
   !> \public Open file for input/ouput in parallel mode
@@ -776,11 +777,16 @@ CONTAINS
     !------------------------------------------------------------------------!
     CLASS(filehandle_fortran), INTENT(INOUT) :: this  !< \param [in,out] this fileio type
     !------------------------------------------------------------------------!
+    this%err = 0
 ! #ifdef PARALLEL
 !     CALL MPI_File_close(this%handle,this%err)
 ! #else
-    IF (this%GetStatus().GT.0) CLOSE(UNIT=this%GetUnitNumber(),IOSTAT=this%err)
+    IF (this%GetStatus().GT.0) THEN
+      IF (this%err.EQ.0) CLOSE(UNIT=this%GetUnitNumber(),IOSTAT=this%err)
+    END IF
 ! #endif
+    IF (this%err.NE.0) &
+      CALL this%Error("filehandle_fortran::CloseFile","File closing failed.")
   END SUBROUTINE CloseFile
 
   !> \public destructor of Fortran stream handle

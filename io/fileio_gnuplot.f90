@@ -60,9 +60,9 @@ MODULE fileio_gnuplot_mod
   !> some special strings
   CHARACTER, PARAMETER    :: SP = ACHAR(32)       !< space
   CHARACTER, PARAMETER    :: LF = ACHAR(10)       !< line feed
-  CHARACTER*2, PARAMETER  :: RECSEP = SP // SP    !< data record separator
-  CHARACTER*2, PARAMETER  :: LINSEP = SP // LF    !< line separator
-  CHARACTER*2, PARAMETER  :: BLKSEP = LF // LF    !< block separator
+  CHARACTER(LEN=2), PARAMETER  :: RECSEP = SP // SP    !< data record separator
+  CHARACTER(LEN=2), PARAMETER  :: LINSEP = SP // LF    !< line separator
+  CHARACTER(LEN=2), PARAMETER  :: BLKSEP = LF // LF    !< block separator
   !> the header string
   CHARACTER(LEN=30), PARAMETER :: &
          header_string = "# Data output of fosite" // LINSEP
@@ -97,9 +97,7 @@ MODULE fileio_gnuplot_mod
     PROCEDURE :: InitFileIO_deferred
     PROCEDURE :: Finalize
     PROCEDURE :: WriteHeader
-!    PROCEDURE :: ReadHeader
-!    PROCEDURE :: WriteTimestamp
-!    PROCEDURE :: ReadTimestamp
+    PROCEDURE :: ReadHeader
     PROCEDURE :: WriteDataset
 !     PROCEDURE :: ReadDataset
     PROCEDURE :: GetOutputList
@@ -132,12 +130,12 @@ CONTAINS
     TYPE(Output_TYP),DIMENSION(:),POINTER     :: poutput
     TYPE(Dict_TYP), POINTER                   :: node
     CHARACTER(LEN=MAX_CHAR_LEN),DIMENSION(4)  :: skip
+    TYPE(real_t)                              :: dummy1
     REAL, DIMENSION(:,:,:,:), POINTER         :: dummy4
     INTEGER                                   :: cartcoords
     INTEGER                                   :: depth
-    INTEGER                                   :: n,k
+    INTEGER                                   :: n,k,i
 #ifdef PARALLEL
-    INTEGER                                   :: i
     INTEGER, DIMENSION(Mesh%IMAX-Mesh%IMIN+1) :: blocklen,indices
 #endif
     !------------------------------------------------------------------------!
@@ -147,9 +145,9 @@ CONTAINS
 #else
     ALLOCATE(filehandle_fortran::this%datafile)
 #endif
-    CALL this%InitFileio(Mesh,Physics,Timedisc,Sources,config,IO,"gnuplot")
+    CALL this%InitFileio(Mesh,Physics,Timedisc,Sources,config,IO,"gnuplot","dat")
 
-    CALL GetAttr(config, "/datafile/decimals", this%DECS, DEFAULT_DECS)
+    CALL GetAttr(config, "decimals", this%DECS, DEFAULT_DECS)
     ! compute length of character field for real number output
     ! and check if linebuffer is large enough
     ! flen = 1 (sign) + 1 (one digit) + 1 (decimal point) + decs (decimal places)
@@ -158,14 +156,23 @@ CONTAINS
     this%MAXCOLS = len(this%linebuf)/this%FLEN-1
 
     ! this is for registering all arrays which are supposed to be written to the output file
-    ALLOCATE(this%output(this%MAXCOLS),STAT=this%err)
+    ALLOCATE(this%output(this%MAXCOLS),this%tsoutput(this%MAXCOLS),STAT=this%err)
     IF (this%err.NE.0) &
-      CALL this%Error("fileio_gnuplot::InitFileIO","memory allocation failed for this%output")
+      CALL this%Error("fileio_gnuplot::InitFileIO","memory allocation failed for this%output, this%tsoutput")
 
-    ! check if cartesian coordinates are selected for output;
-    ! default: curvilinear coordinates (0)
-    CALL GetAttr(config, "/datafile/cartcoords", cartcoords, 0)
-    IF (cartcoords.EQ.0) THEN
+    ! get pointer to simulation time to make it the first entry
+    ! in the time step data set
+    CALL GetAttr(IO,"/timedisc/time",dummy1)
+    IF (ASSOCIATED(dummy1%p)) THEN
+       this%tsoutput(1)%val => dummy1%p
+       this%tsoutput(1)%key = "time"
+       this%TSCOLS = 1
+    ELSE
+       this%TSCOLS = 0
+    END IF
+
+    ! check if cartesian coordinates are selected for output
+    IF (this%cartcoords) THEN
        ! output curvilinear coordinates
        CALL GetAttr(IO,"/mesh/bary_curv",dummy4)
        ! requires NDIMS pointers, one for each curvilinear coordinate, depending on the
@@ -207,7 +214,6 @@ CONTAINS
 !     END IF
 
     ! register scalars and arrays for output
-    WRITE (this%fmtstr,'(A,I2,A1)')'(A',this%FLEN-1,')'
     node => IO
     skip(1:4) = [CHARACTER(LEN=MAX_CHAR_LEN) :: "bary_centers", "bary_curv", "corners", "time"]
     k = 1
@@ -231,6 +237,33 @@ CONTAINS
     IF (this%linelen.GT.LEN(this%linebuf)) &
        CALL this%Error("fileio_gnuplot::InitFileIO", &
           "linebuffer to small; reducing decimals or number of output fields may help")
+
+    ! create heading for field data
+    this%linebuf = ""
+    ! copy heading for coordinates first
+    n = SIZE(this%output(1)%p)*this%FLEN
+    this%linebuf(1:n-1) = this%output(1)%key(1:n-1)
+    ! format string for writing one string of width FLEN
+    WRITE(this%fmtstr,'(A,I2,A1)') '(A',this%FLEN,')'
+    DO k=2,SIZE(this%output)  ! skip entry for coordinates, i.e. this%output(1)
+       i = INDEX(this%output(k)%key,"/",BACK=.TRUE.) ! find last occurance of slash in key
+       ! write key (without leading path)
+       WRITE(this%linebuf(n:),TRIM(this%fmtstr)) TRIM(this%output(k)%key(i+1:))
+       ! append spaces
+       DO i=2,SIZE(this%output(k)%p)
+         WRITE(this%linebuf(n+(i-1)*this%FLEN:),TRIM(this%fmtstr)) REPEAT(' ',this%FLEN)
+       END DO
+       n = n + (i - 1)*this%FLEN
+    END DO
+    this%heading = TRIM(this%linebuf) // LF
+
+    ! create heading for time step data
+    ! prepend hash -> comment line in GNUPLOT
+    this%linebuf = ""
+    DO k=1,this%TSCOLS
+       WRITE(this%linebuf(1+(k-1)*this%FLEN:),TRIM(this%fmtstr)) TRIM(this%tsoutput(k)%key(1:this%FLEN-1))
+    END DO
+    this%tsheading = REPEAT("#",this%FLEN-1) // TRIM(this%linebuf(1:)) // LF
 
     ! local domain size
     this%inum = Mesh%IMAX - Mesh%IMIN + 1
@@ -266,15 +299,18 @@ CONTAINS
 !#endif
     ! write the format string for one entry in the data file:
     ! FLEN-2 characters for the number and 2 for the separators
-    WRITE (this%fmtstr,'(A3,I2,A,I2.2,A5)') '(ES', this%FLEN-2, '.', this%DECS,',A,A)'
+    WRITE (this%fmtstr,'(A3,I2,A,I2.2,A5)') '(ES', this%FLEN-2, '.', this%DECS,',A2)'
     ! write format string for one output line
     WRITE (this%linefmt, '(A,I0,A)') "(A", this%linelen-1, ")"
+
+    ! print some information
+    ! ...
   END SUBROUTINE InitFileIO_deferred
 
 
   !> Creates a string with the configuration (from the dictionary)
   !!
-  RECURSIVE SUBROUTINE WriteHeaderString(string,root,k,prefix)
+  RECURSIVE SUBROUTINE GetHeaderString(string,root,k,prefix)
   IMPLICIT NONE
   !------------------------------------------------------------------------!
     TYPE(Dict_TYP), POINTER    :: root,node,subnode
@@ -284,7 +320,7 @@ CONTAINS
     !------------------------------------------------------------------------!
     INTEGER                    :: idummy, k
     LOGICAL                    :: ldummy
-    CHARACTER(LEN=128)         :: cdummy
+    CHARACTER(LEN=MAX_CHAR_LEN):: cdummy
     REAL                       :: rdummy
     !------------------------------------------------------------------------!
     INTENT(INOUT)              :: string,k
@@ -304,10 +340,10 @@ CONTAINS
           WRITE(string(k:),'(A)')buf
           k = k + LEN(TRIM(buf))
        CASE(DICT_CHAR)
-!          CALL GetAttr(node,GetKey(node),cdummy)
-!          WRITE(buf,'(A1,A25,A,A)')'#',TRIM(GetKey(node))//": ",TRIM(cdummy), LINSEP
-!          WRITE(string(k:),'(A)')buf
-!          k = k + LEN(TRIM(buf))
+          CALL GetAttr(node,GetKey(node),cdummy)
+          WRITE(buf,'(A1,A25,A,A)')'#',TRIM(GetKey(node))//": ",TRIM(cdummy), LINSEP
+          WRITE(string(k:),'(A)')buf
+          k = k + LEN(TRIM(buf))
        CASE(DICT_BOOL)
           CALL GetAttr(node,GetKey(node),ldummy)
           WRITE(buf,'(A1,A25,L14,A)')'#',TRIM(GetKey(node))//": ",ldummy, LINSEP
@@ -328,11 +364,11 @@ CONTAINS
              buf = TRIM(GetKey(node))
           END IF
           subnode => GetChild(node)
-          CALL WriteHeaderString(string,subnode,k,TRIM(buf))
+          CALL GetHeaderString(string,subnode,k,TRIM(buf))
        END IF
        node => GetNext(node)
     END DO
-  END SUBROUTINE WriteHeaderString
+  END SUBROUTINE GetHeaderString
 
   !> Creates a list of all data arrays which will be written to file
   !!
@@ -557,7 +593,7 @@ CONTAINS
        ! get settings from config dictionary and store in header_buf
        depth = 1
        node => Header
-       CALL WriteHeaderString(header_buf,node,depth)
+       CALL GetHeaderString(header_buf,node,depth)
        header_buf = TRIM(header_string) // TRIM(header_buf)
 
 #ifdef PARALLEL
@@ -572,23 +608,24 @@ CONTAINS
     END IF
   END SUBROUTINE WriteHeader
 
-!   !> \public Reads the header (not yet implemented)
-!   !!
-!   SUBROUTINE ReadHeader_gnuplot(this,success)
-!     IMPLICIT NONE
-!     !------------------------------------------------------------------------!
-!     CLASS(fileio_gnuplot) :: this     !< \param [in,out] this fileio type
-!     LOGICAL            :: success  !< \param [out] success
-!     !------------------------------------------------------------------------!
-!     INTENT(OUT)        :: success
-!     !------------------------------------------------------------------------!
-! #ifdef PARALLEL
-!     IF (GetRank(this).EQ.0) THEN
-!     END IF
-! #else
-! #endif
-!     success = .FALSE.
-!   END SUBROUTINE ReadHeader_gnuplot
+  !> \public Reads the header (not implemented)
+  !!
+  SUBROUTINE ReadHeader(this,success)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(fileio_gnuplot) :: this     !< \param [in,out] this fileio type
+    LOGICAL            :: success  !< \param [out] success
+    !------------------------------------------------------------------------!
+    INTENT(OUT)        :: success
+    !------------------------------------------------------------------------!
+#ifdef PARALLEL
+    IF (GetRank(this).EQ.0) THEN
+    END IF
+#else
+#endif
+    CALL this%Warning("fileio_gnuplot::ReadHeader","reading file header not implemented yet")
+    success = .FALSE.
+  END SUBROUTINE ReadHeader
 
   !> \public Writes all desired data arrays to a file
   !!
@@ -601,7 +638,7 @@ CONTAINS
     CLASS(fluxes_base), INTENT(IN)      :: Fluxes    !< \param [in] fluxes fluxes type
     CLASS(timedisc_base), INTENT(IN)    :: Timedisc  !< \param [in] timedisc timedisc type
     TYPE(Dict_TYP), POINTER             :: Header,IO !< \param [in,out] IO I/O dictionary
-    INTEGER             :: i,j,k,m,l
+    INTEGER             :: i,j,k,m,l,n
 #ifdef PARALLEL
     INTEGER(KIND=MPI_OFFSET_KIND) :: offset
     INTEGER                       :: request
@@ -627,6 +664,7 @@ CONTAINS
        END IF
     END DO
 
+    ! transform veleocities if Fargo is enabled
     IF (ASSOCIATED(Timedisc%w)) THEN
       IF (Mesh%FARGO.EQ.3.AND.Mesh%shear_dir.EQ.1) THEN
         CALL Physics%AddBackgroundVelocityX(Mesh,Timedisc%w,Timedisc%pvar,Timedisc%cvar)
@@ -635,6 +673,34 @@ CONTAINS
       ELSE
         CALL Physics%AddBackgroundVelocityY(Mesh,Timedisc%w,Timedisc%pvar,Timedisc%cvar)
       END IF
+    END IF
+
+    ! open data file and write header if necessary
+    IF (.NOT.this%datafile%onefile.OR.this%step.EQ.0) THEN
+      CALL this%datafile%OpenFile(REPLACE,this%step)
+      CALL this%WriteHeader(Mesh,Physics,Header,IO)
+    ELSE
+      CALL this%datafile%OpenFile(APPEND,this%step)
+    END IF
+
+    IF (this%GetRank().EQ.0) THEN
+       ! write string with time step data
+       DO k=1,this%TSCOLS
+          WRITE(this%tslinebuf(1+(k-1)*this%FLEN:),TRIM(this%fmtstr)) this%tsoutput(k)%val
+       END DO
+       this%tslinebuf = REPEAT("#",this%FLEN-1) // SP // TRIM(this%tslinebuf) // LF
+
+#ifdef PARALLEL
+       CALL MPI_File_write(this%handle,TRIM(this%tsheading),LEN(TRIM(this%tsheading)), &
+            MPI_CHARACTER,this%status,this%error)
+       IF (this%error.EQ.0) CALL MPI_File_write(this%handle,TRIM(this%tslinebuf), &
+            LEN(TRIM(this%tslinebuf)),MPI_CHARACTER,this%status,this%error)
+       IF (this%error.EQ.0) CALL MPI_File_write(this%handle,TRIM(this%heading), &
+            LEN(TRIM(this%heading)),MPI_CHARACTER,this%status,this%error)
+#else
+       WRITE (this%datafile%GetUnitNumber(),FMT='(A)',ADVANCE='NO',IOSTAT=this%err) TRIM(this%tsheading) &
+          // TRIM(this%tslinebuf) // TRIM(this%heading)
+#endif
     END IF
 
 #ifdef PARALLEL
@@ -669,35 +735,30 @@ CONTAINS
       END DO
     END DO
 
-    ! start i,j from 1 to rank local size, because RemapBounds has not been
+    ! start i,j,k from 1 to rank local size, because RemapBounds has not been
     ! used/cannot be used.
     DO i=1,this%inum
       DO j=1,this%jnum
         DO k=1,this%knum   
           ! write array data to line buffer
-          DO l=1,SIZE(this%output)-1
+          n = 1
+          DO l=1,SIZE(this%output)
             DO m=1,SIZE(this%output(l)%p)
-               WRITE (this%linebuf((l-1)*this%FLEN+1:l*this%FLEN),TRIM(this%fmtstr)) &
+               WRITE (this%linebuf((n-1)*this%FLEN+1:n*this%FLEN),TRIM(this%fmtstr)) &
                      this%output(l)%p(m)%val(i,j,k), RECSEP
+               n = n + 1
             END DO
           END DO
 
-          l = SIZE(this%output)
-          DO m=1,SIZE(this%output(l)%p)-1
-             WRITE (this%linebuf((l-1)*this%FLEN+1:l*this%FLEN),TRIM(this%fmtstr)) &
-                   this%output(l)%p(m)%val(i,j,k), RECSEP
-          END DO
-
-!           !!!!! ATTENTION this is still 2D code should be different in 3D
-!           IF ((j.EQ.Mesh%JNUM).AND.((Mesh%JNUM.GT.1).OR.(Mesh%INUM.EQ.i))) THEN
-!              ! finish the block
-!              WRITE (this%linebuf((this%COLS-1)*this%FLEN+1:this%linelen),TRIM(this%fmtstr)) &
-!                   this%output(m)%p(l)%val(i,j,k), BLKSEP
-!           ELSE
-!              ! finish the line
-!              WRITE (this%linebuf((this%COLS-1)*this%FLEN+1:this%linelen),TRIM(this%fmtstr)) &
-!                   this%output(m)%p(l)%val(i,j,k), LINSEP
-!           END IF
+          IF (k.EQ.this%knum) THEN
+             IF (j.EQ.this%jnum.AND.(this%jnum.GT.1.OR.i.EQ.this%inum)) THEN
+                ! finish the block
+                this%linebuf(this%linelen-1:this%linelen) = BLKSEP
+             ELSE
+                ! finish the line
+                this%linebuf(this%linelen-1:this%linelen) = LINSEP
+             END IF
+          END IF
 
 #ifdef PARALLEL
 !!!! ATTENTION parallel output broken
@@ -726,6 +787,9 @@ CONTAINS
 !        CALL MPI_Wait(request,this%status,this%error)
 #endif
     END DO
+
+    CALL this%datafile%CloseFile()
+    CALL this%IncTime()
   END SUBROUTINE WriteDataset
 
 !   !> \public Reads the data arrays from file (not yet implemented)
@@ -768,7 +832,7 @@ CONTAINS
 #ifdef PARALLEL
     DEALLOCATE(this%outbuf)
 #endif
-    DEALLOCATE(this%output)
+    DEALLOCATE(this%output,this%tsoutput,this%datafile)
     CALL this%Finalize_base()
   END SUBROUTINE Finalize
 
