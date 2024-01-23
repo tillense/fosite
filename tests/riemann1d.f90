@@ -453,13 +453,16 @@ CONTAINS
         SOURCE=this%Mesh%cart%data3d(:,2,DIR))
 
       DO WHILE((this%Timedisc%maxiter.LE.0).OR.(this%iter.LE.this%Timedisc%maxiter))
-        SELECT TYPE(phys => this%Physics)
-        TYPE IS (physics_euler)
-          ! compute exact solution of the 1D Riemann problem (only non-isothermal HD)
-          CALL riemann(x0,phys%gamma,rho_l,u_l,p_l,rho_r,u_r,p_r, &
-                      this%Timedisc%time,x,this%Timedisc%solution%data2d(:,:))
-        END SELECT
-          IF(this%Step()) EXIT
+        ! compute exact solution of the 1D Riemann problem (only non-isothermal HD)
+        ! if output is written during next integration step
+        IF (this%Datafile%time-this%Timedisc%time.LT.this%Timedisc%dt) THEN
+          SELECT TYPE(phys => this%Physics)
+          TYPE IS (physics_euler)
+            CALL riemann(x0,phys%gamma,rho_l,u_l,p_l,rho_r,u_r,p_r, &
+                        this%Datafile%time,x,this%Timedisc%solution%data2d(:,:))
+          END SELECT
+        END IF
+        IF(this%Step()) EXIT
        END DO
     ELSE
        CALL this%Run()
