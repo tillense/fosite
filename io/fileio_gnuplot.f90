@@ -248,7 +248,7 @@ CONTAINS
     DO k=2,SIZE(this%output)  ! skip entry for coordinates, i.e. this%output(1)
        i = INDEX(this%output(k)%key,"/",BACK=.TRUE.) ! find last occurance of slash in key
        ! write key (without leading path)
-       WRITE(this%linebuf(n:),TRIM(this%fmtstr)) TRIM(this%output(k)%key(i+1:))
+       WRITE(this%linebuf(n:),TRIM(this%fmtstr)) this%output(k)%key(i+1:i+this%FLEN-1)
        ! append spaces
        DO i=2,SIZE(this%output(k)%p)
          WRITE(this%linebuf(n+(i-1)*this%FLEN:),TRIM(this%fmtstr)) REPEAT(' ',this%FLEN)
