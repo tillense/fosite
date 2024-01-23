@@ -66,6 +66,8 @@ CONTAINS
     p_L = p_l_
     p_R = p_r_
 
+    IF (t.LE.0) RETURN
+
     ! sound speeds of far regions
     c_L = SQRT(gamma*p_L/rho_L)
     c_R = SQRT(gamma*p_R/rho_R)
