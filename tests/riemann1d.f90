@@ -69,13 +69,13 @@ PROGRAM riemann1d
                               "Isothermal Noh problem          " /)
   !--------------------------------------------------------------------------!
   ! mesh settings
-  CHARACTER(LEN=3), PARAMETER :: TESTDIR  = "x" !"all" ! direction: x,y,z or all
+  CHARACTER(LEN=3), PARAMETER :: TESTDIR  = "all" !"x" ! direction: x,y,z or all
   INTEGER, PARAMETER :: RES  = 400       ! resolution
   ! output parameters
   INTEGER, PARAMETER :: ONUM = 1         ! number of output data sets
   CHARACTER(LEN=8), PARAMETER :: OFNAME(TESTNUM) = (/ & ! output file name
     "sod     ","toro2   ","toro3   ","toro4   ","toro5   ","noh     ", &
-    "sodiso  ","noiso   " /)
+    "sodiso  ","nohiso  " /)
   CHARACTER(LEN=256), PARAMETER &        ! output data dir
                      :: ODIR = './'
   ! some global constants
@@ -85,10 +85,10 @@ PROGRAM riemann1d
   !--------------------------------------------------------------------------!
   CLASS(fosite), ALLOCATABLE     :: Sim
   CHARACTER(LEN=64)  :: verbose_tap_output
-  INTEGER            :: ic,sd,dir_min,dir_max
+  INTEGER            :: ic,sd,dir_min,dir_max,n
   REAL, DIMENSION(:,:), ALLOCATABLE :: sigma
   REAL, PARAMETER    :: sigma_tol(TESTNUM) &
-                        = (/ 3.7E-3, 1.7E-2, 4.7E-2, 1.6E-2, 3.6E-2, 5.0E-3, 1.0E+0, 1.0E+0 /)
+                        = (/ 3.0E-3, 1.5E-2, 5.0E-3, 7.0E-3, 4.0E-3, 5.0E-3, 1.0E+0, 1.0E+0 /)
   REAL               :: sum_numer, sum_denom
   !--------------------------------------------------------------------------!
 
@@ -140,12 +140,16 @@ TAP_PLAN(TESTNUM*(dir_max-dir_min+1))
         sigma(ic,sd) = HUGE(1.0)
       ELSE
         sigma(ic,sd) = 0.0 ! default
+        sum_numer = 0.0
+        sum_denom = 0.0
         IF (ASSOCIATED(Sim%Timedisc%solution)) THEN
           ! use L1 norm to estimate the deviation from the exact solution:
           !   Σ |pvar - pvar_exact| / Σ |pvar_exact|
-          sum_numer = SUM(ABS(Sim%Timedisc%pvar%data1d(:)-Sim%Timedisc%solution%data1d(:)), &
-                          Sim%Mesh%without_ghost_zones%mask1d(:))
-          sum_denom = SUM(ABS(Sim%Timedisc%solution%data1d(:)),Sim%Mesh%without_ghost_zones%mask1d(:))
+          DO n=1,Sim%Physics%VNUM
+            sum_numer = SUM(ABS(Sim%Timedisc%pvar%data2d(:,n)-Sim%Timedisc%solution%data2d(:,n)), &
+                                MASK=Sim%Mesh%without_ghost_zones%mask1d(:))
+            sum_denom = SUM(ABS(Sim%Timedisc%solution%data2d(:,n)),MASK=Sim%Mesh%without_ghost_zones%mask1d(:))
+          END DO
 #ifdef PARALLEL
           CALL MPI_Allreduce(MPI_IN_PLACE,sum_numer,1,DEFAULT_MPI_REAL,MPI_SUM,MPI_COMM_WORLD,Sim%ierror)
           CALL MPI_Allreduce(MPI_IN_PLACE,sum_denom,1,DEFAULT_MPI_REAL,MPI_SUM,MPI_COMM_WORLD,Sim%ierror)
@@ -320,7 +324,7 @@ CONTAINS
 
     ! initialize data input/output
     datafile => Dict( &
-           "fileformat" / VTK, &
+           "fileformat" / GNUPLOT, &!VTK, &
            "filename"   / (TRIM(ODIR) // TRIM(OFNAME(ic)) // "-" // ACHAR(119+dir)), &
 !           "filecycles" / 0, &
            "count"      / ONUM)
