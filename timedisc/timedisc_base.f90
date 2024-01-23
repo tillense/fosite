@@ -572,7 +572,7 @@ CONTAINS
       END IF
 
       IF(writeSolution) THEN
-        CALL SetAttr(IO, TRIM(key)//"_solution", &
+        CALL SetAttr(IO, TRIM(key)//"_ref", &
           this%solution%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,i))
       END IF
 
