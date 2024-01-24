@@ -110,7 +110,7 @@ MODULE fileio_binary_mod
     !PROCEDURE :: ReadHeader
     !PROCEDURE :: WriteTimestamp
     !PROCEDURE :: ReadTimestamp
-    PROCEDURE :: WriteDataset
+    PROCEDURE :: WriteDataset_deferred => WriteDataset_binary
     !PROCEDURE :: ReadDataset
     PROCEDURE :: SetMeshDims
     PROCEDURE :: Finalize
@@ -701,7 +701,7 @@ CONTAINS
 
   !> \public Writes all desired data arrays to a file
   !!
-  SUBROUTINE WriteDataset(this,Mesh,Physics,Fluxes,Timedisc,Header,IO)
+  SUBROUTINE WriteDataset_binary(this,Mesh,Physics,Fluxes,Timedisc,Header,IO)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(fileio_binary), INTENT(INOUT) :: this      !< \param [in,out] this fileio type
@@ -711,28 +711,12 @@ CONTAINS
     CLASS(timedisc_base), INTENT(IN)    :: Timedisc  !< \param [in] timedisc timedisc type
     TYPE(Dict_TYP), POINTER             :: Header,IO !< \param [in,out] IO I/O dictionary
     !------------------------------------------------------------------------!
-    IF (ASSOCIATED(Timedisc%w)) THEN
-      IF (Mesh%FARGO.EQ.3.AND.Mesh%shear_dir.EQ.1) THEN
-        CALL Physics%AddBackgroundVelocityX(Mesh,Timedisc%w,Timedisc%pvar,Timedisc%cvar)
-      ELSE IF(Mesh%geometry%GetType().EQ.SPHERICAL) THEN
-        CALL Physics%AddBackgroundVelocityZ(Mesh,Timedisc%w,Timedisc%pvar,Timedisc%cvar)
-      ELSE
-        CALL Physics%AddBackgroundVelocityY(Mesh,Timedisc%w,Timedisc%pvar,Timedisc%cvar)
-      END IF
-    END IF
-
-    ! write data
-    CALL this%datafile%OpenFile(REPLACE,this%step)
-    CALL this%WriteHeader(Mesh,Physics,Header,IO)
     CALL this%WriteDataAttributes(Mesh,IO)
-    CALL this%datafile%CloseFile(this%step)
-    CALL this%IncTime()
 
 #ifdef PARALLEL
     this%first = .FALSE.
 #endif
-
-  END SUBROUTINE WriteDataset
+  END SUBROUTINE WriteDataset_binary
 
 !  !> \public Reads the data arrays from file (not yet implemented)
 !  !!

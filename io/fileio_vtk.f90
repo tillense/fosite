@@ -109,8 +109,7 @@ MODULE fileio_vtk_mod
     PROCEDURE :: InitFileio_deferred => InitFileio_vtk
     PROCEDURE :: WriteHeader
 !     PROCEDURE :: ReadHeader
-    PROCEDURE :: WriteDataset
-!    PROCEDURE :: GetOutputlist
+    PROCEDURE :: WriteDataset_deferred => WriteDataset_vtk
     PROCEDURE :: WriteParaviewFile
     PROCEDURE :: Finalize => Finalize_vtk
   END TYPE
@@ -607,7 +606,7 @@ CONTAINS
 
   !> \public Writes all desired data arrays to a file
   !!
-  SUBROUTINE WriteDataset(this,Mesh,Physics,Fluxes,Timedisc,Header,IO)
+  SUBROUTINE WriteDataset_vtk(this,Mesh,Physics,Fluxes,Timedisc,Header,IO)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(fileio_vtk),    INTENT(INOUT) :: this     !< \param [in,out] this fileio type
@@ -637,22 +636,7 @@ CONTAINS
 !#endif
 !    END IF
 
-    IF (ASSOCIATED(Timedisc%w)) THEN
-      IF (Mesh%FARGO.EQ.3.AND.Mesh%shear_dir.EQ.1) THEN
-        CALL Physics%AddBackgroundVelocityX(Mesh,Timedisc%w,Timedisc%pvar,Timedisc%cvar)
-      ELSE IF(Mesh%geometry%GetType().EQ.SPHERICAL) THEN
-        CALL Physics%AddBackgroundVelocityZ(Mesh,Timedisc%w,Timedisc%pvar,Timedisc%cvar)
-      ELSE
-        CALL Physics%AddBackgroundVelocityY(Mesh,Timedisc%w,Timedisc%pvar,Timedisc%cvar)
-      END IF
-    END IF
-
     CALL this%WriteParaviewFile()
-    CALL this%datafile%OpenFile(REPLACE,this%step)
-
-    ! write header and time stamp
-    CALL this%WriteHeader(Mesh,Physics,Header,IO)
-!     CALL this%WriteTimestamp(Timedisc%time)
 
     !------------------------------------------------------------------------!
     ! REMARK: VTS/PVTS data files are opened in unformated or stream mode,
@@ -877,10 +861,7 @@ CONTAINS
     END DO
     WRITE(UNIT=this%datafile%GetUnitNumber(),IOSTAT=this%err) LF//repeat(' ',2)//&
          '</AppendedData>'//LF//'</VTKFile>'//LF
-
-    CALL this%datafile%CloseFile(this%step)
-    CALL this%IncTime()
-  END SUBROUTINE WriteDataset
+  END SUBROUTINE WriteDataset_vtk
 
   !> \public Destructor of VTK file I/O class
   !!

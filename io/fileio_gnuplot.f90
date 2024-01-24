@@ -118,11 +118,11 @@ MODULE fileio_gnuplot_mod
 #endif
   CONTAINS
     !> \name Methods
-    PROCEDURE :: InitFileIO_deferred
+    PROCEDURE :: InitFileIO_deferred => InitFileIO_gnuplot
     PROCEDURE :: Finalize
     PROCEDURE :: WriteHeader
     PROCEDURE :: ReadHeader
-    PROCEDURE :: WriteDataset
+    PROCEDURE :: WriteDataset_deferred => WriteDataset_gnuplot
 !     PROCEDURE :: ReadDataset
     PROCEDURE :: GetOutputList
   END TYPE
@@ -140,7 +140,7 @@ CONTAINS
   !!
   !! Initilizes the file I/O type, filename, stoptime, number of outputs,
   !! number of files, unit number, config as a dict
-  SUBROUTINE InitFileIO_deferred(this,Mesh,Physics,Timedisc,Sources,config,IO)
+  SUBROUTINE InitFileIO_gnuplot(this,Mesh,Physics,Timedisc,Sources,config,IO)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(fileio_gnuplot),INTENT(INOUT)      :: this     !< \param [in,out] this fileio type
@@ -323,7 +323,7 @@ CONTAINS
 
     ! print some information
     ! ...
-  END SUBROUTINE InitFileIO_deferred
+  END SUBROUTINE InitFileIO_gnuplot
 
 
   !> Creates a string with the configuration (from the dictionary)
@@ -647,7 +647,7 @@ CONTAINS
 
   !> \public Writes all desired data arrays to a file
   !!
-  SUBROUTINE WriteDataset(this,Mesh,Physics,Fluxes,Timedisc,Header,IO)
+  SUBROUTINE WriteDataset_gnuplot(this,Mesh,Physics,Fluxes,Timedisc,Header,IO)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(fileio_gnuplot), INTENT(INOUT) :: this      !< \param [in,out] this fileio type
@@ -681,25 +681,6 @@ CONTAINS
           END DO
        END IF
     END DO
-
-    ! transform veleocities if Fargo is enabled
-    IF (ASSOCIATED(Timedisc%w)) THEN
-      IF (Mesh%FARGO.EQ.3.AND.Mesh%shear_dir.EQ.1) THEN
-        CALL Physics%AddBackgroundVelocityX(Mesh,Timedisc%w,Timedisc%pvar,Timedisc%cvar)
-      ELSE IF(Mesh%geometry%GetType().EQ.SPHERICAL) THEN
-        CALL Physics%AddBackgroundVelocityZ(Mesh,Timedisc%w,Timedisc%pvar,Timedisc%cvar)
-      ELSE
-        CALL Physics%AddBackgroundVelocityY(Mesh,Timedisc%w,Timedisc%pvar,Timedisc%cvar)
-      END IF
-    END IF
-
-    ! open data file and write header if necessary
-    IF (.NOT.this%datafile%onefile.OR.this%step.EQ.0) THEN
-      CALL this%datafile%OpenFile(REPLACE,this%step)
-      CALL this%WriteHeader(Mesh,Physics,Header,IO)
-    ELSE
-      CALL this%datafile%OpenFile(APPEND,this%step)
-    END IF
 
     IF (this%GetRank().EQ.0) THEN
        ! write string with time step data
@@ -805,10 +786,7 @@ CONTAINS
 !        CALL MPI_Wait(request,this%status,this%error)
 #endif
     END DO
-
-    CALL this%datafile%CloseFile(this%step)
-    CALL this%IncTime()
-  END SUBROUTINE WriteDataset
+  END SUBROUTINE WriteDataset_gnuplot
 
 !   !> \public Reads the data arrays from file (not yet implemented)
 !   !!

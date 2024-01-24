@@ -158,7 +158,8 @@ MODULE fileio_base_mod
     PROCEDURE :: InitFileIO_base
     GENERIC   :: InitFileIO => InitFileIO_base, InitFileIO_deferred
     PROCEDURE (WriteHeader), DEFERRED  :: WriteHeader
-    PROCEDURE (WriteDataset), DEFERRED :: WriteDataset
+    PROCEDURE :: WriteDataset
+    PROCEDURE (WriteDataset_deferred), DEFERRED :: WriteDataset_deferred
     PROCEDURE :: AdjustTimestep
     PROCEDURE (Finalize), DEFERRED     :: Finalize
     PROCEDURE :: Finalize_base
@@ -181,7 +182,7 @@ MODULE fileio_base_mod
       TYPE(Dict_TYP),      INTENT(IN), POINTER :: config
       TYPE(Dict_TYP),      INTENT(IN), POINTER :: IO
     END SUBROUTINE
-    SUBROUTINE WriteDataset(this,Mesh,Physics,Fluxes,Timedisc,Header,IO)
+    SUBROUTINE WriteDataset_deferred(this,Mesh,Physics,Fluxes,Timedisc,Header,IO)
       IMPORT fileio_base,mesh_base,physics_base,fluxes_base,timedisc_base,Dict_TYP
       IMPLICIT NONE
       CLASS(fileio_base),   INTENT(INOUT) :: this
@@ -463,6 +464,46 @@ CONTAINS
 !     CALL MPI_File_close(this%handle,this%error)
 ! #endif
   END SUBROUTINE InitFileIO_base
+
+  !> \public Write all data registered for output to the data file
+  !!
+  SUBROUTINE WriteDataset(this,Mesh,Physics,Fluxes,Timedisc,Header,IO)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(fileio_base), INTENT(INOUT)   :: this      !< \param [in,out] this fileio type
+    CLASS(mesh_base), INTENT(IN)        :: Mesh      !< \param [in] mesh mesh type
+    CLASS(physics_base), INTENT(INOUT)  :: Physics   !< \param [in] physics physics type
+    CLASS(fluxes_base), INTENT(IN)      :: Fluxes    !< \param [in] fluxes fluxes type
+    CLASS(timedisc_base), INTENT(IN)    :: Timedisc  !< \param [in] timedisc timedisc type
+    TYPE(Dict_TYP), POINTER             :: Header,IO !< \param [in,out] IO I/O dictionary
+    !------------------------------------------------------------------------!
+    ! transform to true velocities if fargo is enabled
+    IF (ASSOCIATED(Timedisc%w)) THEN
+      IF (Mesh%FARGO.EQ.3.AND.Mesh%shear_dir.EQ.1) THEN
+        CALL Physics%AddBackgroundVelocityX(Mesh,Timedisc%w,Timedisc%pvar,Timedisc%cvar)
+      ELSE IF(Mesh%geometry%GetType().EQ.SPHERICAL) THEN
+        CALL Physics%AddBackgroundVelocityZ(Mesh,Timedisc%w,Timedisc%pvar,Timedisc%cvar)
+      ELSE
+        CALL Physics%AddBackgroundVelocityY(Mesh,Timedisc%w,Timedisc%pvar,Timedisc%cvar)
+      END IF
+    END IF
+
+    ! open data file and write header if necessary
+    IF (.NOT.this%datafile%onefile.OR.this%step.EQ.0) THEN
+      CALL this%datafile%OpenFile(REPLACE,this%step)
+      CALL this%WriteHeader(Mesh,Physics,Header,IO)
+    ELSE
+      CALL this%datafile%OpenFile(APPEND,this%step)
+    END IF
+
+    ! write data
+    CALL this%WriteDataset_deferred(Mesh,Physics,Fluxes,Timedisc,Header,IO)
+
+    ! close data file and increment output time for next output
+    CALL this%datafile%CloseFile(this%step)
+    CALL this%IncTime()
+  END SUBROUTINE WriteDataset
+
 
   !> \public Determines the endianness of the system
   !!
