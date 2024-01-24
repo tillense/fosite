@@ -85,17 +85,10 @@ MODULE fileio_vtk_mod
 !                                                            'bflux_BOTTOM', &
 !                                                            'bflux_TOP   ' /)
   !--------------------------------------------------------------------------!
-  !> File handle for PVD file
-  TYPE, EXTENDS(filehandle_fortran) :: filehandle_pvd
-  CONTAINS
-    !> \name Methods
-    PROCEDURE :: WriteParaviewFile
-  END TYPE filehandle_pvd
-
   !> FileIO class for VTK output
   TYPE, EXTENDS(fileio_gnuplot) :: fileio_vtk
     !> \name Variables
-    TYPE(filehandle_pvd)   :: pvdfile
+    TYPE(filehandle_fortran) :: pvdfile   !< paraview master file
     CHARACTER(LEN=32)      :: buf         !< buffer for character i/o
     CHARACTER(LEN=32)      :: endianness  !< big/little endian
     CHARACTER(LEN=12)      :: realfmt     !< real number format as string
@@ -118,6 +111,7 @@ MODULE fileio_vtk_mod
 !     PROCEDURE :: ReadHeader
     PROCEDURE :: WriteDataset
 !    PROCEDURE :: GetOutputlist
+    PROCEDURE :: WriteParaviewFile
     PROCEDURE :: Finalize => Finalize_vtk
   END TYPE
   !--------------------------------------------------------------------------!
@@ -341,37 +335,43 @@ CONTAINS
           this%output(k)%numbytes = this%output(k)%numbytes + SIZE(this%output(k)%p(i)%val)*this%realsize
        END DO
     END DO
-    IF (this%GetRank().EQ.0) CALL this%pvdfile%WriteParaviewFile()
+
+    ! create file handle for the pvd file; only on rank 0 in parallel mode
+#ifdef PARALLEL
+    IF (this%GetRank().EQ.0) &
+#endif
+    CALL this%pvdfile%InitFilehandle(this%datafile%filename,this%datafile%path,"pvd",textfile=.TRUE.,onefile=.TRUE.,cycles=1)
   END SUBROUTINE InitFileIO_vtk
 
+  !> \public Write the Paraview global description file
+  !!
   SUBROUTINE WriteParaviewFile(this)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(filehandle_pvd), INTENT(INOUT) :: this
+    CLASS(fileio_vtk), INTENT(INOUT) :: this
     !------------------------------------------------------------------------!
     INTEGER                          :: k
     REAL                             :: ftime
-    CHARACTER(LEN=256)               :: basename
 #ifdef PARALLEL
     INTEGER                          :: i
 #endif
     !------------------------------------------------------------------------!
-    ! write a pvd-file: this is a "master" file of all timesteps of all ranks
-!     CALL this%OpenFile(REPLACE)
+#ifdef PARALLEL
+    IF (this%GetRank().EQ.0) THEN
+#endif
+      CALL this%pvdfile%OpenFile(REPLACE,this%step)
 
-!     ! write vtk header
-!     WRITE(this%unit+200,FMT='(A)',IOSTAT=this%err) &
-!           '<?xml version="1.0"?>'//LF &
-!           //'<VTKFile type="Collection" version="0.1" byte_order=' &
-!           //this%endianness//'>'//LF &
-!           //REPEAT(' ',2)//'<Collection>'
-! 
-!     ! write entries for each time step
-!     DO k=0,this%cycles-1
-!        this%step=k  ! we need this to get the correct file name with time step appended
-!                     ! ATTENTION: remember to reset the this%step (see below)
-!        ftime = this%stoptime*k/(this%cycles-1)
-! #ifdef PARALLEL
+      ! write vtk header
+      WRITE(UNIT=this%pvdfile%GetUnitNumber(),FMT='(A)',IOSTAT=this%err) &
+            '<?xml version="1.0"?>'//LF &
+            //'<VTKFile type="Collection" version="0.1" byte_order=' &
+            //TRIM(this%endianness)//'>'//LF &
+            //REPEAT(' ',2)//'<Collection>'
+
+      ! write entries for each time step
+      DO k=0,this%step
+         ftime = this%stoptime*k/(this%count-1)
+#ifdef PARALLEL
 !        ! in parallel mode each node generates its own file
 !        DO i=0,this%GetNumProcs()-1
 !           basename=this%GetBasename(i)
@@ -379,21 +379,25 @@ CONTAINS
 !              REPEAT(' ',4)//'<DataSet timestep="',&
 !              ftime,'" part="', i ,'" file="'//TRIM(basename)//'"/>'
 !        END DO
-! #else
-!        basename=this%GetBasename()
-!        IF (this%err.EQ. 0) WRITE(this%unit+200,FMT='(A,E11.5,A)',IOSTAT=this%err) &
-!           REPEAT(' ',4)//'<DataSet timestep="',ftime,'" part="0" file="' &
-!                        //TRIM(basename)//'"/>'
-! #endif
-!     END DO
-!     ! reset the step (see comment above)
-!     this%step=0
-! 
-!     IF (this%err.EQ. 0) WRITE(this%unit+200,FMT='(A)',IOSTAT=this%err) &
-!              REPEAT(' ',2)//'</Collection>'//LF//'</VTKFile>'
-!     IF (this%err.GT.0) CALL this%Error("fileio_vtk::WriteHeader_pvd","cannot write pvd-file")
-! 
-!     CALL this%CloseFile(this%step)
+#else
+         IF (this%err.EQ. 0) &
+            WRITE(UNIT=this%pvdfile%GetUnitNumber(),FMT='(A,E11.5,A)',IOSTAT=this%err) &
+                  REPEAT(' ',4)//'<DataSet timestep="',ftime,'" part="0" file="' &
+                       //TRIM(this%datafile%GetBasename(k))//'"/>'
+#endif
+      END DO
+
+      IF (this%err.EQ. 0) &
+         WRITE(UNIT=this%pvdfile%GetUnitNumber(),FMT='(A)',IOSTAT=this%err) &
+               REPEAT(' ',2)//'</Collection>'//LF//'</VTKFile>'
+
+      CALL this%pvdfile%CloseFile(this%step)
+
+      IF (this%err.NE.0) CALL this%Error("fileio_vtk::WriteParaviewFile","cannot write pvd-file")
+
+#ifdef PARALLEL
+    END IF
+#endif
   END SUBROUTINE WriteParaviewFile
 
 
@@ -643,6 +647,7 @@ CONTAINS
       END IF
     END IF
 
+    CALL this%WriteParaviewFile()
     CALL this%datafile%OpenFile(REPLACE,this%step)
 
     ! write header and time stamp
