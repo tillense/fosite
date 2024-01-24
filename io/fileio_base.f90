@@ -854,6 +854,10 @@ CONTAINS
     !------------------------------------------------------------------------!
     TYPE(filehandle_fortran), INTENT(INOUT) :: this  !< \param [in,out] this fileio type
     !------------------------------------------------------------------------!
+    LOGICAL :: op
+    !------------------------------------------------------------------------!
+    INQUIRE(UNIT=this%GetUnitNumber(),OPENED=op,IOSTAT=this%err)
+    IF (this%err.EQ.0) CLOSE(UNIT=this%GetUnitNumber(),IOSTAT=this%err)
   END SUBROUTINE Finalize_fortran
   
 END MODULE fileio_base_mod
