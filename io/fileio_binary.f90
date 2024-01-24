@@ -54,7 +54,7 @@
 !! - on NEC sx9: Set the runtime enviroment variable F_NORCW=5555 (or to
 !!   another value)
 !!
-!! \extends fileio_gnuplot
+!! \extends fileio_base
 !! \ingroup fileio
 !----------------------------------------------------------------------------!
 #define HAVE_VTK
@@ -90,19 +90,22 @@ MODULE fileio_binary_mod
   !> FileIO binary class
   TYPE, EXTENDS(fileio_base) :: fileio_binary
     !> \name Variables
-    LOGICAL                :: first       !< true if this is the first output
     CHARACTER(LEN=12)      :: realfmt     !< real format string
     CHARACTER(LEN=14)      :: endianness  !< endianness string
     INTEGER                :: realsize    !< byte size of real numbers
     INTEGER                :: intsize     !< byte size of integer numbers
 #ifdef PARALLEL
+    LOGICAL                :: first       !< true if this is the first output
     INTEGER                :: cfiletype   !< file data type for corner i/o
+    INTEGER(KIND=MPI_OFFSET_KIND) :: offset !< skip header bytes
+#else
+    INTEGER                :: offset
 #endif
 !     INTEGER, DIMENSION(:), POINTER :: &
 !                               disp        !< array of displacements
   CONTAINS
     !> \name Methods
-    PROCEDURE :: InitFileio_binary
+    PROCEDURE :: InitFileio_deferred => InitFileio_binary
     PROCEDURE :: WriteHeader
     !PROCEDURE :: ReadHeader
     !PROCEDURE :: WriteTimestamp
@@ -117,8 +120,6 @@ MODULE fileio_binary_mod
     PROCEDURE :: WriteNode
     PROCEDURE :: WriteKey
     PROCEDURE :: WriteDataAttributes
-    PROCEDURE :: GetPrecision
-    PROCEDURE :: GetEndianness
 !     PROCEDURE :: OpenFile
 !     PROCEDURE :: CloseFile
   END TYPE
@@ -140,8 +141,8 @@ CONTAINS
     CLASS(mesh_base),     INTENT(IN)    :: Mesh       !< \param [in] Mesh mesh type
     CLASS(physics_base),  INTENT(IN)    :: Physics    !< \param [in] Physics Physics type
     CLASS(timedisc_base), INTENT(IN)    :: Timedisc   !< \param [in] Timedisc timedisc type
-    CLASS(sources_base),  POINTER       :: Sources    !< \param [in] Sources sources type
-    TYPE(Dict_TYP),       POINTER       :: config,IO  !< \param [in] IO Dictionary for I/O
+    CLASS(sources_base),  INTENT(IN), POINTER :: Sources    !< \param [in] Sources sources type
+    TYPE(Dict_TYP),       INTENT(IN), POINTER :: config,IO  !< \param [in] IO Dictionary for I/O
     !------------------------------------------------------------------------!
 #ifdef PARALLEL
     INTEGER, DIMENSION(3)                 :: gsizes,lsizes,indices
@@ -150,8 +151,7 @@ CONTAINS
     REAL                                  :: r
     INTEGER                               :: i,err
     !------------------------------------------------------------------------!
-    this%extension= 'bin'
-    CALL this%InitFileio(Mesh,Physics,Timedisc,Sources,config,IO,"binary",this%extension)
+    CALL this%InitFileio(Mesh,Physics,Timedisc,Sources,config,IO,"binary","bin",textfile=.FALSE.)
 
     ! We mark the endianess similar to the TIFF format
     ! See: http://en.wikipedia.org/wiki/Endianness#Endianness_in_files_and_byte_swap
@@ -161,10 +161,12 @@ CONTAINS
     this%realsize = SIZE(TRANSFER(r, mold))
     this%intsize = SIZE(TRANSFER(i, mold))
 
-    IF(this%realsize.GT.8) &
-      CALL this%Error("InitFileIO_binary","Only single and double precision are allowed")
-
-    WRITE(this%realfmt,'(A,I1,A)') '"',this%realsize,'"'
+    SELECT CASE(this%realsize)
+    CASE(4,8)
+      WRITE(this%realfmt,'(A,I1,A)') '"',this%realsize,'"'
+    CASE DEFAULT
+      CALL this%Error("fileio_binary::InitFileIO_binary","Only single and double precision are allowed")
+    END SELECT
 
 #ifdef PARALLEL
     IF(Mesh%INUM.EQ.Mesh%IMAX) THEN
@@ -309,7 +311,10 @@ CONTAINS
     sheader = magic // this%endianness(1:2) // version // sizes
     this%offset = 0
 #ifndef PARALLEL
-    WRITE(this%unit) sheader
+    SELECT TYPE(df=>this%datafile)
+    CLASS IS(filehandle_fortran)
+      WRITE (UNIT=df%GetUnitNumber(),IOSTAT=this%err) sheader
+    END SELECT
 #else
     CALL MPI_File_set_view(this%handle,this%offset,MPI_BYTE,&
          MPI_BYTE, 'native', MPI_INFO_NULL, this%error_io)
@@ -403,7 +408,10 @@ CONTAINS
       CALL Append(buf,o,TRANSFER(dims(1:l),buf))
     END IF
 #ifndef PARALLEL
-     WRITE(this%unit) buf
+    SELECT TYPE(df=>this%datafile)
+    CLASS IS(filehandle_fortran)
+      WRITE (UNIT=df%GetUnitNumber(),IOSTAT=this%err) buf
+    END SELECT
 #else
     CALL MPI_File_set_view(this%handle,this%offset,MPI_BYTE,&
            MPI_BYTE, 'native', MPI_INFO_NULL, this%error_io)
@@ -537,7 +545,10 @@ CONTAINS
             END IF
           END IF
 #else
-          WRITE(this%unit) ptr3
+          SELECT TYPE(df=>this%datafile)
+          CLASS IS(filehandle_fortran)
+            WRITE (UNIT=df%GetUnitNumber(),IOSTAT=this%err) ptr3
+          END SELECT
 #endif
           this%offset = this%offset + bytes
         END DO
@@ -549,7 +560,10 @@ CONTAINS
         bytes = this%realsize
         CALL this%WriteKey(key,DICT_REAL,bytes)
 #ifndef PARALLEL
-          WRITE(this%unit) ptr0%p
+          SELECT TYPE(df=>this%datafile)
+          CLASS IS(filehandle_fortran)
+            WRITE (UNIT=df%GetUnitNumber(),IOSTAT=this%err) ptr0%p
+          END SELECT
 #else
           CALL MPI_File_set_view(this%handle,this%offset,MPI_BYTE,&
                MPI_BYTE, 'native', MPI_INFO_NULL, this%error_io)
@@ -563,7 +577,10 @@ CONTAINS
         bytes = this%intsize
         CALL this%WriteKey(key,DICT_INT,bytes)
 #ifndef PARALLEL
-          WRITE(this%unit) ptrint%p
+          SELECT TYPE(df=>this%datafile)
+          CLASS IS(filehandle_fortran)
+            WRITE (UNIT=df%GetUnitNumber(),IOSTAT=this%err) ptrint%p
+          END SELECT
 #else
           CALL MPI_File_set_view(this%handle,this%offset,MPI_BYTE,&
                MPI_BYTE, 'native', MPI_INFO_NULL, this%error_io)
@@ -582,7 +599,10 @@ CONTAINS
         CALL this%WriteKey(key,GetDataType(node),bytes)
         IF(bytes.GT.0) THEN
 #ifndef PARALLEL
-          WRITE(this%unit) val
+          SELECT TYPE(df=>this%datafile)
+          CLASS IS(filehandle_fortran)
+            WRITE (UNIT=df%GetUnitNumber(),IOSTAT=this%err) val
+          END SELECT
 #else
           CALL MPI_File_set_view(this%handle,this%offset,MPI_BYTE,&
                MPI_BYTE, 'native', MPI_INFO_NULL, this%error_io)
@@ -599,7 +619,7 @@ CONTAINS
     IF(this%first) THEN
       ! If MPI is used and this is the first output of the run,
       ! it is checked, if the offsets of the different nodes are still
-      ! in sync. They can get easily out of sync is an output array is not
+      ! in sync. They can get easily out of sync if an output array is not
       ! a mesh or corner array, but still has a different size on some nodes.
       ! This easily happens, e.g. if one forgets to specify the subarray limits.
       ! output_array(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX)
@@ -702,10 +722,10 @@ CONTAINS
     END IF
 
     ! write data
-    CALL this%datafile%OpenFile(REPLACE)
+    CALL this%datafile%OpenFile(REPLACE,this%step)
     CALL this%WriteHeader(Mesh,Physics,Header,IO)
     CALL this%WriteDataAttributes(Mesh,IO)
-    CALL this%datafile%CloseFile()
+    CALL this%datafile%CloseFile(this%step)
     CALL this%IncTime()
 
 #ifdef PARALLEL
@@ -729,79 +749,22 @@ CONTAINS
 !    !------------------------------------------------------------------------!
 !  END SUBROUTINE ReadDataset_binary
 
-  !> \public Determines precision of real numbers in bytes
-  !!
-  !! Determines the precision (aka size) of a real number.
-  !! Single precision (4 bytes), double precision (8 bytes) and
-  !! quad precision (16 bytes) are possible results.
-  SUBROUTINE GetPrecision(this,realsize)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(fileio_binary), INTENT(INOUT) :: this     !< \param [in,out] this fileio type
-    INTEGER                          :: realsize !< \param [out] realsize size of real (byte)
-    !------------------------------------------------------------------------!
-    REAL                             :: real_number
-    !------------------------------------------------------------------------!
-    INTENT(OUT)                      :: realsize
-    !------------------------------------------------------------------------!
-    ! size of default real numbers in bytes
-    ! Fortran 2008 standard function!
-    realsize = STORAGE_SIZE(real_number)/8
-  END SUBROUTINE GetPrecision
-
-  !> \public Determines the endianness of the system
-  !!
-  !! Determines the the endianess of the system (big or little endian)
-  SUBROUTINE GetEndianness(this, res, littlestr, bigstr)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(fileio_binary), INTENT(INOUT) :: this      !< \param [in,out] this fileio type
-    CHARACTER(LEN=*)                 :: res       !< \param [out] res result string
-    CHARACTER(LEN=*)                 :: littlestr !< \param [in] littlestr little endian str
-    CHARACTER(LEN=*)                 :: bigstr    !< \param [in] bigstr big endian str
-    !------------------------------------------------------------------------!
-    INTEGER                          :: k,iTIPO
-    CHARACTER, POINTER               :: cTIPO(:)
-    !------------------------------------------------------------------------!
-    INTENT(IN)                       :: littlestr, bigstr
-    INTENT(OUT)                      :: res
-    !------------------------------------------------------------------------!
-
-    !endianness
-    k = BIT_SIZE(iTIPO)/8
-    ALLOCATE(cTIPO(k),STAT = this%error_io)
-       IF (this%error_io.NE.0) &
-         CALL this%Error("GetEndianness", "Unable to allocate memory.")
-    cTIPO(1)='A'
-    !cTIPO(2:k-1) = That's of no importance.
-    cTIPO(k)='B'
-
-    iTIPO = transfer(cTIPO, iTIPO)
-    DEALLOCATE(cTIPO)
-    !Test of 'B'=b'01000010' ('A'=b'01000001')
-    IF (BTEST(iTIPO,1)) THEN
-       write(res,'(A)',IOSTAT=this%error_io)bigstr
-    ELSE
-       write(res,'(A)',IOSTAT=this%error_io)littlestr
-    END IF
-  END SUBROUTINE GetEndianness
-
-  !> \public routine to close a file
-  !!
-  SUBROUTINE CloseFile(this)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(fileio_binary), INTENT(INOUT) :: this  !< \param [in,out] this fileio type
-#ifndef PARALLEL
-    INTEGER                             :: err
-#endif
-    !------------------------------------------------------------------------!
-#ifdef PARALLEL
-    CALL MPI_File_close(this%handle,this%error_io)
-#else
-    CLOSE(this%unit,IOSTAT=err)
-#endif
-  END SUBROUTINE CloseFile
+!   !> \public routine to close a file
+!   !!
+!   SUBROUTINE CloseFile(this)
+!     IMPLICIT NONE
+!     !------------------------------------------------------------------------!
+!     CLASS(fileio_binary), INTENT(INOUT) :: this  !< \param [in,out] this fileio type
+! #ifndef PARALLEL
+!     INTEGER                             :: err
+! #endif
+!     !------------------------------------------------------------------------!
+! #ifdef PARALLEL
+!     CALL MPI_File_close(this%handle,this%error_io)
+! #else
+!     CLOSE(this%unit,IOSTAT=err)
+! #endif
+!   END SUBROUTINE CloseFile
 
   !> \public Closes the file I/O
   !!

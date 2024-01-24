@@ -68,11 +68,35 @@ MODULE fileio_gnuplot_mod
          header_string = "# Data output of fosite" // LINSEP
   CHARACTER(LEN=HLEN)  :: header_buf              !< buffer of header
   !--------------------------------------------------------------------------!
+  !> output-pointer for 3D array data
+  TYPE ValPtr_TYP
+    REAL, DIMENSION(:,:,:), POINTER :: val
+  END TYPE
+
+  TYPE Output_TYP
+    TYPE(ValPtr_TYP), DIMENSION(:), POINTER :: p
+    CHARACTER(LEN=MAX_CHAR_LEN)             :: key
+    CHARACTER(LEN=1024)                     :: path
+    INTEGER                                 :: numbytes
+  END TYPE Output_TYP
+
+  !> output-pointer for time step scalar data
+  TYPE TSOutput_TYP
+    REAL, POINTER                           :: val
+    CHARACTER(LEN=MAX_CHAR_LEN)             :: key
+  END TYPE TSOutput_TYP
+
   !> FileIO gnuplot class
   TYPE, EXTENDS(fileio_base) :: fileio_gnuplot
     !> \name Variables
+    TYPE(Output_TYP),DIMENSION(:), POINTER :: &
+                              output      !< list of output fields
+    TYPE(TSOutput_TYP),DIMENSION(:), POINTER :: &
+                              tsoutput    !< list of scalar time step output
     CHARACTER(LEN=512)     :: heading     !< char buffer for heading (field data)
     CHARACTER(LEN=512)     :: tsheading   !< char buffer for heading (time step data)
+    CHARACTER(LEN=512)     :: linebuf     !< char buffer fo field data
+    CHARACTER(LEN=512)     :: tslinebuf   !< char buffer for time step data
     CHARACTER(LEN=64)      :: fmtstr      !< format string
     CHARACTER(LEN=64)      :: linefmt     !< output line format string
     INTEGER                :: COLS        !< number of output columns
@@ -107,7 +131,7 @@ MODULE fileio_gnuplot_mod
   !--------------------------------------------------------------------------!
   PUBLIC :: &
        ! types
-       fileio_gnuplot
+       fileio_gnuplot, Output_TYP, TSOutput_TYP, ValPtr_TYP
  !--------------------------------------------------------------------------!
 
 CONTAINS
@@ -139,12 +163,6 @@ CONTAINS
     INTEGER, DIMENSION(Mesh%IMAX-Mesh%IMIN+1) :: blocklen,indices
 #endif
     !------------------------------------------------------------------------!
-    ! this has to be done before basic initialization of fileio
-#ifdef PARALLEL
-    ALLOCATE(filehandle_mpi::this%datafile)
-#else
-    ALLOCATE(filehandle_fortran::this%datafile)
-#endif
     CALL this%InitFileio(Mesh,Physics,Timedisc,Sources,config,IO,"gnuplot","dat")
 
     CALL GetAttr(config, "decimals", this%DECS, DEFAULT_DECS)
@@ -602,7 +620,7 @@ CONTAINS
 #else
        SELECT TYPE(df=>this%datafile)
        CLASS IS(filehandle_fortran)
-         WRITE (df%fid,FMT='(A)',IOSTAT=this%err) TRIM(header_buf) !(1:HLEN-1)
+         WRITE (UNIT=df%GetUnitNumber(),FMT='(A)',IOSTAT=this%err) TRIM(header_buf) !(1:HLEN-1)
        END SELECT
 #endif
     END IF
@@ -788,7 +806,7 @@ CONTAINS
 #endif
     END DO
 
-    CALL this%datafile%CloseFile()
+    CALL this%datafile%CloseFile(this%step)
     CALL this%IncTime()
   END SUBROUTINE WriteDataset
 
@@ -818,7 +836,7 @@ CONTAINS
     CHARACTER(LEN=*),  INTENT(IN)     :: msg     !< \param [in] msg error msg
     !------------------------------------------------------------------------!
     IF (this%Initialized()) &
-      CALL this%datafile%CloseFile()
+      CALL this%datafile%CloseFile(this%step)
     CALL this%Error(modproc,msg)
   END SUBROUTINE Error
 

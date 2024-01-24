@@ -94,24 +94,6 @@ MODULE fileio_base_mod
                                                      !! multiple files per time step in parallel mode)
   CHARACTER(LEN=32), SAVE      :: cycfmt             !< format string for cycles
   !--------------------------------------------------------------------------!
-  !> output-pointer for array data (binary,gnuplot,vtk)
-  TYPE ValPtr_TYP
-    REAL, DIMENSION(:,:,:), POINTER :: val
-  END TYPE
-
-  TYPE Output_TYP
-    TYPE(ValPtr_TYP), DIMENSION(:), POINTER :: p
-    CHARACTER(LEN=MAX_CHAR_LEN)             :: key
-    CHARACTER(LEN=1024)                     :: path
-    INTEGER(KIND=4)                         :: numbytes
-  END TYPE Output_TYP
-
-  !> output-pointer for time step scalar data (gnuplot)
-  TYPE TSOutput_TYP
-    REAL, POINTER                           :: val
-    CHARACTER(LEN=MAX_CHAR_LEN)             :: key
-  END TYPE TSOutput_TYP
-
   !> class for Fortran file handle
   TYPE, EXTENDS(logging_base) :: filehandle_fortran
     !> \name Variables
@@ -144,8 +126,6 @@ MODULE fileio_base_mod
      !> \name Variables
      CLASS(filehandle_fortran), ALLOCATABLE &
                             :: datafile    !< file handle for data file
-     CHARACTER(LEN=512)     :: linebuf     !< char buffer fo field data
-     CHARACTER(LEN=512)     :: tslinebuf   !< char buffer for time step data
      LOGICAL                :: cartcoords  !< output cartesian coordinates
 !      INTEGER                :: unit        !< i/o unit
      INTEGER                :: step        !< counter for output steps
@@ -153,21 +133,14 @@ MODULE fileio_base_mod
      INTEGER                :: dtwall      !< wall clock time difference
      INTEGER                :: inum,jnum,& !< mesh extent
                                knum
-#ifndef PARALLEL
-     INTEGER(KIND=8)        :: offset      !< header offset (MPI see below), must be 8 byte for VTK
-#endif
      REAL                   :: stoptime    !< final simulation time for data output
      REAL                   :: starttime   !< initial simulation time for data output
      REAL                   :: time        !< output time
-     REAL, DIMENSION(:,:,:,:), POINTER :: &
-                               binout      !< binary data output buffer
-     TYPE(Output_TYP),DIMENSION(:), POINTER :: &
-                               output      !< list of output fields
-     TYPE(TSOutput_TYP),DIMENSION(:), POINTER :: &
-                               tsoutput    !< list of scalar time step output
-     REAL, DIMENSION(:,:) , POINTER  :: &
-                               bflux       !< boundary flux output buffer
      REAL                   :: walltime    !< adds output before walltime is
+!      REAL, DIMENSION(:,:,:,:), POINTER :: &
+!                                binout      !< binary data output buffer
+!      REAL, DIMENSION(:,:) , POINTER  :: &
+!                                bflux       !< boundary flux output buffer
 #ifdef PARALLEL
      !> \name Variables in Parallel Mode
      LOGICAL                :: multfiles   !< spread files across nodes
@@ -178,7 +151,6 @@ MODULE fileio_base_mod
      INTEGER                :: filetype    !< data type for data i/o
      INTEGER, DIMENSION(MPI_STATUS_SIZE) :: &
                                status      !< MPI i/o status record
-     INTEGER(KIND=MPI_OFFSET_KIND) :: offset !< skip header bytes
 #endif
   CONTAINS
     !> \name Methods
@@ -190,7 +162,7 @@ MODULE fileio_base_mod
     PROCEDURE :: AdjustTimestep
     PROCEDURE (Finalize), DEFERRED     :: Finalize
     PROCEDURE :: Finalize_base
-!     PROCEDURE :: GetFilename
+    PROCEDURE :: GetEndianness
 !     PROCEDURE :: MakeMultstr
     PROCEDURE :: IncTime
   END TYPE fileio_base
@@ -264,7 +236,7 @@ MODULE fileio_base_mod
     !--------------------------------------------------------------------------!
   PUBLIC :: &
        ! types
-       fileio_base, Output_TYP, TSOutput_TYP, ValPtr_TYP, &
+       fileio_base, &
        filehandle_fortran, &
        ! constants
        BINARY, GNUPLOT, VTK, XDMF, &
@@ -313,18 +285,22 @@ CONTAINS
     IF (LEN_TRIM(path).GT.FPATLEN) &
        CALL this%Error("fileio_base::InitFilehandle","file path too long")
     this%path = path
+    IF (PRESENT(textfile)) THEN
+      this%textfile = textfile
+    ELSE
+      this%textfile = .TRUE. ! default is textfile
+    END IF
     ! check file name extension
     IF (PRESENT(extension)) THEN
       IF (LEN_TRIM(extension).GT.FEXTLEN-1) &
         CALL this%Error("fileio_base::InitFilehandle","file name extension too long")
       this%extension = extension
     ELSE
-      this%extension = "dat"
-    END IF
-    IF (PRESENT(textfile)) THEN
-      this%textfile = textfile
-    ELSE
-      this%textfile = .TRUE. ! default is textfile
+      IF (this%textfile) THEN
+        this%extension = "txt"
+      ELSE
+        this%extension = "bin"
+      END IF
     END IF
     IF (PRESENT(onefile)) THEN
       this%onefile = onefile
@@ -351,7 +327,7 @@ CONTAINS
     ! try to generate new file
     CALL this%OpenFile(REPLACE,step=0)
     IF (this%err.EQ.0) &
-      CALL this%CloseFile()
+      CALL this%CloseFile(step=0)
     IF (this%err.NE.0) &
       CALL this%Error("fileio_base::InitFilehandle","Creating new file'" // this%GetFilename(0) // "' failed")
   END SUBROUTINE InitFilehandle
@@ -378,7 +354,7 @@ CONTAINS
     INTEGER                        :: unit       !<  unit fortran i/o unit number
     LOGICAL                        :: onefile
     CHARACTER(LEN=32)              :: timestamp
-    INTEGER                        :: maxsteps,cycles,dtwall,cartcoords
+    INTEGER                        :: cycles,dtwall,cartcoords
     REAL                           :: stoptime
     REAL                           :: time
     !------------------------------------------------------------------------!
@@ -398,10 +374,10 @@ CONTAINS
     ! cycles = 0     : one data file, append data
     ! cycles = 1     : one data file, overwrite data
     ! cycles = X > 1 : X data files
-    CALL GetAttr(config, "filecycles", cycles, maxsteps+1)
+    CALL GetAttr(config, "filecycles", cycles, this%count+1)
     ! check cycles
     IF (cycles.GT.MAXCYCLES) &
-       CALL this%Error("InitFileIO","file cycles exceed limits")
+       CALL this%Error("fileio_base::InitFileIO_base","file cycles exceed limits")
 
     IF (cycles.GT.1) THEN
        onefile = .FALSE.
@@ -432,8 +408,14 @@ CONTAINS
     END IF
 
     ! initialize file handle for the data file
-    IF (.NOT.ALLOCATED(this%datafile)) &
-       CALL this%Error("fileio_base::InitFileIO_base","file handle of datafile not allocated")
+    IF (.NOT.ALLOCATED(this%datafile)) THEN
+      ! this is the default if the datafile has not been allocated within the calling scope
+#ifdef PARALLEL
+      ALLOCATE(filehandle_mpi::this%datafile)
+#else
+      ALLOCATE(filehandle_fortran::this%datafile)
+#endif
+    END IF
     CALL this%datafile%InitFilehandle(fname,fpath,fext,textfile,onefile,cycles,unit)
 
 #ifdef PARALLEL
@@ -448,7 +430,6 @@ CONTAINS
 
     this%starttime = Timedisc%time  ! set to initial time defined in Timedisc
     this%time      = this%starttime
-    this%offset    = 0
     this%err       = 0
 
     ! time for next output
@@ -483,6 +464,42 @@ CONTAINS
 ! #endif
   END SUBROUTINE InitFileIO_base
 
+  !> \public Determines the endianness of the system
+  !!
+  !! Determines the the endianess of the system (big or little endian)
+  SUBROUTINE GetEndianness(this, res, littlestr, bigstr)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(fileio_base), INTENT(INOUT):: this      !< \param [in,out] this fileio type
+    CHARACTER(LEN=*)                 :: res       !< \param [out] res result string
+    CHARACTER(LEN=*)                 :: littlestr !< \param [in] littlestr little endian str
+    CHARACTER(LEN=*)                 :: bigstr    !< \param [in] bigstr big endian str
+    !------------------------------------------------------------------------!
+    INTEGER                          :: k,iTIPO
+    CHARACTER, POINTER               :: cTIPO(:)
+    !------------------------------------------------------------------------!
+    INTENT(IN)                       :: littlestr, bigstr
+    INTENT(OUT)                      :: res
+    !------------------------------------------------------------------------!
+    !endianness
+    k = BIT_SIZE(iTIPO)/8
+    ALLOCATE(cTIPO(k),STAT = this%err)
+       IF (this%err.NE.0) &
+         CALL this%Error("GetEndianness", "Unable to allocate memory.")
+    cTIPO(1)='A'
+    !cTIPO(2:k-1) = That's of no importance.
+    cTIPO(k)='B'
+
+    iTIPO = transfer(cTIPO, iTIPO)
+    DEALLOCATE(cTIPO)
+    !Test of 'B'=b'01000010' ('A'=b'01000001')
+    IF (BTEST(iTIPO,1)) THEN
+       write(res,'(A)',IOSTAT=this%err)bigstr
+    ELSE
+       write(res,'(A)',IOSTAT=this%err)littlestr
+    END IF
+  END SUBROUTINE GetEndianness
+
   !> \public Increments the counter for timesteps and sets the time for next output
   !!
   PURE SUBROUTINE IncTime(this)
@@ -498,7 +515,7 @@ CONTAINS
   !> \public Adjust the current timestep
   !!
   !! Last timestep before output must fit to desired time for output.
- PURE SUBROUTINE AdjustTimestep(this,time,dt,dtcause)
+  PURE SUBROUTINE AdjustTimestep(this,time,dt,dtcause)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(fileio_base), INTENT(IN) :: this    !< \param [in] this fileio type
@@ -608,7 +625,7 @@ CONTAINS
        CALL this%Error("fileio_base::OpenFile","Unknown access mode.")
     END SELECT
     this%err = 0
-    CALL this%CloseFile() ! make sure we don't open an already opened file
+    CALL this%CloseFile(step) ! make sure we don't open an already opened file
     IF (this%err.EQ.0) &
       OPEN(UNIT=this%GetUnitNumber(),FILE=this%GetFilename(step),STATUS=TRIM(sta), &
            ACCESS='STREAM',ACTION=TRIM(act),POSITION=TRIM(pos),FORM=this%GetFormat(), &
@@ -677,7 +694,7 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(filehandle_fortran), INTENT(INOUT) :: this  !< \param [in,out] this fileio type
-    INTEGER, OPTIONAL, INTENT(IN)            :: step  !< \param [in] step time step
+    INTEGER, INTENT(IN)                      :: step  !< \param [in] step time step
     !------------------------------------------------------------------------!
     INTEGER :: GetStatus
     LOGICAL :: ex,op
@@ -772,21 +789,22 @@ CONTAINS
 
   !> \public close Fortran stream
   !!
-  SUBROUTINE CloseFile(this)
+  SUBROUTINE CloseFile(this,step)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(filehandle_fortran), INTENT(INOUT) :: this  !< \param [in,out] this fileio type
+    INTEGER, INTENT(IN)                      :: step  !< \param [in] step time step
     !------------------------------------------------------------------------!
     this%err = 0
 ! #ifdef PARALLEL
 !     CALL MPI_File_close(this%handle,this%err)
 ! #else
-    IF (this%GetStatus().GT.0) THEN
+    IF (this%GetStatus(step).GT.0) THEN
       IF (this%err.EQ.0) CLOSE(UNIT=this%GetUnitNumber(),IOSTAT=this%err)
     END IF
 ! #endif
     IF (this%err.NE.0) &
-      CALL this%Error("filehandle_fortran::CloseFile","File closing failed.")
+      CALL this%Error("filehandle_fortran::CloseFile","Cannot close file " // TRIM(this%GetFilename(step)))
   END SUBROUTINE CloseFile
 
   !> \public destructor of Fortran stream handle

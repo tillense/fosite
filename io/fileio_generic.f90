@@ -33,8 +33,8 @@
 MODULE fileio_generic_mod
   USE fileio_base_mod
   USE fileio_gnuplot_mod
-!   USE fileio_vtk_mod
-!   USE fileio_binary_mod
+  USE fileio_vtk_mod
+  USE fileio_binary_mod
 !   USE fileio_xdmf_mod
   USE mesh_base_mod
   USE physics_base_mod
@@ -64,14 +64,14 @@ CONTAINS
     SELECT CASE(fileformat)
     CASE(GNUPLOT)
       ALLOCATE(fileio_gnuplot::new_fio)
-!     CASE(VTK)
-!       ALLOCATE(fileio_vtk::new_fio)
-!     CASE(BINARY)
-!       ALLOCATE(fileio_binary::new_fio)
+    CASE(VTK)
+      ALLOCATE(fileio_vtk::new_fio)
+    CASE(BINARY)
+      ALLOCATE(fileio_binary::new_fio)
 !     CASE(XDMF)
 !       ALLOCATE(fileio_xdmf::new_fio)
     CASE DEFAULT
-      CALL Mesh%Error("fileio_base::CreateFileIO","Unknown file format.")
+      CALL Mesh%Error("fileio_generic::new_fileio","Unknown file format.")
     END SELECT
 
     ! call initialization

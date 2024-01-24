@@ -51,7 +51,7 @@
 !----------------------------------------------------------------------------!
 MODULE fileio_vtk_mod
   USE fileio_base_mod
-  USE fileio_binary_mod
+  USE fileio_gnuplot_mod
   USE geometry_base_mod
   USE mesh_base_mod
   USE physics_base_mod
@@ -73,11 +73,10 @@ MODULE fileio_vtk_mod
   !--------------------------------------------------------------------------!
   PRIVATE
   !--------------------------------------------------------------------------!
-   INTEGER, PARAMETER      :: MAXCOMP  = 9   !< max. of allowed components
+  INTEGER, PARAMETER      :: MAXCOMP  = 9   !< max. of allowed components
                                              !! 9 is a tensor (rank 2, dim 3)
-   INTEGER, PARAMETER      :: MAXCOLS  = 40  !< max of different output arrays
-   INTEGER, PARAMETER      :: MAXKEY   = 64  !< max length of keyname
-   CHARACTER, PARAMETER    :: LF = ACHAR(10) !< line feed
+  INTEGER, PARAMETER      :: MAXCOLS  = 64  !< max of different output arrays
+  CHARACTER, PARAMETER    :: LF = ACHAR(10) !< line feed
    !> names of fluxes
 !   CHARACTER(LEN=16),DIMENSION(6),PARAMETER  :: fluxkey = (/'bflux_WEST  ', &
 !                                                            'bflux_EAST  ', &
@@ -88,15 +87,24 @@ MODULE fileio_vtk_mod
   !--------------------------------------------------------------------------!
   !> File handle for PVD file
   TYPE, EXTENDS(filehandle_fortran) :: filehandle_pvd
+  CONTAINS
+    !> \name Methods
+    PROCEDURE :: WriteParaviewFile
   END TYPE filehandle_pvd
 
   !> FileIO class for VTK output
-  TYPE, EXTENDS(fileio_binary) :: fileio_vtk
+  TYPE, EXTENDS(fileio_gnuplot) :: fileio_vtk
     !> \name Variables
+    TYPE(filehandle_pvd)   :: pvdfile
     CHARACTER(LEN=32)      :: buf         !< buffer for character i/o
-    INTEGER                :: COLS        !< number of output columns
-    INTEGER                :: TSCOLS      !< number of output columns for time step data
+    CHARACTER(LEN=32)      :: endianness  !< big/little endian
+    CHARACTER(LEN=12)      :: realfmt     !< real number format as string
+    INTEGER                :: realsize    !< size of real numbers (bits)
     INTEGER                :: IP1,JP1,KP1
+    REAL, DIMENSION(:,:,:,:), POINTER :: &
+                              binout      !< binary data output buffer
+    REAL, DIMENSION(:,:) , POINTER  :: &
+                              bflux       !< boundary flux output buffer
     REAL, DIMENSION(:,:,:,:), POINTER :: &
                               vtkcoords   !< VTK coordinate data
 #ifdef PARALLEL
@@ -105,17 +113,12 @@ MODULE fileio_vtk_mod
 #endif
   CONTAINS
     !> \name Methods
-    PROCEDURE :: InitFileio_vtk
-    GENERIC :: OpenFile => OpenFile_serial
-    GENERIC :: CloseFile => CloseFile_serial
+    PROCEDURE :: InitFileio_deferred => InitFileio_vtk
     PROCEDURE :: WriteHeader
-    PROCEDURE :: ReadHeader
-    PROCEDURE :: WriteTimestamp
-    PROCEDURE :: WriteParaviewFile
-    PROCEDURE :: ReadTimestamp
+!     PROCEDURE :: ReadHeader
     PROCEDURE :: WriteDataset
-    PROCEDURE :: GetOutputlist
-    PROCEDURE :: Finalize
+!    PROCEDURE :: GetOutputlist
+    PROCEDURE :: Finalize => Finalize_vtk
   END TYPE
   !--------------------------------------------------------------------------!
   PUBLIC :: &
@@ -139,7 +142,10 @@ CONTAINS
     TYPE(Dict_TYP),      INTENT(IN), POINTER :: config   !< \param [in] IO Dictionary for I/O
     TYPE(Dict_TYP),      INTENT(IN), POINTER :: IO       !< \param [in] IO Dictionary for I/O
     !------------------------------------------------------------------------!
-    TYPE(Dict_TYP), POINTER             :: node
+    TYPE(Output_TYP),DIMENSION(:),POINTER    :: poutput
+    TYPE(real_t)                             :: dummy1
+    TYPE(Dict_TYP), POINTER                  :: node
+    CHARACTER(LEN=MAX_CHAR_LEN),DIMENSION(2) :: skip
     INTEGER                             :: k,i,j,err
 #ifdef PARALLEL
     INTEGER, DIMENSION(:), POINTER      :: sendbuf,recvbuf
@@ -151,10 +157,11 @@ CONTAINS
     this%multfiles = .TRUE.
 #endif
     ! start init form base class in beginning
-    CALL this%InitFileIO(Mesh,Physics,Timedisc,Sources,config,IO,"VTK","vts")
+    CALL this%InitFileIO(Mesh,Physics,Timedisc,Sources,config,IO,"VTK","vts",textfile=.FALSE.)
 
     ! some sanity checks
-    IF (this%cycles .NE. this%count+1) CALL this%Error('InitFileIO','VTK need filecycles = count+1')
+    IF (this%datafile%cycles.NE.this%count+1) &
+      CALL this%Error('fileio_vtk::InitFileIO','filecycles = count+1 required for VTK output')
 
     ! determine dimensions for the coordinate array
     IF (ABS(Mesh%xmax-Mesh%xmin).LT.2*EPSILON(Mesh%xmin) &
@@ -179,6 +186,8 @@ CONTAINS
       this%KP1  = 1
     END IF
 
+    this%MAXCOLS = MAXCOLS
+
     ! allocate memory for auxilliary data fields
     ALLOCATE(this%binout(MAXCOMP,                &
                          Mesh%IMIN:Mesh%IMAX,    &
@@ -188,25 +197,29 @@ CONTAINS
                          Mesh%IMIN:Mesh%IMAX+this%IP1,  &
                          Mesh%JMIN:Mesh%JMAX+this%JP1,  &
                          Mesh%KMIN:Mesh%KMAX+this%KP1), &
-             this%output(MAXCOLS),               &
-             this%tsoutput(MAXCOLS),             &
+             this%output(this%MAXCOLS),               &
+             this%tsoutput(this%MAXCOLS),             &
              this%bflux(Physics%VNUM,6),         &
              STAT = err)
     IF (err.NE.0) &
-         CALL this%Error("InitFileio_vtk", "Unable to allocate memory.")
+         CALL this%Error("fileio_vtk::InitFileio_vtk", "Unable to allocate memory.")
 
-    ! determine extend and endianness of real numbers
-    CALL this%GetPrecision(this%realsize)
-    ! save size of floats to string: realfmt
-    WRITE(this%linebuf,FMT='(I4)',IOSTAT=this%error_io) 8*this%realsize
-    WRITE(this%realfmt,FMT='(A)',IOSTAT=this%error_io) '"Float' &
-          // TRIM(AdjustL(this%linebuf)) // '"'
+    ! determine size in bits of default real numbers
+    ! Fortran 2008 standard function!
+    this%realsize = STORAGE_SIZE(this%binout)
+    SELECT CASE(this%realsize)
+    CASE(32,64,128)
+      ! generate string with default real number format (size in bits)
+      WRITE(this%linebuf,FMT='(I4)',IOSTAT=this%err) this%realsize
+      WRITE(this%realfmt,FMT='(A)',IOSTAT=this%err) '"Float' // TRIM(AdjustL(this%linebuf)) // '"'
+      ! size of default real numbers in byte
+      this%realsize = this%realsize/8
+    CASE DEFAULT
+      CALL this%Error("fileio_vtk::InitFileio_vtk", "only single, double or quadruple precision real numbers (4,8,16 bytes) supported")
+    END SELECT
+
+    ! determine the system endianness
     CALL this%GetEndianness(this%endianness,'"LittleEndian"','"BigEndian"')
-
-    ! sanity check in case someone ignores the comment in
-    ! fileio_common.f90 regarding the KIND type of this variable
-    IF (BIT_SIZE(this%output(1)%numbytes) .NE. 4*8) &
-       CALL this%Error("InitFileio_vtk", "output%numbytes must be a 4 byte integer !!!")
 
 #ifdef PARALLEL
     ! allocate memory for this%extent, send & receive buffers;
@@ -218,12 +231,12 @@ CONTAINS
     !         on the receiver node
     IF (this%GetRank() .EQ. 0 ) THEN
        n = this%GetNumProcs()
-       ALLOCATE(this%extent(0:(n-1)),sendbuf(6),recvbuf(6*n),STAT = this%error_io)
+       ALLOCATE(this%extent(0:(n-1)),sendbuf(6),recvbuf(6*n),STAT = this%err)
     ELSE
        ! see comment above
-       ALLOCATE(sendbuf(6),recvbuf(1),STAT = this%error_io)
+       ALLOCATE(sendbuf(6),recvbuf(1),STAT = this%err)
     END IF
-    IF (this%error_io.NE.0) &
+    IF (this%err.NE.0) &
        CALL this%Error( "InitFileio_vtk", "Unable to allocate memory.")
 
     ! store information about grid extent on each node
@@ -237,17 +250,17 @@ CONTAINS
 
     ! gather information about grid extent on each node at the rank 0 node
     CALL MPI_Gather(sendbuf, 6, MPI_INTEGER, recvbuf, 6, MPI_INTEGER, &
-               0, MPI_COMM_WORLD, this%error_io)
+               0, MPI_COMM_WORLD, this%err)
 
     ! store information about grid extent at the rank 0 node
     IF (this%GetRank() .EQ. 0 ) THEN
        DO i=0,n-1
-          WRITE(this%extent(i),FMT='(6(I7))',IOSTAT=this%error_io)&
+          WRITE(this%extent(i),FMT='(6(I7))',IOSTAT=this%err)&
           recvbuf(i*6+1),recvbuf(i*6+2),recvbuf(i*6+3),recvbuf(i*6+4),recvbuf(i*6+5),recvbuf(i*6+6)
        END DO
     END IF
     ! free buffer memory
-    DEALLOCATE(sendbuf,recvbuf,STAT=this%error_io)
+    DEALLOCATE(sendbuf,recvbuf,STAT=this%err)
 #endif
 
     ! check whether mesh coordinates should be cartesian or curvilinear
@@ -297,17 +310,38 @@ CONTAINS
       END DO
     END IF
 
-    ! byte offset, i.e. extent of coordinate data + 4 bytes for storing
-    ! the size information which must be a 4 byte integer number
-    this%offset = SIZE(this%vtkcoords)*this%realsize + 4
+    ! get pointer to simulation time to make it the first entry
+    ! in the time step data set
+    CALL GetAttr(IO,"/timedisc/time",dummy1)
+    IF (ASSOCIATED(dummy1%p)) THEN
+       this%tsoutput(1)%val => dummy1%p
+       this%tsoutput(1)%key = "TIME"
+       this%TSCOLS = 1
+    ELSE
+       this%TSCOLS = 0
+    END IF
 
     ! create list of output data arrays
     node => IO
-    this%cols = 0
-    this%tscols = 0
-    CALL this%GetOutputlist(Mesh,node,this%cols,this%tscols)
+    k = 0
+    skip(1:2) = [CHARACTER(LEN=MAX_CHAR_LEN) :: "corners", "time"]
+    CALL this%GetOutputlist(Mesh,node,k,this%TSCOLS,skip)
 
-    IF (this%GetRank().EQ.0) CALL this%WriteParaviewFile()
+    ! shrink this%output
+    poutput => this%output
+    ALLOCATE(this%output,SOURCE=poutput(1:k),STAT=this%err)
+    IF (this%err.NE.0) &
+      CALL this%Error("fileio_gnuplot::InitFileIO","memory allocation failed for this%output")
+    DEALLOCATE(poutput)
+
+    ! set size of output arrays in bytes
+    DO k = 1, SIZE(this%output)
+       this%output(k)%numbytes = 0
+       DO i = 1, SIZE(this%output(k)%p)
+          this%output(k)%numbytes = this%output(k)%numbytes + SIZE(this%output(k)%p(i)%val)*this%realsize
+       END DO
+    END DO
+    IF (this%GetRank().EQ.0) CALL this%pvdfile%WriteParaviewFile()
   END SUBROUTINE InitFileIO_vtk
 
   SUBROUTINE WriteParaviewFile(this)
@@ -323,10 +357,10 @@ CONTAINS
 #endif
     !------------------------------------------------------------------------!
     ! write a pvd-file: this is a "master" file of all timesteps of all ranks
-    CALL this%OpenFile(REPLACE)
+!     CALL this%OpenFile(REPLACE)
 
 !     ! write vtk header
-!     WRITE(this%unit+200,FMT='(A)',IOSTAT=this%error_io) &
+!     WRITE(this%unit+200,FMT='(A)',IOSTAT=this%err) &
 !           '<?xml version="1.0"?>'//LF &
 !           //'<VTKFile type="Collection" version="0.1" byte_order=' &
 !           //this%endianness//'>'//LF &
@@ -341,13 +375,13 @@ CONTAINS
 !        ! in parallel mode each node generates its own file
 !        DO i=0,this%GetNumProcs()-1
 !           basename=this%GetBasename(i)
-!           IF (this%error_io.EQ. 0) WRITE(this%unit+200,FMT='(A,E11.5,A,I4.4,A)',IOSTAT=this%error_io) &
+!           IF (this%err.EQ. 0) WRITE(this%unit+200,FMT='(A,E11.5,A,I4.4,A)',IOSTAT=this%err) &
 !              REPEAT(' ',4)//'<DataSet timestep="',&
 !              ftime,'" part="', i ,'" file="'//TRIM(basename)//'"/>'
 !        END DO
 ! #else
 !        basename=this%GetBasename()
-!        IF (this%error_io.EQ. 0) WRITE(this%unit+200,FMT='(A,E11.5,A)',IOSTAT=this%error_io) &
+!        IF (this%err.EQ. 0) WRITE(this%unit+200,FMT='(A,E11.5,A)',IOSTAT=this%err) &
 !           REPEAT(' ',4)//'<DataSet timestep="',ftime,'" part="0" file="' &
 !                        //TRIM(basename)//'"/>'
 ! #endif
@@ -355,110 +389,13 @@ CONTAINS
 !     ! reset the step (see comment above)
 !     this%step=0
 ! 
-!     IF (this%error_io.EQ. 0) WRITE(this%unit+200,FMT='(A)',IOSTAT=this%error_io) &
+!     IF (this%err.EQ. 0) WRITE(this%unit+200,FMT='(A)',IOSTAT=this%err) &
 !              REPEAT(' ',2)//'</Collection>'//LF//'</VTKFile>'
-!     IF (this%error_io.GT.0) CALL this%Error("fileio_vtk::WriteHeader_pvd","cannot write pvd-file")
+!     IF (this%err.GT.0) CALL this%Error("fileio_vtk::WriteHeader_pvd","cannot write pvd-file")
 ! 
-    CALL this%CloseFile()
+!     CALL this%CloseFile(this%step)
   END SUBROUTINE WriteParaviewFile
 
-  !> Creates a list of all data arrays which will be written to file
-  !!
-  !! Therefore it ignores all arrays with coordinates and checks if the data
-  !! arrays are of the dimension of the mesh.
-  RECURSIVE SUBROUTINE GetOutputlist(this,Mesh,node,k,l,prefix)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(fileio_vtk), INTENT(INOUT) :: this !< \param [in,out] this fileio type
-    CLASS(mesh_base),  INTENT(IN)    :: Mesh !< \param [in] mesh mesh type
-    TYPE(Dict_TYP),    POINTER       :: node !< \param [in,out] node pointer to (sub-)dict
-    INTEGER,           INTENT(INOUT) :: k    !< \param [in,out] k number of data arrays
-    INTEGER,           INTENT(INOUT) :: l    !< \param [in,out] l number of data output scalars
-    !> \param [in,out] prefix namespace (path) to sub-dict
-    CHARACTER(LEN=*), OPTIONAL, INTENT(INOUT) :: prefix
-    !------------------------------------------------------------------------!
-    TYPE(Dict_TYP), POINTER           :: dir
-    CHARACTER(LEN=MAXKEY)             :: key
-    TYPE(real_t)                      :: dummy1
-    REAL, DIMENSION(:,:), POINTER     :: dummy2
-    REAL, DIMENSION(:,:,:), POINTER   :: dummy3
-    REAL, DIMENSION(:,:,:,:), POINTER :: dummy4
-    INTEGER, DIMENSION(4)             :: dims
-    INTEGER                           :: n
-    !------------------------------------------------------------------------!
-    DO WHILE(ASSOCIATED(node))
-      IF(HasChild(node)) THEN
-      ! recursion
-        IF(PRESENT(prefix)) THEN
-           key = TRIM(prefix)//'/'//TRIM(GetKey(node))
-        ELSE
-           key = '/'//TRIM(GetKey(node))
-        END IF
-        dir => GetChild(node)
-        CALL this%GetOutputlist(Mesh,dir,k,l,key)
-      ELSE IF (HasData(node).AND.&
-               .NOT.(GetKey(node).EQ."time")) THEN ! skip time, this is handled in WriteTimestep
-         IF (k+1 .GT. MAXCOLS) CALL this%Error("GetOutputlist","reached MAXCOLS")
-         ! check shape of output
-         dims = 0
-         SELECT CASE(GetDatatype(node))
-         CASE(DICT_REAL_TWOD)
-            CALL GetAttr(node,TRIM(GetKey(node)),dummy2)
-            dims(1:2) = SHAPE(dummy2)
-            dims(3:4) = 1
-         CASE(DICT_REAL_THREED)
-            CALL GetAttr(node,TRIM(GetKey(node)),dummy3)
-            dims(1:3) = SHAPE(dummy3)
-            dims(4) = 1
-         CASE(DICT_REAL_FOURD)
-            CALL GetAttr(node,TRIM(GetKey(node)),dummy4)
-            dims(1:4) = SHAPE(dummy4)
-         CASE(DICT_REAL_P)
-            CALL GetAttr(node,GetKey(node),dummy1)
-            IF (ASSOCIATED(dummy1%p)) THEN
-               l=l+1
-               this%tsoutput(l)%val => dummy1%p
-               this%tsoutput(l)%key = TRIM(GetKey(node))
-               IF (PRESENT(prefix)) THEN
-                  this%tsoutput(l)%key = TRIM(prefix) // '/' // this%tsoutput(l)%key
-               END IF
-            END IF
-         END SELECT
-         ! only register output if it contains mesh data
-         ! if not => reset k
-         ! TODO: HACKATHON 3D - Dritte Meshdimension abfragen.
-         IF ((dims(1).EQ.(Mesh%IMAX-Mesh%IMIN+1)).AND.&
-             (dims(2).EQ.(Mesh%JMAX-Mesh%JMIN+1)).AND.&
-             (dims(3).EQ.(Mesh%KMAX-Mesh%KMIN+1))) THEN
-            ! increase output index
-            k = k + 1
-            ! store name of the output array
-            this%output(k)%key = TRIM(GetKey(node))
-            ! prepend prefix if present
-            IF (PRESENT(prefix)) THEN
-               this%output(k)%key = TRIM(prefix) // '/' // this%output(k)%key
-            END IF
-            ! allocate memory for pointer to output arrays
-            ALLOCATE(this%output(k)%p(dims(4)),STAT=this%error_io)
-            IF (this%error_io.NE.0) &
-               CALL this%Error( "GetOutputlist", "Unable to allocate memory.")
-            ! set pointer to output arrays
-            IF (dims(4).EQ.1) THEN
-               ! 3D data
-               this%output(k)%p(1)%val => dummy3
-               this%output(k)%numbytes = SIZE(dummy3)*this%realsize
-            ELSE
-               ! 4D data (for example pvars - density,xvel,yvel)
-               DO n=1,dims(4)
-                  this%output(k)%p(n)%val => dummy4(:,:,:,n)
-                  this%output(k)%numbytes = SIZE(dummy4)*this%realsize
-               END DO
-            END IF
-         END IF
-      END IF
-      node=>GetNext(node)
-    END DO
-  END SUBROUTINE GetOutputlist
 
 !   !> \public Specific routine to open a file for vtk I/O
 !   !!
@@ -471,7 +408,7 @@ CONTAINS
 !     !------------------------------------------------------------------------!
 !     CHARACTER(LEN=32)  :: sta,act,pos,fext
 !     !------------------------------------------------------------------------!
-!     this%error_io=1
+!     this%err=1
 !     SELECT CASE(action)
 !     CASE(READONLY)
 !        sta = 'OLD'
@@ -506,25 +443,25 @@ CONTAINS
 !        ! open the VTS file
 !        OPEN(this%unit, FILE=this%GetFilename(),STATUS=TRIM(sta), &
 !             ACCESS = 'STREAM' ,   &
-!             ACTION=TRIM(act),POSITION=TRIM(pos),IOSTAT=this%error_io)
+!             ACTION=TRIM(act),POSITION=TRIM(pos),IOSTAT=this%err)
 ! #ifdef PARALLEL
 !     CASE('pvts')
 !        ! open PVTS file (only parallel mode)
 !        IF (this%GetRank().EQ.0) THEN
 !           this%extension='pvts' ! change file name extension
 !           OPEN(this%unit+100, FILE=this%GetFilename(-1),STATUS=TRIM(sta), &
-!                FORM='FORMATTED',ACTION=TRIM(act),POSITION=TRIM(pos),IOSTAT=this%error_io)
+!                FORM='FORMATTED',ACTION=TRIM(act),POSITION=TRIM(pos),IOSTAT=this%err)
 !           this%extension='vts' ! reset default extension
 !        END IF
 ! #endif
 !     CASE('pvd')
 !        OPEN(this%unit+200, FILE=TRIM(this%filename)//'.'//TRIM(fext),STATUS=TRIM(sta), &
-!             FORM='FORMATTED',ACTION=TRIM(act),POSITION=TRIM(pos),IOSTAT=this%error_io)
+!             FORM='FORMATTED',ACTION=TRIM(act),POSITION=TRIM(pos),IOSTAT=this%err)
 !     CASE DEFAULT
 !        CALL this%Error("OpenFile","Unknown file type")
 !     END SELECT
 ! 
-!     IF (this%error_io.GT.0) &
+!     IF (this%err.GT.0) &
 !        CALL this%Error("OpenFile","cannot open " // TRIM(this%extension) // "-file")
 !   END SUBROUTINE OpenFile
 
@@ -540,7 +477,7 @@ CONTAINS
 !     !------------------------------------------------------------------------!
 !     INTENT(IN)                       :: ftype
 !     !------------------------------------------------------------------------!
-!     this%error_io=1
+!     this%err=1
 !     ! check file type to open
 !     IF (PRESENT(ftype)) THEN
 !        fext=TRIM(ftype)
@@ -552,21 +489,21 @@ CONTAINS
 !     ! close file depending on the file type
 !     SELECT CASE(TRIM(fext))
 !     CASE('vts')
-!        CLOSE(this%unit,IOSTAT=this%error_io)
+!        CLOSE(this%unit,IOSTAT=this%err)
 ! #ifdef PARALLEL
 !     CASE('pvts')
 !         IF (this%GetRank() .EQ. 0 ) THEN
-!            CLOSE(this%unit+100,IOSTAT=this%error_io)
+!            CLOSE(this%unit+100,IOSTAT=this%err)
 !         END IF
 ! #endif
 !     CASE('pvd')
-!         CLOSE(this%unit+200,IOSTAT=this%error_io)
+!         CLOSE(this%unit+200,IOSTAT=this%err)
 !     CASE DEFAULT
 !        CALL this%Error("OpenFile","Unknown file type")
 !     END SELECT
 !     ! set default extension
 ! 
-!     IF(this%error_io .NE. 0) &
+!     IF(this%err .NE. 0) &
 !        CALL this%Error( "CloseFileIO", "cannot close "//TRIM(fext)//"-file")
 !   END SUBROUTINE CloseFile
 
@@ -597,103 +534,72 @@ CONTAINS
     TYPE(Dict_TYP),      POINTER       :: IO      !< \param [in,out] IO I/O dictionary
     TYPE(Dict_TYP),      POINTER       :: Header  !< \param [in,out] config config dictionary
     !------------------------------------------------------------------------!
-    CALL this%OpenFile(REPLACE)
-
-    this%error_io = 1
+    INTEGER :: k
+    !------------------------------------------------------------------------!
     ! write header in vts files
     WRITE(this%linebuf,FMT='(A,6(I7),A)') '<?xml version="1.0"?>' //LF// &
         '<VTKFile type="StructuredGrid" version="0.1" byte_order='&
-                   //this%endianness//'>'//LF//&
+                   //TRIM(this%endianness)//'>'//LF//&
         '  <StructuredGrid WholeExtent="',&
                   Mesh%IMIN,Mesh%IMAX+this%IP1,Mesh%JMIN,Mesh%JMAX+this%JP1, &
                   Mesh%KMIN,Mesh%KMAX+this%KP1,'">'//LF// &
-!                   Mesh%IMIN,Mesh%IMAX+1,Mesh%JMIN,Mesh%JMAX+1,Mesh%KMIN,Mesh%KMAX+1,'">'//LF// &
         '    <FieldData>'//LF// &
         '      <InformationKey type="String" Name="fosite version" format="ascii">'//LF// &
         '        '//TRIM(VERSION)//LF// &
         '      </InformationKey>'//LF
-    WRITE(this%unit,IOSTAT=this%error_io) TRIM(this%linebuf)
+    WRITE(UNIT=this%datafile%GetUnitNumber(),IOSTAT=this%err) TRIM(this%linebuf)
 
 #ifdef PARALLEL
-    ! write header in pvts file (only rank 0)
-    IF (this%GetRank() .EQ. 0 ) THEN
-       CALL this%OpenFile(REPLACE,'pvts')
-       WRITE(this%unit+100,FMT='(A,6(I7),A)',IOSTAT=this%error_io) '<?xml version="1.0"?>' //LF// &
-           '<VTKFile type="PStructuredGrid" version="0.1" byte_order='&
-                   //this%endianness//'>'//LF//&
-           '  <PStructuredGrid WholeExtent="',&
-                   1,Mesh%INUM+this%IP1,1,Mesh%JNUM+this%JP1,1,Mesh%KNUM+this%KP1,'">'//LF//&
-           '    <PFieldData>'//LF// &
-           '      <InformationKey type="String" Name="fosite version" format="ascii">'//LF// &
-           '        '//TRIM(VERSION)//LF//&
-           '      </InformationKey>'
-       CALL this%CloseFile('pvts')
-    END IF
+!     ! write header in pvts file (only rank 0)
+!     IF (this%GetRank() .EQ. 0 ) THEN
+!        CALL this%OpenFile(REPLACE,'pvts')
+!        WRITE(this%unit+100,FMT='(A,6(I7),A)',IOSTAT=this%err) '<?xml version="1.0"?>' //LF// &
+!            '<VTKFile type="PStructuredGrid" version="0.1" byte_order='&
+!                    //this%endianness//'>'//LF//&
+!            '  <PStructuredGrid WholeExtent="',&
+!                    1,Mesh%INUM+this%IP1,1,Mesh%JNUM+this%JP1,1,Mesh%KNUM+this%KP1,'">'//LF//&
+!            '    <PFieldData>'//LF// &
+!            '      <InformationKey type="String" Name="fosite version" format="ascii">'//LF// &
+!            '        '//TRIM(VERSION)//LF//&
+!            '      </InformationKey>'
+!        CALL this%CloseFile('pvts')
+!     END IF
 #endif
-    IF (this%error_io.GT.0) CALL this%Error("WriteHeader","cannot write (P)VTS file header")
 
-    CALL this%CloseFile()
+    ! loop over all time step data registred in GetOutputlist
+    DO k=1,this%TSCOLS
+       WRITE(this%linebuf,FMT='(A,ES14.7,A)') &
+        '      <DataArray type='//TRIM(this%realfmt)//' Name="'//TRIM(this%tsoutput(k)%key)// &
+                       '" NumberOfTuples="1" format="ascii">'//LF// &
+                   REPEAT(' ',8),this%tsoutput(k)%val,LF//&
+        '      </DataArray>'//LF
+       IF (this%err.EQ.0) &
+          WRITE(UNIT=this%datafile%GetUnitNumber(),IOSTAT=this%err) TRIM(this%linebuf)
+#ifdef PARALLEL
+!        ! write time step data in PVTS file in parallel mode
+!        IF (this%GetRank() .EQ. 0 ) THEN
+!           WRITE(this%unit+100,FMT='(A)',ADVANCE='NO',IOSTAT=this%err) TRIM(this%linebuf)
+!        END IF
+#endif
+    END DO
+
+    IF (this%err.NE.0) CALL this%Error("fileio_vtk::WriteHeader","cannot write (P)VTS file header")
   END SUBROUTINE WriteHeader
 
   !> \public Reads the header (not yet implemented)
   !!
-  SUBROUTINE ReadHeader(this,success)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(fileio_vtk), INTENT(INOUT) :: this
-    LOGICAL                          :: success
-    !------------------------------------------------------------------------!
-    INTENT(OUT)                      :: success
-    !------------------------------------------------------------------------!
-    CALL this%OpenFile(READONLY)
-    success = .FALSE.
-    CALL this%CloseFile()
-  END SUBROUTINE ReadHeader
-
-  !> \public Writes the timestep
-  !!
-  SUBROUTINE WriteTimestamp(this,time)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(fileio_vtk) :: this
-    REAL              :: time
-    !------------------------------------------------------------------------!
-    INTENT(IN)        :: time
-    !------------------------------------------------------------------------!
-    CALL this%OpenFile(APPEND)
-
-    WRITE(this%linebuf,FMT='(A,ES14.7,A)') &
-        '      <DataArray type="Float64" Name="TIME" NumberOfTuples="1" format="ascii">'//LF// &
-                   REPEAT(' ',8),time,LF//&
-        '      </DataArray>'//LF
-    WRITE(this%unit,IOSTAT=this%error_io) TRIM(this%linebuf)
-#ifdef PARALLEL
-    ! write time stamp in PVTS file in parallel mode
-    IF (this%GetRank() .EQ. 0 ) THEN
-       CALL this%OpenFile(APPEND,'pvts')
-       WRITE(this%unit+100,FMT='(A)',ADVANCE='NO',IOSTAT=this%error_io) TRIM(this%linebuf)
-       CALL this%CloseFile('pvts')
-    END IF
-
-    CALL this%CloseFile()
-#endif
-
-  END SUBROUTINE WriteTimestamp
-
-  !> \public Reads the timestep (not yet implemented)
-  !!
-  SUBROUTINE ReadTimestamp(this,time)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(fileio_vtk), INTENT(INOUT) :: this
-    REAL                             :: time
-    !------------------------------------------------------------------------!
-    INTENT(OUT)                      :: time
-    !------------------------------------------------------------------------!
-    CALL this%OpenFile(READONLY)
-    time = 0.0
-    CALL this%CloseFile()
-  END SUBROUTINE ReadTimestamp
+!   SUBROUTINE ReadHeader(this,success)
+!     IMPLICIT NONE
+!     !------------------------------------------------------------------------!
+!     CLASS(fileio_vtk), INTENT(INOUT) :: this
+!     LOGICAL                          :: success
+!     !------------------------------------------------------------------------!
+!     INTENT(OUT)                      :: success
+!     !------------------------------------------------------------------------!
+!     CALL this%OpenFile(READONLY,this%step)
+!     success = .FALSE.
+!     CALL this%CloseFile(this%step)
+!   END SUBROUTINE ReadHeader
 
   !> \public Writes all desired data arrays to a file
   !!
@@ -737,15 +643,11 @@ CONTAINS
       END IF
     END IF
 
+    CALL this%datafile%OpenFile(REPLACE,this%step)
 
-    ! write the header if either this is the first data set we write or
-    ! each data set is written into a new file
-    IF ((this%step.EQ.0).OR.(this%cycles.GT.0)) THEN
-       CALL this%WriteHeader(Mesh,Physics,Header,IO)
-    END IF
-    ! write the time stamp
-    CALL this%WriteTimestamp(Timedisc%time)
-    CALL this%OpenFile(APPEND)
+    ! write header and time stamp
+    CALL this%WriteHeader(Mesh,Physics,Header,IO)
+!     CALL this%WriteTimestamp(Timedisc%time)
 
     !------------------------------------------------------------------------!
     ! REMARK: VTS/PVTS data files are opened in unformated or stream mode,
@@ -756,26 +658,11 @@ CONTAINS
     ! -----------------------------------------------------------------------!
     ! a) global information; currently only scalar real numbers supported
 #ifdef PARALLEL
-    IF (this%GetRank() .EQ. 0 ) THEN
-       CALL this%OpenFile(APPEND,'pvts')
-       IF(this%error_io .NE. 0) CALL this%Error( "WriteDataset", "Can't open pvts file")
-    END IF
+!     IF (this%GetRank() .EQ. 0 ) THEN
+!        CALL this%OpenFile(APPEND,'pvts')
+!        IF(this%err .NE. 0) CALL this%Error( "WriteDataset", "Can't open pvts file")
+!     END IF
 #endif
-    ! loop over all time step data registred in GetOutputlist
-    DO k=1,this%TSCOLS
-       WRITE(this%linebuf,FMT='(A,ES14.7,A)') &
-        '      <DataArray type="Float64" Name="'//TRIM(this%tsoutput(k)%key)// &
-                       '" NumberOfTuples="1" format="ascii">'//LF// &
-                   REPEAT(' ',8),this%tsoutput(k)%val,LF//&
-        '      </DataArray>'//LF
-       WRITE(this%unit,IOSTAT=this%error_io) TRIM(this%linebuf)
-#ifdef PARALLEL
-       ! write time step data in PVTS file in parallel mode
-       IF (this%GetRank() .EQ. 0 ) THEN
-          WRITE(this%unit+100,FMT='(A)',ADVANCE='NO',IOSTAT=this%error_io) TRIM(this%linebuf)
-       END IF
-#endif
-    END DO
 
 !> \todo : implement generic output routine for non-field/non-scalar data
 
@@ -783,10 +670,10 @@ CONTAINS
 !     IF (HasKey(IO, "/sources/grav/binary/binpos/value"))THEN
 !       CALL GetAttr(IO, "/sources/grav/binary/binpos", dummy2)
 !
-!       WRITE(this%tslinebuf,fmt='(ES14.7,A,ES14.7)',IOSTAT=this%error_io)&
+!       WRITE(this%tslinebuf,fmt='(ES14.7,A,ES14.7)',IOSTAT=this%err)&
 !             dummy2(1,1), repeat(' ',4),dummy2(2,1)
 !
-!       WRITE(this%unit, IOSTAT=this%error_io)&
+!       WRITE(this%unit, IOSTAT=this%err)&
 !              LF//repeat(' ',6)//'<DataArray type="Float64" Name="position primary"' &
 !                            //' NumberOfTuples="2" format="ascii">' &
 !            //LF//repeat(' ',8)//TRIM(this%tslinebuf) &
@@ -794,7 +681,7 @@ CONTAINS
 !
 ! #ifdef PARALLEL
 !       IF (GetRank(this) .EQ. 0 ) &
-!          WRITE(this%unit+100, IOSTAT=this%error_io)&
+!          WRITE(this%unit+100, IOSTAT=this%err)&
 !              LF//repeat(' ',6)//'<DataArray type="Float64" Name="position primary"' &
 !                            //' NumberOfTuples="2" format="ascii">' &
 !            //LF//repeat(' ',8)//TRIM(this%tslinebuf) &
@@ -802,10 +689,10 @@ CONTAINS
 !
 ! #endif
 !
-!       WRITE(this%tslinebuf,fmt='(ES14.7,A,ES14.7)',IOSTAT=this%error_io)&
+!       WRITE(this%tslinebuf,fmt='(ES14.7,A,ES14.7)',IOSTAT=this%err)&
 !             dummy2(1,2), repeat(' ',4),dummy2(2,2)
 !
-!       WRITE(this%unit, IOSTAT=this%error_io)&
+!       WRITE(this%unit, IOSTAT=this%err)&
 !              LF//repeat(' ',6)//'<DataArray type="Float64" Name="position secondary"' &
 !                            //' NumberOfTuples="2" format="ascii">' &
 !            //LF//repeat(' ',8)//TRIM(this%tslinebuf) &
@@ -813,7 +700,7 @@ CONTAINS
 !
 ! #ifdef PARALLEL
 !       IF (GetRank(this) .EQ. 0 ) &
-!          WRITE(this%unit+100, IOSTAT=this%error_io)&
+!          WRITE(this%unit+100, IOSTAT=this%err)&
 !              LF//repeat(' ',6)//'<DataArray type="Float64" Name="position secondary"' &
 !                            //' NumberOfTuples="2" format="ascii">' &
 !            //LF//repeat(' ',8)//TRIM(this%tslinebuf) &
@@ -824,77 +711,83 @@ CONTAINS
 
     ! -----------------------------------------------------------------------!
     ! b) coordinates
-    WRITE(this%linebuf,FMT='(A,(6(I7)),A)')&
+    offset = 0
+    WRITE(this%linebuf,FMT='(A,(6(I7)),A,I8,A)')&
          '    </FieldData>'//LF// &
          '    <Piece Extent="', &
                     Mesh%IMIN,Mesh%IMAX+this%IP1,Mesh%JMIN,Mesh%JMAX+this%JP1,&
                     Mesh%KMIN,Mesh%KMAX+this%KP1,'">'//LF// &
-         '    <Points>'//LF//&
-         '      <DataArray type='//this%realfmt//' NumberOfComponents="3"'//&
-                         ' Name="Point" format="appended" offset="0">'//LF// &
-         '      </DataArray>'//LF// &
-         '    </Points>'//LF// &
-         '    <CellData>'//LF
-    WRITE(this%unit,IOSTAT=this%error_io) TRIM(this%linebuf)
+         '      <Points>'//LF//&
+         '        <DataArray type='//TRIM(this%realfmt)//' NumberOfComponents="3"'//&
+                         ' Name="Point" format="appended" offset="',offset,'">'//LF// &
+         '        </DataArray>'//LF// &
+         '      </Points>'//LF// &
+         '      <CellData>'//LF
+    IF (this%err.EQ.0) &
+      WRITE(UNIT=this%datafile%GetUnitNumber(),IOSTAT=this%err) TRIM(this%linebuf)
+    ! add size of data set (in bytes) + 4 (4 byte integer for size information)
+    ! -> "jump address" for next data set in the file in bytes
+    offset = offset + SIZE(this%vtkcoords)*this%realsize + 4
 
 #ifdef PARALLEL
-    IF (this%GetRank() .EQ. 0 ) THEN
-       WRITE(this%unit+100,FMT='(A)',IOSTAT=this%error_io)&
-              repeat(' ',4)//'</PFieldData>' &
-        //LF//repeat(' ',4)//'<PPoints>' &
-        //LF//repeat(' ',6)//'<DataArray type='//this%realfmt &
-                //' NumberOfComponents="3" Name="Point"/>' &
-        //LF//repeat(' ',4)//'</PPoints>' &
-        //LF//repeat(' ',4)//'<PCellData>'
-    END IF
+!     IF (this%GetRank() .EQ. 0 ) THEN
+!        WRITE(this%unit+100,FMT='(A)',IOSTAT=this%err)&
+!               repeat(' ',4)//'</PFieldData>' &
+!         //LF//repeat(' ',4)//'<PPoints>' &
+!         //LF//repeat(' ',6)//'<DataArray type='//TRIM(this%realfmt) &
+!                 //' NumberOfComponents="3" Name="Point"/>' &
+!         //LF//repeat(' ',4)//'</PPoints>' &
+!         //LF//repeat(' ',4)//'<PCellData>'
+!     END IF
 #endif
 
     ! -----------------------------------------------------------------------!
     ! c) output data fields
-    offset = 0
-    DO k = 1, this%cols
+    DO k = 1, SIZE(this%output)
        WRITE(this%linebuf,FMT='(A,I3,A,I8,A)')&
-           REPEAT(' ',6)//'<DataArray type='//this%realfmt//&
+           REPEAT(' ',8)//'<DataArray type='//this%realfmt//&
                           ' NumberOfComponents="', SIZE(this%output(k)%p), &
               '" Name="'//TRIM(this%output(k)%key)//&
-              '" format="appended" offset="',this%offset+offset,'"/>'//LF
-       WRITE(this%unit,IOSTAT=this%error_io) TRIM(this%linebuf)
+              '" format="appended" offset="',offset,'"/>'//LF
+    IF (this%err.EQ.0) &
+      WRITE(UNIT=this%datafile%GetUnitNumber(),IOSTAT=this%err) TRIM(this%linebuf)
 
 #ifdef PARALLEL
-       IF (this%GetRank() .EQ. 0 ) THEN
-           WRITE(this%unit+100,FMT='(A,I3,A)',IOSTAT=this%error_io)&
-               REPEAT(' ',6)//'<DataArray type='//this%realfmt//&
-                              ' NumberOfComponents="', SIZE(this%output(k)%p),&
-               '" Name="'//TRIM(this%output(k)%key)//'"/>'
-       END IF
+!        IF (this%GetRank() .EQ. 0 ) THEN
+!            WRITE(this%unit+100,FMT='(A,I3,A)',IOSTAT=this%err)&
+!                REPEAT(' ',6)//'<DataArray type='//this%realfmt//&
+!                               ' NumberOfComponents="', SIZE(this%output(k)%p),&
+!                '" Name="'//TRIM(this%output(k)%key)//'"/>'
+!        END IF
 #endif
        ! add size of data set (in bytes) + 4 (4 byte integer for size information)
        ! -> "jump address" for next data set in the file in bytes
        offset = offset + this%output(k)%numbytes + 4
     END DO
 
-    WRITE(this%unit,IOSTAT=this%error_io)&
+    IF (this%err.EQ.0) &
+      WRITE(UNIT=this%datafile%GetUnitNumber(),IOSTAT=this%err) &
              repeat(' ',6)//'</CellData>' &
        //LF//repeat(' ',4)//'</Piece>' &
        //LF//repeat(' ',2)//'</StructuredGrid>' &
        //LF//repeat(' ',2)//'<GlobalData>'
 
 #ifdef PARALLEL
-    IF (this%GetRank() .EQ. 0 ) THEN
-      WRITE(this%unit+100,FMT='(A)',IOSTAT=this%error_io) REPEAT(' ',4)//'</PCellData>'
-
-      DO i=0,this%GetNumProcs()-1
-         basename=this%GetBasename(i)
-         WRITE(this%unit+100,FMT='(A)',IOSTAT=this%error_io) &
-            REPEAT(' ',4)//'<Piece Extent="'//TRIM(this%extent(i))&
-            //'" Source="'//TRIM(basename)//'"/>'
-      END DO
-
-      WRITE(this%unit+100,FMT='(A)',IOSTAT=this%error_io)&
-        repeat(' ',2)//'</PStructuredGrid>' &
-        //LF//'</VTKFile>'
-
-    END IF
+!     IF (this%GetRank() .EQ. 0 ) THEN
+!       WRITE(this%unit+100,FMT='(A)',IOSTAT=this%err) REPEAT(' ',4)//'</PCellData>'
+!
+!       DO i=0,this%GetNumProcs()-1
+!          basename=this%GetBasename(i)
+!          WRITE(this%unit+100,FMT='(A)',IOSTAT=this%err) &
+!             REPEAT(' ',4)//'<Piece Extent="'//TRIM(this%extent(i))&
+!             //'" Source="'//TRIM(basename)//'"/>'
+!       END DO
+!
+!       WRITE(this%unit+100,FMT='(A)',IOSTAT=this%err)&
+!         repeat(' ',2)//'</PStructuredGrid>' &
+!         //LF//'</VTKFile>'
+!
+!     END IF
 #endif
 
     ! -----------------------------------------------------------------------!
@@ -903,44 +796,48 @@ CONTAINS
 !        ! in PARALLEL mode the result is sent to process with rank 0
 !        this%bflux(:,i) = GetBoundaryFlux(Fluxes,Mesh,Physics,i)
 !
-!        WRITE(this%unit,IOSTAT=this%error_io)&
+!        WRITE(this%unit,IOSTAT=this%err)&
 !               LF//repeat(' ',4)//'<DataArray type='//this%realfmt//&
 !               'Name="'//TRIM(fluxkey(i))//'" format="ascii" >' &
 !               //LF//repeat(' ',6)
 !        DO k=1,Physics%VNUM
-!            WRITE(this%linebuf((k-1)*20+1:k*20),fmt='(E16.9,A)',IOSTAT=this%error_io)&
+!            WRITE(this%linebuf((k-1)*20+1:k*20),fmt='(E16.9,A)',IOSTAT=this%err)&
 !                 this%bflux(k,i),repeat(' ',4)
 !        END DO
 !
-!        WRITE(this%unit,IOSTAT=this%error_io)TRIM(this%linebuf(1:Physics%VNUM*20)) &
+!        WRITE(this%unit,IOSTAT=this%err)TRIM(this%linebuf(1:Physics%VNUM*20)) &
 !               //LF//repeat(' ',4)//'</DataArray>'
 !     END DO
 
     ! end META data
     ! -----------------------------------------------------------------------------------!
 
-    WRITE(this%unit,IOSTAT=this%error_io)&
-       LF//repeat(' ',2)//'</GlobalData>' &
-       //LF//'<AppendedData encoding="raw">' &
-       //LF//'_'
+    IF (this%err.EQ.0) &
+      WRITE(UNIT=this%datafile%GetUnitNumber(),IOSTAT=this%err)&
+        LF//repeat(' ',2)//'</GlobalData>' &
+        //LF//'  <AppendedData encoding="raw">' &
+        //LF//'_'
+    IF (this%err.NE.0) &
+       CALL this%Error("fileio_vtk::WriteDataset", "writing data array specs failed")
 
 #ifdef PARALLEL
-    IF (this%GetRank() .EQ. 0 ) THEN
-       CALL this%CloseFile('pvts')
-       IF(this%error_io .NE. 0) CALL this%Error( "WriteDataset", "Can't close pvts file")
-    END IF
+!     IF (this%GetRank() .EQ. 0 ) THEN
+!        CALL this%CloseFile('pvts')
+!        IF(this%err .NE. 0) CALL this%Error( "WriteDataset", "Can't close pvts file")
+!     END IF
 #endif
 
     ! -----------------------------------------------------------------------!
     ! 2. REAL data
     ! -----------------------------------------------------------------------!
-    ! TODO: Hier nochmal rübergucken für 3D
     ! a) coordinates:
     !    (i)  size of data array in bytes (must be a 4 byte integer)
     !    (ii) coordinate data array (generated in InitFileio)
-    WRITE(this%unit,IOSTAT=this%error_io) INT(this%offset,4),this%vtkcoords(:,:,:,:)
-    IF (this%error_io.GT.0) &
-       CALL this%Error( "WriteDataset", "cannot write coordinates")
+    IF (this%err.EQ.0) &
+       WRITE(UNIT=this%datafile%GetUnitNumber(),IOSTAT=this%err) &
+             INT(SIZE(this%vtkcoords)*this%realsize + 4,KIND=4),this%vtkcoords(:,:,:,:)
+    IF (this%err.NE.0) &
+       CALL this%Error("fileio_vtk::WriteDataset", "writing coordinates failed")
 
     ! -----------------------------------------------------------------------!
     ! b) data fields
@@ -950,9 +847,9 @@ CONTAINS
     !    (ii) the data given by a list of pointers which is also
     !         generated in GetOutputlist
     ! loop over all output data fields
-    DO l = 1, this%cols
+    DO l = 1, SIZE(this%output)
          ! reorganize the data to comply with VTK style ordering
-         n = SIZE(this%output(l)%p(:))  ! get first dimension
+         n = SIZE(this%output(l)%p)
          DO m=1,n
            DO k=1,Mesh%KMAX-Mesh%KMIN+1
              DO j=1,Mesh%JMAX-Mesh%JMIN+1
@@ -963,18 +860,20 @@ CONTAINS
              END DO
            END DO
          END DO
-         WRITE(this%unit,IOSTAT=this%error_io) this%output(l)%numbytes, &
-!            this%binout(1:n,:,:,:)
-            ((((this%binout(m,i,j,k),m=1,n),i=Mesh%IMIN,Mesh%IMAX), &
-                j=Mesh%JMIN,Mesh%JMAX),k=Mesh%KMIN,Mesh%KMAX)
+         IF (this%err.EQ.0) &
+            WRITE(UNIT=this%datafile%GetUnitNumber(),IOSTAT=this%err) &
+                INT(this%output(l)%numbytes,KIND=4), &
+!               this%binout(1:n,:,:,:)
+                ((((this%binout(m,i,j,k),m=1,n),i=Mesh%IMIN,Mesh%IMAX), &
+                    j=Mesh%JMIN,Mesh%JMAX),k=Mesh%KMIN,Mesh%KMAX)
 
-         IF (this%error_io.GT.0) &
-            CALL this%Error( "WriteDataset", "cannot write data")
+         IF (this%err.NE.0) &
+            CALL this%Error("fileio_vtk::WriteDataset", "writing data")
     END DO
-    WRITE(this%unit,IOSTAT=this%error_io)LF//repeat(' ',2)//&
+    WRITE(UNIT=this%datafile%GetUnitNumber(),IOSTAT=this%err) LF//repeat(' ',2)//&
          '</AppendedData>'//LF//'</VTKFile>'//LF
 
-    CALL this%CloseFile()
+    CALL this%datafile%CloseFile(this%step)
     CALL this%IncTime()
   END SUBROUTINE WriteDataset
 
@@ -987,21 +886,21 @@ CONTAINS
     !------------------------------------------------------------------------!
     INTEGER                          :: k
     !------------------------------------------------------------------------!
-    DO k=1,this%cols
+    DO k=1,SIZE(this%output)
        IF (ASSOCIATED(this%output(k)%p)) DEALLOCATE(this%output(k)%p)
     END DO
     DEALLOCATE(this%binout,this%vtkcoords,this%output,this%tsoutput,this%bflux)
     CALL this%Finalize_base()
   END SUBROUTINE Finalize_vtk
   
-  !> \public Destructor of PVD file I/O class
-  !!
-  SUBROUTINE Finalize_pvd(this)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(fileio_pvd), INTENT(INOUT) :: this   !< \param [in,out] this fileio type
-    !------------------------------------------------------------------------!
-    CALL this%Finalize_base()
-  END SUBROUTINE Finalize_pvd
+!   !> \public Destructor of PVD file I/O class
+!   !!
+!   SUBROUTINE Finalize_pvd(this)
+!     IMPLICIT NONE
+!     !------------------------------------------------------------------------!
+!     CLASS(fileio_pvd), INTENT(INOUT) :: this   !< \param [in,out] this fileio type
+!     !------------------------------------------------------------------------!
+!     CALL this%Finalize_base()
+!   END SUBROUTINE Finalize_pvd
 
 END MODULE fileio_vtk_mod
