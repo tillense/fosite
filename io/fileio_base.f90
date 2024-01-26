@@ -3,7 +3,7 @@
 !# fosite - 3D hydrodynamical simulation program                             #
 !# module: fileio_base.f90                                                   #
 !#                                                                           #
-!# Copyright (C) 2008-2023                                                   #
+!# Copyright (C) 2008-2024                                                   #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
 !# Björn Sperling   <sperling@astrophysik.uni-kiel.de>                       #
 !# Manuel Jung      <mjung@astrophysik.uni-kiel.de>                          #
@@ -161,7 +161,6 @@ MODULE fileio_base_mod
     PROCEDURE :: WriteDataset
     PROCEDURE (WriteDataset_deferred), DEFERRED :: WriteDataset_deferred
     PROCEDURE :: AdjustTimestep
-    PROCEDURE (Finalize), DEFERRED     :: Finalize
     PROCEDURE :: Finalize_base
     PROCEDURE :: GetEndianness
 !     PROCEDURE :: MakeMultstr
@@ -611,19 +610,7 @@ CONTAINS
 !   END FUNCTION MakeMultstr
 
 
-!   !> \public Get the current file name
-!   !! \result current file name
-!   FUNCTION GetFilename(this,fn) RESULT (fname)
-!     IMPLICIT NONE
-!     !------------------------------------------------------------------------!
-!     CLASS(fileio_base), INTENT(IN) :: this !< \param [in] this fileio type
-!     INTEGER, OPTIONAL, INTENT(IN)  :: fn   !< \param [in] fn number of file
-!     CHARACTER(LEN=256)             :: fname
-!     !------------------------------------------------------------------------!
-!     fname = TRIM(this%path) // TRIM(GetBasename(this,fn))
-!   END FUNCTION GetFilename
-
-  !> \public Generic deconstructor of the file I/O
+  !> \public Generic destructor of the file I/O
   !!
   SUBROUTINE Finalize_base(this)
     IMPLICIT NONE
@@ -632,6 +619,7 @@ CONTAINS
     !------------------------------------------------------------------------!
     IF (.NOT.this%Initialized()) &
         CALL this%Error("fileio_base::Finalize_base","FileIO not initialized")
+    IF (ALLOCATED(this%datafile)) DEALLOCATE(this%datafile)
   END SUBROUTINE Finalize_base
 
   !> \public Open file to access Fortran stream

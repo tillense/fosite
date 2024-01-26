@@ -7,7 +7,7 @@ add_library(io
   fileio_vtk.f90
   #fileio_netcdf.f90
   fileio_base.f90
-  #fileio_xdmf.f90
+  fileio_xdmf.f90
 )
 target_link_libraries(io timedisc)
 

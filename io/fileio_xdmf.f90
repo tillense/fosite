@@ -3,7 +3,7 @@
 !# fosite - 3D hydrodynamical simulation program                             #
 !# module: fileio_xdmf.f90                                                   #
 !#                                                                           #
-!# Copyright (C) 2013-2023                                                   #
+!# Copyright (C) 2013-2024                                                   #
 !# Manuel Jung <mjung@astrophysik.uni-kiel.de>                               #
 !# Jannes Klee <jklee@astrophysik.uni-kiel.de>                               #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
@@ -31,7 +31,7 @@
 !!
 !! \brief module for XDMF file I/O
 !!
-!! The xdmf file format [1] carries light data in a xml file and can store
+!! The xdmf file format [1,4] carries light data in a xml file and can store
 !! heavy data in binary or hdf5 files. This implementation stores heavy data
 !! in binary files (See fileio_binary.f90).
 !!
@@ -44,6 +44,7 @@
 !! [1]: http://www.xdmf.org/index.php/XDMF_Model_and_Format
 !! [2]: https://www.paraview.org
 !! [3]: https://gitlab.kitware.com/xdmf/xdmf/blob/master/Xdmf.dtd
+!! [4]: https://visit-sphinx-github-user-manual.readthedocs.io/en/develop/data_into_visit/XdmfFormat.html#
 !!
 !! \extends fileio_gnuplot
 !! \ingroup fileio
@@ -60,13 +61,17 @@ MODULE fileio_xdmf_mod
   USE common_dict
   !--------------------------------------------------------------------------!
   PRIVATE
+  INTEGER, PARAMETER           :: BLK_INDENT = 2        !< block indentation
+  CHARACTER, PARAMETER         :: SP = ACHAR(32)        !< space
   CHARACTER, PARAMETER         :: LF = ACHAR(10)        !< line feed
-
+  CHARACTER(LEN=2), PARAMETER  :: TB = REPEAT(SP,BLK_INDENT)
+  !--------------------------------------------------------------------------!
+  !> FileIO gnuplot class
   TYPE, EXTENDS(fileio_binary) :: fileio_xdmf
+    TYPE(filehandle_fortran)   :: xmffile          !< paraview master file
     CHARACTER(LEN=14)          :: endian_xdmf      !< endianness string
-    INTEGER                    :: unit_xdmf
   CONTAINS
-    PROCEDURE :: InitFileIO_xdmf
+    PROCEDURE :: InitFileIO_deferred => InitFileIO_xdmf
     PROCEDURE :: IterateDict
     PROCEDURE :: WriteXMF
     PROCEDURE :: WriteNode_xdmf
@@ -75,7 +80,7 @@ MODULE fileio_xdmf_mod
     PROCEDURE :: WriteMeshXML
     PROCEDURE :: WriteVector
     PROCEDURE :: WriteDataItem
-    PROCEDURE :: Finalize
+    FINAL :: Finalize
   END TYPE
   !--------------------------------------------------------------------------!
   PUBLIC :: &
@@ -104,24 +109,35 @@ CONTAINS
     TYPE(Dict_TYP),       INTENT(IN), POINTER &
                                         :: IO       !< \param [in] IO Dictionary for I/O
     !------------------------------------------------------------------------!
-    INTEGER               :: err
+    INTEGER :: idx(1)
     !------------------------------------------------------------------------!
     !\attention interface changed, however "xdmf" is not passed anymore
-    CALL this%InitFileIO_binary(Mesh,Physics,Timedisc,Sources,config,IO)
+    IF (.NOT.this%Initialized()) &
+      CALL this%InitFileio(Mesh,Physics,Timedisc,Sources,config,IO,"xdmf","bin",textfile=.FALSE.)
+
+    CALL this%fileio_binary%InitFileIO(Mesh,Physics,Timedisc,Sources,config,IO)
 
     CALL this%GetEndianness(this%endian_xdmf, '"Little"', '"Big"')
-    IF(this%realsize.GT.8) &
-      CALL this%Error("WriteXMF","Only single and double precision are allowed")
 
-    WRITE(this%realfmt,'(A,I1,A)',IOSTAT=err) '"',this%realsize,'"'
+    SELECT CASE (Mesh%NDIMS)
+    CASE(2,3)
+      ! 2D & 3D -> do nothing
+    CASE DEFAULT
+      CALL this%Error("fileio_xdmf::InitFileIO_xdmf","only 2D and 3D mesh is supported")
+    END SELECT
+
+    ! create file handle for the xmf file; only on rank 0 in parallel mode
+#ifdef PARALLEL
+    IF (this%GetRank().EQ.0) &
+#endif
+      CALL this%xmffile%InitFilehandle(this%datafile%filename,this%datafile%path,"xmf",textfile=.FALSE.,onefile=.TRUE.,cycles=1)
 
     CALL this%WriteXMF(Mesh,IO)
-
   END SUBROUTINE InitFileIO_xdmf
 
 
   !> Iterate the dictionary and run a Subroutine on every node
-  RECURSIVE SUBROUTINE IterateDict(this,Mesh,config,offset,filename,path)
+  RECURSIVE SUBROUTINE IterateDict(this,Mesh,config,offset,filename,path,indent)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(fileio_xdmf), INTENT(INOUT)  :: this     !< \param [in,out] fileio class
@@ -132,6 +148,7 @@ CONTAINS
     CHARACTER(LEN=*),   INTENT(IN), OPTIONAL &
                                        :: path     !< \param [in] path
     INTEGER, INTENT(INOUT)             :: offset   !< \param [in,out] offset
+    INTEGER                            :: indent   !< \param [in] indent indentation level
     !------------------------------------------------------------------------!
     CHARACTER(LEN=MAX_CHAR_LEN)        :: str, key
     TYPE(Dict_TYP),POINTER             :: node
@@ -145,10 +162,10 @@ CONTAINS
     DO WHILE(ASSOCIATED(node))
       key = TRIM(str)//"/"//TRIM(GetKey(node))
 
-      CALL this%WriteNode_xdmf(Mesh,key,node,offset,filename)
+      CALL this%WriteNode_xdmf(Mesh,key,node,offset,filename,indent)
 
       IF(HasChild(node)) THEN
-        CALL this%IterateDict(Mesh, GetChild(node), offset, filename, key)
+        CALL this%IterateDict(Mesh, GetChild(node), offset, filename, key, indent)
       END IF
       node=>GetNext(node)
     END DO
@@ -187,7 +204,7 @@ CONTAINS
   !!
   !! \attention There is also a WriteNode function in the parent class
   !! (binary) which should not be inherited
-  SUBROUTINE WriteNode_xdmf(this,Mesh,key,node,offset,filename)
+  SUBROUTINE WriteNode_xdmf(this,Mesh,key,node,offset,filename,indent)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(fileio_xdmf), INTENT(INOUT) :: this     !< \param [in,out] this fileio type
@@ -197,7 +214,8 @@ CONTAINS
     TYPE(Dict_TYP),     INTENT(IN), POINTER &
                                       :: node     !< \param [in] data node
     INTEGER ,           INTENT(INOUT) :: offset   !< \param [in,out] offset
-    CHARACTER(LEN=*),   INTENT(IN)    :: filename
+    CHARACTER(LEN=*),   INTENT(IN)    :: filename !< \param [in] filename
+    INTEGER,            INTENT(IN)    :: indent   !< \param [in] indentation level
     !------------------------------------------------------------------------!
     REAL,DIMENSION(:,:,:),    POINTER :: ptr3 => null()
     REAL,DIMENSION(:,:,:,:),  POINTER :: ptr4 => null()
@@ -245,7 +263,7 @@ CONTAINS
 
     SELECT CASE(GetDataType(node))
     CASE(DICT_REAL_THREED)
-      CALL this%WriteAttribute(Mesh,TRIM(key),dims(1:3),filename,offset,ref)
+      CALL this%WriteAttribute(Mesh,TRIM(key),dims(1:3),filename,offset,ref,indent)
 ! It is not clear, how other datatypes than DICT_REAL_TWOD should be mapped in
 ! XDMF.
 !    CASE(DICT_REAL_THREED)
@@ -261,34 +279,33 @@ CONTAINS
 
   !> Writes description of data item in xml syntax
   !!
-  SUBROUTINE WriteDataItem(this,dims,filename,offset)
+  SUBROUTINE WriteDataItem(this,dims,filename,offset,indent)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(fileio_xdmf), INTENT(INOUT) :: this      !< \param [in,out] this fileio type
     CHARACTER(LEN=*),   INTENT(IN)    :: dims      !< \param [in] dims
     CHARACTER(LEN=*),   INTENT(IN)    :: filename  !< \param [in] filename
     INTEGER,            INTENT(IN)    :: offset    !< \param [in] offset
+    INTEGER,            INTENT(IN)    :: indent     !< \param [in] indentation level
     !------------------------------------------------------------------------!
     CHARACTER(LEN=16)                 :: seek
-    INTEGER                           :: err
     !------------------------------------------------------------------------!
-    WRITE(this%unit, IOSTAT=err)&
-           '<DataItem Dimensions=' // TRIM(dims) // ' ' &
-        // 'NumberType="Float" Precision=' // TRIM(this%realfmt) // LF &
-        // 'Format="Binary" Endian=' // TRIM(this%endian_xdmf)
-    WRITE(seek,'(I16)',IOSTAT=err) offset
-    WRITE(this%unit, IOSTAT=err)&
-       LF // 'Seek="' // TRIM(ADJUSTL(seek)) // '"'
-    WRITE(this%unit, IOSTAT=err)&
-           '>' // LF &
-        // TRIM(filename) // LF &
-        // '</DataItem>' // LF
+    WRITE(seek,'(I16)',IOSTAT=this%err) offset
 
+    WRITE(UNIT=this%xmffile%GetUnitNumber(),IOSTAT=this%err) &
+        REPEAT(TB,indent) // '<DataItem Dimensions=' // TRIM(dims) // SP &
+        // 'NumberType="Float" Precision=' // TRIM(this%realfmt)
+    WRITE(UNIT=this%xmffile%GetUnitNumber(),IOSTAT=this%err) &
+        SP // 'Format="Binary" Endian=' // TRIM(this%endian_xdmf) // &
+        SP // 'Seek="' // TRIM(ADJUSTL(seek)) // '">' // LF
+    WRITE(UNIT=this%xmffile%GetUnitNumber(),IOSTAT=this%err) &
+        REPEAT(TB,indent+1) // TRIM(filename) // LF // &
+        REPEAT(TB,indent) // '</DataItem>' // LF
   END SUBROUTINE WriteDataItem
 
   !> Writes description of data item in xml syntax
   !!
-  SUBROUTINE WriteAttribute(this,Mesh,name,dims,filename,offset,ref)
+  SUBROUTINE WriteAttribute(this,Mesh,name,dims,filename,offset,ref,indent)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(fileio_xdmf), INTENT(INOUT) :: this       !< \param [in,out] this fileio type
@@ -299,8 +316,9 @@ CONTAINS
                                       :: dims       !< \param [in] dims
     INTEGER,            INTENT(IN)    :: offset     !< \param [in,out] offset
     LOGICAL,            INTENT(IN)    :: ref        !< \param [in] ref
+    INTEGER,            INTENT(IN)    :: indent     !< \param [in] indentation level
     !------------------------------------------------------------------------!
-    CHARACTER(LEN=32)                 :: type,center
+    CHARACTER(LEN=32)                 :: dtype,center,dstr
     INTEGER                           :: dsize, err
     !------------------------------------------------------------------------!
     !data size
@@ -325,22 +343,23 @@ CONTAINS
     ! The remaining dimensions define the data type
     SELECT CASE(dsize)
     CASE(0)
-        type = "Scalar"
+        dtype = "Scalar"
     CASE(1)
-        type = "Vector"
+        dtype = "Vector"
     CASE DEFAULT
-        type = "Matrix"
+        dtype = "Matrix"
     END SELECT
 
-    WRITE(this%unit, IOSTAT=err)&
-         '<Attribute Name="' // TRIM(name) // '" '&
-      // 'AttributeType="' // TRIM(type) // '" ' &
+    WRITE(UNIT=this%xmffile%GetUnitNumber(),IOSTAT=this%err) &
+      REPEAT(TB,indent) // '<Attribute Name="' // TRIM(name) // '" ' &
+      // 'AttributeType="' // TRIM(dtype) // '" ' &
       // 'Center="' // TRIM(center) // '">' // LF
 
-    CALL this%WriteDataItem(GetDimsStr(dims), TRIM(filename), offset)
+    CALL GetDimsStr(dims,dstr)
+    CALL this%WriteDataItem(TRIM(dstr), TRIM(filename), offset,indent+1)
 
-    WRITE(this%unit, IOSTAT=err)&
-         '</Attribute>' // LF
+    WRITE(UNIT=this%xmffile%GetUnitNumber(),IOSTAT=this%err) &
+      REPEAT(TB,indent) // '</Attribute>' // LF
   END SUBROUTINE WriteAttribute
 
   !> Writes the mesh to file
@@ -356,11 +375,11 @@ CONTAINS
     CHARACTER(LEN=*),   INTENT(IN)    :: ref1,ref2,ref3  !< \param [in] name
     CHARACTER(LEN=*),   INTENT(IN)    :: step       !< \param [in]
     !------------------------------------------------------------------------!
-    CHARACTER(LEN=128)                :: dstr
+    CHARACTER(LEN=32)                 :: dstr
     INTEGER                           :: err
     !------------------------------------------------------------------------!
-    dstr = GetDimsStr(dims)
-    WRITE(this%unit, IOSTAT=err)&
+    CALL GetDimsStr(dims,dstr)
+    WRITE(UNIT=this%xmffile%GetUnitNumber(),IOSTAT=this%err) &
          '<Attribute Name="' // TRIM(name) // '" ' &
       // 'AttributeType="Vector" Center="Cell">' // LF&
       // '<DataItem ItemType="Function" Function="JOIN($0, $1, $2)" '&
@@ -387,51 +406,49 @@ CONTAINS
 
   !> Writes the mesh to file
   !!
-  SUBROUTINE WriteMeshXML(this,Mesh,filename)
+  SUBROUTINE WriteMeshXML(this,Mesh,filename,indent)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(fileio_xdmf), INTENT(INOUT) :: this     !< \param [in,out] this fileio type
     CLASS(mesh_base),   INTENT(IN)    :: Mesh     !< \param [in] mesh mesh type
     CHARACTER(LEN=*),   INTENT(IN)    :: filename !< \param [in] filename
+    INTEGER                           :: indent   !< \param [in] indent indentation level
     !------------------------------------------------------------------------!
-    CHARACTER(LEN=64) :: dims
-    CHARACTER(LEN=8)  :: inum, jnum, knum
-    INTEGER           :: err
+    INTEGER           :: dims(3)
+    CHARACTER(LEN=32) :: dstr
+    CHARACTER(LEN=14) :: gstr(3) = (/"'/mesh/grid_x'","'/mesh/grid_y'","'/mesh/grid_z'"/)
+    INTEGER           :: i
     !------------------------------------------------------------------------!
-!     WRITE(inum,'(I8)') Mesh%INUM+1
-!     WRITE(jnum,'(I8)') Mesh%JNUM+1
-!     WRITE(knum,'(I8)') Mesh%KNUM+1
-!     WRITE(dims,'(A,A,A,A,A)') TRIM(ADJUSTL(knum)), ' ',TRIM(ADJUSTL(jnum)), &
-!                               ' ',TRIM(ADJUSTL(inum))
+    dims = (/ Mesh%INUM, Mesh%JNUM, Mesh%KNUM /)
+    WHERE (dims(:).GT.1)
+      ! do this only for real dimensions, i.e. ijknum > 1
+      ! add 1, because grid contains point data, i.e. cell numbers + 1 in each dimension
+      dims(:) = dims(:) + 1
+    END WHERE
+    CALL GetDimsStr(dims(:),dstr)
+
     SELECT CASE(Mesh%NDIMS)
-    CASE(1)
-        IF (Mesh%INUM.GT.1) dims = GetDimsStr( (/ Mesh%INUM+1 /) )
-        IF (Mesh%JNUM.GT.1) dims = GetDimsStr( (/ Mesh%JNUM+1 /) )
-        IF (Mesh%KNUM.GT.1) dims = GetDimsStr( (/ Mesh%KNUM+1 /) )
     CASE(2)
-        IF (Mesh%INUM.EQ.1) dims = GetDimsStr( (/ Mesh%JNUM+1, Mesh%KNUM+1 /) )
-        IF (Mesh%JNUM.EQ.1) dims = GetDimsStr( (/ Mesh%INUM+1, Mesh%KNUM+1 /) )
-        IF (Mesh%KNUM.EQ.1) dims = GetDimsStr( (/ Mesh%INUM+1, Mesh%JNUM+1 /) )
+      WRITE(UNIT=this%xmffile%GetUnitNumber(),IOSTAT=this%err) &
+        REPEAT(TB,indent) // '<Topology TopologyType="2DSMesh" ' // 'NumberOfElements=' // TRIM(dstr) // '/>' // LF // &
+        REPEAT(TB,indent) // '<Geometry GeometryType="X_Y_Z">' // LF
     CASE(3)
-        dims = GetDimsStr( (/ Mesh%INUM+1, Mesh%JNUM+1, Mesh%KNUM+1 /) )
-    CASE default
-      CALL this%Error("fileio_xdmf::WriteMeshXML","Mesh dimension should be 1,2,3")
+      WRITE(UNIT=this%xmffile%GetUnitNumber(),IOSTAT=this%err) &
+        REPEAT(TB,indent) // '<Topology TopologyType="3DSMesh" ' // 'NumberOfElements=' // TRIM(dstr) // '/>' // LF // &
+        REPEAT(TB,indent) // '<Geometry GeometryType="X_Y_Z">' // LF
+    CASE DEFAULT
+      CALL this%Error("fileio_xdmf::WriteMeshXML","only 2D and 3D mesh is currently supported")
     END SELECT
 
-! TODO 3D HACK should not be needed anymore, since now everything is 3D now
-! \attention here was a bianglespherical hack
-    WRITE(this%unit, IOSTAT=err) &
-            '<Topology TopologyType="3DSMesh" ' &
-         // 'NumberOfElements=' // TRIM(dims) // '/>' // LF &
-         // '<Geometry GeometryType="X_Y_Z">' // LF
-    WRITE(this%unit, IOSTAT=err) &
-         '<DataItem Reference="/Xdmf/Domain/Grid/Grid/Attribute[@Name='//"'/mesh/grid_x'"//']/DataItem[1]"/>' // LF &
-      // '<DataItem Reference="/Xdmf/Domain/Grid/Grid/Attribute[@Name='//"'/mesh/grid_y'"//']/DataItem[1]"/>' // LF &
-      // '<DataItem Reference="/Xdmf/Domain/Grid/Grid/Attribute[@Name='//"'/mesh/grid_z'"//']/DataItem[1]"/>' // LF
+    ! register all 3 coordinates even for 2D grids, because 2D curved surfaces may have 3D cartesian coordinates
+    ! e.g., surface of a sphere
+    DO i=1,3
+        WRITE(UNIT=this%xmffile%GetUnitNumber(),IOSTAT=this%err) &
+          REPEAT(TB,indent+1) // '<DataItem Reference="/Xdmf/Domain/Grid/Grid/Attribute[@Name='//gstr(i)//']/DataItem[1]"/>' // LF
+    END DO
 
-    WRITE(this%unit, IOSTAT=err) &
-         '</Geometry>' // LF
-
+    WRITE(UNIT=this%xmffile%GetUnitNumber(),IOSTAT=this%err) &
+         REPEAT(TB,indent) // '</Geometry>' // LF
   END SUBROUTINE WriteMeshXML
 
   !> Main routine to write all data to xmf file
@@ -451,23 +468,17 @@ CONTAINS
     CHARACTER(LEN=256)      :: filename
     TYPE(Dict_TYP), POINTER :: meshIO => Null()
     !------------------------------------------------------------------------!
-
+    this%err = 0
     IF (this%GetRank().EQ.0) THEN
       ! write a xmf-file
-      OPEN(this%unit, FILE=TRIM(this%filename)//'.xmf', &
-           STATUS     = 'REPLACE',      &
-           ACTION     = 'WRITE',        &
-           ACCESS     = 'STREAM',       &
-           POSITION   = 'REWIND',       &
-           IOSTAT     = err)
-       IF (err.NE. 0) CALL this%Error("WriteXMF","Can't open xmf-file")
+      CALL this%xmffile%OpenFile(REPLACE,this%step)
 
-      WRITE(this%unit, IOSTAT=err)&
+      WRITE(UNIT=this%xmffile%GetUnitNumber(),IOSTAT=this%err) &
            '<?xml version="1.0" ?>' // LF &
         // '<!DOCTYPE Xdmf SYSTEM "Xdmf.dtd" []>' // LF &
         // '<Xdmf Version="2.0">' // LF &
-        // '<Domain>' // LF &
-        // '<Grid Name="mesh" GridType="Collection" CollectionType="Temporal">' // LF
+        // TB // '<Domain>' // LF &
+        // TB // TB // '<Grid Name="mesh" GridType="Collection" CollectionType="Temporal">' // LF
 
 ! this works in paraview, but not in visit :(. So we have to use the simpler method for now
 !        // '<Time TimeType="List">' // LF &
@@ -476,7 +487,6 @@ CONTAINS
 !        // '</DataItem>' // LF &
 !        // '</Time>' // LF
 !      CALL WriteDataItem_xdmf(this, '"1"', TRIM(filename)//'_'//step//'.bin')
-!      WRITE(this%unit, IOSTAT=err)&
 
       CALL GetAttr(IO,"mesh",meshIO)
 
@@ -485,99 +495,75 @@ CONTAINS
         ftime = this%stoptime/(this%count)*i
         WRITE(step,'(I4.4)') i
         WRITE(time,'(ES16.9)') ftime
-        WRITE(filename, '(A)') TRIM(this%filename)//"_"//step//".bin"
+        WRITE(filename, '(A)') TRIM(this%datafile%GetFilename(i))
 
-        WRITE(this%unit, IOSTAT=err)&
-             '<Grid Name="step' // step // '" GridType="Uniform">' // LF &
-          // '<Time Value="' // TRIM(time) // '" />' // LF
+        WRITE(UNIT=this%xmffile%GetUnitNumber(),IOSTAT=this%err) &
+          REPEAT(TB,3) // '<Grid Name="step' // step // '" GridType="Uniform">' // LF // &
+          REPEAT(TB,4) // '<Time Value="' // TRIM(time) // '" />' // LF
 
-        CALL this%WriteMeshXML(Mesh,filename)
-        CALL this%WriteVector(Mesh,"/timedisc/velocity", &
-                              (/Mesh%INUM,Mesh%JNUM,Mesh%KNUM/), &
-                              "/timedisc/xvelocity","/timedisc/yvelocity", &
-                              "/timedisc/zvelocity", step)
-        CALL this%IterateDict(Mesh, IO, offset, filename)
+        CALL this%WriteMeshXML(Mesh,filename,indent=5)
+! quick HACK to bind velocity components into vector structure
+!         CALL this%WriteVector(Mesh,"/timedisc/velocity", &
+!                               (/Mesh%INUM,Mesh%JNUM,Mesh%KNUM/), &
+!                               "/timedisc/xvelocity","/timedisc/yvelocity", &
+!                               "/timedisc/zvelocity", step)
+        CALL this%IterateDict(Mesh, IO, offset, filename,indent=5)
 
-        WRITE(this%unit, IOSTAT=err) &
-             '</Grid>' // LF
+        WRITE(UNIT=this%xmffile%GetUnitNumber(),IOSTAT=this%err) &
+          REPEAT(TB,3) // '</Grid>' // LF
       END DO
 
-      WRITE(this%unit, IOSTAT=err) &
-           '</Grid>' // LF
+      WRITE(UNIT=this%xmffile%GetUnitNumber(),IOSTAT=this%err) &
+        TB // TB // '</Grid>' // LF
 
 
-      WRITE(this%unit, IOSTAT=err) &
-           '</Domain>' // LF &
+      WRITE(UNIT=this%xmffile%GetUnitNumber(),IOSTAT=this%err) &
+        TB // '</Domain>' // LF &
         // '</Xdmf>' // LF
 
-      IF(err.NE.0) CALL this%Error("WriteXMF", "Can't write xmf-file")
-      CLOSE(this%unit,IOSTAT=err)
-      IF(err.NE.0) CALL this%Error("WriteXMF", "Can't close xmf-file")
-   END IF
-
+      IF(this%err.NE.0) CALL this%Error("fileio_xdmf::WriteXMF", "Can't write xmf-file")
+      CALL this%xmffile%CloseFile(this%step)
+    END IF
   END SUBROUTINE WriteXMF
 
-
-  FUNCTION GetDimsStr(dims) RESULT(res)
+  !> \public determines the string for the dimension attribute, i.e. array dimensions of mesh data
+  PURE SUBROUTINE GetDimsStr(dims,res)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    INTEGER,DIMENSION(:), INTENT(IN) :: dims
-    CHARACTER(LEN=128)               :: res
+    INTEGER,DIMENSION(3), INTENT(IN) :: dims
+    CHARACTER(LEN=*), INTENT(OUT)    :: res
     !------------------------------------------------------------------------!
-    INTEGER                          :: i, l
-    CHARACTER(LEN=128)               :: fmt
-    CHARACTER(LEN=128), DIMENSION(:), ALLOCATABLE &
-                                     :: buf
+    INTEGER                          :: i,idx(3)
+    CHARACTER(LEN=8)                 :: dim_str
     !------------------------------------------------------------------------!
-    l = SIZE(dims)
-    IF (l.GT.0) THEN
-        ALLOCATE(buf(l))
-        WRITE(buf(1),'(A,I8)') '"', dims(1)
-        DO i=2,l
-            WRITE(buf(i),'(A,I8)') ' ',dims(i)
-        END DO
-        WRITE(fmt,'(A,I2,A)') '(', l+1, '(A))'
-        WRITE(res,fmt) buf(1:l), '"'
-        DEALLOCATE(buf)
+    IF (ANY(dims(:).EQ.1)) THEN
+      ! 2D one of inum,jnum,knum is 1 (1D case is excluded in InitFileio)
+      ! for some reason one has to flip the two remaining dimensions in this case
+      ! (at least for proper display in ParaView & VisIt)
+      idx(1:3) = dims(3:1:-1)
     ELSE
-        res = ""
+      ! 3D just copy the dims
+      idx(1:3) = dims(1:3)
     END IF
-!     IF(l.GE.3) THEN
-!       WRITE(buf(1),'(I8)') dims(3)
-!       WRITE(buf(2),'(I8)') dims(2)
-!       WRITE(buf(3),'(I8)') dims(1)
-!       DO i=4,l
-!         WRITE(buf(i),'(I8)') dims(i)
-!       END DO
-!       SELECT CASE(l)
-!       CASE(2)
-!         WRITE(res,'(A,A,A,A,A)') '"',TRIM(ADJUSTL(buf(1))),&
-!           ' ',TRIM(ADJUSTL(buf(2))),'"'
-!       CASE(3)
-!         WRITE(res,'(A,A,A,A,A,A,A)') '"',TRIM(ADJUSTL(buf(1))),&
-!           ' ',TRIM(ADJUSTL(buf(2))),' ',TRIM(ADJUSTL(buf(3))),'"'
-!       CASE(4)
-!         WRITE(res,'(A,A,A,A,A,A,A,A,A)') '"',TRIM(ADJUSTL(buf(1))),&
-!           ' ',TRIM(ADJUSTL(buf(2))),' ',TRIM(ADJUSTL(buf(3))), &
-!           ' ',TRIM(ADJUSTL(buf(4))),'"'
-!       CASE(5)
-!         WRITE(res,'(A,A,A,A,A,A,A,A,A,A,A)') '"',TRIM(ADJUSTL(buf(1))),&
-!           ' ',TRIM(ADJUSTL(buf(2))),' ',TRIM(ADJUSTL(buf(3))), &
-!           ' ',TRIM(ADJUSTL(buf(4))),' ',TRIM(ADJUSTL(buf(5))),'"'
-!       END SELECT
-!     ELSE
-!       WRITE(buf(1),'(I8)') dims(1)
-!       WRITE(res,'(A,A,A)') '"',TRIM(ADJUSTL(buf(1))),'"'
-!     END IF
-!     DEALLOCATE(buf)
-  END FUNCTION GetDimsStr
+
+    res = ''
+    DO i=1,3
+      IF (idx(i).GT.1) THEN ! skip suppressed dimension in 2D case
+        WRITE(dim_str,'(I8)') idx(i)
+        ! append to resulting string
+        res = TRIM(res) // ' ' // TRIM(ADJUSTL(dim_str))
+      END IF
+    END DO
+    res = '"' // TRIM(ADJUSTL(res)) // '"'
+  END SUBROUTINE GetDimsStr
 
   SUBROUTINE Finalize(this)
     IMPLICIT NONE
     !-----------------------------------------------------------------------!
-    CLASS(fileio_xdmf), INTENT(INOUT) :: this
+    TYPE(fileio_xdmf), INTENT(INOUT) :: this
     !-----------------------------------------------------------------------!
-    CALL this%fileio_binary%Finalize()
+    ! do nothing specific for xdmf
+    ! finalizer of fileio_binary is called automatically
   END SUBROUTINE
 
 END MODULE fileio_xdmf_mod

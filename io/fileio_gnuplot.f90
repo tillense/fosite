@@ -119,12 +119,12 @@ MODULE fileio_gnuplot_mod
   CONTAINS
     !> \name Methods
     PROCEDURE :: InitFileIO_deferred => InitFileIO_gnuplot
-    PROCEDURE :: Finalize
     PROCEDURE :: WriteHeader
     PROCEDURE :: ReadHeader
     PROCEDURE :: WriteDataset_deferred => WriteDataset_gnuplot
 !     PROCEDURE :: ReadDataset
     PROCEDURE :: GetOutputList
+    FINAL :: Finalize
   END TYPE
 
   !> \}
@@ -823,12 +823,17 @@ CONTAINS
   SUBROUTINE Finalize(this)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(fileio_gnuplot),INTENT(INOUT) :: this  !< \param [in,out] this fileio type
+    TYPE(fileio_gnuplot),INTENT(INOUT) :: this  !< \param [in,out] this fileio type
+    !------------------------------------------------------------------------!
+    INTEGER                          :: k
     !------------------------------------------------------------------------!
 #ifdef PARALLEL
     DEALLOCATE(this%outbuf)
 #endif
-    DEALLOCATE(this%output,this%tsoutput,this%datafile)
+    DO k=1,SIZE(this%output)
+       IF (ASSOCIATED(this%output(k)%p)) DEALLOCATE(this%output(k)%p)
+    END DO
+    DEALLOCATE(this%output,this%tsoutput)
     CALL this%Finalize_base()
   END SUBROUTINE Finalize
 

@@ -3,7 +3,10 @@
 !# fosite - 3D hydrodynamical simulation program                             #
 !# module: fileio_generic.f90                                                #
 !#                                                                           #
-!# Copyright (C) 2016 Manuel Jung <mjung@astrophysik.uni-kiel.de>            #
+!# Copyright (C) 2015-2024                                                   #
+!# Manuel Jung <mjung@astrophysik.uni-kiel.de>                               #
+!# Jannes Klee      <jklee@astrophysik.uni-kiel.de>                          #
+!# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
 !#                                                                           #
 !# This program is free software; you can redistribute it and/or modify      #
 !# it under the terms of the GNU General Public License as published by      #
@@ -24,6 +27,7 @@
 !----------------------------------------------------------------------------!
 !> \author Manuel Jung
 !! \author Jannes Klee
+!! \author Tobias Illenseer
 !!
 !! \brief constructor for fileio class
 !!
@@ -35,7 +39,7 @@ MODULE fileio_generic_mod
   USE fileio_gnuplot_mod
   USE fileio_vtk_mod
   USE fileio_binary_mod
-!   USE fileio_xdmf_mod
+  USE fileio_xdmf_mod
   USE mesh_base_mod
   USE physics_base_mod
   USE timedisc_base_mod
@@ -68,8 +72,8 @@ CONTAINS
       ALLOCATE(fileio_vtk::new_fio)
     CASE(BINARY)
       ALLOCATE(fileio_binary::new_fio)
-!     CASE(XDMF)
-!       ALLOCATE(fileio_xdmf::new_fio)
+    CASE(XDMF)
+      ALLOCATE(fileio_xdmf::new_fio)
     CASE DEFAULT
       CALL Mesh%Error("fileio_generic::new_fileio","Unknown file format.")
     END SELECT

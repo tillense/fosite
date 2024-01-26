@@ -3,7 +3,7 @@
 !# fosite - 3D hydrodynamical simulation program                             #
 !# module: fileio_vtk.f90                                                    #
 !#                                                                           #
-!# Copyright (C) 2010-2023                                                   #
+!# Copyright (C) 2010-2024                                                   #
 !# Björn Sperling   <sperling@astrophysik.uni-kiel.de>                       #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
 !# Jannes Klee      <jklee@astrophysik.uni-kiel.de>                          #
@@ -111,7 +111,7 @@ MODULE fileio_vtk_mod
 !     PROCEDURE :: ReadHeader
     PROCEDURE :: WriteDataset_deferred => WriteDataset_vtk
     PROCEDURE :: WriteParaviewFile
-    PROCEDURE :: Finalize => Finalize_vtk
+    FINAL :: Finalize
   END TYPE
   !--------------------------------------------------------------------------!
   PUBLIC :: &
@@ -139,7 +139,7 @@ CONTAINS
     TYPE(real_t)                             :: dummy1
     TYPE(Dict_TYP), POINTER                  :: node
     CHARACTER(LEN=MAX_CHAR_LEN),DIMENSION(2) :: skip
-    INTEGER                             :: k,i,j,err
+    INTEGER                             :: k,i,j
 #ifdef PARALLEL
     INTEGER, DIMENSION(:), POINTER      :: sendbuf,recvbuf
     INTEGER                             :: n
@@ -193,8 +193,8 @@ CONTAINS
              this%output(this%MAXCOLS),               &
              this%tsoutput(this%MAXCOLS),             &
              this%bflux(Physics%VNUM,6),         &
-             STAT = err)
-    IF (err.NE.0) &
+             STAT = this%err)
+    IF (this%err.NE.0) &
          CALL this%Error("fileio_vtk::InitFileio_vtk", "Unable to allocate memory.")
 
     ! determine size in bits of default real numbers
@@ -865,19 +865,15 @@ CONTAINS
 
   !> \public Destructor of VTK file I/O class
   !!
-  SUBROUTINE Finalize_vtk(this)
+  SUBROUTINE Finalize(this)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(fileio_vtk), INTENT(INOUT) :: this   !< \param [in,out] this fileio type
+    TYPE(fileio_vtk), INTENT(INOUT) :: this   !< \param [in,out] this fileio type
     !------------------------------------------------------------------------!
-    INTEGER                          :: k
-    !------------------------------------------------------------------------!
-    DO k=1,SIZE(this%output)
-       IF (ASSOCIATED(this%output(k)%p)) DEALLOCATE(this%output(k)%p)
-    END DO
-    DEALLOCATE(this%binout,this%vtkcoords,this%output,this%tsoutput,this%bflux)
-    CALL this%Finalize_base()
-  END SUBROUTINE Finalize_vtk
+    ! REMARK: this%output and this%tsoutput are deallocated in the gnuplot finalizer
+    !         which is called automatically
+    DEALLOCATE(this%binout,this%vtkcoords,this%bflux)
+  END SUBROUTINE Finalize
   
 !   !> \public Destructor of PVD file I/O class
 !   !!

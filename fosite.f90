@@ -484,11 +484,11 @@ CONTAINS
     CALL this%PrintBoundaryFluxes()
     CALL this%PrintSummary()
 
-    CALL this%Datafile%Finalize()
-    DEALLOCATE(this%Datafile)
+!     CALL this%Datafile%Finalize()
+    DEALLOCATE(this%Datafile)  ! should call finalizer automatically
     IF (ALLOCATED(this%Logfile)) THEN
-      CALL this%Logfile%Finalize()
-      DEALLOCATE(this%Logfile)
+!       CALL this%Logfile%Finalize()
+      DEALLOCATE(this%Logfile)  ! should call finalizer automatically
     END IF
     CALL this%Timedisc%Finalize()
     DEALLOCATE(this%Timedisc)

@@ -3,7 +3,7 @@
 !# fosite - 3D hydrodynamical simulation program                             #
 !# module: fileio_binary.f90                                                 #
 !#                                                                           #
-!# Copyright (C) 2015-2023                                                   #
+!# Copyright (C) 2015-2024                                                   #
 !# Manuel Jung <mjung@astrophysik.uni-kiel.de>                               #
 !# Jannes Klee      <jklee@astrophysik.uni-kiel.de>                          #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
@@ -113,7 +113,7 @@ MODULE fileio_binary_mod
     PROCEDURE :: WriteDataset_deferred => WriteDataset_binary
     !PROCEDURE :: ReadDataset
     PROCEDURE :: SetMeshDims
-    PROCEDURE :: Finalize
+    FINAL :: Finalize
     !PRIVATE
     PROCEDURE :: HasMeshDims
     PROCEDURE :: HasCornerDims
@@ -151,7 +151,8 @@ CONTAINS
     REAL                                  :: r
     INTEGER                               :: i,err
     !------------------------------------------------------------------------!
-    CALL this%InitFileio(Mesh,Physics,Timedisc,Sources,config,IO,"binary","bin",textfile=.FALSE.)
+    IF (.NOT.this%Initialized()) &
+      CALL this%InitFileio(Mesh,Physics,Timedisc,Sources,config,IO,"binary","bin",textfile=.FALSE.)
 
     ! We mark the endianess similar to the TIFF format
     ! See: http://en.wikipedia.org/wiki/Endianness#Endianness_in_files_and_byte_swap
@@ -311,10 +312,7 @@ CONTAINS
     sheader = magic // this%endianness(1:2) // version // sizes
     this%offset = 0
 #ifndef PARALLEL
-    SELECT TYPE(df=>this%datafile)
-    CLASS IS(filehandle_fortran)
-      WRITE (UNIT=df%GetUnitNumber(),IOSTAT=this%err) sheader
-    END SELECT
+    WRITE (UNIT=this%datafile%GetUnitNumber(),IOSTAT=this%err) sheader
 #else
     CALL MPI_File_set_view(this%handle,this%offset,MPI_BYTE,&
          MPI_BYTE, 'native', MPI_INFO_NULL, this%error_io)
@@ -755,7 +753,7 @@ CONTAINS
   SUBROUTINE Finalize(this)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(fileio_binary), INTENT(INOUT) :: this
+    TYPE(fileio_binary), INTENT(INOUT) :: this
     !------------------------------------------------------------------------!
 #ifdef PARALLEL
     CALL MPI_Type_free(this%cfiletype,this%error_io)
