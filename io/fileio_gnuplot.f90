@@ -3,7 +3,7 @@
 !# fosite - 3D hydrodynamical simulation program                             #
 !# module: fileio_gnuplot.f90                                                #
 !#                                                                           #
-!# Copyright (C) 2008-2023                                                   #
+!# Copyright (C) 2008-2024                                                   #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
 !# Björn Sperling   <sperling@astrophysik.uni-kiel.de>                       #
 !# Jannes Klee      <jklee@astrophysik.uni-kiel.de>                          #
@@ -50,14 +50,25 @@ MODULE fileio_gnuplot_mod
   USE fluxes_base_mod
   USE sources_base_mod
   USE common_dict
+#ifdef PARALLEL
+#ifdef HAVE_MPI_MOD
+  USE mpi
+#endif
+#endif
   IMPLICIT NONE
+#ifdef PARALLEL
+#ifdef HAVE_MPIF_H
+  include 'mpif.h'
+#endif
+#endif
   !--------------------------------------------------------------------------!
   PRIVATE
   ! Private Attributes section starts here:
-  !> some string lengths
-  INTEGER, PARAMETER      :: HLEN = 10000         !< header length
+  !> \name Private Attributes
+  !>#### some default limits
+  INTEGER, PARAMETER      :: HLEN = 10000         !< header length in bytes
   INTEGER, PARAMETER      :: DEFAULT_DECS = 5     !< default decimal places
-  !> some special strings
+  !>#### special strings
   CHARACTER, PARAMETER    :: SP = ACHAR(32)       !< space
   CHARACTER, PARAMETER    :: LF = ACHAR(10)       !< line feed
   CHARACTER(LEN=2), PARAMETER  :: RECSEP = SP // SP    !< data record separator
@@ -637,7 +648,7 @@ CONTAINS
     INTENT(OUT)        :: success
     !------------------------------------------------------------------------!
 #ifdef PARALLEL
-    IF (GetRank(this).EQ.0) THEN
+    IF (this%GetRank().EQ.0) THEN
     END IF
 #else
 #endif
@@ -691,11 +702,11 @@ CONTAINS
 
 #ifdef PARALLEL
        CALL MPI_File_write(this%handle,TRIM(this%tsheading),LEN(TRIM(this%tsheading)), &
-            MPI_CHARACTER,this%status,this%error)
-       IF (this%error.EQ.0) CALL MPI_File_write(this%handle,TRIM(this%tslinebuf), &
-            LEN(TRIM(this%tslinebuf)),MPI_CHARACTER,this%status,this%error)
-       IF (this%error.EQ.0) CALL MPI_File_write(this%handle,TRIM(this%heading), &
-            LEN(TRIM(this%heading)),MPI_CHARACTER,this%status,this%error)
+            MPI_CHARACTER,this%status,this%err)
+       IF (this%err.EQ.0) CALL MPI_File_write(this%handle,TRIM(this%tslinebuf), &
+            LEN(TRIM(this%tslinebuf)),MPI_CHARACTER,this%status,this%err)
+       IF (this%err.EQ.0) CALL MPI_File_write(this%handle,TRIM(this%heading), &
+            LEN(TRIM(this%heading)),MPI_CHARACTER,this%status,this%err)
 #else
        WRITE (this%datafile%GetUnitNumber(),FMT='(A)',ADVANCE='NO',IOSTAT=this%err) TRIM(this%tsheading) &
           // TRIM(this%tslinebuf) // TRIM(this%heading)
@@ -704,19 +715,19 @@ CONTAINS
 
 #ifdef PARALLEL
     ! be sure to write at the end by getting the offset from the file's size
-    CALL MPI_File_get_size(this%handle,offset,this%error)
+    CALL MPI_File_get_size(this%handle,offset,this%err)
     ! very importan
-    CALL MPI_Barrier(MPI_COMM_WORLD,this%error)
+    CALL MPI_Barrier(MPI_COMM_WORLD,this%err)
     ! write _one_ line feed at the beginning of each time step
-    IF (GetRank(this).EQ.0) THEN
+    IF (this%GetRank().EQ.0) THEN
        CALL MPI_File_write_at(this%handle, offset, LF, 1, MPI_CHARACTER, &
-            this%status, this%error)
+            this%status, this%err)
     END IF
     ! add the initial line feed and the general offset (depends on Mesh%IMIN)
     offset = offset + 1
     ! create the file view
     CALL MPI_File_set_view(this%handle,offset,this%basictype,this%filetype, &
-         'native',MPI_INFO_NULL,this%error)
+         'native',MPI_INFO_NULL,this%err)
 #else
     SELECT TYPE(df=>this%datafile)
     CLASS IS(filehandle_fortran)
@@ -778,12 +789,12 @@ CONTAINS
        !*****************************************************************!
        ! This collective call doesn't work for pvfs2 -> bug in ROMIO ?
 !!$       CALL MPI_File_write_all(this%handle,this%binout,this%bufsize,&
-!!$            this%basictype, this%status, this%error)
+!!$            this%basictype, this%status, this%err)
        !*****************************************************************!
        ! so we use these two commands instead
 !        CALL MPI_File_iwrite(this%handle,this%outbuf,this%bufsize,this%basictype,&
-!             request,this%error)
-!        CALL MPI_Wait(request,this%status,this%error)
+!             request,this%err)
+!        CALL MPI_Wait(request,this%status,this%err)
 #endif
     END DO
   END SUBROUTINE WriteDataset_gnuplot

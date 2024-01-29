@@ -77,25 +77,26 @@ MODULE fileio_base_mod
   !> \name Private Attributes
   !>#### file name and extension lengths
   INTEGER, PARAMETER :: FEXTLEN = 4                  !< file name extension length
-  INTEGER, PARAMETER :: FMLTLEN = 5                  !< length of multi process string (parallel mode only)
   INTEGER, PARAMETER :: FCYCLEN = 5                  !< length of timestep string
   INTEGER, PARAMETER :: FNAMLEN = 256                !< file name length (without any extension)
   INTEGER, PARAMETER :: FPATLEN = 1024               !< file path length (without file name)
   !> \name
-  !!#### handling multiple files in parallel mode
-#ifdef PARALLEL
-  CHARACTER(LEN=FMLTLEN), SAVE :: fmextstr = ""      !< multi process string, overwritten below
-#endif
-  INTEGER, PARAMETER           :: MAXMLTFILES = 1000 !< max. number files per time step (parallel
-                                                     !! mode with one file per node)
-  !> \name
   !!#### handling multiple data files with time step in their names
   INTEGER, PARAMETER           :: MAXCYCLES = 10000  !< max. number of data files (not counting
                                                      !! multiple files per time step in parallel mode)
-  CHARACTER(LEN=32), SAVE      :: cycfmt             !< format string for cycles
   !--------------------------------------------------------------------------!
+  !> class basic (abstract) class for file handles
+  TYPE, EXTENDS(logging_base), ABSTRACT :: filehandle_base
+  CONTAINS
+    PROCEDURE (InitFilehandle_deferred), DEFERRED :: InitFilehandle
+    PROCEDURE (OpenFile_deferred), DEFERRED       :: OpenFile
+    PROCEDURE (CloseFile_deferred), DEFERRED      :: CloseFile
+    PROCEDURE (GetBasename_deferred), DEFERRED    :: GetBasename
+    PROCEDURE (GetFilename_deferred), DEFERRED    :: GetFilename
+    PROCEDURE (GetStatus_deferred), DEFERRED      :: GetStatus
+  END TYPE filehandle_base
   !> class for Fortran file handle
-  TYPE, EXTENDS(logging_base) :: filehandle_fortran
+  TYPE, EXTENDS(filehandle_base) :: filehandle_fortran
     !> \name Variables
     INTEGER   :: fid                       !< unique ID for file access (Fortran i/o unit)
     LOGICAL   :: textfile                  !< true for text, i.e. ascii stream
@@ -114,6 +115,7 @@ MODULE fileio_base_mod
     PROCEDURE :: GetUnitNumber
     PROCEDURE :: GetFormat
     PROCEDURE :: GetStatus
+    PROCEDURE :: GetStepString
     FINAL :: Finalize_fortran
   END TYPE filehandle_fortran
 
@@ -131,8 +133,8 @@ MODULE fileio_base_mod
      INTEGER                :: step        !< counter for output steps
      INTEGER                :: count       !< number of output steps
      INTEGER                :: dtwall      !< wall clock time difference
-     INTEGER                :: inum,jnum,& !< mesh extent
-                               knum
+     INTEGER                :: INUM,JNUM,& !< local mesh extent
+                               KNUM
      REAL                   :: stoptime    !< final simulation time for data output
      REAL                   :: starttime   !< initial simulation time for data output
      REAL                   :: time        !< output time
@@ -169,6 +171,58 @@ MODULE fileio_base_mod
 
   ! Interfaces
   ABSTRACT INTERFACE
+    SUBROUTINE InitFilehandle_deferred(this,filename,path,extension,textfile,onefile,cycles,unit)
+      IMPORT filehandle_base
+      IMPLICIT NONE
+      !------------------------------------------------------------------------!
+      CLASS(filehandle_base), INTENT(INOUT) :: this
+      CHARACTER(LEN=*), INTENT(IN) :: filename
+      CHARACTER(LEN=*), INTENT(IN) :: path
+      CHARACTER(LEN=*), OPTIONAL, INTENT(IN) :: extension
+      LOGICAL, OPTIONAL, INTENT(IN)      :: textfile
+      LOGICAL, OPTIONAL, INTENT(IN)      :: onefile
+      INTEGER, OPTIONAL, INTENT(IN)      :: cycles
+      INTEGER, OPTIONAL, INTENT(IN)      :: unit
+    END SUBROUTINE
+    SUBROUTINE OpenFile_deferred(this,action,step)
+      IMPORT filehandle_base
+      IMPLICIT NONE
+      !------------------------------------------------------------------------!
+      CLASS(filehandle_base), INTENT(INOUT)   :: this
+      INTEGER,           INTENT(IN)           :: action
+      INTEGER,           INTENT(IN)           :: step
+    END SUBROUTINE
+    SUBROUTINE CloseFile_deferred(this,step)
+      IMPORT filehandle_base
+      IMPLICIT NONE
+      !------------------------------------------------------------------------!
+      CLASS(filehandle_base), INTENT(INOUT) :: this
+      INTEGER, INTENT(IN)                      :: step
+    END SUBROUTINE
+    FUNCTION GetBasename_deferred(this,step) RESULT (fname)
+      IMPORT filehandle_base
+      IMPLICIT NONE
+      !------------------------------------------------------------------------!
+      CLASS(filehandle_base), INTENT(IN)  :: this
+      INTEGER, INTENT(IN)                 :: step
+      CHARACTER(LEN=256)                  :: fname
+    END FUNCTION
+    FUNCTION GetFilename_deferred(this,step) RESULT (fname)
+      IMPORT filehandle_base
+      IMPLICIT NONE
+      !------------------------------------------------------------------------!
+      CLASS(filehandle_base), INTENT(IN)  :: this
+      INTEGER, INTENT(IN)                 :: step
+      CHARACTER(LEN=256)                  :: fname
+    END FUNCTION
+    FUNCTION GetStatus_deferred(this,step) RESULT(fstatus)
+      IMPORT filehandle_base
+      IMPLICIT NONE
+      !------------------------------------------------------------------------!
+      CLASS(filehandle_base), INTENT(INOUT) :: this
+      INTEGER, INTENT(IN)                      :: step
+      INTEGER :: fstatus
+    END FUNCTION
     SUBROUTINE InitFileIO_deferred(this,Mesh,Physics,Timedisc,Sources,config,IO)
       IMPORT fileio_base,mesh_base,physics_base,fluxes_base,timedisc_base,sources_base,Dict_TYP
       IMPLICIT NONE
@@ -194,9 +248,9 @@ MODULE fileio_base_mod
     SUBROUTINE WriteHeader(this,Mesh,Physics,Header,IO)
       IMPORT fileio_base,mesh_base,physics_base,Dict_TYP
       IMPLICIT NONE
-      CLASS(fileio_base),  INTENT(INOUT)  :: this      !< \param [in,out] this fileio type
-      CLASS(mesh_base),    INTENT(IN)     :: Mesh      !< \param [in] Mesh mesh type
-      CLASS(physics_base), INTENT(IN)     :: Physics   !< \param [in] Physics physics type
+      CLASS(fileio_base),  INTENT(INOUT)  :: this
+      CLASS(mesh_base),    INTENT(IN)     :: Mesh
+      CLASS(physics_base), INTENT(IN)     :: Physics
       TYPE(Dict_TYP), POINTER             :: Header,IO
     END SUBROUTINE
     SUBROUTINE Finalize(this)
@@ -320,16 +374,6 @@ CONTAINS
       this%fid = lastunit + 1
     END IF
     lastunit = this%fid
-
-    ! format string for writing file names with explicit time step
-    WRITE (cycfmt, "('(A,I',I1,'.',I1,',A)')") FCYCLEN-1,FCYCLEN-1
-
-    ! try to generate new file
-    CALL this%OpenFile(REPLACE,step=0)
-    IF (this%err.EQ.0) &
-      CALL this%CloseFile(step=0)
-    IF (this%err.NE.0) &
-      CALL this%Error("fileio_base::InitFilehandle","Creating new file'" // this%GetFilename(0) // "' failed")
   END SUBROUTINE InitFilehandle
  
   !> \public Basic FileIO initialization
@@ -418,29 +462,21 @@ CONTAINS
     END IF
     CALL this%datafile%InitFilehandle(fname,fpath,fext,textfile,onefile,cycles,unit)
 
-#ifdef PARALLEL
-    ! turn on multiple file output if requested
-    IF (this%multfiles) THEN
-       ! check number of parallel processes
-       IF (this%GetNumProcs().GT.MAXMLTFILES) &
-          CALL this%Error("fileio_base::InitFileIO_base","number of processes for multiple file output exceeds limits")
-       fmextstr = this%MakeMultstr()
-    END IF
-#endif
-
     this%starttime = Timedisc%time  ! set to initial time defined in Timedisc
     this%time      = this%starttime
     this%err       = 0
 
-    ! time for next output
-    IF (Timedisc%time.GT.0.0) CALL this%IncTime()
-
     ! print some information
     CALL this%Info(" FILEIO---> file type:         " // TRIM(this%GetName()))
+    CALL this%Info("            file name:         " // TRIM(this%datafile%GetFilename(this%step)))
     WRITE (timestamp,'(ES10.4)') Timedisc%time
     CALL this%Info("            time stamp:        " // TRIM(timestamp))
     IF (.NOT.this%cartcoords) &
       CALL this%Info("    cruvilinear coords:        yes")
+
+    ! time for next output
+    IF (Timedisc%time.GT.0.0) CALL this%IncTime()
+
 
 !!!!! old fosite code, may be obsolete
 ! #ifdef PARALLEL
@@ -778,9 +814,30 @@ CONTAINS
     END IF
   END FUNCTION GetFormat
 
-  !> \public get the file name without path but with extension
-  !! and possibly with time step string; if step=-1 suppress the time step string
-  !! \result file name without path
+  !> \public Get the time step as string with leading zeros
+  PURE FUNCTION GetStepString(this,step)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(filehandle_fortran), INTENT(IN) :: this   !< \param [in] this file handle
+    INTEGER, INTENT(IN)                   :: step   !< \param [in] step time step
+    CHARACTER(LEN=FCYCLEN)                :: GetStepString
+    !------------------------------------------------------------------------!
+    CHARACTER(LEN=16)                 :: fmtstr
+    !-------------------------------------------------------------------!
+    WRITE (fmtstr ,'(A,I1,A)') "(A1,I0.",FCYCLEN-1,")"
+    IF (step.LT.0.OR.step.GE.MAXCYCLES) THEN
+      ! return _X...X if step is invalid, i.e. negative or exceeds maximum
+      GetStepString = "_" // REPEAT("X",FCYCLEN-1)
+    ELSE
+      ! determine file number based on current step and number of files,
+      ! i.e. cycles, and generate the file name with these extensions
+      WRITE(GetStepString, FMT=TRIM(fmtstr)) "_",MODULO(step,this%cycles)
+    END IF
+  END FUNCTION GetStepString
+
+  !> \public get the file name without path and extension
+  !! but with step string appended; if this%onefile suppress the time step string
+  !! \result file name without path and extension
   FUNCTION GetBasename(this,step) RESULT (fname)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
@@ -790,30 +847,23 @@ CONTAINS
     !------------------------------------------------------------------------!
     IF (this%onefile) THEN
        ! all data goes into one file -> no extra string indicating time step
-       WRITE (fname,"(A)") TRIM(this%filename) // "." // TRIM(this%extension)
+       fname = TRIM(this%filename)
     ELSE
        ! insert extra string for each time step before the extension
-       IF (step.LT.0.OR.step.GE.MAXCYCLES) THEN
-          WRITE(fname,'(I6)') MAXCYCLES
-          CALL this%Error("filehandle_fortran::GetBasename","step must be >= 0 and < " // TRIM(fname))
-       END IF
-       ! determine file number based on current step and number of files,
-       ! i.e. cycles, and generate the file name with these extensions
-       WRITE(fname, FMT=TRIM(cycfmt)) TRIM(this%filename) // "_", &
-          MODULO(step,this%cycles), "." // TRIM(this%extension)
+       fname = TRIM(this%filename) // TRIM(this%GetStepString(step))
     END IF
   END FUNCTION GetBasename
 
-  !> \public get file name of Fortran stream
+  !> \public Return file name of Fortran stream with full path and extension
   FUNCTION GetFilename(this,step)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(filehandle_fortran), INTENT(INOUT) :: this  !< \param [in,out] this fileio type
-    INTEGER, INTENT(IN)                      :: step  !< \param [in] step time step
+    CLASS(filehandle_fortran), INTENT(IN) :: this  !< \param [in,out] this fileio type
+    INTEGER, INTENT(IN)                   :: step  !< \param [in] step time step
     !------------------------------------------------------------------------!
     CHARACTER(LEN=256) :: GetFilename
     !------------------------------------------------------------------------!
-    GetFilename = TRIM(this%path) // TRIM(GetBasename(this,step))
+    GetFilename = TRIM(this%path) // TRIM(this%GetBasename(step)) // "." // TRIM(this%extension)
   END FUNCTION GetFilename
 
   !> \public close Fortran stream

@@ -72,11 +72,18 @@ MODULE fileio_vtk_mod
 #endif
   !--------------------------------------------------------------------------!
   PRIVATE
-  !--------------------------------------------------------------------------!
+  ! Private Attributes section starts here:
+  !> \name Private Attributes
+  !>#### some restrictions to shape & amount of output data
   INTEGER, PARAMETER      :: MAXCOMP  = 9   !< max. of allowed components
-                                             !! 9 is a tensor (rank 2, dim 3)
+                                            !! 9 is a tensor (rank 2, dim 3)
   INTEGER, PARAMETER      :: MAXCOLS  = 64  !< max of different output arrays
   CHARACTER, PARAMETER    :: LF = ACHAR(10) !< line feed
+  !> \name
+  !!#### handling multiple data files with process rank in their names
+#ifdef PARALLEL
+  INTEGER, PARAMETER      :: RANK_STR_LEN = 5     !< length of multi process rank string
+#endif
    !> names of fluxes
 !   CHARACTER(LEN=16),DIMENSION(6),PARAMETER  :: fluxkey = (/'bflux_WEST  ', &
 !                                                            'bflux_EAST  ', &
@@ -85,6 +92,18 @@ MODULE fileio_vtk_mod
 !                                                            'bflux_BOTTOM', &
 !                                                            'bflux_TOP   ' /)
   !--------------------------------------------------------------------------!
+#ifdef PARALLEL
+  !> class for Fortran file handle with process rank in file name
+  TYPE, EXTENDS(filehandle_fortran) :: filehandle_vts
+    !> \name Variables
+  CONTAINS
+    !> \name Methods
+    PROCEDURE :: InitFilehandle
+    PROCEDURE :: GetBasename
+    PROCEDURE :: GetRankString
+!     FINAL :: Finalize_vts
+  END TYPE filehandle_vts
+#endif
   !> FileIO class for VTK output
   TYPE, EXTENDS(fileio_gnuplot) :: fileio_vtk
     !> \name Variables
@@ -147,7 +166,7 @@ CONTAINS
     REAL, DIMENSION(:,:,:,:,:), POINTER :: corners
     !------------------------------------------------------------------------!
 #ifdef PARALLEL
-    this%multfiles = .TRUE.
+    ALLOCATE(filehandle_vts::this%datafile)
 #endif
     ! start init form base class in beginning
     CALL this%InitFileIO(Mesh,Physics,Timedisc,Sources,config,IO,"VTK","vts",textfile=.FALSE.)
@@ -230,7 +249,7 @@ CONTAINS
        ALLOCATE(sendbuf(6),recvbuf(1),STAT = this%err)
     END IF
     IF (this%err.NE.0) &
-       CALL this%Error( "InitFileio_vtk", "Unable to allocate memory.")
+       CALL this%Error( "fileio_vtk::InitFileio_vtk", "Unable to allocate memory.")
 
     ! store information about grid extent on each node
     !> \bug This is most probably broken !
@@ -254,6 +273,8 @@ CONTAINS
     END IF
     ! free buffer memory
     DEALLOCATE(sendbuf,recvbuf,STAT=this%err)
+    IF (this%err.NE.0) &
+       CALL this%Error( "fileio_vtk::InitFileio_vtk", "Deallocation of sendbuf/recvbuf failed.")
 #endif
 
     ! check whether mesh coordinates should be cartesian or curvilinear
@@ -874,15 +895,67 @@ CONTAINS
     !         which is called automatically
     DEALLOCATE(this%binout,this%vtkcoords,this%bflux)
   END SUBROUTINE Finalize
-  
-!   !> \public Destructor of PVD file I/O class
+
+#ifdef PARALLEL
+  !> basic initialization of Fortran file handle with extension for parallel vts files
+  SUBROUTINE InitFilehandle(this,filename,path,extension,textfile,onefile,cycles,unit)
+    IMPLICIT NONE
+    !-------------------------------------------------------------------!
+    CLASS(filehandle_vts), INTENT(INOUT) :: this !< \param [inout] this file handle class
+    CHARACTER(LEN=*), INTENT(IN) :: filename !< \param [in] filename file name without extension
+    CHARACTER(LEN=*), INTENT(IN) :: path     !< \param [in] path file path without filename
+    CHARACTER(LEN=*), OPTIONAL, INTENT(IN) :: extension !< \param [in] extension file name extension
+    LOGICAL, OPTIONAL, INTENT(IN)      :: textfile !< \param [in] textfile true for text data
+    LOGICAL, OPTIONAL, INTENT(IN)      :: onefile  !< \param [in] onefile true if all data goes into one file
+    INTEGER, OPTIONAL, INTENT(IN)      :: cycles   !< \parma [in] cycles max number of files
+    INTEGER, OPTIONAL, INTENT(IN)      :: unit     !< \parma [in] unit force fortran i/o unit number
+    !-------------------------------------------------------------------!
+    CALL this%filehandle_fortran%InitFilehandle(filename,path,extension,textfile,onefile,cycles,unit)
+    ! check number of parallel processes
+    IF (RANK_STR_LEN.LT.3) &
+      CALL this%Error("filehandle_vts::InitFilehandle","we need at least 3 bytes for rank string: 2 for '-r' + 1 for process number (0..9)")
+    IF (this%GetNumProcs().GT.10**(RANK_STR_LEN-3)) &
+      CALL this%Error("filehandle_vts::InitFilehandle","number of processes for multiple file output exceeds limits")
+  END SUBROUTINE InitFilehandle
+
+  !> \public get file name of Fortran stream including rank and time step
+  FUNCTION GetBasename(this,step) RESULT (fname)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(filehandle_vts), INTENT(IN)     :: this   !< \param [in] this file handle
+    INTEGER, INTENT(IN)                   :: step   !< \param [in] step time step
+    CHARACTER(LEN=256)                    :: fname
+    !------------------------------------------------------------------------!
+    fname = TRIM(this%path) // TRIM(this%filename) // TRIM(this%GetRankString()) &
+      // TRIM(this%GetStepString(step))
+  END FUNCTION GetBasename
+
+  !> \public convert process rank to string
+  FUNCTION GetRankString(this,rank)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(filehandle_vts), INTENT(IN) :: this   !< \param [in] this file handle
+    INTEGER, OPTIONAL, INTENT(IN)     :: rank   !< \param [in] rank process rank
+    CHARACTER(LEN=RANK_STR_LEN)       :: GetRankString
+    !------------------------------------------------------------------------!
+    CHARACTER(LEN=16)                 :: fmtstr
+    !-------------------------------------------------------------------!
+    ! process rank as string with "-r" + leading zeros
+    WRITE (fmtstr ,'(A,I1,A)') "(A2,I0.",RANK_STR_LEN-2,")"
+    IF (PRESENT(rank)) THEN
+      WRITE (GetRankString,FMT=TRIM(fmtstr)) "-r",rank
+    ELSE
+      WRITE (GetRankString,FMT=TRIM(fmtstr)) "-r",this%GetRank()
+    END IF
+  END FUNCTION GetRankString
+
+!   !> \public Destructor of VTS file handle
 !   !!
-!   SUBROUTINE Finalize_pvd(this)
+!   SUBROUTINE Finalize_vts(this)
 !     IMPLICIT NONE
 !     !------------------------------------------------------------------------!
-!     CLASS(fileio_pvd), INTENT(INOUT) :: this   !< \param [in,out] this fileio type
+!     TYPE(filehandle_vts), INTENT(INOUT) :: this   !< \param [in,out] this filehandle
 !     !------------------------------------------------------------------------!
-!     CALL this%Finalize_base()
-!   END SUBROUTINE Finalize_pvd
-
+!   END SUBROUTINE Finalize_vts
+#endif
 END MODULE fileio_vtk_mod
