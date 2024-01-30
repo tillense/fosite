@@ -96,7 +96,7 @@ MODULE fileio_binary_mod
     INTEGER                :: intsize     !< byte size of integer numbers
 #ifdef PARALLEL
     LOGICAL                :: first       !< true if this is the first output
-    INTEGER                :: cfiletype   !< file data type for corner i/o
+    INTEGER                :: cbufsize    !< corner output data buffer size
     INTEGER(KIND=MPI_OFFSET_KIND) :: offset !< skip header bytes
 #else
     INTEGER                :: offset
@@ -120,8 +120,6 @@ MODULE fileio_binary_mod
     PROCEDURE :: WriteNode
     PROCEDURE :: WriteKey
     PROCEDURE :: WriteDataAttributes
-!     PROCEDURE :: OpenFile
-!     PROCEDURE :: CloseFile
   END TYPE
   !--------------------------------------------------------------------------!
   PUBLIC :: &
@@ -198,9 +196,13 @@ CONTAINS
     indices(2)   = Mesh%JMIN-1
     indices(3)   = Mesh%KMIN-1
     this%bufsize = PRODUCT(lsizes)
-    CALL MPI_Type_create_subarray(3, gsizes, lsizes, indices, MPI_ORDER_FORTRAN,&
-         DEFAULT_MPI_REAL,this%filetype,this%err)
-    CALL MPI_Type_commit(this%filetype,this%err)
+    this%err = 0
+    SELECT TYPE(df=>this%datafile)
+    CLASS IS(filehandle_mpi)
+      CALL MPI_Type_create_subarray(3, gsizes, lsizes, indices, MPI_ORDER_FORTRAN,&
+           DEFAULT_MPI_REAL,df%filetype,this%err)
+      IF (this%err.EQ.0) CALL MPI_Type_commit(df%filetype,this%err)
+    END SELECT
 
     ! create the data type for the distributed array of
     ! mesh corner positions
@@ -214,10 +216,15 @@ CONTAINS
     indices(2) = Mesh%JMIN-1
     indices(3)= Mesh%KMIN-1
     this%cbufsize = PRODUCT(lsizes)
-    CALL MPI_Type_create_subarray(3, gsizes, lsizes, indices, MPI_ORDER_FORTRAN,&
-         DEFAULT_MPI_REAL,this%cfiletype,this%err)
-    CALL MPI_Type_commit(this%cfiletype,this%err)
+    SELECT TYPE(df=>this%datafile)
+    CLASS IS(filehandle_mpi)
+      IF (this%err.EQ.0) CALL MPI_Type_create_subarray(3, gsizes, lsizes, indices, MPI_ORDER_FORTRAN,&
+          DEFAULT_MPI_REAL,df%cfiletype,this%err)
+      IF (this%err.EQ.0) CALL MPI_Type_commit(df%cfiletype,this%err)
+    END SELECT
 
+    IF (this%err.NE.0) &
+       CALL this%Error("fileio_binary::InitFileIO_binary","creating MPI data types failed")
     this%first = .TRUE.
 #endif
   END SUBROUTINE InitFileio_binary
@@ -311,15 +318,21 @@ CONTAINS
     WRITE(sizes, '(I2,I2)') this%realsize, this%intsize
     sheader = magic // this%endianness(1:2) // version // sizes
     this%offset = 0
+    SELECT TYPE(df=>this%datafile)
 #ifndef PARALLEL
-    WRITE (UNIT=this%datafile%GetUnitNumber(),IOSTAT=this%err) sheader
+    CLASS IS(filehandle_fortran)
+      WRITE (UNIT=df%GetUnitNumber(),IOSTAT=this%err) sheader
 #else
-    CALL MPI_File_set_view(this%handle,this%offset,MPI_BYTE,&
-         MPI_BYTE, 'native', MPI_INFO_NULL, this%err)
-    IF(this%GetRank().EQ.0) &
-      CALL MPI_File_write(this%handle,sheader,LEN(sheader),MPI_BYTE, &
-        this%status,this%err)
+    CLASS IS(filehandle_mpi)
+      CALL MPI_File_set_view(df%GetUnitNumber(),this%offset,MPI_BYTE,&
+               MPI_BYTE, 'native', MPI_INFO_NULL, this%err)
+      IF (this%GetRank().EQ.0) &
+        CALL MPI_File_write(df%GetUnitNumber(),sheader,LEN(sheader),MPI_BYTE, &
+                 df%status,this%err)
 #endif
+    CLASS DEFAULT
+      CALL this%Error("fileio_binary::WriteHeader","unknown file handle")
+    END SELECT
     this%offset = this%offset + LEN(sheader)
   END SUBROUTINE WriteHeader
 
@@ -405,18 +418,23 @@ CONTAINS
     IF(l.GT.0) THEN
       CALL Append(buf,o,TRANSFER(dims(1:l),buf))
     END IF
-#ifndef PARALLEL
+
     SELECT TYPE(df=>this%datafile)
+#ifndef PARALLEL
     CLASS IS(filehandle_fortran)
       WRITE (UNIT=df%GetUnitNumber(),IOSTAT=this%err) buf
-    END SELECT
 #else
-    CALL MPI_File_set_view(this%handle,this%offset,MPI_BYTE,&
-           MPI_BYTE, 'native', MPI_INFO_NULL, this%err)
-    IF (this%GetRank().EQ.0) &
-      CALL MPI_File_write(this%handle,buf,bufsize,MPI_BYTE, &
-        this%status,this%err)
+    CLASS IS(filehandle_mpi)
+      CALL MPI_File_set_view(df%GetUnitNumber(),this%offset,MPI_BYTE,&
+            MPI_BYTE, 'native', MPI_INFO_NULL, this%err)
+      IF (this%GetRank().EQ.0) &
+        CALL MPI_File_write(df%GetUnitNumber(),buf,bufsize,MPI_BYTE, &
+          df%status,this%err)
 #endif
+    CLASS DEFAULT
+      CALL this%Error("fileio_binary::WriteKey","unknown file handle")
+    END SELECT
+
     DEALLOCATE(buf)
     this%offset = this%offset + bufsize
 
@@ -522,32 +540,35 @@ CONTAINS
           ELSE IF(ASSOCIATED(ptr2)) THEN
             ptr3(1:dims(1),1:dims(2),1:1) => ptr2
           END IF
-#ifdef PARALLEL
-          IF(this%HasMeshDims(Mesh,SHAPE(ptr3))) THEN
-            CALL MPI_File_set_view(this%handle,this%offset,DEFAULT_MPI_REAL,&
-                   this%filetype, 'native', MPI_INFO_NULL, this%err)
-            CALL MPI_File_write_all(this%handle,ptr3,this%bufsize,&
-                   DEFAULT_MPI_REAL,this%status,this%err)
-
-          ELSE IF(this%HasCornerDims(Mesh,SHAPE(ptr3))) THEN
-            CALL MPI_File_set_view(this%handle,this%offset,DEFAULT_MPI_REAL,&
-                   this%cfiletype, 'native', MPI_INFO_NULL, this%err)
-            CALL MPI_File_write_all(this%handle,ptr3(1:this%inum,1:this%jnum,1:this%knum),&
-                   this%cbufsize,DEFAULT_MPI_REAL,this%status,this%err)
-          ELSE
-            CALL MPI_File_set_view(this%handle,this%offset,MPI_BYTE,&
-                 MPI_BYTE, 'native', MPI_INFO_NULL, this%err)
-            IF(this%GetRank().EQ.0) THEN
-              CALL MPI_File_write(this%handle,ptr3,bytes,MPI_BYTE, &
-                   this%status,this%err)
-            END IF
-          END IF
-#else
           SELECT TYPE(df=>this%datafile)
+#ifndef PARALLEL
           CLASS IS(filehandle_fortran)
             WRITE (UNIT=df%GetUnitNumber(),IOSTAT=this%err) ptr3
-          END SELECT
+#else
+          CLASS IS(filehandle_mpi)
+            IF(this%HasMeshDims(Mesh,SHAPE(ptr3))) THEN
+              CALL MPI_File_set_view(df%GetUnitNumber(),this%offset,DEFAULT_MPI_REAL,&
+                    df%filetype, 'native', MPI_INFO_NULL, this%err)
+              CALL MPI_File_write_all(df%GetUnitNumber(),ptr3,this%bufsize,&
+                    DEFAULT_MPI_REAL,df%status,this%err)
+
+            ELSE IF(this%HasCornerDims(Mesh,SHAPE(ptr3))) THEN
+              CALL MPI_File_set_view(df%GetUnitNumber(),this%offset,DEFAULT_MPI_REAL,&
+                    df%cfiletype, 'native', MPI_INFO_NULL, this%err)
+              CALL MPI_File_write_all(df%GetUnitNumber(),ptr3(1:this%inum,1:this%jnum,1:this%knum),&
+                    this%cbufsize,DEFAULT_MPI_REAL,df%status,this%err)
+            ELSE
+              CALL MPI_File_set_view(df%GetUnitNumber(),this%offset,MPI_BYTE,&
+                  MPI_BYTE, 'native', MPI_INFO_NULL, this%err)
+              IF(this%GetRank().EQ.0) THEN
+                CALL MPI_File_write(df%GetUnitNumber(),ptr3,bytes,MPI_BYTE, &
+                    df%status,this%err)
+              END IF
+            END IF
 #endif
+          CLASS DEFAULT
+            CALL this%Error("fileio_binary::WriteNode","unknown file handle")
+          END SELECT
           this%offset = this%offset + bytes
         END DO
       END DO
@@ -557,36 +578,40 @@ CONTAINS
         CALL GetAttr(node,key,ptr0)
         bytes = this%realsize
         CALL this%WriteKey(key,DICT_REAL,bytes)
-#ifndef PARALLEL
           SELECT TYPE(df=>this%datafile)
+#ifndef PARALLEL
           CLASS IS(filehandle_fortran)
             WRITE (UNIT=df%GetUnitNumber(),IOSTAT=this%err) ptr0%p
-          END SELECT
 #else
-          CALL MPI_File_set_view(this%handle,this%offset,MPI_BYTE,&
-               MPI_BYTE, 'native', MPI_INFO_NULL, this%err)
-          IF(this%GetRank().EQ.0) THEN
-            CALL MPI_File_write(this%handle,ptr0%p,bytes,MPI_BYTE, &
-                 this%status,this%err)
-          END IF
+          CLASS IS(filehandle_mpi)
+            CALL MPI_File_set_view(df%GetUnitNumber(),this%offset,MPI_BYTE,&
+                MPI_BYTE, 'native', MPI_INFO_NULL, this%err)
+            IF(this%GetRank().EQ.0) &
+              CALL MPI_File_write(df%GetUnitNumber(),ptr0%p,bytes,MPI_BYTE, &
+                  df%status,this%err)
 #endif
+          CLASS DEFAULT
+            CALL this%Error("fileio_binary::WriteNode","unknown file handle")
+          END SELECT
       CASE(DICT_INT_P)
         CALL GetAttr(node,key,ptrint)
         bytes = this%intsize
         CALL this%WriteKey(key,DICT_INT,bytes)
-#ifndef PARALLEL
           SELECT TYPE(df=>this%datafile)
+#ifndef PARALLEL
           CLASS IS(filehandle_fortran)
             WRITE (UNIT=df%GetUnitNumber(),IOSTAT=this%err) ptrint%p
-          END SELECT
 #else
-          CALL MPI_File_set_view(this%handle,this%offset,MPI_BYTE,&
-               MPI_BYTE, 'native', MPI_INFO_NULL, this%err)
-          IF(this%GetRank().EQ.0) THEN
-            CALL MPI_File_write(this%handle,ptrint%p,bytes,MPI_BYTE, &
-                 this%status,this%err)
-          END IF
+          CLASS IS(filehandle_mpi)
+            CALL MPI_File_set_view(df%GetUnitNumber(),this%offset,MPI_BYTE,&
+                MPI_BYTE, 'native', MPI_INFO_NULL, this%err)
+            IF(this%GetRank().EQ.0) &
+              CALL MPI_File_write(df%GetUnitNumber(),ptrint%p,bytes,MPI_BYTE, &
+                  df%status,this%err)
 #endif
+          CLASS DEFAULT
+            CALL this%Error("fileio_binary::WriteNode","unknown file handle")
+          END SELECT
       CASE DEFAULT
         val => GetData(node)
         IF(ASSOCIATED(val)) THEN
@@ -596,19 +621,22 @@ CONTAINS
         END IF
         CALL this%WriteKey(key,GetDataType(node),bytes)
         IF(bytes.GT.0) THEN
-#ifndef PARALLEL
           SELECT TYPE(df=>this%datafile)
+#ifndef PARALLEL
           CLASS IS(filehandle_fortran)
             WRITE (UNIT=df%GetUnitNumber(),IOSTAT=this%err) val
-          END SELECT
 #else
-          CALL MPI_File_set_view(this%handle,this%offset,MPI_BYTE,&
-               MPI_BYTE, 'native', MPI_INFO_NULL, this%err)
-          IF(this%GetRank().EQ.0) THEN
-            CALL MPI_File_write(this%handle,val,bytes,MPI_BYTE, &
-                 this%status,this%err)
-          END IF
+          CLASS IS(filehandle_mpi)
+            CALL MPI_File_set_view(df%GetUnitNumber(),this%offset,MPI_BYTE,&
+                MPI_BYTE, 'native', MPI_INFO_NULL, this%err)
+            IF(this%GetRank().EQ.0) THEN
+              CALL MPI_File_write(df%GetUnitNumber(),val,bytes,MPI_BYTE, &
+                  df%status,this%err)
+            END IF
 #endif
+          CLASS DEFAULT
+            CALL this%Error("fileio_binary::WriteNode","unknown file handle")
+          END SELECT
         END IF
       END SELECT
       this%offset = this%offset + bytes
@@ -756,8 +784,11 @@ CONTAINS
     TYPE(fileio_binary), INTENT(INOUT) :: this
     !------------------------------------------------------------------------!
 #ifdef PARALLEL
-    CALL MPI_Type_free(this%cfiletype,this%err)
-    CALL MPI_Type_free(this%filetype,this%err)
+    SELECT TYPE(df=>this%datafile)
+    CLASS IS(filehandle_mpi)
+      CALL MPI_Type_free(df%cfiletype,this%err)
+      CALL MPI_Type_free(df%filetype,this%err)
+    END SELECT
 #endif
     CALL this%Finalize_base()
   END SUBROUTINE Finalize

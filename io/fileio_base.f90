@@ -121,6 +121,14 @@ MODULE fileio_base_mod
 
   !> class for MPI file handle
   TYPE, EXTENDS(filehandle_fortran) :: filehandle_mpi
+#ifdef PARALLEL
+    INTEGER                :: basictype,& !< basic MPI data type
+                              cfiletype,& !< data types for MPI i/o
+                              filetype
+    INTEGER, DIMENSION(MPI_STATUS_SIZE) :: status  !< MPI i/o status record
+  CONTAINS
+    PROCEDURE :: OpenFile => OpenFile_mpi
+#endif
   END TYPE filehandle_mpi
 
   !> FileIO base class
@@ -145,14 +153,7 @@ MODULE fileio_base_mod
 !                                bflux       !< boundary flux output buffer
 #ifdef PARALLEL
      !> \name Variables in Parallel Mode
-     LOGICAL                :: multfiles   !< spread files across nodes
-     INTEGER                :: handle      !< MPI file handle
      INTEGER                :: bufsize     !< output data buffer size
-     INTEGER                :: cbufsize    !< corner output data buffer size
-     INTEGER                :: basictype   !< data type for points
-     INTEGER                :: filetype    !< data type for data i/o
-     INTEGER, DIMENSION(MPI_STATUS_SIZE) :: &
-                               status      !< MPI i/o status record
 #endif
   CONTAINS
     !> \name Methods
@@ -611,41 +612,6 @@ CONTAINS
   END SUBROUTINE AdjustTimestep
 
 
-!   !> \public Get a file label (multiples files in parallel mode)
-!   !! without filenumber => use GetRank; with filenumber < 0 => empty label
-!   !! \result file label
-!   FUNCTION MakeMultstr(this,fn) RESULT (multstr)
-!     IMPLICIT NONE
-!     !------------------------------------------------------------------------!
-!     CLASS(filehandle_fortran), INTENT(IN) :: this !< \param [in,out] this fileio type
-!     INTEGER, OPTIONAL,  INTENT(IN) :: fn       !< \param [in] fn number of file
-!     CHARACTER(LEN=FMLTLEN)         :: multstr
-!     !------------------------------------------------------------------------!
-! #ifdef PARALLEL
-!     INTEGER                        :: fn_l
-!     CHARACTER(LEN=32)              :: mextfmt
-! #endif
-!     !------------------------------------------------------------------------!
-! #ifdef PARALLEL
-!     IF (PRESENT(fn)) THEN
-!       fn_l = fn
-!     ELSE
-!       fn_l = this%GetRank()
-!     END IF
-!     ! with fn < 0 you can suppress a label
-!     IF (this%multfiles .AND. fn_l .GE. 0) THEN
-!         WRITE (mextfmt, "('(A2,I',I1,'.',I1,')')") FMLTLEN-2,FMLTLEN-2
-! 
-!         WRITE (multstr, mextfmt) "-r", fn_l
-!     ELSE
-!       multstr = ""
-!     END IF
-! #else
-!     multstr = ""
-! #endif
-!   END FUNCTION MakeMultstr
-
-
   !> \public Generic destructor of the file I/O
   !!
   SUBROUTINE Finalize_base(this)
@@ -701,47 +667,46 @@ CONTAINS
  
   !> \public Open file for input/ouput in parallel mode
   !!
-!   SUBROUTINE OpenFile_parallel(this,action)
-!     IMPLICIT NONE
-!     !------------------------------------------------------------------------!
-!     CLASS(filehandle_mpi), INTENT(INOUT)    :: this   !< \param [in,out] this fileio type
-!     INTEGER,           INTENT(IN)           :: action !< \param [in] action mode of file access
-!     !------------------------------------------------------------------------!
-! #ifdef PARALLEL
-!     INTEGER(KIND=MPI_OFFSET_KIND) :: offset!< \param [in] offset offset for MPI
-! #endif
-!     !------------------------------------------------------------------------!
-!     SELECT CASE(action)
-! #ifdef PARALLEL
-!     CASE(READONLY)
-!        CALL MPI_File_open(MPI_COMM_WORLD,this%GetFilename(),MPI_MODE_RDONLY, &
-!             MPI_INFO_NULL,this%fid,this%err)
-!        this%offset = 0
-!        CALL MPI_File_seek(this%fid,this%offset,MPI_SEEK_SET,this%err)
-!     CASE(READEND)
-!        CALL MPI_File_open(MPI_COMM_WORLD,this%GetFilename(),IOR(MPI_MODE_RDONLY,&
-!             MPI_MODE_APPEND),MPI_INFO_NULL,this%fid,this%error)
-!        ! opening in append mode doesn't seem to work for pvfs2, hence ...
-!        offset = 0
-!        CALL MPI_File_seek(this%handle,offset,MPI_SEEK_END,this%error)
-!        CALL MPI_File_sync(this%handle,this%error)
-!     CASE(REPLACE)
-!        CALL MPI_File_delete(GetFilename(this),MPI_INFO_NULL,this%error)
-!        CALL MPI_File_open(MPI_COMM_WORLD,GetFilename(this),IOR(MPI_MODE_WRONLY,&
-!             MPI_MODE_CREATE),MPI_INFO_NULL,this%handle,this%error)
-!     CASE(APPEND)
-!        CALL MPI_File_open(MPI_COMM_WORLD,GetFilename(this),IOR(MPI_MODE_RDWR,&
-!             MPI_MODE_APPEND),MPI_INFO_NULL,this%handle,this%error)
-!        ! opening in append mode doesn't seem to work for pvfs2, hence ...
-!        offset = 0
-!        CALL MPI_File_seek(this%handle,offset,MPI_SEEK_END,this%error)
-!        CALL MPI_File_sync(this%handle,this%error)
-! #endif
-!     CASE DEFAULT
-!        ! abort with error if either the access mode is wrong or someone tries parallel i/o in serial mode
-!        CALL this%Error("fileio_base::OpenFile_parallel","Unknown access mode.")
-!     END SELECT
-!   END SUBROUTINE OpenFile_parallel
+#ifdef PARALLEL
+  SUBROUTINE OpenFile_mpi(this,action,step)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(filehandle_mpi), INTENT(INOUT)    :: this   !< \param [in,out] this fileio type
+    INTEGER,           INTENT(IN)           :: action !< \param [in] action mode of file access
+    INTEGER,           INTENT(IN)           :: step   !< \param [in] step time step
+    !------------------------------------------------------------------------!
+    INTEGER(KIND=MPI_OFFSET_KIND)       :: offset
+    !------------------------------------------------------------------------!
+    SELECT CASE(action)
+    CASE(READONLY)
+       CALL MPI_File_open(MPI_COMM_WORLD,TRIM(this%GetFilename(step)),MPI_MODE_RDONLY, &
+            MPI_INFO_NULL,this%fid,this%err)
+       offset = 0
+       CALL MPI_File_seek(this%fid,offset,MPI_SEEK_SET,this%err)
+    CASE(READEND)
+       CALL MPI_File_open(MPI_COMM_WORLD,TRIM(this%GetFilename(step)),IOR(MPI_MODE_RDONLY,&
+            MPI_MODE_APPEND),MPI_INFO_NULL,this%fid,this%err)
+       ! opening in append mode doesn't seem to work for pvfs2, hence ...
+       offset = 0
+       CALL MPI_File_seek(this%fid,offset,MPI_SEEK_END,this%err)
+       CALL MPI_File_sync(this%fid,this%err)
+    CASE(REPLACE)
+       CALL MPI_File_delete(TRIM(this%GetFilename(step)),MPI_INFO_NULL,this%err)
+       CALL MPI_File_open(MPI_COMM_WORLD,TRIM(this%GetFilename(step)),IOR(MPI_MODE_WRONLY,&
+            MPI_MODE_CREATE),MPI_INFO_NULL,this%fid,this%err)
+    CASE(APPEND)
+       CALL MPI_File_open(MPI_COMM_WORLD,TRIM(this%GetFilename(step)),IOR(MPI_MODE_RDWR,&
+            MPI_MODE_APPEND),MPI_INFO_NULL,this%fid,this%err)
+       ! opening in append mode doesn't seem to work for pvfs2, hence ...
+       offset = 0
+       CALL MPI_File_seek(this%fid,offset,MPI_SEEK_END,this%err)
+       CALL MPI_File_sync(this%fid,this%err)
+    CASE DEFAULT
+       ! abort with error if either the access mode is wrong or someone tries parallel i/o in serial mode
+       CALL this%Error("fileio_base::OpenFile_mpi","Unknown access mode.")
+    END SELECT
+  END SUBROUTINE OpenFile_mpi
+#endif
 
   !> \public get Fortran i/o unit number
   FUNCTION GetUnitNumber(this)

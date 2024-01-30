@@ -38,7 +38,7 @@
 !! It writes the configuration (dictionary) as header.
 !! It is possible to select which data arrays should be written.
 !!
-!! \extends fileio_common
+!! \extends fileio_base
 !! \ingroup fileio
 !----------------------------------------------------------------------------!
 MODULE fileio_gnuplot_mod
@@ -124,8 +124,8 @@ MODULE fileio_gnuplot_mod
     INTEGER(KIND=MPI_ADDRESS_KIND) :: &
                               realext, &  !< real data type extent
                               intext      !< integer data type extent
-    CHARACTER, DIMENSION(:,:), POINTER :: &  !< output buffer
-                              outbuf => null()
+    CHARACTER(LEN=1), DIMENSION(:,:), POINTER :: &
+                              outbuf => null()   !< output buffer for MPI
 #endif
   CONTAINS
     !> \name Methods
@@ -169,9 +169,9 @@ CONTAINS
     REAL, DIMENSION(:,:,:,:), POINTER         :: dummy4
     INTEGER                                   :: cartcoords
     INTEGER                                   :: depth
-    INTEGER                                   :: n,k,i
+    INTEGER                                   :: i,j,k,n
 #ifdef PARALLEL
-    INTEGER, DIMENSION(Mesh%IMAX-Mesh%IMIN+1) :: blocklen,indices
+    INTEGER, DIMENSION(Mesh%JMAX-Mesh%JMIN+1,Mesh%KMAX-Mesh%KMIN+1) :: blocklen,indices
 #endif
     !------------------------------------------------------------------------!
     CALL this%InitFileio(Mesh,Physics,Timedisc,Sources,config,IO,"gnuplot","dat")
@@ -295,37 +295,49 @@ CONTAINS
     this%tsheading = REPEAT("#",this%FLEN-1) // TRIM(this%linebuf(1:)) // LF
 
     ! local domain size
-    this%inum = Mesh%IMAX - Mesh%IMIN + 1
-    this%jnum = Mesh%JMAX - Mesh%JMIN + 1
-    this%knum = Mesh%KMAX - Mesh%KMIN + 1
+    this%INUM = Mesh%IMAX - Mesh%IMIN + 1
+    this%JNUM = Mesh%JMAX - Mesh%JMIN + 1
+    this%KNUM = Mesh%KMAX - Mesh%KMIN + 1
 
-!#ifdef PARALLEL
-!    ! create new data type handle for one line
-!    CALL MPI_Type_contiguous(this%linelen,MPI_CHARACTER,this%basictype,this%error)
-!    CALL MPI_Type_commit(this%basictype,this%error)
-!
-!    ! number of output blocks
-!    this%blocknum = Mesh%IMAX - Mesh%IMIN + 1
-!    ! size of the output buffer
-!    this%bufsize  = Mesh%JMAX - Mesh%JMIN + 1
-!
-!    ! allocate memory for output buffer and displacement records
-!    ALLOCATE(this%outbuf(this%linelen,Mesh%JMIN:Mesh%JMAX), &
-!         STAT=err)
-!    IF (this%error.NE.0) THEN
-!       CALL Error(this,"InitFileIO_gnuplot","memory allocation failed for this%outbuf")
-!    END IF
-!
-!    blocklen(:) = this%bufsize
-!    DO i=Mesh%IMIN,Mesh%IMAX
-!        indices(i-Mesh%IMIN+1) = (i-1)*Mesh%JNUM + Mesh%JMIN - 1
-!    END DO
-!
-!    ! new file type for the staggered data
-!    CALL MPI_Type_indexed(this%blocknum,blocklen,indices, &
-!         this%basictype,this%filetype,this%error)
-!    CALL MPI_Type_commit(this%filetype,this%error)
-!#endif
+#ifdef PARALLEL
+   ! number of output blocks (on this process)
+   ! = number of cells (excluding ghost cells)
+   this%blocknum = this%JNUM * this%KNUM
+   ! size of the output buffer (on this process)
+   this%bufsize  = this%INUM
+
+   ! allocate memory for output buffer and displacement records
+   this%err = 0
+   ALLOCATE(this%outbuf(this%linelen,this%bufsize),STAT=this%err)
+   IF (this%err.NE.0) &
+      CALL this%Error("fileio_gnuplot::InitFileIO_gnuplot","memory allocation failed for this%outbuf")
+
+   blocklen(:,:) = this%bufsize
+   DO k=1,this%KNUM
+      DO j=1,this%JNUM
+!           indices(i-Mesh%IMIN+1,j-Mesh%JMIN+1) = (i-Mesh%IMIN+1)*(j-Mesh%JMIN+1)*Mesh%KNUM + Mesh%KMIN - 1
+!           PRINT *,i,j,indices(i-Mesh%IMIN+1,j-Mesh%JMIN+1)
+          indices(j,k) = (j-1)*Mesh%INUM + Mesh%IMIN - 1
+          PRINT *,this%GetRank(),j,k,indices(j,k)
+      END DO
+   END DO
+
+   ! create new MPI data types
+   SELECT TYPE(df=>this%datafile)
+   CLASS IS(filehandle_mpi)
+      ! basic type is one output line corresponding to one data point (coordinates + data)
+      CALL MPI_Type_contiguous(this%linelen,MPI_CHARACTER,df%basictype,this%err)
+      IF (this%err.EQ.0) CALL MPI_Type_commit(df%basictype,this%err)
+
+      ! file type for blocknum indexed blocks of basic type
+      IF (this%err.EQ.0) CALL MPI_Type_indexed(this%blocknum,RESHAPE(blocklen,(/this%blocknum/)), &
+            RESHAPE(indices,(/this%blocknum/)),df%basictype,df%filetype,this%err)
+      IF (this%err.EQ.0) CALL MPI_Type_commit(df%filetype,this%err)
+   END SELECT
+   IF (this%err.NE.0) &
+      CALL this%Error("fileio_gnuplot::InitFileIO_gnuplot","creation of MPI file types failed")
+
+#endif
     ! write the format string for one entry in the data file:
     ! FLEN-2 characters for the number and 2 for the separators
     WRITE (this%fmtstr,'(A3,I2,A,I2.2,A5)') '(ES', this%FLEN-2, '.', this%DECS,',A2)'
@@ -534,71 +546,6 @@ CONTAINS
              END IF
           END IF
 
-!         SELECT CASE(GetDataType(node))
-!         CASE(DICT_REAL_THREED)
-!           ! real 3D array
-!           CALL GetAttr(node,GetKey(node),dummy3)
-!           dims(1:3) = SHAPE(dummy3)
-!           ! check if it has mesh dimensions
-!           IF((dims(1).EQ.Mesh%IMAX-Mesh%IMIN+1).AND.&
-!              (dims(2).EQ.Mesh%JMAX-Mesh%JMIN+1).AND.&
-!              (dims(3).EQ.Mesh%KMAX-Mesh%KMIN+1)) THEN
-!             oarr = oarr + 1
-!             IF (oarr .GT. this%MAXCOLS) THEN
-!                this%err = 1
-!                EXIT
-!             END IF
-!             this%output(oarr)%pval => dummy3
-!             this%output(oarr)%key => GetKey(node)
-!           END IF
-!         CASE(DICT_REAL_FOURD)
-!           ! real 4D array
-!           CALL GetAttr(node,GetKey(node),dummy4)
-!           dims(1:4) = SHAPE(dummy4)
-!           IF((dims(1).EQ.Mesh%IMAX-Mesh%IMIN+1).AND.&
-!              (dims(2).EQ.Mesh%JMAX-Mesh%JMIN+1).AND.&
-!              (dims(3).EQ.Mesh%KMAX-Mesh%KMIN+1)) THEN
-!             IF (oarr+dims(4) .GT. this%MAXCOLS) THEN
-!                this%err = 1
-!                EXIT
-!             END IF
-!             DO m=1,dims(4)
-!               this%output(oarr+m)%val => dummy4(:,:,:,m)
-!             END DO
-!             this%output(oarr+1)%key = GetKey(node)
-!             this%output(oarr+2:oarr+dims(4))%key = ""
-!             oarr = oarr + dims(4)
-!           END IF
-!         CASE(DICT_REAL_FIVED)
-!           ! real 5D array
-!           CALL GetAttr(node,GetKey(node),dummy5)
-!           dims(1:5) = SHAPE(dummy5)
-!           IF((dims(1).EQ.Mesh%IMAX-Mesh%IMIN+1).AND.&
-!              (dims(2).EQ.Mesh%JMAX-Mesh%JMIN+1).AND.&
-!              (dims(3).EQ.Mesh%KMAX-Mesh%KMIN+1)) THEN
-!             IF (oarr+dims(4)*dims(5) .GT. this%MAXCOLS) THEN
-!                this%err = 1
-!                EXIT
-!             END IF
-!             DO n=1,dims(5)
-!               DO m=1,dims(4)
-!                 this%output(oarr+n+(m-1)*dims(5))%val => dummy5(:,:,:,m,n)
-!               END DO
-!             END DO
-!             this%output(oarr+1)%key = GetKey(node)
-!             this%output(oarr+2:onum+dims(4)*dims(5))%key = ""
-!             oarr = oarr + dims(4)*dims(5)
-!           END IF          
-!         CASE(DICT_REAL_P)
-!           CALL GetAttr(node,GetKey(node),dummy1)
-!           IF (ASSOCIATED(dummy1%p)) THEN
-!              onum = onum + 1
-!              this%tsoutput(onum)%val => dummy1%p
-!              this%tsoutput(onum)%key = GetKey(node)
-!           END IF
-!         CASE DEFAULT
-!           !do nothing (wrong type)
-!         END SELECT
        END IF
        node=>GetNext(node)
     END DO
@@ -625,15 +572,16 @@ CONTAINS
        CALL GetHeaderString(header_buf,node,depth)
        header_buf = TRIM(header_string) // TRIM(header_buf)
 
-#ifdef PARALLEL
-       CALL MPI_File_write(this%handle,TRIM(header_buf),LEN(TRIM(header_buf)), &
-            MPI_CHARACTER,this%status,this%err)
-#else
        SELECT TYPE(df=>this%datafile)
+#ifndef PARALLEL
        CLASS IS(filehandle_fortran)
-         WRITE (UNIT=df%GetUnitNumber(),FMT='(A)',IOSTAT=this%err) TRIM(header_buf) !(1:HLEN-1)
-       END SELECT
+          WRITE (UNIT=df%GetUnitNumber(),FMT='(A)',IOSTAT=this%err) TRIM(header_buf) !(1:HLEN-1)
+#else
+       CLASS IS(filehandle_mpi)
+          CALL MPI_File_write(df%GetUnitNumber(),TRIM(header_buf),LEN(TRIM(header_buf)), &
+                MPI_CHARACTER,df%status,this%err)
 #endif
+       END SELECT
     END IF
   END SUBROUTINE WriteHeader
 
@@ -693,51 +641,75 @@ CONTAINS
        END IF
     END DO
 
+    this%err = 0
     IF (this%GetRank().EQ.0) THEN
-       ! write string with time step data
+       ! generate string with time step data
        DO k=1,this%TSCOLS
           WRITE(this%tslinebuf(1+(k-1)*this%FLEN:),TRIM(this%fmtstr)) this%tsoutput(k)%val
        END DO
        this%tslinebuf = REPEAT("#",this%FLEN-1) // SP // TRIM(this%tslinebuf) // LF
 
-#ifdef PARALLEL
-       CALL MPI_File_write(this%handle,TRIM(this%tsheading),LEN(TRIM(this%tsheading)), &
-            MPI_CHARACTER,this%status,this%err)
-       IF (this%err.EQ.0) CALL MPI_File_write(this%handle,TRIM(this%tslinebuf), &
-            LEN(TRIM(this%tslinebuf)),MPI_CHARACTER,this%status,this%err)
-       IF (this%err.EQ.0) CALL MPI_File_write(this%handle,TRIM(this%heading), &
-            LEN(TRIM(this%heading)),MPI_CHARACTER,this%status,this%err)
+       ! write time step data to file
+       SELECT TYPE(df=>this%datafile)
+#ifndef PARALLEL
+       CLASS IS(filehandle_fortran)
+          WRITE (df%GetUnitNumber(),FMT='(A)',ADVANCE='NO',IOSTAT=this%err) TRIM(this%tsheading) &
+              // TRIM(this%tslinebuf) // TRIM(this%heading)
 #else
-       WRITE (this%datafile%GetUnitNumber(),FMT='(A)',ADVANCE='NO',IOSTAT=this%err) TRIM(this%tsheading) &
-          // TRIM(this%tslinebuf) // TRIM(this%heading)
+       CLASS IS(filehandle_mpi)
+          CALL MPI_File_write(df%GetUnitNumber(),TRIM(this%tsheading),LEN(TRIM(this%tsheading)), &
+                MPI_CHARACTER,df%status,this%err)
+          IF (this%err.EQ.0) CALL MPI_File_write(df%GetUnitNumber(),TRIM(this%tslinebuf), &
+                LEN(TRIM(this%tslinebuf)),MPI_CHARACTER,df%status,this%err)
+          IF (this%err.EQ.0) CALL MPI_File_write(df%GetUnitNumber(),TRIM(this%heading), &
+                LEN(TRIM(this%heading)),MPI_CHARACTER,df%status,this%err)
 #endif
+       END SELECT
     END IF
 
-#ifdef PARALLEL
-    ! be sure to write at the end by getting the offset from the file's size
-    CALL MPI_File_get_size(this%handle,offset,this%err)
-    ! very importan
-    CALL MPI_Barrier(MPI_COMM_WORLD,this%err)
-    ! write _one_ line feed at the beginning of each time step
-    IF (this%GetRank().EQ.0) THEN
-       CALL MPI_File_write_at(this%handle, offset, LF, 1, MPI_CHARACTER, &
-            this%status, this%err)
-    END IF
-    ! add the initial line feed and the general offset (depends on Mesh%IMIN)
-    offset = offset + 1
-    ! create the file view
-    CALL MPI_File_set_view(this%handle,offset,this%basictype,this%filetype, &
-         'native',MPI_INFO_NULL,this%err)
-#else
+    IF (this%err.NE.0) &
+       CALL this%Error("fileio_gnuplot::WriteDataset","writing time step data to file failed")
+
     SELECT TYPE(df=>this%datafile)
+#ifndef PARALLEL
     CLASS IS(filehandle_fortran)
-       ! write _one_ line feed at the beginning of each time step
-       WRITE (df%GetUnitNumber(),FMT='(A)',ADVANCE='NO') LF
+      ! write _one_ line feed at the beginning of each time step
+      WRITE (df%GetUnitNumber(),FMT='(A)',ADVANCE='NO',IOSTAT=this%err) LF
+#else
+    CLASS IS(filehandle_mpi)
+      ! very important: wait for the header write command to finish
+      CALL MPI_Barrier(MPI_COMM_WORLD,this%err)
+      ! be sure to write at the end, i.e. after the time step data, by getting the offset from the file's size
+      IF (this%err.EQ.0) CALL MPI_File_get_size(df%GetUnitNumber(),offset,this%err)
+! PRINT *,"AA",this%GetRank(),offset
+      ! write _one_ line feed at the beginning of each time step
+      IF (this%GetRank().EQ.0) THEN
+        IF (this%err.EQ.0) CALL MPI_File_write_at(df%GetUnitNumber(), offset, LF, 1, &
+             MPI_CHARACTER, df%status, this%err)
+      END IF
+#endif
     END SELECT
+
+    IF (this%err.NE.0) &
+        CALL this%Error("fileio_gnuplot::WriteDataset","writing preceeding line feed to file failed")
+
+#ifdef PARALLEL
+    SELECT TYPE(df=>this%datafile)
+    CLASS IS(filehandle_mpi)
+      ! add the initial line feed and the general offset (depends on Mesh%IMIN)
+      offset = offset + 1
+! PRINT *,"BB",this%GetRank(),offset
+      ! create the file view
+      IF (this%err.EQ.0) CALL MPI_File_set_view(df%GetUnitNumber(),offset,df%basictype,df%filetype, &
+          'native',MPI_INFO_NULL,this%err)
+    END SELECT
+
+    IF (this%err.NE.0) &
+         CALL this%Error("fileio_gnuplot::WriteDataset","creating MPI file view failed")
 #endif
 
+    ! trim the floating point values for gnuplot output, i.e. set small numbers to 0
     DO l=1,SIZE(this%output)
-      ! trim the data for gnuplot output
       DO m=1,SIZE(this%output(l)%p)
         WHERE (ABS(this%output(l)%p(m)%val(:,:,:)).LT.MAX(TINY(this%output(l)%p(m)%val),1.0D-99))
           this%output(l)%p(m)%val(:,:,:) = 0.0E+00
@@ -745,23 +717,40 @@ CONTAINS
       END DO
     END DO
 
-    ! start i,j,k from 1 to rank local size, because RemapBounds has not been
-    ! used/cannot be used.
-    DO i=1,this%inum
-      DO j=1,this%jnum
-        DO k=1,this%knum   
+    ! write array data to file
+    ! do not use Mesh%IMIN/MAX etc., because the indices of this%output()%p()%val start at 1
+    DO k=Mesh%KMIN,Mesh%KMAX
+      DO j=Mesh%JMIN,Mesh%JMAX
+        DO i=Mesh%IMIN,Mesh%IMAX
           ! write array data to line buffer
           n = 1
           DO l=1,SIZE(this%output)
             DO m=1,SIZE(this%output(l)%p)
+               ! fill output line buffer with data
                WRITE (this%linebuf((n-1)*this%FLEN+1:n*this%FLEN),TRIM(this%fmtstr)) &
-                     this%output(l)%p(m)%val(i,j,k), RECSEP
+                     this%output(l)%p(m)%val(i-Mesh%IMIN+1,j-Mesh%JMIN+1,k-Mesh%KMIN+1), RECSEP
                n = n + 1
             END DO
           END DO
 
-          IF (k.EQ.this%knum) THEN
-             IF (j.EQ.this%jnum.AND.(this%jnum.GT.1.OR.i.EQ.this%inum)) THEN
+          IF (Mesh%INUM.GT.1) THEN
+             IF (i.EQ.Mesh%INUM) THEN
+                ! finish the block
+                this%linebuf(this%linelen-1:this%linelen) = BLKSEP
+             ELSE
+                ! finish the line
+                this%linebuf(this%linelen-1:this%linelen) = LINSEP
+             END IF
+          ELSE IF (Mesh%JNUM.GT.1) THEN
+             IF (j.EQ.Mesh%JNUM) THEN
+                ! finish the block
+                this%linebuf(this%linelen-1:this%linelen) = BLKSEP
+             ELSE
+                ! finish the line
+                this%linebuf(this%linelen-1:this%linelen) = LINSEP
+             END IF
+          ELSE
+             IF (k.EQ.Mesh%KNUM) THEN
                 ! finish the block
                 this%linebuf(this%linelen-1:this%linelen) = BLKSEP
              ELSE
@@ -770,33 +759,42 @@ CONTAINS
              END IF
           END IF
 
-#ifdef PARALLEL
-!!!! ATTENTION parallel output broken
-          ! write line buffer to output buffer
-!          DO m=1,this%linelen
-!             this%outbuf(m,j-1+Mesh%JMIN) = this%linebuf(m:m)
-!          END DO
-#else
-          ! write line buffer to output file
           SELECT TYPE(df=>this%datafile)
+#ifndef PARALLEL
           CLASS IS(filehandle_fortran)
-             WRITE (df%fid,FMT=TRIM(this%linefmt),ADVANCE='YES') this%linebuf(1:this%linelen-1)
+             ! write line buffer to file
+             WRITE (df%GetUnitNumber(),FMT=TRIM(this%linefmt),ADVANCE='YES') &
+                this%linebuf(1:this%linelen-1)
+#else
+          CLASS IS(filehandle_mpi)
+             ! write line buffer to output buffer
+             this%outbuf(:,i-Mesh%IMIN+1) = TRANSFER(this%linebuf,this%outbuf(:,1),SIZE=this%linelen)
+!              DO m=1,this%linelen
+!                 this%outbuf(m,k) = this%linebuf(m:m)
+!              END DO
+#endif
           END SELECT
-#endif
-         END DO
-       END DO
+
+        END DO ! k-loop
+
 #ifdef PARALLEL
-       !*****************************************************************!
-       ! This collective call doesn't work for pvfs2 -> bug in ROMIO ?
-!!$       CALL MPI_File_write_all(this%handle,this%binout,this%bufsize,&
-!!$            this%basictype, this%status, this%err)
-       !*****************************************************************!
-       ! so we use these two commands instead
-!        CALL MPI_File_iwrite(this%handle,this%outbuf,this%bufsize,this%basictype,&
-!             request,this%err)
-!        CALL MPI_Wait(request,this%status,this%err)
+        ! write output buffer to file
+        SELECT TYPE(df=>this%datafile)
+        CLASS IS(filehandle_mpi)
+          !*****************************************************************!
+          ! This collective call doesn't work for pvfs2 -> bug in ROMIO ?
+!           CALL MPI_File_write_all(df%GetUnitNumber(),this%binout,this%bufsize,&
+!                 df%basictype, df%status, this%err)
+          !*****************************************************************!
+          ! so we use these two commands instead
+          CALL MPI_File_iwrite(df%GetUnitNumber(),this%outbuf,this%bufsize,df%basictype,&
+                request,this%err)
+          CALL MPI_Wait(request,df%status,this%err)
+        END SELECT
 #endif
-    END DO
+      END DO ! j-loop
+    END DO ! i-loop
+
   END SUBROUTINE WriteDataset_gnuplot
 
 !   !> \public Reads the data arrays from file (not yet implemented)
