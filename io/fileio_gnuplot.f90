@@ -100,10 +100,10 @@ MODULE fileio_gnuplot_mod
   !> FileIO gnuplot class
   TYPE, EXTENDS(fileio_base) :: fileio_gnuplot
     !> \name Variables
-    TYPE(Output_TYP),DIMENSION(:), POINTER :: &
-                              output      !< list of output fields
-    TYPE(TSOutput_TYP),DIMENSION(:), POINTER :: &
-                              tsoutput    !< list of scalar time step output
+    TYPE(Output_TYP),DIMENSION(:), POINTER :: &     !< list of output fields
+                              output => null()
+    TYPE(TSOutput_TYP),DIMENSION(:), POINTER :: &   !< list of scalar time step output
+                              tsoutput => null()
     CHARACTER(LEN=512)     :: heading     !< char buffer for heading (field data)
     CHARACTER(LEN=512)     :: tsheading   !< char buffer for heading (time step data)
     CHARACTER(LEN=512)     :: linebuf     !< char buffer fo field data
@@ -124,8 +124,8 @@ MODULE fileio_gnuplot_mod
     INTEGER(KIND=MPI_ADDRESS_KIND) :: &
                               realext, &  !< real data type extent
                               intext      !< integer data type extent
-    CHARACTER, DIMENSION(:,:), POINTER :: &
-                              outbuf      !< output buffer
+    CHARACTER, DIMENSION(:,:), POINTER :: &  !< output buffer
+                              outbuf => null()
 #endif
   CONTAINS
     !> \name Methods
@@ -839,12 +839,18 @@ CONTAINS
     INTEGER                          :: k
     !------------------------------------------------------------------------!
 #ifdef PARALLEL
-    DEALLOCATE(this%outbuf)
+    IF (ASSOCIATED(this%outbuf)) DEALLOCATE(this%outbuf)
+    NULLIFY(this%outbuf)
 #endif
-    DO k=1,SIZE(this%output)
-       IF (ASSOCIATED(this%output(k)%p)) DEALLOCATE(this%output(k)%p)
-    END DO
-    DEALLOCATE(this%output,this%tsoutput)
+    IF (ASSOCIATED(this%output)) THEN
+      DO k=1,SIZE(this%output)
+        IF (ASSOCIATED(this%output(k)%p)) DEALLOCATE(this%output(k)%p)
+      END DO
+      DEALLOCATE(this%output)
+    END IF
+    IF (ASSOCIATED(this%tsoutput)) DEALLOCATE(this%tsoutput)
+    NULLIFY(this%output,this%tsoutput)
+
     CALL this%Finalize_base()
   END SUBROUTINE Finalize
 

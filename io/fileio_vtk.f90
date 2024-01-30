@@ -108,6 +108,9 @@ MODULE fileio_vtk_mod
   TYPE, EXTENDS(fileio_gnuplot) :: fileio_vtk
     !> \name Variables
     TYPE(filehandle_fortran) :: pvdfile   !< paraview master file
+#ifdef PARALLEL
+    TYPE(filehandle_fortran) :: pvtsfile  !< parallel vts file
+#endif
     CHARACTER(LEN=32)      :: buf         !< buffer for character i/o
     CHARACTER(LEN=32)      :: endianness  !< big/little endian
     CHARACTER(LEN=12)      :: realfmt     !< real number format as string
@@ -358,9 +361,13 @@ CONTAINS
 
     ! create file handle for the pvd file; only on rank 0 in parallel mode
 #ifdef PARALLEL
-    IF (this%GetRank().EQ.0) &
+    IF (this%GetRank().EQ.0) THEN
+      CALL this%pvtsfile%InitFilehandle(this%datafile%filename,this%datafile%path,"pvts",textfile=.TRUE.,onefile=.FALSE.,cycles=this%count+1)
 #endif
-    CALL this%pvdfile%InitFilehandle(this%datafile%filename,this%datafile%path,"pvd",textfile=.TRUE.,onefile=.TRUE.,cycles=1)
+      CALL this%pvdfile%InitFilehandle(this%datafile%filename,this%datafile%path,"pvd",textfile=.TRUE.,onefile=.TRUE.,cycles=1)
+#ifdef PARALLEL
+    END IF
+#endif
   END SUBROUTINE InitFileIO_vtk
 
   !> \public Write the Paraview global description file
@@ -391,19 +398,25 @@ CONTAINS
       ! write entries for each time step
       DO k=0,this%step
          ftime = this%stoptime*k/(this%count-1)
-#ifdef PARALLEL
-!        ! in parallel mode each node generates its own file
-!        DO i=0,this%GetNumProcs()-1
-!           basename=this%GetBasename(i)
-!           IF (this%err.EQ. 0) WRITE(this%unit+200,FMT='(A,E11.5,A,I4.4,A)',IOSTAT=this%err) &
-!              REPEAT(' ',4)//'<DataSet timestep="',&
-!              ftime,'" part="', i ,'" file="'//TRIM(basename)//'"/>'
-!        END DO
-#else
          IF (this%err.EQ. 0) &
             WRITE(UNIT=this%pvdfile%GetUnitNumber(),FMT='(A,E11.5,A)',IOSTAT=this%err) &
-                  REPEAT(' ',4)//'<DataSet timestep="',ftime,'" part="0" file="' &
-                       //TRIM(this%datafile%GetBasename(k))//'"/>'
+                  REPEAT(' ',4)//'<DataSet timestep="',ftime,'" part="0" file="' // &
+#ifdef PARALLEL
+                       TRIM(this%pvtsfile%GetBasename(k))//&
+                       "." // TRIM(this%pvtsfile%extension)//'"/>'
+#else
+                       TRIM(this%datafile%GetBasename(k))//&
+                       "." // TRIM(this%datafile%extension)//'"/>'
+#endif
+#ifdef PARALLEL
+         ! in parallel mode each node generates its own file, but the rank 0 node
+         ! creates the pvd and pvts files
+!          DO i=0,this%GetNumProcs()-1
+!             IF (this%err.EQ. 0) WRITE(this%pvtsfile%GetUnitNumber(),FMT='(A,E11.5,A,I4.4,A)',IOSTAT=this%err) &
+!                REPEAT(' ',4)//'<DataSet timestep="',&
+!                ftime,'" part="', i ,'" file="'//TRIM(this%pvtsfile%GetBasename(i))//'"/>'
+!          END DO
+#else
 #endif
       END DO
 
@@ -574,20 +587,21 @@ CONTAINS
     WRITE(UNIT=this%datafile%GetUnitNumber(),IOSTAT=this%err) TRIM(this%linebuf)
 
 #ifdef PARALLEL
-!     ! write header in pvts file (only rank 0)
-!     IF (this%GetRank() .EQ. 0 ) THEN
-!        CALL this%OpenFile(REPLACE,'pvts')
-!        WRITE(this%unit+100,FMT='(A,6(I7),A)',IOSTAT=this%err) '<?xml version="1.0"?>' //LF// &
-!            '<VTKFile type="PStructuredGrid" version="0.1" byte_order='&
-!                    //this%endianness//'>'//LF//&
-!            '  <PStructuredGrid WholeExtent="',&
-!                    1,Mesh%INUM+this%IP1,1,Mesh%JNUM+this%JP1,1,Mesh%KNUM+this%KP1,'">'//LF//&
-!            '    <PFieldData>'//LF// &
-!            '      <InformationKey type="String" Name="fosite version" format="ascii">'//LF// &
-!            '        '//TRIM(VERSION)//LF//&
-!            '      </InformationKey>'
-!        CALL this%CloseFile('pvts')
-!     END IF
+    ! write header in pvts file (only rank 0)
+    IF (this%GetRank() .EQ. 0 ) THEN
+       CALL this%pvtsfile%OpenFile(REPLACE,this%step)
+       WRITE(UNIT=this%pvtsfile%GetUnitNumber(),FMT='(A,6(I7),A)',IOSTAT=this%err) '<?xml version="1.0"?>' //LF// &
+           '<VTKFile type="PStructuredGrid" version="0.1" byte_order='&
+                   //TRIM(this%endianness)//'>'//LF//&
+           '  <PStructuredGrid WholeExtent="',&
+                   1,Mesh%INUM+this%IP1,1,Mesh%JNUM+this%JP1,1,Mesh%KNUM+this%KP1,'">'//LF//&
+           '    <PFieldData>'//LF// &
+           '      <InformationKey type="String" Name="fosite version" format="ascii">'//LF// &
+           '        '//TRIM(VERSION)//LF//&
+           '      </InformationKey>'
+       IF (this%err.NE.0) &
+          CALL this%Error("fileio_vtk::WriteHeader","Writing pvts file header failed")
+    END IF
 #endif
 
     ! loop over all time step data registred in GetOutputlist
@@ -596,15 +610,19 @@ CONTAINS
         '      <DataArray type='//TRIM(this%realfmt)//' Name="'//TRIM(this%tsoutput(k)%key)// &
                        '" NumberOfTuples="1" format="ascii">'//LF// &
                    REPEAT(' ',8),this%tsoutput(k)%val,LF//&
-        '      </DataArray>'//LF
-       IF (this%err.EQ.0) &
-          WRITE(UNIT=this%datafile%GetUnitNumber(),IOSTAT=this%err) TRIM(this%linebuf)
-#ifdef PARALLEL
-!        ! write time step data in PVTS file in parallel mode
-!        IF (this%GetRank() .EQ. 0 ) THEN
-!           WRITE(this%unit+100,FMT='(A)',ADVANCE='NO',IOSTAT=this%err) TRIM(this%linebuf)
-!        END IF
+        '      </DataArray>'
+       IF (this%err.EQ.0) THEN
+#ifndef PARALLEL
+          ! write time step data to VTS file in serial mode
+          WRITE(UNIT=this%datafile%GetUnitNumber(),IOSTAT=this%err) TRIM(this%linebuf) // LF
+#else
+          ! write time step data to PVTS file in parallel mode
+          IF (this%GetRank() .EQ. 0 ) THEN
+             WRITE(UNIT=this%pvtsfile%GetUnitNumber(),FMT='(A)',ADVANCE='NO',IOSTAT=this%err) TRIM(this%linebuf)
+             CALL this%pvtsfile%CloseFile(this%step)
+          END IF
 #endif
+       END IF
     END DO
 
     IF (this%err.NE.0) CALL this%Error("fileio_vtk::WriteHeader","cannot write (P)VTS file header")
@@ -641,7 +659,7 @@ CONTAINS
     INTEGER                             :: i,j,k,m,l
     INTEGER                             :: n, offset
 #ifdef PARALLEL
-    CHARACTER(LEN=256)                  :: basename
+    CHARACTER(LEN=256)                  :: filename
 #endif
     !------------------------------------------------------------------------!
     ! this part is formerly from fileio_generic.f90
@@ -660,18 +678,19 @@ CONTAINS
     CALL this%WriteParaviewFile()
 
     !------------------------------------------------------------------------!
-    ! REMARK: VTS/PVTS data files are opened in unformated or stream mode,
+    ! REMARK: VTS data files are opened in unformated or stream mode,
     !         hence we always write the formated data into a line buffer
-    !         and then write the line buffer to the data file
+    !         and then write the line buffer to the data file.
+    !         PVTS and PVD files are opened in formated mode.
     ! -----------------------------------------------------------------------!
     ! 1. META data
     ! -----------------------------------------------------------------------!
     ! a) global information; currently only scalar real numbers supported
 #ifdef PARALLEL
-!     IF (this%GetRank() .EQ. 0 ) THEN
-!        CALL this%OpenFile(APPEND,'pvts')
-!        IF(this%err .NE. 0) CALL this%Error( "WriteDataset", "Can't open pvts file")
-!     END IF
+    IF (this%GetRank() .EQ. 0 ) THEN
+       CALL this%pvtsfile%OpenFile(APPEND,this%step)
+       IF(this%err .NE. 0) CALL this%Error( "fileio_vtk::WriteDataset_vtk", "Can't open pvts file")
+    END IF
 #endif
 
 !> \todo : implement generic output routine for non-field/non-scalar data
@@ -740,15 +759,15 @@ CONTAINS
     offset = offset + SIZE(this%vtkcoords)*this%realsize + 4
 
 #ifdef PARALLEL
-!     IF (this%GetRank() .EQ. 0 ) THEN
-!        WRITE(this%unit+100,FMT='(A)',IOSTAT=this%err)&
-!               repeat(' ',4)//'</PFieldData>' &
-!         //LF//repeat(' ',4)//'<PPoints>' &
-!         //LF//repeat(' ',6)//'<DataArray type='//TRIM(this%realfmt) &
-!                 //' NumberOfComponents="3" Name="Point"/>' &
-!         //LF//repeat(' ',4)//'</PPoints>' &
-!         //LF//repeat(' ',4)//'<PCellData>'
-!     END IF
+    IF (this%GetRank() .EQ. 0 ) THEN
+       WRITE(UNIT=this%pvtsfile%GetUnitNumber(),FMT='(A)',IOSTAT=this%err)&
+              repeat(' ',4)//'</PFieldData>' &
+        //LF//repeat(' ',4)//'<PPoints>' &
+        //LF//repeat(' ',6)//'<DataArray type='//TRIM(this%realfmt) &
+                //' NumberOfComponents="3" Name="Point"/>' &
+        //LF//repeat(' ',4)//'</PPoints>' &
+        //LF//repeat(' ',4)//'<PCellData>'
+    END IF
 #endif
 
     ! -----------------------------------------------------------------------!
@@ -763,12 +782,12 @@ CONTAINS
       WRITE(UNIT=this%datafile%GetUnitNumber(),IOSTAT=this%err) TRIM(this%linebuf)
 
 #ifdef PARALLEL
-!        IF (this%GetRank() .EQ. 0 ) THEN
-!            WRITE(this%unit+100,FMT='(A,I3,A)',IOSTAT=this%err)&
-!                REPEAT(' ',6)//'<DataArray type='//this%realfmt//&
-!                               ' NumberOfComponents="', SIZE(this%output(k)%p),&
-!                '" Name="'//TRIM(this%output(k)%key)//'"/>'
-!        END IF
+       IF (this%GetRank() .EQ. 0 ) THEN
+           WRITE(UNIT=this%pvtsfile%GetUnitNumber(),FMT='(A,I3,A)',IOSTAT=this%err)&
+               REPEAT(' ',6)//'<DataArray type='//this%realfmt//&
+                              ' NumberOfComponents="', SIZE(this%output(k)%p),&
+               '" Name="'//TRIM(this%output(k)%key)//'"/>'
+       END IF
 #endif
        ! add size of data set (in bytes) + 4 (4 byte integer for size information)
        ! -> "jump address" for next data set in the file in bytes
@@ -783,21 +802,30 @@ CONTAINS
        //LF//repeat(' ',2)//'<GlobalData>'
 
 #ifdef PARALLEL
-!     IF (this%GetRank() .EQ. 0 ) THEN
-!       WRITE(this%unit+100,FMT='(A)',IOSTAT=this%err) REPEAT(' ',4)//'</PCellData>'
-!
-!       DO i=0,this%GetNumProcs()-1
-!          basename=this%GetBasename(i)
-!          WRITE(this%unit+100,FMT='(A)',IOSTAT=this%err) &
-!             REPEAT(' ',4)//'<Piece Extent="'//TRIM(this%extent(i))&
-!             //'" Source="'//TRIM(basename)//'"/>'
-!       END DO
-!
-!       WRITE(this%unit+100,FMT='(A)',IOSTAT=this%err)&
-!         repeat(' ',2)//'</PStructuredGrid>' &
-!         //LF//'</VTKFile>'
-!
-!     END IF
+    IF (this%GetRank() .EQ. 0 ) THEN
+      WRITE(UNIT=this%pvtsfile%GetUnitNumber(),FMT='(A)',IOSTAT=this%err) REPEAT(' ',4)//'</PCellData>'
+
+      SELECT TYPE(df=>this%datafile)
+      CLASS IS(filehandle_vts)
+         DO i=0,this%GetNumProcs()-1
+            filename = TRIM(df%path) // &
+                     TRIM(df%filename) // &
+                     TRIM(df%GetRankString(i)) // &
+                     TRIM(df%GetStepString(this%step)) // &
+                     "." // TRIM(this%datafile%extension)
+            WRITE(UNIT=this%pvtsfile%GetUnitNumber(),FMT='(A)',IOSTAT=this%err) &
+               REPEAT(' ',4)//'<Piece Extent="'//TRIM(this%extent(i))&
+               //'" Source="'//TRIM(filename)//'"/>'
+         END DO
+      CLASS DEFAULT
+        CALL this%Error("fileio_vtk::WriteDataset","datafile must be of type filehandle_vts in parallel mode")
+      END SELECT
+
+      WRITE(UNIT=this%pvtsfile%GetUnitNumber(),FMT='(A)',IOSTAT=this%err)&
+        repeat(' ',2)//'</PStructuredGrid>' &
+        //LF//'</VTKFile>'
+
+    END IF
 #endif
 
     ! -----------------------------------------------------------------------!
@@ -831,10 +859,10 @@ CONTAINS
        CALL this%Error("fileio_vtk::WriteDataset", "writing data array specs failed")
 
 #ifdef PARALLEL
-!     IF (this%GetRank() .EQ. 0 ) THEN
-!        CALL this%CloseFile('pvts')
-!        IF(this%err .NE. 0) CALL this%Error( "WriteDataset", "Can't close pvts file")
-!     END IF
+    IF (this%GetRank() .EQ. 0 ) THEN
+       CALL this%pvtsfile%CloseFile(this%step)
+       IF(this%err .NE. 0) CALL this%Error( "fileio_vtk::WriteDataset_vtk", "Can't close pvts file")
+    END IF
 #endif
 
     ! -----------------------------------------------------------------------!
@@ -893,7 +921,10 @@ CONTAINS
     !------------------------------------------------------------------------!
     ! REMARK: this%output and this%tsoutput are deallocated in the gnuplot finalizer
     !         which is called automatically
-    DEALLOCATE(this%binout,this%vtkcoords,this%bflux)
+    IF (ASSOCIATED(this%binout)) DEALLOCATE(this%binout)
+    IF (ASSOCIATED(this%vtkcoords)) DEALLOCATE(this%vtkcoords)
+    IF (ASSOCIATED(this%bflux)) DEALLOCATE(this%bflux)
+    NULLIFY(this%binout,this%vtkcoords,this%bflux)
   END SUBROUTINE Finalize
 
 #ifdef PARALLEL

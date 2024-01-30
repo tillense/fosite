@@ -346,7 +346,7 @@ CONTAINS
     END IF
     ! check file name extension
     IF (PRESENT(extension)) THEN
-      IF (LEN_TRIM(extension).GT.FEXTLEN-1) &
+      IF (LEN_TRIM(extension).GT.FEXTLEN) &
         CALL this%Error("fileio_base::InitFilehandle","file name extension too long")
       this%extension = extension
     ELSE
@@ -692,7 +692,7 @@ CONTAINS
     this%err = 0
     CALL this%CloseFile(step) ! make sure we don't open an already opened file
     IF (this%err.EQ.0) &
-      OPEN(UNIT=this%GetUnitNumber(),FILE=this%GetFilename(step),STATUS=TRIM(sta), &
+      OPEN(UNIT=this%GetUnitNumber(),FILE=TRIM(this%GetFilename(step)),STATUS=TRIM(sta), &
            ACCESS='STREAM',ACTION=TRIM(act),POSITION=TRIM(pos),FORM=this%GetFormat(), &
            IOSTAT=this%err)
     IF (this%err.NE.0) &
