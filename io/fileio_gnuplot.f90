@@ -104,12 +104,13 @@ MODULE fileio_gnuplot_mod
                               output => null()
     TYPE(TSOutput_TYP),DIMENSION(:), POINTER :: &   !< list of scalar time step output
                               tsoutput => null()
+    CHARACTER(LEN=1), DIMENSION(:,:), POINTER :: &
+                              outbuf => null()      !< output buffer
     CHARACTER(LEN=512)     :: heading     !< char buffer for heading (field data)
     CHARACTER(LEN=512)     :: tsheading   !< char buffer for heading (time step data)
     CHARACTER(LEN=512)     :: linebuf     !< char buffer fo field data
     CHARACTER(LEN=512)     :: tslinebuf   !< char buffer for time step data
     CHARACTER(LEN=64)      :: fmtstr      !< format string
-    CHARACTER(LEN=64)      :: linefmt     !< output line format string
     INTEGER                :: COLS        !< number of output columns
     INTEGER                :: TSCOLS      !< number of output columns for time step data
     INTEGER                :: MAXCOLS     !< upper limit for output cols
@@ -118,15 +119,6 @@ MODULE fileio_gnuplot_mod
     INTEGER                :: FLEN        !< output field length
     INTEGER                :: linelen     !< length of a line
     INTEGER                :: tslinelen   !< length of a line for time step data
-#ifdef PARALLEL
-    !> \name Variables in parallel mode
-    INTEGER                :: blocknum    !< number of output blocks
-    INTEGER(KIND=MPI_ADDRESS_KIND) :: &
-                              realext, &  !< real data type extent
-                              intext      !< integer data type extent
-    CHARACTER(LEN=1), DIMENSION(:,:), POINTER :: &
-                              outbuf => null()   !< output buffer for MPI
-#endif
   CONTAINS
     !> \name Methods
     PROCEDURE :: InitFileIO_deferred => InitFileIO_gnuplot
@@ -171,10 +163,11 @@ CONTAINS
     INTEGER                                   :: depth
     INTEGER                                   :: i,j,k,n
 #ifdef PARALLEL
+    INTEGER                                   :: blocknum
     INTEGER, DIMENSION(Mesh%JMAX-Mesh%JMIN+1,Mesh%KMAX-Mesh%KMIN+1) :: blocklen,indices
 #endif
     !------------------------------------------------------------------------!
-    CALL this%InitFileio(Mesh,Physics,Timedisc,Sources,config,IO,"gnuplot","dat")
+    CALL this%InitFileio(Mesh,Physics,Timedisc,Sources,config,IO,"gnuplot","dat",textfile=.FALSE.)
 
     CALL GetAttr(config, "decimals", this%DECS, DEFAULT_DECS)
     ! compute length of character field for real number output
@@ -182,7 +175,7 @@ CONTAINS
     ! flen = 1 (sign) + 1 (one digit) + 1 (decimal point) + decs (decimal places)
     !      + 1 (E character) + 1 (sign of exponent) + 2 (exponent digits) + 2 (spaces)
     this%FLEN = this%DECS + 9
-    this%MAXCOLS = len(this%linebuf)/this%FLEN-1
+    this%MAXCOLS = LEN(this%linebuf)/this%FLEN-1
 
     ! this is for registering all arrays which are supposed to be written to the output file
     ALLOCATE(this%output(this%MAXCOLS),this%tsoutput(this%MAXCOLS),STAT=this%err)
@@ -202,6 +195,11 @@ CONTAINS
 
     ! check if cartesian coordinates are selected for output
     IF (this%cartcoords) THEN
+       ! output cartesian coordinates
+       CALL GetAttr(IO,"/mesh/bary_centers",dummy4)
+       ! requires 3 pointers, one for each cartesian coordinate
+       ALLOCATE(this%output(1)%p(3),STAT=this%err)
+    ELSE
        ! output curvilinear coordinates
        CALL GetAttr(IO,"/mesh/bary_curv",dummy4)
        ! requires NDIMS pointers, one for each curvilinear coordinate, depending on the
@@ -209,11 +207,6 @@ CONTAINS
        ALLOCATE(this%output(1)%p(3),STAT=this%err)
       !!!!! only output necessary curvilinear coordinates; needs some addional checks below
 !        ALLOCATE(this%output(1)%p(Mesh%NDIMS),STAT=this%err)
-    ELSE
-       ! output cartesian coordinates
-       CALL GetAttr(IO,"/mesh/bary_centers",dummy4)
-       ! requires 3 pointers, one for each cartesian coordinate
-       ALLOCATE(this%output(1)%p(3),STAT=this%err)
     END IF
     IF (this%err.NE.0) &
        CALL this%Error("fileio_gnuplot::InitFileIO","memory allocation failed for this%output(1)%p")
@@ -299,10 +292,6 @@ CONTAINS
     this%JNUM = Mesh%JMAX - Mesh%JMIN + 1
     this%KNUM = Mesh%KMAX - Mesh%KMIN + 1
 
-#ifdef PARALLEL
-   ! number of output blocks (on this process)
-   ! = number of cells (excluding ghost cells)
-   this%blocknum = this%JNUM * this%KNUM
    ! size of the output buffer (on this process)
    this%bufsize  = this%INUM
 
@@ -312,13 +301,14 @@ CONTAINS
    IF (this%err.NE.0) &
       CALL this%Error("fileio_gnuplot::InitFileIO_gnuplot","memory allocation failed for this%outbuf")
 
+#ifdef PARALLEL
+   ! number of output blocks (on this process)
+   ! = number of cells (excluding ghost cells)
+   blocknum = this%JNUM * this%KNUM
    blocklen(:,:) = this%bufsize
    DO k=1,this%KNUM
       DO j=1,this%JNUM
-!           indices(i-Mesh%IMIN+1,j-Mesh%JMIN+1) = (i-Mesh%IMIN+1)*(j-Mesh%JMIN+1)*Mesh%KNUM + Mesh%KMIN - 1
-!           PRINT *,i,j,indices(i-Mesh%IMIN+1,j-Mesh%JMIN+1)
-          indices(j,k) = (j-1)*Mesh%INUM + Mesh%IMIN - 1
-          PRINT *,this%GetRank(),j,k,indices(j,k)
+          indices(j,k) = ((k+Mesh%KMIN-2)*Mesh%JNUM + (j+Mesh%JMIN-2) )*Mesh%INUM + Mesh%IMIN - 1
       END DO
    END DO
 
@@ -330,8 +320,8 @@ CONTAINS
       IF (this%err.EQ.0) CALL MPI_Type_commit(df%basictype,this%err)
 
       ! file type for blocknum indexed blocks of basic type
-      IF (this%err.EQ.0) CALL MPI_Type_indexed(this%blocknum,RESHAPE(blocklen,(/this%blocknum/)), &
-            RESHAPE(indices,(/this%blocknum/)),df%basictype,df%filetype,this%err)
+      IF (this%err.EQ.0) CALL MPI_Type_indexed(blocknum,RESHAPE(blocklen,(/blocknum/)), &
+            RESHAPE(indices,(/blocknum/)),df%basictype,df%filetype,this%err)
       IF (this%err.EQ.0) CALL MPI_Type_commit(df%filetype,this%err)
    END SELECT
    IF (this%err.NE.0) &
@@ -341,8 +331,6 @@ CONTAINS
     ! write the format string for one entry in the data file:
     ! FLEN-2 characters for the number and 2 for the separators
     WRITE (this%fmtstr,'(A3,I2,A,I2.2,A5)') '(ES', this%FLEN-2, '.', this%DECS,',A2)'
-    ! write format string for one output line
-    WRITE (this%linefmt, '(A,I0,A)') "(A", this%linelen-1, ")"
 
     ! print some information
     ! ...
@@ -575,7 +563,7 @@ CONTAINS
        SELECT TYPE(df=>this%datafile)
 #ifndef PARALLEL
        CLASS IS(filehandle_fortran)
-          WRITE (UNIT=df%GetUnitNumber(),FMT='(A)',IOSTAT=this%err) TRIM(header_buf) !(1:HLEN-1)
+          WRITE (UNIT=df%GetUnitNumber(),IOSTAT=this%err) TRIM(header_buf) !(1:HLEN-1)
 #else
        CLASS IS(filehandle_mpi)
           CALL MPI_File_write(df%GetUnitNumber(),TRIM(header_buf),LEN(TRIM(header_buf)), &
@@ -653,7 +641,7 @@ CONTAINS
        SELECT TYPE(df=>this%datafile)
 #ifndef PARALLEL
        CLASS IS(filehandle_fortran)
-          WRITE (df%GetUnitNumber(),FMT='(A)',ADVANCE='NO',IOSTAT=this%err) TRIM(this%tsheading) &
+          WRITE (df%GetUnitNumber(),IOSTAT=this%err) TRIM(this%tsheading) &
               // TRIM(this%tslinebuf) // TRIM(this%heading)
 #else
        CLASS IS(filehandle_mpi)
@@ -674,14 +662,13 @@ CONTAINS
 #ifndef PARALLEL
     CLASS IS(filehandle_fortran)
       ! write _one_ line feed at the beginning of each time step
-      WRITE (df%GetUnitNumber(),FMT='(A)',ADVANCE='NO',IOSTAT=this%err) LF
+      WRITE (df%GetUnitNumber(),IOSTAT=this%err) LF
 #else
     CLASS IS(filehandle_mpi)
       ! very important: wait for the header write command to finish
       CALL MPI_Barrier(MPI_COMM_WORLD,this%err)
       ! be sure to write at the end, i.e. after the time step data, by getting the offset from the file's size
       IF (this%err.EQ.0) CALL MPI_File_get_size(df%GetUnitNumber(),offset,this%err)
-! PRINT *,"AA",this%GetRank(),offset
       ! write _one_ line feed at the beginning of each time step
       IF (this%GetRank().EQ.0) THEN
         IF (this%err.EQ.0) CALL MPI_File_write_at(df%GetUnitNumber(), offset, LF, 1, &
@@ -698,7 +685,6 @@ CONTAINS
     CLASS IS(filehandle_mpi)
       ! add the initial line feed and the general offset (depends on Mesh%IMIN)
       offset = offset + 1
-! PRINT *,"BB",this%GetRank(),offset
       ! create the file view
       IF (this%err.EQ.0) CALL MPI_File_set_view(df%GetUnitNumber(),offset,df%basictype,df%filetype, &
           'native',MPI_INFO_NULL,this%err)
@@ -719,6 +705,7 @@ CONTAINS
 
     ! write array data to file
     ! do not use Mesh%IMIN/MAX etc., because the indices of this%output()%p()%val start at 1
+    this%err = 0
     DO k=Mesh%KMIN,Mesh%KMAX
       DO j=Mesh%JMIN,Mesh%JMAX
         DO i=Mesh%IMIN,Mesh%IMAX
@@ -759,41 +746,36 @@ CONTAINS
              END IF
           END IF
 
-          SELECT TYPE(df=>this%datafile)
-#ifndef PARALLEL
-          CLASS IS(filehandle_fortran)
-             ! write line buffer to file
-             WRITE (df%GetUnitNumber(),FMT=TRIM(this%linefmt),ADVANCE='YES') &
-                this%linebuf(1:this%linelen-1)
-#else
-          CLASS IS(filehandle_mpi)
-             ! write line buffer to output buffer
-             this%outbuf(:,i-Mesh%IMIN+1) = TRANSFER(this%linebuf,this%outbuf(:,1),SIZE=this%linelen)
-!              DO m=1,this%linelen
-!                 this%outbuf(m,k) = this%linebuf(m:m)
-!              END DO
-#endif
-          END SELECT
+          ! write line buffer to output buffer
+          this%outbuf(:,i-Mesh%IMIN+1) = TRANSFER(this%linebuf,this%outbuf(:,1),SIZE=this%linelen)
+        END DO ! i-loop
 
-        END DO ! k-loop
-
-#ifdef PARALLEL
         ! write output buffer to file
         SELECT TYPE(df=>this%datafile)
+#ifndef PARALLEL
+        CLASS IS(filehandle_fortran)
+           ! write line buffer to file
+           IF (this%err.EQ.0) &
+              WRITE (df%GetUnitNumber(),IOSTAT=this%err) this%outbuf
+#else
         CLASS IS(filehandle_mpi)
           !*****************************************************************!
-          ! This collective call doesn't work for pvfs2 -> bug in ROMIO ?
-!           CALL MPI_File_write_all(df%GetUnitNumber(),this%binout,this%bufsize,&
-!                 df%basictype, df%status, this%err)
+          ! This collective call didn't work for pvfs2 -> bug in ROMIO ?
+          IF (this%err.EQ.0) CALL MPI_File_write_all(df%GetUnitNumber(),this%outbuf, &
+                                      this%bufsize,df%basictype,request,this%err)
           !*****************************************************************!
-          ! so we use these two commands instead
-          CALL MPI_File_iwrite(df%GetUnitNumber(),this%outbuf,this%bufsize,df%basictype,&
-                request,this%err)
-          CALL MPI_Wait(request,df%status,this%err)
-        END SELECT
+          ! If the collective call above fails try this:
+!           IF (this%err.EQ.0) CALL MPI_File_iwrite(df%GetUnitNumber(),this%outbuf, &
+!                                      this%bufsize,df%basictype,request,this%err)
+!           IF (this%err.EQ.0) CALL MPI_Wait(request,df%status,this%err)
 #endif
+        END SELECT
+
       END DO ! j-loop
-    END DO ! i-loop
+    END DO ! k-loop
+
+    IF (this%err.NE.0) &
+         CALL this%Error("fileio_gnuplot::WriteDataset","creating MPI file view failed")
 
   END SUBROUTINE WriteDataset_gnuplot
 
@@ -836,10 +818,7 @@ CONTAINS
     !------------------------------------------------------------------------!
     INTEGER                          :: k
     !------------------------------------------------------------------------!
-#ifdef PARALLEL
     IF (ASSOCIATED(this%outbuf)) DEALLOCATE(this%outbuf)
-    NULLIFY(this%outbuf)
-#endif
     IF (ASSOCIATED(this%output)) THEN
       DO k=1,SIZE(this%output)
         IF (ASSOCIATED(this%output(k)%p)) DEALLOCATE(this%output(k)%p)
@@ -847,7 +826,8 @@ CONTAINS
       DEALLOCATE(this%output)
     END IF
     IF (ASSOCIATED(this%tsoutput)) DEALLOCATE(this%tsoutput)
-    NULLIFY(this%output,this%tsoutput)
+
+    NULLIFY(this%outbuf,this%output,this%tsoutput)
 
     CALL this%Finalize_base()
   END SUBROUTINE Finalize

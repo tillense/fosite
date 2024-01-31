@@ -143,6 +143,7 @@ MODULE fileio_base_mod
      INTEGER                :: dtwall      !< wall clock time difference
      INTEGER                :: INUM,JNUM,& !< local mesh extent
                                KNUM
+     INTEGER                :: bufsize     !< output data buffer size
      REAL                   :: stoptime    !< final simulation time for data output
      REAL                   :: starttime   !< initial simulation time for data output
      REAL                   :: time        !< output time
@@ -153,7 +154,6 @@ MODULE fileio_base_mod
 !                                bflux       !< boundary flux output buffer
 #ifdef PARALLEL
      !> \name Variables in Parallel Mode
-     INTEGER                :: bufsize     !< output data buffer size
 #endif
   CONTAINS
     !> \name Methods
