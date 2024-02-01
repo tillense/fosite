@@ -606,7 +606,7 @@ CONTAINS
     INTEGER             :: i,j,k,m,l,n
 #ifdef PARALLEL
     INTEGER(KIND=MPI_OFFSET_KIND) :: offset
-    INTEGER                       :: request
+    INTEGER                       :: request, status(MPI_STATUS_SIZE)
 #endif
     !------------------------------------------------------------------------!
     ! some sanity checks:
@@ -762,7 +762,7 @@ CONTAINS
           !*****************************************************************!
           ! This collective call didn't work for pvfs2 -> bug in ROMIO ?
           IF (this%err.EQ.0) CALL MPI_File_write_all(df%GetUnitNumber(),this%outbuf, &
-                                      this%bufsize,df%basictype,request,this%err)
+                                      this%bufsize,df%basictype,status,this%err)
           !*****************************************************************!
           ! If the collective call above fails try this:
 !           IF (this%err.EQ.0) CALL MPI_File_iwrite(df%GetUnitNumber(),this%outbuf, &
