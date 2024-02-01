@@ -254,7 +254,7 @@ CONTAINS
     END SELECT
 
     IF(PRODUCT(dims).GT.1) THEN
-      CALL this%SetMeshDims(Mesh,dims)
+      CALL this%SetOutputDims(Mesh,dims)
       bytes = PRODUCT(dims) * this%realsize
       CALL this%WriteKey_xdmf(offset,key,type,bytes,dims)
     ELSE
@@ -323,31 +323,28 @@ CONTAINS
     !------------------------------------------------------------------------!
     !data size
     dsize = SIZE(dims)
+    ! default (no mesh data)
+    center = "Grid"
 
-    ! TODO CHECK THIS - 3D HACK
-    ! If the data has mesh sizes, it is cell data
-    IF((dims(1).EQ.Mesh%INUM).AND.&
-       (dims(2).EQ.Mesh%JNUM).AND.&
-       (dims(3).EQ.Mesh%KNUM)) THEN
-      center = "Cell"
-      dsize = dsize - 3
-    ELSE IF((dims(1).EQ.Mesh%INUM+1).AND.&
-            (dims(2).EQ.Mesh%JNUM+1).AND.&
-            (dims(3).EQ.Mesh%KNUM+1)) THEN
-      center = "Node"
-      dsize = dsize - 3
-    ELSE ! otherwise data for the whole grid
-      center = "Grid"
+    ! check for mesh data
+    IF (dsize.GE.3) THEN
+      IF (ALL(dims(1:3).EQ.(/Mesh%INUM,Mesh%JNUM,Mesh%KNUM/))) &
+         center = "Cell"
+      IF (ALL(dims(1:3).EQ.(/Mesh%INUM+Mesh%IP1,Mesh%JNUM+Mesh%JP1,Mesh%KNUM+Mesh%KP1/))) &
+         center = "Node"
+      IF (TRIM(center).NE."Grid") &
+         dsize = dsize - 3
     END IF
 
-    ! The remaining dimensions define the data type
     SELECT CASE(dsize)
     CASE(0)
         dtype = "Scalar"
     CASE(1)
         dtype = "Vector"
-    CASE DEFAULT
+    CASE(2)
         dtype = "Matrix"
+    CASE DEFAULT
+        CALL this%Error("fileio_xdmf::WriteAttribute","data type currently not supported")
     END SELECT
 
     WRITE(UNIT=this%xmffile%GetUnitNumber(),IOSTAT=this%err) &
@@ -419,12 +416,7 @@ CONTAINS
     CHARACTER(LEN=14) :: gstr(3) = (/"'/mesh/grid_x'","'/mesh/grid_y'","'/mesh/grid_z'"/)
     INTEGER           :: i
     !------------------------------------------------------------------------!
-    dims = (/ Mesh%INUM, Mesh%JNUM, Mesh%KNUM /)
-    WHERE (dims(:).GT.1)
-      ! do this only for real dimensions, i.e. ijknum > 1
-      ! add 1, because grid contains point data, i.e. cell numbers + 1 in each dimension
-      dims(:) = dims(:) + 1
-    END WHERE
+    dims = (/ Mesh%INUM+Mesh%IP1, Mesh%JNUM+Mesh%JP1, Mesh%KNUM+Mesh%KP1 /)
     CALL GetDimsStr(dims(:),dstr)
 
     SELECT CASE(Mesh%NDIMS)
@@ -536,15 +528,8 @@ CONTAINS
     INTEGER                          :: i,idx(3)
     CHARACTER(LEN=8)                 :: dim_str
     !------------------------------------------------------------------------!
-    IF (ANY(dims(:).EQ.1)) THEN
-      ! 2D one of inum,jnum,knum is 1 (1D case is excluded in InitFileio)
-      ! for some reason one has to flip the two remaining dimensions in this case
-      ! (at least for proper display in ParaView & VisIt)
-      idx(1:3) = dims(3:1:-1)
-    ELSE
-      ! 3D just copy the dims
-      idx(1:3) = dims(1:3)
-    END IF
+    ! reverse dimensional order (probably because of Fortran vs. C array order)
+    idx(1:3) = dims(3:1:-1)
 
     res = ''
     DO i=1,3

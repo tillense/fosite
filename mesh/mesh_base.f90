@@ -785,20 +785,19 @@ CONTAINS
     INTEGER                        :: writefields
     !------------------------------------------------------------------------!
     !Set OutputDict
-    CALL GetAttr(config, "output/corners", writefields, 1)
+    CALL GetAttr(config, "output/corners", writefields, 0)
     IF((writefields.EQ.1).AND.ASSOCIATED(this%ccart)) &
-        !CALL SetAttr(IO,"corners",this%ccart(this%IGMIN:this%IGMAX,this%JGMIN:this%JGMAX,this%KGMIN:this%KGMAX,:,:))
-!                      Dict("name" / "coordinates:corners"))
+        CALL SetAttr(IO,"corners",this%ccart(this%IMIN:this%IMAX,this%JMIN:this%JMAX,this%KMIN:this%KMAX,:,:))
 
     CALL GetAttr(config, "output/grid", writefields, 1)
     IF((writefields.EQ.1).AND.ASSOCIATED(this%ccart)) THEN
-        CALL SetAttr(IO,"grid_x",this%ccart(this%IMIN:this%IMAX+this%ip1, &
+        CALL SetAttr(IO,"grid_x",this%cart%corners(this%IMIN:this%IMAX+this%ip1, &
                                             this%JMIN:this%JMAX+this%jp1, &
                                             this%KMIN:this%KMAX+this%kp1,1,1))
-        CALL SetAttr(IO,"grid_y",this%ccart(this%IMIN:this%IMAX+this%ip1, &
+        CALL SetAttr(IO,"grid_y",this%cart%corners(this%IMIN:this%IMAX+this%ip1, &
                                             this%JMIN:this%JMAX+this%jp1, &
                                             this%KMIN:this%KMAX+this%kp1,1,2))
-        CALL SetAttr(IO,"grid_z",this%ccart(this%IMIN:this%IMAX+this%ip1, &
+        CALL SetAttr(IO,"grid_z",this%cart%corners(this%IMIN:this%IMAX+this%ip1, &
                                             this%JMIN:this%JMAX+this%jp1, &
                                             this%KMIN:this%KMAX+this%kp1,1,3))
     END IF

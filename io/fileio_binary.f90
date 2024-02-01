@@ -43,8 +43,8 @@
 !!
 !! - data: [key length],[key],[type],[data length],[[dims]],[[data]]
 !!              4         *     4          4          *        *       bytes
-!!   If [type] indicates a 2D, 3D or 4D array, [data length] includes
-!!   8, 12 or 16 bytes extra, for dimensional information. The ASCII [key]
+!!   If [type] indicates a 2D, 3D, 4D or 5D array, [data length] includes
+!!   8, 12, 16 or 24 bytes extra, for dimensional information. The ASCII [key]
 !!   has the in [key length] specified size. The different [type]s are
 !!   defined in common/common_dict.f90.
 !!
@@ -78,11 +78,6 @@ MODULE fileio_binary_mod
   include 'mpif.h'
 #endif
 #endif
-#ifdef PARALLEL
-#define OFFSET_TYPE INTEGER(KIND=MPI_OFFSET_KIND)
-#else
-#define OFFSET_TYPE INTEGER
-#endif
   !--------------------------------------------------------------------------!
   PRIVATE
   CHARACTER, PARAMETER       :: LF = ACHAR(10)        !< line feed
@@ -96,13 +91,12 @@ MODULE fileio_binary_mod
     INTEGER                :: intsize     !< byte size of integer numbers
 #ifdef PARALLEL
     LOGICAL                :: first       !< true if this is the first output
-    INTEGER                :: cbufsize    !< corner output data buffer size
+    INTEGER                :: cbufsize, & !< size of corner output
+                              clsizes(3)  !< local array sizes for corner output
     INTEGER(KIND=MPI_OFFSET_KIND) :: offset !< skip header bytes
 #else
     INTEGER                :: offset
 #endif
-!     INTEGER, DIMENSION(:), POINTER :: &
-!                               disp        !< array of displacements
   CONTAINS
     !> \name Methods
     PROCEDURE :: InitFileio_deferred => InitFileio_binary
@@ -112,11 +106,11 @@ MODULE fileio_binary_mod
     !PROCEDURE :: ReadTimestamp
     PROCEDURE :: WriteDataset_deferred => WriteDataset_binary
     !PROCEDURE :: ReadDataset
-    PROCEDURE :: SetMeshDims
     FINAL :: Finalize
     !PRIVATE
     PROCEDURE :: HasMeshDims
     PROCEDURE :: HasCornerDims
+    PROCEDURE :: SetOutputDims
     PROCEDURE :: WriteNode
     PROCEDURE :: WriteKey
     PROCEDURE :: WriteDataAttributes
@@ -167,34 +161,17 @@ CONTAINS
       CALL this%Error("fileio_binary::InitFileIO_binary","Only single and double precision are allowed")
     END SELECT
 
-#ifdef PARALLEL
-    IF(Mesh%INUM.EQ.Mesh%IMAX) THEN
-      this%INUM = Mesh%IMAX-Mesh%IMIN+1+Mesh%IP1
-    ELSE
-      this%INUM = Mesh%IMAX-Mesh%IMIN+1
-    END IF
-    IF(Mesh%JNUM.EQ.Mesh%JMAX) THEN
-      this%JNUM = Mesh%JMAX-Mesh%JMIN+1+Mesh%JP1
-    ELSE
-      this%JNUM = Mesh%JMAX-Mesh%JMIN+1
-    END IF
-    IF(Mesh%KNUM.EQ.Mesh%KMAX) THEN
-      this%KNUM = Mesh%KMAX-Mesh%KMIN+1+Mesh%KP1
-    ELSE
-      this%KNUM = Mesh%KMAX-Mesh%KMIN+1
-    END IF
+    ! set local array dimensions (frequently used)
+    this%INUM = Mesh%IMAX-Mesh%IMIN+1
+    this%JNUM = Mesh%JMAX-Mesh%JMIN+1
+    this%KNUM = Mesh%KMAX-Mesh%KMIN+1
 
+#ifdef PARALLEL
     ! create the data type for the distributed array of
     ! coordinates and simulation data
-    gsizes(1)    = Mesh%INUM
-    gsizes(2)    = Mesh%JNUM
-    gsizes(3)    = Mesh%KNUM
-    lsizes(1)    = Mesh%IMAX-Mesh%IMIN+1
-    lsizes(2)    = Mesh%JMAX-Mesh%JMIN+1
-    lsizes(3)    = Mesh%KMAX-Mesh%KMIN+1
-    indices(1)   = Mesh%IMIN-1
-    indices(2)   = Mesh%JMIN-1
-    indices(3)   = Mesh%KMIN-1
+    gsizes(1:3)  = (/ Mesh%INUM, Mesh%JNUM, Mesh%KNUM /)
+    lsizes(1:3)  = (/ this%INUM, this%JNUM, this%KNUM /)
+    indices(1:3) = (/ Mesh%IMIN-1, Mesh%JMIN-1, Mesh%KMIN-1 /)
     this%bufsize = PRODUCT(lsizes)
     this%err = 0
     SELECT TYPE(df=>this%datafile)
@@ -206,19 +183,19 @@ CONTAINS
 
     ! create the data type for the distributed array of
     ! mesh corner positions
-    gsizes(1)  = Mesh%INUM+1
-    gsizes(2)  = Mesh%JNUM+1
-    gsizes(3)  = Mesh%KNUM+1
-    lsizes(1)  = this%INUM
-    lsizes(2)  = this%JNUM
-    lsizes(3)  = this%KNUM
-    indices(1) = Mesh%IMIN-1
-    indices(2) = Mesh%JMIN-1
-    indices(3)= Mesh%KMIN-1
-    this%cbufsize = PRODUCT(lsizes)
+    this%clsizes(:) = lsizes(:)
+    WHERE ((/Mesh%INUM,Mesh%JNUM,Mesh%KNUM/).GT.1)
+      ! add +1 to the global size if dimension has real extend,i.e. not one cell
+      gsizes(:) = gsizes(:)+1
+      WHERE ((/Mesh%INUM,Mesh%JNUM,Mesh%KNUM/).EQ.(/Mesh%IMAX,Mesh%JMAX,Mesh%KMAX/))
+        ! add +1 to the local size if process contains the outermost domain
+        this%clsizes(:) = lsizes(:)+1
+      END WHERE
+    END WHERE
+    this%cbufsize = PRODUCT(this%clsizes)
     SELECT TYPE(df=>this%datafile)
     CLASS IS(filehandle_mpi)
-      IF (this%err.EQ.0) CALL MPI_Type_create_subarray(3, gsizes, lsizes, indices, MPI_ORDER_FORTRAN,&
+      IF (this%err.EQ.0) CALL MPI_Type_create_subarray(3, gsizes, this%clsizes, indices, MPI_ORDER_FORTRAN,&
           DEFAULT_MPI_REAL,df%cfiletype,this%err)
       IF (this%err.EQ.0) CALL MPI_Type_commit(df%cfiletype,this%err)
     END SELECT
@@ -229,73 +206,6 @@ CONTAINS
 #endif
   END SUBROUTINE InitFileio_binary
 
-!   !> \public Specific routine to open a file for binary I/O
-!   !!
-!   SUBROUTINE OpenFile(this,action)
-!     IMPLICIT NONE
-!     !------------------------------------------------------------------------!
-!     CLASS(fileio_binary), INTENT(INOUT) :: this    !< \param [in,out] this fileio type
-!     INTEGER                             :: action  !< \param [in] action mode of file access
-!     !------------------------------------------------------------------------!
-! #ifdef PARALLEL
-!     INTEGER(KIND=MPI_OFFSET_KIND) :: offset  !< \param [in] offset offset for MPI
-! #endif
-!     !------------------------------------------------------------------------!
-!     INTENT(IN)                    :: action
-!     !------------------------------------------------------------------------!
-!     SELECT CASE(action)
-!     CASE(READONLY)
-! #ifdef PARALLEL
-!        CALL MPI_File_open(MPI_COMM_WORLD,this%GetFilename(),MPI_MODE_RDONLY, &
-!             MPI_INFO_NULL,this%handle,this%err)
-!         this%offset = 0
-!        CALL MPI_File_seek(this%handle,this%offset,MPI_SEEK_SET,this%err)
-! #else
-!        OPEN(this%unit,FILE=this%GetFilename(),STATUS="OLD", &
-!             ACCESS = 'STREAM' ,   &
-!             ACTION="READ",POSITION="REWIND",IOSTAT=this%err)
-! #endif
-!     CASE(READEND)
-! #ifdef PARALLEL
-!        CALL MPI_File_open(MPI_COMM_WORLD,this%GetFilename(),IOR(MPI_MODE_RDONLY,&
-!             MPI_MODE_APPEND),MPI_INFO_NULL,this%handle,this%err)
-!        ! opening in append mode doesn't seem to work for pvfs2, hence ...
-!        offset = 0
-!        CALL MPI_File_seek(this%handle,offset,MPI_SEEK_END,this%err)
-!        CALL MPI_File_sync(this%handle,this%err)
-! #else
-!        OPEN(this%unit,FILE=this%GetFilename(),STATUS="OLD", &
-!             ACCESS = 'STREAM' ,   &
-!             ACTION="READ",POSITION="APPEND",IOSTAT=this%err)
-! #endif
-!     CASE(REPLACE)
-! #ifdef PARALLEL
-!        CALL MPI_File_delete(this%GetFilename(),MPI_INFO_NULL,this%err)
-!        CALL MPI_File_open(MPI_COMM_WORLD,this%GetFilename(),IOR(MPI_MODE_WRONLY,&
-!             MPI_MODE_CREATE),MPI_INFO_NULL,this%handle,this%err)
-! #else
-!        OPEN(this%unit,FILE=this%GetFilename(),STATUS="REPLACE",&
-!             ACCESS = 'STREAM' ,   &
-!             ACTION="WRITE",POSITION="REWIND",IOSTAT=this%err)
-! #endif
-!     CASE(APPEND)
-! #ifdef PARALLEL
-!        CALL MPI_File_open(MPI_COMM_WORLD,this%GetFilename(),IOR(MPI_MODE_RDWR,&
-!             MPI_MODE_APPEND),MPI_INFO_NULL,this%handle,this%err)
-!        ! opening in append mode doesn't seem to work for pvfs2, hence ...
-!        offset = 0
-!        CALL MPI_File_seek(this%handle,offset,MPI_SEEK_END,this%err)
-!        CALL MPI_File_sync(this%handle,this%err)
-! #else
-!        OPEN(this%unit,FILE=this%GetFilename(),STATUS="OLD",&
-!             ACCESS = 'STREAM' ,   &
-!             ACTION="READWRITE",POSITION="APPEND",IOSTAT=this%err)
-! #endif
-!     CASE DEFAULT
-!        CALL this%Error("OpenFile","Unknown access mode.")
-!     END SELECT
-!   END SUBROUTINE OpenFile
-! 
   !> \public Write the file header
   !! The header is written in ASCII and is 13 Byte long.
   !! First a "magic" identifier is written, than the endianness (II=little,
@@ -503,7 +413,7 @@ CONTAINS
     INTEGER                                 :: bytes,k,l
     CHARACTER(LEN=1), DIMENSION(:), POINTER :: val
 #ifdef PARALLEL
-    OFFSET_TYPE                             :: omax,omin
+    INTEGER(KIND=MPI_OFFSET_KIND)           :: omax,omin
 #endif
     !------------------------------------------------------------------------!
     INTENT(IN)                              :: key
@@ -527,7 +437,7 @@ CONTAINS
     END SELECT
 
     IF(PRODUCT(dims).GT.1) THEN
-      CALL this%SetMeshDims(Mesh,dims)
+      CALL this%SetOutputDims(Mesh,dims)
       bytes = PRODUCT(dims(1:3)) * this%realsize
       CALL this%WriteKey(key,GetDataType(node),&
         PRODUCT(dims)*this%realsize,dims)
@@ -555,7 +465,7 @@ CONTAINS
             ELSE IF(this%HasCornerDims(Mesh,SHAPE(ptr3))) THEN
               CALL MPI_File_set_view(df%GetUnitNumber(),this%offset,DEFAULT_MPI_REAL,&
                     df%cfiletype, 'native', MPI_INFO_NULL, this%err)
-              CALL MPI_File_write_all(df%GetUnitNumber(),ptr3(1:this%inum,1:this%jnum,1:this%knum),&
+              CALL MPI_File_write_all(df%GetUnitNumber(),ptr3(1:this%clsizes(1),1:this%clsizes(2),1:this%clsizes(3)),&
                     this%cbufsize,DEFAULT_MPI_REAL,df%status,this%err)
             ELSE
               CALL MPI_File_set_view(df%GetUnitNumber(),this%offset,MPI_BYTE,&
@@ -669,15 +579,13 @@ CONTAINS
     !------------------------------------------------------------------------!
     CLASS(fileio_binary), INTENT(INOUT) :: this !< \param [in] this type
     CLASS(mesh_base), INTENT(IN)        :: Mesh !< \param [in] mesh mesh type
-    INTEGER, DIMENSION(:)               :: dims
+    INTEGER, DIMENSION(:), INTENT(IN)   :: dims !< \param [in] dims array dimensions
     LOGICAL                             :: res
     !------------------------------------------------------------------------!
-    INTENT(IN)                          :: dims
-    !------------------------------------------------------------------------!
     IF(SIZE(dims).GE.3) THEN
-      res = (dims(1).EQ.(Mesh%IMAX-Mesh%IMIN+Mesh%ip1).OR.Mesh%INUM.EQ.1) &
-            .AND.(dims(2).EQ.(Mesh%JMAX-Mesh%JMIN+Mesh%jp1).OR.Mesh%JNUM.EQ.1) &
-            .AND.(dims(3).EQ.(Mesh%KMAX-Mesh%KMIN+Mesh%kp1).OR.Mesh%KNUM.EQ.1)
+      res = ALL(dims(1:3).EQ.(/Mesh%IMAX-Mesh%IMIN+1, &
+                               Mesh%JMAX-Mesh%JMIN+1, &
+                               Mesh%KMAX-Mesh%KMIN+1/))
     ELSE
       res = .FALSE.
     END IF
@@ -695,34 +603,34 @@ CONTAINS
     INTENT(IN)                          :: dims
     !------------------------------------------------------------------------!
     IF(SIZE(dims).GE.3) THEN
-      res = (dims(1).EQ.(Mesh%IMAX-Mesh%IMIN+Mesh%ip2).OR.Mesh%INUM.EQ.1) &
-            .AND.(dims(2).EQ.(Mesh%JMAX-Mesh%JMIN+Mesh%jp2).OR.Mesh%JNUM.EQ.1) &
-            .AND.(dims(3).EQ.(Mesh%KMAX-Mesh%KMIN+Mesh%kp2).OR.Mesh%KNUM.EQ.1)
+      ! remark: xP1 = 1 if xNUM > 1 and 0 if xNUM = 1 for x=I,J,K
+      res = ALL(dims(1:3).EQ.(/Mesh%IMAX-Mesh%IMIN+Mesh%IP1+1, &
+                               Mesh%JMAX-Mesh%JMIN+Mesh%JP1+1, &
+                               Mesh%KMAX-Mesh%KMIN+Mesh%KP1+1/))
     ELSE
       res = .FALSE.
     END IF
   END FUNCTION HasCornerDims
 
 
-  SUBROUTINE SetMeshDims(this,Mesh,dims)
+  SUBROUTINE SetOutputDims(this,Mesh,dims)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(fileio_binary), INTENT(INOUT) :: this
     CLASS(mesh_base), INTENT(IN)        :: Mesh
-    INTEGER, DIMENSION(:)               :: dims
-    !------------------------------------------------------------------------!
-    INTENT(INOUT)                       :: dims
+    INTEGER, DIMENSION(:), INTENT(INOUT):: dims
     !------------------------------------------------------------------------!
     IF(this%HasMeshDims(Mesh,dims)) THEN
-      dims(1) = Mesh%INUM
-      dims(2) = Mesh%JNUM
-      dims(3) = Mesh%KNUM
+      dims(1:3) = (/Mesh%INUM,Mesh%JNUM,Mesh%KNUM/)
     ELSE IF(this%HasCornerDims(Mesh,dims)) THEN
-      dims(1) = Mesh%INUM+Mesh%ip1
-      dims(2) = Mesh%JNUM+Mesh%jp1
-      dims(3) = Mesh%KNUM+Mesh%kp1
+      dims(1:3) = (/Mesh%INUM,Mesh%JNUM,Mesh%KNUM/)
+      WHERE ((/Mesh%INUM,Mesh%JNUM,Mesh%KNUM/).GT.1)
+        ! add +1 to the global size to write one additional data point
+        ! in each dimension which has extend larger than 1
+        dims(:) = dims(:) + 1
+      END WHERE
     END IF
-  END SUBROUTINE SetMeshDims
+  END SUBROUTINE SetOutputDims
 
 
   !> \public Writes all desired data arrays to a file
@@ -758,23 +666,6 @@ CONTAINS
 !    INTENT(INOUT)     :: this,Timedisc
 !    !------------------------------------------------------------------------!
 !  END SUBROUTINE ReadDataset_binary
-
-!   !> \public routine to close a file
-!   !!
-!   SUBROUTINE CloseFile(this)
-!     IMPLICIT NONE
-!     !------------------------------------------------------------------------!
-!     CLASS(fileio_binary), INTENT(INOUT) :: this  !< \param [in,out] this fileio type
-! #ifndef PARALLEL
-!     INTEGER                             :: err
-! #endif
-!     !------------------------------------------------------------------------!
-! #ifdef PARALLEL
-!     CALL MPI_File_close(this%handle,this%err)
-! #else
-!     CLOSE(this%unit,IOSTAT=err)
-! #endif
-!   END SUBROUTINE CloseFile
 
   !> \public Closes the file I/O
   !!
