@@ -48,17 +48,18 @@ PROGRAM bondi3d
   REAL, PARAMETER    :: MSUN    = 1.989E+30   ! solar mass [kg]              !
   REAL, PARAMETER    :: GN      = 6.67408E-11 ! gravitional constant (SI)    !
   ! simulation parameters
-  REAL, PARAMETER    :: TSIM    = 20.0        ! simulation time [TAU]        !
+  REAL, PARAMETER    :: TSIM    = 50.0        ! simulation time [TAU]        !
   REAL, PARAMETER    :: ACCMASS = 1.0*MSUN    ! mass of the accreting object !
   REAL, PARAMETER    :: GAMMA   = 1.4         ! ratio of specific heats      !
   ! boundary conditions
   REAL, PARAMETER    :: RHOINF  = 3.351E-17   ! density at infinity [kg/m^3] !
   REAL, PARAMETER    :: CSINF   = 537.0       ! sound speed at infinity [m/s]!
   ! mesh settings
-  INTEGER, PARAMETER :: MGEO    = SPHERICAL   ! geometry of the mesh         !
-  INTEGER, PARAMETER :: XRES    = 100          ! x-resolution                 !
-  INTEGER, PARAMETER :: YRES    = 4           ! y-resolution                 !
-  INTEGER, PARAMETER :: ZRES    = 4           ! z-resolution                 !
+!   INTEGER, PARAMETER :: MGEO    = SPHERICAL   ! geometry of the mesh         !
+  INTEGER, PARAMETER :: MGEO    = LOGSPHERICAL
+  INTEGER, PARAMETER :: XRES    = 16          ! x-resolution                 !
+  INTEGER, PARAMETER :: YRES    = 6           ! y-resolution                 !
+  INTEGER, PARAMETER :: ZRES    = 12          ! z-resolution                 !
   REAL, PARAMETER    :: RIN     = 0.1         ! inner/outer radii in terms of!
   REAL, PARAMETER    :: ROUT    = 2.0         ! the Bondi radius RB, ROUT > 1!
   ! output parameters
@@ -103,12 +104,9 @@ TAP_PLAN(4)
     DO n=1,Sim%Physics%VNUM
       ! use L1 norm to estimate the deviation from the exact solution:
       !   Σ |pvar - pvar_exact| / Σ |pvar_exact|
-      sum_numer = SUM(ABS(Sim%Timedisc%pvar%data4d(Sim%Mesh%IMIN:Sim%Mesh%IMAX,&
-                           Sim%Mesh%JMIN:Sim%Mesh%JMAX,Sim%Mesh%KMIN:Sim%Mesh%KMAX,n) &
-                        -Sim%Timedisc%solution%data4d(Sim%Mesh%IMIN:Sim%Mesh%IMAX,&
-                           Sim%Mesh%JMIN:Sim%Mesh%JMAX,Sim%Mesh%KMIN:Sim%Mesh%KMAX,n)))
-      sum_denom = SUM(ABS(Sim%Timedisc%solution%data4d(Sim%Mesh%IMIN:Sim%Mesh%IMAX,&
-                           Sim%Mesh%JMIN:Sim%Mesh%JMAX,Sim%Mesh%KMIN:Sim%Mesh%KMAX,n)))
+      sum_numer = SUM(ABS(Sim%Timedisc%pvar%data2d(:,n)-Sim%Timedisc%solution%data2d(:,n)), &
+                          MASK=Sim%Mesh%without_ghost_zones%mask1d(:))
+      sum_denom = SUM(ABS(Sim%Timedisc%solution%data2d(:,n)),MASK=Sim%Mesh%without_ghost_zones%mask1d(:))
 #ifdef PARALLEL
       IF (Sim%GetRank().GT.0) THEN
         CALL MPI_Reduce(sum_numer,sum_numer,1,DEFAULT_MPI_REAL,MPI_SUM,0,MPI_COMM_WORLD,Sim%ierror)
@@ -135,10 +133,10 @@ TAP_PLAN(4)
 #endif
 TAP_CHECK(ok,"stoptime reached")
 ! These lines are very long if expanded. So we can't indent it or it will be cropped.
-TAP_CHECK_SMALL(sigma(DEN),4.0E-02,"density deviation < 4%")
-TAP_CHECK_SMALL(sigma(VEL),4.0E-02,"radial velocity deviation < 4%")
+TAP_CHECK_SMALL(sigma(DEN),2.0E-02,"density deviation < 2%")
+TAP_CHECK_SMALL(sigma(VEL),2.0E-02,"radial velocity deviation < 2%")
 ! skip azimuthal velocity deviation, because exact value is 0
-TAP_CHECK_SMALL(sigma(PRE),6.0E-02,"pressure deviation < 6%")
+TAP_CHECK_SMALL(sigma(PRE),1.0E-02,"pressure deviation < 1%")
 TAP_DONE
 #ifdef PARALLEL
   END IF
@@ -173,6 +171,19 @@ CONTAINS
     CASE(SPHERICAL)
       x1 = RIN * RB
       x2 = ROUT * RB
+      y1 = 0.0
+      y2 = PI
+      z1 = 0.0
+      z2 = 2*PI
+      bc(WEST)   = ABSORBING
+      bc(EAST)   = CUSTOM
+      bc(SOUTH)  = AXIS
+      bc(NORTH)  = AXIS
+      bc(BOTTOM) = PERIODIC
+      bc(TOP)    = PERIODIC
+    CASE(LOGSPHERICAL)
+      x1 = LOG(RIN)
+      x2 = LOG(ROUT)
       y1 = 0.0
       y2 = PI
       z1 = 0.0
@@ -243,11 +254,11 @@ CONTAINS
           "stoptime"    / (TSIM * TAU), &
           "dtlimit"     / (1.0E-6 * TAU), &
           "output/solution" / 1, &
-          "maxiter"     / 20000)
+          "maxiter"     / 100000)
 
     ! initialize data input/output
     datafile => Dict( &
-          "fileformat"  / VTK, &
+          "fileformat"  / XDMF, &
           "filename"    / (TRIM(ODIR) // TRIM(OFNAME)), &
           "count"       / ONUM)
 
