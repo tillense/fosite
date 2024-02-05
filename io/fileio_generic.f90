@@ -49,37 +49,37 @@ MODULE fileio_generic_mod
 CONTAINS
 
   !> constructor for FileIO class
-  FUNCTION new_fileio(Mesh,Physics,Timedisc,Sources,config,IO) RESULT(new_fio)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(mesh_base),     INTENT(IN)          :: Mesh
-    CLASS(physics_base),  INTENT(IN)          :: Physics
-    CLASS(timedisc_base), INTENT(IN)          :: Timedisc
-    CLASS(sources_base),  INTENT(IN), POINTER :: Sources
-    TYPE(DICT_TYP),       INTENT(IN), POINTER :: config
-    TYPE(DICT_TYP),       INTENT(IN), POINTER ::  IO
-    !------------------------------------------------------------------------!
-    CLASS(fileio_base), ALLOCATABLE           :: new_fio
-    INTEGER                                   :: fileformat
-    !------------------------------------------------------------------------!
-    CALL GetAttr(config,"fileformat",fileformat)
+  SUBROUTINE new_fileio(Fileio,Mesh,Physics,Timedisc,Sources,config,IO)
+      IMPLICIT NONE
+      !------------------------------------------------------------------------!
+      CLASS(fileio_base), ALLOCATABLE           :: Fileio
+      CLASS(mesh_base),     INTENT(IN)          :: Mesh
+      CLASS(physics_base),  INTENT(IN)          :: Physics
+      CLASS(timedisc_base), INTENT(IN)          :: Timedisc
+      CLASS(sources_base),  INTENT(IN), POINTER :: Sources
+      TYPE(DICT_TYP),       INTENT(IN), POINTER :: config
+      TYPE(DICT_TYP),       INTENT(IN), POINTER ::  IO
+      !------------------------------------------------------------------------!
+      INTEGER                                   :: fileformat
+      !------------------------------------------------------------------------!
+      CALL GetAttr(config,"fileformat",fileformat)
 
-    ! allocate data
-    SELECT CASE(fileformat)
-    CASE(GNUPLOT)
-      ALLOCATE(fileio_gnuplot::new_fio)
-    CASE(VTK)
-      ALLOCATE(fileio_vtk::new_fio)
-    CASE(BINARY)
-      ALLOCATE(fileio_binary::new_fio)
-    CASE(XDMF)
-      ALLOCATE(fileio_xdmf::new_fio)
-    CASE DEFAULT
-      CALL Mesh%Error("fileio_generic::new_fileio","Unknown file format.")
-    END SELECT
+      ! allocate data
+      SELECT CASE(fileformat)
+      CASE(GNUPLOT)
+        ALLOCATE(fileio_gnuplot::Fileio)
+      CASE(VTK)
+        ALLOCATE(fileio_vtk::Fileio)
+      CASE(BINARY)
+        ALLOCATE(fileio_binary::Fileio)
+      CASE(XDMF)
+        ALLOCATE(fileio_xdmf::Fileio)
+      CASE DEFAULT
+        CALL Fileio%Error("new_fileio","Unknown filetype.")
+      END SELECT
 
-    ! call initialization
-    CALL new_fio%InitFileIO(Mesh,Physics,Timedisc,Sources,config,IO)
-  END FUNCTION new_fileio
+      ! call initialization
+      CALL Fileio%InitFileIO(Mesh,Physics,Timedisc,Sources,config,IO)
+    END SUBROUTINE
 
 END MODULE fileio_generic_mod
