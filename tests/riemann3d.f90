@@ -42,9 +42,9 @@ PROGRAM riemann3d
   REAL, PARAMETER    :: GAMMA = 1.4        ! ratio of specific heats
   ! mesh settings
   INTEGER, PARAMETER :: MGEO = CYLINDRICAL ! geometry
-  INTEGER, PARAMETER :: XRES  = 150        ! x-resolution
-  INTEGER, PARAMETER :: YRES  = 1         ! y-resolution
-  INTEGER, PARAMETER :: ZRES  = 100        ! y-resolution
+  INTEGER, PARAMETER :: XRES  = 150        ! r-resolution
+  INTEGER, PARAMETER :: YRES  = 1          ! phi-resolution
+  INTEGER, PARAMETER :: ZRES  = 100        ! z-resolution
   ! output parameters
   INTEGER, PARAMETER :: ONUM = 7           ! number of output data sets
   CHARACTER(LEN=256), PARAMETER &          ! output data dir
@@ -97,8 +97,8 @@ CONTAINS
                "knum" / ZRES, &
                "xmin" / 0.0, &
                "xmax" / 1.5, &
-               "ymin" / (-PI), &
-               "ymax" / PI, &
+               "ymin" / 0.0, &
+               "ymax" / (2*PI), &
                "zmin" / 0.0, &
                "zmax" / 1.0, &
              "gparam" / 1.0)
@@ -134,7 +134,7 @@ CONTAINS
 
     ! initialize data input/output
     datafile => Dict( &
-            "fileformat" / VTK, &
+            "fileformat" / XDMF, &
             "filename"   / (TRIM(ODIR) // TRIM(OFNAME)), &
             "count"      / ONUM)
 
