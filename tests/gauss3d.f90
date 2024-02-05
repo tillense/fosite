@@ -46,7 +46,7 @@ PROGRAM gauss3d
   REAL, PARAMETER     :: RHO1     = 1.0      ! peak density above RHO0
   REAL, PARAMETER     :: RWIDTH   = 0.06     ! half width of the Gaussian
   REAL, PARAMETER     :: P0       = 1.0      ! ambient pressure
-  REAL, PARAMETER     :: P1       = 100.0      ! peak pressure above P0
+  REAL, PARAMETER     :: P1       = 1.0      ! peak pressure above P0
   REAL, PARAMETER     :: PWIDTH   = 0.06     ! half width of the Gaussian
   REAL, PARAMETER     :: OMEGA0   = 0.0      ! angular velocity
   REAL, PARAMETER     :: ETA      = 0.0      ! dynamic viscosity (0.0 disables)
@@ -226,7 +226,7 @@ CONTAINS
             "maxiter"   / 10000000)
 
     datafile => Dict( &
-            "fileformat" / VTK, &
+            "fileformat" / XDMF, &
             "filename"   / (TRIM(ODIR) // TRIM(OFNAME)), &
             "count"      / ONUM)
 
