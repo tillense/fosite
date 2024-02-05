@@ -1,9 +1,9 @@
 !#############################################################################
 !#                                                                           #
 !# fosite - 3D hydrodynamical simulation program                             #
-!# module: KHI.f90                                                           #
+!# module: KHI3D.f90                                                         #
 !#                                                                           #
-!# Copyright (C) 2006-2012                                                   #
+!# Copyright (C) 2006-2024                                                   #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
 !# Jubin Lirawi     <jlirawi@astrophysik.uni-kiel.de>                        #
 !#                                                                           #
@@ -52,115 +52,145 @@ PROGRAM KHI
   REAL, PARAMETER    :: P1   = P0          !   pressure
   ! mesh settings
   INTEGER, PARAMETER :: MGEO = CARTESIAN   ! geometry of the mesh
-  INTEGER, PARAMETER :: RES  = 10          ! resolution
+  INTEGER, PARAMETER :: RES  = 8          ! resolution
   REAL, PARAMETER    :: XYZLEN= 1.0        ! spatial extend
   ! output file parameter
-  INTEGER, PARAMETER :: ONUM = 10          ! number of output data sets
+  INTEGER, PARAMETER :: ONUM = 1           ! number of output data sets
   CHARACTER(LEN=256), PARAMETER &          ! output data dir
                      :: ODIR = './'
   CHARACTER(LEN=256), PARAMETER &          ! output data file name
                      :: OFNAME = 'KHI'
   !--------------------------------------------------------------------------!
-!  TYPE(fosite_TYP)   :: Sim
-  INTEGER            :: n
-  INTEGER            :: i,j,k
+  CLASS(fosite), ALLOCATABLE   :: Sim
+  !--------------------------------------------------------------------------!
+  INTEGER            :: i,j,k,n,clock
   REAL               :: sigma_1,sigma_2,sigma_3,sigma_4,sigma_5,sigma_6
   INTEGER, DIMENSION(:), ALLOCATABLE    :: seed
   REAL, DIMENSION(:,:,:,:), ALLOCATABLE :: &
-         pvar_xy,pvar_xz,pvar_yx,pvar_yz,pvar_zx,pvar_zy, pvar_temp
+         pvar_xy,pvar_yx,pvar_xz,pvar_zx,pvar_yz,pvar_zy, pvar_temp, dv, dv_temp
   !--------------------------------------------------------------------------!
-  CLASS(fosite), ALLOCATABLE   :: Sim
-  !--------------------------------------------------------------------------!
-  TAP_PLAN(6)
-
-  ! allocate memory for random seed variable
-  CALL RANDOM_SEED(size=n)
-  ALLOCATE(seed(n))
-
-  ! test flow along x-direction
   ALLOCATE(Sim)
   CALL Sim%InitFosite()
+#ifdef PARALLEL
+  CALL Sim%Warning("KHI3d::main","in parallel mode the symmetry test currently works only for xy-direction")
+  TAP_PLAN(1)
+#else
+  TAP_PLAN(6)
+#endif
+  ! allocate memory for random seed variable
+  CALL RANDOM_SEED(SIZE=n)
+  ALLOCATE(seed(n))
+  ! initialize the seed with a mix from current time and mpi rank
+  CALL SYSTEM_CLOCK(COUNT=clock)
+  seed = clock + (Sim%GetRank()+1) * (/(i-1, i=1,n)/)
+  CALL RANDOM_SEED(PUT=seed)
+
+  ! flow parallel to x-y-plane
+  ! 1. along the x-direction
   CALL MakeConfig(Sim, Sim%config)
+#ifdef PARALLEL
+  ! decompose computational domain along z-direction only
+  CALL SetAttr(Sim%config, "/mesh/decomposition", (/1,1,-1/))
+#endif
   CALL SetAttr(Sim%config, "/datafile/filename", (TRIM(ODIR) // TRIM(OFNAME) // "_xy"))
   CALL Sim%Setup()
-  ! allocate memory to store the result of the first run
-  ALLOCATE(pvar_xy(Sim%Mesh%IGMIN:Sim%Mesh%IGMAX,Sim%Mesh%JGMIN:Sim%Mesh%JGMAX,Sim%Mesh%KGMIN:Sim%Mesh%KGMAX,Sim%Physics%VNUM))
-  ALLOCATE(pvar_xz(Sim%Mesh%IGMIN:Sim%Mesh%IGMAX,Sim%Mesh%JGMIN:Sim%Mesh%JGMAX,Sim%Mesh%KGMIN:Sim%Mesh%KGMAX,Sim%Physics%VNUM))
-  ALLOCATE(pvar_yx(Sim%Mesh%IGMIN:Sim%Mesh%IGMAX,Sim%Mesh%JGMIN:Sim%Mesh%JGMAX,Sim%Mesh%KGMIN:Sim%Mesh%KGMAX,Sim%Physics%VNUM))
-  ALLOCATE(pvar_yz(Sim%Mesh%IGMIN:Sim%Mesh%IGMAX,Sim%Mesh%JGMIN:Sim%Mesh%JGMAX,Sim%Mesh%KGMIN:Sim%Mesh%KGMAX,Sim%Physics%VNUM))
-  ALLOCATE(pvar_zx(Sim%Mesh%IGMIN:Sim%Mesh%IGMAX,Sim%Mesh%JGMIN:Sim%Mesh%JGMAX,Sim%Mesh%KGMIN:Sim%Mesh%KGMAX,Sim%Physics%VNUM))
-  ALLOCATE(pvar_zy(Sim%Mesh%IGMIN:Sim%Mesh%IGMAX,Sim%Mesh%JGMIN:Sim%Mesh%JGMAX,Sim%Mesh%KGMIN:Sim%Mesh%KGMAX,Sim%Physics%VNUM))
-  ALLOCATE(pvar_temp(Sim%Mesh%IGMIN:Sim%Mesh%IGMAX,Sim%Mesh%JGMIN:Sim%Mesh%JGMAX,Sim%Mesh%KGMIN:Sim%Mesh%KGMAX,Sim%Physics%VNUM))
-  CALL InitData(Sim%Mesh, Sim%Physics, Sim%Timedisc,'xy',.FALSE.)
-  CALL Sim%Run()
-  pvar_xy(:,:,:,:) = SIM%Timedisc%pvar%data4d(:,:,:,:)
-  CALL Sim%Finalize(.FALSE.)
-  DEALLOCATE(SIM)
 
-  ! test flow along y-direction
+  CALL InitData(Sim%Mesh, Sim%Physics, Sim%Timedisc,'xy')
+  CALL Sim%Run()
+  ! allocate memory and store the results
+  ALLOCATE(pvar_xy,SOURCE=Sim%Timedisc%pvar%data4d,STAT=Sim%err)
+  IF (Sim%err.NE.0) CALL Sim%Error("KHI3D:main","memory allocation failed for pvar_xy")
+  CALL Sim%Finalize(mpifinalize_=.FALSE.)
+  DEALLOCATE(Sim)
+
+  ! 2. along the y-direction
   ALLOCATE(Sim)
   CALL Sim%InitFosite()
   CALL MakeConfig(Sim, Sim%config)
+  ! decompose computational domain along z-direction only
   CALL SetAttr(Sim%config, "/datafile/filename", (TRIM(ODIR) // TRIM(OFNAME) // "_yx"))
   CALL Sim%Setup()
-  CALL InitData(Sim%Mesh, Sim%Physics, Sim%Timedisc,'yx',.TRUE.)
+  CALL InitData(Sim%Mesh, Sim%Physics, Sim%Timedisc,'yx')
   CALL Sim%Run()
-  pvar_yx(:,:,:,:) = Sim%Timedisc%pvar%data4d(:,:,:,:)
-  CALL Sim%Finalize(.FALSE.)
+  ! allocate memory and store the results
+  ALLOCATE(pvar_yx,SOURCE=Sim%Timedisc%pvar%data4d,STAT=Sim%err)
+  IF (Sim%err.NE.0) CALL Sim%Error("KHI3D:main","memory allocation failed for pvar_yx")
+#ifndef PARALLEL
+  CALL Sim%Finalize(mpifinalize_=.FALSE.)
   DEALLOCATE(Sim)
 
-  ! test flow along z-direction
+  ! flow parallel to x-z-plane
+  ! 1. along the x-direction
   ALLOCATE(Sim)
   CALL Sim%InitFosite()
   CALL MakeConfig(Sim, Sim%config)
   CALL SetAttr(Sim%config, "/datafile/filename", (TRIM(ODIR) // TRIM(OFNAME) // "_xz"))
   CALL Sim%Setup()
-  CALL InitData(Sim%Mesh, Sim%Physics, Sim%Timedisc,'xz',.TRUE.)
+  CALL InitData(Sim%Mesh, Sim%Physics, Sim%Timedisc,'xz')
   CALL Sim%Run()
-  pvar_xz(:,:,:,:) = Sim%Timedisc%pvar%data4d(:,:,:,:)
-  CALL Sim%Finalize(.FALSE.)
+  ! allocate memory and store the results
+  ALLOCATE(pvar_xz,SOURCE=Sim%Timedisc%pvar%data4d,STAT=Sim%err)
+  IF (Sim%err.NE.0) CALL Sim%Error("KHI3D:main","memory allocation failed for pvar_xz")
+  CALL Sim%Finalize(mpifinalize_=.FALSE.)
   DEALLOCATE(Sim)
 
+  ! 2. along the z-direction
   ALLOCATE(Sim)
   CALL Sim%InitFosite()
   CALL MakeConfig(Sim, Sim%config)
   CALL SetAttr(Sim%config, "/datafile/filename", (TRIM(ODIR) // TRIM(OFNAME) // "_zx"))
   CALL Sim%Setup()
-  CALL InitData(Sim%Mesh, Sim%Physics, Sim%Timedisc,'zx',.TRUE.)
+  CALL InitData(Sim%Mesh, Sim%Physics, Sim%Timedisc,'zx')
   CALL Sim%Run()
-  pvar_zx(:,:,:,:) = Sim%Timedisc%pvar%data4d(:,:,:,:)
-  CALL Sim%Finalize(.FALSE.)
+  ! allocate memory and store the results
+  ALLOCATE(pvar_zx,SOURCE=Sim%Timedisc%pvar%data4d,STAT=Sim%err)
+  IF (Sim%err.NE.0) CALL Sim%Error("KHI3D:main","memory allocation failed for pvar_zx")
+  CALL Sim%Finalize(mpifinalize_=.FALSE.)
   DEALLOCATE(Sim)
 
+  ! flow parallel to y-z-plane
+  ! 1. along the z-direction
   ALLOCATE(Sim)
   CALL Sim%InitFosite()
   CALL MakeConfig(Sim, Sim%config)
   CALL SetAttr(Sim%config, "/datafile/filename", (TRIM(ODIR) // TRIM(OFNAME) // "_zy"))
   CALL Sim%Setup()
-  CALL InitData(Sim%Mesh, Sim%Physics, Sim%Timedisc,'zy',.TRUE.)
+  CALL InitData(Sim%Mesh, Sim%Physics, Sim%Timedisc,'zy')
   CALL Sim%Run()
-  pvar_zy(:,:,:,:) = Sim%Timedisc%pvar%data4d(:,:,:,:)
-  CALL Sim%Finalize(.FALSE.)
+  ! allocate memory and store the results
+  ALLOCATE(pvar_zy,SOURCE=Sim%Timedisc%pvar%data4d,STAT=Sim%err)
+  IF (Sim%err.NE.0) CALL Sim%Error("KHI3D:main","memory allocation failed for pvar_zy")
+  CALL Sim%Finalize(mpifinalize_=.FALSE.)
   DEALLOCATE(Sim)
 
+  ! 1. along the y-direction
   ALLOCATE(Sim)
   CALL Sim%InitFosite()
   CALL MakeConfig(Sim, Sim%config)
   CALL SetAttr(Sim%config, "/datafile/filename", (TRIM(ODIR) // TRIM(OFNAME) // "_yz"))
   CALL Sim%Setup()
-  CALL InitData(Sim%Mesh, Sim%Physics, Sim%Timedisc,'yz',.TRUE.)
+  CALL InitData(Sim%Mesh, Sim%Physics, Sim%Timedisc,'yz')
   CALL Sim%Run()
-  pvar_yz(:,:,:,:) = Sim%Timedisc%pvar%data4d(:,:,:,:)
+  ! allocate memory and store the results
+  ALLOCATE(pvar_yz,SOURCE=Sim%Timedisc%pvar%data4d,STAT=Sim%err)
+  IF (Sim%err.NE.0) CALL Sim%Error("KHI3D:main","memory allocation failed for pvar_yz")
+#endif
 
-   DO k=Sim%Mesh%KGMIN, Sim%Mesh%KGMAX
-    pvar_temp(:,:,k,Sim%Physics%DENSITY)   = TRANSPOSE(pvar_xy(:,:,k,Sim%Physics%DENSITY))
-    pvar_temp(:,:,k,Sim%Physics%XVELOCITY) = TRANSPOSE(pvar_xy(:,:,k,Sim%Physics%YVELOCITY))
-    pvar_temp(:,:,k,Sim%Physics%YVELOCITY) = TRANSPOSE(pvar_xy(:,:,k,Sim%Physics%XVELOCITY))
-    pvar_temp(:,:,k,Sim%Physics%ZVELOCITY) = TRANSPOSE(pvar_xy(:,:,k,Sim%Physics%ZVELOCITY))
-    pvar_temp(:,:,k,Sim%Physics%ENERGY)    = TRANSPOSE(pvar_xy(:,:,k,Sim%Physics%ENERGY))
+  ALLOCATE(pvar_temp,MOLD=pvar_yx,STAT=Sim%err)
+  IF (Sim%err.NE.0) CALL Sim%Error("KHI3D:main","memory allocation failed for pvar_temp")
+  DO k=Sim%Mesh%KGMIN,Sim%Mesh%KGMAX
+      pvar_temp(:,:,k,Sim%Physics%DENSITY)   = TRANSPOSE(pvar_xy(:,:,k,Sim%Physics%DENSITY))
+      pvar_temp(:,:,k,Sim%Physics%XVELOCITY) = TRANSPOSE(pvar_xy(:,:,k,Sim%Physics%YVELOCITY))
+      pvar_temp(:,:,k,Sim%Physics%YVELOCITY) = TRANSPOSE(pvar_xy(:,:,k,Sim%Physics%XVELOCITY))
+      pvar_temp(:,:,k,Sim%Physics%ZVELOCITY) = TRANSPOSE(pvar_xy(:,:,k,Sim%Physics%ZVELOCITY))
+      pvar_temp(:,:,k,Sim%Physics%PRESSURE)  = TRANSPOSE(pvar_xy(:,:,k,Sim%Physics%PRESSURE))
   END DO
-  sigma_1 = SQRT(SUM((pvar_temp(:,:,:,:) -  pvar_yx(:,:,:,:))**2)/SIZE(pvar_temp))
+  sigma_1 = SQRT(SUM((pvar_temp(:,:,:,:) - pvar_yx(:,:,:,:))**2)/SIZE(pvar_temp))
+  DEALLOCATE(pvar_temp)
 
+#ifndef PARALLEL
+  ALLOCATE(pvar_temp,MOLD=pvar_zx,STAT=Sim%err)
+  IF (Sim%err.NE.0) CALL Sim%Error("KHI3D:main","memory allocation failed for pvar_temp")
   DO j=Sim%Mesh%JGMIN, Sim%Mesh%JGMAX
     pvar_temp(:,j,:,Sim%Physics%DENSITY)   = TRANSPOSE(pvar_xz(:,j,:,Sim%Physics%DENSITY))
     pvar_temp(:,j,:,Sim%Physics%XVELOCITY) = TRANSPOSE(pvar_xz(:,j,:,Sim%Physics%ZVELOCITY))
@@ -169,8 +199,11 @@ PROGRAM KHI
     pvar_temp(:,j,:,Sim%Physics%ENERGY)    = TRANSPOSE(pvar_xz(:,j,:,Sim%Physics%ENERGY))
   END DO
   sigma_2 = SQRT(SUM((pvar_temp(:,:,:,:) -  pvar_zx(:,:,:,:))**2)/SIZE(pvar_temp))
+  DEALLOCATE(pvar_temp)
 
- DO i=Sim%Mesh%IGMIN, Sim%Mesh%IGMAX
+  ALLOCATE(pvar_temp,MOLD=pvar_yz,STAT=Sim%err)
+  IF (Sim%err.NE.0) CALL Sim%Error("KHI3D:main","memory allocation failed for pvar_temp")
+  DO i=Sim%Mesh%IGMIN,Sim%Mesh%IGMAX
     pvar_temp(i,:,:,Sim%Physics%DENSITY)   = TRANSPOSE(pvar_zy(i,:,:,Sim%Physics%DENSITY))
     pvar_temp(i,:,:,Sim%Physics%XVELOCITY) = TRANSPOSE(pvar_zy(i,:,:,Sim%Physics%XVELOCITY))
     pvar_temp(i,:,:,Sim%Physics%YVELOCITY) = TRANSPOSE(pvar_zy(i,:,:,Sim%Physics%ZVELOCITY))
@@ -178,8 +211,11 @@ PROGRAM KHI
     pvar_temp(i,:,:,Sim%Physics%ENERGY)    = TRANSPOSE(pvar_zy(i,:,:,Sim%Physics%ENERGY))
   END DO
   sigma_3 = SQRT(SUM((pvar_temp(:,:,:,:) -  pvar_yz(:,:,:,:))**2)/SIZE(pvar_temp))
+  DEALLOCATE(pvar_temp)
 
- DO k=Sim%Mesh%KGMIN, Sim%Mesh%KGMAX
+  ALLOCATE(pvar_temp,MOLD=pvar_zy,STAT=Sim%err)
+  IF (Sim%err.NE.0) CALL Sim%Error("KHI3D:main","memory allocation failed for pvar_temp")
+  DO k=Sim%Mesh%KGMIN, Sim%Mesh%KGMAX
     pvar_temp(:,:,k,Sim%Physics%DENSITY)   = TRANSPOSE(pvar_zx(:,:,k,Sim%Physics%DENSITY))
     pvar_temp(:,:,k,Sim%Physics%XVELOCITY) = TRANSPOSE(pvar_zx(:,:,k,Sim%Physics%YVELOCITY))
     pvar_temp(:,:,k,Sim%Physics%YVELOCITY) = TRANSPOSE(pvar_zx(:,:,k,Sim%Physics%XVELOCITY))
@@ -187,7 +223,10 @@ PROGRAM KHI
     pvar_temp(:,:,k,Sim%Physics%ENERGY)    = TRANSPOSE(pvar_zx(:,:,k,Sim%Physics%ENERGY))
   END DO
   sigma_4 = SQRT(SUM((pvar_temp(:,:,:,:) -  pvar_zy(:,:,:,:))**2)/SIZE(pvar_temp))
+  DEALLOCATE(pvar_temp)
 
+  ALLOCATE(pvar_temp,MOLD=pvar_yz,STAT=Sim%err)
+  IF (Sim%err.NE.0) CALL Sim%Error("KHI3D:main","memory allocation failed for pvar_temp")
   DO j=Sim%Mesh%JGMIN, Sim%Mesh%JGMAX
     pvar_temp(:,j,:,Sim%Physics%DENSITY)   = TRANSPOSE(pvar_yx(:,j,:,Sim%Physics%DENSITY))
     pvar_temp(:,j,:,Sim%Physics%XVELOCITY) = TRANSPOSE(pvar_yx(:,j,:,Sim%Physics%ZVELOCITY))
@@ -196,8 +235,11 @@ PROGRAM KHI
     pvar_temp(:,j,:,Sim%Physics%ENERGY)    = TRANSPOSE(pvar_yx(:,j,:,Sim%Physics%ENERGY))
   END DO
   sigma_5 = SQRT(SUM((pvar_temp(:,:,:,:) -  pvar_yz(:,:,:,:))**2)/SIZE(pvar_temp))
+  DEALLOCATE(pvar_temp)
 
- DO i=Sim%Mesh%IGMIN, Sim%Mesh%IGMAX
+  ALLOCATE(pvar_temp,MOLD=pvar_xz,STAT=Sim%err)
+  IF (Sim%err.NE.0) CALL Sim%Error("KHI3D:main","memory allocation failed for pvar_temp")
+  DO i=Sim%Mesh%IGMIN, Sim%Mesh%IGMAX
     pvar_temp(i,:,:,Sim%Physics%DENSITY)   = TRANSPOSE(pvar_xy(i,:,:,Sim%Physics%DENSITY))
     pvar_temp(i,:,:,Sim%Physics%XVELOCITY) = TRANSPOSE(pvar_xy(i,:,:,Sim%Physics%XVELOCITY))
     pvar_temp(i,:,:,Sim%Physics%YVELOCITY) = TRANSPOSE(pvar_xy(i,:,:,Sim%Physics%ZVELOCITY))
@@ -205,17 +247,20 @@ PROGRAM KHI
     pvar_temp(i,:,:,Sim%Physics%ENERGY)    = TRANSPOSE(pvar_xy(i,:,:,Sim%Physics%ENERGY))
   END DO
   sigma_6 = SQRT(SUM((pvar_temp(:,:,:,:) -  pvar_xz(:,:,:,:))**2)/SIZE(pvar_temp))
+  DEALLOCATE(pvar_xz,pvar_zx,pvar_yz,pvar_zy)
+#endif
 
-  CALL Sim%Finalize(.TRUE.)
-  DEALLOCATE(Sim,pvar_xy,pvar_xz,pvar_yx,pvar_yz,pvar_zx,pvar_zy,pvar_temp,seed)
-  TAP_CHECK_SMALL(sigma_1,3*EPSILON(sigma_1),"xy-yx symmetry test")
-  TAP_CHECK_SMALL(sigma_2,3*EPSILON(sigma_2),"xz-zx symmetry test")
-  TAP_CHECK_SMALL(sigma_3,3*EPSILON(sigma_3),"zy-yz symmetry test")
+  CALL Sim%Finalize()
+  DEALLOCATE(Sim,pvar_xy,pvar_yx,pvar_temp,dv,dv_temp,seed)
+
+  TAP_CHECK_SMALL(sigma_1,4*EPSILON(sigma_1),"xy-yx symmetry test")
+#ifndef PARALLEL
+  TAP_CHECK_SMALL(sigma_2,4*EPSILON(sigma_2),"xz-zx symmetry test")
+  TAP_CHECK_SMALL(sigma_3,4*EPSILON(sigma_3),"zy-yz symmetry test")
   TAP_CHECK_SMALL(sigma_4,3*EPSILON(sigma_4),"zx-zy symmetry test")
   TAP_CHECK_SMALL(sigma_5,3*EPSILON(sigma_5),"yx-yz symmetry test")
   TAP_CHECK_SMALL(sigma_6,3*EPSILON(sigma_6),"xy-xz symmetry test")
-
-
+#endif
   TAP_DONE
 
 CONTAINS
@@ -309,12 +354,9 @@ CONTAINS
 
     ! initialize data input/output
     datafile => Dict(&
-!        "fileformat" /                          HDF, &
-        "fileformat" /                          VTK, &
-!        "fileformat" /                         XDMF, &
+!        "fileformat" /                          VTK, &
+       "fileformat" /                         XDMF, &
 !        "fileformat" /    GNUPLOT, "filecycles" / 0, &
-!        "fileformat" /                       BINARY, &
-!        "fileformat" /                       NETCDF, &
         "filename"   / (TRIM(ODIR) // TRIM(OFNAME)), &
         "count"      /                         ONUM  &
     )
@@ -334,203 +376,167 @@ CONTAINS
   END SUBROUTINE MakeConfig
 
 
-
-
-  SUBROUTINE InitData(Mesh,Physics,Timedisc,flow_dir,reuse_random_seed)
+  SUBROUTINE InitData(Mesh,Physics,Timedisc,flow_dir)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(physics_base)  :: Physics
     CLASS(mesh_base)     :: Mesh
     CLASS(timedisc_base) :: Timedisc
-    LOGICAL, OPTIONAL    :: reuse_random_seed
-    CHARACTER(2), OPTIONAL  :: flow_dir
+    CHARACTER(2)         :: flow_dir
     !------------------------------------------------------------------------!
     ! Local variable declaration
     INTEGER              :: i,j,k
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,3) :: dv,dv_temp
-    INTEGER              :: clock
     !------------------------------------------------------------------------!
-    INTENT(IN)           :: Mesh,Physics,flow_dir,reuse_random_seed
+    INTENT(IN)           :: Mesh,Physics,flow_dir
     INTENT(INOUT)        :: Timedisc
     !------------------------------------------------------------------------!
-    ! Seed the random number generator
-    IF (.NOT.(PRESENT(reuse_random_seed).AND.reuse_random_seed)) THEN
-       ! initialize with a mix from current time and mpi rank
-       CALL SYSTEM_CLOCK(COUNT=clock)
-       seed = clock + (Timedisc%getrank()+1) * (/(i-1, i=1,n)/)
-    END IF
-    CALL RANDOM_SEED(PUT=seed)
-    CALL RANDOM_NUMBER(dv)
-    ! initial condition
-    IF (PRESENT(flow_dir).AND.flow_dir.EQ.'yx') THEN
-       ! flow along yx-direction:
-       print *,"yx-Direction"
-       ! x and z-velocity vanish everywhere
-       Timedisc%pvar%data4d(:,:,:,Physics%XVELOCITY) = 0.
-       Timedisc%pvar%data4d(:,:,:,Physics%ZVELOCITY) = 0.
+    SELECT TYPE(pvar=>Timedisc%pvar)
+    CLASS IS(statevector_euler)
+      IF (.NOT.ALLOCATED(dv)) THEN
+         ALLOCATE(dv,MOLD=pvar%velocity%data4d,STAT=Sim%err)
+         ! compute velocity perturbations
+         CALL RANDOM_NUMBER(dv)
+      END IF
+      IF (.NOT.ALLOCATED(dv_temp)) ALLOCATE(dv_temp,MOLD=pvar%velocity%data4d,STAT=Sim%err)
 
-       WHERE ((Mesh%bcenter(:,:,:,1).LT.(Mesh%xmin+0.25*XYZLEN)).OR. &
-            (Mesh%bcenter(:,:,:,1).GT.(Mesh%xmin+0.75*XYZLEN)))
-          Timedisc%pvar%data4d(:,:,:,Physics%DENSITY) = RHO0
-          Timedisc%pvar%data4d(:,:,:,Physics%YVELOCITY) = V0
-          Timedisc%pvar%data4d(:,:,:,Physics%PRESSURE) = P0
-       ELSEWHERE
-          Timedisc%pvar%data4d(:,:,:,Physics%DENSITY) = RHO1
-          Timedisc%pvar%data4d(:,:,:,Physics%YVELOCITY) = V1
-          Timedisc%pvar%data4d(:,:,:,Physics%PRESSURE) = P1
-       END WHERE
-        DO k = Mesh%KGMIN, Mesh%KGMAX
-         ! add perturbation to the velocity field
-         Timedisc%pvar%data4d(:,:,k,Physics%XVELOCITY) = Timedisc%pvar%data4d(:,:,k,Physics%XVELOCITY) &
-              + TRANSPOSE(dv(:,:,k,2)-0.5)*0.2
-         Timedisc%pvar%data4d(:,:,k,Physics%YVELOCITY) = Timedisc%pvar%data4d(:,:,k,Physics%YVELOCITY) &
-              + TRANSPOSE(dv(:,:,k,1)-0.5)*0.2
-         Timedisc%pvar%data4d(:,:,k,Physics%ZVELOCITY) = Timedisc%pvar%data4d(:,:,k,Physics%ZVELOCITY) &
-              + TRANSPOSE(dv(:,:,k,3)-0.5)*0.2
-       END DO
-    ! initial condition
-    ELSEIF (PRESENT(flow_dir).AND.flow_dir.EQ.'zx') THEN
-       ! flow along zx-direction:
-       print *,"zx-Direction"
-       ! x and y-velocity vanish everywhere
-       Timedisc%pvar%data4d(:,:,:,Physics%XVELOCITY) = 0.
-       Timedisc%pvar%data4d(:,:,:,Physics%YVELOCITY) = 0.
-
-      WHERE ((Mesh%bcenter(:,:,:,1).LT.(Mesh%xmin+0.25*XYZLEN)).OR. &
-            (Mesh%bcenter(:,:,:,1).GT.(Mesh%xmin+0.75*XYZLEN)))
-          Timedisc%pvar%data4d(:,:,:,Physics%DENSITY) = RHO0
-          Timedisc%pvar%data4d(:,:,:,Physics%ZVELOCITY) = V0
-          Timedisc%pvar%data4d(:,:,:,Physics%PRESSURE) = P0
-       ELSEWHERE
-          Timedisc%pvar%data4d(:,:,:,Physics%DENSITY) = RHO1
-          Timedisc%pvar%data4d(:,:,:,Physics%ZVELOCITY) = V1
-          Timedisc%pvar%data4d(:,:,:,Physics%PRESSURE) = P1
-       END WHERE
-       DO k = Mesh%KGMIN,Mesh%KGMAX
-        dv_temp(:,:,k,1) = TRANSPOSE(dv(:,:,k,2))
-        dv_temp(:,:,k,2) = TRANSPOSE(dv(:,:,k,1))
-        dv_temp(:,:,k,3) = TRANSPOSE(dv(:,:,k,3))
-       END DO
-       DO i= Mesh%IGMIN, Mesh%IGMAX
-        ! add perturbation to the velocity field
-        Timedisc%pvar%data4d(i,:,:,Physics%XVELOCITY) = Timedisc%pvar%data4d(i,:,:,Physics%XVELOCITY) &
-             + TRANSPOSE(dv_temp(i,:,:,1)-0.5)*0.2
-        Timedisc%pvar%data4d(i,:,:,Physics%YVELOCITY) = Timedisc%pvar%data4d(i,:,:,Physics%YVELOCITY) &
-             + TRANSPOSE(dv_temp(i,:,:,3)-0.5)*0.2
-        Timedisc%pvar%data4d(i,:,:,Physics%ZVELOCITY) = Timedisc%pvar%data4d(i,:,:,Physics%ZVELOCITY) &
-             + TRANSPOSE(dv_temp(i,:,:,2)-0.5)*0.2
-      END DO
-    ELSEIF (PRESENT(flow_dir).AND.flow_dir.EQ.'xy') THEN
-       ! flow along xy-direction:
-       print *,"xy-Direction"
-       ! y and z-velocity vanish everywhere
-       Timedisc%pvar%data4d(:,:,:,Physics%YVELOCITY) = 0.
-       Timedisc%pvar%data4d(:,:,:,Physics%ZVELOCITY) = 0.
+      ! initial condition
+      SELECT CASE(flow_dir)
+      CASE('xy') ! flow along x-direction, density & velocity gradient in y-direction
+        ! y and z-velocity vanish everywhere
+        pvar%velocity%data2d(:,2) = 0.0
+        pvar%velocity%data2d(:,3) = 0.0
         WHERE ((Mesh%bcenter(:,:,:,2).LT.(Mesh%ymin+0.25*XYZLEN)).OR. &
               (Mesh%bcenter(:,:,:,2).GT.(Mesh%ymin+0.75*XYZLEN)))
-            Timedisc%pvar%data4d(:,:,:,Physics%DENSITY) = RHO0
-            Timedisc%pvar%data4d(:,:,:,Physics%XVELOCITY) = V0
-            Timedisc%pvar%data4d(:,:,:,Physics%PRESSURE) = P0
-          ELSEWHERE
-            Timedisc%pvar%data4d(:,:,:,Physics%DENSITY) = RHO1
-            Timedisc%pvar%data4d(:,:,:,Physics%XVELOCITY) = V1
-            Timedisc%pvar%data4d(:,:,:,Physics%PRESSURE) = P1
-          END WHERE
-        ! add perturbation to the velocity field
-        Timedisc%pvar%data4d(:,:,:,Physics%XVELOCITY) = Timedisc%pvar%data4d(:,:,:,Physics%XVELOCITY) &
-             + (dv(:,:,:,1)-0.5)*0.2
-        Timedisc%pvar%data4d(:,:,:,Physics%YVELOCITY) = Timedisc%pvar%data4d(:,:,:,Physics%YVELOCITY) &
-             + (dv(:,:,:,2)-0.5)*0.2
-        Timedisc%pvar%data4d(:,:,:,Physics%ZVELOCITY) = Timedisc%pvar%data4d(:,:,:,Physics%ZVELOCITY) &
-             + (dv(:,:,:,3)-0.5)*0.2
-
-     ELSEIF (PRESENT(flow_dir).AND.flow_dir.EQ.'xz') THEN
-       ! flow along xz-direction:
-       print *,"xz-Direction"
-       ! y and z-velocity vanish everywhere
-       Timedisc%pvar%data4d(:,:,:,Physics%YVELOCITY) = 0.
-       Timedisc%pvar%data4d(:,:,:,Physics%ZVELOCITY) = 0.
-       WHERE ((Mesh%bcenter(:,:,:,3).LT.(Mesh%zmin+0.25*XYZLEN)).OR. &
-            (Mesh%bcenter(:,:,:,3).GT.(Mesh%zmin+0.75*XYZLEN)))     
-          Timedisc%pvar%data4d(:,:,:,Physics%DENSITY) = RHO0
-          Timedisc%pvar%data4d(:,:,:,Physics%XVELOCITY) = V0
-          Timedisc%pvar%data4d(:,:,:,Physics%PRESSURE) = P0
-       ELSEWHERE
-          Timedisc%pvar%data4d(:,:,:,Physics%DENSITY) = RHO1
-          Timedisc%pvar%data4d(:,:,:,Physics%XVELOCITY) = V1
-          Timedisc%pvar%data4d(:,:,:,Physics%PRESSURE) = P1
-       END WHERE
-       DO i = Mesh%IGMIN, Mesh%IGMAX
-        ! add perturbation to the velocity field
-        Timedisc%pvar%data4d(i,:,:,Physics%XVELOCITY) = Timedisc%pvar%data4d(i,:,:,Physics%XVELOCITY) &
-             + TRANSPOSE(dv(i,:,:,1)-0.5)*0.2
-        Timedisc%pvar%data4d(i,:,:,Physics%YVELOCITY) = Timedisc%pvar%data4d(i,:,:,Physics%YVELOCITY) &
-             + TRANSPOSE(dv(i,:,:,3)-0.5)*0.2
-        Timedisc%pvar%data4d(i,:,:,Physics%ZVELOCITY) = Timedisc%pvar%data4d(i,:,:,Physics%ZVELOCITY) &
-             + TRANSPOSE(dv(i,:,:,2)-0.5)*0.2
-      END DO
-   ELSEIF (PRESENT(flow_dir).AND.flow_dir.EQ.'zy') THEN
-       ! flow along zy-direction:
-       print *,"zy-Direction"
-       ! x and y-velocity vanish everywhere
-       Timedisc%pvar%data4d(:,:,:,Physics%XVELOCITY) = 0.
-       Timedisc%pvar%data4d(:,:,:,Physics%YVELOCITY) = 0.
-       WHERE ((Mesh%bcenter(:,:,:,2).LT.(Mesh%ymin+0.25*XYZLEN)).OR. &
-              (Mesh%bcenter(:,:,:,2).GT.(Mesh%ymin+0.75*XYZLEN)))     
-          Timedisc%pvar%data4d(:,:,:,Physics%DENSITY) = RHO0
-          Timedisc%pvar%data4d(:,:,:,Physics%ZVELOCITY) = V0
-          Timedisc%pvar%data4d(:,:,:,Physics%PRESSURE) = P0
+            pvar%density%data3d(:,:,:) = RHO0
+            pvar%velocity%data4d(:,:,:,1) = V0
+            pvar%pressure%data3d(:,:,:) = P0
         ELSEWHERE
-          Timedisc%pvar%data4d(:,:,:,Physics%DENSITY) = RHO1
-          Timedisc%pvar%data4d(:,:,:,Physics%ZVELOCITY) = V1
-          Timedisc%pvar%data4d(:,:,:,Physics%PRESSURE) = P1
-        END WHERE 
-        DO j = Mesh%JGMIN, Mesh%JGMAX
-        ! add perturbation to the velocity field
-        Timedisc%pvar%data4d(:,j,:,Physics%XVELOCITY) = Timedisc%pvar%data4d(:,j,:,Physics%XVELOCITY) &
-             + TRANSPOSE(dv(:,j,:,3)-0.5)*0.2
-        Timedisc%pvar%data4d(:,j,:,Physics%YVELOCITY) = Timedisc%pvar%data4d(:,j,:,Physics%YVELOCITY) &
-             + TRANSPOSE(dv(:,j,:,2)-0.5)*0.2
-        Timedisc%pvar%data4d(:,j,:,Physics%ZVELOCITY) = Timedisc%pvar%data4d(:,j,:,Physics%ZVELOCITY) &
-             + TRANSPOSE(dv(:,j,:,1)-0.5)*0.2
-       END DO
-   ELSEIF (PRESENT(flow_dir).AND.flow_dir.EQ.'yz') THEN
-       ! flow along yz-direction:
-       print *,"yz-Direction"
-       ! x and z-velocity vanish everywhere
-       Timedisc%pvar%data4d(:,:,:,Physics%XVELOCITY) = 0.
-       Timedisc%pvar%data4d(:,:,:,Physics%ZVELOCITY) = 0.
-       WHERE ((Mesh%bcenter(:,:,:,3).LT.(Mesh%zmin+0.25*XYZLEN)).OR. &
-              (Mesh%bcenter(:,:,:,3).GT.(Mesh%zmin+0.75*XYZLEN)))     
-          Timedisc%pvar%data4d(:,:,:,Physics%DENSITY) = RHO0
-          Timedisc%pvar%data4d(:,:,:,Physics%YVELOCITY) = V0
-          Timedisc%pvar%data4d(:,:,:,Physics%PRESSURE) = P0
-        ELSEWHERE
-          Timedisc%pvar%data4d(:,:,:,Physics%DENSITY) = RHO1
-          Timedisc%pvar%data4d(:,:,:,Physics%YVELOCITY) = V1
-          Timedisc%pvar%data4d(:,:,:,Physics%PRESSURE) = P1
+            pvar%density%data3d(:,:,:) = RHO1
+            pvar%velocity%data4d(:,:,:,1) = V1
+            pvar%pressure%data3d(:,:,:) = P1
         END WHERE
+          ! add perturbation to the velocity field
+          pvar%velocity%data4d(:,:,:,:) = pvar%velocity%data4d(:,:,:,:) + (dv(:,:,:,:)-0.5)*0.2
+      CASE('yx') ! flow along y-direction, density & velocity gradient in x-direction
+        ! x and z-velocity vanish everywhere
+        pvar%velocity%data2d(:,1) = 0.0
+        pvar%velocity%data2d(:,3) = 0.0
+        WHERE ((Mesh%bcenter(:,:,:,1).LT.(Mesh%xmin+0.25*XYZLEN)).OR. &
+              (Mesh%bcenter(:,:,:,1).GT.(Mesh%xmin+0.75*XYZLEN)))
+            pvar%density%data3d(:,:,:) = RHO0
+            pvar%velocity%data4d(:,:,:,2) = V0
+            pvar%pressure%data3d(:,:,:) = P0
+        ELSEWHERE
+            pvar%density%data3d(:,:,:) = RHO1
+            pvar%velocity%data4d(:,:,:,2) = V1
+            pvar%pressure%data3d(:,:,:) = P1
+        END WHERE
+        ! add perturbation to the velocity field
+        DO k = Mesh%KGMIN, Mesh%KGMAX
+           pvar%velocity%data4d(:,:,k,1) = pvar%velocity%data4d(:,:,k,1) + TRANSPOSE(dv(:,:,k,2)-0.5)*0.2
+           pvar%velocity%data4d(:,:,k,2) = pvar%velocity%data4d(:,:,k,2) + TRANSPOSE(dv(:,:,k,1)-0.5)*0.2
+           pvar%velocity%data4d(:,:,k,3) = pvar%velocity%data4d(:,:,k,3) + TRANSPOSE(dv(:,:,k,3)-0.5)*0.2
+        END DO
+      CASE('xz') ! flow along x-direction, density & velocity gradient in z-direction
+        ! y and z-velocity vanish everywhere
+        pvar%velocity%data2d(:,2) = 0.0
+        pvar%velocity%data2d(:,3) = 0.0
+        WHERE ((Mesh%bcenter(:,:,:,3).LT.(Mesh%zmin+0.25*XYZLEN)).OR. &
+              (Mesh%bcenter(:,:,:,3).GT.(Mesh%zmin+0.75*XYZLEN)))
+            pvar%density%data3d(:,:,:) = RHO0
+            pvar%velocity%data4d(:,:,:,1) = V0
+            pvar%pressure%data3d(:,:,:) = P0
+        ELSEWHERE
+            pvar%density%data3d(:,:,:) = RHO1
+            pvar%velocity%data4d(:,:,:,1) = V1
+            pvar%pressure%data3d(:,:,:) = P1
+        END WHERE
+        ! add perturbation to the velocity field
+        DO i = Mesh%IGMIN, Mesh%IGMAX
+           pvar%velocity%data4d(i,:,:,1) = pvar%velocity%data4d(i,:,:,1) + TRANSPOSE(dv(i,:,:,1)-0.5)*0.2
+           pvar%velocity%data4d(i,:,:,2) = pvar%velocity%data4d(i,:,:,2) + TRANSPOSE(dv(i,:,:,3)-0.5)*0.2
+           pvar%velocity%data4d(i,:,:,3) = pvar%velocity%data4d(i,:,:,3) + TRANSPOSE(dv(i,:,:,2)-0.5)*0.2
+        END DO
+      CASE('zx') ! flow along z-direction, density & velocity gradient in x-direction
+        ! x and y-velocity vanish everywhere
+        pvar%velocity%data2d(:,1) = 0.0
+        pvar%velocity%data2d(:,2) = 0.0
+        WHERE ((Mesh%bcenter(:,:,:,1).LT.(Mesh%xmin+0.25*XYZLEN)).OR. &
+              (Mesh%bcenter(:,:,:,1).GT.(Mesh%xmin+0.75*XYZLEN)))
+            pvar%density%data3d(:,:,:) = RHO0
+            pvar%velocity%data4d(:,:,:,3) = V0
+            pvar%pressure%data3d(:,:,:) = P0
+        ELSEWHERE
+            pvar%density%data3d(:,:,:) = RHO1
+            pvar%velocity%data4d(:,:,:,3) = V1
+            pvar%pressure%data3d(:,:,:) = P1
+        END WHERE
+        ! transpose velocity perturbations
+        DO k = Mesh%KGMIN,Mesh%KGMAX
+          dv_temp(:,:,k,1) = TRANSPOSE(dv(:,:,k,2))
+          dv_temp(:,:,k,2) = TRANSPOSE(dv(:,:,k,1))
+          dv_temp(:,:,k,3) = TRANSPOSE(dv(:,:,k,3))
+        END DO
+        ! add perturbation to the velocity field
+        DO i = Mesh%IGMIN, Mesh%IGMAX
+           pvar%velocity%data4d(i,:,:,1) = pvar%velocity%data4d(i,:,:,1) + TRANSPOSE(dv_temp(i,:,:,1)-0.5)*0.2
+           pvar%velocity%data4d(i,:,:,2) = pvar%velocity%data4d(i,:,:,2) + TRANSPOSE(dv_temp(i,:,:,3)-0.5)*0.2
+           pvar%velocity%data4d(i,:,:,3) = pvar%velocity%data4d(i,:,:,3) + TRANSPOSE(dv_temp(i,:,:,2)-0.5)*0.2
+        END DO
+      CASE('zy') ! flow along z-direction, density & velocity gradient in y-direction
+        ! x and y-velocity vanish everywhere
+        pvar%velocity%data2d(:,1) = 0.0
+        pvar%velocity%data2d(:,2) = 0.0
+        WHERE ((Mesh%bcenter(:,:,:,2).LT.(Mesh%ymin+0.25*XYZLEN)).OR. &
+                (Mesh%bcenter(:,:,:,2).GT.(Mesh%ymin+0.75*XYZLEN)))
+            pvar%density%data3d(:,:,:) = RHO0
+            pvar%velocity%data4d(:,:,:,3) = V0
+            pvar%pressure%data3d(:,:,:) = P0
+        ELSEWHERE
+            pvar%density%data3d(:,:,:) = RHO1
+            pvar%velocity%data4d(:,:,:,3) = V1
+            pvar%pressure%data3d(:,:,:) = P1
+        END WHERE 
+        ! add perturbation to the velocity field
+        DO j = Mesh%JGMIN, Mesh%JGMAX
+           pvar%velocity%data4d(:,j,:,1) = pvar%velocity%data4d(:,j,:,1) + TRANSPOSE(dv(:,j,:,3)-0.5)*0.2
+           pvar%velocity%data4d(:,j,:,2) = pvar%velocity%data4d(:,j,:,2) + TRANSPOSE(dv(:,j,:,2)-0.5)*0.2
+           pvar%velocity%data4d(:,j,:,3) = pvar%velocity%data4d(:,j,:,3) + TRANSPOSE(dv(:,j,:,1)-0.5)*0.2
+        END DO
+      CASE('yz') ! flow along y-direction, density & velocity gradient in z-direction
+        ! x and z-velocity vanish everywhere
+        pvar%velocity%data2d(:,1) = 0.0
+        pvar%velocity%data2d(:,3) = 0.0
+        WHERE ((Mesh%bcenter(:,:,:,3).LT.(Mesh%zmin+0.25*XYZLEN)).OR. &
+                (Mesh%bcenter(:,:,:,3).GT.(Mesh%zmin+0.75*XYZLEN)))
+          pvar%density%data3d(:,:,:) = RHO0
+          pvar%velocity%data4d(:,:,:,2) = V0
+          pvar%pressure%data3d(:,:,:) = P0
+        ELSEWHERE
+          pvar%density%data3d(:,:,:) = RHO1
+          pvar%velocity%data4d(:,:,:,2) = V1
+          pvar%pressure%data3d(:,:,:) = P1
+        END WHERE
+        ! transpose velocity perturbations
         DO i = Mesh%IGMIN, Mesh%IGMAX
           dv_temp(i,:,:,1) = TRANSPOSE(dv(i,:,:,1))
           dv_temp(i,:,:,2) = TRANSPOSE(dv(i,:,:,3))
           dv_temp(i,:,:,3) = TRANSPOSE(dv(i,:,:,2))
         END DO
-        DO k = Mesh%KGMIN, Mesh%KGMAX
         ! add perturbation to the velocity field
-        Timedisc%pvar%data4d(:,:,k,Physics%XVELOCITY) = Timedisc%pvar%data4d(:,:,k,Physics%XVELOCITY) &
-             + TRANSPOSE(dv_temp(:,:,k,2)-0.5)*0.2
-        Timedisc%pvar%data4d(:,:,k,Physics%YVELOCITY) = Timedisc%pvar%data4d(:,:,k,Physics%YVELOCITY) &
-             + TRANSPOSE(dv_temp(:,:,k,1)-0.5)*0.2
-        Timedisc%pvar%data4d(:,:,k,Physics%ZVELOCITY) = Timedisc%pvar%data4d(:,:,k,Physics%ZVELOCITY) &
-             + TRANSPOSE(dv_temp(:,:,k,3)-0.5)*0.2
-      END DO
-    ELSE 
-      CALL Mesh%Error("KHI INIT","Unknown flow direction")
-    END IF
+        DO k = Mesh%KGMIN, Mesh%KGMAX
+           pvar%velocity%data4d(:,:,k,1) = pvar%velocity%data4d(:,:,k,1) + TRANSPOSE(dv_temp(:,:,k,2)-0.5)*0.2
+           pvar%velocity%data4d(:,:,k,2) = pvar%velocity%data4d(:,:,k,2) + TRANSPOSE(dv_temp(:,:,k,1)-0.5)*0.2
+           pvar%velocity%data4d(:,:,k,3) = pvar%velocity%data4d(:,:,k,3) + TRANSPOSE(dv_temp(:,:,k,3)-0.5)*0.2
+        END DO
+     CASE DEFAULT
+        CALL Mesh%Error("KHI INIT","Unknown flow direction")
+      END SELECT
+    END SELECT
 
     CALL Physics%Convert2Conservative(Timedisc%pvar,Timedisc%cvar)
     CALL Mesh%Info(" DATA-----> initial condition: " // &
-         "Kelvin-Helmholtz instability")
+         "Kelvin-Helmholtz instability " // flow_dir //"-direction")
 
   END SUBROUTINE InitData
 

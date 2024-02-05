@@ -52,7 +52,7 @@ PROGRAM KHI
   REAL, PARAMETER    :: P1   = P0          !   pressure
   ! mesh settings
   INTEGER, PARAMETER :: MGEO = CARTESIAN   ! geometry of the mesh
-  INTEGER, PARAMETER :: RES  = 64          ! resolution
+  INTEGER, PARAMETER :: RES  = 32          ! resolution
   REAL, PARAMETER    :: XYZLEN= 1.0        ! spatial extend
   ! output file parameter
   INTEGER, PARAMETER :: ONUM = 10          ! number of output data sets
@@ -265,12 +265,8 @@ CONTAINS
         pvar%pressure%data3d(:,:,:)   = P1
       END WHERE
       ! add perturbations
-      DO k=Mesh%KGMIN,Mesh%KGMAX
-          pvar%velocity%data4d(:,:,k,1) = pvar%velocity%data4d(:,:,k,1) &
-                + (dv(:,:,k,1)-0.5)*0.02
-          pvar%velocity%data4d(:,:,k,2) = pvar%velocity%data4d(:,:,k,2) &
-                + (dv(:,:,k,2)-0.5)*0.02
-      END DO
+      pvar%velocity%data4d(:,:,:,1:2) = pvar%velocity%data4d(:,:,:,1:2) &
+                + (dv(:,:,:,1:2)-0.5)*0.02
     CLASS DEFAULT
       CALL Physics%Error("KHI2D::InitData","only non-isothermal HD supported")
     END SELECT
