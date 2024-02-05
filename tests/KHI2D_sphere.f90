@@ -54,8 +54,8 @@ PROGRAM KHI
   REAL, PARAMETER    :: P1   = P0               !   pressure                 !
   ! mesh settings                               !                            !
   INTEGER, PARAMETER :: MGEO = SPHERICAL_PLANET ! geometry of the mesh       !
-  INTEGER, PARAMETER :: XRES   = 50             ! x-resolution               !
-  INTEGER, PARAMETER :: YRES   = 100            ! y-resolution               !
+  INTEGER, PARAMETER :: XRES   = 20             ! x-resolution               !
+  INTEGER, PARAMETER :: YRES   = 40             ! y-resolution               !
   REAL, PARAMETER :: GPAR   = 1.0               ! radius of sphere           !
   ! output file parameter                       !                            !
   INTEGER, PARAMETER :: ONUM = 10               ! number of output data sets !
@@ -185,8 +185,8 @@ CONTAINS
 
     ! initialize data input/output
     datafile => Dict(&
-        "fileformat" /                          VTK, &
-!        "fileformat" /                         XDMF, &
+!         "fileformat" /                          VTK, &
+        "fileformat" /                         XDMF, &
         "filename"   / (TRIM(ODIR) // TRIM(OFNAME)), &
         "count"      /                         ONUM  &
     )
