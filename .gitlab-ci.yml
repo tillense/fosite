@@ -79,10 +79,25 @@ ser_test_bondi2d:
     script:
         - ./ser_build/tests/bondi2d
 
+ser_test_riemann1d:
+    stage: test
+    script:
+        - ./ser_build/tests/riemann1d
+
+par_test_riemann1d:
+    stage: test
+    script:
+        - mpirun -n 2 ./par_build/tests/riemann1d
+
 ser_test_riemann3d:
     stage: test
     script:
         - ./ser_build/tests/riemann3d
+
+par_test_riemann3d:
+    stage: test
+    script:
+        - mpirun -n 2 ./par_build/tests/riemann3d
 
 par_test_bondi2d:
     stage: test
@@ -143,6 +158,11 @@ ser_test_KHI3D:
     stage: test
     script:
        - ./ser_build/tests/KHI3D
+
+par_test_KHI3D:
+    stage: test
+    script:
+       - mpirun -n 2 ./par_build/tests/KHI3D
 
 set_test_shear:
     stage: test

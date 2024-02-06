@@ -114,16 +114,16 @@ PROGRAM riemann1d
   ! initialize Fosite
   CALL Sim%InitFosite()
 
-#ifdef PARALLEL
-  IF (Sim%GetRank().EQ.0) THEN
-#endif
+! #ifdef PARALLEL
+!   IF (Sim%GetRank().EQ.0) THEN
+! #endif
 TAP_PLAN(TESTNUM*(dir_max-dir_min+1))
-#ifdef PARALLEL
-  END IF
-#endif
+! #ifdef PARALLEL
+!   END IF
+! #endif
 
   ! loop over all tests
-  DO ic=1,TESTNUM
+  tests: DO ic=1,TESTNUM
     ! loop over selected directions
     DO sd=dir_min,dir_max
       ! get configuration for the particular test and direction
@@ -159,17 +159,21 @@ TAP_PLAN(TESTNUM*(dir_max-dir_min+1))
         END IF
       END IF
 
-      IF (ic.EQ.TESTNUM.AND.sd.EQ.dir_max) EXIT
       ! reset fosite
-      CALL Sim%InitFosite()
+      CALL Sim%Finalize(mpifinalize_=.FALSE.)
+      IF (.NOT.(ic.EQ.TESTNUM.AND.sd.EQ.dir_max)) THEN
+         DEALLOCATE(Sim)
+         ALLOCATE(Sim)
+         CALL Sim%InitFosite()
+      END IF
     END DO
-  END DO
+  END DO tests
 
   ! check results
   ! loop over all tests
-#ifdef PARALLEL
-  IF (Sim%GetRank().EQ.0) THEN
-#endif
+! #ifdef PARALLEL
+!   IF (Sim%GetRank().EQ.0) THEN
+! #endif
   DO ic=1,TESTNUM
     ! loop over selected directions
     DO sd=dir_min,dir_max
@@ -181,11 +185,11 @@ TAP_CHECK_SMALL(sigma(ic,sd),sigma_tol(ic),TRIM(verbose_tap_output))
   END DO
 
 TAP_DONE
-#ifdef PARALLEL
-  END IF
-#endif
+! #ifdef PARALLEL
+!   END IF
+! #endif
 
-CALL Sim%Finalize()
+! CALL Sim%Finalize()
 DEALLOCATE(Sim)
 
 CONTAINS
@@ -324,9 +328,9 @@ CONTAINS
 
     ! initialize data input/output
     datafile => Dict( &
-           "fileformat" / GNUPLOT, &!VTK, &
+           "fileformat" / GNUPLOT, &
            "filename"   / (TRIM(ODIR) // TRIM(OFNAME(ic)) // "-" // ACHAR(119+dir)), &
-!           "filecycles" / 0, &
+           "filecycles" / 0, &
            "count"      / ONUM)
 
     config => Dict("mesh" / mesh, &
@@ -349,7 +353,6 @@ CONTAINS
     REAL    :: x0, rho_l, rho_r, u_l, u_r, p_l, p_r
     REAL, DIMENSION(:), ALLOCATABLE :: x
     !------------------------------------------------------------------------!
-
     SELECT CASE(ic)
     CASE(1) ! Sod shock tube (Toro's test no. 1)
        x0    = 0.5

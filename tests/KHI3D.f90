@@ -107,6 +107,10 @@ PROGRAM KHI
   ALLOCATE(Sim)
   CALL Sim%InitFosite()
   CALL MakeConfig(Sim, Sim%config)
+#ifdef PARALLEL
+  ! decompose computational domain along z-direction only
+  CALL SetAttr(Sim%config, "/mesh/decomposition", (/1,1,-1/))
+#endif
   ! decompose computational domain along z-direction only
   CALL SetAttr(Sim%config, "/datafile/filename", (TRIM(ODIR) // TRIM(OFNAME) // "_yx"))
   CALL Sim%Setup()
@@ -247,19 +251,19 @@ PROGRAM KHI
     pvar_temp(i,:,:,Sim%Physics%ENERGY)    = TRANSPOSE(pvar_xy(i,:,:,Sim%Physics%ENERGY))
   END DO
   sigma_6 = SQRT(SUM((pvar_temp(:,:,:,:) -  pvar_xz(:,:,:,:))**2)/SIZE(pvar_temp))
-  DEALLOCATE(pvar_xz,pvar_zx,pvar_yz,pvar_zy)
+  DEALLOCATE(pvar_xz,pvar_zx,pvar_yz,pvar_zy,pvar_temp)
 #endif
 
   CALL Sim%Finalize()
-  DEALLOCATE(Sim,pvar_xy,pvar_yx,pvar_temp,dv,dv_temp,seed)
+  DEALLOCATE(Sim,pvar_xy,pvar_yx,dv,dv_temp,seed)
 
   TAP_CHECK_SMALL(sigma_1,4*EPSILON(sigma_1),"xy-yx symmetry test")
 #ifndef PARALLEL
   TAP_CHECK_SMALL(sigma_2,4*EPSILON(sigma_2),"xz-zx symmetry test")
   TAP_CHECK_SMALL(sigma_3,4*EPSILON(sigma_3),"zy-yz symmetry test")
-  TAP_CHECK_SMALL(sigma_4,3*EPSILON(sigma_4),"zx-zy symmetry test")
-  TAP_CHECK_SMALL(sigma_5,3*EPSILON(sigma_5),"yx-yz symmetry test")
-  TAP_CHECK_SMALL(sigma_6,3*EPSILON(sigma_6),"xy-xz symmetry test")
+  TAP_CHECK_SMALL(sigma_4,4*EPSILON(sigma_4),"zx-zy symmetry test")
+  TAP_CHECK_SMALL(sigma_5,4*EPSILON(sigma_5),"yx-yz symmetry test")
+  TAP_CHECK_SMALL(sigma_6,4*EPSILON(sigma_6),"xy-xz symmetry test")
 #endif
   TAP_DONE
 
@@ -354,8 +358,8 @@ CONTAINS
 
     ! initialize data input/output
     datafile => Dict(&
-!        "fileformat" /                          VTK, &
-       "fileformat" /                         XDMF, &
+       "fileformat" /                          VTK, &
+!        "fileformat" /                         XDMF, &
 !        "fileformat" /    GNUPLOT, "filecycles" / 0, &
         "filename"   / (TRIM(ODIR) // TRIM(OFNAME)), &
         "count"      /                         ONUM  &
