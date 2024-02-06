@@ -127,7 +127,11 @@ MODULE fileio_base_mod
                               filetype
     INTEGER, DIMENSION(MPI_STATUS_SIZE) :: status  !< MPI i/o status record
   CONTAINS
+    PROCEDURE :: InitFilehandle => InitFilehandle_mpi
     PROCEDURE :: OpenFile => OpenFile_mpi
+    PROCEDURE :: CloseFile => CloseFile_mpi
+    PROCEDURE :: GetStatus => GetStatus_mpi
+    FINAL :: Finalize_mpi
 #endif
   END TYPE filehandle_mpi
 
@@ -525,7 +529,7 @@ CONTAINS
     END IF
 
     ! open data file and write header if necessary
-    IF (.NOT.this%datafile%onefile.OR.this%step.EQ.0) THEN
+    IF ((.NOT.this%datafile%onefile).OR.this%step.EQ.0) THEN
       CALL this%datafile%OpenFile(REPLACE,this%step)
       CALL this%WriteHeader(Mesh,Physics,Header,IO)
     ELSE
@@ -665,49 +669,6 @@ CONTAINS
       CALL this%Error("fileio_base::OpenFile","File opening failed.")
   END SUBROUTINE OpenFile
  
-  !> \public Open file for input/ouput in parallel mode
-  !!
-#ifdef PARALLEL
-  SUBROUTINE OpenFile_mpi(this,action,step)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(filehandle_mpi), INTENT(INOUT)    :: this   !< \param [in,out] this fileio type
-    INTEGER,           INTENT(IN)           :: action !< \param [in] action mode of file access
-    INTEGER,           INTENT(IN)           :: step   !< \param [in] step time step
-    !------------------------------------------------------------------------!
-    INTEGER(KIND=MPI_OFFSET_KIND)       :: offset
-    !------------------------------------------------------------------------!
-    SELECT CASE(action)
-    CASE(READONLY)
-       CALL MPI_File_open(MPI_COMM_WORLD,TRIM(this%GetFilename(step)),MPI_MODE_RDONLY, &
-            MPI_INFO_NULL,this%fid,this%err)
-       offset = 0
-       CALL MPI_File_seek(this%fid,offset,MPI_SEEK_SET,this%err)
-    CASE(READEND)
-       CALL MPI_File_open(MPI_COMM_WORLD,TRIM(this%GetFilename(step)),IOR(MPI_MODE_RDONLY,&
-            MPI_MODE_APPEND),MPI_INFO_NULL,this%fid,this%err)
-       ! opening in append mode doesn't seem to work for pvfs2, hence ...
-       offset = 0
-       CALL MPI_File_seek(this%fid,offset,MPI_SEEK_END,this%err)
-       CALL MPI_File_sync(this%fid,this%err)
-    CASE(REPLACE)
-       CALL MPI_File_delete(TRIM(this%GetFilename(step)),MPI_INFO_NULL,this%err)
-       CALL MPI_File_open(MPI_COMM_WORLD,TRIM(this%GetFilename(step)),IOR(MPI_MODE_WRONLY,&
-            MPI_MODE_CREATE),MPI_INFO_NULL,this%fid,this%err)
-    CASE(APPEND)
-       CALL MPI_File_open(MPI_COMM_WORLD,TRIM(this%GetFilename(step)),IOR(MPI_MODE_RDWR,&
-            MPI_MODE_APPEND),MPI_INFO_NULL,this%fid,this%err)
-       ! opening in append mode doesn't seem to work for pvfs2, hence ...
-       offset = 0
-       CALL MPI_File_seek(this%fid,offset,MPI_SEEK_END,this%err)
-       CALL MPI_File_sync(this%fid,this%err)
-    CASE DEFAULT
-       ! abort with error if either the access mode is wrong or someone tries parallel i/o in serial mode
-       CALL this%Error("fileio_base::OpenFile_mpi","Unknown access mode.")
-    END SELECT
-  END SUBROUTINE OpenFile_mpi
-#endif
-
   !> \public get Fortran i/o unit number
   FUNCTION GetUnitNumber(this)
     IMPLICIT NONE
@@ -734,7 +695,7 @@ CONTAINS
     ! check if file exist
     INQUIRE(FILE=TRIM(this%GetFilename(step)),EXIST=ex,OPENED=op,ACTION=act,POSITION=pos,IOSTAT=this%err)
     IF (this%err.NE.0) &
-       CALL this%Error("filehandle_fortran::GetStatus","serious failure during file inquirery")
+       CALL this%Error("filehandle_fortran::GetStatus","serious failure during file inquiry")
     IF (ex) THEN
        ! file exists
        IF (op) THEN
@@ -840,13 +801,9 @@ CONTAINS
     INTEGER, INTENT(IN)                      :: step  !< \param [in] step time step
     !------------------------------------------------------------------------!
     this%err = 0
-! #ifdef PARALLEL
-!     CALL MPI_File_close(this%handle,this%err)
-! #else
     IF (this%GetStatus(step).GT.0) THEN
       IF (this%err.EQ.0) CLOSE(UNIT=this%GetUnitNumber(),IOSTAT=this%err)
     END IF
-! #endif
     IF (this%err.NE.0) &
       CALL this%Error("filehandle_fortran::CloseFile","Cannot close file " // TRIM(this%GetFilename(step)))
   END SUBROUTINE CloseFile
@@ -863,4 +820,168 @@ CONTAINS
     IF (this%err.EQ.0) CLOSE(UNIT=this%GetUnitNumber(),IOSTAT=this%err)
   END SUBROUTINE Finalize_fortran
   
+#ifdef PARALLEL
+  !> \public Open file for input/ouput in parallel mode
+  !!
+  SUBROUTINE OpenFile_mpi(this,action,step)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(filehandle_mpi), INTENT(INOUT)    :: this   !< \param [in,out] this fileio type
+    INTEGER,           INTENT(IN)           :: action !< \param [in] action mode of file access
+    INTEGER,           INTENT(IN)           :: step   !< \param [in] step time step
+    !------------------------------------------------------------------------!
+    INTEGER(KIND=MPI_OFFSET_KIND)       :: offset
+    INTEGER                             :: amode,smode,fstatus
+    !------------------------------------------------------------------------!
+    this%err = MPI_SUCCESS
+    CALL this%CloseFile(step) ! make sure the file is closed
+    IF (this%err.EQ.MPI_SUCCESS) THEN
+      ! delete file if it exists and should be replaced
+      SELECT CASE(action)
+      CASE(READONLY)
+        amode  = MPI_MODE_RDONLY
+        smode  = MPI_SEEK_SET
+        offset = 0
+      CASE(READEND)
+        amode  = IOR(MPI_MODE_RDONLY,MPI_MODE_APPEND)
+        smode  = MPI_SEEK_END
+        offset = 0
+      CASE(REPLACE)
+        fstatus = this%GetStatus(step)
+        IF (fstatus.EQ.CLOSED) THEN
+           ! delete the file only on rank 0, otherwise this%err > 0 if another
+           ! process tries to delete an already deleted file
+           IF (this%GetRank().EQ.0) &
+              CALL MPI_File_delete(TRIM(this%GetFilename(step)),fstatus,this%err)
+           IF (this%err.NE.MPI_SUCCESS) &
+              CALL this%Error("fileio_base::OpenFile_mpi","cannot delete file " // &
+                   TRIM(this%GetFilename(step)))
+        END IF
+        amode  = IOR(MPI_MODE_WRONLY,MPI_MODE_CREATE)
+        smode  = MPI_SEEK_END
+        offset = 0
+      CASE(APPEND)
+        amode  = IOR(MPI_MODE_RDWR,MPI_MODE_APPEND)
+        smode  = MPI_SEEK_END
+        offset = 0
+      CASE DEFAULT
+        ! abort with error if either the access mode is wrong or someone tries parallel i/o in serial mode
+        CALL this%Error("fileio_base::OpenFile_mpi","Unknown access mode.")
+      END SELECT
+      IF (this%err.EQ.MPI_SUCCESS) THEN
+         CALL MPI_File_open(MPI_COMM_WORLD,TRIM(this%GetFilename(step)),amode, &
+                            MPI_INFO_NULL,this%fid,this%err)
+         IF (this%err.EQ.MPI_SUCCESS) CALL MPI_File_seek(this%GetUnitNumber(),offset,smode,this%err)
+         IF (this%err.EQ.MPI_SUCCESS) CALL MPI_File_sync(this%GetUnitNumber(),this%err)
+      END IF
+    END IF
+    IF (this%err.NE.MPI_SUCCESS) &
+       CALL this%Error("fileio_base::OpenFile_mpi","file open failed, aborting")
+  END SUBROUTINE OpenFile_mpi
+
+  !> basic initialization of MPI file handle
+  SUBROUTINE InitFilehandle_mpi(this,filename,path,extension,textfile,onefile,cycles,unit)
+    IMPLICIT NONE
+    !-------------------------------------------------------------------!
+    CLASS(filehandle_mpi), INTENT(INOUT) :: this !< \param [inout] this file handle class
+    CHARACTER(LEN=*), INTENT(IN) :: filename !< \param [in] filename file name without extension
+    CHARACTER(LEN=*), INTENT(IN) :: path     !< \param [in] path file path without filename
+    CHARACTER(LEN=*), OPTIONAL, INTENT(IN) :: extension !< \param [in] extension file name extension
+    LOGICAL, OPTIONAL, INTENT(IN)      :: textfile !< \param [in] textfile true for text data
+    LOGICAL, OPTIONAL, INTENT(IN)      :: onefile  !< \param [in] onefile true if all data goes into one file
+    INTEGER, OPTIONAL, INTENT(IN)      :: cycles   !< \parma [in] cycles max number of files
+    INTEGER, OPTIONAL, INTENT(IN)      :: unit     !< \parma [in] unit force fortran i/o unit number
+    !-------------------------------------------------------------------!
+    IF (.NOT.this%Initialized()) CALL this%InitLogging(MPIFILE,"mpi")
+    CALL this%filehandle_fortran%InitFilehandle(filename,path,extension,textfile,onefile,cycles,unit)
+    ! set the fid explicitly to MPI_File_NULL, because the fortran default is some number >= 10
+    this%fid = MPI_File_NULL
+  END SUBROUTINE InitFilehandle_mpi
+
+  !> \public get MPI file status
+  FUNCTION GetStatus_mpi(this,step) RESULT(FileStatus)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(filehandle_mpi), INTENT(INOUT) :: this  !< \param [in,out] this fileio type
+    INTEGER, INTENT(IN)                  :: step  !< \param [in] step time step
+    !------------------------------------------------------------------------!
+    INTEGER :: FileStatus
+    INTEGER :: amode
+    !------------------------------------------------------------------------!
+    FileStatus = -1 ! unknown / undefined / does not exist
+    this%err = MPI_SUCCESS
+    ! check if file handle is associated
+    IF (this%GetUnitNumber().NE.MPI_File_NULL) THEN
+       ! file handle has been associated -> check access mode
+       CALL MPI_File_get_amode(this%GetUnitnumber(),amode,this%err)
+       IF (this%err.NE.MPI_SUCCESS) &
+          CALL this%Error("filehandle_mpi::GetStatus","cannot determine file access mode")
+       ! file exists
+       IF (IAND(amode,MPI_MODE_RDONLY).GT.0) THEN
+          IF (IAND(amode,MPI_MODE_APPEND).GT.0) THEN
+             FileStatus = READEND
+          ELSE
+             FileStatus = READONLY
+          END IF
+       ELSE IF (IAND(amode,IOR(MPI_MODE_WRONLY,MPI_MODE_CREATE)).GT.0) THEN
+          FileStatus = REPLACE
+       ELSE IF (IAND(amode,IOR(MPI_MODE_RDWR,MPI_MODE_APPEND)).GT.0) THEN
+          FileStatus = APPEND
+       ELSE
+          ! undefined
+       END IF
+    ELSE
+       ! file handle not associated:
+       ! There is no MPI file inquiry to test whether the file exists.
+       ! Therefore we try to open the file RO and check for success.
+       CALL MPI_File_open(MPI_COMM_WORLD,TRIM(this%GetFilename(step)),MPI_MODE_RDONLY, &
+            MPI_INFO_NULL,this%fid,this%err)
+
+       IF (this%err.EQ.MPI_SUCCESS) THEN
+          CALL MPI_File_sync(this%GetUnitNumber(),this%err)
+          IF (this%err.EQ.MPI_SUCCESS.AND.this%GetUnitnumber().NE.MPI_File_NULL) THEN
+             CALL MPI_File_close(this%GetUnitnumber(),this%err)
+             IF (this%err.NE.MPI_SUCCESS) &
+                CALL this%Error("filehandle_mpi::GetStatus","cannot close file")
+          END IF
+          this%fid = MPI_File_NULL
+          FileStatus=CLOSED
+       ELSE
+          ! undefined
+       END IF
+       this%err = MPI_SUCCESS
+    END IF
+  END FUNCTION GetStatus_mpi
+
+  !> \public close MPI file
+  !!
+  SUBROUTINE CloseFile_mpi(this,step)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(filehandle_mpi), INTENT(INOUT) :: this  !< \param [in,out] this fileio type
+    INTEGER, INTENT(IN)                  :: step  !< \param [in] step time step
+    !------------------------------------------------------------------------!
+    this%err = MPI_SUCCESS
+    IF (this%GetStatus(step).GT.0) THEN
+      IF (this%err.EQ.MPI_SUCCESS) CALL MPI_File_close(this%GetUnitnumber(),this%err)
+      this%fid = MPI_File_NULL
+    END IF
+    IF (this%err.NE.MPI_SUCCESS) &
+      CALL this%Error("filehandle_mpi::CloseFile","Cannot close file " // TRIM(this%GetFilename(step)))
+  END SUBROUTINE CloseFile_mpi
+
+  !> \public destructor of MPI file handle handle
+  SUBROUTINE Finalize_mpi(this)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    TYPE(filehandle_mpi), INTENT(INOUT) :: this  !< \param [in,out] this fileio type
+    !------------------------------------------------------------------------!
+    LOGICAL :: op
+    !------------------------------------------------------------------------!
+    IF (this%GetUnitNumber().NE.MPI_File_NULL) &
+       CALL MPI_File_close(this%GetUnitnumber(),this%err)
+    IF (this%err.NE.MPI_SUCCESS) &
+       CALL this%Error("filehandle_mpi::Finalize","serious error occured while close file")
+  END SUBROUTINE Finalize_mpi
+#endif
 END MODULE fileio_base_mod
