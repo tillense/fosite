@@ -3,7 +3,7 @@
 !# fosite - 3D hydrodynamical simulation program                             #
 !# module: riemann1d.f90                                                     #
 !#                                                                           #
-!# Copyright (C) 2006-2021                                                   #
+!# Copyright (C) 2006-2024                                                   #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
 !#                                                                           #
 !# This program is free software; you can redistribute it and/or modify      #
@@ -114,13 +114,13 @@ PROGRAM riemann1d
   ! initialize Fosite
   CALL Sim%InitFosite()
 
-! #ifdef PARALLEL
-!   IF (Sim%GetRank().EQ.0) THEN
-! #endif
+#ifdef PARALLEL
+  IF (Sim%GetRank().EQ.0) THEN
+#endif
 TAP_PLAN(TESTNUM*(dir_max-dir_min+1))
-! #ifdef PARALLEL
-!   END IF
-! #endif
+#ifdef PARALLEL
+  END IF
+#endif
 
   ! loop over all tests
   tests: DO ic=1,TESTNUM
@@ -160,8 +160,8 @@ TAP_PLAN(TESTNUM*(dir_max-dir_min+1))
       END IF
 
       ! reset fosite
-      CALL Sim%Finalize(mpifinalize_=.FALSE.)
       IF (.NOT.(ic.EQ.TESTNUM.AND.sd.EQ.dir_max)) THEN
+         CALL Sim%Finalize(mpifinalize_=.FALSE.)
          DEALLOCATE(Sim)
          ALLOCATE(Sim)
          CALL Sim%InitFosite()
@@ -171,9 +171,9 @@ TAP_PLAN(TESTNUM*(dir_max-dir_min+1))
 
   ! check results
   ! loop over all tests
-! #ifdef PARALLEL
-!   IF (Sim%GetRank().EQ.0) THEN
-! #endif
+#ifdef PARALLEL
+  IF (Sim%GetRank().EQ.0) THEN
+#endif
   DO ic=1,TESTNUM
     ! loop over selected directions
     DO sd=dir_min,dir_max
@@ -185,11 +185,11 @@ TAP_CHECK_SMALL(sigma(ic,sd),sigma_tol(ic),TRIM(verbose_tap_output))
   END DO
 
 TAP_DONE
-! #ifdef PARALLEL
-!   END IF
-! #endif
+#ifdef PARALLEL
+  END IF
+#endif
 
-! CALL Sim%Finalize()
+CALL Sim%Finalize()
 DEALLOCATE(Sim)
 
 CONTAINS
