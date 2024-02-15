@@ -444,7 +444,6 @@ CONTAINS
       INTEGER :: l
       !----------------------------------------------------------------------!
       ! project velocity on ephi/r -> local angular velocity
-      ! use dynvis as temporary storage
       Omega(:) = ephir%data2d(:,1) * velocity%data2d(:,1)
       DO l=2,ephir%DIMS(1)
         Omega(:) = Omega(:) + ephir%data2d(:,l) * velocity%data2d(:,l)
