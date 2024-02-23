@@ -949,14 +949,26 @@ CONTAINS
     ! This data has already been checked before in AcceptSolution
     CALL this%ComputeRHS(Mesh,Physics,Sources,Fluxes,time,dt,this%pvar, &
       this%cvar,CHECK_NOTHING,this%rhs)
-    DO CONCURRENT (j=Mesh%JGMIN:Mesh%JGMAX,k=Mesh%KGMIN:Mesh%KGMAX,l=1:2,m=1:Physics%VNUM)
-      Fluxes%bxflux(j,k,l,m) = Fluxes%bxfold(j,k,l,m)
-    END DO
-    DO CONCURRENT (k=Mesh%KGMIN:Mesh%KGMAX,i=Mesh%IGMIN:Mesh%IGMAX,l=1:2,m=1:Physics%VNUM)
-      Fluxes%byflux(k,i,l,m) = Fluxes%byfold(k,i,l,m)
-    END DO
-    DO CONCURRENT (i=Mesh%IGMIN:Mesh%IGMAX,j=Mesh%JGMIN:Mesh%JGMAX,l=1:2,m=1:Physics%VNUM)
-      Fluxes%bzflux(i,j,l,m) = Fluxes%bzfold(i,j,l,m)
+!NEC$ SHORTLOOP
+    DO m=1,Physics%VNUM
+!NEC$ UNROLL(2)
+       DO l=1,2
+          DO k=Mesh%KGMIN,Mesh%KGMAX
+             DO j=Mesh%JGMIN,Mesh%JGMAX
+                Fluxes%bxflux(j,k,l,m) = Fluxes%bxfold(j,k,l,m)
+             END DO
+          END DO
+          DO i=Mesh%IGMIN,Mesh%IGMAX
+             DO k=Mesh%KGMIN,Mesh%KGMAX
+                Fluxes%byflux(k,i,l,m) = Fluxes%byfold(k,i,l,m)
+             END DO
+          END DO
+          DO j=Mesh%JGMIN,Mesh%JGMAX
+             DO i=Mesh%IGMIN,Mesh%IGMAX
+                Fluxes%bzflux(i,j,l,m) = Fluxes%bzfold(i,j,l,m)
+             END DO
+          END DO
+       END DO
     END DO
     ! count adjustments for information
     this%n_adj = this%n_adj + 1
