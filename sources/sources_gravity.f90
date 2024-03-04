@@ -220,18 +220,11 @@ CONTAINS
       CALL gravptr%UpdateGravity_single(Mesh,Physics,Fluxes,pvar,time,dt)
 
       ! add contribution to the overall gravitational acceleration
-!       DO CONCURRENT (i=1:SIZE(this%accel%data1d))
-!         this%accel%data1d(i) = this%accel%data1d(i) + gravptr%accel%data1d(i)
-!       END DO
       this%accel = this%accel + gravptr%accel
 
       ! add potential if available
       IF (ALLOCATED(gravptr%pot)) THEN
         this%pot = this%pot + gravptr%pot
-!         DO CONCURRENT (i=Mesh%IGMIN:Mesh%IGMAX,j=Mesh%JGMIN:Mesh%JGMAX, &
-!                        k=Mesh%KGMIN:Mesh%KGMAX,l=1:SIZE(this%pot%data4d,DIM=4))
-!           this%pot%data4d(i,j,k,l) = this%pot%data4d(i,j,k,l) + gravptr%pot(i,j,k,l)
-!         END DO
       END IF
 
       ! next source term
