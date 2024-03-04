@@ -3,7 +3,7 @@
 !# fosite - 3D hydrodynamical simulation program                             #
 !# module: gravity_sboxspectral.f90                                          #
 !#                                                                           #
-!# Copyright (C) 2015-2021                                                   #
+!# Copyright (C) 2015-2024                                                   #
 !# Jannes Klee <jklee@astrophysik.uni-kiel.de>                               #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
 !#                                                                           #
@@ -347,8 +347,6 @@ MODULE gravity_sboxspectral_mod
     END DO
     this%kx(:) = 0.
     this%ky(:) = 0.
-    ! nullify not used potential explicitely
-    NULLIFY(this%pot)
 
     ! precompute wave numbers
     this%kx(:) = CSHIFT((/(i-(Mesh%INUM+1)/2,i=0,Mesh%INUM-1)/),(Mesh%INUM+1)/2) &

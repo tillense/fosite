@@ -3,7 +3,7 @@
 !# fosite - 3D hydrodynamical simulation program                             #
 !# module: gravity_spectral.f90                                              #
 !#                                                                           #
-!# Copyright (C) 2011-2021                                                   #
+!# Copyright (C) 2011-2024                                                   #
 !# Manuel Jung <mjung@astrophysik.uni-kiel.de>                               #
 !# Jannes Klee <jklee@astrophysik.uni-kiel.de>                               #
 !#                                                                           #
@@ -181,7 +181,7 @@ MODULE gravity_spectral_mod
 
     ALLOCATE(this%phi2D(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX), &
              this%tmp2D(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX), &
-             this%pot(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,4), &
+             this%pot, &
              this%height1D(1:Mesh%INUM), &
              this%sizes(1),&
              this%mcut, &
@@ -195,12 +195,19 @@ MODULE gravity_spectral_mod
 #endif
              STAT=err)
 
+    IF (err.NE.0) &
+      CALL this%Error("gravity_spectral::InitGravity_spectral","memory allocation failed")
+
+    ! initialize potential
+    this%pot = marray_base(4)
+    this%pot%data1d(:) = 0.0
+
     CALL GetAttr(config, "green", this%green, 1)
     SELECT CASE(this%green)
     CASE(1,2,3)
       ! ok -> do nothing
     CASE DEFAULT
-      CALL this%Error("InitGravity_spectral","type of Green's function should be one of 1,2,3")
+      CALL this%Error("gravity_spectral::InitGravity_spectral","type of Green's function should be one of 1,2,3")
     END SELECT
 
     CALL GetAttr(config, "sigma", this%sigma, 0.05)
@@ -253,7 +260,6 @@ MODULE gravity_spectral_mod
     this%cblock => this%cFdensity(:,Mesh%IMIN:Mesh%IMAX)
 
     this%phi2D(:,:) = 0.
-    this%pot(:,:,:,:) = 0.
     this%tmp2D(:,:) = 0.
 
     ! Create plans for fftw
@@ -308,10 +314,10 @@ MODULE gravity_spectral_mod
     !------------------------------------------------------------------------!
     valwrite = 0
     CALL GetAttr(config, "output/potential", valwrite, 0)
-    IF (valwrite .EQ. 1) THEN
-      IF (ASSOCIATED(this%pot)) &
+    IF (valwrite .EQ. 1.AND.ALLOCATED(this%pot)) THEN
+      IF (ASSOCIATED(this%pot%data4d)) &
         CALL SetAttr(IO, "potential", &
-              this%pot(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,4))
+              this%pot%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,4))
     END IF
   END SUBROUTINE SetOutput
 
@@ -656,9 +662,9 @@ MODULE gravity_spectral_mod
           this%accel%data4d(i,j,k,2) = -1.0*(this%phi2D(i+1,j+1)+this%phi2D(i,j+1) &
                            -this%phi2D(i+1,j-1)-this%phi2D(i,j-1))&
                             /(4.0*Mesh%dly%data3d(i,j,k))
-          this%pot(i,j,k,1) = 0.5*(this%phi2D(i,j)+this%phi2D(i+1,j))
-          this%pot(i,j,k,2) = this%phi2D(i+1,j)
-          this%pot(i,j,k,3) = 0.25*(this%phi2D(i,j)+this%phi2D(i+1,j)+this%phi2D(i,j+1)+this%phi2D(i+1,j+1))
+          this%pot%data4d(i,j,k,1) = 0.5*(this%phi2D(i,j)+this%phi2D(i+1,j))
+          this%pot%data4d(i,j,k,2) = this%phi2D(i+1,j)
+          this%pot%data4d(i,j,k,3) = 0.25*(this%phi2D(i,j)+this%phi2D(i+1,j)+this%phi2D(i,j+1)+this%phi2D(i+1,j+1))
         END DO
       END DO
     END DO
@@ -726,9 +732,9 @@ MODULE gravity_spectral_mod
       DO j=Mesh%JMIN-Mesh%JP1,Mesh%JMAX
         DO i=Mesh%IMIN-Mesh%IP1,Mesh%IMAX
           phi(i,j,1) = Mesh%hy%faces(i,j,k,2)*Mesh%hz%faces(i,j,k,2)/Mesh%hx%faces(i,j,k,2)&
-           * this%pot(i,j,k,2)
+           * this%pot%data4d(i,j,k,2)
           phi(i,j,2) = Mesh%hx%faces(i,j,k,4)*Mesh%hz%faces(i,j,k,4)/Mesh%hy%faces(i,j,k,4)&
-           * this%pot(i,j,k,3)
+           * this%pot%data4d(i,j,k,3)
         END DO
       END DO
     END DO
@@ -808,6 +814,7 @@ MODULE gravity_spectral_mod
     ! Free all temporary memory of FFTW
     CALL fftw_cleanup()
 #endif
+    IF (ALLOCATED(this%pot)) DEALLOCATE(this%pot)
     CALL this%Finalize_base()
    END SUBROUTINE Finalize
 

@@ -3,7 +3,7 @@
 !# fosite - 3D hydrodynamical simulation program                             #
 !# module: gravity_pointmass.f90                                             #
 !#                                                                           #
-!# Copyright (C) 2007-2021                                                   #
+!# Copyright (C) 2007-2024                                                   #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
 !# Björn Sperling   <sperling@astrophysik.uni-kiel.de>                       #
 !# Jannes Klee      <jklee@astrophysik.uni-kiel.de>                          #
@@ -90,7 +90,6 @@ MODULE gravity_pointmass_mod
     REAL, DIMENSION(:,:,:,:),   POINTER :: posvec_prim  !< pos. vectors from primary
     REAL, DIMENSION(:,:,:,:),   POINTER :: posvec_prim_tmp !< tmp. pos. vectors from primary
     REAL, DIMENSION(:,:,:,:,:), POINTER :: fposvec_prim !< face pos.
-    REAL, DIMENSION(:,:,:,:), POINTER   :: pot_prim     !< potential second component
     REAL, DIMENSION(:,:,:),   POINTER   :: omega        !< angular velocity
     REAL, DIMENSION(:,:,:,:), POINTER   :: omega2       !< Omega Kepler squared
   CONTAINS
@@ -147,8 +146,7 @@ CONTAINS
     !------------------------------------------------------------------------!
     CALL this%InitGravity(Mesh,Physics,"central point mass",config,IO)
     !\todo last dimensions are absolutely not clear if right.. What are the standing for?
-    ALLOCATE(this%potential, &
-             this%pot(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,4), &
+    ALLOCATE(this%potential, this%pot, &
              this%omega(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
              this%omega2(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,1), &
              this%r_prim(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX),&
@@ -159,11 +157,15 @@ CONTAINS
                ! last two entries (EAST,NORTH,TOP)x(dim1,dim2,dim3)
              this%mass, this%accrate, this%massloss, this%pos(1,3), &
          STAT = err)
-    IF (err.NE.0) CALL this%Error("InitGravity_pointmass", "Unable allocate memory!")
+    IF (err.NE.0) CALL this%Error("InitGravity_pointmass", "Memory allocation failed!")
 
     ! type of the potential
     CALL GetAttr(config, "potential", potential_number, NEWTON)
     CALL this%potential%InitLogging(potential_number,potential_name(potential_number))
+
+    ! init mesh array for potential
+    this%pot = marray_base(4)
+    this%pot%data1d(:) = 0.0
 
     ! set (initial) mass
     CALL GetAttr(config, "mass", this%mass, 1.0)
@@ -278,8 +280,7 @@ CONTAINS
     END DO
 
     !! \todo implement computation for pseudo-Newton Paczynski-Wiita potential
-    CALL this%CalcPotential(Mesh,Physics,this%mass,this%r_prim,this%fr_prim,this%pot)
-
+    CALL this%CalcPotential(Mesh,Physics,this%mass,this%r_prim,this%fr_prim,this%pot%data4d)
 
     CALL this%SetOutput(Mesh,Physics,config,IO)
 
@@ -363,10 +364,10 @@ CONTAINS
        CALL SetAttr(IO, "position", this%pos)
     valwrite = 0
     CALL GetAttr(config, "output/potential", valwrite, 0)
-    IF (valwrite .EQ. 1) THEN
-      IF (ASSOCIATED(this%pot)) &
+    IF ((valwrite .EQ. 1).AND. ALLOCATED(this%pot)) THEN
+      IF (ASSOCIATED(this%pot%data4d)) &
         CALL SetAttr(IO, "potential", &
-              this%pot(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,4))
+          this%pot%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,4))
     END IF
   END SUBROUTINE SetOutput
 
@@ -416,8 +417,8 @@ CONTAINS
        ! with newmass/oldmass to account for accretion
        massfac = this%mass/oldmass
        sqrmassfac = SQRT(massfac)
-       this%accel%data4d(:,:,:,:) = this%accel%data4d(:,:,:,:) * massfac
-       this%pot(:,:,:,:) = this%pot(:,:,:,:) * massfac
+       this%accel%data1d(:) = this%accel%data1d(:) * massfac
+       this%pot%data1d(:) = this%pot%data1d(:) * massfac
        this%omega(:,:,:) = this%omega(:,:,:) * sqrmassfac
        this%mdot = bflux(Physics%DENSITY)
     END IF
@@ -470,11 +471,12 @@ CONTAINS
        END IF
     END IF
 
-    DEALLOCATE(this%pot,this%omega,this%omega2,this%r_prim,this%fr_prim, &
+    DEALLOCATE(this%omega,this%omega2,this%r_prim,this%fr_prim, &
                this%posvec_prim,this%posvec_prim_tmp,this%fposvec_prim,this%mass, &
                this%accrate,this%massloss,this%pos)
 
     IF (ALLOCATED(this%potential)) DEALLOCATE(this%potential)
+    IF (ALLOCATED(this%pot)) DEALLOCATE(this%pot)
     CALL this%Finalize_base()
   END SUBROUTINE Finalize
 
