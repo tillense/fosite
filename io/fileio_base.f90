@@ -940,7 +940,7 @@ CONTAINS
        IF (this%err.EQ.MPI_SUCCESS) THEN
           CALL MPI_File_sync(this%GetUnitNumber(),this%err)
           IF (this%err.EQ.MPI_SUCCESS.AND.this%GetUnitnumber().NE.MPI_File_NULL) THEN
-             CALL MPI_File_close(this%GetUnitnumber(),this%err)
+             CALL MPI_File_close(this%fid,this%err)
              IF (this%err.NE.MPI_SUCCESS) &
                 CALL this%Error("filehandle_mpi::GetStatus","cannot close file")
           END IF
@@ -963,7 +963,7 @@ CONTAINS
     !------------------------------------------------------------------------!
     this%err = MPI_SUCCESS
     IF (this%GetStatus(step).GT.0) THEN
-      IF (this%err.EQ.MPI_SUCCESS) CALL MPI_File_close(this%GetUnitnumber(),this%err)
+      IF (this%err.EQ.MPI_SUCCESS) CALL MPI_File_close(this%fid,this%err)
       this%fid = MPI_File_NULL
     END IF
     IF (this%err.NE.MPI_SUCCESS) &
@@ -979,7 +979,7 @@ CONTAINS
     LOGICAL :: op
     !------------------------------------------------------------------------!
     IF (this%GetUnitNumber().NE.MPI_File_NULL) &
-       CALL MPI_File_close(this%GetUnitnumber(),this%err)
+       CALL MPI_File_close(this%fid,this%err)
     IF (this%err.NE.MPI_SUCCESS) &
        CALL this%Error("filehandle_mpi::Finalize","serious error occured while close file")
   END SUBROUTINE Finalize_mpi
