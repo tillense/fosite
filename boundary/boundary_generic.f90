@@ -74,6 +74,8 @@ MODULE boundary_generic_mod
 #ifdef PARALLEL
     PROCEDURE :: MPIBoundaryCommunication
     PROCEDURE :: InitBoundary_MPI
+    PROCEDURE :: MPIbuffer2pvar
+    PROCEDURE :: MPIpvar2buffer
 #endif
     PROCEDURE :: Finalize
   END TYPE boundary_generic
@@ -851,29 +853,23 @@ CONTAINS
     ! initiate western/eastern MPI communication
 #ifdef MPI_USE_SENDRECV
     ! send boundary data to western and receive from eastern neighbor
-    IF (Mesh%neighbor(WEST).NE.MPI_PROC_NULL) THEN
-      this%Boundary(WEST)%p%sendbuf(:,:,:,:) = pvar(Mesh%IMIN:Mesh%IMIN+Mesh%GINUM-1, &
-        Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,1:Physics%VNUM)
-    END IF
+    IF (Mesh%neighbor(WEST).NE.MPI_PROC_NULL) &
+      CALL this%MPIpvar2buffer(Mesh,Physics,WEST,pvar,this%Boundary(WEST)%p%sendbuf)
     CALL MPI_Sendrecv(this%Boundary(WEST)%p%sendbuf, &
          Mesh%GINUM*(Mesh%JGMAX-Mesh%JGMIN+1)*(Mesh%KGMAX-Mesh%KGMIN+1)*Physics%VNUM, &
          DEFAULT_MPI_REAL,Mesh%neighbor(WEST),10+WEST,this%Boundary(EAST)%p%recvbuf,  &
          Mesh%GINUM*(Mesh%JGMAX-Mesh%JGMIN+1)*(Mesh%KGMAX-Mesh%KGMIN+1)*Physics%VNUM, &
          DEFAULT_MPI_REAL,Mesh%neighbor(EAST),MPI_ANY_TAG,Mesh%comm_cart,status,ierr)
-    IF (Mesh%neighbor(EAST).NE.MPI_PROC_NULL) THEN
-      pvar(Mesh%IMAX+1:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,1:Physics%VNUM) = &
-        this%Boundary(EAST)%p%recvbuf(:,:,:,:)
-    END IF
+    IF (Mesh%neighbor(EAST).NE.MPI_PROC_NULL) &
+      CALL this%MPIbuffer2pvar(Mesh,Physics,EAST,this%Boundary(EAST)%p%recvbuf,pvar)
 #else
     ! receive boundary data from eastern neighbor
     CALL MPI_Irecv(this%Boundary(EAST)%p%recvbuf, &
          Mesh%GINUM*(Mesh%JGMAX-Mesh%JGMIN+1)*(Mesh%KGMAX-Mesh%KGMIN+1)*Physics%VNUM, &
          DEFAULT_MPI_REAL,Mesh%neighbor(EAST),10+WEST,Mesh%comm_cart,req(1),ierr)
     ! fill send buffer if western neighbor exists
-    IF (Mesh%neighbor(WEST).NE.MPI_PROC_NULL) THEN
-      this%Boundary(WEST)%p%sendbuf(:,:,:,:) = &
-        pvar(Mesh%IMIN:Mesh%IMIN+Mesh%GINUM-1,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,1:Physics%VNUM)
-    END IF
+    IF (Mesh%neighbor(WEST).NE.MPI_PROC_NULL) &
+      CALL this%MPIpvar2buffer(Mesh,Physics,WEST,pvar,this%Boundary(WEST)%p%sendbuf)
     ! send boundary data to western neighbor
     CALL MPI_Issend(this%Boundary(WEST)%p%sendbuf, &
          Mesh%GINUM*(Mesh%JGMAX-Mesh%JGMIN+1)*(Mesh%KGMAX-Mesh%KGMIN+1)*Physics%VNUM, &
@@ -881,74 +877,58 @@ CONTAINS
 #endif
 #ifdef MPI_USE_SENDRECV
     ! send boundary data to eastern and receive from western neighbor
-    IF (Mesh%neighbor(EAST).NE.MPI_PROC_NULL) THEN
-          this%Boundary(EAST)%p%sendbuf(:,:,:,:) = pvar(Mesh%IMAX-Mesh%GINUM+1:Mesh%IMAX, &
-             Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,1:Physics%VNUM)
-    END IF
+    IF (Mesh%neighbor(EAST).NE.MPI_PROC_NULL) &
+      CALL this%MPIpvar2buffer(Mesh,Physics,EAST,pvar,this%Boundary(EAST)%p%sendbuf)
     CALL MPI_Sendrecv(this%Boundary(EAST)%p%sendbuf, &
          Mesh%GINUM*(Mesh%JGMAX-Mesh%JGMIN+1)*(Mesh%KGMAX-Mesh%KGMIN+1)*Physics%VNUM, &
          DEFAULT_MPI_REAL,Mesh%neighbor(EAST),10+EAST,this%Boundary(WEST)%p%recvbuf,  &
          Mesh%GINUM*(Mesh%JGMAX-Mesh%JGMIN+1)*(Mesh%KGMAX-Mesh%KGMIN+1)*Physics%VNUM, &
          DEFAULT_MPI_REAL,Mesh%neighbor(WEST),MPI_ANY_TAG,Mesh%comm_cart,status,ierr)
-    IF (Mesh%neighbor(WEST).NE.MPI_PROC_NULL) THEN
-      pvar(Mesh%IGMIN:Mesh%IMIN-1,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,1:Physics%VNUM) = &
-              this%Boundary(WEST)%p%recvbuf(:,:,:,:)
-    END IF
+    IF (Mesh%neighbor(WEST).NE.MPI_PROC_NULL) &
+      CALL this%MPIbuffer2pvar(Mesh,Physics,WEST,this%Boundary(WEST)%p%recvbuf,pvar)
 #else
     ! receive boundary data from western neighbor
     CALL MPI_Irecv(this%Boundary(WEST)%p%recvbuf, &
       Mesh%GINUM*(Mesh%JGMAX-Mesh%JGMIN+1)*(Mesh%KGMAX-Mesh%KGMIN+1)*Physics%VNUM, &
          DEFAULT_MPI_REAL,Mesh%neighbor(WEST),10+EAST,Mesh%comm_cart,req(3),ierr)
     ! fill send buffer if eastern neighbor exists
-    IF (Mesh%neighbor(EAST).NE.MPI_PROC_NULL) THEN
-      this%Boundary(EAST)%p%sendbuf(:,:,:,:) = &
-         pvar(Mesh%IMAX-Mesh%GINUM+1:Mesh%IMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,1:Physics%VNUM)
-    END IF
+    IF (Mesh%neighbor(EAST).NE.MPI_PROC_NULL) &
+      CALL this%MPIpvar2buffer(Mesh,Physics,EAST,pvar,this%Boundary(EAST)%p%sendbuf)
     ! send boundary data to eastern neighbor
     CALL MPI_Issend(this%Boundary(EAST)%p%sendbuf, &
          Mesh%GINUM*(Mesh%JGMAX-Mesh%JGMIN+1)*(Mesh%KGMAX-Mesh%KGMIN+1)*Physics%VNUM, &
          DEFAULT_MPI_REAL,Mesh%neighbor(EAST),10+EAST,Mesh%comm_cart,req(4),ierr)
 #endif
 #ifndef MPI_USE_SENDRECV
-   ! wait for unfinished MPI communication
+    ! wait for unfinished MPI communication
     CALL MPI_Waitall(4,req,status,ierr)
-   ! copy data from recieve buffers into ghosts cells
-    IF (Mesh%neighbor(WEST).NE.MPI_PROC_NULL) THEN
-        pvar(Mesh%IGMIN:Mesh%IMIN-1,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,1:Physics%VNUM) = &
-          this%Boundary(WEST)%p%recvbuf(:,:,:,:)
-    END IF
-    IF (Mesh%neighbor(EAST).NE.MPI_PROC_NULL) THEN
-        pvar(Mesh%IMAX+1:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,1:Physics%VNUM) = &
-          this%Boundary(EAST)%p%recvbuf(:,:,:,:)
-    END IF
+    ! copy data from recieve buffers into ghosts cells
+    IF (Mesh%neighbor(WEST).NE.MPI_PROC_NULL) &
+      CALL this%MPIbuffer2pvar(Mesh,Physics,WEST,this%Boundary(WEST)%p%recvbuf,pvar)
+    IF (Mesh%neighbor(EAST).NE.MPI_PROC_NULL) &
+      CALL this%MPIbuffer2pvar(Mesh,Physics,EAST,this%Boundary(EAST)%p%recvbuf,pvar)
 #endif
 
    ! initiate southern/northern MPI communication
 #ifdef MPI_USE_SENDRECV
    ! send boundary data to southern and receive from northern neighbor
-    IF (Mesh%neighbor(SOUTH).NE.MPI_PROC_NULL) THEN
-        this%Boundary(SOUTH)%p%sendbuf(:,:,:,:) = pvar(Mesh%IGMIN:Mesh%IGMAX, &
-           Mesh%JMIN:Mesh%JMIN+Mesh%GJNUM-1,Mesh%KGMIN:Mesh%KGMAX,1:Physics%VNUM)
-    END IF
+    IF (Mesh%neighbor(SOUTH).NE.MPI_PROC_NULL) &
+      CALL this%MPIpvar2buffer(Mesh,Physics,SOUTH,pvar,this%Boundary(SOUTH)%p%sendbuf)
     CALL MPI_Sendrecv(this%Boundary(SOUTH)%p%sendbuf, &
         Mesh%GJNUM*(Mesh%IGMAX-Mesh%IGMIN+1)*(Mesh%KGMAX-Mesh%KGMIN+1)*Physics%VNUM, &
         DEFAULT_MPI_REAL,Mesh%neighbor(SOUTH),10+SOUTH,this%Boundary(NORTH)%p%recvbuf,          &
         Mesh%GJNUM*(Mesh%IGMAX-Mesh%IGMIN+1)*(Mesh%KGMAX-Mesh%KGMIN+1)*Physics%VNUM, &
         DEFAULT_MPI_REAL,Mesh%neighbor(NORTH),MPI_ANY_TAG,Mesh%comm_cart,status,ierr)
-    IF (Mesh%neighbor(NORTH).NE.MPI_PROC_NULL) THEN
-        pvar(Mesh%IGMIN:Mesh%IGMAX,Mesh%JMAX+1:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,1:Physics%VNUM) = &
-          this%Boundary(NORTH)%p%recvbuf(:,:,:,:)
-    END IF
+    IF (Mesh%neighbor(NORTH).NE.MPI_PROC_NULL) &
+      CALL this%MPIbuffer2pvar(Mesh,Physics,NORTH,this%Boundary(NORTH)%p%recvbuf,pvar)
 #else
     ! receive boundary data from northern neighbor
     CALL MPI_Irecv(this%Boundary(NORTH)%p%recvbuf, &
          Mesh%GJNUM*(Mesh%IGMAX-Mesh%IGMIN+1)*(Mesh%KGMAX-Mesh%KGMIN+1)*Physics%VNUM, &
          DEFAULT_MPI_REAL,Mesh%neighbor(NORTH),10+SOUTH,Mesh%comm_cart,req(1),ierr)
     ! fill send buffer if southern neighbor exists
-    IF (Mesh%neighbor(SOUTH).NE.MPI_PROC_NULL) THEN
-         this%Boundary(SOUTH)%p%sendbuf(:,:,:,:) = pvar(Mesh%IGMIN:Mesh%IGMAX, &
-           Mesh%JMIN:Mesh%JMIN+Mesh%GJNUM-1,Mesh%KGMIN:Mesh%KGMAX,1:Physics%VNUM)
-    END IF
+    IF (Mesh%neighbor(SOUTH).NE.MPI_PROC_NULL) &
+      CALL this%MPIpvar2buffer(Mesh,Physics,SOUTH,pvar,this%Boundary(SOUTH)%p%sendbuf)
     ! send boundary data to southern neighbor
     CALL MPI_Issend(this%Boundary(SOUTH)%p%sendbuf, &
          Mesh%GJNUM*(Mesh%IGMAX-Mesh%IGMIN+1)*(Mesh%KGMAX-Mesh%KGMIN+1)*Physics%VNUM, &
@@ -956,29 +936,23 @@ CONTAINS
 #endif
 #ifdef MPI_USE_SENDRECV
    ! send boundary data to northern and receive from southern neighbor
-    IF (Mesh%neighbor(NORTH).NE.MPI_PROC_NULL) THEN
-         this%Boundary(NORTH)%p%sendbuf(:,:,:,:) = pvar(Mesh%IGMIN:Mesh%IGMAX, &
-           Mesh%JMAX-Mesh%GJNUM+1:Mesh%JMAX,Mesh%KGMIN:Mesh%KGMAX,1:Physics%VNUM)
-    END IF
+    IF (Mesh%neighbor(NORTH).NE.MPI_PROC_NULL) &
+      CALL this%MPIpvar2buffer(Mesh,Physics,NORTH,pvar,this%Boundary(NORTH)%p%sendbuf)
     CALL MPI_Sendrecv(this%Boundary(NORTH)%p%sendbuf, &
          Mesh%GJNUM*(Mesh%IGMAX-Mesh%IGMIN+1)*(Mesh%KGMAX-Mesh%KGMIN+1)*Physics%VNUM,   &
          DEFAULT_MPI_REAL,Mesh%neighbor(NORTH),10+NORTH,this%Boundary(SOUTH)%p%recvbuf, &
          Mesh%GJNUM*(Mesh%IGMAX-Mesh%IGMIN+1)*(Mesh%KGMAX-Mesh%KGMIN+1)*Physics%VNUM,   &
          DEFAULT_MPI_REAL,Mesh%neighbor(SOUTH),MPI_ANY_TAG,Mesh%comm_cart,status,ierr)
-    IF (Mesh%neighbor(SOUTH).NE.MPI_PROC_NULL) THEN
-         pvar(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JMIN-1,Mesh%KGMIN:Mesh%KGMAX,1:Physics%VNUM) = &
-           this%Boundary(SOUTH)%p%recvbuf(:,:,:,:)
-    END IF
+    IF (Mesh%neighbor(SOUTH).NE.MPI_PROC_NULL) &
+      CALL this%MPIbuffer2pvar(Mesh,Physics,SOUTH,this%Boundary(SOUTH)%p%recvbuf,pvar)
 #else
     ! receive boundary data from southern neighbor
     CALL MPI_Irecv(this%Boundary(SOUTH)%p%recvbuf, &
          Mesh%GJNUM*(Mesh%IGMAX-Mesh%IGMIN+1)*(Mesh%KGMAX-Mesh%KGMIN+1)*Physics%VNUM, &
          DEFAULT_MPI_REAL,Mesh%neighbor(SOUTH),10+NORTH,Mesh%comm_cart,req(3),ierr)
     ! fill send buffer if northern neighbor exists
-    IF (Mesh%neighbor(NORTH).NE.MPI_PROC_NULL) THEN
-         this%Boundary(NORTH)%p%sendbuf(:,:,:,:) = pvar(Mesh%IGMIN:Mesh%IGMAX, &
-           Mesh%JMAX-Mesh%GJNUM+1:Mesh%JMAX,Mesh%KGMIN:Mesh%KGMAX,1:Physics%VNUM)
-    END IF
+    IF (Mesh%neighbor(NORTH).NE.MPI_PROC_NULL) &
+      CALL this%MPIpvar2buffer(Mesh,Physics,NORTH,pvar,this%Boundary(NORTH)%p%sendbuf)
     ! send boundary data to northern neighbor
     CALL MPI_Issend(this%Boundary(NORTH)%p%sendbuf, &
          Mesh%GJNUM*(Mesh%IGMAX-Mesh%IGMIN+1)*(Mesh%KGMAX-Mesh%KGMIN+1)*Physics%VNUM, &
@@ -987,42 +961,32 @@ CONTAINS
 #ifndef MPI_USE_SENDRECV
     ! wait for unfinished MPI communication
     CALL MPI_Waitall(4,req,status,ierr)
-    IF (Mesh%neighbor(SOUTH).NE.MPI_PROC_NULL) THEN
-         pvar(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JMIN-1,Mesh%KGMIN:Mesh%KGMAX,1:Physics%VNUM) = &
-         this%Boundary(SOUTH)%p%recvbuf(:,:,:,:)
-    END IF
-    IF (Mesh%neighbor(NORTH).NE.MPI_PROC_NULL) THEN
-         pvar(Mesh%IGMIN:Mesh%IGMAX,Mesh%JMAX+1:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,1:Physics%VNUM) = &
-           this%Boundary(NORTH)%p%recvbuf(:,:,:,:)
-    END IF
+    IF (Mesh%neighbor(SOUTH).NE.MPI_PROC_NULL) &
+      CALL this%MPIbuffer2pvar(Mesh,Physics,SOUTH,this%Boundary(SOUTH)%p%recvbuf,pvar)
+    IF (Mesh%neighbor(NORTH).NE.MPI_PROC_NULL) &
+      CALL this%MPIbuffer2pvar(Mesh,Physics,NORTH,this%Boundary(NORTH)%p%recvbuf,pvar)
 #endif
 
     ! initiate bottom/top MPI communication
 #ifdef MPI_USE_SENDRECV
     ! send boundary data to bottom and receive from top neighbor
-    IF (Mesh%neighbor(BOTTOM).NE.MPI_PROC_NULL) THEN
-        this%Boundary(BOTTOM)%p%sendbuf(:,:,:,:) = pvar(Mesh%IGMIN:Mesh%IGMAX, &
-           Mesh%JGMIN:Mesh%JGMAX,Mesh%KMIN:Mesh%KMIN+Mesh%GKNUM-1,1:Physics%VNUM)
-    END IF
+    IF (Mesh%neighbor(BOTTOM).NE.MPI_PROC_NULL) &
+      CALL this%MPIpvar2buffer(Mesh,Physics,BOTTOM,pvar,this%Boundary(BOTTOM)%p%sendbuf)
     CALL MPI_Sendrecv(this%Boundary(BOTTOM)%p%sendbuf,&
          Mesh%GKNUM*(Mesh%IGMAX-Mesh%IGMIN+1)*(Mesh%JGMAX-Mesh%JGMIN+1)*Physics%VNUM,   &
          DEFAULT_MPI_REAL,Mesh%neighbor(BOTTOM),10+BOTTOM,this%Boundary(TOP)%p%recvbuf, &
          Mesh%GKNUM*(Mesh%IGMAX-Mesh%IGMIN+1)*(Mesh%JGMAX-Mesh%JGMIN+1)*Physics%VNUM,   &
          DEFAULT_MPI_REAL,Mesh%neighbor(TOP),MPI_ANY_TAG,Mesh%comm_cart,status,ierr)
-    IF (Mesh%neighbor(TOP).NE.MPI_PROC_NULL) THEN
-        pvar(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KMAX+1:Mesh%KGMAX,1:Physics%VNUM) = &
-          this%Boundary(TOP)%p%recvbuf(:,:,:,:)
-    END IF
+    IF (Mesh%neighbor(TOP).NE.MPI_PROC_NULL) &
+      CALL this%MPIbuffer2pvar(Mesh,Physics,TOP,this%Boundary(TOP)%p%recvbuf,pvar)
 #else
     ! receive boundary data from top neighbor
     CALL MPI_Irecv(this%Boundary(TOP)%p%recvbuf, &
          Mesh%GKNUM*(Mesh%IGMAX-Mesh%IGMIN+1)*(Mesh%JGMAX-Mesh%JGMIN+1)*Physics%VNUM, &
          DEFAULT_MPI_REAL,Mesh%neighbor(TOP),10+BOTTOM,Mesh%comm_cart,req(1),ierr)
     ! fill send buffer if bottomer neighbor exists
-    IF (Mesh%neighbor(BOTTOM).NE.MPI_PROC_NULL) THEN
-         this%Boundary(BOTTOM)%p%sendbuf(:,:,:,:) = pvar(Mesh%IGMIN:Mesh%IGMAX, &
-           Mesh%JGMIN:Mesh%JGMAX,Mesh%KMIN:Mesh%KMIN+Mesh%GKNUM-1,1:Physics%VNUM)
-    END IF
+    IF (Mesh%neighbor(BOTTOM).NE.MPI_PROC_NULL) &
+      CALL this%MPIpvar2buffer(Mesh,Physics,BOTTOM,pvar,this%Boundary(BOTTOM)%p%sendbuf)
     ! send boundary data to bottom neighbor
     CALL MPI_Issend(this%Boundary(BOTTOM)%p%sendbuf, &
          Mesh%GKNUM*(Mesh%IGMAX-Mesh%IGMIN+1)*(Mesh%JGMAX-Mesh%JGMIN+1)*Physics%VNUM, &
@@ -1030,29 +994,23 @@ CONTAINS
 #endif
 #ifdef MPI_USE_SENDRECV
     ! send boundary data to top and receive from bottom neighbor
-    IF (Mesh%neighbor(TOP).NE.MPI_PROC_NULL) THEN
-         this%Boundary(TOP)%p%sendbuf(:,:,:,:) = pvar(Mesh%IGMIN:Mesh%IGMAX, &
-           Mesh%JGMIN:Mesh%JGMAX,Mesh%KMAX-Mesh%GKNUM+1:Mesh%KMAX,1:Physics%VNUM)
-    END IF
+    IF (Mesh%neighbor(TOP).NE.MPI_PROC_NULL) &
+      CALL this%MPIpvar2buffer(Mesh,Physics,TOP,pvar,this%Boundary(TOP)%p%sendbuf)
     CALL MPI_Sendrecv(this%Boundary(TOP)%p%sendbuf, &
          Mesh%GKNUM*(Mesh%IGMAX-Mesh%IGMIN+1)*(Mesh%JGMAX-Mesh%JGMIN+1)*Physics%VNUM, &
          DEFAULT_MPI_REAL,Mesh%neighbor(TOP),10+TOP,this%Boundary(BOTTOM)%p%recvbuf,  &
          Mesh%GKNUM*(Mesh%IGMAX-Mesh%IGMIN+1)*(Mesh%JGMAX-Mesh%JGMIN+1)*Physics%VNUM,  &
          DEFAULT_MPI_REAL,Mesh%neighbor(BOTTOM),MPI_ANY_TAG,Mesh%comm_cart,status,ierr)
-    IF (Mesh%neighbor(BOTTOM).NE.MPI_PROC_NULL) THEN
-         pvar(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KMIN-1,1:Physics%VNUM) = &
-           this%Boundary(BOTTOM)%p%recvbuf(:,:,:,:)
-    END IF
+    IF (Mesh%neighbor(BOTTOM).NE.MPI_PROC_NULL) &
+      CALL this%MPIbuffer2pvar(Mesh,Physics,BOTTOM,this%Boundary(BOTTOM)%p%recvbuf,pvar)
 #else
     ! receive boundary data from bottom neighbor
     CALL MPI_Irecv(this%Boundary(BOTTOM)%p%recvbuf, &
          Mesh%GKNUM*(Mesh%IGMAX-Mesh%IGMIN+1)*(Mesh%JGMAX-Mesh%JGMIN+1)*Physics%VNUM, &
          DEFAULT_MPI_REAL,Mesh%neighbor(BOTTOM),10+TOP,Mesh%comm_cart,req(3),ierr)
     ! fill send buffer if northern neighbor exists
-    IF (Mesh%neighbor(TOP).NE.MPI_PROC_NULL) THEN
-         this%Boundary(TOP)%p%sendbuf(:,:,:,:) = pvar(Mesh%IGMIN:Mesh%IGMAX, &
-           Mesh%JGMIN:Mesh%JGMAX,Mesh%KMAX-Mesh%GKNUM+1:Mesh%KMAX,1:Physics%VNUM)
-    END IF
+    IF (Mesh%neighbor(TOP).NE.MPI_PROC_NULL) &
+      CALL this%MPIpvar2buffer(Mesh,Physics,TOP,pvar,this%Boundary(TOP)%p%sendbuf)
     ! send boundary data to top neighbor
     CALL MPI_Issend(this%Boundary(TOP)%p%sendbuf, &
          Mesh%GKNUM*(Mesh%IGMAX-Mesh%IGMIN+1)*(Mesh%JGMAX-Mesh%JGMIN+1)*Physics%VNUM, &
@@ -1061,17 +1019,192 @@ CONTAINS
 #ifndef MPI_USE_SENDRECV
     ! wait for unfinished MPI communication
     CALL MPI_Waitall(4,req,status,ierr)
-    IF (Mesh%neighbor(BOTTOM).NE.MPI_PROC_NULL) THEN
-         pvar(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KMIN-1,1:Physics%VNUM) = &
-         this%Boundary(BOTTOM)%p%recvbuf(:,:,:,:)
-    END IF
-    IF (Mesh%neighbor(TOP).NE.MPI_PROC_NULL) THEN
-         pvar(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KMAX+1:Mesh%KGMAX,1:Physics%VNUM) = &
-           this%Boundary(TOP)%p%recvbuf(:,:,:,:)
-    END IF
+    IF (Mesh%neighbor(BOTTOM).NE.MPI_PROC_NULL) &
+      CALL this%MPIbuffer2pvar(Mesh,Physics,BOTTOM,this%Boundary(BOTTOM)%p%recvbuf,pvar)
+    IF (Mesh%neighbor(TOP).NE.MPI_PROC_NULL) &
+      CALL this%MPIbuffer2pvar(Mesh,Physics,TOP,this%Boundary(TOP)%p%recvbuf,pvar)
 #endif
-
   END SUBROUTINE MPIBoundaryCommunication
+
+  !> Copys buffer data to ghost cells
+  SUBROUTINE MPIbuffer2pvar(this,Mesh,Physics,output_dir,buffer,pvar)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(boundary_generic),INTENT(INOUT) :: this
+    CLASS(mesh_base),       INTENT(IN)    :: Mesh
+    CLASS(physics_base),    INTENT(IN)    :: Physics
+    INTEGER,                INTENT(IN)    :: output_dir
+    REAL, DIMENSION(:,:,:,:), INTENT(IN)  :: buffer
+    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
+                              INTENT(OUT) :: pvar
+    !------------------------------------------------------------------------!
+    INTEGER :: i,j,k,n
+    !------------------------------------------------------------------------!
+    SELECT CASE(output_dir)
+    CASE(WEST)
+!NEC$ shortloop
+       DO n=1,Physics%VNUM
+         DO k=Mesh%KGMIN,Mesh%KGMAX
+           DO j=Mesh%JGMIN,Mesh%JGMAX
+!NEC$ shortloop
+             DO i=1,Mesh%GINUM
+                pvar(Mesh%IGMIN+i-1,j,k,n) = buffer(i,j-Mesh%JGMIN+1,k-Mesh%KGMIN+1,n)
+             END DO
+           END DO
+         END DO
+       END DO
+    CASE(EAST)
+!NEC$ shortloop
+       DO n=1,Physics%VNUM
+         DO k=Mesh%KGMIN,Mesh%KGMAX
+           DO j=Mesh%JGMIN,Mesh%JGMAX
+!NEC$ shortloop
+             DO i=1,Mesh%GINUM
+                pvar(Mesh%IMAX+i,j,k,n) = buffer(i,j-Mesh%JGMIN+1,k-Mesh%KGMIN+1,n)
+             END DO
+           END DO
+         END DO
+       END DO
+    CASE(SOUTH)
+!NEC$ shortloop
+       DO n=1,Physics%VNUM
+         DO k=Mesh%KGMIN,Mesh%KGMAX
+!NEC$ shortloop
+           DO j=1,Mesh%GJNUM
+             DO i=Mesh%IGMIN,Mesh%IGMAX
+                pvar(i,Mesh%JGMIN+j-1,k,n) = buffer(i-Mesh%IGMIN+1,j,k-Mesh%KGMIN+1,n)
+             END DO
+           END DO
+         END DO
+       END DO
+    CASE(NORTH)
+!NEC$ shortloop
+       DO n=1,Physics%VNUM
+         DO k=Mesh%KGMIN,Mesh%KGMAX
+!NEC$ shortloop
+           DO j=1,Mesh%GJNUM
+             DO i=Mesh%IGMIN,Mesh%IGMAX
+                pvar(i,Mesh%JMAX+j,k,n) = buffer(i-Mesh%IGMIN+1,j,k-Mesh%KGMIN+1,n)
+             END DO
+           END DO
+         END DO
+       END DO
+    CASE(BOTTOM)
+!NEC$ shortloop
+       DO n=1,Physics%VNUM
+!NEC$ shortloop
+         DO k=1,Mesh%GKNUM
+           DO j=Mesh%JGMIN,Mesh%JGMAX
+             DO i=Mesh%IGMIN,Mesh%IGMAX
+                pvar(i,j,Mesh%KGMIN+k-1,n) = buffer(i-Mesh%IGMIN+1,j-Mesh%JGMIN+1,k,n)
+             END DO
+           END DO
+         END DO
+       END DO
+    CASE(TOP)
+!NEC$ shortloop
+       DO n=1,Physics%VNUM
+!NEC$ shortloop
+         DO k=1,Mesh%GKNUM
+           DO j=Mesh%JGMIN,Mesh%JGMAX
+             DO i=Mesh%IGMIN,Mesh%IGMAX
+                pvar(i,j,Mesh%KMAX+k,n) = buffer(i-Mesh%IGMIN+1,j-Mesh%JGMIN+1,k,n)
+             END DO
+           END DO
+         END DO
+       END DO
+    END SELECT
+  END SUBROUTINE MPIbuffer2pvar
+
+  !> Copys ghost cell data to buffer
+  SUBROUTINE MPIpvar2buffer(this,Mesh,Physics,input_dir,pvar,buffer)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(boundary_generic),INTENT(INOUT) :: this
+    CLASS(mesh_base),       INTENT(IN)    :: Mesh
+    CLASS(physics_base),    INTENT(IN)    :: Physics
+    INTEGER,                INTENT(IN)    :: input_dir
+    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VNUM), &
+                              INTENT(IN)  :: pvar
+    REAL, DIMENSION(:,:,:,:), INTENT(OUT) :: buffer
+    !------------------------------------------------------------------------!
+    INTEGER :: i,j,k,n
+    !------------------------------------------------------------------------!
+    SELECT CASE(input_dir)
+    CASE(WEST)
+!NEC$ shortloop
+       DO n=1,Physics%VNUM
+         DO k=Mesh%KGMIN,Mesh%KGMAX
+           DO j=Mesh%JGMIN,Mesh%JGMAX
+!NEC$ shortloop
+             DO i=1,Mesh%GINUM
+                buffer(i,j-Mesh%JGMIN+1,k-Mesh%KGMIN+1,n) = pvar(Mesh%IMIN+i-1,j,k,n)
+             END DO
+           END DO
+         END DO
+       END DO
+    CASE(EAST)
+!NEC$ shortloop
+       DO n=1,Physics%VNUM
+         DO k=Mesh%KGMIN,Mesh%KGMAX
+           DO j=Mesh%JGMIN,Mesh%JGMAX
+!NEC$ shortloop
+             DO i=1,Mesh%GINUM
+                buffer(i,j-Mesh%JGMIN+1,k-Mesh%KGMIN+1,n) = pvar(Mesh%IMAX-Mesh%GINUM+i,j,k,n)
+             END DO
+           END DO
+         END DO
+       END DO
+    CASE(SOUTH)
+!NEC$ shortloop
+       DO n=1,Physics%VNUM
+         DO k=Mesh%KGMIN,Mesh%KGMAX
+!NEC$ shortloop
+           DO j=1,Mesh%GJNUM
+             DO i=Mesh%IGMIN,Mesh%IGMAX
+               buffer(i-Mesh%IGMIN+1,j,k-Mesh%KGMIN+1,n) = pvar(i,Mesh%JMIN+j-1,k,n)
+             END DO
+           END DO
+         END DO
+       END DO
+    CASE(NORTH)
+!NEC$ shortloop
+       DO n=1,Physics%VNUM
+         DO k=Mesh%KGMIN,Mesh%KGMAX
+!NEC$ shortloop
+           DO j=1,Mesh%GJNUM
+             DO i=Mesh%IGMIN,Mesh%IGMAX
+               buffer(i-Mesh%IGMIN+1,j,k-Mesh%KGMIN+1,n) = pvar(i,Mesh%JMAX-Mesh%GJNUM+j,k,n)
+             END DO
+           END DO
+         END DO
+       END DO
+    CASE(BOTTOM)
+!NEC$ shortloop
+       DO n=1,Physics%VNUM
+!NEC$ shortloop
+         DO k=1,Mesh%GKNUM
+           DO j=Mesh%JGMIN,Mesh%JGMAX
+             DO i=Mesh%IGMIN,Mesh%IGMAX
+               buffer(i-Mesh%IGMIN+1,j-Mesh%JGMIN+1,k,n) = pvar(i,j,Mesh%KMIN+k-1,n)
+             END DO
+           END DO
+         END DO
+       END DO
+    CASE(TOP)
+!NEC$ shortloop
+       DO n=1,Physics%VNUM
+!NEC$ shortloop
+         DO k=1,Mesh%GKNUM
+           DO j=Mesh%JGMIN,Mesh%JGMAX
+             DO i=Mesh%IGMIN,Mesh%IGMAX
+               buffer(i-Mesh%IGMIN+1,j-Mesh%JGMIN+1,k,n) = pvar(i,j,Mesh%KMAX-Mesh%GKNUM+k,n)
+             END DO
+           END DO
+         END DO
+       END DO
+    END SELECT
+  END SUBROUTINE MPIpvar2buffer
 #endif
 
   SUBROUTINE Finalize(this)
