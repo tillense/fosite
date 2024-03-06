@@ -846,184 +846,167 @@ CONTAINS
     INTEGER                               :: status(MPI_STATUS_SIZE,4)
 #endif
     !------------------------------------------------------------------------!
-    ! NOTE: if you want to use MPI_Sendrecv instead of nonblocking
-    ! MPI_Irecv and  MPI_Issend for exchange of ghost cell data,
-    ! you must add -DMPI_USE_SENDRECV to the compile command
+    ! NOTE: There are two different implementations of the MPI non-blocking
+    ! communication, one uses MPI_Sendrecv (default) the other MPI_Irecv and
+    ! MPI_Issend; to switch to the latter one has to remove -DMPI_USE_SENDRECV
+    ! from the compile command which can be done by setting -DMPI_USE_SENDRECV=OFF
+    ! when invoking cmake
 
-    ! initiate western/eastern MPI communication
-#ifdef MPI_USE_SENDRECV
-    ! send boundary data to western and receive from eastern neighbor
+    ! western <-> eastern MPI communication
+#ifndef MPI_USE_SENDRECV
+    ! receive boundary data from eastern neighbor (non-blocking)
+    CALL MPI_Irecv(this%Boundary(EAST)%p%recvbuf, &
+         Mesh%GINUM*(Mesh%JGMAX-Mesh%JGMIN+1)*(Mesh%KGMAX-Mesh%KGMIN+1)*Physics%VNUM, &
+         DEFAULT_MPI_REAL,Mesh%neighbor(EAST),10+WEST,Mesh%comm_cart,req(1),ierr)
+#endif
+    ! fill send buffer if western neighbor exists
     IF (Mesh%neighbor(WEST).NE.MPI_PROC_NULL) &
       CALL this%MPIpvar2buffer(Mesh,Physics,WEST,pvar,this%Boundary(WEST)%p%sendbuf)
+#ifdef MPI_USE_SENDRECV
+    ! send boundary data to western and receive from eastern neighbor
     CALL MPI_Sendrecv(this%Boundary(WEST)%p%sendbuf, &
          Mesh%GINUM*(Mesh%JGMAX-Mesh%JGMIN+1)*(Mesh%KGMAX-Mesh%KGMIN+1)*Physics%VNUM, &
          DEFAULT_MPI_REAL,Mesh%neighbor(WEST),10+WEST,this%Boundary(EAST)%p%recvbuf,  &
          Mesh%GINUM*(Mesh%JGMAX-Mesh%JGMIN+1)*(Mesh%KGMAX-Mesh%KGMIN+1)*Physics%VNUM, &
          DEFAULT_MPI_REAL,Mesh%neighbor(EAST),MPI_ANY_TAG,Mesh%comm_cart,status,ierr)
-    IF (Mesh%neighbor(EAST).NE.MPI_PROC_NULL) &
-      CALL this%MPIbuffer2pvar(Mesh,Physics,EAST,this%Boundary(EAST)%p%recvbuf,pvar)
 #else
-    ! receive boundary data from eastern neighbor
-    CALL MPI_Irecv(this%Boundary(EAST)%p%recvbuf, &
-         Mesh%GINUM*(Mesh%JGMAX-Mesh%JGMIN+1)*(Mesh%KGMAX-Mesh%KGMIN+1)*Physics%VNUM, &
-         DEFAULT_MPI_REAL,Mesh%neighbor(EAST),10+WEST,Mesh%comm_cart,req(1),ierr)
-    ! fill send buffer if western neighbor exists
-    IF (Mesh%neighbor(WEST).NE.MPI_PROC_NULL) &
-      CALL this%MPIpvar2buffer(Mesh,Physics,WEST,pvar,this%Boundary(WEST)%p%sendbuf)
     ! send boundary data to western neighbor
     CALL MPI_Issend(this%Boundary(WEST)%p%sendbuf, &
          Mesh%GINUM*(Mesh%JGMAX-Mesh%JGMIN+1)*(Mesh%KGMAX-Mesh%KGMIN+1)*Physics%VNUM, &
          DEFAULT_MPI_REAL,Mesh%neighbor(WEST),10+WEST,Mesh%comm_cart,req(2),ierr)
+
+    ! receive boundary data from western neighbor
+    CALL MPI_Irecv(this%Boundary(WEST)%p%recvbuf, &
+      Mesh%GINUM*(Mesh%JGMAX-Mesh%JGMIN+1)*(Mesh%KGMAX-Mesh%KGMIN+1)*Physics%VNUM, &
+         DEFAULT_MPI_REAL,Mesh%neighbor(WEST),10+EAST,Mesh%comm_cart,req(3),ierr)
 #endif
-#ifdef MPI_USE_SENDRECV
-    ! send boundary data to eastern and receive from western neighbor
+    ! fill send buffer if eastern neighbor exists
     IF (Mesh%neighbor(EAST).NE.MPI_PROC_NULL) &
       CALL this%MPIpvar2buffer(Mesh,Physics,EAST,pvar,this%Boundary(EAST)%p%sendbuf)
+#ifdef MPI_USE_SENDRECV
+    ! send boundary data to eastern and receive from western neighbor
     CALL MPI_Sendrecv(this%Boundary(EAST)%p%sendbuf, &
          Mesh%GINUM*(Mesh%JGMAX-Mesh%JGMIN+1)*(Mesh%KGMAX-Mesh%KGMIN+1)*Physics%VNUM, &
          DEFAULT_MPI_REAL,Mesh%neighbor(EAST),10+EAST,this%Boundary(WEST)%p%recvbuf,  &
          Mesh%GINUM*(Mesh%JGMAX-Mesh%JGMIN+1)*(Mesh%KGMAX-Mesh%KGMIN+1)*Physics%VNUM, &
          DEFAULT_MPI_REAL,Mesh%neighbor(WEST),MPI_ANY_TAG,Mesh%comm_cart,status,ierr)
-    IF (Mesh%neighbor(WEST).NE.MPI_PROC_NULL) &
-      CALL this%MPIbuffer2pvar(Mesh,Physics,WEST,this%Boundary(WEST)%p%recvbuf,pvar)
 #else
-    ! receive boundary data from western neighbor
-    CALL MPI_Irecv(this%Boundary(WEST)%p%recvbuf, &
-      Mesh%GINUM*(Mesh%JGMAX-Mesh%JGMIN+1)*(Mesh%KGMAX-Mesh%KGMIN+1)*Physics%VNUM, &
-         DEFAULT_MPI_REAL,Mesh%neighbor(WEST),10+EAST,Mesh%comm_cart,req(3),ierr)
-    ! fill send buffer if eastern neighbor exists
-    IF (Mesh%neighbor(EAST).NE.MPI_PROC_NULL) &
-      CALL this%MPIpvar2buffer(Mesh,Physics,EAST,pvar,this%Boundary(EAST)%p%sendbuf)
     ! send boundary data to eastern neighbor
     CALL MPI_Issend(this%Boundary(EAST)%p%sendbuf, &
          Mesh%GINUM*(Mesh%JGMAX-Mesh%JGMIN+1)*(Mesh%KGMAX-Mesh%KGMIN+1)*Physics%VNUM, &
          DEFAULT_MPI_REAL,Mesh%neighbor(EAST),10+EAST,Mesh%comm_cart,req(4),ierr)
-#endif
-#ifndef MPI_USE_SENDRECV
     ! wait for unfinished MPI communication
     CALL MPI_Waitall(4,req,status,ierr)
-    ! copy data from recieve buffers into ghosts cells
+#endif
+    ! copy data from receive buffers into ghosts cells
     IF (Mesh%neighbor(WEST).NE.MPI_PROC_NULL) &
       CALL this%MPIbuffer2pvar(Mesh,Physics,WEST,this%Boundary(WEST)%p%recvbuf,pvar)
     IF (Mesh%neighbor(EAST).NE.MPI_PROC_NULL) &
       CALL this%MPIbuffer2pvar(Mesh,Physics,EAST,this%Boundary(EAST)%p%recvbuf,pvar)
-#endif
 
-   ! initiate southern/northern MPI communication
-#ifdef MPI_USE_SENDRECV
-   ! send boundary data to southern and receive from northern neighbor
+    ! southern <-> northern MPI communication
+#ifndef MPI_USE_SENDRECV
+    ! receive boundary data from northern neighbor
+    CALL MPI_Irecv(this%Boundary(NORTH)%p%recvbuf, &
+         Mesh%GJNUM*(Mesh%IGMAX-Mesh%IGMIN+1)*(Mesh%KGMAX-Mesh%KGMIN+1)*Physics%VNUM, &
+         DEFAULT_MPI_REAL,Mesh%neighbor(NORTH),10+SOUTH,Mesh%comm_cart,req(1),ierr)
+#endif
+    ! fill send buffer if southern neighbor exists
     IF (Mesh%neighbor(SOUTH).NE.MPI_PROC_NULL) &
       CALL this%MPIpvar2buffer(Mesh,Physics,SOUTH,pvar,this%Boundary(SOUTH)%p%sendbuf)
+#ifdef MPI_USE_SENDRECV
+    ! send boundary data to southern and receive from northern neighbor
     CALL MPI_Sendrecv(this%Boundary(SOUTH)%p%sendbuf, &
         Mesh%GJNUM*(Mesh%IGMAX-Mesh%IGMIN+1)*(Mesh%KGMAX-Mesh%KGMIN+1)*Physics%VNUM, &
         DEFAULT_MPI_REAL,Mesh%neighbor(SOUTH),10+SOUTH,this%Boundary(NORTH)%p%recvbuf,          &
         Mesh%GJNUM*(Mesh%IGMAX-Mesh%IGMIN+1)*(Mesh%KGMAX-Mesh%KGMIN+1)*Physics%VNUM, &
         DEFAULT_MPI_REAL,Mesh%neighbor(NORTH),MPI_ANY_TAG,Mesh%comm_cart,status,ierr)
-    IF (Mesh%neighbor(NORTH).NE.MPI_PROC_NULL) &
-      CALL this%MPIbuffer2pvar(Mesh,Physics,NORTH,this%Boundary(NORTH)%p%recvbuf,pvar)
 #else
-    ! receive boundary data from northern neighbor
-    CALL MPI_Irecv(this%Boundary(NORTH)%p%recvbuf, &
-         Mesh%GJNUM*(Mesh%IGMAX-Mesh%IGMIN+1)*(Mesh%KGMAX-Mesh%KGMIN+1)*Physics%VNUM, &
-         DEFAULT_MPI_REAL,Mesh%neighbor(NORTH),10+SOUTH,Mesh%comm_cart,req(1),ierr)
-    ! fill send buffer if southern neighbor exists
-    IF (Mesh%neighbor(SOUTH).NE.MPI_PROC_NULL) &
-      CALL this%MPIpvar2buffer(Mesh,Physics,SOUTH,pvar,this%Boundary(SOUTH)%p%sendbuf)
     ! send boundary data to southern neighbor
     CALL MPI_Issend(this%Boundary(SOUTH)%p%sendbuf, &
          Mesh%GJNUM*(Mesh%IGMAX-Mesh%IGMIN+1)*(Mesh%KGMAX-Mesh%KGMIN+1)*Physics%VNUM, &
          DEFAULT_MPI_REAL,Mesh%neighbor(SOUTH),10+SOUTH,Mesh%comm_cart,req(2),ierr)
+
+    ! receive boundary data from southern neighbor
+    CALL MPI_Irecv(this%Boundary(SOUTH)%p%recvbuf, &
+         Mesh%GJNUM*(Mesh%IGMAX-Mesh%IGMIN+1)*(Mesh%KGMAX-Mesh%KGMIN+1)*Physics%VNUM, &
+         DEFAULT_MPI_REAL,Mesh%neighbor(SOUTH),10+NORTH,Mesh%comm_cart,req(3),ierr)
 #endif
-#ifdef MPI_USE_SENDRECV
-   ! send boundary data to northern and receive from southern neighbor
+    ! fill send buffer if northern neighbor exists
     IF (Mesh%neighbor(NORTH).NE.MPI_PROC_NULL) &
       CALL this%MPIpvar2buffer(Mesh,Physics,NORTH,pvar,this%Boundary(NORTH)%p%sendbuf)
+#ifdef MPI_USE_SENDRECV
+    ! send boundary data to northern and receive from southern neighbor
     CALL MPI_Sendrecv(this%Boundary(NORTH)%p%sendbuf, &
          Mesh%GJNUM*(Mesh%IGMAX-Mesh%IGMIN+1)*(Mesh%KGMAX-Mesh%KGMIN+1)*Physics%VNUM,   &
          DEFAULT_MPI_REAL,Mesh%neighbor(NORTH),10+NORTH,this%Boundary(SOUTH)%p%recvbuf, &
          Mesh%GJNUM*(Mesh%IGMAX-Mesh%IGMIN+1)*(Mesh%KGMAX-Mesh%KGMIN+1)*Physics%VNUM,   &
          DEFAULT_MPI_REAL,Mesh%neighbor(SOUTH),MPI_ANY_TAG,Mesh%comm_cart,status,ierr)
-    IF (Mesh%neighbor(SOUTH).NE.MPI_PROC_NULL) &
-      CALL this%MPIbuffer2pvar(Mesh,Physics,SOUTH,this%Boundary(SOUTH)%p%recvbuf,pvar)
 #else
-    ! receive boundary data from southern neighbor
-    CALL MPI_Irecv(this%Boundary(SOUTH)%p%recvbuf, &
-         Mesh%GJNUM*(Mesh%IGMAX-Mesh%IGMIN+1)*(Mesh%KGMAX-Mesh%KGMIN+1)*Physics%VNUM, &
-         DEFAULT_MPI_REAL,Mesh%neighbor(SOUTH),10+NORTH,Mesh%comm_cart,req(3),ierr)
-    ! fill send buffer if northern neighbor exists
-    IF (Mesh%neighbor(NORTH).NE.MPI_PROC_NULL) &
-      CALL this%MPIpvar2buffer(Mesh,Physics,NORTH,pvar,this%Boundary(NORTH)%p%sendbuf)
     ! send boundary data to northern neighbor
     CALL MPI_Issend(this%Boundary(NORTH)%p%sendbuf, &
          Mesh%GJNUM*(Mesh%IGMAX-Mesh%IGMIN+1)*(Mesh%KGMAX-Mesh%KGMIN+1)*Physics%VNUM, &
          DEFAULT_MPI_REAL,Mesh%neighbor(NORTH),10+NORTH,Mesh%comm_cart,req(4),ierr)
-#endif
-#ifndef MPI_USE_SENDRECV
     ! wait for unfinished MPI communication
     CALL MPI_Waitall(4,req,status,ierr)
+#endif
+    ! copy data from receive buffers into ghosts cells
     IF (Mesh%neighbor(SOUTH).NE.MPI_PROC_NULL) &
       CALL this%MPIbuffer2pvar(Mesh,Physics,SOUTH,this%Boundary(SOUTH)%p%recvbuf,pvar)
     IF (Mesh%neighbor(NORTH).NE.MPI_PROC_NULL) &
       CALL this%MPIbuffer2pvar(Mesh,Physics,NORTH,this%Boundary(NORTH)%p%recvbuf,pvar)
-#endif
 
-    ! initiate bottom/top MPI communication
-#ifdef MPI_USE_SENDRECV
-    ! send boundary data to bottom and receive from top neighbor
+    ! bottom <-> top MPI communication
+#ifndef MPI_USE_SENDRECV
+    ! receive boundary data from top neighbor
+    CALL MPI_Irecv(this%Boundary(TOP)%p%recvbuf, &
+         Mesh%GKNUM*(Mesh%IGMAX-Mesh%IGMIN+1)*(Mesh%JGMAX-Mesh%JGMIN+1)*Physics%VNUM, &
+         DEFAULT_MPI_REAL,Mesh%neighbor(TOP),10+BOTTOM,Mesh%comm_cart,req(1),ierr)
+#endif
+    ! fill send buffer if bottomer neighbor exists
     IF (Mesh%neighbor(BOTTOM).NE.MPI_PROC_NULL) &
       CALL this%MPIpvar2buffer(Mesh,Physics,BOTTOM,pvar,this%Boundary(BOTTOM)%p%sendbuf)
+#ifdef MPI_USE_SENDRECV
+    ! send boundary data to bottom and receive from top neighbor
     CALL MPI_Sendrecv(this%Boundary(BOTTOM)%p%sendbuf,&
          Mesh%GKNUM*(Mesh%IGMAX-Mesh%IGMIN+1)*(Mesh%JGMAX-Mesh%JGMIN+1)*Physics%VNUM,   &
          DEFAULT_MPI_REAL,Mesh%neighbor(BOTTOM),10+BOTTOM,this%Boundary(TOP)%p%recvbuf, &
          Mesh%GKNUM*(Mesh%IGMAX-Mesh%IGMIN+1)*(Mesh%JGMAX-Mesh%JGMIN+1)*Physics%VNUM,   &
          DEFAULT_MPI_REAL,Mesh%neighbor(TOP),MPI_ANY_TAG,Mesh%comm_cart,status,ierr)
-    IF (Mesh%neighbor(TOP).NE.MPI_PROC_NULL) &
-      CALL this%MPIbuffer2pvar(Mesh,Physics,TOP,this%Boundary(TOP)%p%recvbuf,pvar)
 #else
-    ! receive boundary data from top neighbor
-    CALL MPI_Irecv(this%Boundary(TOP)%p%recvbuf, &
-         Mesh%GKNUM*(Mesh%IGMAX-Mesh%IGMIN+1)*(Mesh%JGMAX-Mesh%JGMIN+1)*Physics%VNUM, &
-         DEFAULT_MPI_REAL,Mesh%neighbor(TOP),10+BOTTOM,Mesh%comm_cart,req(1),ierr)
-    ! fill send buffer if bottomer neighbor exists
-    IF (Mesh%neighbor(BOTTOM).NE.MPI_PROC_NULL) &
-      CALL this%MPIpvar2buffer(Mesh,Physics,BOTTOM,pvar,this%Boundary(BOTTOM)%p%sendbuf)
     ! send boundary data to bottom neighbor
     CALL MPI_Issend(this%Boundary(BOTTOM)%p%sendbuf, &
          Mesh%GKNUM*(Mesh%IGMAX-Mesh%IGMIN+1)*(Mesh%JGMAX-Mesh%JGMIN+1)*Physics%VNUM, &
          DEFAULT_MPI_REAL,Mesh%neighbor(BOTTOM),10+BOTTOM,Mesh%comm_cart,req(2),ierr)
+
+    ! receive boundary data from bottom neighbor
+    CALL MPI_Irecv(this%Boundary(BOTTOM)%p%recvbuf, &
+         Mesh%GKNUM*(Mesh%IGMAX-Mesh%IGMIN+1)*(Mesh%JGMAX-Mesh%JGMIN+1)*Physics%VNUM, &
+         DEFAULT_MPI_REAL,Mesh%neighbor(BOTTOM),10+TOP,Mesh%comm_cart,req(3),ierr)
 #endif
-#ifdef MPI_USE_SENDRECV
     ! send boundary data to top and receive from bottom neighbor
     IF (Mesh%neighbor(TOP).NE.MPI_PROC_NULL) &
       CALL this%MPIpvar2buffer(Mesh,Physics,TOP,pvar,this%Boundary(TOP)%p%sendbuf)
+#ifdef MPI_USE_SENDRECV
+    ! send boundary data to top and receive from bottom neighbor
     CALL MPI_Sendrecv(this%Boundary(TOP)%p%sendbuf, &
          Mesh%GKNUM*(Mesh%IGMAX-Mesh%IGMIN+1)*(Mesh%JGMAX-Mesh%JGMIN+1)*Physics%VNUM, &
          DEFAULT_MPI_REAL,Mesh%neighbor(TOP),10+TOP,this%Boundary(BOTTOM)%p%recvbuf,  &
          Mesh%GKNUM*(Mesh%IGMAX-Mesh%IGMIN+1)*(Mesh%JGMAX-Mesh%JGMIN+1)*Physics%VNUM,  &
          DEFAULT_MPI_REAL,Mesh%neighbor(BOTTOM),MPI_ANY_TAG,Mesh%comm_cart,status,ierr)
-    IF (Mesh%neighbor(BOTTOM).NE.MPI_PROC_NULL) &
-      CALL this%MPIbuffer2pvar(Mesh,Physics,BOTTOM,this%Boundary(BOTTOM)%p%recvbuf,pvar)
 #else
-    ! receive boundary data from bottom neighbor
-    CALL MPI_Irecv(this%Boundary(BOTTOM)%p%recvbuf, &
-         Mesh%GKNUM*(Mesh%IGMAX-Mesh%IGMIN+1)*(Mesh%JGMAX-Mesh%JGMIN+1)*Physics%VNUM, &
-         DEFAULT_MPI_REAL,Mesh%neighbor(BOTTOM),10+TOP,Mesh%comm_cart,req(3),ierr)
-    ! fill send buffer if northern neighbor exists
-    IF (Mesh%neighbor(TOP).NE.MPI_PROC_NULL) &
-      CALL this%MPIpvar2buffer(Mesh,Physics,TOP,pvar,this%Boundary(TOP)%p%sendbuf)
     ! send boundary data to top neighbor
     CALL MPI_Issend(this%Boundary(TOP)%p%sendbuf, &
          Mesh%GKNUM*(Mesh%IGMAX-Mesh%IGMIN+1)*(Mesh%JGMAX-Mesh%JGMIN+1)*Physics%VNUM, &
          DEFAULT_MPI_REAL,Mesh%neighbor(TOP),10+TOP,Mesh%comm_cart,req(4),ierr)
-#endif
-#ifndef MPI_USE_SENDRECV
     ! wait for unfinished MPI communication
     CALL MPI_Waitall(4,req,status,ierr)
+#endif
+    ! copy data from receive buffers into ghosts cells
     IF (Mesh%neighbor(BOTTOM).NE.MPI_PROC_NULL) &
       CALL this%MPIbuffer2pvar(Mesh,Physics,BOTTOM,this%Boundary(BOTTOM)%p%recvbuf,pvar)
     IF (Mesh%neighbor(TOP).NE.MPI_PROC_NULL) &
       CALL this%MPIbuffer2pvar(Mesh,Physics,TOP,this%Boundary(TOP)%p%recvbuf,pvar)
-#endif
   END SUBROUTINE MPIBoundaryCommunication
 
   !> Copys buffer data to ghost cells
