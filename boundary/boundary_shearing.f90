@@ -3,7 +3,7 @@
   !# fosite - 3D hydrodynamical simulation program                             #
   !# module: boundary_shearing.f90                                             #
   !#                                                                           #
-  !# Copyright (C) 2006-2018                                                   #
+  !# Copyright (C) 2006-2024                                                   #
   !# Jannes Klee      <jklee@astrophysik.uni-kiel.de>                          #
   !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
   !#                                                                           #
@@ -109,41 +109,43 @@ CONTAINS
              this%velocity_shift(Physics%VNUM+Physics%PNUM), &
              STAT = err)
     IF (err.NE.0) THEN
-       CALL this%Error("InitBoundary_shearing", "Unable to allocate memory.")
+       CALL this%Error("boundary_shearing::InitBoundaryg", "Unable to allocate memory.")
     END IF
 
     DO l=1,Physics%VNUM + Physics%PNUM
       ! this part for WEST-EAST shear
       IF (Mesh%shear_dir.EQ.2) THEN
         IF (l.EQ.Physics%YVELOCITY) THEN
-          IF (Mesh%FARGO.EQ.0) THEN
+          SELECT CASE(Mesh%fargo%GetType())
+          CASE(0) ! fargo disabled
             this%velocity_shift(l) = Mesh%Q*Mesh%OMEGA*(Mesh%xmax-Mesh%xmin)
-          ELSE IF (Mesh%FARGO.EQ.3) THEN
+          CASE(3) ! shearing sheet/box fargo enabled
             this%velocity_shift(l) = 0.0
-          ELSE
-            CALL this%Error("InitTimedisc", &
-            "Shearing boundaries are only compatible without Fargo or Fargo type 3 (shearing box).")
-          END IF
+          CASE DEFAULT
+            CALL this%Error("boundary_shearing::InitBoundary", &
+              "Shearing boundaries are only compatible without Fargo or with Fargo type 3 (shearing box).")
+          END SELECT
         ELSE
             this%velocity_shift(l) = 0.0
         END IF
       ! this part for SOUTH-NORTH shear
       ELSE IF (Mesh%shear_dir.EQ.1) THEN
         IF (l.EQ.Physics%XVELOCITY) THEN
-          IF (Mesh%FARGO.EQ.0) THEN
+          SELECT CASE(Mesh%fargo%GetType())
+          CASE(0) ! fargo disabled
             this%velocity_shift(l) = Mesh%Q*Mesh%OMEGA*(Mesh%ymax-Mesh%ymin)
-          ELSE IF (Mesh%FARGO.EQ.3) THEN
+          CASE(3) ! shearing sheet/box fargo enabled
             this%velocity_shift(l) = 0.0
-          ELSE
-            CALL this%Error("InitTimedisc", &
-            "Shearing boundaries are only compatible without Fargo or Fargo type 3 (shearing box).")
-          END IF
+          CASE DEFAULT
+            CALL this%Error("boundary_shearing::InitBoundary", &
+              "Shearing boundaries are only compatible without Fargo or with Fargo type 3 (shearing box).")
+          END SELECT
         ELSE
             this%velocity_shift(l) = 0.0
         END IF
       ELSE
-        CALL this%Error("InitBoundary", &
-        "Shearing boundaries in top/south direction not allowed, yet.")
+        CALL this%Error("boundary_shearing::InitBoundary", &
+          "Shearing boundaries in top/south direction not allowed, yet.")
       END IF
     END DO
     this%velocity_offset = Mesh%Q*Mesh%OMEGA*(Mesh%xmax-Mesh%xmin)/Mesh%dy

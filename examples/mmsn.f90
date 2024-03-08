@@ -318,7 +318,7 @@ CONTAINS
     ! get conservative variables
     CALL Physics%Convert2Conservative(Timedisc%pvar,Timedisc%cvar)
 
-    IF (Mesh%FARGO.EQ.2) &
+    IF (Mesh%fargo%GetType().EQ.2) &
        Timedisc%w(:,:) = SQRT(Physics%constants%GN*(MBH1+MBH2)/Mesh%radius%bcenter(:,Mesh%JMIN,:))
 
     ! print some information on stdout

@@ -519,13 +519,14 @@ CONTAINS
     !------------------------------------------------------------------------!
     ! transform to true velocities if fargo is enabled
     IF (ASSOCIATED(Timedisc%w)) THEN
-      IF (Mesh%FARGO.EQ.3.AND.Mesh%shear_dir.EQ.1) THEN
+      SELECT CASE(Mesh%fargo%GetDirection())
+      CASE(1)
         CALL Physics%AddBackgroundVelocityX(Mesh,Timedisc%w,Timedisc%pvar,Timedisc%cvar)
-      ELSE IF(Mesh%geometry%GetType().EQ.SPHERICAL) THEN
-        CALL Physics%AddBackgroundVelocityZ(Mesh,Timedisc%w,Timedisc%pvar,Timedisc%cvar)
-      ELSE
+      CASE(2)
         CALL Physics%AddBackgroundVelocityY(Mesh,Timedisc%w,Timedisc%pvar,Timedisc%cvar)
-      END IF
+      CASE(3)
+        CALL Physics%AddBackgroundVelocityZ(Mesh,Timedisc%w,Timedisc%pvar,Timedisc%cvar)
+      END SELECT
     END IF
 
     ! open data file and write header if necessary

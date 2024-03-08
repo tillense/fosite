@@ -192,8 +192,7 @@ CONTAINS
               "meshtype" / MIDPOINT, &
               "geometry" / MGEO,     &
               "omega"    / OMEGA,    &
-              "use_fargo"/ 0,        &
-              "fargo"    / 1,        &
+              "fargo/method" / 2,    &
               "decomposition"   / (/ -1, 1, -1/), & ! do not decompose along 2nd dimension with FARGO!
               "inum"     / XRES,     &
               "jnum"     / YRES,     &
@@ -341,6 +340,17 @@ CONTAINS
       DO n=1,Physics%VDIM
         pvar%velocity%data4d(:,:,:,n) = (domega(:,:,:)-Mesh%OMEGA)*dist_axis(:,:,:)*ephi(:,:,:,n)
       END DO
+      SELECT CASE(Mesh%fargo%GetType())
+      CASE(1,2)
+        SELECT CASE(Mesh%fargo%GetDirection())
+        CASE(1)
+          Timedisc%w(:,:) = pvar%velocity%data4d(Mesh%IMIN,:,:,1)
+        CASE(2)
+          Timedisc%w(:,:) = pvar%velocity%data4d(:,Mesh%JMIN,:,2)
+        CASE(3)
+          Timedisc%w(:,:) = pvar%velocity%data4d(:,Mesh%KMIN,:,3)
+        END SELECT
+      END SELECT
     TYPE IS(statevector_euler) ! non-isothermal HD
       csinf = SQRT(GAMMA*PINF/RHOINF) ! sound speed at infinity (isentropic vortex)
       ! density
@@ -354,9 +364,21 @@ CONTAINS
       DO n=1,Physics%VDIM
         pvar%velocity%data4d(:,:,:,n) = (domega(:,:,:)-Mesh%OMEGA)*dist_axis(:,:,:)*ephi(:,:,:,n)
       END DO
+      SELECT CASE(Mesh%fargo%GetType())
+      CASE(1,2)
+        SELECT CASE(Mesh%fargo%GetDirection())
+        CASE(1)
+          Timedisc%w(:,:) = pvar%velocity%data4d(Mesh%IMIN,:,:,1)
+        CASE(2)
+          Timedisc%w(:,:) = pvar%velocity%data4d(:,Mesh%JMIN,:,2)
+        CASE(3)
+          Timedisc%w(:,:) = pvar%velocity%data4d(:,Mesh%KMIN,:,3)
+        END SELECT
+      END SELECT
     END SELECT
 
     CALL Physics%Convert2Conservative(Timedisc%pvar,Timedisc%cvar)
+
 
 !     ! compute curvilinear components of constant background velocity field
 !     ! and add to the vortex velocity field

@@ -359,87 +359,53 @@ CONTAINS
 
     CALL this%SetOutput(Mesh,Physics,config,IO)
 
-    ! check if fargo can be used
-    IF(Mesh%use_fargo.EQ.1) THEN
-      ! check physics
-      SELECT TYPE(phys => Physics)
-      CLASS IS(physics_eulerisotherm)
-         ! check geometry
-         SELECT CASE(Mesh%Geometry%GetAzimuthIndex())
-         CASE(2)  !cylindrical, logcylindrical
-            IF (Mesh%JNUM.LT.2) CALL this%Error("InitTimedisc", &
-              "fargo advection needs more than one cell in y-direction")
-            ! allocate data arrays used for fargo
-            ALLOCATE( &
-                     this%w(Mesh%IGMIN:Mesh%IGMAX,Mesh%KGMIN:Mesh%KGMAX), &
-                     this%delxy(Mesh%IGMIN:Mesh%IGMAX,Mesh%KGMIN:Mesh%KGMAX), &
-                     this%shift(Mesh%IGMIN:Mesh%IGMAX,Mesh%KGMIN:Mesh%KGMAX), &
+    ! prepare data arrays for fargo transport
+    ! check physics first; fargo is currently supported for physics_euler(isotherm) and derived types
+    SELECT TYPE(phys => Physics)
+    CLASS IS(physics_eulerisotherm)
+      ! check for fargo transport direction and allocate some arrays
+      ! if direction is not in {1,2,3} skip this (fargo disabled)
+      ! see mesh_base::InitMesh for general initialization of fargo transport
+      SELECT CASE(Mesh%fargo%GetDirection())
+      CASE(1) ! fargo transport along y-direction
+        ALLOCATE( &
+                  this%w(Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
+                  this%delxy(Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
+                  this%shift(Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
 #ifdef PARALLEL
-                     this%buf(Physics%VNUM+Physics%PNUM,1:Mesh%MINJNUM), & !!! NOT CHANGED, because not clear were used !
+                  this%buf(Physics%VNUM+Physics%PNUM,1:Mesh%MININUM), & !!! NOT CHANGED, because not clear were used !
 #endif
-                     STAT = err)
-            IF (err.NE.0) THEN
-               CALL this%Error("InitTimedisc", "Unable to allocate memory for fargo advection.")
-            END IF
-
-         CASE(3)  ! spherical, tancylindrical
-            IF (Mesh%KNUM.LT.2) CALL this%Error("InitTimedisc", &
-              "fargo advection needs more than one cell in phi-direction")
-            ! allocate data arrays used for fargo
-            ALLOCATE( &
-                     this%w(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX), &
-                     this%delxy(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX), &
-                     this%shift(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX), &
+                  STAT = err)
+      CASE(2) ! fargo transport along y-direction
+        ALLOCATE( &
+                  this%w(Mesh%IGMIN:Mesh%IGMAX,Mesh%KGMIN:Mesh%KGMAX), &
+                  this%delxy(Mesh%IGMIN:Mesh%IGMAX,Mesh%KGMIN:Mesh%KGMAX), &
+                  this%shift(Mesh%IGMIN:Mesh%IGMAX,Mesh%KGMIN:Mesh%KGMAX), &
 #ifdef PARALLEL
-                     this%buf(Physics%VNUM+Physics%PNUM,1:Mesh%MINJNUM), & !!! NOT CHANGED, because not clear where used !
+                  this%buf(Physics%VNUM+Physics%PNUM,1:Mesh%MINJNUM), & !!! NOT CHANGED, because not clear were used !
 #endif
-                     STAT = err)
-            IF (err.NE.0) THEN
-               CALL this%Error("InitTimedisc", "Unable to allocate memory for fargo advection.")
-            END IF
-
-          CASE DEFAULT ! in cartesian fargo shift can be chosen in either x- or y-direction
-            IF(Mesh%shear_dir.EQ.2) THEN
-               ALLOCATE( &
-                     this%w(Mesh%IGMIN:Mesh%IGMAX,Mesh%KGMIN:Mesh%KGMAX), &
-                     this%delxy(Mesh%IGMIN:Mesh%IGMAX,Mesh%KGMIN:Mesh%KGMAX), &
-                     this%shift(Mesh%IGMIN:Mesh%IGMAX,Mesh%KGMIN:Mesh%KGMAX), &
+                  STAT = err)
+      CASE(3) ! fargo transport along z-direction
+        ALLOCATE( &
+                  this%w(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX), &
+                  this%delxy(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX), &
+                  this%shift(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX), &
 #ifdef PARALLEL
-                     this%buf(Physics%VNUM+Physics%PNUM,1:Mesh%MINJNUM), &  !!! SEE ABOVE
+                  this%buf(Physics%VNUM+Physics%PNUM,1:Mesh%MINJNUM), & !!! NOT CHANGED, because not clear where used !
 #endif
-                     STAT = err)
-               IF (err.NE.0) THEN
-                  CALL this%Error("InitTimedisc", "Unable to allocate memory for fargo advection.")
-               END IF
-            ELSE IF(Mesh%shear_dir.EQ.1) THEN
-               ALLOCATE( &
-                     this%w(Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
-                     this%delxy(Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
-                     this%shift(Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
-#ifdef PARALLEL
-                     this%buf(Physics%VNUM+Physics%PNUM,1:Mesh%MININUM), & !!! SEE ABOVE
-#endif
-                     STAT = err)
-               IF (err.NE.0) THEN
-                  CALL this%Error("InitTimedisc", "Unable to allocate memory for fargo advection.")
-               END IF
-            ELSE
-              CALL this%Warning("InitTimedisc", &
-                "fargo has been disabled, because the geometry is not supported.")
-              Mesh%FARGO = 0
-            END IF
-         END SELECT
-      CLASS DEFAULT
-         ! geometry not supported -> disable fargo
-         Mesh%FARGO = 0
-         CALL this%Warning("InitTimedisc","fargo has been disabled, because the physics is not supported.")
+                  STAT = err)
+      CASE DEFAULT
+        err = 0
       END SELECT
+      IF (err.NE.0) &
+          CALL this%Error("timedisc_base::InitTimedisc", "Unable to allocate memory for fargo advection.")
 
       ! initialize background velocity field w
-      SELECT CASE(Mesh%FARGO)
-      CASE(1,2) ! set to 0;
-        CALL this%Warning("InitTimedisc","There are some unresolved issues with the FARGO code, use with care!")
-                ! fargo advection type 1: w is computed in each time step (see FargoCalcVelocity)
+      SELECT CASE(Mesh%fargo%GetType())
+      CASE(0) ! fargo disabled -> do nothing
+      CASE(1,2) ! fargo transport with fixed user supplied or dynamical velocity
+        CALL this%Warning("timedisc_base::InitTimedisc","FARGO transport is experimental, use with care!")
+                ! fargo advection type 1: w is computed in each time step (see CalcBackgroundVelocity below)
                 ! fargo advection type 2: w is provided by the user, e.g. in InitData
         this%w(:,:) = 0.0
         this%shift(:,:) = 0.0
@@ -465,12 +431,12 @@ CONTAINS
         this%dql%data1d(:) = 0.0
         this%flux = marray_base()
         this%flux%data1d(:) = 0.0
+      CASE DEFAULT
+        CALL this%Error("timedisc_base::InitTimedisc","unknown fargo advection scheme")
       END SELECT
-    ELSE IF (Mesh%use_fargo.EQ.0) THEN
-      ! do nothing
-    ELSE
-      CALL this%Error("InitTimedisc","unknown fargo advection scheme")
-    END IF
+    CLASS DEFAULT
+      CALL this%Error("timedisc_base::InitTimedisc","selected physics doesn't support fargo transport")
+    END SELECT
 
     ! print some information
     WRITE (order_str, '(I0)') this%GetOrder()
@@ -496,10 +462,9 @@ CONTAINS
     ELSE
        WRITE (info_str,'(A)') "disabled"
     END IF
-    IF (Mesh%FARGO.NE.0) &
-       CALL this%Info("            fargo:             " //TRIM(FARGO_METHOD(Mesh%FARGO)))
-    IF(Mesh%FARGO.EQ.3) &
-       CALL this%Info("            shear-direction:   " //TRIM(shear_direction))
+    CALL this%Info("            fargo:             " //TRIM(Mesh%fargo%GetName()))
+    IF(Mesh%fargo%GetType().GT.0) &
+      CALL this%Info("            transport dir.:    " //TRIM(Mesh%fargo%GetDirectionName()))
     SELECT CASE(this%rhstype)
     CASE(0)
        ! special rhs disabled, print nothing
@@ -652,17 +617,18 @@ CONTAINS
     !------------------------------------------------------------------------!
     INTENT(INOUT)                       :: iter
     !------------------------------------------------------------------------!
-    ! transform to selenoidal velocities if fargo is enabled
-    IF (Mesh%FARGO.GT.0) THEN
-       IF (Mesh%shear_dir.EQ.1.AND.Mesh%FARGO.EQ.3) THEN
-          CALL Physics%SubtractBackgroundVelocityX(Mesh,this%w,this%pvar,this%cvar)
-        ELSE IF(Mesh%FARGO.NE.3.AND.Mesh%geometry%GetType().EQ.spherical) THEN
-          CALL Physics%SubtractBackgroundVelocityZ(Mesh,this%w,this%pvar,this%cvar)
-       ELSE
-          CALL Physics%SubtractBackgroundVelocityY(Mesh,this%w,this%pvar,this%cvar)
-       END IF
-    END IF
-
+    ! determine the background velocity if fargo advection type 1 is enabled
+    IF (Mesh%fargo%GetType().EQ.1) &
+       CALL this%CalcBackgroundVelocity(Mesh,Physics,this%pvar,this%cvar,this%w)
+    ! transform to comoving frame if fargo is enabled
+    SELECT CASE(Mesh%fargo%GetDirection())
+    CASE(1)
+      CALL Physics%SubtractBackgroundVelocityX(Mesh,this%w,this%pvar,this%cvar)
+    CASE(2)
+      CALL Physics%SubtractBackgroundVelocityY(Mesh,this%w,this%pvar,this%cvar)
+    CASE(3)
+      CALL Physics%SubtractBackgroundVelocityZ(Mesh,this%w,this%pvar,this%cvar)
+    END SELECT
 
     time = this%time
     dt   = this%dt
@@ -700,7 +666,7 @@ CONTAINS
       ! Break if dt.LT.this%dtlimit or CheckData failed
       IF(this%break) THEN
         ! Do not attempt to fargo shift anymore
-        Mesh%FARGO = 0
+        Mesh%fargo%direction = 0
         EXIT timestep
       END IF
     END DO timestep
@@ -711,16 +677,15 @@ CONTAINS
     this%time  = time
     this%dtold = dt
 
-     ! perform the fargo advection step if enabled
-    IF (Mesh%FARGO.GT.0) THEN
-      IF (Mesh%shear_dir.EQ.1) THEN
-        CALL this%FargoAdvectionX(Fluxes,Mesh,Physics,Sources)
-      ELSE IF(MEsh%geometry%GetType().EQ.SPHERICAL) THEN
-        CALL this%FargoAdvectionZ(Fluxes,Mesh,Physics,Sources)
-      ELSE
-        CALL this%FargoAdvectionY(Fluxes,Mesh,Physics,Sources)
-      END IF
-    END IF
+    ! perform the fargo advection step if enabled
+    SELECT CASE(Mesh%fargo%GetDirection())
+    CASE(1)
+      CALL this%FargoAdvectionX(Fluxes,Mesh,Physics,Sources)
+    CASE(2)
+      CALL this%FargoAdvectionY(Fluxes,Mesh,Physics,Sources)
+    CASE(3)
+      CALL this%FargoAdvectionZ(Fluxes,Mesh,Physics,Sources)
+    END SELECT
   END SUBROUTINE IntegrationStep
 
 
@@ -1055,25 +1020,31 @@ CONTAINS
     CLASS(sources_gravity),   POINTER   :: grav => NULL()
     !------------------------------------------------------------------------!
     t = time
-    SELECT CASE(Mesh%FARGO)
+    SELECT CASE(Mesh%fargo%GetType())
     CASE(1,2)
         ! transform to real velocity, i.e. v_residual + w_background,
         ! before setting the boundary conditions
-        IF(Mesh%geometry%GetType().EQ.spherical) THEN
-          CALL Physics%AddBackgroundVelocityZ(Mesh,this%w,pvar,cvar)
-        ELSE
+        SELECT CASE(Mesh%fargo%GetDirection())
+        CASE(1)
+          CALL Physics%AddBackgroundVelocityX(Mesh,this%w,pvar,cvar)
+        CASE(2)
           CALL Physics%AddBackgroundVelocityY(Mesh,this%w,pvar,cvar)
-        END IF
+        CASE(3)
+          CALL Physics%AddBackgroundVelocityZ(Mesh,this%w,pvar,cvar)
+        END SELECT
     CASE(3)
         ! boundary conditions are set for residual velocity in shearing box simulations
         ! usually it's not necessary to subtract the background velocity here, but
         ! in case someone adds it before, we subtract it here; the  subroutine checks,
         ! if the velocities have already been transformed
-        IF (Mesh%shear_dir.EQ.1) THEN
+        SELECT CASE(Mesh%fargo%GetDirection())
+        CASE(1)
           CALL Physics%SubtractBackgroundVelocityX(Mesh,this%w,pvar,cvar)
-        ELSE IF (Mesh%shear_dir.EQ.2) THEN
+        CASE(2)
           CALL Physics%SubtractBackgroundVelocityY(Mesh,this%w,pvar,cvar)
-        END IF
+        CASE(3)
+          CALL Physics%SubtractBackgroundVelocityZ(Mesh,this%w,pvar,cvar)
+        END SELECT
         ! ATTENTION: the time must be the initial time of the whole time step
         !            not the time of a substep
         t = this%time
@@ -1140,16 +1111,19 @@ CONTAINS
     ! if fargo advection is enabled additional source terms occur;
     ! furthermore computation of numerical fluxes should always be
     ! carried out with residual velocity
-    SELECT CASE(Mesh%FARGO)
+    SELECT CASE(Mesh%fargo%GetType())
     CASE(1,2)
         ! add fargo source terms to geometrical source terms
         CALL Physics%AddFargoSources(Mesh,this%w,pvar,cvar,this%geo_src)
         ! subtract background velocity
-        IF(Mesh%geometry%GetType().EQ.spherical) THEN
-          CALL Physics%SubtractBackgroundVelocityZ(Mesh,this%w,pvar,cvar)
-        ELSE
+        SELECT CASE(Mesh%fargo%GetDirection())
+        CASE(1)
+          CALL Physics%SubtractBackgroundVelocityX(Mesh,this%w,pvar,cvar)
+        CASE(2)
           CALL Physics%SubtractBackgroundVelocityY(Mesh,this%w,pvar,cvar)
-        END IF
+        CASE(3)
+          CALL Physics%SubtractBackgroundVelocityZ(Mesh,this%w,pvar,cvar)
+        END SELECT
     CASE(3)
         ! background velocity field has already been subtracted (do nothing);
         ! fargo specific source terms are handled in the shearing box source
@@ -2200,14 +2174,13 @@ CONTAINS
   !> \public Calculates new background velocity for fargo advection
   !!
   !! \attention Only works when velocity is shifted in second direction.
-  SUBROUTINE CalcBackgroundVelocity(this,Mesh,Physics,pvar,cvar,dir,w)
+  SUBROUTINE CalcBackgroundVelocity(this,Mesh,Physics,pvar,cvar,w)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(timedisc_base), INTENT(INOUT) :: this
     CLASS(mesh_base),     INTENT(IN)    :: Mesh
     CLASS(physics_base),  INTENT(INOUT) :: Physics
     CLASS(marray_compound), INTENT(INOUT) :: pvar,cvar
-    INTEGER,              INTENT(IN)    :: dir
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%KGMIN:Mesh%KGMAX), &
                           INTENT(OUT)   :: w
     !------------------------------------------------------------------------!
@@ -2217,14 +2190,16 @@ CONTAINS
     INTEGER           :: ierror
 #endif
     !------------------------------------------------------------------------!
-    SELECT CASE(dir)
-    CASE(1)
-      ! make sure we are using true, i.e. non-selenoidal, quantities
-      CALL Physics%AddBackgroundVelocityX(Mesh,w,pvar,cvar)
-      SELECT TYPE(p => pvar)
-      CLASS IS(statevector_eulerisotherm)
-        DO k=Mesh%KMIN,Mesh%KMAX
-          DO j=Mesh%JMIN,Mesh%JMAX
+    ! currently only eulerisotherm and derived physics are supported
+    ! if fargo is enabled (see InitTimedisc)
+    SELECT TYPE(p => pvar)
+    CLASS IS(statevector_eulerisotherm)
+      SELECT CASE(Mesh%fargo%GetDirection())
+      CASE(1)
+        ! transform back to real, i.e. not co-moving, quantities
+        CALL Physics%AddBackgroundVelocityX(Mesh,w,pvar,cvar)
+        DO k=Mesh%KGMIN,Mesh%KGMAX
+          DO j=Mesh%JGMIN,Mesh%JGMAX
             ! some up all xvelocities along the x-direction
             wi = SUM(p%velocity%data4d(Mesh%IMIN:Mesh%IMAX,j,k,1))
 #ifdef PARALLEL
@@ -2239,13 +2214,11 @@ CONTAINS
             w(j,k) = wi / Mesh%INUM
           END DO
         END DO
-      END SELECT
-    CASE(2)  
-      CALL Physics%AddBackgroundVelocityY(Mesh,w,pvar,cvar)
-      SELECT TYPE(p => pvar)
-      CLASS IS(statevector_eulerisotherm)
-        DO k=Mesh%KMIN,Mesh%KMAX
-          DO i=Mesh%IMIN,Mesh%IMAX
+      CASE(2)
+        ! transform back to real, i.e. not co-moving, quantities
+        CALL Physics%AddBackgroundVelocityY(Mesh,w,pvar,cvar)
+        DO k=Mesh%KGMIN,Mesh%KGMAX
+          DO i=Mesh%IGMIN,Mesh%IGMAX
             ! some up all yvelocities along the y-direction
             wi = SUM(p%velocity%data4d(i,Mesh%JMIN:Mesh%JMAX,k,2))
 #ifdef PARALLEL
@@ -2260,14 +2233,11 @@ CONTAINS
             w(i,k) = wi / Mesh%JNUM
           END DO
         END DO
-      END SELECT
-
-    CASE(3)
-      CALL Physics%AddBackgroundVelocityZ(Mesh,w,pvar,cvar)
-      SELECT TYPE(p => pvar)
-      CLASS IS(statevector_eulerisotherm)
-        DO j=Mesh%JMIN,Mesh%JMAX
-          DO i=Mesh%IMIN,Mesh%IMAX
+      CASE(3)
+        ! transform back to real, i.e. not co-moving, quantities
+        CALL Physics%AddBackgroundVelocityZ(Mesh,w,pvar,cvar)
+        DO j=Mesh%JGMIN,Mesh%JGMAX
+          DO i=Mesh%IGMIN,Mesh%IGMAX
             ! some up all zvelocities along the z-direction
             wi = SUM(p%velocity%data4d(i,j,Mesh%KMIN:Mesh%KMAX,3))
 #ifdef PARALLEL
@@ -2283,6 +2253,8 @@ CONTAINS
           END DO
         END DO
       END SELECT
+    CLASS DEFAULT
+      CALL this%Error("timedisc_base::CalcBackgroundVelocity","physics currently not supported with fargo transport")
     END SELECT
   END SUBROUTINE CalcBackgroundVelocity
 

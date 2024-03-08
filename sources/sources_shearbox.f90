@@ -3,7 +3,7 @@
 !# fosite - 3D hydrodynamical simulation program                             #
 !# module: sources_shearbox.f90                                              #
 !#                                                                           #
-!# Copyright (C) 2010-2021                                                   #
+!# Copyright (C) 2010-2024                                                   #
 !# Jannes Klee <jklee@astrophysik.uni-kiel.de>                               #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
 !#                                                                           #
@@ -185,7 +185,7 @@ CONTAINS
     REAL,                    INTENT(IN)    :: time, dt
     CLASS(marray_compound),INTENT(INOUT)   :: pvar,cvar,sterm
     !------------------------------------------------------------------------!
-    SELECT CASE(Mesh%FARGO)
+    SELECT CASE(Mesh%fargo%GetType())
     CASE(0)
       ! fargo transport disabled
 !NEC$ IVDEP
