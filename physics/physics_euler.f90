@@ -3,7 +3,7 @@
 !# fosite - 3D hydrodynamical simulation program                             #
 !# module: physics_euler.f90                                                 #
 !#                                                                           #
-!# Copyright (C) 2007-2021                                                   #
+!# Copyright (C) 2007-2024                                                   #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
 !# Björn Sperling   <sperling@astrophysik.uni-kiel.de>                       #
 !# Jannes Klee      <jklee@astrophysik.uni-kiel.de>                          #
@@ -1702,6 +1702,7 @@ CONTAINS
 
   !> Calculates geometrical sources
   PURE SUBROUTINE GeometricalSources(this,Mesh,pvar,cvar,sterm)
+    USE geometry_generic_mod
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(physics_euler), INTENT(INOUT) :: this
@@ -1709,8 +1710,12 @@ CONTAINS
     CLASS(marray_compound), INTENT(INOUT) :: pvar,cvar,sterm
     !------------------------------------------------------------------------!
     ! compute geometrical source only for non-cartesian mesh
-    IF (Mesh%Geometry%GetType().NE.CARTESIAN) THEN
-      SELECT TYPE(p => pvar)
+    SELECT TYPE(mgeo => Mesh%geometry)
+    TYPE IS(geometry_cartesian)
+      ! do nothing
+    CLASS DEFAULT
+      ! curvilinear geometry
+    SELECT TYPE(p => pvar)
       TYPE IS(statevector_euler)
         SELECT TYPE(c => cvar)
         TYPE IS(statevector_euler)
@@ -1835,7 +1840,7 @@ CONTAINS
         sterm%data3d(:,Mesh%KGMIN:Mesh%KMIN+Mesh%KM1,:) = 0.0
         sterm%data3d(:,Mesh%KMAX+Mesh%KP1:Mesh%KGMAX,:) = 0.0
       END IF
-    END IF
+    END SELECT
   END SUBROUTINE GeometricalSources
 
   !> compute momentum and energy sources given an external force
