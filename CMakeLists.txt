@@ -105,6 +105,7 @@ if (CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
   add_compile_options("$<$<CONFIG:RELEASE>:-funroll-all-loops;-fno-f2c;-O3>")
   add_compile_options("$<$<CONFIG:PROFILING>:-funroll-all-loops;-fno-f2c;-O3;-pg;-no-pie;-fopt-info-vec>")
   add_compile_options("$<$<CONFIG:DEBUG>:-fno-f2c;-O2;-g;-fcheck=all;-Wall;-ffpe-trap=invalid,zero,overflow>")
+  add_link_options("$<$<CONFIG:PROFILING>:-pg>")
 elseif (CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
   # intel Fortran compiler, i.e. ifort
   add_compile_options(-cpp -r8 -stand f08)
