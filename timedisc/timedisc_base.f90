@@ -3,7 +3,7 @@
 !# fosite - 3D hydrodynamical simulation program                             #
 !# module: timedisc_base.f90                                                 #
 !#                                                                           #
-!# Copyright (C) 2007-2021                                                   #
+!# Copyright (C) 2007-2024                                                   #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
 !# Björn Sperling   <sperling@astrophysik.uni-kiel.de>                       #
 !# Manuel Jung      <mjung@astrophysik.uni-kiel.de>                          #
@@ -638,7 +638,7 @@ CONTAINS
       this%dtmincause = this%dtcause
     END IF
 !NEC$ NOVECTOR
-    timestep: DO WHILE (time+dt.LE.this%time+this%dt)
+    timestep: DO WHILE (.NOT.this%break)
       dtold = dt
 
       CALL this%SolveODE(Mesh,Physics,Sources,Fluxes,time,dt,err)
@@ -656,36 +656,33 @@ CONTAINS
       ELSE IF (err.GE.1.0) THEN
         ! err >= 1.0
         CALL this%RejectSolution(Mesh,Physics,Sources,Fluxes,time,dt)
+        ! abort integration if lower time step limit reached
+        IF (dt.LT.this%dtlimit) &
+          this%break = .TRUE.
       ELSE
         ! err < 1.0
         CALL this%AcceptSolution(Mesh,Physics,Sources,Fluxes,time,dtold,iter)
-      END IF
+        IF (time+dt.GE.this%time+this%dt) THEN
+          ! Save true advanced time (for fargo linear advection)
+          this%dt = time - this%time
 
-      IF (dt.LT.this%dtlimit) &
-        this%break = .TRUE.
-      ! Break if dt.LT.this%dtlimit or CheckData failed
-      IF(this%break) THEN
-        ! Do not attempt to fargo shift anymore
-        Mesh%fargo%direction = 0
-        EXIT timestep
+          this%time  = time
+          this%dtold = dt
+
+          ! perform the fargo advection step if enabled
+          SELECT CASE(Mesh%fargo%GetDirection())
+          CASE(1)
+            CALL this%FargoAdvectionX(Fluxes,Mesh,Physics,Sources)
+          CASE(2)
+            CALL this%FargoAdvectionY(Fluxes,Mesh,Physics,Sources)
+          CASE(3)
+            CALL this%FargoAdvectionZ(Fluxes,Mesh,Physics,Sources)
+          END SELECT
+          EXIT timestep
+        END IF
       END IF
     END DO timestep
 
-    ! Save true advanced time (for fargo linear advection)
-    this%dt = time - this%time
-
-    this%time  = time
-    this%dtold = dt
-
-    ! perform the fargo advection step if enabled
-    SELECT CASE(Mesh%fargo%GetDirection())
-    CASE(1)
-      CALL this%FargoAdvectionX(Fluxes,Mesh,Physics,Sources)
-    CASE(2)
-      CALL this%FargoAdvectionY(Fluxes,Mesh,Physics,Sources)
-    CASE(3)
-      CALL this%FargoAdvectionZ(Fluxes,Mesh,Physics,Sources)
-    END SELECT
   END SUBROUTINE IntegrationStep
 
 
@@ -868,9 +865,16 @@ CONTAINS
     dtmeanold = this%dtmean
     this%dtmean = this%dtmean + (dt - this%dtmean)/this%dtaccept
     this%dtstddev = this%dtstddev + (dt - dtmeanold)*(dt-this%dtmean)
-    CALL this%ComputeRHS(Mesh,Physics,Sources,Fluxes,time,dt,this%pvar,&
-      this%cvar,this%checkdatabm,this%rhs)
-    this%cold%data1d(:)    = this%cvar%data1d(:)
+    ! if fargo is enabled ComputeRHS is called after the fargo advection step
+    ! (see below)
+    SELECT CASE(Mesh%fargo%GetType())
+    CASE(0,3)
+      CALL this%ComputeRHS(Mesh,Physics,Sources,Fluxes,time,dt,this%pvar,&
+        this%cvar,this%checkdatabm,this%rhs)
+      this%cold%data1d(:)    = this%cvar%data1d(:)
+    CASE DEFAULT
+      ! do nothing
+    END SELECT
     IF (Mesh%INUM.GT.1) THEN
       ! collapse the 4D arrays to improve vector performance;
       ! maybe we can switch to the old style assignments if
