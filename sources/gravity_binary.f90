@@ -140,8 +140,7 @@ CONTAINS
 
     ALLOCATE(&
          this%mass,this%massloss,this%accrate,this%mass2,this%pos(3,2),this%r0(3), &
-         this%omega2(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,2), &
-         this%omega(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
+         this%omega2, this%omega, &
          this%r_prim(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX),&
          this%r_sec(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX),&
          this%posvec_prim(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,3),&
@@ -158,12 +157,24 @@ CONTAINS
     IF (err.NE.0) CALL this%Error("gravity_pointmass::InitGravity_pointmass", "Unable allocate memory!")
 
     ! initialize potentials
-    this%pot = marray_base(4)
+    this%pot      = marray_base(4)
     this%pot_prim = marray_base(4)
     this%pot_sec  = marray_base(4)
-    this%pot%data1d(:) = 0.0
+    this%omega    = marray_base()
+    this%omega2   = marray_base(2)
+    this%pot%data1d(:)      = 0.0
+    this%pot%data1d(:)      = 0.0
     this%pot_prim%data1d(:) = 0.0
-    this%pot_sec%data1d(:) = 0.0
+    this%pot_sec%data1d(:)  = 0.0
+    this%omega2%data1d(:)   = 0.0
+
+    ! initialize omega with zero except for ghost cells to avoid zero division
+    WHERE (Mesh%without_ghost_zones%mask1d(:))
+      this%omega%data1d(:) = 0.0
+    ELSEWHERE
+      this%omega%data1d(:) = 1.0
+    END WHERE
+
 
     ! mass of primary component
     CALL GetAttr(config, "mass1", this%mass, 1.0)
@@ -211,18 +222,6 @@ CONTAINS
 
     ! set period
     this%period = 2.*PI*SQRT(this%semaaxis/(this%mass+this%mass2)/Physics%constants%GN)*this%semaaxis
-
-    ! reset omega and omega**2
-    this%omega  = 0.0
-    this%omega2 = 0.0
-    
-    ! set ghost cell data to one to avoid zero division
-    this%omega(Mesh%IGMIN:Mesh%IMIN+Mesh%IM1,:,:) = 1.0
-    this%omega(Mesh%IMAX+Mesh%IP1:Mesh%IGMAX,:,:) = 1.0
-    this%omega(:,Mesh%JGMIN:Mesh%JMIN+Mesh%JM1,:) = 1.0
-    this%omega(:,Mesh%JMAX+Mesh%JP1:Mesh%JGMAX,:) = 1.0
-    this%omega(:,:,Mesh%KGMIN:Mesh%KMIN+Mesh%KM1) = 1.0
-    this%omega(:,:,Mesh%KMAX+Mesh%KP1:Mesh%KGMAX) = 1.0
 
     !initialise output
     CALL this%SetOutput(Mesh,Physics,config,IO)
@@ -354,11 +353,11 @@ CONTAINS
     ! compute square of Keplerian velocities for updated time value
     ! with respect to PRIMARY star
     GM1 = Physics%Constants%GN*this%GetMass_primary(time)
-    this%omega2(:,:,:,1) = GM1 / (this%r_prim(:,:,:)**3 + this%eps1**3)
+    this%omega2%data4d(:,:,:,1) = GM1 / (this%r_prim(:,:,:)**3 + this%eps1**3)
 
     ! and SECONDARY star
     GM2 = Physics%Constants%GN*this%GetMass_secondary(time)
-    this%omega2(:,:,:,2) = GM2 / (this%r_sec(:,:,:)**3 + this%eps2**3)
+    this%omega2%data4d(:,:,:,2) = GM2 / (this%r_sec(:,:,:)**3 + this%eps2**3)
 
     ! potential calculation for binary and use pointmassroutine for it
     CALL this%gravity_pointmass%CalcPotential(Mesh,Physics,this%mass,this%r_prim,this%fr_prim,this%pot_prim%data4d)
@@ -372,8 +371,8 @@ CONTAINS
       DO j=Mesh%JGMIN,Mesh%JGMAX
 !NEC$ ivdep
         DO i=Mesh%IGMIN,Mesh%IGMAX
-          this%accel%data4d(i,j,k,1:Physics%VDIM) = -this%omega2(i,j,k,1) * this%posvec_prim(i,j,k,1:Physics%VDIM)&
-                           -this%omega2(i,j,k,2) * this%posvec_sec(i,j,k,1:Physics%VDIM)
+          this%accel%data4d(i,j,k,1:Physics%VDIM) = -this%omega2%data4d(i,j,k,1) * this%posvec_prim(i,j,k,1:Physics%VDIM)&
+                           -this%omega2%data4d(i,j,k,2) * this%posvec_sec(i,j,k,1:Physics%VDIM)
         END DO
       END DO
     END DO
@@ -529,9 +528,9 @@ CONTAINS
     TYPE(marray_base),      INTENT(INOUT) :: bccsound,h_ext,height
     !------------------------------------------------------------------------!
     ! compute the effective omega
-    this%omega(:,:,:) = SQRT(this%omega2(:,:,:,1) + this%omega2(:,:,:,2))
+    this%omega%data1d(:) = SQRT(this%omega2%data2d(:,1) + this%omega2%data2d(:,2))
     ! compute the disk height
-    height%data3d(:,:,:) = GetDiskHeight(bccsound%data3d(:,:,:),this%omega(:,:,:))
+    height%data1d(:) = GetDiskHeight(bccsound%data1d(:),this%omega%data1d(:))
   END SUBROUTINE CalcDiskHeight_single
 
 

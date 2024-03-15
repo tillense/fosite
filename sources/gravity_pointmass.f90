@@ -90,8 +90,8 @@ MODULE gravity_pointmass_mod
     REAL, DIMENSION(:,:,:,:),   POINTER :: posvec_prim  !< pos. vectors from primary
     REAL, DIMENSION(:,:,:,:),   POINTER :: posvec_prim_tmp !< tmp. pos. vectors from primary
     REAL, DIMENSION(:,:,:,:,:), POINTER :: fposvec_prim !< face pos.
-    REAL, DIMENSION(:,:,:),   POINTER   :: omega        !< angular velocity
-    REAL, DIMENSION(:,:,:,:), POINTER   :: omega2       !< Omega Kepler squared
+    TYPE(marray_base), ALLOCATABLE      :: omega, &     !< angular velocity
+                                           omega2       !< Omega Kepler squared
   CONTAINS
     PROCEDURE :: InitGravity_pointmass
     PROCEDURE :: SetOutput
@@ -146,9 +146,7 @@ CONTAINS
     !------------------------------------------------------------------------!
     CALL this%InitGravity(Mesh,Physics,"central point mass",config,IO)
     !\todo last dimensions are absolutely not clear if right.. What are the standing for?
-    ALLOCATE(this%potential, this%pot, &
-             this%omega(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
-             this%omega2(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,1), &
+    ALLOCATE(this%potential, this%pot, this%omega, this%omega2, &
              this%r_prim(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX),&
              this%fr_prim(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,3), &
              this%posvec_prim(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,3),&
@@ -163,9 +161,13 @@ CONTAINS
     CALL GetAttr(config, "potential", potential_number, NEWTON)
     CALL this%potential%InitLogging(potential_number,potential_name(potential_number))
 
-    ! init mesh array for potential
-    this%pot = marray_base(4)
-    this%pot%data1d(:) = 0.0
+    ! init mesh array for potential and angular velocity
+    this%pot    = marray_base(4)
+    this%omega  = marray_base()
+    this%omega2 = marray_base()
+    this%pot%data1d(:)    = 0.0
+    this%omega%data1d(:)  = 0.0
+    this%omega2%data1d(:) = 0.0
 
     ! set (initial) mass
     CALL GetAttr(config, "mass", this%mass, 1.0)
@@ -208,8 +210,7 @@ CONTAINS
 
     ! define position vector from the central object to all cell bary centers
     ! and the corresponding distances
-    ! TODO Here should be a different evaluation for either 2D or 3D simulation
-    IF (ABS(this%pos(1,1)).LE.TINY(this%pos(1,1)).AND.ABS(this%pos(1,2)).LE.TINY(this%pos(1,2))) THEN
+    IF (ALL(ABS(this%pos(1,:)).LE.TINY(this%pos))) THEN
        ! no shift: point mass is located at the origin of the mesh
        ! set position vector and inverse radius using appropriate mesh arrays
        this%posvec_prim(:,:,:,:) = Mesh%posvec%bcenter(:,:,:,:)
@@ -254,10 +255,10 @@ CONTAINS
          +this%fposvec_prim(:,:,:,3,2)**2 + this%fposvec_prim(:,:,:,3,3)**2) ! shifted TOP-faces
     END IF
 
-    ! initialize gravitational acceleration and Keplerian angular velocity
-    ! loop over ghost cells to ensure that all values are well defined
+    ! Initialize gravitational acceleration and Keplerian angular velocity.
+    ! Loop over ghost cells as well to ensure that all values are well defined
     ! and remain finite; this is of particular importance for the calculation
-    ! of the disk scale height (see below)
+    ! of the disk scale height (see below).
 !NEC$ COLLAPSE
     DO k=Mesh%KGMIN,Mesh%KGMAX
       DO j=Mesh%JGMIN,Mesh%JGMAX
@@ -267,13 +268,14 @@ CONTAINS
           ! Since omega usually becomes infinite in the limit r -> r_prim (or a, if a > 0 )
           ! (unless softening is enabled, i. e. eps > 0) we avoid devision by zero by first
           ! limiting the inverse of omega to some very small value.
-          this%omega2(i,j,k,1) = 1./ MAX(10*TINY(eps), &
+          this%omega2%data3d(i,j,k) = 1./ MAX(10*TINY(eps), &
              (( this%r_prim(i,j,k) * (this%r_prim(i,j,k)-r_schwarzschild)**2) + eps**3) / (Physics%Constants%GN*this%mass) )
-          this%omega(i,j,k) = SQRT(this%omega2(i,j,k,1))
-          ! curvilinear components of the gravitational acceleration
-!NEC$ UNROLL(3)
+          this%omega%data3d(i,j,k) = SQRT(this%omega2%data3d(i,j,k))
+          ! curvilinear components of the gravitational acceleration;
+          ! account for dimensionality of the acceleration vector (could be < 3)
+!NEC$ SHORTLOOP
           DO l=1,Physics%VDIM
-            this%accel%data4d(i,j,k,l) = -this%omega2(i,j,k,1) * this%posvec_prim(i,j,k,l)
+            this%accel%data4d(i,j,k,l) = -this%omega2%data3d(i,j,k) * this%posvec_prim(i,j,k,Physics%VIDX(l))
           END DO
         END DO
       END DO
@@ -331,6 +333,8 @@ CONTAINS
     CALL this%Info("            potential:         " // &
          TRIM(this%potential%GetName()))
     CALL this%Info("            initial mass:      " // TRIM(param_str))
+    WRITE (param_str, '(3(ES10.2))') this%pos(1,1:3)
+    CALL this%Info("            cart. position:   " // TRIM(param_str))
     IF (this%outbound.GT.0) THEN
       param_str = "enabled"
     ELSE
@@ -386,7 +390,7 @@ CONTAINS
     CLASS(marray_compound),   INTENT(INOUT) :: pvar
     REAL,                     INTENT(IN)    :: time,dt
     !------------------------------------------------------------------------!
-    INTEGER                       :: l
+    INTEGER                       :: i,j,k,l
     REAL, DIMENSION(Physics%VNUM) :: bflux
     REAL                          :: scaling,oldmass,massfac,sqrmassfac,dmass,dmasslim
     !------------------------------------------------------------------------!
@@ -419,7 +423,7 @@ CONTAINS
        sqrmassfac = SQRT(massfac)
        this%accel%data1d(:) = this%accel%data1d(:) * massfac
        this%pot%data1d(:) = this%pot%data1d(:) * massfac
-       this%omega(:,:,:) = this%omega(:,:,:) * sqrmassfac
+       this%omega%data1d(:) = this%omega%data1d(:) * sqrmassfac
        this%mdot = bflux(Physics%DENSITY)
     END IF
 
@@ -429,9 +433,17 @@ CONTAINS
       scaling = SIN(0.5*PI*time/this%switchon)**2
       ! compute acceleration and scale it;
       ! during the switchon phase accretion is disabled
-!NEC$ UNROLL(3)
-      DO l=1,Physics%VDIM
-        this%accel%data4d(:,:,:,l) = -scaling * this%omega2(:,:,:,1) * this%posvec_prim(:,:,:,l)
+!NEC$ COLLAPSE
+      DO k=Mesh%KGMIN,Mesh%KGMAX
+        DO j=Mesh%JGMIN,Mesh%JGMAX
+!NEC$ IVDEP
+          DO i=Mesh%IGMIN,Mesh%IGMAX
+!NEC$ SHORTLOOP
+            DO l=1,Physics%VDIM
+              this%accel%data4d(i,j,k,l) = -scaling * this%omega2%data3d(i,j,k) * this%posvec_prim(i,j,k,Physics%VIDX(l))
+            END DO
+          END DO
+        END DO
       END DO
     END IF
 
@@ -451,7 +463,7 @@ CONTAINS
     TYPE(marray_base),        INTENT(INOUT) :: bccsound,h_ext,height
     !------------------------------------------------------------------------!
     ! compute disk height
-    h_ext%data3d(:,:,:) = GetDiskHeight(bccsound%data3d(:,:,:),this%omega(:,:,:))
+    h_ext%data1d(:) = GetDiskHeight(bccsound%data1d(:),this%omega%data1d(:))
   END SUBROUTINE CalcDiskHeight_single
 
   SUBROUTINE Finalize(this)
