@@ -363,6 +363,9 @@ CONTAINS
     ! check physics first; fargo is currently supported for physics_euler(isotherm) and derived types
     SELECT TYPE(phys => Physics)
     CLASS IS(physics_eulerisotherm)
+      ! check for dimensionality of velocity vector
+      IF (Physics%VDIM.LT.2) &
+        CALL this%Error("timedisc_base::InitTimedisc","FARGO transport with 1D velocity vector not supported!")
       ! check for fargo transport direction and allocate some arrays
       ! if direction is not in {1,2,3} skip this (fargo disabled)
       ! see mesh_base::InitMesh for general initialization of fargo transport
@@ -1117,15 +1120,17 @@ CONTAINS
     ! carried out with residual velocity
     SELECT CASE(Mesh%fargo%GetType())
     CASE(1,2)
-        ! add fargo source terms to geometrical source terms
-        CALL Physics%AddFargoSources(Mesh,this%w,pvar,cvar,this%geo_src)
+        ! add fargo source terms to geometrical source terms and
         ! subtract background velocity
         SELECT CASE(Mesh%fargo%GetDirection())
         CASE(1)
+          CALL Physics%AddFargoSourcesX(Mesh,this%w,pvar,cvar,this%geo_src)
           CALL Physics%SubtractBackgroundVelocityX(Mesh,this%w,pvar,cvar)
         CASE(2)
+          CALL Physics%AddFargoSourcesY(Mesh,this%w,pvar,cvar,this%geo_src)
           CALL Physics%SubtractBackgroundVelocityY(Mesh,this%w,pvar,cvar)
         CASE(3)
+          CALL Physics%AddFargoSourcesZ(Mesh,this%w,pvar,cvar,this%geo_src)
           CALL Physics%SubtractBackgroundVelocityZ(Mesh,this%w,pvar,cvar)
         END SELECT
     CASE(3)
@@ -2189,7 +2194,7 @@ CONTAINS
                           INTENT(OUT)   :: w
     !------------------------------------------------------------------------!
     REAL              :: wi
-    INTEGER           :: i,j,k
+    INTEGER           :: i,j,k,v_idx
 #ifdef PARALLEL
     INTEGER           :: ierror
 #endif
@@ -2198,6 +2203,7 @@ CONTAINS
     ! if fargo is enabled (see InitTimedisc)
     SELECT TYPE(p => pvar)
     CLASS IS(statevector_eulerisotherm)
+      v_idx = Mesh%fargo%GetDirection() ! index of fargo transport velocity corresponds with transport direction
       SELECT CASE(Mesh%fargo%GetDirection())
       CASE(1)
         ! transform back to real, i.e. not co-moving, quantities
@@ -2205,7 +2211,7 @@ CONTAINS
         DO k=Mesh%KGMIN,Mesh%KGMAX
           DO j=Mesh%JGMIN,Mesh%JGMAX
             ! some up all xvelocities along the x-direction
-            wi = SUM(p%velocity%data4d(Mesh%IMIN:Mesh%IMAX,j,k,1))
+            wi = SUM(p%velocity%data4d(Mesh%IMIN:Mesh%IMAX,j,k,v_idx))
 #ifdef PARALLEL
             ! extend the sum over all partitions
             IF(Mesh%dims(1).GT.1) THEN
@@ -2221,10 +2227,12 @@ CONTAINS
       CASE(2)
         ! transform back to real, i.e. not co-moving, quantities
         CALL Physics%AddBackgroundVelocityY(Mesh,w,pvar,cvar)
+        ! if x-velocity is suppressed, i.e. zero bit not set -> first velocity component is y-velocity
+        IF (.NOT.BTEST(Mesh%VECTOR_COMPONENTS,0)) v_idx = 1
         DO k=Mesh%KGMIN,Mesh%KGMAX
           DO i=Mesh%IGMIN,Mesh%IGMAX
             ! some up all yvelocities along the y-direction
-            wi = SUM(p%velocity%data4d(i,Mesh%JMIN:Mesh%JMAX,k,2))
+            wi = SUM(p%velocity%data4d(i,Mesh%JMIN:Mesh%JMAX,k,v_idx))
 #ifdef PARALLEL
             ! extend the sum over all partitions
             IF(Mesh%dims(2).GT.1) THEN
@@ -2240,10 +2248,12 @@ CONTAINS
       CASE(3)
         ! transform back to real, i.e. not co-moving, quantities
         CALL Physics%AddBackgroundVelocityZ(Mesh,w,pvar,cvar)
+        ! last velocity component should be the z-velocity
+        v_idx = Physics%VDIM ! could be < 3
         DO j=Mesh%JGMIN,Mesh%JGMAX
           DO i=Mesh%IGMIN,Mesh%IGMAX
             ! some up all zvelocities along the z-direction
-            wi = SUM(p%velocity%data4d(i,j,Mesh%KMIN:Mesh%KMAX,3))
+            wi = SUM(p%velocity%data4d(i,j,Mesh%KMIN:Mesh%KMAX,v_idx))
 #ifdef PARALLEL
             ! extend the sum over all partitions
             IF(Mesh%dims(3).GT.1) THEN
