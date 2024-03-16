@@ -3,7 +3,7 @@
 !# fosite - 3D hydrodynamical simulation program                             #
 !# module: vortex2d.f90                                                      #
 !#                                                                           #
-!# Copyright (C) 2006-2021                                                   #
+!# Copyright (C) 2006-2024                                                   #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
 !#                                                                           #
 !# This program is free software; you can redistribute it and/or modify      #
@@ -39,9 +39,12 @@ PROGRAM vortex3d
   REAL, PARAMETER    :: TSIM    = 30.0     ! simulation stop time
   REAL, PARAMETER    :: GAMMA   = 1.4      ! ratio of specific heats
   REAL, PARAMETER    :: CSISO   = &
-!                                   0.0      ! non-isothermal simulation
-                                  1.127    ! isothermal simulation
+                                  0.0      ! non-isothermal simulation
+!                                   1.127    ! isothermal simulation
                                            !   with CSISO as sound speed
+  INTEGER, PARAMETER :: FARGO= 1           ! 0: disables fargo transport
+                                           ! 1: dynamic background velocity field,
+                                           ! 2: fixed background velocity field
   ! initial condition (dimensionless units)
   REAL, PARAMETER    :: RHOINF  = 1.       ! ambient density
   REAL, PARAMETER    :: PINF    = 1.       ! ambient pressure
@@ -192,6 +195,7 @@ CONTAINS
               "meshtype" / MIDPOINT, &
               "geometry" / MGEO,     &
               "omega"    / OMEGA,    &
+              "fargo/method" / FARGO, &
               "fargo/method" / 2,    &
               "decomposition"   / (/ -1, 1, -1/), & ! do not decompose along 2nd dimension with FARGO!
               "inum"     / XRES,     &
@@ -372,7 +376,7 @@ CONTAINS
         CASE(2)
           Timedisc%w(:,:) = pvar%velocity%data4d(:,Mesh%JMIN,:,2)
         CASE(3)
-          Timedisc%w(:,:) = pvar%velocity%data4d(:,Mesh%KMIN,:,3)
+          Timedisc%w(:,:) = pvar%velocity%data4d(:,:,Mesh%KMIN,3)
         END SELECT
       END SELECT
     END SELECT
