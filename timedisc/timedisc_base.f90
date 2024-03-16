@@ -364,8 +364,10 @@ CONTAINS
     SELECT TYPE(phys => Physics)
     CLASS IS(physics_eulerisotherm)
       ! check for dimensionality of velocity vector
-      IF (Physics%VDIM.LT.2) &
-        CALL this%Error("timedisc_base::InitTimedisc","FARGO transport with 1D velocity vector not supported!")
+      IF (Mesh%fargo%GetType().GT.0) THEN
+        IF (Physics%VDIM.LT.2) &
+          CALL this%Error("timedisc_base::InitTimedisc","FARGO transport with 1D velocity vector not supported!")
+      END IF
       ! check for fargo transport direction and allocate some arrays
       ! if direction is not in {1,2,3} skip this (fargo disabled)
       ! see mesh_base::InitMesh for general initialization of fargo transport
