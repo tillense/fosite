@@ -94,7 +94,7 @@ CONTAINS
     TYPE(DICT_TYP),POINTER                   :: config
     !------------------------------------------------------------------------!
     CALL this%InitGeometry(SPHERICAL_PLANET,geometry_name,config)
-    CALL this%SetAzimuthIndex(3)
+    CALL this%SetAzimuthIndex(2)
   END SUBROUTINE InitGeometry_spherical_planet
 
   PURE SUBROUTINE ScaleFactors_1(this,coords,hx,hy,hz)
