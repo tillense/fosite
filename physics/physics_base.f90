@@ -318,7 +318,7 @@ MODULE physics_base_mod
     END SUBROUTINE
     PURE SUBROUTINE AddFargoSourcesX(this,Mesh,w,pvar,cvar,sterm)
       IMPORT physics_base,mesh_base,marray_compound
-      CLASS(physics_base), INTENT(IN)    :: this
+      CLASS(physics_base), INTENT(INOUT) :: this
       CLASS(mesh_base),    INTENT(IN)    :: Mesh
       REAL, DIMENSION(Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
                            INTENT(IN)    :: w
@@ -326,7 +326,7 @@ MODULE physics_base_mod
     END SUBROUTINE AddFargoSourcesX
     PURE SUBROUTINE AddFargoSourcesY(this,Mesh,w,pvar,cvar,sterm)
       IMPORT physics_base,mesh_base,marray_compound
-      CLASS(physics_base), INTENT(IN)    :: this
+      CLASS(physics_base), INTENT(INOUT) :: this
       CLASS(mesh_base),    INTENT(IN)    :: Mesh
       REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%KGMIN:Mesh%KGMAX), &
                            INTENT(IN)    :: w
@@ -334,7 +334,7 @@ MODULE physics_base_mod
     END SUBROUTINE AddFargoSourcesY
     PURE SUBROUTINE AddFargoSourcesZ(this,Mesh,w,pvar,cvar,sterm)
       IMPORT physics_base,mesh_base,marray_compound
-      CLASS(physics_base), INTENT(IN)    :: this
+      CLASS(physics_base), INTENT(INOUT) :: this
       CLASS(mesh_base),    INTENT(IN)    :: Mesh
       REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX), &
                            INTENT(IN)    :: w

@@ -76,6 +76,9 @@ MODULE physics_euler_mod
     PROCEDURE :: SubtractBackgroundVelocityX
     PROCEDURE :: SubtractBackgroundVelocityY
     PROCEDURE :: SubtractBackgroundVelocityZ
+    PROCEDURE :: AddFargoSourcesX
+    PROCEDURE :: AddFargoSourcesY
+    PROCEDURE :: AddFargoSourcesZ
     !------HLLC routines-----------!
 !    PROCEDURE :: CalcIntermediateStateX
 !    PROCEDURE :: CalcIntermediateStateY
@@ -2120,7 +2123,7 @@ CONTAINS
                 !            assignment there must be the old momentum
                 c%energy%data3d(i,j,k) = c%energy%data3d(i,j,k) &
                     - w(j,k)*(c%momentum%data4d(i,j,k,1) &
-                    + 0.5*c%density%data3d(i,j,k)*w(j,k))
+                    - 0.5*c%density%data3d(i,j,k)*w(j,k))
                 p%velocity%data4d(i,j,k,1) = p%velocity%data4d(i,j,k,1) - w(j,k)
                 c%momentum%data4d(i,j,k,1) = c%momentum%data4d(i,j,k,1) &
                     - c%density%data3d(i,j,k)*w(j,k)
@@ -2176,7 +2179,7 @@ CONTAINS
                 !            assignment there must be the old momentum
                 c%energy%data3d(i,j,k) = c%energy%data3d(i,j,k) &
                     - w(i,k)*(c%momentum%data4d(i,j,k,v_idx) &
-                    + 0.5*c%density%data3d(i,j,k)*w(i,k))
+                    - 0.5*c%density%data3d(i,j,k)*w(i,k))
                 p%velocity%data4d(i,j,k,v_idx) = p%velocity%data4d(i,j,k,v_idx) - w(i,k)
                 c%momentum%data4d(i,j,k,v_idx) = c%momentum%data4d(i,j,k,v_idx) &
                     - c%density%data3d(i,j,k)*w(i,k)
@@ -2224,7 +2227,7 @@ CONTAINS
                 !            assignment there must be the old momentum
                 c%energy%data3d(i,j,k) = c%energy%data3d(i,j,k) &
                       - w(i,j)*(c%momentum%data4d(i,j,k,this%VDIM) &
-                      + 0.5*c%density%data3d(i,j,k)*w(i,j))
+                      - 0.5*c%density%data3d(i,j,k)*w(i,j))
                 p%velocity%data4d(i,j,k,this%VDIM) = p%velocity%data4d(i,j,k,this%VDIM) - w(i,j)
                 c%momentum%data4d(i,j,k,this%VDIM) = c%momentum%data4d(i,j,k,this%VDIM) &
                       - c%density%data3d(i,j,k)*w(i,j)
@@ -2237,6 +2240,228 @@ CONTAINS
     END IF
   END SUBROUTINE SubtractBackgroundVelocityZ
 
+
+  !> \public sources terms for fargo advection along x-direction
+  !!
+  !! If the background velocity \f$\vec{w}=w\,\hat{e}_\xi\f$ with
+  !! \f$w\f$ independent of \f$\xi\f$ and \f$t\f$ is subtracted from
+  !! the overall velocity of the flow, an additional source term occurs
+  !! in the \f$\xi\f$-momentum equation:
+  !! \f[
+  !!     S_\mathrm{Fargo} = -\varrho \vec{v} \cdot \nabla \vec{w}
+  !! \f]
+  !! where \f$\vec{v}\f$ is the real velocity (including the background
+  !! velocity \f$\vec{w}\f$ ).
+  PURE SUBROUTINE AddFargoSourcesX(this,Mesh,w,pvar,cvar,sterm)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(physics_euler), INTENT(INOUT) :: this
+    CLASS(mesh_base), INTENT(IN)             :: Mesh
+    REAL, DIMENSION(Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), INTENT(IN) :: w
+    CLASS(marray_compound), INTENT(INOUT)    :: pvar,cvar,sterm
+    !------------------------------------------------------------------------!
+    INTEGER           :: i,j,k
+    !------------------------------------------------------------------------!
+    SELECT TYPE(c => cvar)
+    CLASS IS(statevector_euler)
+      SELECT TYPE(p => pvar)
+      TYPE IS(statevector_euler)
+        SELECT TYPE(s => sterm)
+        CLASS IS(statevector_euler)
+          ! ATTENTION: fargo sources are added to the given sterm
+          SELECT CASE(Mesh%VECTOR_COMPONENTS)
+          CASE(IOR(VECTOR_X,VECTOR_Y))
+            ! 2D (x,y) momentum vector
+            DO k=Mesh%KMIN,Mesh%KMAX
+              DO j=Mesh%JMIN,Mesh%JMAX
+                DO i=Mesh%IMIN,Mesh%IMAX
+                  this%tmp(i,j,k) = c%momentum%data4d(i,j,k,2) * 0.5 * (w(j+1,k)-w(j-1,k)) &
+                    / Mesh%dly%data3d(i,j,k)
+                  s%momentum%data4d(i,j,k,1) = s%momentum%data4d(i,j,k,1) - this%tmp(i,j,k)
+                  s%energy%data3d(i,j,k) = s%energy%data3d(i,j,k) &
+                    - p%velocity%data4d(i,j,k,1)*this%tmp(i,j,k)
+                END DO
+              END DO
+            END DO
+          CASE(IOR(VECTOR_X,VECTOR_Z))
+            ! 2D (x,z) momentum vector
+            DO k=Mesh%KMIN,Mesh%KMAX
+              DO j=Mesh%JMIN,Mesh%JMAX
+                DO i=Mesh%IMIN,Mesh%IMAX
+                  this%tmp(i,j,k) = c%momentum%data4d(i,j,k,2) * 0.5 * (w(j,k+1)-w(j,k-1)) &
+                    / Mesh%dlz%data3d(i,j,k)
+                  s%momentum%data4d(i,j,k,1) = s%momentum%data4d(i,j,k,1) - this%tmp(i,j,k)
+                  s%energy%data3d(i,j,k) = s%energy%data3d(i,j,k) &
+                    - p%velocity%data4d(i,j,k,1)*this%tmp(i,j,k)
+                END DO
+              END DO
+            END DO
+          CASE(IOR(IOR(VECTOR_X,VECTOR_Y),VECTOR_Z))
+            ! 3D momentum vector
+            DO k=Mesh%KMIN,Mesh%KMAX
+              DO j=Mesh%JMIN,Mesh%JMAX
+                DO i=Mesh%IMIN,Mesh%IMAX
+                  this%tmp(i,j,k) = c%momentum%data4d(i,j,k,2) * 0.5 * (w(j+1,k)-w(j-1,k)) / Mesh%dly%data3d(i,j,k) &
+                    + c%momentum%data4d(i,j,k,3) * 0.5 * (w(j,k+1)-w(j,k-1)) / Mesh%dlz%data3d(i,j,k)
+                  s%momentum%data4d(i,j,k,1) = s%momentum%data4d(i,j,k,1) - this%tmp(i,j,k)
+                  s%energy%data3d(i,j,k) = s%energy%data3d(i,j,k) &
+                    - p%velocity%data4d(i,j,k,1)*this%tmp(i,j,k)
+                END DO
+              END DO
+            END DO
+          CASE DEFAULT
+            ! do nothing in any other case
+          END SELECT
+        END SELECT
+      END SELECT
+    END SELECT
+  END SUBROUTINE AddFargoSourcesX
+
+  !> \public sources terms for fargo advection along y-direction
+  !!
+  !! If the background velocity \f$\vec{w}=w\,\hat{e}_\eta\f$ with
+  !! \f$w\f$ independent of \f$\eta\f$ and \f$t\f$ is subtracted from
+  !! the overall velocity of the flow, an additional source term occurs
+  !! in the \f$\eta\f$-momentum equation:
+  !! \f[
+  !!     S_\mathrm{Fargo} = -\varrho \vec{v} \cdot \nabla \vec{w}
+  !! \f]
+  !! where \f$\vec{v}\f$ is the real velocity (including the background
+  !! velocity \f$\vec{w}\f$ ).
+  PURE SUBROUTINE AddFargoSourcesY(this,Mesh,w,pvar,cvar,sterm)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(physics_euler), INTENT(INOUT) :: this
+    CLASS(mesh_base), INTENT(IN)             :: Mesh
+    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%KGMIN:Mesh%KGMAX), INTENT(IN) :: w
+    CLASS(marray_compound), INTENT(INOUT)    :: pvar,cvar,sterm
+    !------------------------------------------------------------------------!
+    INTEGER           :: i,j,k
+    !------------------------------------------------------------------------!
+    SELECT TYPE(c => cvar)
+    CLASS IS(statevector_euler)
+      SELECT TYPE(p => pvar)
+      TYPE IS(statevector_euler)
+        SELECT TYPE(s => sterm)
+        CLASS IS(statevector_euler)
+          SELECT CASE(Mesh%VECTOR_COMPONENTS)
+          CASE(IOR(VECTOR_X,VECTOR_Y))
+            ! 2D (x,y) momentum vector
+            DO k=Mesh%KMIN,Mesh%KMAX
+              DO j=Mesh%JMIN,Mesh%JMAX
+                DO i=Mesh%IMIN,Mesh%IMAX
+                    this%tmp(i,j,k) = c%momentum%data4d(i,j,k,1) * 0.5 * (w(i+1,k)-w(i-1,k)) &
+                      / Mesh%dlx%data3d(i,j,k)
+                    s%momentum%data4d(i,j,k,2) = s%momentum%data4d(i,j,k,2) - this%tmp(i,j,k)
+                    s%energy%data3d(i,j,k) = s%energy%data3d(i,j,k) &
+                      - p%velocity%data4d(i,j,k,2)*this%tmp(i,j,k)
+                END DO
+              END DO
+            END DO
+          CASE(IOR(VECTOR_Y,VECTOR_Z))
+            ! 2D (y,z) momentum vector
+            DO k=Mesh%KMIN,Mesh%KMAX
+              DO j=Mesh%JMIN,Mesh%JMAX
+                DO i=Mesh%IMIN,Mesh%IMAX
+                  s%momentum%data4d(i,j,k,1) = s%momentum%data4d(i,j,k,1) &
+                    - c%momentum%data4d(i,j,k,2) * 0.5 * (w(i,k+1)-w(i,k-1)) &
+                    / Mesh%dlz%data3d(i,j,k)
+                END DO
+              END DO
+            END DO
+          CASE(IOR(IOR(VECTOR_X,VECTOR_Y),VECTOR_Z))
+            ! 3D momentum vector
+            DO k=Mesh%KMIN,Mesh%KMAX
+              DO j=Mesh%JMIN,Mesh%JMAX
+                DO i=Mesh%IMIN,Mesh%IMAX
+                  this%tmp(i,j,k) = c%momentum%data4d(i,j,k,1) * 0.5 * (w(i+1,k)-w(i-1,k)) / Mesh%dlx%data3d(i,j,k) &
+                    + c%momentum%data4d(i,j,k,3) * 0.5 * (w(j,k+1)-w(j,k-1)) / Mesh%dlz%data3d(i,j,k)
+                  s%momentum%data4d(i,j,k,2) = s%momentum%data4d(i,j,k,2) - this%tmp(i,j,k)
+                  s%energy%data3d(i,j,k) = s%energy%data3d(i,j,k) &
+                      - p%velocity%data4d(i,j,k,2)*this%tmp(i,j,k)
+                END DO
+              END DO
+            END DO
+          CASE DEFAULT
+            ! do nothing in any other case
+          END SELECT
+        END SELECT
+      END SELECT
+    END SELECT
+  END SUBROUTINE AddFargoSourcesY
+
+  !> \public sources terms for fargo advection along z-direction
+  !!
+  !! If the background velocity \f$\vec{w}=w\,\hat{e}_phi\f$ with
+  !! \f$w\f$ independent of \f$\phi\f$ and \f$t\f$ is subtracted from
+  !! the overall velocity of the flow, an additional source term occurs
+  !! in the \f$\phi\f$-momentum equation:
+  !! \f[
+  !!     S_\mathrm{Fargo} = -\varrho \vec{v} \cdot \nabla \vec{w}
+  !! \f]
+  !! where \f$\vec{v}\f$ is the real velocity (including the background
+  !! velocity \f$\vec{w}\f$ ).
+  PURE SUBROUTINE AddFargoSourcesZ(this,Mesh,w,pvar,cvar,sterm)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(physics_euler), INTENT(INOUT)         :: this
+    CLASS(mesh_base), INTENT(IN)             :: Mesh
+    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX), INTENT(IN) :: w
+    CLASS(marray_compound), INTENT(INOUT)    :: pvar,cvar,sterm
+    !------------------------------------------------------------------------!
+    INTEGER           :: i,j,k
+    !------------------------------------------------------------------------!
+    SELECT TYPE(c => cvar)
+    CLASS IS(statevector_euler)
+      SELECT TYPE(p => pvar)
+      TYPE IS(statevector_euler)
+        SELECT TYPE(s => sterm)
+        CLASS IS(statevector_euler)
+          SELECT CASE(Mesh%VECTOR_COMPONENTS)
+          CASE(IOR(VECTOR_X,VECTOR_Z))
+            ! 2D (x,z) momentum vector
+            DO k=Mesh%KMIN,Mesh%KMAX
+              DO j=Mesh%JMIN,Mesh%JMAX
+                DO i=Mesh%IMIN,Mesh%IMAX
+                  this%tmp(i,j,k) = c%momentum%data4d(i,j,k,1) * 0.5 * (w(i+1,j)-w(i-1,j)) / Mesh%dlx%data3d(i,j,k)
+                  s%momentum%data4d(i,j,k,2) = s%momentum%data4d(i,j,k,2) - this%tmp(i,j,k)
+                  s%energy%data3d(i,j,k) = s%energy%data3d(i,j,k) &
+                      - p%velocity%data4d(i,j,k,2)*this%tmp(i,j,k)
+                END DO
+              END DO
+            END DO
+          CASE(IOR(VECTOR_Y,VECTOR_Z))
+            ! 2D (y,z) momentum vector
+            DO k=Mesh%KMIN,Mesh%KMAX
+              DO j=Mesh%JMIN,Mesh%JMAX
+                DO i=Mesh%IMIN,Mesh%IMAX
+                  this%tmp(i,j,k) = c%momentum%data4d(i,j,k,1) * 0.5 * (w(i,j+1)-w(i,j-1)) / Mesh%dly%data3d(i,j,k)
+                  s%momentum%data4d(i,j,k,2) = s%momentum%data4d(i,j,k,2) - this%tmp(i,j,k)
+                  s%energy%data3d(i,j,k) = s%energy%data3d(i,j,k) &
+                      - p%velocity%data4d(i,j,k,2)*this%tmp(i,j,k)
+                END DO
+              END DO
+            END DO
+          CASE(IOR(IOR(VECTOR_X,VECTOR_Y),VECTOR_Z))
+            ! 3D momentum vector
+            DO k=Mesh%KMIN,Mesh%KMAX
+              DO j=Mesh%JMIN,Mesh%JMAX
+                DO i=Mesh%IMIN,Mesh%IMAX
+                  this%tmp(i,j,k) = c%momentum%data4d(i,j,k,1) * 0.5 * (w(i+1,j)-w(i-1,j)) / Mesh%dlx%data3d(i,j,k) &
+                    + c%momentum%data4d(i,j,k,2) * 0.5 * (w(j,j+1)-w(j,j-1)) / Mesh%dly%data3d(i,j,k)
+                  s%momentum%data4d(i,j,k,3) = s%momentum%data4d(i,j,k,3) - this%tmp(i,j,k)
+                  s%energy%data3d(i,j,k) = s%energy%data3d(i,j,k) &
+                      - p%velocity%data4d(i,j,k,3)*this%tmp(i,j,k)
+                END DO
+              END DO
+            END DO
+          CASE DEFAULT
+            ! do nothing in any other case
+          END SELECT
+        END SELECT
+      END SELECT
+    END SELECT
+  END SUBROUTINE AddFargoSourcesZ
 
   PURE SUBROUTINE UpdateSoundSpeed(this,pvar)
     IMPLICIT NONE

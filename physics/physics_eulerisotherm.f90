@@ -1461,7 +1461,7 @@ CONTAINS
   PURE SUBROUTINE AddFargoSourcesX(this,Mesh,w,pvar,cvar,sterm)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(physics_eulerisotherm), INTENT(IN) :: this
+    CLASS(physics_eulerisotherm), INTENT(INOUT) :: this
     CLASS(mesh_base), INTENT(IN)             :: Mesh
     REAL, DIMENSION(Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), INTENT(IN) :: w
     CLASS(marray_compound), INTENT(INOUT)    :: pvar,cvar,sterm
@@ -1530,7 +1530,7 @@ CONTAINS
   PURE SUBROUTINE AddFargoSourcesY(this,Mesh,w,pvar,cvar,sterm)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(physics_eulerisotherm), INTENT(IN) :: this
+    CLASS(physics_eulerisotherm), INTENT(INOUT) :: this
     CLASS(mesh_base), INTENT(IN)             :: Mesh
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%KGMIN:Mesh%KGMAX), INTENT(IN) :: w
     CLASS(marray_compound), INTENT(INOUT)    :: pvar,cvar,sterm
@@ -1598,7 +1598,7 @@ CONTAINS
   PURE SUBROUTINE AddFargoSourcesZ(this,Mesh,w,pvar,cvar,sterm)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(physics_eulerisotherm), INTENT(IN) :: this
+    CLASS(physics_eulerisotherm), INTENT(INOUT) :: this
     CLASS(mesh_base), INTENT(IN)             :: Mesh
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX), INTENT(IN) :: w
     CLASS(marray_compound), INTENT(INOUT)    :: pvar,cvar,sterm
