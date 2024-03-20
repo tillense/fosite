@@ -309,7 +309,7 @@ CONTAINS
        CALL this%Timedisc%Boundary%CenterBoundary(this%Mesh,this%Physics,&
                              0.0,this%Timedisc%pvar,this%Timedisc%cvar)
        CALL this%Timedisc%CalcBackgroundVelocity(this%Mesh,this%Physics, &
-                             this%Timedisc%pvar,this%Timedisc%cvar,this%Timedisc%w)
+                             this%Timedisc%pvar,this%Timedisc%cvar)
     END IF
 
     ! do a complete update of all data

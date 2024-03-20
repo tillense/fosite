@@ -624,7 +624,7 @@ CONTAINS
     !------------------------------------------------------------------------!
     ! determine the background velocity if fargo advection type 1 is enabled
     IF (Mesh%fargo%GetType().EQ.1) &
-       CALL this%CalcBackgroundVelocity(Mesh,Physics,this%pvar,this%cvar,this%w)
+       CALL this%CalcBackgroundVelocity(Mesh,Physics,this%pvar,this%cvar)
     ! transform to comoving frame if fargo is enabled
     SELECT CASE(Mesh%fargo%GetDirection())
     CASE(1)
@@ -1124,6 +1124,8 @@ CONTAINS
     CASE(1,2)
         ! add fargo source terms to geometrical source terms and
         ! subtract background velocity
+        ! zero geometry sources for cartesian simulations first
+        IF (Mesh%geometry%GetType().EQ.CARTESIAN) this%geo_src%data1d(:) = 0.0
         SELECT CASE(Mesh%fargo%GetDirection())
         CASE(1)
           CALL Physics%AddFargoSourcesX(Mesh,this%w,pvar,cvar,this%geo_src)
@@ -2185,15 +2187,13 @@ CONTAINS
   !> \public Calculates new background velocity for fargo advection
   !!
   !! \attention Only works when velocity is shifted in second direction.
-  SUBROUTINE CalcBackgroundVelocity(this,Mesh,Physics,pvar,cvar,w)
+  SUBROUTINE CalcBackgroundVelocity(this,Mesh,Physics,pvar,cvar)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(timedisc_base), INTENT(INOUT) :: this
     CLASS(mesh_base),     INTENT(IN)    :: Mesh
     CLASS(physics_base),  INTENT(INOUT) :: Physics
     CLASS(marray_compound), INTENT(INOUT) :: pvar,cvar
-    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%KGMIN:Mesh%KGMAX), &
-                          INTENT(OUT)   :: w
     !------------------------------------------------------------------------!
     REAL              :: wi
     INTEGER           :: i,j,k,v_idx
@@ -2209,7 +2209,7 @@ CONTAINS
       SELECT CASE(Mesh%fargo%GetDirection())
       CASE(1)
         ! transform back to real, i.e. not co-moving, quantities
-        CALL Physics%AddBackgroundVelocityX(Mesh,w,pvar,cvar)
+        CALL Physics%AddBackgroundVelocityX(Mesh,this%w,pvar,cvar)
         DO k=Mesh%KGMIN,Mesh%KGMAX
           DO j=Mesh%JGMIN,Mesh%JGMAX
             ! some up all xvelocities along the x-direction
@@ -2223,12 +2223,12 @@ CONTAINS
 #endif
             ! set new background velocity to the arithmetic mean of the
             ! xvelocity field along the x-direction
-            w(j,k) = wi / Mesh%INUM
+            this%w(j,k) = wi / Mesh%INUM
           END DO
         END DO
       CASE(2)
         ! transform back to real, i.e. not co-moving, quantities
-        CALL Physics%AddBackgroundVelocityY(Mesh,w,pvar,cvar)
+        CALL Physics%AddBackgroundVelocityY(Mesh,this%w,pvar,cvar)
         ! if x-velocity is suppressed, i.e. zero bit not set -> first velocity component is y-velocity
         IF (.NOT.BTEST(Mesh%VECTOR_COMPONENTS,0)) v_idx = 1
         DO k=Mesh%KGMIN,Mesh%KGMAX
@@ -2244,12 +2244,12 @@ CONTAINS
 #endif
             ! set new background velocity to the arithmetic mean of the
             ! yvelocity field along the y-direction
-            w(i,k) = wi / Mesh%JNUM
+            this%w(i,k) = wi / Mesh%JNUM
           END DO
         END DO
       CASE(3)
         ! transform back to real, i.e. not co-moving, quantities
-        CALL Physics%AddBackgroundVelocityZ(Mesh,w,pvar,cvar)
+        CALL Physics%AddBackgroundVelocityZ(Mesh,this%w,pvar,cvar)
         ! last velocity component should be the z-velocity
         v_idx = Physics%VDIM ! could be < 3
         DO j=Mesh%JGMIN,Mesh%JGMAX
@@ -2265,7 +2265,7 @@ CONTAINS
 #endif
             ! set new background velocity to the arithmetic mean of the
             ! yvelocity field along the y-direction
-            w(i,j) = wi / Mesh%KNUM
+            this%w(i,j) = wi / Mesh%KNUM
           END DO
         END DO
       END SELECT
