@@ -397,7 +397,7 @@ CONTAINS
 
       ! write entries for each time step
       DO k=0,this%step
-         ftime = this%stoptime*k/(this%count-1)
+         ftime = this%stoptime*k/this%count
          IF (this%err.EQ. 0) &
             WRITE(UNIT=this%pvdfile%GetUnitNumber(),FMT='(A,E11.5,A)',IOSTAT=this%err) &
                   REPEAT(' ',4)//'<DataSet timestep="',ftime,'" part="0" file="' // &
