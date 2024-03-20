@@ -2004,23 +2004,31 @@ CONTAINS
                             INTENT(IN)    :: w
     CLASS(marray_compound), INTENT(INOUT) ::  pvar,cvar
     !------------------------------------------------------------------------!
-    INTEGER                               :: i,j,k
+    INTEGER                               :: i,j,k,v_idx
     !------------------------------------------------------------------------!
     IF (this%transformed_yvelocity) THEN
       SELECT TYPE(p => pvar)
       TYPE IS(statevector_euler)
         SELECT TYPE(c => cvar)
         TYPE IS(statevector_euler)
+          ! check if x-component of velocity vector is available
+          IF (BTEST(Mesh%VECTOR_COMPONENTS,0)) THEN
+            ! y-component is the 2nd component
+            v_idx = 2
+          ELSE
+            ! no x-component -> y-component is the first component
+            v_idx = 1
+          END IF
           DO k=Mesh%KGMIN,Mesh%KGMAX
             DO j=Mesh%JGMIN,Mesh%JGMAX
-              DO CONCURRENT (i=Mesh%IGMIN:Mesh%IGMAX)
+              DO i=Mesh%IGMIN,Mesh%IGMAX
                 ! ATTENTION: don't change the order; on the RHS of the first
                 !            assignment there must be the old momentum
                 c%energy%data3d(i,j,k) = c%energy%data3d(i,j,k) &
-                    + w(i,k)*(c%momentum%data4d(i,j,k,2) &
+                    + w(i,k)*(c%momentum%data4d(i,j,k,v_idx) &
                     + 0.5*c%density%data3d(i,j,k)*w(i,k))
-                p%velocity%data4d(i,j,k,2) = p%velocity%data4d(i,j,k,2) + w(i,k)
-                c%momentum%data4d(i,j,k,2) = c%momentum%data4d(i,j,k,2) &
+                p%velocity%data4d(i,j,k,v_idx) = p%velocity%data4d(i,j,k,v_idx) + w(i,k)
+                c%momentum%data4d(i,j,k,v_idx) = c%momentum%data4d(i,j,k,v_idx) &
                     + c%density%data3d(i,j,k)*w(i,k)
               END DO
             END DO
@@ -2058,15 +2066,17 @@ CONTAINS
         SELECT TYPE(c => cvar)
         TYPE IS(statevector_euler)
           DO k=Mesh%KGMIN,Mesh%KGMAX
-            DO CONCURRENT (i=Mesh%IGMIN:Mesh%IGMAX,j=Mesh%JGMIN:Mesh%JGMAX)
-              ! ATTENTION: don't change the order; on the RHS of the first
-              !            assignment there must be the old momentum
-              c%energy%data3d(i,j,k) = c%energy%data3d(i,j,k) &
-                    + w(i,j)*(c%momentum%data4d(i,j,k,3) &
-                    + 0.5*c%density%data3d(i,j,k)*w(i,j))
-              p%velocity%data4d(i,j,k,3) = p%velocity%data4d(i,j,k,3) + w(i,j)
-              c%momentum%data4d(i,j,k,3) = c%momentum%data4d(i,j,k,3) &
-                    + c%density%data3d(i,j,k)*w(i,j)
+            DO j=Mesh%JGMIN,Mesh%JGMAX
+              DO i=Mesh%IGMIN,Mesh%IGMAX
+                ! ATTENTION: don't change the order; on the RHS of the first
+                !            assignment there must be the old momentum
+                c%energy%data3d(i,j,k) = c%energy%data3d(i,j,k) &
+                      + w(i,j)*(c%momentum%data4d(i,j,k,this%VDIM) &
+                      + 0.5*c%density%data3d(i,j,k)*w(i,j))
+                p%velocity%data4d(i,j,k,this%VDIM) = p%velocity%data4d(i,j,k,this%VDIM) + w(i,j)
+                c%momentum%data4d(i,j,k,this%VDIM) = c%momentum%data4d(i,j,k,this%VDIM) &
+                      + c%density%data3d(i,j,k)*w(i,j)
+              END DO
             END DO
           END DO
           this%transformed_zvelocity = .FALSE.
@@ -2085,6 +2095,8 @@ CONTAINS
   !! \f}
   !! with \f$ E, v_x, m_x \f$ the total energy, velocity and momentum. The
   !! \f$ ' \f$ denotes the residual part. \f$ w \f$ is the velocity shift.
+  !! ATTENTION: the "+" before the 3rd term in the energy transformation is
+  !!            correct!
   PURE SUBROUTINE SubtractBackgroundVelocityX(this,Mesh,w,pvar,cvar)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
@@ -2108,7 +2120,7 @@ CONTAINS
                 !            assignment there must be the old momentum
                 c%energy%data3d(i,j,k) = c%energy%data3d(i,j,k) &
                     - w(j,k)*(c%momentum%data4d(i,j,k,1) &
-                    - 0.5*c%density%data3d(i,j,k)*w(j,k))
+                    + 0.5*c%density%data3d(i,j,k)*w(j,k))
                 p%velocity%data4d(i,j,k,1) = p%velocity%data4d(i,j,k,1) - w(j,k)
                 c%momentum%data4d(i,j,k,1) = c%momentum%data4d(i,j,k,1) &
                     - c%density%data3d(i,j,k)*w(j,k)
@@ -2131,6 +2143,8 @@ CONTAINS
   !! \f}
   !! with \f$ E, v_y, m_y \f$ the total energy, velocity and momentum. The
   !! \f$ ' \f$ denotes the residual part. \f$ w \f$ is the velocity shift.
+  !! ATTENTION: the "+" before the 3rd term in the energy transformation is
+  !!            correct!
   PURE SUBROUTINE SubtractBackgroundVelocityY(this,Mesh,w,pvar,cvar)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
@@ -2140,23 +2154,31 @@ CONTAINS
                             INTENT(IN)    :: w
     CLASS(marray_compound), INTENT(INOUT) ::  pvar,cvar
     !------------------------------------------------------------------------!
-    INTEGER                               :: i,j,k
+    INTEGER                               :: i,j,k,v_idx
     !------------------------------------------------------------------------!
     IF (.NOT.this%transformed_yvelocity) THEN
       SELECT TYPE(p => pvar)
       TYPE IS(statevector_euler)
         SELECT TYPE(c => cvar)
         TYPE IS(statevector_euler)
+          ! check if x-component of velocity vector is available
+          IF (BTEST(Mesh%VECTOR_COMPONENTS,0)) THEN
+            ! y-component is the 2nd component
+            v_idx = 2
+          ELSE
+            ! no x-component -> y-component is the first component
+            v_idx = 1
+          END IF
           DO k=Mesh%KGMIN,Mesh%KGMAX
             DO j=Mesh%JGMIN,Mesh%JGMAX
-              DO CONCURRENT (i=Mesh%IGMIN:Mesh%IGMAX)
+              DO i=Mesh%IGMIN,Mesh%IGMAX
                 ! ATTENTION: don't change the order; on the RHS of the first
                 !            assignment there must be the old momentum
                 c%energy%data3d(i,j,k) = c%energy%data3d(i,j,k) &
-                    - w(i,k)*(c%momentum%data4d(i,j,k,2) &
-                    - 0.5*c%density%data3d(i,j,k)*w(i,k))
-                p%velocity%data4d(i,j,k,2) = p%velocity%data4d(i,j,k,2) - w(i,k)
-                c%momentum%data4d(i,j,k,2) = c%momentum%data4d(i,j,k,2) &
+                    - w(i,k)*(c%momentum%data4d(i,j,k,v_idx) &
+                    + 0.5*c%density%data3d(i,j,k)*w(i,k))
+                p%velocity%data4d(i,j,k,v_idx) = p%velocity%data4d(i,j,k,v_idx) - w(i,k)
+                c%momentum%data4d(i,j,k,v_idx) = c%momentum%data4d(i,j,k,v_idx) &
                     - c%density%data3d(i,j,k)*w(i,k)
               END DO
             END DO
@@ -2177,6 +2199,8 @@ CONTAINS
   !! \f}
   !! with \f$ E, v_z, m_z \f$ the total energy, velocity and momentum. The
   !! \f$ ' \f$ denotes the residual part. \f$ w \f$ is the velocity shift.
+  !! ATTENTION: the "+" before the 3rd term in the energy transformation is
+  !!            correct!
   PURE SUBROUTINE SubtractBackgroundVelocityZ(this,Mesh,w,pvar,cvar)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
@@ -2194,15 +2218,17 @@ CONTAINS
         SELECT TYPE(c => cvar)
         TYPE IS(statevector_euler)
           DO k=Mesh%KGMIN,Mesh%KGMAX
-            DO CONCURRENT (i=Mesh%IGMIN:Mesh%IGMAX,j=Mesh%JGMIN:Mesh%JGMAX)
-              ! ATTENTION: don't change the order; on the RHS of the first
-              !            assignment there must be the old momentum
-              c%energy%data3d(i,j,k) = c%energy%data3d(i,j,k) &
-                    - w(i,j)*(c%momentum%data4d(i,j,k,3) &
-                    - 0.5*c%density%data3d(i,j,k)*w(i,j))
-              p%velocity%data4d(i,j,k,3) = p%velocity%data4d(i,j,k,3) - w(i,j)
-              c%momentum%data4d(i,j,k,3) = c%momentum%data4d(i,j,k,3) &
-                    - c%density%data3d(i,j,k)*w(i,j)
+            DO j=Mesh%JGMIN,Mesh%JGMAX
+              DO i=Mesh%IGMIN,Mesh%IGMAX
+                ! ATTENTION: don't change the order; on the RHS of the first
+                !            assignment there must be the old momentum
+                c%energy%data3d(i,j,k) = c%energy%data3d(i,j,k) &
+                      - w(i,j)*(c%momentum%data4d(i,j,k,this%VDIM) &
+                      + 0.5*c%density%data3d(i,j,k)*w(i,j))
+                p%velocity%data4d(i,j,k,this%VDIM) = p%velocity%data4d(i,j,k,this%VDIM) - w(i,j)
+                c%momentum%data4d(i,j,k,this%VDIM) = c%momentum%data4d(i,j,k,this%VDIM) &
+                      - c%density%data3d(i,j,k)*w(i,j)
+              END DO
             END DO
           END DO
           this%transformed_zvelocity = .TRUE.

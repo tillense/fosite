@@ -1255,7 +1255,7 @@ CONTAINS
         TYPE IS(statevector_eulerisotherm)
           DO k=Mesh%KGMIN,Mesh%KGMAX
             DO j=Mesh%JGMIN,Mesh%JGMAX
-              DO CONCURRENT (i=Mesh%IGMIN:Mesh%IGMAX)
+              DO i=Mesh%IGMIN,Mesh%IGMAX
                 p%velocity%data4d(i,j,k,1) = p%velocity%data4d(i,j,k,1) + w(j,k)
                 c%momentum%data4d(i,j,k,1) = c%momentum%data4d(i,j,k,1) &
                     + c%density%data3d(i,j,k)*w(j,k)
@@ -1279,18 +1279,26 @@ CONTAINS
                               INTENT(IN)    :: w
     CLASS(marray_compound), INTENT(INOUT) ::  pvar,cvar
     !------------------------------------------------------------------------!
-    INTEGER              :: i,j,k
+    INTEGER              :: i,j,k,v_idx
     !------------------------------------------------------------------------!
     IF (this%transformed_yvelocity) THEN
       SELECT TYPE(p => pvar)
       TYPE IS(statevector_eulerisotherm)
         SELECT TYPE(c => cvar)
         TYPE IS(statevector_eulerisotherm)
+          ! check if x-component of velocity vector is available
+          IF (BTEST(Mesh%VECTOR_COMPONENTS,0)) THEN
+            ! y-component is the 2nd component
+            v_idx = 2
+          ELSE
+            ! no x-component -> y-component is the first component
+            v_idx = 1
+          END IF
           DO k=Mesh%KGMIN,Mesh%KGMAX
             DO j=Mesh%JGMIN,Mesh%JGMAX
               DO i=Mesh%IGMIN,Mesh%IGMAX
-                p%velocity%data4d(i,j,k,2) = p%velocity%data4d(i,j,k,2) + w(i,k)
-                c%momentum%data4d(i,j,k,2) = c%momentum%data4d(i,j,k,2) &
+                p%velocity%data4d(i,j,k,v_idx) = p%velocity%data4d(i,j,k,v_idx) + w(i,k)
+                c%momentum%data4d(i,j,k,v_idx) = c%momentum%data4d(i,j,k,v_idx) &
                     + c%density%data3d(i,j,k)*w(i,k)
               END DO
             END DO
@@ -1352,7 +1360,7 @@ CONTAINS
         TYPE IS(statevector_eulerisotherm)
           DO k=Mesh%KGMIN,Mesh%KGMAX
             DO j=Mesh%JGMIN,Mesh%JGMAX
-              DO CONCURRENT (i=Mesh%IGMIN:Mesh%IGMAX)
+              DO i=Mesh%IGMIN,Mesh%IGMAX
                 p%velocity%data4d(i,j,k,1) = p%velocity%data4d(i,j,k,1) - w(j,k)
                 c%momentum%data4d(i,j,k,1) = c%momentum%data4d(i,j,k,1) &
                     - c%density%data3d(i,j,k)*w(j,k)
