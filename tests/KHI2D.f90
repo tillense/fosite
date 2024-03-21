@@ -42,8 +42,8 @@ PROGRAM KHI
   ! simulation parameters
   REAL, PARAMETER    :: TSIM  = 10.0       ! simulation time
   REAL, PARAMETER    :: GAMMA = 1.4        ! ratio of specific heats
-!   REAL, PARAMETER    :: RE    = 1.0E+4     ! Reynolds number (HUGE(RE) disables viscosity)
-  REAL, PARAMETER    :: RE    = HUGE(RE)
+  REAL, PARAMETER    :: RE    = 1.0E+4     ! Reynolds number (HUGE(RE) disables viscosity)
+!   REAL, PARAMETER    :: RE    = HUGE(RE)
   ! initial condition
   REAL, PARAMETER    :: RHO0 = 1.0         ! outer region: density
   REAL, PARAMETER    :: V0   =-0.5         !   velocity
@@ -64,7 +64,7 @@ PROGRAM KHI
   !--------------------------------------------------------------------------!
   CLASS(fosite), ALLOCATABLE   :: Sim
   CLASS(marray_compound), POINTER :: pvar,pvar_init
-  INTEGER            :: n,FARGO,d
+  INTEGER            :: n,FARGO,d,clock
   REAL               :: sigma(2,3)
   INTEGER, DIMENSION(:), ALLOCATABLE    :: seed
   CHARACTER(LEN=2),PARAMETER :: dir_name(2) = (/"xy","xz"/)
@@ -74,11 +74,14 @@ PROGRAM KHI
 
   ! allocate memory for dynamic types and arrays
   CALL RANDOM_SEED(size=n)
-  ALLOCATE(pvar,pvar_init,seed(n))
+  ALLOCATE(seed(n))
+  ! Seed the random number generator using current system time
+  CALL SYSTEM_CLOCK(COUNT=clock)
+  seed = clock * (/(d-1, d=1,n)/)
 
   DO d=1,2
     DO FARGO=0,2
-      ALLOCATE(Sim)
+      ALLOCATE(Sim,pvar,pvar_init,)
       ! simulate KHI with initial x-velocity along x-direction
       CALL Sim%InitFosite()
       CALL MakeConfig(Sim,Sim%config,dir_name(d))
@@ -115,25 +118,27 @@ PROGRAM KHI
 #endif
       CALL Sim%Setup()
       Sim%Timedisc%pvar%data1d(:) = pvar_init%data1d(:)
-      IF (ASSOCIATED(Sim%Timedisc%w)) Sim%Timedisc%w(:,:) = TRANSPOSE(w(:,:))
+      IF (ASSOCIATED(Sim%Timedisc%w)) THEN
+        Sim%Timedisc%w(:,:) = RESHAPE(TRANSPOSE(w(:,:)),SHAPE(Sim%Timedisc%w(:,:)))
+      END IF
       CALL Sim%Physics%Convert2Conservative(Sim%Timedisc%pvar,Sim%Timedisc%cvar)
       CALL Sim%Run()
       ! compare results
-      ! IMPORTANT: Use arrays with collapsed 1st and 2nd dimension here! Since pvar has the shape
+      ! IMPORTANT: Use arrays with collapsed dimensions here! Since pvar has the shape
       ! from the previous run (with already transposed data) the comparison would fail if the
       ! resolution in these dimensions differ. This is of particular importance for parallel tests.
-      sigma(d,FARGO+1) = SQRT(SUM((Sim%Timedisc%pvar%data3d(:,:,:)-pvar%data3d(:,:,:))**2)/SIZE(pvar%data3d))
+      sigma(d,FARGO+1) = SQRT(SUM((Sim%Timedisc%pvar%data1d(:)-pvar%data1d(:))**2)/SIZE(pvar%data1d))
 
-      IF (FARGO.LT.2) THEN
-        CALL Sim%Finalize(mpifinalize_=.FALSE.)
-      ELSE
+      IF (d.EQ.2.AND.FARGO.EQ.2) THEN
         CALL Sim%Finalize(mpifinalize_=.TRUE.)
+      ELSE
+        CALL Sim%Finalize(mpifinalize_=.FALSE.)
       END IF
-      DEALLOCATE(Sim)
+      DEALLOCATE(pvar,pvar_init,Sim)
+      IF (ALLOCATED(w)) DEALLOCATE(w)
     END DO
   END DO
-  IF (ALLOCATED(w)) DEALLOCATE(w)
-  DEALLOCATE(pvar,pvar_init,seed)
+  DEALLOCATE(seed)
   DO d=1,2
     TAP_CHECK_SMALL(sigma(d,1),TINY(sigma),dir_name(d) // "-symmetry test (w/o fargo)")
     TAP_CHECK_SMALL(sigma(d,2),TINY(sigma),dir_name(d) // "-symmetry test (fargo type 1)")
@@ -281,16 +286,12 @@ CONTAINS
     CHARACTER(LEN=2), INTENT(IN) :: dir
     !------------------------------------------------------------------------!
     ! Local variable declaration
-    INTEGER              :: i,j,k,clock
+    INTEGER              :: i,j,k
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,2) :: dv
     !------------------------------------------------------------------------!
     INTENT(IN)           :: Mesh,Physics
     INTENT(INOUT)        :: Timedisc
     !------------------------------------------------------------------------!
-    ! Seed the random number generator
-    ! initialize with a mix from current time and mpi rank
-    CALL SYSTEM_CLOCK(COUNT=clock)
-    seed = clock + (Timedisc%getrank()+1) * (/(k-1, k=1,n)/)
     CALL RANDOM_SEED(PUT=seed)
     CALL RANDOM_NUMBER(dv)
     
@@ -371,7 +372,7 @@ CONTAINS
 !     REAL,DIMENSION(1:SIZE(pvar_in%data3d,DIM=1)),TARGET :: data1d
     REAL,ALLOCATABLE,TARGET :: data1d(:)
 !     REAL,DIMENSION(1:SIZE(pvar_in%data4d,DIM=1),1:SIZE(pvar_in%data4d,DIM=3)),TARGET :: data2d
-    REAL,POINTER,CONTIGUOUS,DIMENSION(:,:)  :: tpdata2d
+    REAL,POINTER,CONTIGUOUS :: tpdata2d(:,:),tpdata3d(:,:,:)
     !------------------------------------------------------------------------!
     INTEGER :: j,k
     !------------------------------------------------------------------------!
@@ -381,38 +382,35 @@ CONTAINS
       TYPE IS(statevector_euler) ! non-isothermal HD
         SELECT CASE(dir)
         CASE("xy")
-          ALLOCATE(data1d,MOLD=pin%density%data1d(:))
-          ! set pointer with transposed dimensions
-          tpdata2d(Mesh%JGMIN:Mesh%JGMAX,Mesh%IGMIN:Mesh%IGMAX) => data1d
           ! transpose x-y directions
           DO k=Mesh%KGMIN,Mesh%KGMAX
-            ! simply transpose the 1st and 2nd indices ...
-            tpdata2d(:,:) = TRANSPOSE(pin%density%data3d(:,:,k))
-            pout%density%data2d(:,k) = data1d(:)
-            tpdata2d(:,:) = TRANSPOSE(pin%pressure%data3d(:,:,k))
-            pout%pressure%data2d(:,k) = data1d(:)
-            ! ... and exchange x- and y-velocities
-            tpdata2d(:,:) = TRANSPOSE(pin%velocity%data4d(:,:,k,2))
-            pout%velocity%data3d(:,k,1) = data1d(:)
-            tpdata2d(:,:) = TRANSPOSE(pin%velocity%data4d(:,:,k,1))
-            pout%velocity%data3d(:,k,2) = data1d(:)
+            pout%density%data3d(:,:,k) = RESHAPE(TRANSPOSE(pin%density%data3d(:,:,k)), &
+                                                SHAPE(pout%density%data3d(:,:,k)))
+            pout%pressure%data3d(:,:,k) = RESHAPE(TRANSPOSE(pin%pressure%data3d(:,:,k)), &
+                                                  SHAPE(pout%pressure%data3d(:,:,k)))
+            ! ... and exchange x- and z-velocities
+            pout%velocity%data4d(:,:,k,1) = RESHAPE(TRANSPOSE(pin%velocity%data4d(:,:,k,2)), &
+                                                    SHAPE(pout%velocity%data4d(:,:,k,1)))
+            pout%velocity%data4d(:,:,k,2) = RESHAPE(TRANSPOSE(pin%velocity%data4d(:,:,k,1)), &
+                                                    SHAPE(pout%velocity%data4d(:,:,k,2)))
           END DO
         CASE("xz")
           ! transpose x-z directions
-! PRINT *,SHAPE(pout%density%data3d),SHAPE(pin%density%data3d)
-! STOP
           DO j=Mesh%JGMIN,Mesh%JGMAX
             ! simply transpose the 1st and 3rd indices ...
-            pout%density%data3d(:,j,:) = TRANSPOSE(pin%density%data3d(:,j,:))
-            pout%pressure%data3d(:,j,:) = TRANSPOSE(pin%pressure%data3d(:,j,:))
+            pout%density%data3d(:,j,:) = RESHAPE(TRANSPOSE(pin%density%data3d(:,j,:)), &
+                                                SHAPE(pout%density%data3d(:,j,:)))
+            pout%pressure%data3d(:,j,:) = RESHAPE(TRANSPOSE(pin%pressure%data3d(:,j,:)), &
+                                                  SHAPE(pout%pressure%data3d(:,j,:)))
             ! ... and exchange x- and z-velocities
-            pout%velocity%data4d(:,j,:,1) = TRANSPOSE(pin%velocity%data4d(:,j,:,2))
-            pout%velocity%data4d(:,j,:,2) = TRANSPOSE(pin%velocity%data4d(:,j,:,1))
+            pout%velocity%data4d(:,j,:,1) = RESHAPE(TRANSPOSE(pin%velocity%data4d(:,j,:,2)), &
+                                                    SHAPE(pout%velocity%data4d(:,j,:,1)))
+            pout%velocity%data4d(:,j,:,2) = RESHAPE(TRANSPOSE(pin%velocity%data4d(:,j,:,1)), &
+                                                    SHAPE(pout%velocity%data4d(:,j,:,2)))
           END DO
         CASE DEFAULT
           CALL Mesh%Error("KHI2D::TransposeData","only transposition of xy- and xz-direction supported")
         END SELECT
-        IF (ALLOCATED(data1d)) DEALLOCATE(data1d)
       END SELECT
     END SELECT
   END SUBROUTINE TransposeData
