@@ -305,7 +305,7 @@ CONTAINS
 
     ! determine the background velocity if fargo advection type 1 is enabled
     IF (this%Mesh%fargo%GetType().EQ.1) THEN
-       ! make sure there is valid data at least in the i-ghost cells
+       ! make sure there is valid data in the ghost cells
        CALL this%Timedisc%Boundary%CenterBoundary(this%Mesh,this%Physics,&
                              0.0,this%Timedisc%pvar,this%Timedisc%cvar)
        CALL this%Timedisc%CalcBackgroundVelocity(this%Mesh,this%Physics, &

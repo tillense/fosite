@@ -135,6 +135,7 @@ PRIVATE
      INTEGER, DIMENSION(:,:), POINTER  :: shift=>null()   !< fargo annulus shift
      REAL, DIMENSION(:,:), POINTER     :: buf=>null()     !< fargo MPI buffer
      REAL, DIMENSION(:,:), POINTER     :: w=>null()       !< fargo background velocity
+     REAL, DIMENSION(:,:), POINTER     :: wfactor=>null() !< fargo geometrical factor
      REAL, DIMENSION(:,:), POINTER     :: delxy =>null()  !< fargo residual shift
 
   CONTAINS
@@ -235,7 +236,7 @@ CONTAINS
     INTEGER,              INTENT(IN)    :: ttype
     CHARACTER(LEN=32),    INTENT(IN)    :: tname
     !------------------------------------------------------------------------!
-    INTEGER              :: err, d
+    INTEGER              :: err, d, i,j,k
     CHARACTER(LEN=32)    :: order_str,cfl_str,stoptime_str,dtmax_str,beta_str
     CHARACTER(LEN=32)    :: info_str,shear_direction
     INTEGER              :: method
@@ -372,7 +373,7 @@ CONTAINS
       ! if direction is not in {1,2,3} skip this (fargo disabled)
       ! see mesh_base::InitMesh for general initialization of fargo transport
       SELECT CASE(Mesh%fargo%GetDirection())
-      CASE(1) ! fargo transport along y-direction
+      CASE(1) ! fargo transport along x-direction
         ALLOCATE( &
                   this%w(Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
                   this%delxy(Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
@@ -402,6 +403,8 @@ CONTAINS
       CASE DEFAULT
         err = 0
       END SELECT
+      ! additional array used for computation of background velocity
+      IF (err.EQ.0.AND.Mesh%fargo%GetType().EQ.1) ALLOCATE(this%wfactor,MOLD=this%w,STAT=err)
       IF (err.NE.0) &
           CALL this%Error("timedisc_base::InitTimedisc", "Unable to allocate memory for fargo advection.")
 
@@ -420,6 +423,39 @@ CONTAINS
         this%dql%data1d(:) = 0.0
         this%flux = marray_base()
         this%flux%data1d(:) = 0.0
+        IF (ASSOCIATED(this%wfactor)) THEN
+          ! special geometrical factor for computation of dynamic background velocity;
+          ! this factor is the ratio of the shortest width (in fargo transport direction)
+          ! of a cell over all faces (perpendicular to the fargo transport direction) and
+          ! the extend of the cell (in fargo transport direction) through the middle of the
+          ! cell (see CalcBackgroundVelocity)
+          SELECT CASE(Mesh%fargo%GetDirection())
+          CASE(1) ! fargo transport along x-direction
+            DO k=Mesh%KGMIN,Mesh%KGMAX
+              DO j=Mesh%JGMIN,Mesh%JGMAX
+                this%wfactor(j,k) = MIN(MINVAL(Mesh%hx%faces(Mesh%IMIN,j,k,SOUTH:NORTH)),&
+                                        MINVAL(Mesh%hx%faces(Mesh%IMIN,j,k,BOTTOM:TOP))) &
+                                     / Mesh%hx%bcenter(Mesh%IMIN,j,k)
+              END DO
+            END DO
+          CASE(2) ! fargo transport along y-direction
+            DO k=Mesh%KGMIN,Mesh%KGMAX
+              DO i=Mesh%IGMIN,Mesh%IGMAX
+                this%wfactor(i,k) = MIN(MINVAL(Mesh%hy%faces(i,Mesh%JMIN,k,WEST:EAST)),&
+                                        MINVAL(Mesh%hy%faces(i,Mesh%JMIN,k,BOTTOM:TOP))) &
+                                     / Mesh%hy%bcenter(i,Mesh%JMIN,k)
+              END DO
+            END DO
+          CASE(3) ! fargo transport along z-direction
+            DO j=Mesh%JGMIN,Mesh%JGMAX
+              DO i=Mesh%IGMIN,Mesh%IGMAX
+                this%wfactor(i,j) = MIN(MINVAL(Mesh%hz%faces(i,j,Mesh%KMIN,WEST:EAST)),&
+                                        MINVAL(Mesh%hz%faces(i,j,Mesh%KMIN,SOUTH:NORTH))) &
+                                     / Mesh%hz%bcenter(i,j,Mesh%KMIN)
+              END DO
+            END DO
+          END SELECT
+        END IF
       CASE(3) ! fixed background velocity in shearing box
         IF(Mesh%shear_dir.EQ.2) THEN
           this%w(:,:) = -Mesh%Q*Mesh%omega*Mesh%bcenter(:,Mesh%JMIN,:,1) !-Q*Omega*x
@@ -623,7 +659,7 @@ CONTAINS
     INTENT(INOUT)                       :: iter
     !------------------------------------------------------------------------!
     ! determine the background velocity if fargo advection type 1 is enabled
-    IF (Mesh%fargo%GetType().EQ.1) &
+    IF (Mesh%fargo%GetType().EQ.1.AND.MODULO(iter,1).EQ.0) &
        CALL this%CalcBackgroundVelocity(Mesh,Physics,this%pvar,this%cvar)
     ! transform to comoving frame if fargo is enabled
     SELECT CASE(Mesh%fargo%GetDirection())
@@ -2213,7 +2249,7 @@ CONTAINS
         DO k=Mesh%KGMIN,Mesh%KGMAX
           DO j=Mesh%JGMIN,Mesh%JGMAX
             ! some up all xvelocities along the x-direction
-            wi = SUM(p%velocity%data4d(Mesh%IMIN:Mesh%IMAX,j,k,v_idx))
+            wi = SUM(p%velocity%data4d(Mesh%IMIN:Mesh%IMAX,j,k,v_idx)*this%wfactor(j,k))
 #ifdef PARALLEL
             ! extend the sum over all partitions
             IF(Mesh%dims(1).GT.1) THEN
@@ -2234,7 +2270,7 @@ CONTAINS
         DO k=Mesh%KGMIN,Mesh%KGMAX
           DO i=Mesh%IGMIN,Mesh%IGMAX
             ! some up all yvelocities along the y-direction
-            wi = SUM(p%velocity%data4d(i,Mesh%JMIN:Mesh%JMAX,k,v_idx))
+            wi = SUM(p%velocity%data4d(i,Mesh%JMIN:Mesh%JMAX,k,v_idx)*this%wfactor(i,k))
 #ifdef PARALLEL
             ! extend the sum over all partitions
             IF(Mesh%dims(2).GT.1) THEN
@@ -2242,8 +2278,6 @@ CONTAINS
                                   Mesh%Jcomm, ierror)
             END IF
 #endif
-            ! set new background velocity to the arithmetic mean of the
-            ! yvelocity field along the y-direction
             this%w(i,k) = wi / Mesh%JNUM
           END DO
         END DO
@@ -2255,7 +2289,7 @@ CONTAINS
         DO j=Mesh%JGMIN,Mesh%JGMAX
           DO i=Mesh%IGMIN,Mesh%IGMAX
             ! some up all zvelocities along the z-direction
-            wi = SUM(p%velocity%data4d(i,j,Mesh%KMIN:Mesh%KMAX,v_idx))
+            wi = SUM(p%velocity%data4d(i,j,Mesh%KMIN:Mesh%KMAX,v_idx)*this%wfactor(i,j))
 #ifdef PARALLEL
             ! extend the sum over all partitions
             IF(Mesh%dims(3).GT.1) THEN
@@ -2497,6 +2531,7 @@ CONTAINS
     IF (ASSOCIATED(this%cerr)) DEALLOCATE(this%cerr)
     IF (ASSOCIATED(this%cerr_max)) DEALLOCATE(this%cerr_max)
     IF (ASSOCIATED(this%w)) DEALLOCATE(this%w)
+    IF (ASSOCIATED(this%wfactor)) DEALLOCATE(this%wfactor)
     IF (ASSOCIATED(this%delxy))DEALLOCATE(this%delxy)
     IF (ASSOCIATED(this%shift))DEALLOCATE(this%shift)
 #ifdef PARALLEL
