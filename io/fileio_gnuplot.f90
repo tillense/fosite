@@ -365,7 +365,7 @@ CONTAINS
           k = k + LEN(TRIM(buf))
        CASE(DICT_REAL)
           CALL GetAttr(node,GetKey(node),rdummy)
-          WRITE(buf,'(A1,A25,ES14.5,A)')'#',TRIM(GetKey(node))//": ",rdummy, LINSEP
+          WRITE(buf,'(A1,A25,ES14.4E3,A)')'#',TRIM(GetKey(node))//": ",rdummy, LINSEP
           WRITE(string(k:),'(A)')buf
           k = k + LEN(TRIM(buf))
        CASE(DICT_CHAR)
