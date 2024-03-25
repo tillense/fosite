@@ -755,6 +755,8 @@ CONTAINS
     IF (step.LT.0.OR.step.GE.MAXCYCLES) THEN
       ! return _X...X if step is invalid, i.e. negative or exceeds maximum
       GetStepString = "_" // REPEAT("X",FCYCLEN-1)
+    ELSE IF (step.EQ.0) THEN
+      WRITE(GetStepString, FMT=TRIM(fmtstr)) "_",0
     ELSE
       ! determine file number based on current step and number of files,
       ! i.e. cycles, and generate the file name with these extensions
