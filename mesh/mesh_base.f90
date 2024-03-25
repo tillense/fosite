@@ -347,7 +347,6 @@ CONTAINS
     CALL GetAttr(config, "rotation_center", this%rotcent, this%rotcent)
 
 
-
     ! total resolution
     ! IMPORTANT: The resolution is the key value in order to determine the
     !            used dimensions below
@@ -939,7 +938,6 @@ CONTAINS
     !------------------------------------------------------------------------!
     CLASS(mesh_base) :: this   !< \param [in,out] this all mesh data
     !------------------------------------------------------------------------!
-    INTEGER          :: k
     INTEGER          :: status
     REAL,DIMENSION(this%IGMIN:this%IGMAX,this%JGMIN:this%JGMAX,this%KGMIN:this%KGMAX,3) :: cart,curv
     !------------------------------------------------------------------------!
@@ -1065,11 +1063,6 @@ CONTAINS
       ! for more elaborate error output
       WRITE (decomp_str,'(3(A,I0),A)') "[ ", dims(1), ", ", dims(2), ", ",dims(3), " ]"
 
-      ! set number of cells along each direction again
-      ncells(1) = this%INUM
-      ncells(2) = this%JNUM
-      ncells(3) = this%KNUM
-
       ! perform some sanity checks
       IF (ALL(dims(:).GE.1).AND.PRODUCT(dims(:)).NE.this%GetNumProcs()) &
         CALL this%Error("InitMesh_parallel","total number of processes in domain decomposition " &
@@ -1083,6 +1076,16 @@ CONTAINS
         CALL this%Error("InitMesh_parallel","numbers in decomposition " &
           // TRIM(decomp_str) // ACHAR(10) // REPEAT(' ',7) // &
           "are not devisors of the total number of processes passed to mpirun")
+
+      ! set number of cells along each direction again
+      ncells(1) = this%INUM
+      ncells(2) = this%JNUM
+      ncells(3) = this%KNUM
+
+      ! no decomposition for suppressed dimensions
+      WHERE (ncells(:).EQ.1)
+        dims(:) = 1
+      END WHERE
 
       ! balance number of processes if requested
       IF (ALL(dims(:).GT.0)) THEN
