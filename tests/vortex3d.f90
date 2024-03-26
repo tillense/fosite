@@ -42,7 +42,7 @@ PROGRAM vortex3d
                                   0.0      ! non-isothermal simulation
 !                                   1.127    ! isothermal simulation
                                            !   with CSISO as sound speed
-  INTEGER, PARAMETER :: FARGO= 1           ! 0: disables fargo transport
+  INTEGER, PARAMETER :: FARGO= 0           ! 0: disables fargo transport
                                            ! 1: dynamic background velocity field,
                                            ! 2: fixed background velocity field
   ! initial condition (dimensionless units)
@@ -196,7 +196,6 @@ CONTAINS
               "geometry" / MGEO,     &
               "omega"    / OMEGA,    &
               "fargo/method" / FARGO, &
-              "fargo/method" / 2,    &
               "decomposition"   / (/ -1, 1, -1/), & ! do not decompose along 2nd dimension with FARGO!
               "inum"     / XRES,     &
               "jnum"     / YRES,     &
