@@ -155,9 +155,10 @@ CONTAINS
           ! time step update of cvar and bfluxes
           CALL this%ComputeCVar(Mesh,Physics,Fluxes,eta(n,order), &
                t,dt,this%cold,this%pvar,this%cvar,this%rhs,this%cvar)
-          ! compute right hand side for next time step update
-          CALL this%ComputeRHS(Mesh,Physics,Sources,Fluxes,t,dt,&
-               this%pvar,this%cvar,CHECK_NOTHING,this%rhs)
+          ! compute right hand side for next time step update except for last step
+          IF (n.LT.order) &
+            CALL this%ComputeRHS(Mesh,Physics,Sources,Fluxes,t,dt,&
+                this%pvar,this%cvar,CHECK_NOTHING,this%rhs)
        END DO
        err = 0.0
        dt = HUGE(dt)
@@ -183,7 +184,7 @@ CONTAINS
           IF (n.EQ.2.AND.order.EQ.3) &
              this%ctmp%data4d(:,:,:,:) = UpdateTimestep_modeuler(eta(2,2),dt,this%cold%data4d(:,:,:,:), &
                                 this%ctmp%data4d(:,:,:,:),this%rhs%data4d(:,:,:,:))
-          ! compute right hand side for next time step update
+          ! compute right hand side for next time step update except for last step
           IF (n.LT.order) &
              CALL this%ComputeRHS(Mesh,Physics,Sources,Fluxes,t,dt,p(n+1)%var,c(n+1)%var,&
                CHECK_NOTHING,this%rhs)
