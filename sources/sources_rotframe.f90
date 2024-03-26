@@ -269,10 +269,10 @@ CONTAINS
     !------------------------------------------------------------------------!
     ! Convert velocities to the rotating frame
     SELECT TYPE (p => pvar)
-    TYPE IS(statevector_eulerisotherm)
+    CLASS IS(statevector_eulerisotherm)
       p%velocity%data1d = p%velocity%data1d - this%vphi%data1d
     CLASS DEFAULT
-      ! nothing happens
+      CALL this%Error("sources_rotframe::Convert2RotatingFrame","physics currently not supported")
     END SELECT
   END SUBROUTINE Convert2RotatingFrame
 
