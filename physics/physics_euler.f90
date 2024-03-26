@@ -272,6 +272,7 @@ CONTAINS
                           p%velocity%data2d(:,1),p%velocity%data2d(:,2),&
                           p%velocity%data2d(:,3),p%pressure%data1d(:))
           END SELECT
+          p%fargo_transformation_applied = c%fargo_transformation_applied
         ELSE
           ! do nothing
         END IF
@@ -395,6 +396,7 @@ CONTAINS
                           c%momentum%data2d(:,1),c%momentum%data2d(:,2), &
                           c%momentum%data2d(:,3),c%energy%data1d(:))
           END SELECT
+          c%fargo_transformation_applied = p%fargo_transformation_applied
         ELSE
           ! do nothing
         END IF
@@ -1963,11 +1965,12 @@ CONTAINS
     !------------------------------------------------------------------------!
     INTEGER                               :: i,j,k
     !------------------------------------------------------------------------!
-    IF (this%transformed_xvelocity) THEN
-      SELECT TYPE(p => pvar)
+    SELECT TYPE(p => pvar)
+    TYPE IS(statevector_euler)
+      SELECT TYPE(c => cvar)
       TYPE IS(statevector_euler)
-        SELECT TYPE(c => cvar)
-        TYPE IS(statevector_euler)
+        IF (c%fargo_transformation_applied) THEN
+          IF (.NOT.p%fargo_transformation_applied) RETURN ! should not happen
           DO k=Mesh%KGMIN,Mesh%KGMAX
             DO j=Mesh%JGMIN,Mesh%JGMAX
               DO i=Mesh%IGMIN,Mesh%IGMAX
@@ -1982,10 +1985,11 @@ CONTAINS
               END DO
             END DO
           END DO
-          this%transformed_xvelocity = .FALSE.
-        END SELECT
+          c%fargo_transformation_applied = .FALSE.
+          p%fargo_transformation_applied = .FALSE.
+        END IF
       END SELECT
-    END IF
+    END SELECT
   END SUBROUTINE AddBackgroundVelocityX
 
   !> Adds a background velocity field for fargo routines
@@ -2009,11 +2013,12 @@ CONTAINS
     !------------------------------------------------------------------------!
     INTEGER                               :: i,j,k,v_idx
     !------------------------------------------------------------------------!
-    IF (this%transformed_yvelocity) THEN
-      SELECT TYPE(p => pvar)
+    SELECT TYPE(p => pvar)
+    TYPE IS(statevector_euler)
+      SELECT TYPE(c => cvar)
       TYPE IS(statevector_euler)
-        SELECT TYPE(c => cvar)
-        TYPE IS(statevector_euler)
+        IF (c%fargo_transformation_applied) THEN
+          IF (.NOT.p%fargo_transformation_applied) RETURN ! should not happen
           ! check if x-component of velocity vector is available
           IF (BTEST(Mesh%VECTOR_COMPONENTS,0)) THEN
             ! y-component is the 2nd component
@@ -2036,10 +2041,11 @@ CONTAINS
               END DO
             END DO
           END DO
-          this%transformed_yvelocity = .FALSE.
-        END SELECT
+          c%fargo_transformation_applied = .FALSE.
+          p%fargo_transformation_applied = .FALSE.
+        END IF
       END SELECT
-    END IF
+    END SELECT
   END SUBROUTINE AddBackgroundVelocityY
 
   !> Adds a background velocity field for fargo routines
@@ -2063,11 +2069,12 @@ CONTAINS
     !------------------------------------------------------------------------!
     INTEGER                               :: i,j,k
     !------------------------------------------------------------------------!
-    IF (this%transformed_zvelocity) THEN
-      SELECT TYPE(p => pvar)
+    SELECT TYPE(p => pvar)
+    TYPE IS(statevector_euler)
+      SELECT TYPE(c => cvar)
       TYPE IS(statevector_euler)
-        SELECT TYPE(c => cvar)
-        TYPE IS(statevector_euler)
+        IF (c%fargo_transformation_applied) THEN
+          IF (.NOT.p%fargo_transformation_applied) RETURN ! should not happen
           DO k=Mesh%KGMIN,Mesh%KGMAX
             DO j=Mesh%JGMIN,Mesh%JGMAX
               DO i=Mesh%IGMIN,Mesh%IGMAX
@@ -2082,10 +2089,11 @@ CONTAINS
               END DO
             END DO
           END DO
-          this%transformed_zvelocity = .FALSE.
-        END SELECT
+          c%fargo_transformation_applied = .FALSE.
+          p%fargo_transformation_applied = .FALSE.
+        END IF
       END SELECT
-    END IF
+    END SELECT
   END SUBROUTINE AddBackgroundVelocityZ
 
   !> Substracts a background velocity field for fargo routines
@@ -2111,11 +2119,12 @@ CONTAINS
     !------------------------------------------------------------------------!
     INTEGER :: i,j,k
     !------------------------------------------------------------------------!
-    IF (.NOT.this%transformed_xvelocity) THEN
-      SELECT TYPE(p => pvar)
+    SELECT TYPE(p => pvar)
+    TYPE IS(statevector_euler)
+      SELECT TYPE(c => cvar)
       TYPE IS(statevector_euler)
-        SELECT TYPE(c => cvar)
-        TYPE IS(statevector_euler)
+        IF (.NOT.c%fargo_transformation_applied) THEN
+          IF (p%fargo_transformation_applied) RETURN ! should not happen
           DO k=Mesh%KGMIN,Mesh%KGMAX
             DO j=Mesh%JGMIN,Mesh%JGMAX
               DO i=Mesh%IGMIN,Mesh%IGMAX
@@ -2130,10 +2139,11 @@ CONTAINS
               END DO
             END DO
           END DO
-          this%transformed_xvelocity = .TRUE.
-        END SELECT
+          c%fargo_transformation_applied = .TRUE.
+          p%fargo_transformation_applied = .TRUE.
+        END IF
       END SELECT
-    END IF
+    END SELECT
   END SUBROUTINE SubtractBackgroundVelocityX
 
   !> Substracts a background velocity field for fargo routines
@@ -2159,11 +2169,12 @@ CONTAINS
     !------------------------------------------------------------------------!
     INTEGER                               :: i,j,k,v_idx
     !------------------------------------------------------------------------!
-    IF (.NOT.this%transformed_yvelocity) THEN
-      SELECT TYPE(p => pvar)
+    SELECT TYPE(p => pvar)
+    TYPE IS(statevector_euler)
+      SELECT TYPE(c => cvar)
       TYPE IS(statevector_euler)
-        SELECT TYPE(c => cvar)
-        TYPE IS(statevector_euler)
+        IF (.NOT.c%fargo_transformation_applied) THEN
+          IF (p%fargo_transformation_applied) RETURN ! should not happen
           ! check if x-component of velocity vector is available
           IF (BTEST(Mesh%VECTOR_COMPONENTS,0)) THEN
             ! y-component is the 2nd component
@@ -2186,10 +2197,11 @@ CONTAINS
               END DO
             END DO
           END DO
-          this%transformed_yvelocity = .TRUE.
-        END SELECT
+          c%fargo_transformation_applied = .TRUE.
+          p%fargo_transformation_applied = .TRUE.
+        END IF
       END SELECT
-    END IF
+    END SELECT
   END SUBROUTINE SubtractBackgroundVelocityY
 
   !> Substracts a background velocity field for fargo routines
@@ -2215,11 +2227,12 @@ CONTAINS
     !------------------------------------------------------------------------!
     INTEGER                               :: i,j,k
     !------------------------------------------------------------------------!
-    IF (.NOT.this%transformed_zvelocity) THEN
-      SELECT TYPE(p => pvar)
+    SELECT TYPE(p => pvar)
+    TYPE IS(statevector_euler)
+      SELECT TYPE(c => cvar)
       TYPE IS(statevector_euler)
-        SELECT TYPE(c => cvar)
-        TYPE IS(statevector_euler)
+        IF (.NOT.c%fargo_transformation_applied) THEN
+          IF (p%fargo_transformation_applied) RETURN ! should not happen
           DO k=Mesh%KGMIN,Mesh%KGMAX
             DO j=Mesh%JGMIN,Mesh%JGMAX
               DO i=Mesh%IGMIN,Mesh%IGMAX
@@ -2234,10 +2247,11 @@ CONTAINS
               END DO
             END DO
           END DO
-          this%transformed_zvelocity = .TRUE.
-        END SELECT
+          c%fargo_transformation_applied = .TRUE.
+          p%fargo_transformation_applied = .TRUE.
+        END IF
       END SELECT
-    END IF
+    END SELECT
   END SUBROUTINE SubtractBackgroundVelocityZ
 
 

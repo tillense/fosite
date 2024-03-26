@@ -122,6 +122,7 @@ MODULE physics_eulerisotherm_mod
   END TYPE
   TYPE, EXTENDS(marray_compound) :: statevector_eulerisotherm
     INTEGER :: flavour = UNDEFINED
+    LOGICAL :: fargo_transformation_applied = .FALSE.
     TYPE(marray_base), POINTER &
                             :: density => null(), &
                                velocity => null(), &
@@ -348,6 +349,7 @@ CONTAINS
                           p%density%data1d(:),p%velocity%data2d(:,1), &
                           p%velocity%data2d(:,2),p%velocity%data2d(:,3))
           END SELECT
+          p%fargo_transformation_applied = c%fargo_transformation_applied
         ELSE
           ! do nothing
         END IF
@@ -456,6 +458,7 @@ CONTAINS
                           c%density%data1d(:),c%momentum%data2d(:,1), &
                           c%momentum%data2d(:,2),c%momentum%data2d(:,3))
           END SELECT
+          c%fargo_transformation_applied = p%fargo_transformation_applied
         ELSE
           ! do nothing
         END IF
@@ -1248,11 +1251,12 @@ CONTAINS
     !------------------------------------------------------------------------!
     INTEGER              :: i,j,k
     !------------------------------------------------------------------------!
-    IF (this%transformed_xvelocity) THEN
-      SELECT TYPE(p => pvar)
+    SELECT TYPE(p => pvar)
+    TYPE IS(statevector_eulerisotherm)
+      SELECT TYPE(c => cvar)
       TYPE IS(statevector_eulerisotherm)
-        SELECT TYPE(c => cvar)
-        TYPE IS(statevector_eulerisotherm)
+        IF (c%fargo_transformation_applied) THEN
+          IF (.NOT.p%fargo_transformation_applied) RETURN ! should not happen
           DO k=Mesh%KGMIN,Mesh%KGMAX
             DO j=Mesh%JGMIN,Mesh%JGMAX
               DO i=Mesh%IGMIN,Mesh%IGMAX
@@ -1262,11 +1266,11 @@ CONTAINS
               END DO
             END DO
           END DO
-          this%transformed_xvelocity = .FALSE.
-        END SELECT
+          c%fargo_transformation_applied = .FALSE.
+          p%fargo_transformation_applied = .FALSE.
+        END IF
       END SELECT
-      this%transformed_xvelocity = .FALSE.
-    END IF
+    END SELECT
   END SUBROUTINE AddBackgroundVelocityX
 
   PURE SUBROUTINE AddBackgroundVelocityY(this,Mesh,w,pvar,cvar)
@@ -1281,11 +1285,12 @@ CONTAINS
     !------------------------------------------------------------------------!
     INTEGER              :: i,j,k,v_idx
     !------------------------------------------------------------------------!
-    IF (this%transformed_yvelocity) THEN
-      SELECT TYPE(p => pvar)
+    SELECT TYPE(p => pvar)
+    TYPE IS(statevector_eulerisotherm)
+      SELECT TYPE(c => cvar)
       TYPE IS(statevector_eulerisotherm)
-        SELECT TYPE(c => cvar)
-        TYPE IS(statevector_eulerisotherm)
+        IF (c%fargo_transformation_applied) THEN
+          IF (.NOT.p%fargo_transformation_applied) RETURN ! should not happen
           ! check if x-component of velocity vector is available
           IF (BTEST(Mesh%VECTOR_COMPONENTS,0)) THEN
             ! y-component is the 2nd component
@@ -1303,10 +1308,11 @@ CONTAINS
               END DO
             END DO
           END DO
-          this%transformed_yvelocity = .FALSE.
-        END SELECT
+          c%fargo_transformation_applied = .FALSE.
+          p%fargo_transformation_applied = .FALSE.
+        END IF
       END SELECT
-    END IF
+    END SELECT
   END SUBROUTINE AddBackgroundVelocityY
 
   PURE SUBROUTINE AddBackgroundVelocityZ(this,Mesh,w,pvar,cvar)
@@ -1321,11 +1327,12 @@ CONTAINS
     !------------------------------------------------------------------------!
     INTEGER              :: i,j,k
     !------------------------------------------------------------------------!
-    IF (this%transformed_zvelocity) THEN
-      SELECT TYPE(p => pvar)
+    SELECT TYPE(p => pvar)
+    TYPE IS(statevector_eulerisotherm)
+      SELECT TYPE(c => cvar)
       TYPE IS(statevector_eulerisotherm)
-        SELECT TYPE(c => cvar)
-        TYPE IS(statevector_eulerisotherm)
+        IF (c%fargo_transformation_applied) THEN
+          IF (.NOT.p%fargo_transformation_applied) RETURN ! should not happen
           DO k=Mesh%KGMIN,Mesh%KGMAX
             DO j=Mesh%JGMIN,Mesh%JGMAX
               DO i=Mesh%IGMIN,Mesh%IGMAX
@@ -1335,10 +1342,11 @@ CONTAINS
               END DO
             END DO
           END DO
-          this%transformed_zvelocity = .FALSE.
-        END SELECT
+          c%fargo_transformation_applied = .FALSE.
+          p%fargo_transformation_applied = .FALSE.
+        END IF
       END SELECT
-    END IF
+    END SELECT
   END SUBROUTINE AddBackgroundVelocityZ
 
   PURE SUBROUTINE SubtractBackgroundVelocityX(this,Mesh,w,pvar,cvar)
@@ -1353,11 +1361,12 @@ CONTAINS
     !------------------------------------------------------------------------!
     INTEGER              :: i,j,k
     !------------------------------------------------------------------------!
-    IF (.NOT.this%transformed_xvelocity) THEN
-      SELECT TYPE(p => pvar)
+    SELECT TYPE(p => pvar)
+    TYPE IS(statevector_eulerisotherm)
+      SELECT TYPE(c => cvar)
       TYPE IS(statevector_eulerisotherm)
-        SELECT TYPE(c => cvar)
-        TYPE IS(statevector_eulerisotherm)
+        IF (.NOT.c%fargo_transformation_applied) THEN
+          IF (p%fargo_transformation_applied) RETURN ! should not happen
           DO k=Mesh%KGMIN,Mesh%KGMAX
             DO j=Mesh%JGMIN,Mesh%JGMAX
               DO i=Mesh%IGMIN,Mesh%IGMAX
@@ -1367,10 +1376,11 @@ CONTAINS
               END DO
             END DO
           END DO
-          this%transformed_xvelocity = .TRUE.
-        END SELECT
+          c%fargo_transformation_applied = .TRUE.
+          p%fargo_transformation_applied = .TRUE.
+        END IF
       END SELECT
-    END IF
+    END SELECT
   END SUBROUTINE SubtractBackgroundVelocityX
 
   PURE SUBROUTINE SubtractBackgroundVelocityY(this,Mesh,w,pvar,cvar)
@@ -1385,11 +1395,12 @@ CONTAINS
     !------------------------------------------------------------------------!
     INTEGER              :: i,j,k,v_idx
     !------------------------------------------------------------------------!
-    IF (.NOT.this%transformed_yvelocity) THEN
-      SELECT TYPE(p => pvar)
+    SELECT TYPE(p => pvar)
+    TYPE IS(statevector_eulerisotherm)
+      SELECT TYPE(c => cvar)
       TYPE IS(statevector_eulerisotherm)
-        SELECT TYPE(c => cvar)
-        TYPE IS(statevector_eulerisotherm)
+        IF (.NOT.c%fargo_transformation_applied) THEN
+          IF (p%fargo_transformation_applied) RETURN ! should not happen
           ! check if x-component of velocity vector is available
           IF (BTEST(Mesh%VECTOR_COMPONENTS,0)) THEN
             ! y-component is the 2nd component
@@ -1407,10 +1418,11 @@ CONTAINS
               END DO
             END DO
           END DO
-          this%transformed_yvelocity = .TRUE.
-        END SELECT
+          c%fargo_transformation_applied = .TRUE.
+          p%fargo_transformation_applied = .TRUE.
+        END IF
       END SELECT
-    END IF
+    END SELECT
   END SUBROUTINE SubtractBackgroundVelocityY
 
   PURE SUBROUTINE SubtractBackgroundVelocityZ(this,Mesh,w,pvar,cvar)
@@ -1425,11 +1437,12 @@ CONTAINS
     !------------------------------------------------------------------------!
     INTEGER              :: i,j,k
     !------------------------------------------------------------------------!
-    IF (.NOT.this%transformed_zvelocity) THEN
-      SELECT TYPE(p => pvar)
+    SELECT TYPE(p => pvar)
+    TYPE IS(statevector_eulerisotherm)
+      SELECT TYPE(c => cvar)
       TYPE IS(statevector_eulerisotherm)
-        SELECT TYPE(c => cvar)
-        TYPE IS(statevector_eulerisotherm)
+        IF (.NOT.c%fargo_transformation_applied) THEN
+          IF (p%fargo_transformation_applied) RETURN ! should not happen
           DO k=Mesh%KGMIN,Mesh%KGMAX
             DO j=Mesh%JGMIN,Mesh%JGMAX
               DO i=Mesh%IGMIN,Mesh%IGMAX
@@ -1439,10 +1452,11 @@ CONTAINS
               END DO
             END DO
           END DO
-          this%transformed_zvelocity = .TRUE.
-        END SELECT
+          c%fargo_transformation_applied = .TRUE.
+          p%fargo_transformation_applied = .TRUE.
+        END IF
       END SELECT
-    END IF
+    END SELECT
   END SUBROUTINE SubtractBackgroundVelocityZ
 
 
@@ -2696,6 +2710,8 @@ CONTAINS
 #endif
       ! copy flavour
       this%flavour = src%flavour
+      ! copy fargo transformation state
+      this%fargo_transformation_applied = src%fargo_transformation_applied
       ! set pointer to the data structures in the compound
       !> \todo make this more generic, i.e. this should not depend
       !! on the position in the list of compound items

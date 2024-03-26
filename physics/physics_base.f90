@@ -85,10 +85,6 @@ MODULE physics_base_mod
                             YVELOCITY,YMOMENTUM,&
                             ZVELOCITY,ZMOMENTUM   !< array indicies for primitive and conservative variables
      INTEGER,ALLOCATABLE :: VIDX(:)               !< 3D vector indices
-     LOGICAL             :: transformed_xvelocity !< .TRUE. if SubtractBackgroundVelocity was called before
-     LOGICAL             :: transformed_yvelocity !< .TRUE. if SubtractBackgroundVelocity was called before
-     LOGICAL             :: transformed_zvelocity !< .TRUE. if SubtractBackgroundVelocity was called before
-                                                  !! .FALSE. otherwise
      LOGICAL             :: supports_absorbing    !< absorbing boundary conditions supported
                             !! \details .TRUE. if absorbing boundary conditions are supported by the physics module
      LOGICAL             :: supports_farfield     !< farfield boundary conditions supported
@@ -626,14 +622,6 @@ CONTAINS
     this%supports_absorbing = .FALSE.
     this%supports_farfield  = .FALSE.
  
-    ! no background velocity subtracted (important for fargo advection)
-    this%transformed_xvelocity = .FALSE.
-    this%transformed_yvelocity = .FALSE.
-    this%transformed_zvelocity = .FALSE.
-
-    ! reset source term pointer
-    !NULLIFY(this%sources)
-
     this%time = -1.
   END SUBROUTINE InitPhysics
 

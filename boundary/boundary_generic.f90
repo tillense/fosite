@@ -286,6 +286,7 @@ CONTAINS
   !> Sets boundaries in all directions
   SUBROUTINE CenterBoundary(this,Mesh,Physics,time,pvar,cvar)
     USE boundary_shearing_mod, ONLY : boundary_shearing
+    USE physics_eulerisotherm_mod, ONLY : statevector_eulerisotherm
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(boundary_generic),INTENT(INOUT) :: this
@@ -296,6 +297,13 @@ CONTAINS
     !------------------------------------------------------------------------!
     CALL Physics%Convert2Primitive(Mesh%IMIN,Mesh%IMAX,Mesh%JMIN, &
              Mesh%JMAX,Mesh%KMIN,Mesh%KMAX,cvar,pvar)
+    SELECT TYPE(c => cvar)
+    CLASS IS(statevector_eulerisotherm)
+      SELECT TYPE(p => pvar)
+      CLASS IS(statevector_eulerisotherm)
+        p%fargo_transformation_applied = c%fargo_transformation_applied
+      END SELECT
+    END SELECT
 
     this%err = 0
     ! set physical boundary conditions at western and eastern boundaries
