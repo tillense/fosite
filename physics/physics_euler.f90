@@ -2277,7 +2277,15 @@ CONTAINS
                 DO i=Mesh%IMIN,Mesh%IMAX
                   this%tmp(i,j,k) = c%momentum%data4d(i,j,k,2) * 0.5 * (w(j+1,k)-w(j-1,k)) &
                     / Mesh%dly%data3d(i,j,k)
+                  ! x-momentum source
                   s%momentum%data4d(i,j,k,1) = s%momentum%data4d(i,j,k,1) - this%tmp(i,j,k)
+                  ! add geometrical terms
+                  this%tmp(i,j,k) = this%tmp(i,j,k) + GetGeometricalSourceX( &
+                    Mesh%cxyx%data4d(i,j,k,2),Mesh%cxzx%data4d(i,j,k,2), &
+                    Mesh%cyxy%data4d(i,j,k,2),Mesh%czxz%data4d(i,j,k,2), &
+                    p%velocity%data4d(i,j,k,1),p%velocity%data4d(i,j,k,2),0.0, &
+                    0.0,c%momentum%data4d(i,j,k,2),0.0)
+                  ! energy source
                   s%energy%data3d(i,j,k) = s%energy%data3d(i,j,k) &
                     - p%velocity%data4d(i,j,k,1)*this%tmp(i,j,k)
                 END DO
@@ -2290,7 +2298,15 @@ CONTAINS
                 DO i=Mesh%IMIN,Mesh%IMAX
                   this%tmp(i,j,k) = c%momentum%data4d(i,j,k,2) * 0.5 * (w(j,k+1)-w(j,k-1)) &
                     / Mesh%dlz%data3d(i,j,k)
+                  ! x-momentum source
                   s%momentum%data4d(i,j,k,1) = s%momentum%data4d(i,j,k,1) - this%tmp(i,j,k)
+                  ! add geometrical terms
+                  this%tmp(i,j,k) = this%tmp(i,j,k) + GetGeometricalSourceX( &
+                    Mesh%cxyx%data4d(i,j,k,2),Mesh%cxzx%data4d(i,j,k,2), &
+                    Mesh%cyxy%data4d(i,j,k,2),Mesh%czxz%data4d(i,j,k,2), &
+                    p%velocity%data4d(i,j,k,1),0.0,p%velocity%data4d(i,j,k,2), &
+                    0.0,0.0,c%momentum%data4d(i,j,k,2))
+                  ! energy source
                   s%energy%data3d(i,j,k) = s%energy%data3d(i,j,k) &
                     - p%velocity%data4d(i,j,k,1)*this%tmp(i,j,k)
                 END DO
@@ -2303,7 +2319,16 @@ CONTAINS
                 DO i=Mesh%IMIN,Mesh%IMAX
                   this%tmp(i,j,k) = c%momentum%data4d(i,j,k,2) * 0.5 * (w(j+1,k)-w(j-1,k)) / Mesh%dly%data3d(i,j,k) &
                     + c%momentum%data4d(i,j,k,3) * 0.5 * (w(j,k+1)-w(j,k-1)) / Mesh%dlz%data3d(i,j,k)
+                  ! x-momentum source
                   s%momentum%data4d(i,j,k,1) = s%momentum%data4d(i,j,k,1) - this%tmp(i,j,k)
+                  ! add geometrical terms
+                  this%tmp(i,j,k) = this%tmp(i,j,k) + GetGeometricalSourceX( &
+                    Mesh%cxyx%data4d(i,j,k,2),Mesh%cxzx%data4d(i,j,k,2), &
+                    Mesh%cyxy%data4d(i,j,k,2),Mesh%czxz%data4d(i,j,k,2), &
+                    p%velocity%data4d(i,j,k,1),p%velocity%data4d(i,j,k,2), &
+                    p%velocity%data4d(i,j,k,3), &
+                    0.0,c%momentum%data4d(i,j,k,2),c%momentum%data4d(i,j,k,3))
+                  ! energy source
                   s%energy%data3d(i,j,k) = s%energy%data3d(i,j,k) &
                     - p%velocity%data4d(i,j,k,1)*this%tmp(i,j,k)
                 END DO
@@ -2355,7 +2380,7 @@ CONTAINS
                   ! y-momentum source
                   s%momentum%data4d(i,j,k,2) = s%momentum%data4d(i,j,k,2) - this%tmp(i,j,k)
                   ! add geometrical terms
-                  this%tmp(i,j,k) = this%tmp(i,j,k) - GetGeometricalSourceY( &
+                  this%tmp(i,j,k) = this%tmp(i,j,k) + GetGeometricalSourceY( &
                     Mesh%cxyx%data4d(i,j,k,2),Mesh%cyxy%data4d(i,j,k,2), &
                     Mesh%cyzy%data4d(i,j,k,2),Mesh%czyz%data4d(i,j,k,2), &
                     p%velocity%data4d(i,j,k,1),p%velocity%data4d(i,j,k,2),0.0, &
@@ -2376,7 +2401,7 @@ CONTAINS
                   ! y-momentum source
                   s%momentum%data4d(i,j,k,1) = s%momentum%data4d(i,j,k,1) - this%tmp(i,j,k)
                   ! add geometrical terms
-                  this%tmp(i,j,k) = GetGeometricalSourceY( &
+                  this%tmp(i,j,k) = this%tmp(i,j,k) + GetGeometricalSourceY( &
                     Mesh%cxyx%data4d(i,j,k,2),Mesh%cyxy%data4d(i,j,k,2), &
                     Mesh%cyzy%data4d(i,j,k,2),Mesh%czyz%data4d(i,j,k,2), &
                     0.0,p%velocity%data4d(i,j,k,1),p%velocity%data4d(i,j,k,2), &
@@ -2397,7 +2422,7 @@ CONTAINS
                   ! y-momentum source
                   s%momentum%data4d(i,j,k,2) = s%momentum%data4d(i,j,k,2) - this%tmp(i,j,k)
                   ! add geometrical terms
-                  this%tmp(i,j,k) = GetGeometricalSourceY( &
+                  this%tmp(i,j,k) = this%tmp(i,j,k) + GetGeometricalSourceY( &
                     Mesh%cxyx%data4d(i,j,k,2),Mesh%cyxy%data4d(i,j,k,2), &
                     Mesh%cyzy%data4d(i,j,k,2),Mesh%czyz%data4d(i,j,k,2), &
                     p%velocity%data4d(i,j,k,1),p%velocity%data4d(i,j,k,2), &
@@ -2451,7 +2476,15 @@ CONTAINS
               DO j=Mesh%JMIN,Mesh%JMAX
                 DO i=Mesh%IMIN,Mesh%IMAX
                   this%tmp(i,j,k) = c%momentum%data4d(i,j,k,1) * 0.5 * (w(i+1,j)-w(i-1,j)) / Mesh%dlx%data3d(i,j,k)
+                  ! z-momentum source
                   s%momentum%data4d(i,j,k,2) = s%momentum%data4d(i,j,k,2) - this%tmp(i,j,k)
+                  ! add geometrical terms
+                  this%tmp(i,j,k) = this%tmp(i,j,k) + GetGeometricalSourceZ( &
+                    Mesh%cxzx%data4d(i,j,k,2),Mesh%cyzy%data4d(i,j,k,2), &
+                    Mesh%czxz%data4d(i,j,k,2),Mesh%czyz%data4d(i,j,k,2), &
+                    p%velocity%data4d(i,j,k,1),0.0,p%velocity%data4d(i,j,k,2), &
+                    0.0,c%momentum%data4d(i,j,k,1),0.0)
+                  ! energy source
                   s%energy%data3d(i,j,k) = s%energy%data3d(i,j,k) &
                       - p%velocity%data4d(i,j,k,2)*this%tmp(i,j,k)
                 END DO
@@ -2463,7 +2496,15 @@ CONTAINS
               DO j=Mesh%JMIN,Mesh%JMAX
                 DO i=Mesh%IMIN,Mesh%IMAX
                   this%tmp(i,j,k) = c%momentum%data4d(i,j,k,1) * 0.5 * (w(i,j+1)-w(i,j-1)) / Mesh%dly%data3d(i,j,k)
+                  ! z-momentum source
                   s%momentum%data4d(i,j,k,2) = s%momentum%data4d(i,j,k,2) - this%tmp(i,j,k)
+                  ! add geometrical terms
+                  this%tmp(i,j,k) = this%tmp(i,j,k) + GetGeometricalSourceZ( &
+                    Mesh%cxzx%data4d(i,j,k,2),Mesh%cyzy%data4d(i,j,k,2), &
+                    Mesh%czxz%data4d(i,j,k,2),Mesh%czyz%data4d(i,j,k,2), &
+                    0.0,p%velocity%data4d(i,j,k,1),p%velocity%data4d(i,j,k,2), &
+                    0.0,0.0,c%momentum%data4d(i,j,k,1))
+                  ! energy source
                   s%energy%data3d(i,j,k) = s%energy%data3d(i,j,k) &
                       - p%velocity%data4d(i,j,k,2)*this%tmp(i,j,k)
                 END DO
@@ -2476,7 +2517,16 @@ CONTAINS
                 DO i=Mesh%IMIN,Mesh%IMAX
                   this%tmp(i,j,k) = c%momentum%data4d(i,j,k,1) * 0.5 * (w(i+1,j)-w(i-1,j)) / Mesh%dlx%data3d(i,j,k) &
                     + c%momentum%data4d(i,j,k,2) * 0.5 * (w(j,j+1)-w(j,j-1)) / Mesh%dly%data3d(i,j,k)
+                  ! z-momentum source
                   s%momentum%data4d(i,j,k,3) = s%momentum%data4d(i,j,k,3) - this%tmp(i,j,k)
+                  ! add geometrical terms
+                  this%tmp(i,j,k) = this%tmp(i,j,k) + GetGeometricalSourceZ( &
+                    Mesh%cxzx%data4d(i,j,k,2),Mesh%cyzy%data4d(i,j,k,2), &
+                    Mesh%czxz%data4d(i,j,k,2),Mesh%czyz%data4d(i,j,k,2), &
+                    p%velocity%data4d(i,j,k,1),p%velocity%data4d(i,j,k,2), &
+                    p%velocity%data4d(i,j,k,3), &
+                    0.0,c%momentum%data4d(i,j,k,1),c%momentum%data4d(i,j,k,2))
+                  ! energy source
                   s%energy%data3d(i,j,k) = s%energy%data3d(i,j,k) &
                       - p%velocity%data4d(i,j,k,3)*this%tmp(i,j,k)
                 END DO
