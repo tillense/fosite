@@ -81,7 +81,7 @@ PROGRAM KHI
 
   DO d=1,2
     DO FARGO=0,2
-      ALLOCATE(Sim,pvar,pvar_init,)
+      ALLOCATE(Sim,pvar,pvar_init)
       ! simulate KHI with initial x-velocity along x-direction
       CALL Sim%InitFosite()
       CALL MakeConfig(Sim,Sim%config,dir_name(d))
