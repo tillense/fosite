@@ -124,186 +124,230 @@ CONTAINS
     !------------------------------------------------------------------------!
     SELECT CASE(this%GetDirection())
     CASE(WEST)
+      ! REMARK: vector performance is poor, because the first dimension is short;
+      !         nested do loops seem to be the best, at least in terms run time;
+      !         anything involving array assignments is worse
       DO m=1,Physics%VNUM
         SELECT CASE(this%cbtype(m))
         CASE(CUSTOM_NOGRAD)
+          DO k=Mesh%KMIN,Mesh%KMAX
+            DO j=Mesh%JMIN,Mesh%JMAX
 !NEC$ SHORTLOOP
-          DO i=1,Mesh%GINUM
-            pvar%data4d(Mesh%IMIN-i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m) &
-              = pvar%data4d(Mesh%IMIN,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m)
+              DO i=1,Mesh%GINUM
+                pvar%data4d(Mesh%IMIN-i,j,k,m) = pvar%data4d(Mesh%IMIN,j,k,m)
+              END DO
+            END DO
           END DO
         CASE(CUSTOM_PERIOD)
+          DO k=Mesh%KMIN,Mesh%KMAX
+            DO j=Mesh%JMIN,Mesh%JMAX
 !NEC$ SHORTLOOP
-          DO i=1,Mesh%GINUM
-            pvar%data4d(Mesh%IMIN-i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m) &
-              = pvar%data4d(Mesh%IMAX-i+1,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m)
+              DO i=1,Mesh%GINUM
+                pvar%data4d(Mesh%IMIN-i,j,k,m) = pvar%data4d(Mesh%IMAX-i+1,j,k,m)
+              END DO
+            END DO
           END DO
         CASE(CUSTOM_REFLECT)
+          DO k=Mesh%KMIN,Mesh%KMAX
+            DO j=Mesh%JMIN,Mesh%JMAX
 !NEC$ SHORTLOOP
-          DO i=1,Mesh%GINUM
-            pvar%data4d(Mesh%IMIN-i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m) &
-              = pvar%data4d(Mesh%IMIN+i-1,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m)
+              DO i=1,Mesh%GINUM
+                pvar%data4d(Mesh%IMIN-i,j,k,m) = pvar%data4d(Mesh%IMIN+i-1,j,k,m)
+              END DO
+            END DO
           END DO
         CASE(CUSTOM_REFLNEG)
+          DO k=Mesh%KMIN,Mesh%KMAX
+            DO j=Mesh%JMIN,Mesh%JMAX
 !NEC$ SHORTLOOP
-          DO i=1,Mesh%GINUM
-            pvar%data4d(Mesh%IMIN-i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m) &
-              = -pvar%data4d(Mesh%IMIN+i-1,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m)
+              DO i=1,Mesh%GINUM
+                pvar%data4d(Mesh%IMIN-i,j,k,m) = -pvar%data4d(Mesh%IMIN+i-1,j,k,m)
+              END DO
+            END DO
           END DO
         CASE(CUSTOM_EXTRAPOL)
+          DO k=Mesh%KMIN,Mesh%KMAX
+            DO j=Mesh%JMIN,Mesh%JMAX
 !NEC$ SHORTLOOP
-          DO i=1,Mesh%GINUM
-            pvar%data4d(Mesh%IMIN-i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m) &
-              = (i+1)*pvar%data4d(Mesh%IMIN,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m) &
-              - i*pvar%data4d(Mesh%IMIN+1,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m)
+              DO i=1,Mesh%GINUM
+                pvar%data4d(Mesh%IMIN-i,j,k,m) = (i+1)*pvar%data4d(Mesh%IMIN,j,k,m) &
+                  - i*pvar%data4d(Mesh%IMIN+1,j,k,m)
+              END DO
+            END DO
           END DO
         CASE(CUSTOM_FIXED)
+          DO k=Mesh%KMIN,Mesh%KMAX
+            DO j=Mesh%JMIN,Mesh%JMAX
 !NEC$ SHORTLOOP
-          DO i=1,Mesh%GINUM
-            pvar%data4d(Mesh%IMIN-i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m) &
-              = this%data(i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m)
+              DO i=1,Mesh%GINUM
+                pvar%data4d(Mesh%IMIN-i,j,k,m) = this%data(i,j,k,m)
+              END DO
+            END DO
           END DO
         CASE(CUSTOM_LOGEXPOL)
+          DO k=Mesh%KMIN,Mesh%KMAX
+            DO j=Mesh%JMIN,Mesh%JMAX
 !NEC$ SHORTLOOP
-          DO i=1,Mesh%GINUM
-            pvar%data4d(Mesh%IMIN-i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m) &
-              = pvar%data4d(Mesh%IMIN,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m) &
-              * ABS(pvar%data4d(Mesh%IMIN,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m) &
-              / pvar%data4d(Mesh%IMIN+1,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m))**i
+              DO i=1,Mesh%GINUM
+                pvar%data4d(Mesh%IMIN-i,j,k,m) = pvar%data4d(Mesh%IMIN,j,k,m) &
+                  * ABS(pvar%data4d(Mesh%IMIN,j,k,m) / pvar%data4d(Mesh%IMIN+1,j,k,m))**i
+              END DO
+            END DO
           END DO
         CASE(CUSTOM_OUTFLOW)
-! REMARK: this would work for any GINUM, but with lower performance
-! !NEC$ SHORTLOOP
-!           DO i=1,Mesh%GINUM
-!             WHERE (pvar%data4d(Mesh%IMIN,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m).GE.0.0 )
-!               pvar%data4d(Mesh%IMIN-i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m) &
-!                 = -pvar%data4d(Mesh%IMIN+i-1,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m)
-!             ELSEWHERE
-!               pvar%data4d(Mesh%IMIN-i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m) &
-!                 = pvar%data4d(Mesh%IMIN,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m)
-!             END WHERE
-!           END DO
-          WHERE (pvar%data4d(Mesh%IMIN,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m).GE.0.0 )
-            pvar%data4d(Mesh%IGMIN,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m) &
-              = -pvar%data4d(Mesh%IMIN+1,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m)
-            pvar%data4d(Mesh%IGMIN+1,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m) &
-              = -pvar%data4d(Mesh%IMIN,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m)
-          ELSEWHERE
-            pvar%data4d(Mesh%IGMIN,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m) &
-              = pvar%data4d(Mesh%IMIN,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m)
-            pvar%data4d(Mesh%IGMIN+1,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m) &
-              = pvar%data4d(Mesh%IMIN,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m)
-          END WHERE
-        CASE(CUSTOM_KEPLER)
+          DO k=Mesh%KMIN,Mesh%KMAX
+            DO j=Mesh%JMIN,Mesh%JMAX
+              IF (pvar%data4d(Mesh%IMIN,j,k,m).GE.0.0 ) THEN
 !NEC$ SHORTLOOP
-          DO i=1,Mesh%GINUM
-            pvar%data4d(Mesh%IMIN-i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m) &
-              = (pvar%data4d(Mesh%IMIN,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m) &
-              + Mesh%radius%bcenter(Mesh%IMIN,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX)*Mesh%OMEGA) &
-              * this%invRscale(i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX) &
-              - Mesh%radius%bcenter(Mesh%IMIN-i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX)*Mesh%OMEGA
+                DO i=1,Mesh%GINUM
+                  ! reflect and flip sign (REFLNEG)
+                  pvar%data4d(Mesh%IMIN-i,j,k,m) = -pvar%data4d(Mesh%IMIN+i-1,j,k,m)
+                END DO
+              ELSE
+!NEC$ SHORTLOOP
+                DO i=1,Mesh%GINUM
+                  ! no gradient
+                  pvar%data4d(Mesh%IMIN-i,j,k,m) = pvar%data4d(Mesh%IMIN,j,k,m)
+                END DO
+              END IF
+            END DO
+          END DO
+        CASE(CUSTOM_KEPLER)
+          DO k=Mesh%KMIN,Mesh%KMAX
+            DO j=Mesh%JMIN,Mesh%JMAX
+!NEC$ SHORTLOOP
+              DO i=1,Mesh%GINUM
+                pvar%data4d(Mesh%IMIN-i,j,k,m) = (pvar%data4d(Mesh%IMIN,j,k,m) &
+                  + Mesh%radius%bcenter(Mesh%IMIN,j,k)*Mesh%OMEGA) * this%invRscale(i,j,k) &
+                  - Mesh%radius%bcenter(Mesh%IMIN-i,j,k)*Mesh%OMEGA
+              END DO
+            END DO
           END DO
         CASE(CUSTOM_ANGKEPLER)
+          DO k=Mesh%KMIN,Mesh%KMAX
+            DO j=Mesh%JMIN,Mesh%JMAX
+!NEC$ SHORTLOOP
+              DO i=1,Mesh%GINUM
+                pvar%data4d(Mesh%IMIN-i,j,k,m) = (pvar%data4d(Mesh%IMIN,j,k,m) &
+                  + Mesh%radius%bcenter(Mesh%IMIN,j,k)**2*Mesh%OMEGA) * this%Rscale(i,j,k) &
+                  - Mesh%radius%bcenter(Mesh%IMIN-i,j,k)**2*Mesh%OMEGA
+              END DO
+            END DO
+          END DO
 !NEC$ SHORTLOOP
           DO i=1,Mesh%GINUM
-            pvar%data4d(Mesh%IMIN-i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m) &
-              = (pvar%data4d(Mesh%IMIN,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m) &
-              + Mesh%radius%bcenter(Mesh%IMIN,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX)**2*Mesh%OMEGA) &
-              * this%Rscale(i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX) &
-              - Mesh%radius%bcenter(Mesh%IMIN-i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX)**2*Mesh%OMEGA
           END DO
         CASE DEFAULT
           this%err = IOR(CUSTOM,INT(Z'0100'))
         END SELECT
       END DO
     CASE(EAST)
+      ! REMARK: vector performance is poor, because the first dimension is short;
+      !         nested do loops seem to be the best, at least in terms run time;
+      !         anything involving array assignments is worse
       DO m=1,Physics%VNUM
         SELECT CASE(this%cbtype(m))
         CASE(CUSTOM_NOGRAD)
+          DO k=Mesh%KMIN,Mesh%KMAX
+            DO j=Mesh%JMIN,Mesh%JMAX
 !NEC$ SHORTLOOP
-          DO i=1,Mesh%GINUM
-            pvar%data4d(Mesh%IMAX+i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m) &
-             = pvar%data4d(Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m)
+              DO i=1,Mesh%GINUM
+                pvar%data4d(Mesh%IMAX+i,j,k,m) = pvar%data4d(Mesh%IMAX,j,k,m)
+              END DO
+            END DO
           END DO
         CASE(CUSTOM_PERIOD)
+          DO k=Mesh%KMIN,Mesh%KMAX
+            DO j=Mesh%JMIN,Mesh%JMAX
 !NEC$ SHORTLOOP
-          DO i=1,Mesh%GINUM
-            pvar%data4d(Mesh%IMAX+i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m) &
-              = pvar%data4d(Mesh%IMIN+i-1,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m)
+              DO i=1,Mesh%GINUM
+                pvar%data4d(Mesh%IMAX+i,j,k,m) = pvar%data4d(Mesh%IMIN+i-1,j,k,m)
+              END DO
+            END DO
           END DO
         CASE(CUSTOM_REFLECT)
+          DO k=Mesh%KMIN,Mesh%KMAX
+            DO j=Mesh%JMIN,Mesh%JMAX
 !NEC$ SHORTLOOP
-          DO i=1,Mesh%GINUM
-            pvar%data4d(Mesh%IMAX+i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m) &
-              = pvar%data4d(Mesh%IMAX-i+1,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m)
+              DO i=1,Mesh%GINUM
+                pvar%data4d(Mesh%IMAX+i,j,k,m) = pvar%data4d(Mesh%IMAX-i+1,j,k,m)
+              END DO
+            END DO
           END DO
         CASE(CUSTOM_REFLNEG)
+          DO k=Mesh%KMIN,Mesh%KMAX
+            DO j=Mesh%JMIN,Mesh%JMAX
 !NEC$ SHORTLOOP
-          DO i=1,Mesh%GINUM
-            pvar%data4d(Mesh%IMAX+i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m) &
-              = -pvar%data4d(Mesh%IMAX-i+1,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m)
+              DO i=1,Mesh%GINUM
+                pvar%data4d(Mesh%IMAX+i,j,k,m) = -pvar%data4d(Mesh%IMAX-i+1,j,k,m)
+              END DO
+            END DO
           END DO
         CASE(CUSTOM_EXTRAPOL)
+          DO k=Mesh%KMIN,Mesh%KMAX
+            DO j=Mesh%JMIN,Mesh%JMAX
 !NEC$ SHORTLOOP
-          DO i=1,Mesh%GINUM
-            pvar%data4d(Mesh%IMAX+i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m) &
-              = (i+1)*pvar%data4d(Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m) &
-              - i*pvar%data4d(Mesh%IMAX-1,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m)
+              DO i=1,Mesh%GINUM
+                pvar%data4d(Mesh%IMAX+i,j,k,m) = (i+1)*pvar%data4d(Mesh%IMAX,j,k,m) &
+                  - i*pvar%data4d(Mesh%IMAX-1,j,k,m)
+              END DO
+            END DO
           END DO
         CASE(CUSTOM_FIXED)
+          DO k=Mesh%KMIN,Mesh%KMAX
+            DO j=Mesh%JMIN,Mesh%JMAX
 !NEC$ SHORTLOOP
-          DO i=1,Mesh%GINUM
-            pvar%data4d(Mesh%IMAX+i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m) &
-             = this%data(i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m)
+              DO i=1,Mesh%GINUM
+                pvar%data4d(Mesh%IMAX+i,j,k,m) = this%data(i,j,k,m)
+              END DO
+            END DO
           END DO
         CASE(CUSTOM_LOGEXPOL)
+          DO k=Mesh%KMIN,Mesh%KMAX
+            DO j=Mesh%JMIN,Mesh%JMAX
 !NEC$ SHORTLOOP
-          DO i=1,Mesh%GINUM
-            pvar%data4d(Mesh%IMAX+i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m) &
-              = pvar%data4d(Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m) &
-              * ABS(pvar%data4d(Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m) &
-              / pvar%data4d(Mesh%IMAX-1,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m))**i
+              DO i=1,Mesh%GINUM
+                pvar%data4d(Mesh%IMAX+i,j,k,m) = pvar%data4d(Mesh%IMAX,j,k,m) &
+                  * ABS(pvar%data4d(Mesh%IMAX,j,k,m) / pvar%data4d(Mesh%IMAX-1,j,k,m))**i
+              END DO
+            END DO
           END DO
         CASE(CUSTOM_OUTFLOW)
-! REMARK: this would work for any GINUM, but with lower performance
-! !NEC$ SHORTLOOP
-!           DO i=1,Mesh%GINUM
-!             WHERE (pvar%data4d(Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m).LE.0.0 )
-!               pvar%data4d(Mesh%IMAX+i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m) &
-!                 = -pvar%data4d(Mesh%IMAX-i+1,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m)
-!             ELSEWHERE
-!               pvar%data4d(Mesh%IMAX+i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m) &
-!                 = pvar%data4d(Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m)
-!             END WHERE
-!           END DO
-          WHERE (pvar%data4d(Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m).LE.0.0 )
-            pvar%data4d(Mesh%IGMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m) &
-              = -pvar%data4d(Mesh%IMAX-1,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m)
-            pvar%data4d(Mesh%IGMAX-1,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m) &
-              = -pvar%data4d(Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m)
-          ELSEWHERE
-            pvar%data4d(Mesh%IGMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m) &
-              = pvar%data4d(Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m)
-            pvar%data4d(Mesh%IGMAX-1,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m) &
-              = pvar%data4d(Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m)
-          END WHERE
-        CASE(CUSTOM_KEPLER)
+          DO k=Mesh%KMIN,Mesh%KMAX
+            DO j=Mesh%JMIN,Mesh%JMAX
 !NEC$ SHORTLOOP
-          DO i=1,Mesh%GINUM
-            pvar%data4d(Mesh%IMAX+i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m) &
-              = (pvar%data4d(Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m) &
-              + Mesh%radius%bcenter(Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX)*Mesh%OMEGA)&
-              * this%invRscale(i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX) &
-              - Mesh%radius%bcenter(Mesh%IMAX+i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX)*Mesh%OMEGA
+              IF (pvar%data4d(Mesh%IMAX,j,k,m).LE.0.0) THEN
+                DO i=1,Mesh%GINUM
+                  pvar%data4d(Mesh%IMAX+i,j,k,m) = -pvar%data4d(Mesh%IMAX-i+1,j,k,m)
+                END DO
+              ELSE
+                DO i=1,Mesh%GINUM
+                  pvar%data4d(Mesh%IMAX+i,j,k,m) = pvar%data4d(Mesh%IMAX,j,k,m)
+                END DO
+              END IF
+            END DO
+          END DO
+        CASE(CUSTOM_KEPLER)
+          DO k=Mesh%KMIN,Mesh%KMAX
+            DO j=Mesh%JMIN,Mesh%JMAX
+!NEC$ SHORTLOOP
+              DO i=1,Mesh%GINUM
+                pvar%data4d(Mesh%IMAX+i,j,k,m) = (pvar%data4d(Mesh%IMAX,j,k,m) &
+                  + Mesh%radius%bcenter(Mesh%IMAX,j,k)*Mesh%OMEGA) * this%invRscale(i,j,k) &
+                  - Mesh%radius%bcenter(Mesh%IMAX+i,j,k)*Mesh%OMEGA
+              END DO
+            END DO
           END DO
         CASE(CUSTOM_ANGKEPLER)
+          DO k=Mesh%KMIN,Mesh%KMAX
+            DO j=Mesh%JMIN,Mesh%JMAX
 !NEC$ SHORTLOOP
-          DO i=1,Mesh%GINUM
-            pvar%data4d(Mesh%IMAX+i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m) &
-              = (pvar%data4d(Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,m) &
-              + Mesh%radius%bcenter(Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX)**2*Mesh%OMEGA)&
-              * this%Rscale(i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX) &
-              - Mesh%radius%bcenter(Mesh%IMAX+i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX)**2*Mesh%OMEGA
+              DO i=1,Mesh%GINUM
+                pvar%data4d(Mesh%IMAX+i,j,k,m) = (pvar%data4d(Mesh%IMAX,j,k,m) &
+                  + Mesh%radius%bcenter(Mesh%IMAX,j,k)**2*Mesh%OMEGA) * this%Rscale(i,j,k) &
+                  - Mesh%radius%bcenter(Mesh%IMAX+i,j,k)**2*Mesh%OMEGA
+              END DO
+            END DO
           END DO
         CASE DEFAULT
           this%err = IOR(CUSTOM,INT(Z'0200'))

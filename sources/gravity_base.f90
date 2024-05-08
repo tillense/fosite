@@ -3,7 +3,7 @@
 !# fosite - 3D hydrodynamical simulation program                             #
 !# module: gravity_base.f90                                                  #
 !#                                                                           #
-!# Copyright (C) 2014-2019                                                   #
+!# Copyright (C) 2014-2024                                                   #
 !# Björn Sperling   <sperling@astrophysik.uni-kiel.de>                       #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
 !# Jannes Klee      <jklee@astrophysik.uni-kiel.de>                          #
@@ -59,8 +59,8 @@ MODULE gravity_base_mod
     !> \name Variables
     CLASS(logging_base), ALLOCATABLE   :: gravitytype  !< type of gravity term
     CLASS(gravity_base), POINTER       :: next => null() !< next gravity in list
-    CLASS(marray_base), ALLOCATABLE    :: accel        !< acceleration
-    REAL, DIMENSION(:,:,:,:), POINTER  :: pot          !< general potential
+    CLASS(marray_base), ALLOCATABLE    :: accel, &       !< acceleration
+                                          pot            !< general potential
   CONTAINS
     PROCEDURE :: InitGravity
     PROCEDURE (SetOutput),             DEFERRED :: SetOutput

@@ -355,7 +355,7 @@ CONTAINS
     pvar%data4d(:,:,:,Physics%XVELOCITY:Physics%XVELOCITY+Physics%VDIM-1) = &
         Timedisc%GetCentrifugalVelocity(Mesh,Physics,Fluxes,Sources,(/0.,0.,1./),gp%accel%data4d)
 
-    IF (Mesh%FARGO.EQ.2) &
+    IF (Mesh%fargo%GetType().EQ.2) &
        Timedisc%w(:,:) = SQRT(Physics%constants%GN*MBH/r(:,Mesh%JMIN,:))-Mesh%OMEGA*r(:,Mesh%JMIN,:)
 
     ! transform velocities to rotating frame

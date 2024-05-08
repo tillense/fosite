@@ -31,8 +31,8 @@
 !> \author Tobias Illenseer
 !! \author Jannes Klee
 !!
-!! \attention This module works currently only in 2D. Mesh%OMEGA is only
-!!            one value and assumened to point in z-direction.
+!! \attention Axis of rotation is assumed to point in z-direction; the angular
+!!            is provided in Mesh%Omega
 !!
 !! \brief source terms module for inertial forces caused by a rotating grid
 !----------------------------------------------------------------------------!
@@ -135,7 +135,7 @@ CONTAINS
     ! compute curvilinear components of the local azimuthal velocity caused by the rotating frame
     ! and the centrifual acceleration
     vphi3D = Omez.x.caccel3D ! = Omega*ez x (r-r0)
-    caccel3D = vphi3D.x.Omez ! = -Omega**2 * ez x (ez x (r-r0) = (Omega*ez x (r-r0)) x Omega*ez
+    caccel3D = vphi3D.x.Omez ! = -Omega**2 * ez x (ez x (r-r0)) = (Omega*ez x (r-r0)) x Omega*ez
 
     ! set the projected components of the centrifugal acceleration
     IF (Physics%VDIM.LT.3) THEN
@@ -269,10 +269,10 @@ CONTAINS
     !------------------------------------------------------------------------!
     ! Convert velocities to the rotating frame
     SELECT TYPE (p => pvar)
-    TYPE IS(statevector_eulerisotherm)
+    CLASS IS(statevector_eulerisotherm)
       p%velocity%data1d = p%velocity%data1d - this%vphi%data1d
     CLASS DEFAULT
-      ! nothing happens
+      CALL this%Error("sources_rotframe::Convert2RotatingFrame","physics currently not supported")
     END SELECT
   END SUBROUTINE Convert2RotatingFrame
 

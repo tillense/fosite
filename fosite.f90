@@ -304,18 +304,12 @@ CONTAINS
     END IF
 
     ! determine the background velocity if fargo advection type 1 is enabled
-    IF (this%Mesh%FARGO.EQ.1) THEN
-       ! make sure there is valid data at least in the i-ghost cells
+    IF (this%Mesh%fargo%GetType().EQ.1) THEN
+       ! make sure there is valid data in the ghost cells
        CALL this%Timedisc%Boundary%CenterBoundary(this%Mesh,this%Physics,&
                              0.0,this%Timedisc%pvar,this%Timedisc%cvar)
-       SELECT TYPE(geo => this%Mesh%geometry)
-       TYPE IS(geometry_spherical)
-         dir =3
-       CLASS DEFAULT
-         dir=2
-       END SELECT
        CALL this%Timedisc%CalcBackgroundVelocity(this%Mesh,this%Physics, &
-                             this%Timedisc%pvar,this%Timedisc%cvar,dir,this%Timedisc%w)
+                             this%Timedisc%pvar,this%Timedisc%cvar)
     END IF
 
     ! do a complete update of all data

@@ -100,7 +100,8 @@ CONTAINS
     mesh => Dict( &
            "meshtype"   /       MIDPOINT, &
            "geometry"   /           MGEO, &
-!        "decomposition" /  (/ 1, -1, 1/), &
+           "fargo/method" / 0, &
+           "decomposition" /  (/ -1, 1, 1/), &
                "inum"   /           XRES, & ! resolution in x,          !
                "jnum"   /           YRES, & !               y and       !
                "knum"   /              1, & !               z direction !
@@ -148,7 +149,7 @@ CONTAINS
     ! viscosity source term
     ! compute dynamic viscosity constant using typical scales and Reynolds number
     dynvis = ABS(RHO0 * 2*PI * (V0-V1) / RE)
-    IF (dynvis.GT.TINY(dynvis)) THEN
+    IF (RE.LT.HUGE(RE)) THEN
         vis => Dict( &
           "stype"          /       VISCOSITY, &
           "vismodel"       /       MOLECULAR, &
@@ -252,6 +253,12 @@ CONTAINS
           CALL sp%Convert2RotatingFrame(Mesh,Physics,pvar)
         END SELECT
       END IF
+
+      SELECT CASE(Mesh%fargo%GetType())
+      CASE(1,2)
+        ! 2D simulation -> 2nd velocity is the azimuthal velocity
+        Timedisc%w(:,:) = pvar%velocity%data4d(:,Mesh%JMIN,:,2)
+      END SELECT
 
       ! add velocity perturbations
       pvar%velocity%data4d(:,:,:,1) = pvar%velocity%data4d(:,:,:,1) &

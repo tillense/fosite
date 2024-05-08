@@ -84,10 +84,7 @@ MODULE physics_base_mod
                             XVELOCITY,XMOMENTUM, &
                             YVELOCITY,YMOMENTUM,&
                             ZVELOCITY,ZMOMENTUM   !< array indicies for primitive and conservative variables
-     LOGICAL             :: transformed_xvelocity !< .TRUE. if SubtractBackgroundVelocity was called before
-     LOGICAL             :: transformed_yvelocity !< .TRUE. if SubtractBackgroundVelocity was called before
-     LOGICAL             :: transformed_zvelocity !< .TRUE. if SubtractBackgroundVelocity was called before
-                                                  !! .FALSE. otherwise
+     INTEGER,ALLOCATABLE :: VIDX(:)               !< 3D vector indices
      LOGICAL             :: supports_absorbing    !< absorbing boundary conditions supported
                             !! \details .TRUE. if absorbing boundary conditions are supported by the physics module
      LOGICAL             :: supports_farfield     !< farfield boundary conditions supported
@@ -151,7 +148,9 @@ MODULE physics_base_mod
     PROCEDURE (SubtractBackgroundVelocityY),  DEFERRED :: SubtractBackgroundVelocityY
     PROCEDURE (AddBackgroundVelocityZ),       DEFERRED :: AddBackgroundVelocityZ
     PROCEDURE (SubtractBackgroundVelocityZ),  DEFERRED :: SubtractBackgroundVelocityZ
-    PROCEDURE (AddFargoSources),              DEFERRED :: AddFargoSources
+    PROCEDURE (AddFargoSourcesX),             DEFERRED :: AddFargoSourcesX
+    PROCEDURE (AddFargoSourcesY),             DEFERRED :: AddFargoSourcesY
+    PROCEDURE (AddFargoSourcesZ),             DEFERRED :: AddFargoSourcesZ
     !------Geometry Routines-------!
     PROCEDURE (GeometricalSources),           DEFERRED :: GeometricalSources
     PROCEDURE (Masks),                        DEFERRED :: ReflectionMasks
@@ -313,14 +312,30 @@ MODULE physics_base_mod
       CLASS(mesh_base),    INTENT(IN)    :: Mesh
       CLASS(marray_compound), INTENT(INOUT) :: pvar,cvar,sterm
     END SUBROUTINE
-    PURE SUBROUTINE AddFargoSources(this,Mesh,w,pvar,cvar,sterm)
+    PURE SUBROUTINE AddFargoSourcesX(this,Mesh,w,pvar,cvar,sterm)
       IMPORT physics_base,mesh_base,marray_compound
-      CLASS(physics_base), INTENT(IN)    :: this
+      CLASS(physics_base), INTENT(INOUT) :: this
+      CLASS(mesh_base),    INTENT(IN)    :: Mesh
+      REAL, DIMENSION(Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), &
+                           INTENT(IN)    :: w
+      CLASS(marray_compound), INTENT(INOUT) :: pvar,cvar,sterm
+    END SUBROUTINE AddFargoSourcesX
+    PURE SUBROUTINE AddFargoSourcesY(this,Mesh,w,pvar,cvar,sterm)
+      IMPORT physics_base,mesh_base,marray_compound
+      CLASS(physics_base), INTENT(INOUT) :: this
       CLASS(mesh_base),    INTENT(IN)    :: Mesh
       REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%KGMIN:Mesh%KGMAX), &
                            INTENT(IN)    :: w
       CLASS(marray_compound), INTENT(INOUT) :: pvar,cvar,sterm
-    END SUBROUTINE AddFargoSources
+    END SUBROUTINE AddFargoSourcesY
+    PURE SUBROUTINE AddFargoSourcesZ(this,Mesh,w,pvar,cvar,sterm)
+      IMPORT physics_base,mesh_base,marray_compound
+      CLASS(physics_base), INTENT(INOUT) :: this
+      CLASS(mesh_base),    INTENT(IN)    :: Mesh
+      REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX), &
+                           INTENT(IN)    :: w
+      CLASS(marray_compound), INTENT(INOUT) :: pvar,cvar,sterm
+    END SUBROUTINE AddFargoSourcesZ
     PURE SUBROUTINE Masks(this,Mesh,reflX,reflY,reflZ)
       IMPORT physics_base, mesh_base
       CLASS(physics_base),           INTENT(IN)  :: this
@@ -518,7 +533,7 @@ CONTAINS
     CHARACTER(LEN=32)                  :: pname
     !------------------------------------------------------------------------!
     INTEGER                            :: units
-    INTEGER                            :: err, valwrite
+    INTEGER                            :: err, valwrite, n
     !------------------------------------------------------------------------!
     INTENT(IN)                         :: problem
     !------------------------------------------------------------------------!
@@ -559,7 +574,7 @@ CONTAINS
     CALL GetAttr(config, "softening", this%eps, 1.0)
 
     ! determine physical vector dimensions based on dimimensionality of the grid
-    ! whether rotationa symmetry is assumed
+    ! an whether rotational symmetry is assumed
     this%VDIM = Mesh%NDIMS
     IF (Mesh%ROTSYM.GT.0) this%VDIM = this%VDIM + 1
 
@@ -574,9 +589,27 @@ CONTAINS
              this%tmp3(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX),                &
              this%tmp4(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX),                &
              this%tmp5(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX),                &
+             this%VIDX(this%VDIM), &
              STAT = err)
     IF (err.NE.0) &
          CALL this%Error("InitPhysics", "Unable to allocate memory.")
+
+    ! Determine which dimensions of a 3D vector are actually used in physical vectors
+    n = 1
+    IF (BTEST(Mesh%VECTOR_COMPONENTS,0)) THEN
+      ! first dimension, i.e. x-component, available
+      this%VIDX(n) = 1
+      n = n + 1
+    END IF
+    IF (BTEST(Mesh%VECTOR_COMPONENTS,1)) THEN
+      ! second dimension, i.e. y-component, available
+      this%VIDX(n) = 2
+      n = n + 1
+    END IF
+    IF (BTEST(Mesh%VECTOR_COMPONENTS,2)) THEN
+      ! third dimension, i.e. z-component, available
+      this%VIDX(n) = 3
+    END IF
 
     this%tmp(:,:,:)  = 0.
     this%tmp1(:,:,:) = 0.
@@ -589,14 +622,6 @@ CONTAINS
     this%supports_absorbing = .FALSE.
     this%supports_farfield  = .FALSE.
  
-    ! no background velocity subtracted (important for fargo advection)
-    this%transformed_xvelocity = .FALSE.
-    this%transformed_yvelocity = .FALSE.
-    this%transformed_zvelocity = .FALSE.
-
-    ! reset source term pointer
-    !NULLIFY(this%sources)
-
     this%time = -1.
   END SUBROUTINE InitPhysics
 
@@ -618,7 +643,7 @@ CONTAINS
         CALL this%Error("ClosePhysics","not initialized")
     ! deallocate pointer variables used in all physics modules
     DEALLOCATE(this%tmp,this%tmp1,this%tmp2,this%tmp3,this%tmp4,this%tmp5, &
-               this%pvarname,this%cvarname)
+               this%pvarname,this%cvarname,this%VIDX)
   END SUBROUTINE Finalize_base
 
 END MODULE physics_base_mod

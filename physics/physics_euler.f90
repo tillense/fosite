@@ -3,7 +3,7 @@
 !# fosite - 3D hydrodynamical simulation program                             #
 !# module: physics_euler.f90                                                 #
 !#                                                                           #
-!# Copyright (C) 2007-2021                                                   #
+!# Copyright (C) 2007-2024                                                   #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
 !# Björn Sperling   <sperling@astrophysik.uni-kiel.de>                       #
 !# Jannes Klee      <jklee@astrophysik.uni-kiel.de>                          #
@@ -76,6 +76,9 @@ MODULE physics_euler_mod
     PROCEDURE :: SubtractBackgroundVelocityX
     PROCEDURE :: SubtractBackgroundVelocityY
     PROCEDURE :: SubtractBackgroundVelocityZ
+    PROCEDURE :: AddFargoSourcesX
+    PROCEDURE :: AddFargoSourcesY
+    PROCEDURE :: AddFargoSourcesZ
     !------HLLC routines-----------!
 !    PROCEDURE :: CalcIntermediateStateX
 !    PROCEDURE :: CalcIntermediateStateY
@@ -269,6 +272,7 @@ CONTAINS
                           p%velocity%data2d(:,1),p%velocity%data2d(:,2),&
                           p%velocity%data2d(:,3),p%pressure%data1d(:))
           END SELECT
+          p%fargo_transformation_applied = c%fargo_transformation_applied
         ELSE
           ! do nothing
         END IF
@@ -392,6 +396,7 @@ CONTAINS
                           c%momentum%data2d(:,1),c%momentum%data2d(:,2), &
                           c%momentum%data2d(:,3),c%energy%data1d(:))
           END SELECT
+          c%fargo_transformation_applied = p%fargo_transformation_applied
         ELSE
           ! do nothing
         END IF
@@ -1702,6 +1707,7 @@ CONTAINS
 
   !> Calculates geometrical sources
   PURE SUBROUTINE GeometricalSources(this,Mesh,pvar,cvar,sterm)
+    USE geometry_generic_mod
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(physics_euler), INTENT(INOUT) :: this
@@ -1709,8 +1715,12 @@ CONTAINS
     CLASS(marray_compound), INTENT(INOUT) :: pvar,cvar,sterm
     !------------------------------------------------------------------------!
     ! compute geometrical source only for non-cartesian mesh
-    IF (Mesh%Geometry%GetType().NE.CARTESIAN) THEN
-      SELECT TYPE(p => pvar)
+    SELECT TYPE(mgeo => Mesh%geometry)
+    TYPE IS(geometry_cartesian)
+      ! do nothing
+    CLASS DEFAULT
+      ! curvilinear geometry
+    SELECT TYPE(p => pvar)
       TYPE IS(statevector_euler)
         SELECT TYPE(c => cvar)
         TYPE IS(statevector_euler)
@@ -1835,7 +1845,7 @@ CONTAINS
         sterm%data3d(:,Mesh%KGMIN:Mesh%KMIN+Mesh%KM1,:) = 0.0
         sterm%data3d(:,Mesh%KMAX+Mesh%KP1:Mesh%KGMAX,:) = 0.0
       END IF
-    END IF
+    END SELECT
   END SUBROUTINE GeometricalSources
 
   !> compute momentum and energy sources given an external force
@@ -1854,9 +1864,23 @@ CONTAINS
       TYPE IS(statevector_euler)
         SELECT TYPE(s => sterm)
         TYPE IS(statevector_euler)
-          DO CONCURRENT (m=1:SIZE(s%energy%data1d))
-            s%energy%data1d(m) = SUM(c%momentum%data2d(m,:) * accel%data2d(m,:))
-          END DO
+          SELECT CASE(this%VDIM)
+          CASE(1)
+            DO m=1,SIZE(s%energy%data1d)
+              s%energy%data1d(m) = c%momentum%data2d(m,1) * accel%data2d(m,1)
+            END DO
+          CASE(2)
+            DO m=1,SIZE(s%energy%data1d)
+              s%energy%data1d(m) = c%momentum%data2d(m,1) * accel%data2d(m,1) &
+                                 + c%momentum%data2d(m,2) * accel%data2d(m,2)
+            END DO
+          CASE(3)
+            DO m=1,SIZE(s%energy%data1d)
+              s%energy%data1d(m) = c%momentum%data2d(m,1) * accel%data2d(m,1) &
+                                 + c%momentum%data2d(m,2) * accel%data2d(m,2) &
+                                 + c%momentum%data2d(m,3) * accel%data2d(m,3)
+            END DO
+          END SELECT
         END SELECT
       END SELECT
     END SELECT
@@ -1941,11 +1965,12 @@ CONTAINS
     !------------------------------------------------------------------------!
     INTEGER                               :: i,j,k
     !------------------------------------------------------------------------!
-    IF (this%transformed_xvelocity) THEN
-      SELECT TYPE(p => pvar)
+    SELECT TYPE(p => pvar)
+    TYPE IS(statevector_euler)
+      SELECT TYPE(c => cvar)
       TYPE IS(statevector_euler)
-        SELECT TYPE(c => cvar)
-        TYPE IS(statevector_euler)
+        IF (c%fargo_transformation_applied) THEN
+          IF (.NOT.p%fargo_transformation_applied) RETURN ! should not happen
           DO k=Mesh%KGMIN,Mesh%KGMAX
             DO j=Mesh%JGMIN,Mesh%JGMAX
               DO i=Mesh%IGMIN,Mesh%IGMAX
@@ -1960,10 +1985,11 @@ CONTAINS
               END DO
             END DO
           END DO
-          this%transformed_xvelocity = .FALSE.
-        END SELECT
+          c%fargo_transformation_applied = .FALSE.
+          p%fargo_transformation_applied = .FALSE.
+        END IF
       END SELECT
-    END IF
+    END SELECT
   END SUBROUTINE AddBackgroundVelocityX
 
   !> Adds a background velocity field for fargo routines
@@ -1985,31 +2011,41 @@ CONTAINS
                             INTENT(IN)    :: w
     CLASS(marray_compound), INTENT(INOUT) ::  pvar,cvar
     !------------------------------------------------------------------------!
-    INTEGER                               :: i,j,k
+    INTEGER                               :: i,j,k,v_idx
     !------------------------------------------------------------------------!
-    IF (this%transformed_yvelocity) THEN
-      SELECT TYPE(p => pvar)
+    SELECT TYPE(p => pvar)
+    TYPE IS(statevector_euler)
+      SELECT TYPE(c => cvar)
       TYPE IS(statevector_euler)
-        SELECT TYPE(c => cvar)
-        TYPE IS(statevector_euler)
+        IF (c%fargo_transformation_applied) THEN
+          IF (.NOT.p%fargo_transformation_applied) RETURN ! should not happen
+          ! check if x-component of velocity vector is available
+          IF (BTEST(Mesh%VECTOR_COMPONENTS,0)) THEN
+            ! y-component is the 2nd component
+            v_idx = 2
+          ELSE
+            ! no x-component -> y-component is the first component
+            v_idx = 1
+          END IF
           DO k=Mesh%KGMIN,Mesh%KGMAX
             DO j=Mesh%JGMIN,Mesh%JGMAX
-              DO CONCURRENT (i=Mesh%IGMIN:Mesh%IGMAX)
+              DO i=Mesh%IGMIN,Mesh%IGMAX
                 ! ATTENTION: don't change the order; on the RHS of the first
                 !            assignment there must be the old momentum
                 c%energy%data3d(i,j,k) = c%energy%data3d(i,j,k) &
-                    + w(i,k)*(c%momentum%data4d(i,j,k,2) &
+                    + w(i,k)*(c%momentum%data4d(i,j,k,v_idx) &
                     + 0.5*c%density%data3d(i,j,k)*w(i,k))
-                p%velocity%data4d(i,j,k,2) = p%velocity%data4d(i,j,k,2) + w(i,k)
-                c%momentum%data4d(i,j,k,2) = c%momentum%data4d(i,j,k,2) &
+                p%velocity%data4d(i,j,k,v_idx) = p%velocity%data4d(i,j,k,v_idx) + w(i,k)
+                c%momentum%data4d(i,j,k,v_idx) = c%momentum%data4d(i,j,k,v_idx) &
                     + c%density%data3d(i,j,k)*w(i,k)
               END DO
             END DO
           END DO
-          this%transformed_yvelocity = .FALSE.
-        END SELECT
+          c%fargo_transformation_applied = .FALSE.
+          p%fargo_transformation_applied = .FALSE.
+        END IF
       END SELECT
-    END IF
+    END SELECT
   END SUBROUTINE AddBackgroundVelocityY
 
   !> Adds a background velocity field for fargo routines
@@ -2033,27 +2069,31 @@ CONTAINS
     !------------------------------------------------------------------------!
     INTEGER                               :: i,j,k
     !------------------------------------------------------------------------!
-    IF (this%transformed_zvelocity) THEN
-      SELECT TYPE(p => pvar)
+    SELECT TYPE(p => pvar)
+    TYPE IS(statevector_euler)
+      SELECT TYPE(c => cvar)
       TYPE IS(statevector_euler)
-        SELECT TYPE(c => cvar)
-        TYPE IS(statevector_euler)
+        IF (c%fargo_transformation_applied) THEN
+          IF (.NOT.p%fargo_transformation_applied) RETURN ! should not happen
           DO k=Mesh%KGMIN,Mesh%KGMAX
-            DO CONCURRENT (i=Mesh%IGMIN:Mesh%IGMAX,j=Mesh%JGMIN:Mesh%JGMAX)
-              ! ATTENTION: don't change the order; on the RHS of the first
-              !            assignment there must be the old momentum
-              c%energy%data3d(i,j,k) = c%energy%data3d(i,j,k) &
-                    + w(i,j)*(c%momentum%data4d(i,j,k,3) &
-                    + 0.5*c%density%data3d(i,j,k)*w(i,j))
-              p%velocity%data4d(i,j,k,3) = p%velocity%data4d(i,j,k,3) + w(i,j)
-              c%momentum%data4d(i,j,k,3) = c%momentum%data4d(i,j,k,3) &
-                    + c%density%data3d(i,j,k)*w(i,j)
+            DO j=Mesh%JGMIN,Mesh%JGMAX
+              DO i=Mesh%IGMIN,Mesh%IGMAX
+                ! ATTENTION: don't change the order; on the RHS of the first
+                !            assignment there must be the old momentum
+                c%energy%data3d(i,j,k) = c%energy%data3d(i,j,k) &
+                      + w(i,j)*(c%momentum%data4d(i,j,k,this%VDIM) &
+                      + 0.5*c%density%data3d(i,j,k)*w(i,j))
+                p%velocity%data4d(i,j,k,this%VDIM) = p%velocity%data4d(i,j,k,this%VDIM) + w(i,j)
+                c%momentum%data4d(i,j,k,this%VDIM) = c%momentum%data4d(i,j,k,this%VDIM) &
+                      + c%density%data3d(i,j,k)*w(i,j)
+              END DO
             END DO
           END DO
-          this%transformed_zvelocity = .FALSE.
-        END SELECT
+          c%fargo_transformation_applied = .FALSE.
+          p%fargo_transformation_applied = .FALSE.
+        END IF
       END SELECT
-    END IF
+    END SELECT
   END SUBROUTINE AddBackgroundVelocityZ
 
   !> Substracts a background velocity field for fargo routines
@@ -2066,6 +2106,8 @@ CONTAINS
   !! \f}
   !! with \f$ E, v_x, m_x \f$ the total energy, velocity and momentum. The
   !! \f$ ' \f$ denotes the residual part. \f$ w \f$ is the velocity shift.
+  !! ATTENTION: the "+" before the 3rd term in the energy transformation is
+  !!            correct!
   PURE SUBROUTINE SubtractBackgroundVelocityX(this,Mesh,w,pvar,cvar)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
@@ -2077,11 +2119,12 @@ CONTAINS
     !------------------------------------------------------------------------!
     INTEGER :: i,j,k
     !------------------------------------------------------------------------!
-    IF (.NOT.this%transformed_xvelocity) THEN
-      SELECT TYPE(p => pvar)
+    SELECT TYPE(p => pvar)
+    TYPE IS(statevector_euler)
+      SELECT TYPE(c => cvar)
       TYPE IS(statevector_euler)
-        SELECT TYPE(c => cvar)
-        TYPE IS(statevector_euler)
+        IF (.NOT.c%fargo_transformation_applied) THEN
+          IF (p%fargo_transformation_applied) RETURN ! should not happen
           DO k=Mesh%KGMIN,Mesh%KGMAX
             DO j=Mesh%JGMIN,Mesh%JGMAX
               DO i=Mesh%IGMIN,Mesh%IGMAX
@@ -2096,10 +2139,11 @@ CONTAINS
               END DO
             END DO
           END DO
-          this%transformed_xvelocity = .TRUE.
-        END SELECT
+          c%fargo_transformation_applied = .TRUE.
+          p%fargo_transformation_applied = .TRUE.
+        END IF
       END SELECT
-    END IF
+    END SELECT
   END SUBROUTINE SubtractBackgroundVelocityX
 
   !> Substracts a background velocity field for fargo routines
@@ -2112,6 +2156,8 @@ CONTAINS
   !! \f}
   !! with \f$ E, v_y, m_y \f$ the total energy, velocity and momentum. The
   !! \f$ ' \f$ denotes the residual part. \f$ w \f$ is the velocity shift.
+  !! ATTENTION: the "+" before the 3rd term in the energy transformation is
+  !!            correct!
   PURE SUBROUTINE SubtractBackgroundVelocityY(this,Mesh,w,pvar,cvar)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
@@ -2121,31 +2167,41 @@ CONTAINS
                             INTENT(IN)    :: w
     CLASS(marray_compound), INTENT(INOUT) ::  pvar,cvar
     !------------------------------------------------------------------------!
-    INTEGER                               :: i,j,k
+    INTEGER                               :: i,j,k,v_idx
     !------------------------------------------------------------------------!
-    IF (.NOT.this%transformed_yvelocity) THEN
-      SELECT TYPE(p => pvar)
+    SELECT TYPE(p => pvar)
+    TYPE IS(statevector_euler)
+      SELECT TYPE(c => cvar)
       TYPE IS(statevector_euler)
-        SELECT TYPE(c => cvar)
-        TYPE IS(statevector_euler)
+        IF (.NOT.c%fargo_transformation_applied) THEN
+          IF (p%fargo_transformation_applied) RETURN ! should not happen
+          ! check if x-component of velocity vector is available
+          IF (BTEST(Mesh%VECTOR_COMPONENTS,0)) THEN
+            ! y-component is the 2nd component
+            v_idx = 2
+          ELSE
+            ! no x-component -> y-component is the first component
+            v_idx = 1
+          END IF
           DO k=Mesh%KGMIN,Mesh%KGMAX
             DO j=Mesh%JGMIN,Mesh%JGMAX
-              DO CONCURRENT (i=Mesh%IGMIN:Mesh%IGMAX)
+              DO i=Mesh%IGMIN,Mesh%IGMAX
                 ! ATTENTION: don't change the order; on the RHS of the first
                 !            assignment there must be the old momentum
                 c%energy%data3d(i,j,k) = c%energy%data3d(i,j,k) &
-                    - w(i,k)*(c%momentum%data4d(i,j,k,2) &
+                    - w(i,k)*(c%momentum%data4d(i,j,k,v_idx) &
                     - 0.5*c%density%data3d(i,j,k)*w(i,k))
-                p%velocity%data4d(i,j,k,2) = p%velocity%data4d(i,j,k,2) - w(i,k)
-                c%momentum%data4d(i,j,k,2) = c%momentum%data4d(i,j,k,2) &
+                p%velocity%data4d(i,j,k,v_idx) = p%velocity%data4d(i,j,k,v_idx) - w(i,k)
+                c%momentum%data4d(i,j,k,v_idx) = c%momentum%data4d(i,j,k,v_idx) &
                     - c%density%data3d(i,j,k)*w(i,k)
               END DO
             END DO
           END DO
-          this%transformed_yvelocity = .TRUE.
-        END SELECT
+          c%fargo_transformation_applied = .TRUE.
+          p%fargo_transformation_applied = .TRUE.
+        END IF
       END SELECT
-    END IF
+    END SELECT
   END SUBROUTINE SubtractBackgroundVelocityY
 
   !> Substracts a background velocity field for fargo routines
@@ -2158,6 +2214,8 @@ CONTAINS
   !! \f}
   !! with \f$ E, v_z, m_z \f$ the total energy, velocity and momentum. The
   !! \f$ ' \f$ denotes the residual part. \f$ w \f$ is the velocity shift.
+  !! ATTENTION: the "+" before the 3rd term in the energy transformation is
+  !!            correct!
   PURE SUBROUTINE SubtractBackgroundVelocityZ(this,Mesh,w,pvar,cvar)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
@@ -2169,29 +2227,332 @@ CONTAINS
     !------------------------------------------------------------------------!
     INTEGER                               :: i,j,k
     !------------------------------------------------------------------------!
-    IF (.NOT.this%transformed_zvelocity) THEN
-      SELECT TYPE(p => pvar)
+    SELECT TYPE(p => pvar)
+    TYPE IS(statevector_euler)
+      SELECT TYPE(c => cvar)
       TYPE IS(statevector_euler)
-        SELECT TYPE(c => cvar)
-        TYPE IS(statevector_euler)
+        IF (.NOT.c%fargo_transformation_applied) THEN
+          IF (p%fargo_transformation_applied) RETURN ! should not happen
           DO k=Mesh%KGMIN,Mesh%KGMAX
-            DO CONCURRENT (i=Mesh%IGMIN:Mesh%IGMAX,j=Mesh%JGMIN:Mesh%JGMAX)
-              ! ATTENTION: don't change the order; on the RHS of the first
-              !            assignment there must be the old momentum
-              c%energy%data3d(i,j,k) = c%energy%data3d(i,j,k) &
-                    - w(i,j)*(c%momentum%data4d(i,j,k,3) &
-                    - 0.5*c%density%data3d(i,j,k)*w(i,j))
-              p%velocity%data4d(i,j,k,3) = p%velocity%data4d(i,j,k,3) - w(i,j)
-              c%momentum%data4d(i,j,k,3) = c%momentum%data4d(i,j,k,3) &
-                    - c%density%data3d(i,j,k)*w(i,j)
+            DO j=Mesh%JGMIN,Mesh%JGMAX
+              DO i=Mesh%IGMIN,Mesh%IGMAX
+                ! ATTENTION: don't change the order; on the RHS of the first
+                !            assignment there must be the old momentum
+                c%energy%data3d(i,j,k) = c%energy%data3d(i,j,k) &
+                      - w(i,j)*(c%momentum%data4d(i,j,k,this%VDIM) &
+                      - 0.5*c%density%data3d(i,j,k)*w(i,j))
+                p%velocity%data4d(i,j,k,this%VDIM) = p%velocity%data4d(i,j,k,this%VDIM) - w(i,j)
+                c%momentum%data4d(i,j,k,this%VDIM) = c%momentum%data4d(i,j,k,this%VDIM) &
+                      - c%density%data3d(i,j,k)*w(i,j)
+              END DO
             END DO
           END DO
-          this%transformed_zvelocity = .TRUE.
-        END SELECT
+          c%fargo_transformation_applied = .TRUE.
+          p%fargo_transformation_applied = .TRUE.
+        END IF
       END SELECT
-    END IF
+    END SELECT
   END SUBROUTINE SubtractBackgroundVelocityZ
 
+
+  !> \public sources terms for fargo advection along x-direction
+  !!
+  !! If the background velocity \f$\vec{w}=w\,\hat{e}_\xi\f$ with
+  !! \f$w\f$ independent of \f$\xi\f$ and \f$t\f$ is subtracted from
+  !! the overall velocity of the flow, an additional source term occurs
+  !! in the \f$\xi\f$-momentum equation:
+  !! \f[
+  !!     S_\mathrm{Fargo} = -\varrho \vec{v} \cdot \nabla \vec{w}
+  !! \f]
+  !! where \f$\vec{v}\f$ is the real velocity (including the background
+  !! velocity \f$\vec{w}\f$ ).
+  PURE SUBROUTINE AddFargoSourcesX(this,Mesh,w,pvar,cvar,sterm)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(physics_euler), INTENT(INOUT) :: this
+    CLASS(mesh_base), INTENT(IN)             :: Mesh
+    REAL, DIMENSION(Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX), INTENT(IN) :: w
+    CLASS(marray_compound), INTENT(INOUT)    :: pvar,cvar,sterm
+    !------------------------------------------------------------------------!
+    INTEGER           :: i,j,k
+    !------------------------------------------------------------------------!
+    SELECT TYPE(c => cvar)
+    CLASS IS(statevector_euler)
+      SELECT TYPE(p => pvar)
+      TYPE IS(statevector_euler)
+        SELECT TYPE(s => sterm)
+        CLASS IS(statevector_euler)
+          ! ATTENTION: fargo sources are added to the given sterm
+          SELECT CASE(Mesh%VECTOR_COMPONENTS)
+          CASE(IOR(VECTOR_X,VECTOR_Y))
+            ! 2D (x,y) momentum vector
+            DO k=Mesh%KMIN,Mesh%KMAX
+              DO j=Mesh%JMIN,Mesh%JMAX
+                DO i=Mesh%IMIN,Mesh%IMAX
+                  this%tmp(i,j,k) = c%momentum%data4d(i,j,k,2) * 0.5 * (w(j+1,k)-w(j-1,k)) &
+                    / Mesh%dly%data3d(i,j,k)
+                  ! x-momentum source
+                  s%momentum%data4d(i,j,k,1) = s%momentum%data4d(i,j,k,1) - this%tmp(i,j,k)
+                  ! add geometrical terms
+                  this%tmp(i,j,k) = this%tmp(i,j,k) + GetGeometricalSourceX( &
+                    Mesh%cxyx%data4d(i,j,k,2),Mesh%cxzx%data4d(i,j,k,2), &
+                    Mesh%cyxy%data4d(i,j,k,2),Mesh%czxz%data4d(i,j,k,2), &
+                    p%velocity%data4d(i,j,k,1),p%velocity%data4d(i,j,k,2),0.0, &
+                    0.0,c%momentum%data4d(i,j,k,2),0.0)
+                  ! energy source
+                  s%energy%data3d(i,j,k) = s%energy%data3d(i,j,k) &
+                    - p%velocity%data4d(i,j,k,1)*this%tmp(i,j,k)
+                END DO
+              END DO
+            END DO
+          CASE(IOR(VECTOR_X,VECTOR_Z))
+            ! 2D (x,z) momentum vector
+            DO k=Mesh%KMIN,Mesh%KMAX
+              DO j=Mesh%JMIN,Mesh%JMAX
+                DO i=Mesh%IMIN,Mesh%IMAX
+                  this%tmp(i,j,k) = c%momentum%data4d(i,j,k,2) * 0.5 * (w(j,k+1)-w(j,k-1)) &
+                    / Mesh%dlz%data3d(i,j,k)
+                  ! x-momentum source
+                  s%momentum%data4d(i,j,k,1) = s%momentum%data4d(i,j,k,1) - this%tmp(i,j,k)
+                  ! add geometrical terms
+                  this%tmp(i,j,k) = this%tmp(i,j,k) + GetGeometricalSourceX( &
+                    Mesh%cxyx%data4d(i,j,k,2),Mesh%cxzx%data4d(i,j,k,2), &
+                    Mesh%cyxy%data4d(i,j,k,2),Mesh%czxz%data4d(i,j,k,2), &
+                    p%velocity%data4d(i,j,k,1),0.0,p%velocity%data4d(i,j,k,2), &
+                    0.0,0.0,c%momentum%data4d(i,j,k,2))
+                  ! energy source
+                  s%energy%data3d(i,j,k) = s%energy%data3d(i,j,k) &
+                    - p%velocity%data4d(i,j,k,1)*this%tmp(i,j,k)
+                END DO
+              END DO
+            END DO
+          CASE(IOR(IOR(VECTOR_X,VECTOR_Y),VECTOR_Z))
+            ! 3D momentum vector
+            DO k=Mesh%KMIN,Mesh%KMAX
+              DO j=Mesh%JMIN,Mesh%JMAX
+                DO i=Mesh%IMIN,Mesh%IMAX
+                  this%tmp(i,j,k) = c%momentum%data4d(i,j,k,2) * 0.5 * (w(j+1,k)-w(j-1,k)) / Mesh%dly%data3d(i,j,k) &
+                    + c%momentum%data4d(i,j,k,3) * 0.5 * (w(j,k+1)-w(j,k-1)) / Mesh%dlz%data3d(i,j,k)
+                  ! x-momentum source
+                  s%momentum%data4d(i,j,k,1) = s%momentum%data4d(i,j,k,1) - this%tmp(i,j,k)
+                  ! add geometrical terms
+                  this%tmp(i,j,k) = this%tmp(i,j,k) + GetGeometricalSourceX( &
+                    Mesh%cxyx%data4d(i,j,k,2),Mesh%cxzx%data4d(i,j,k,2), &
+                    Mesh%cyxy%data4d(i,j,k,2),Mesh%czxz%data4d(i,j,k,2), &
+                    p%velocity%data4d(i,j,k,1),p%velocity%data4d(i,j,k,2), &
+                    p%velocity%data4d(i,j,k,3), &
+                    0.0,c%momentum%data4d(i,j,k,2),c%momentum%data4d(i,j,k,3))
+                  ! energy source
+                  s%energy%data3d(i,j,k) = s%energy%data3d(i,j,k) &
+                    - p%velocity%data4d(i,j,k,1)*this%tmp(i,j,k)
+                END DO
+              END DO
+            END DO
+          CASE DEFAULT
+            ! do nothing in any other case
+          END SELECT
+        END SELECT
+      END SELECT
+    END SELECT
+  END SUBROUTINE AddFargoSourcesX
+
+  !> \public sources terms for fargo advection along y-direction
+  !!
+  !! If the background velocity \f$\vec{w}=w\,\hat{e}_\eta\f$ with
+  !! \f$w\f$ independent of \f$\eta\f$ and \f$t\f$ is subtracted from
+  !! the overall velocity of the flow, an additional source term occurs
+  !! in the \f$\eta\f$-momentum equation:
+  !! \f[
+  !!     S_\mathrm{Fargo} = -\varrho \vec{v} \cdot \nabla \vec{w}
+  !! \f]
+  !! where \f$\vec{v}\f$ is the real velocity (including the background
+  !! velocity \f$\vec{w}\f$ ).
+  PURE SUBROUTINE AddFargoSourcesY(this,Mesh,w,pvar,cvar,sterm)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(physics_euler), INTENT(INOUT) :: this
+    CLASS(mesh_base), INTENT(IN)             :: Mesh
+    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%KGMIN:Mesh%KGMAX), INTENT(IN) :: w
+    CLASS(marray_compound), INTENT(INOUT)    :: pvar,cvar,sterm
+    !------------------------------------------------------------------------!
+    INTEGER           :: i,j,k
+    !------------------------------------------------------------------------!
+    SELECT TYPE(c => cvar)
+    CLASS IS(statevector_euler)
+      SELECT TYPE(p => pvar)
+      TYPE IS(statevector_euler)
+        SELECT TYPE(s => sterm)
+        CLASS IS(statevector_euler)
+          SELECT CASE(Mesh%VECTOR_COMPONENTS)
+          CASE(IOR(VECTOR_X,VECTOR_Y))
+            ! 2D (x,y) momentum vector
+            DO k=Mesh%KMIN,Mesh%KMAX
+              DO j=Mesh%JMIN,Mesh%JMAX
+                DO i=Mesh%IMIN,Mesh%IMAX
+                  this%tmp(i,j,k) = c%momentum%data4d(i,j,k,1) * 0.5 * (w(i+1,k)-w(i-1,k)) &
+                      / Mesh%dlx%data3d(i,j,k)
+                  ! y-momentum source
+                  s%momentum%data4d(i,j,k,2) = s%momentum%data4d(i,j,k,2) - this%tmp(i,j,k)
+                  ! add geometrical terms
+                  this%tmp(i,j,k) = this%tmp(i,j,k) + GetGeometricalSourceY( &
+                    Mesh%cxyx%data4d(i,j,k,2),Mesh%cyxy%data4d(i,j,k,2), &
+                    Mesh%cyzy%data4d(i,j,k,2),Mesh%czyz%data4d(i,j,k,2), &
+                    p%velocity%data4d(i,j,k,1),p%velocity%data4d(i,j,k,2),0.0, &
+                    0.0,c%momentum%data4d(i,j,k,1),0.0)
+                  ! energy source
+                  s%energy%data3d(i,j,k) = s%energy%data3d(i,j,k) &
+                    - p%velocity%data4d(i,j,k,2)*this%tmp(i,j,k)
+                END DO
+              END DO
+            END DO
+          CASE(IOR(VECTOR_Y,VECTOR_Z))
+            ! 2D (y,z) momentum vector
+            DO k=Mesh%KMIN,Mesh%KMAX
+              DO j=Mesh%JMIN,Mesh%JMAX
+                DO i=Mesh%IMIN,Mesh%IMAX
+                  this%tmp(i,j,k) = c%momentum%data4d(i,j,k,2) * 0.5 * (w(i,k+1)-w(i,k-1)) &
+                    / Mesh%dlz%data3d(i,j,k)
+                  ! y-momentum source
+                  s%momentum%data4d(i,j,k,1) = s%momentum%data4d(i,j,k,1) - this%tmp(i,j,k)
+                  ! add geometrical terms
+                  this%tmp(i,j,k) = this%tmp(i,j,k) + GetGeometricalSourceY( &
+                    Mesh%cxyx%data4d(i,j,k,2),Mesh%cyxy%data4d(i,j,k,2), &
+                    Mesh%cyzy%data4d(i,j,k,2),Mesh%czyz%data4d(i,j,k,2), &
+                    0.0,p%velocity%data4d(i,j,k,1),p%velocity%data4d(i,j,k,2), &
+                    0.0,0.0,c%momentum%data4d(i,j,k,2))
+                  ! energy source
+                  s%energy%data3d(i,j,k) = s%energy%data3d(i,j,k) &
+                    - p%velocity%data4d(i,j,k,1)*this%tmp(i,j,k)
+                END DO
+              END DO
+            END DO
+          CASE(IOR(IOR(VECTOR_X,VECTOR_Y),VECTOR_Z))
+            ! 3D momentum vector
+            DO k=Mesh%KMIN,Mesh%KMAX
+              DO j=Mesh%JMIN,Mesh%JMAX
+                DO i=Mesh%IMIN,Mesh%IMAX
+                  this%tmp(i,j,k) = c%momentum%data4d(i,j,k,1) * 0.5 * (w(i+1,k)-w(i-1,k)) / Mesh%dlx%data3d(i,j,k) &
+                    + c%momentum%data4d(i,j,k,3) * 0.5 * (w(j,k+1)-w(j,k-1)) / Mesh%dlz%data3d(i,j,k)
+                  ! y-momentum source
+                  s%momentum%data4d(i,j,k,2) = s%momentum%data4d(i,j,k,2) - this%tmp(i,j,k)
+                  ! add geometrical terms
+                  this%tmp(i,j,k) = this%tmp(i,j,k) + GetGeometricalSourceY( &
+                    Mesh%cxyx%data4d(i,j,k,2),Mesh%cyxy%data4d(i,j,k,2), &
+                    Mesh%cyzy%data4d(i,j,k,2),Mesh%czyz%data4d(i,j,k,2), &
+                    p%velocity%data4d(i,j,k,1),p%velocity%data4d(i,j,k,2), &
+                    p%velocity%data4d(i,j,k,3),0.0, &
+                    c%momentum%data4d(i,j,k,1),c%momentum%data4d(i,j,k,3))
+                  ! energy source
+                  s%energy%data3d(i,j,k) = s%energy%data3d(i,j,k) &
+                      - p%velocity%data4d(i,j,k,2)*this%tmp(i,j,k)
+                END DO
+              END DO
+            END DO
+          CASE DEFAULT
+            ! do nothing in any other case
+          END SELECT
+        END SELECT
+      END SELECT
+    END SELECT
+  END SUBROUTINE AddFargoSourcesY
+
+  !> \public sources terms for fargo advection along z-direction
+  !!
+  !! If the background velocity \f$\vec{w}=w\,\hat{e}_phi\f$ with
+  !! \f$w\f$ independent of \f$\phi\f$ and \f$t\f$ is subtracted from
+  !! the overall velocity of the flow, an additional source term occurs
+  !! in the \f$\phi\f$-momentum equation:
+  !! \f[
+  !!     S_\mathrm{Fargo} = -\varrho \vec{v} \cdot \nabla \vec{w}
+  !! \f]
+  !! where \f$\vec{v}\f$ is the real velocity (including the background
+  !! velocity \f$\vec{w}\f$ ).
+  PURE SUBROUTINE AddFargoSourcesZ(this,Mesh,w,pvar,cvar,sterm)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(physics_euler), INTENT(INOUT)         :: this
+    CLASS(mesh_base), INTENT(IN)             :: Mesh
+    REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX), INTENT(IN) :: w
+    CLASS(marray_compound), INTENT(INOUT)    :: pvar,cvar,sterm
+    !------------------------------------------------------------------------!
+    INTEGER           :: i,j,k
+    !------------------------------------------------------------------------!
+    SELECT TYPE(c => cvar)
+    CLASS IS(statevector_euler)
+      SELECT TYPE(p => pvar)
+      TYPE IS(statevector_euler)
+        SELECT TYPE(s => sterm)
+        CLASS IS(statevector_euler)
+          SELECT CASE(Mesh%VECTOR_COMPONENTS)
+          CASE(IOR(VECTOR_X,VECTOR_Z))
+            ! 2D (x,z) momentum vector
+            DO k=Mesh%KMIN,Mesh%KMAX
+              DO j=Mesh%JMIN,Mesh%JMAX
+                DO i=Mesh%IMIN,Mesh%IMAX
+                  this%tmp(i,j,k) = c%momentum%data4d(i,j,k,1) * 0.5 * (w(i+1,j)-w(i-1,j)) / Mesh%dlx%data3d(i,j,k)
+                  ! z-momentum source
+                  s%momentum%data4d(i,j,k,2) = s%momentum%data4d(i,j,k,2) - this%tmp(i,j,k)
+                  ! add geometrical terms
+                  this%tmp(i,j,k) = this%tmp(i,j,k) + GetGeometricalSourceZ( &
+                    Mesh%cxzx%data4d(i,j,k,2),Mesh%cyzy%data4d(i,j,k,2), &
+                    Mesh%czxz%data4d(i,j,k,2),Mesh%czyz%data4d(i,j,k,2), &
+                    p%velocity%data4d(i,j,k,1),0.0,p%velocity%data4d(i,j,k,2), &
+                    0.0,c%momentum%data4d(i,j,k,1),0.0)
+                  ! energy source
+                  s%energy%data3d(i,j,k) = s%energy%data3d(i,j,k) &
+                      - p%velocity%data4d(i,j,k,2)*this%tmp(i,j,k)
+                END DO
+              END DO
+            END DO
+          CASE(IOR(VECTOR_Y,VECTOR_Z))
+            ! 2D (y,z) momentum vector
+            DO k=Mesh%KMIN,Mesh%KMAX
+              DO j=Mesh%JMIN,Mesh%JMAX
+                DO i=Mesh%IMIN,Mesh%IMAX
+                  this%tmp(i,j,k) = c%momentum%data4d(i,j,k,1) * 0.5 * (w(i,j+1)-w(i,j-1)) / Mesh%dly%data3d(i,j,k)
+                  ! z-momentum source
+                  s%momentum%data4d(i,j,k,2) = s%momentum%data4d(i,j,k,2) - this%tmp(i,j,k)
+                  ! add geometrical terms
+                  this%tmp(i,j,k) = this%tmp(i,j,k) + GetGeometricalSourceZ( &
+                    Mesh%cxzx%data4d(i,j,k,2),Mesh%cyzy%data4d(i,j,k,2), &
+                    Mesh%czxz%data4d(i,j,k,2),Mesh%czyz%data4d(i,j,k,2), &
+                    0.0,p%velocity%data4d(i,j,k,1),p%velocity%data4d(i,j,k,2), &
+                    0.0,0.0,c%momentum%data4d(i,j,k,1))
+                  ! energy source
+                  s%energy%data3d(i,j,k) = s%energy%data3d(i,j,k) &
+                      - p%velocity%data4d(i,j,k,2)*this%tmp(i,j,k)
+                END DO
+              END DO
+            END DO
+          CASE(IOR(IOR(VECTOR_X,VECTOR_Y),VECTOR_Z))
+            ! 3D momentum vector
+            DO k=Mesh%KMIN,Mesh%KMAX
+              DO j=Mesh%JMIN,Mesh%JMAX
+                DO i=Mesh%IMIN,Mesh%IMAX
+                  this%tmp(i,j,k) = c%momentum%data4d(i,j,k,1) * 0.5 * (w(i+1,j)-w(i-1,j)) / Mesh%dlx%data3d(i,j,k) &
+                    + c%momentum%data4d(i,j,k,2) * 0.5 * (w(j,j+1)-w(j,j-1)) / Mesh%dly%data3d(i,j,k)
+                  ! z-momentum source
+                  s%momentum%data4d(i,j,k,3) = s%momentum%data4d(i,j,k,3) - this%tmp(i,j,k)
+                  ! add geometrical terms
+                  this%tmp(i,j,k) = this%tmp(i,j,k) + GetGeometricalSourceZ( &
+                    Mesh%cxzx%data4d(i,j,k,2),Mesh%cyzy%data4d(i,j,k,2), &
+                    Mesh%czxz%data4d(i,j,k,2),Mesh%czyz%data4d(i,j,k,2), &
+                    p%velocity%data4d(i,j,k,1),p%velocity%data4d(i,j,k,2), &
+                    p%velocity%data4d(i,j,k,3), &
+                    0.0,c%momentum%data4d(i,j,k,1),c%momentum%data4d(i,j,k,2))
+                  ! energy source
+                  s%energy%data3d(i,j,k) = s%energy%data3d(i,j,k) &
+                      - p%velocity%data4d(i,j,k,3)*this%tmp(i,j,k)
+                END DO
+              END DO
+            END DO
+          CASE DEFAULT
+            ! do nothing in any other case
+          END SELECT
+        END SELECT
+      END SELECT
+    END SELECT
+  END SUBROUTINE AddFargoSourcesZ
 
   PURE SUBROUTINE UpdateSoundSpeed(this,pvar)
     IMPLICIT NONE

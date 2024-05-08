@@ -3,7 +3,7 @@
 !# fosite - 3D hydrodynamical simulation program                             #
 !# module: vortex2d.f90                                                      #
 !#                                                                           #
-!# Copyright (C) 2006-2021                                                   #
+!# Copyright (C) 2006-2024                                                   #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
 !#                                                                           #
 !# This program is free software; you can redistribute it and/or modify      #
@@ -39,9 +39,12 @@ PROGRAM vortex3d
   REAL, PARAMETER    :: TSIM    = 30.0     ! simulation stop time
   REAL, PARAMETER    :: GAMMA   = 1.4      ! ratio of specific heats
   REAL, PARAMETER    :: CSISO   = &
-!                                   0.0      ! non-isothermal simulation
-                                  1.127    ! isothermal simulation
+                                  0.0      ! non-isothermal simulation
+!                                   1.127    ! isothermal simulation
                                            !   with CSISO as sound speed
+  INTEGER, PARAMETER :: FARGO= 0           ! 0: disables fargo transport
+                                           ! 1: dynamic background velocity field,
+                                           ! 2: fixed background velocity field
   ! initial condition (dimensionless units)
   REAL, PARAMETER    :: RHOINF  = 1.       ! ambient density
   REAL, PARAMETER    :: PINF    = 1.       ! ambient pressure
@@ -192,8 +195,7 @@ CONTAINS
               "meshtype" / MIDPOINT, &
               "geometry" / MGEO,     &
               "omega"    / OMEGA,    &
-              "use_fargo"/ 0,        &
-              "fargo"    / 1,        &
+              "fargo/method" / FARGO, &
               "decomposition"   / (/ -1, 1, -1/), & ! do not decompose along 2nd dimension with FARGO!
               "inum"     / XRES,     &
               "jnum"     / YRES,     &
@@ -341,6 +343,17 @@ CONTAINS
       DO n=1,Physics%VDIM
         pvar%velocity%data4d(:,:,:,n) = (domega(:,:,:)-Mesh%OMEGA)*dist_axis(:,:,:)*ephi(:,:,:,n)
       END DO
+      SELECT CASE(Mesh%fargo%GetType())
+      CASE(1,2)
+        SELECT CASE(Mesh%fargo%GetDirection())
+        CASE(1)
+          Timedisc%w(:,:) = pvar%velocity%data4d(Mesh%IMIN,:,:,1)
+        CASE(2)
+          Timedisc%w(:,:) = pvar%velocity%data4d(:,Mesh%JMIN,:,2)
+        CASE(3)
+          Timedisc%w(:,:) = pvar%velocity%data4d(:,Mesh%KMIN,:,3)
+        END SELECT
+      END SELECT
     TYPE IS(statevector_euler) ! non-isothermal HD
       csinf = SQRT(GAMMA*PINF/RHOINF) ! sound speed at infinity (isentropic vortex)
       ! density
@@ -354,9 +367,21 @@ CONTAINS
       DO n=1,Physics%VDIM
         pvar%velocity%data4d(:,:,:,n) = (domega(:,:,:)-Mesh%OMEGA)*dist_axis(:,:,:)*ephi(:,:,:,n)
       END DO
+      SELECT CASE(Mesh%fargo%GetType())
+      CASE(1,2)
+        SELECT CASE(Mesh%fargo%GetDirection())
+        CASE(1)
+          Timedisc%w(:,:) = pvar%velocity%data4d(Mesh%IMIN,:,:,1)
+        CASE(2)
+          Timedisc%w(:,:) = pvar%velocity%data4d(:,Mesh%JMIN,:,2)
+        CASE(3)
+          Timedisc%w(:,:) = pvar%velocity%data4d(:,:,Mesh%KMIN,3)
+        END SELECT
+      END SELECT
     END SELECT
 
     CALL Physics%Convert2Conservative(Timedisc%pvar,Timedisc%cvar)
+
 
 !     ! compute curvilinear components of constant background velocity field
 !     ! and add to the vortex velocity field

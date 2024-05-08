@@ -359,7 +359,7 @@ CONTAINS
       CALL Physics%Error("mestel::InitData","unsupported state vector")
     END SELECT
 
-    IF (Mesh%FARGO.EQ.2) &
+    IF (Mesh%fargo%GetType().EQ.2) &
        Timedisc%w(:,:) = SQRT(Physics%constants%GN*(MBH/Mesh%radius%bcenter(:,Mesh%JMIN,:)))
 
     CALL Physics%Convert2Conservative(Timedisc%pvar,Timedisc%cvar)

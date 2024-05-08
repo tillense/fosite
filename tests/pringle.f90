@@ -3,7 +3,7 @@
 !# fosite - 3D hydrodynamical simulation program                             #
 !# module: pringle.f90                                                       #
 !#                                                                           #
-!# Copyright (C) 2008-2019                                                   #
+!# Copyright (C) 2008-2024                                                   #
 !# Bjoern Sperling  <sperling@astrophysik.uni-kiel.de>                       #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
 !#                                                                           #
@@ -80,7 +80,7 @@ PROGRAM pringle_test
   INTEGER, PARAMETER :: MGEO = CYLINDRICAL
 !   INTEGER, PARAMETER :: MGEO = LOGCYLINDRICAL
 !   INTEGER, PARAMETER :: MGEO = SPHERICAL !!! ATTENTION: not applicable in 1D
-  INTEGER, PARAMETER :: XRES = 400        ! x-resolution
+  INTEGER, PARAMETER :: XRES = 400         ! x-resolution
   INTEGER, PARAMETER :: YRES = 1           ! y-resolution
   INTEGER, PARAMETER :: ZRES = 1           ! z-resolution
   REAL, PARAMETER    :: RMIN = 0.05        ! min radius of comp. domain
@@ -297,8 +297,7 @@ CONTAINS
            "ymax"       / y2, &
            "zmin"       / z1, &
            "zmax"       / z2, &
-!            "use_fargo"  / 1, &
-!            "fargo"      / 2, &
+           "fargo/method" / 0, &
            "gparam"     / GPAR)
 
     ! boundary conditions
@@ -356,7 +355,7 @@ CONTAINS
 !             "rhstype"   / 1, &
             "maxiter"   / 100000000, &
             "tol_rel"   / 0.01, &
-            "tol_abs"   / (/0.0,1e-5,0.0/))
+            "tol_abs"   / (/1e-16,1e-2,1e-6/))
 
     ! enable output of analytical solution
 #ifdef HAVE_FGSL
@@ -501,8 +500,17 @@ CONTAINS
     END IF
 
     ! check fargo and set background velocity field
-    IF (Mesh%FARGO.EQ.2) &
-       Timedisc%w(:,:) = SQRT(1.0/radius(:,Mesh%JMIN,:))
+    SELECT CASE(Mesh%fargo%GetType())
+    CASE(1,2)
+      SELECT CASE(Mesh%fargo%GetDirection())
+      CASE(1)
+        Timedisc%w(:,:) = SQRT(1.0/radius(Mesh%IMIN,:,:))
+      CASE(2)
+        Timedisc%w(:,:) = SQRT(1.0/radius(:,Mesh%IMIN,:))
+      CASE(3)
+        Timedisc%w(:,:) = SQRT(1.0/radius(:,:,Mesh%KMIN))
+      END SELECT
+    END SELECT
 
     ! transform to conservative variables
     CALL Physics%Convert2Conservative(Timedisc%pvar,Timedisc%cvar)

@@ -3,7 +3,7 @@
 !# fosite - 3D hydrodynamical simulation program                             #
 !# module: mesh_generic.f90                                                  #
 !#                                                                           #
-!# Copyright (C) 2006-2019                                                   #
+!# Copyright (C) 2006-2024                                                   #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
 !#                                                                           #
 !# This program is free software; you can redistribute it and/or modify      #
@@ -47,6 +47,9 @@
 !! \key{Qshear,REAL,power law exponent of the rotation law \f$ Q=-\frac{d\ln\Omega}{d\ln r}\f$
 !!      in the shearing box,1.5}
 !! \key{rotcent,REAL,cartesian (x\,y)-coordiantes for center of rotation,(0\,0)}
+!! - enable fargo transport
+!! \key{fargo/method,INTEGER,fargo transport method {0:disabled,1:dynamic velocity,2:fixed velocity,3:shearing box},0}
+!! \key{fargo/direction,INTEGER,coordinate direction of fargo transport,2}
 !! - enable/disable output of certain mesh arrays
 !! \key{output/bary,INTEGER,cell bary center in cartesian coordinates,1}
 !! \key{output/bary_curv,INTEGER,cell bary center in curvilinear coordinates,1}
@@ -108,11 +111,19 @@ MODULE mesh_base_mod
      VECTOR_X = INT(B'001'), &
      VECTOR_Y = INT(B'010'), &
      VECTOR_Z = INT(B'100')
+  !> base class for fargo transport properties and methods
+  TYPE, EXTENDS(logging_base) :: fargo_base
+    INTEGER :: direction = 0
+  CONTAINS
+    PROCEDURE :: GetDirection
+    PROCEDURE :: GetDirectionName
+  END TYPE fargo_base
   !> mesh data structure
   !PRIVATE
   TYPE,ABSTRACT, EXTENDS(logging_base) :: mesh_base
     !> \name Variables
     CLASS(geometry_base),ALLOCATABLE :: Geometry        !< geometrical properties
+    TYPE(fargo_base)  :: fargo             !< fargo transport properties
     TYPE(selection_base) :: without_ghost_zones !< for masking part of comp. domain
     INTEGER           :: GNUM              !< number of ghost cells
     INTEGER           :: GINUM,GJNUM,GKNUM !< number of ghost cells in any direction
@@ -136,9 +147,7 @@ MODULE mesh_base_mod
     REAL              :: invdx,invdy,invdz !< inverse of curvilinear spatial differences
     REAL              :: omega             !< speed of the rotating frame of ref.
     REAL              :: Q                 !< shearing parameter
-    INTEGER           :: use_fargo         !< Fargo parameter (0 disabled, 1 enabled)
-    INTEGER           :: shear_dir         !< Enables shearingbox with shear direction (0 disabled, 1 enabled)
-    INTEGER           :: fargo             !< Fargo parameter (0 disabled, 1,2,3 enabled)
+    INTEGER           :: shear_dir         !< Enables shearingbox with shear direction (0 disabled, 1 or 2 enabled)
     INTEGER           :: ROTSYM            !< assume rotational symmetry (> 0 enabled, contains index of azimuthal angle)
     INTEGER           :: VECTOR_COMPONENTS !< enabled vector components
     REAL              :: rotcent(3)        !< center of the rotating frame of ref.
@@ -206,7 +215,6 @@ MODULE mesh_base_mod
     GENERIC  :: Divergence => TensorDivergence3D, VectorDivergence3D, &
                                      VectorDivergence2D_1, &! VectorDivergence2D_2, &
                                      TensorDivergence2D_1 !, TensorDivergence2D_2, &
-
   END TYPE mesh_base
   ABSTRACT INTERFACE
     PURE SUBROUTINE TensorDivergence3D(this,Txx,Txy,Txz,Tyx,Tyy,Tyz,Tzx,Tzy,Tzz, &
@@ -264,7 +272,7 @@ MODULE mesh_base_mod
   !--------------------------------------------------------------------------!
   PUBLIC :: &
        ! types
-       mesh_base, &
+       mesh_base, fargo_base, &
        ! constants
        PI, &
 #ifdef PARALLEL
@@ -296,8 +304,8 @@ CONTAINS
     INTEGER                 :: mtype
     CHARACTER(LEN=32)       :: mname
     !------------------------------------------------------------------------!
-    CHARACTER(LEN=32)       :: xres,yres,zres,somega
-    INTEGER                 :: use_fargo,fargo
+    CHARACTER(LEN=32)       :: xres,yres,zres,somega,fargo_method(4)
+    INTEGER                 :: fargo,fargo_dir
     INTEGER                 :: i,j,k
     REAL                    :: mesh_dx,mesh_dy,mesh_dz
 #ifdef PARALLEL
@@ -339,7 +347,6 @@ CONTAINS
     CALL GetAttr(config, "rotation_center", this%rotcent, this%rotcent)
 
 
-
     ! total resolution
     ! IMPORTANT: The resolution is the key value in order to determine the
     !            used dimensions below
@@ -364,21 +371,57 @@ CONTAINS
     !> \todo check if min/max coordinates are compatible with
     !!       the restrictions imposed by the geometry
 
-    ! check for fargo timestepping
-    use_fargo = 0
-    IF(this%shear_dir.GT.0) use_fargo = 1
-    CALL GetAttr(config, "use_fargo", this%use_fargo, use_fargo)
-    ! enable fargo timestepping for polar geometries
-    ! 1 = calculated mean background velocity w
-    ! 2 = fixed user set background velocity w
-    ! 3 = shearingsheet fixed background velocity w
+    ! check for fargo transport
+    ! default: enable fargo in shearing sheet/box, i.e. if shear_dir is set to something >0
+    !          disable fargo otherwise
     fargo = 0
-    IF (this%use_fargo.NE.0) THEN
-      IF(this%shear_dir.GT.0) fargo = 3
-      CALL GetAttr(config, "fargo", this%fargo, fargo)
-    ELSE
-      this%fargo = fargo
-    END IF
+    IF(this%shear_dir.GT.0) fargo = 3
+    ! check if user request fargo transport
+    CALL GetAttr(config, "fargo/method", fargo, fargo)
+    SELECT CASE(fargo)
+    CASE(0,1,2,3)
+      ! 0 = disable fargo (use this for shearing sheet/box simulations without fargo)
+      ! 1 = calculated mean background velocity
+      ! 2 = fixed user supplied background velocity
+      ! 3 = shearingsheet/box fixed background velocity
+      fargo_method = [CHARACTER(LEN=32) :: "disabled", "dynamic velocity","user supplied fixed velocity","shearingsheet/box shear velocity" ]
+      CALL this%fargo%logging_base%InitLogging(fargo,fargo_method(fargo+1))
+      IF (fargo.GT.0) THEN
+        ! set/check fargo transport direction
+        fargo_dir = this%Geometry%GetAzimuthIndex() ! fargo transport direction corresponds to azimuthal direction if available
+        SELECT CASE(fargo_dir)
+        CASE(0) ! no azimuthal coordinate (probably cartesian geometry)
+          SELECT TYPE(mgeo => this%Geometry)
+          TYPE IS(geometry_cartesian) ! fargo transport could be along any cartesian direction
+            IF (this%fargo%GetType().EQ.3) THEN
+              ! in the shearing sheet the fargo direction is given by the shearing direction
+              ! the user supplied fargo direction from the dictionary is ignored
+              this%fargo%direction = this%shear_dir
+            ELSE
+              ! read user supplied direction from dictionary
+              CALL GetAttr(config, "fargo/direction", this%fargo%direction)
+              IF (this%fargo%direction.GT.3.OR.this%fargo%direction.LT.1) &
+                CALL this%Error("mesh_base::InitMesh","invalid fargo transport direction, should be one of {1,2,3}")
+            END IF
+          CLASS DEFAULT
+            CALL this%Error("mesh_base::InitMesh","fargo transport not supported for this geometry")
+          END SELECT
+        CASE(1,2,3)
+          ! curvilinear geometry with azimuthal (i.e. periodic) coordinate;
+          ! the user supplied fargo direction from the dictionary is ignored
+          this%fargo%direction = fargo_dir
+        CASE DEFAULT
+          ! this should not happen
+          CALL this%Error("mesh_base::InitMesh","wrong coordinate index returned from GetAzimuthIndex")
+        END SELECT
+      ELSE
+        ! fargo disabled -> set direction to 0
+        this%fargo%direction = 0
+      END IF
+    CASE DEFAULT
+      ! wrong input -> abort
+      CALL this%Error("mesh_base::InitMesh","fargo method should be one of {0,1,2,3}")
+    END SELECT
 
     ! check if rotational symmetry is assumed, i.e., if the azimuthal
     ! direction consists of only one cell and a full 2*PI range
@@ -429,6 +472,8 @@ CONTAINS
     IF (this%INUM.EQ.1) THEN
       IF (this%shear_dir.EQ.1) &
         CALL this%Error("mesh_base:Initmesh","shearing box enabled with direction 1, but INUM set to 1")
+      IF (this%fargo%direction.EQ.1) &
+        CALL this%Error("mesh_base:Initmesh","fargo transport enabled with direction 1, but INUM set to 1")
       this%NDIMS = this%NDIMS-1
       IF (this%ROTSYM.NE.1) this%VECTOR_COMPONENTS = IEOR(this%VECTOR_COMPONENTS,VECTOR_X)
       this%GINUM = 0
@@ -440,6 +485,8 @@ CONTAINS
     IF (this%JNUM.EQ.1) THEN
       IF (this%shear_dir.EQ.2) &
         CALL this%Error("mesh_base:Initmesh","shearing box enabled with direction 2, but JNUM set to 1")
+      IF (this%fargo%direction.EQ.2) &
+        CALL this%Error("mesh_base:Initmesh","fargo transport enabled with direction 2, but JNUM set to 1")
       this%NDIMS = this%NDIMS-1
       IF (this%ROTSYM.NE.2) this%VECTOR_COMPONENTS = IEOR(this%VECTOR_COMPONENTS,VECTOR_Y)
       this%GJNUM = 0
@@ -451,6 +498,8 @@ CONTAINS
     IF (this%KNUM.EQ.1) THEN
       IF (this%shear_dir.EQ.3) &
         CALL this%Error("mesh_base:Initmesh","shearing box enabled with direction 3, but KNUM set to 1")
+      IF (this%fargo%direction.EQ.3) &
+        CALL this%Error("mesh_base:Initmesh","fargo transport enabled with direction 3, but KNUM set to 1")
       this%NDIMS = this%NDIMS-1
       IF (this%ROTSYM.NE.3) this%VECTOR_COMPONENTS = IEOR(this%VECTOR_COMPONENTS,VECTOR_Z)
       this%GKNUM = 0
@@ -889,7 +938,6 @@ CONTAINS
     !------------------------------------------------------------------------!
     CLASS(mesh_base) :: this   !< \param [in,out] this all mesh data
     !------------------------------------------------------------------------!
-    INTEGER          :: k
     INTEGER          :: status
     REAL,DIMENSION(this%IGMIN:this%IGMAX,this%JGMIN:this%JGMAX,this%KGMIN:this%KGMAX,3) :: cart,curv
     !------------------------------------------------------------------------!
@@ -1015,11 +1063,6 @@ CONTAINS
       ! for more elaborate error output
       WRITE (decomp_str,'(3(A,I0),A)') "[ ", dims(1), ", ", dims(2), ", ",dims(3), " ]"
 
-      ! set number of cells along each direction again
-      ncells(1) = this%INUM
-      ncells(2) = this%JNUM
-      ncells(3) = this%KNUM
-
       ! perform some sanity checks
       IF (ALL(dims(:).GE.1).AND.PRODUCT(dims(:)).NE.this%GetNumProcs()) &
         CALL this%Error("InitMesh_parallel","total number of processes in domain decomposition " &
@@ -1033,6 +1076,16 @@ CONTAINS
         CALL this%Error("InitMesh_parallel","numbers in decomposition " &
           // TRIM(decomp_str) // ACHAR(10) // REPEAT(' ',7) // &
           "are not devisors of the total number of processes passed to mpirun")
+
+      ! set number of cells along each direction again
+      ncells(1) = this%INUM
+      ncells(2) = this%JNUM
+      ncells(3) = this%KNUM
+
+      ! no decomposition for suppressed dimensions
+      WHERE (ncells(:).EQ.1)
+        dims(:) = 1
+      END WHERE
 
       ! balance number of processes if requested
       IF (ALL(dims(:).GT.0)) THEN
@@ -1519,6 +1572,34 @@ CONTAINS
     CALL this%Geometry%Finalize()
     DEALLOCATE(this%Geometry)
   END SUBROUTINE Finalize_base
+
+  !> \public Get the fargo transport direction
+  !! \return coordinate direction of fargo transport, i.e. {1,2,3} or 0 if disabled
+  PURE FUNCTION GetDirection(this) RESULT(dir)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(fargo_base), INTENT(IN) :: this !< \param [in] this fargo type
+    INTEGER                       :: dir
+    !------------------------------------------------------------------------!
+    dir = this%direction
+  END FUNCTION GetDirection
+
+  !> \public Get the fargo transport direction as string
+  !! \return coordinate direction of fargo transport, i.e. {x,y,z} or none if disabled
+  PURE FUNCTION GetDirectionName(this) RESULT(dir)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(fargo_base), INTENT(IN) :: this !< \param [in] this fargo type
+    CHARACTER(LEN=4)              :: dir, all_dir(3)
+    !------------------------------------------------------------------------!
+    all_dir = [CHARACTER(LEN=1) :: "x","y","z" ]
+    SELECT CASE(this%direction)
+    CASE(1,2,3)
+      dir = all_dir(this%direction)
+    CASE DEFAULT
+      dir = "none"
+    END SELECT
+  END FUNCTION GetDirectionName
 
 
 END MODULE mesh_base_mod
