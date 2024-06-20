@@ -2,7 +2,7 @@ add_library(sources
 #  multipole_cylindrical.f90
   sources_base.f90
   sources_c_accel.f90
-#  sources_cooling.f90
+  sources_cooling.f90
   sources_diskcooling.f90
 #  sources_diskthomson.f90
   sources_generic.f90

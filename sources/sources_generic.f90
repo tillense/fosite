@@ -3,8 +3,9 @@
 !# fosite - 3D hydrodynamical simulation program                             #
 !# module: mesh_generic.f90                                                  #
 !#                                                                           #
-!# Copyright (C) 2016-2018                                                   #
+!# Copyright (C) 2016-2024                                                   #
 !# Manuel Jung <mjung@astrophysik.uni-kiel.de>                               #
+!# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
 !#                                                                           #
 !# This program is free software; you can redistribute it and/or modify      #
 !# it under the terms of the GNU General Public License as published by      #
@@ -26,6 +27,7 @@
 !> \author Manuel Jung
 !! \author Lars Boesch
 !! \author Jannes Klee
+!! \author Tobias Illenseer
 !!
 !! \brief constructor for sources class
 !!
@@ -35,6 +37,7 @@
 MODULE sources_generic_mod
   USE sources_base_mod
   USE sources_c_accel_mod
+  USE sources_cooling_mod
   USE sources_diskcooling_mod
   USE sources_gravity_mod
   USE sources_planetheating_mod
@@ -83,6 +86,8 @@ CONTAINS
            newsrc => null()
         CASE(C_ACCEL)
           ALLOCATE(sources_c_accel::newsrc)
+        CASE(COOLING)
+          ALLOCATE(sources_cooling::newsrc)
         CASE(DISK_COOLING)
           ALLOCATE(sources_diskcooling::newsrc)
         CASE(PLANET_HEATING)
@@ -114,6 +119,8 @@ CONTAINS
           SELECT TYPE(obj => newsrc)
           TYPE IS (sources_c_accel)
             CALL obj%InitSources_c_accel(Mesh,Physics,Fluxes,src,IOsrc)
+          TYPE IS (sources_cooling)
+            CALL obj%InitSources_cooling(Mesh,Physics,Fluxes,src,IOsrc)
           TYPE IS (sources_diskcooling)
             CALL obj%InitSources_diskcooling(Mesh,Physics,Fluxes,src,IOsrc)
             IF (obj%cooling%GetType().EQ.GRAY) update_disk_height = 1

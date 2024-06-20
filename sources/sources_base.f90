@@ -125,7 +125,7 @@ MODULE sources_base_mod
 !  INTEGER, PARAMETER :: DISK_THOMSON     = 2
   INTEGER, PARAMETER :: VISCOSITY        = 3
   INTEGER, PARAMETER :: C_ACCEL          = 4
-!  INTEGER, PARAMETER :: COOLING          = 5
+  INTEGER, PARAMETER :: COOLING          = 5
   INTEGER, PARAMETER :: ROTATING_FRAME   = 20
 !  INTEGER, PARAMETER :: SGS              = 23
   INTEGER, PARAMETER :: DISK_COOLING     = 24
@@ -141,7 +141,7 @@ MODULE sources_base_mod
        sources_base, &
        ! constants
        VISCOSITY, C_ACCEL, SHEARBOX, GRAVITY, DISK_COOLING, ROTATING_FRAME, &
-       PLANET_HEATING, PLANET_COOLING
+       PLANET_HEATING, PLANET_COOLING, COOLING
   !--------------------------------------------------------------------------!
 
 CONTAINS
