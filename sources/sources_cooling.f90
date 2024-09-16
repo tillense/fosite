@@ -52,7 +52,7 @@ MODULE sources_cooling_mod
   PRIVATE
   CHARACTER(LEN=32), PARAMETER :: source_name = "optically thin cooling"
   !--------------------------------------------------------------------------!
-  TYPE, EXTENDS(sources_c_accel) :: sources_cooling
+  TYPE, EXTENDS(sources_base) :: sources_cooling
     TYPE(marray_base), ALLOCATABLE  :: Qcool        !< energy sink due to cooling
     REAL      :: switchon
     REAL      :: Tmin !< temperature minimum
@@ -228,8 +228,9 @@ CONTAINS
     !------------------------------------------------------------------------!
     SELECT TYPE(p => pvar)
     CLASS IS(statevector_euler)
+      ! modify Qcool during switchon phase
       IF (time.GE.0.0.AND.time.LE.this%switchon) THEN
-        ! compute new scaling
+        ! compute new scaling factor < 1 during switchon phase
         scaling = SIN(0.5*PI*time/this%switchon)**2
       ELSE
         scaling = 1.0
@@ -243,10 +244,13 @@ CONTAINS
       ! compute cooling source term ~ n^2 * Λ(T) with
       ! particle density n / m^3 and temperature T / K
       ! return value of lambda is given SI units i.e. W/m^3
-      this%Qcool%data1d(:) = scaling * Physics%Constants%cf_energy &
-        * (Namu * p%density%data1d(:))**2 &
-        * lambda(muRgamma * Physics%bccsound%data1d(:)**2)
-      ! modify Qcool during switchon phase
+      WHERE (Mesh%without_ghost_zones%mask1d(:))
+        this%Qcool%data1d(:) = scaling * Physics%Constants%cf_energy &
+          * (Namu * p%density%data1d(:))**2 &
+          * lambda(muRgamma * Physics%bccsound%data1d(:)**2)
+      ELSEWHERE
+        this%Qcool%data1d(:) = 0.0
+      END WHERE
     END SELECT
   END SUBROUTINE UpdateCooling
 
@@ -257,17 +261,17 @@ CONTAINS
     IMPLICIT NONE
     REAL, INTENT(IN) :: T
     REAL :: L
-    IF (T.LT.1.2e4) THEN
-       ! disable cooling for T < 1.2e4 K, i.e. set L to a small value
+    IF (T.LT.1.26E+4) THEN
+       ! disable cooling for T < 1.26e4 K, i.e. set L to 0
        ! this is a very very rough approximation
-       ! dont't trust this function for T < 1.2e4 !!!
-       L = 1.0D-40
-    ELSE IF ((T.GE.1.2e4).AND.(T.LT.2.0e5)) THEN
-       L = 7.1D-38 * SQRT(T)
-    ELSE IF ((T.GE.2.0e5).AND.(T.LT.5.0e7)) THEN
-       L = 2.3D-32 * EXP(-0.54*LOG(T))
+       ! dont't trust this function for T < 1.26e4 !!!
+       L = 0.0
+    ELSE IF ((T.GE.1.26E+4).AND.(T.LT.1.5E+5)) THEN
+       L = 3.7D-38 * EXP(0.58*LOG(T))
+    ELSE IF ((T.GE.1.5e5).AND.(T.LT.2.2E+7)) THEN
+       L = 1.2D-31 * EXP(-0.68*LOG(T))
     ELSE
-       L = 1.3D-40 * SQRT(T)
+       L = 1.2D-39 * EXP(0.41*LOG(T))
     END IF
   END FUNCTION lambda
 

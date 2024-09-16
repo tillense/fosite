@@ -3,7 +3,7 @@
 !# fosite - 3D hydrodynamical simulation program                             #
 !# module: sources_c_accel.f90                                               #
 !#                                                                           #
-!# Copyright (C) 2009-2021                                                   #
+!# Copyright (C) 2009-2024                                                   #
 !# Björn Sperling   <sperling@astrophysik.uni-kiel.de>                       #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
 !# Jannes Klee      <tillense@astrophysik.uni-kiel.de>                       #
@@ -135,7 +135,7 @@ CONTAINS
     !------------------------------------------------------------------------!
     TYPE(sources_c_accel), INTENT(INOUT) :: this
     !------------------------------------------------------------------------!
-    DEALLOCATE(this%accel)
+    IF (ALLOCATED(this%accel)) DEALLOCATE(this%accel)
     CALL this%Finalize_base()
   END SUBROUTINE Finalize
 
