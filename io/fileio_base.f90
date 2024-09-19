@@ -274,6 +274,7 @@ MODULE fileio_base_mod
   INTEGER, PARAMETER :: READEND  = 2       !< readonly access at end
   INTEGER, PARAMETER :: REPLACE  = 3       !< read/write access replacing file
   INTEGER, PARAMETER :: APPEND   = 4       !< read/write access at end
+  INTEGER, PARAMETER :: OPEN_UNDEF = 5     !< open with undefined io action/position
   !> \}
 
   !> basic file formats
@@ -664,10 +665,11 @@ CONTAINS
     CALL this%CloseFile(step) ! make sure we don't open an already opened file
     IF (this%err.EQ.0) &
       OPEN(UNIT=this%GetUnitNumber(),FILE=TRIM(this%GetFilename(step)),STATUS=TRIM(sta), &
-           ACCESS='STREAM',ACTION=TRIM(act),POSITION=TRIM(pos),FORM=this%GetFormat(), &
+           ACCESS='STREAM',ACTION=TRIM(act),POSITION=TRIM(pos),FORM=TRIM(this%GetFormat()), &
            IOSTAT=this%err)
     IF (this%err.NE.0) &
-      CALL this%Error("fileio_base::OpenFile","File opening failed.")
+      CALL this%Error("fileio_base::OpenFile","File opening failed for: " // &
+        TRIM(this%GetFilename(step)))
   END SUBROUTINE OpenFile
  
   !> \public get Fortran i/o unit number
@@ -692,15 +694,24 @@ CONTAINS
     LOGICAL :: ex,op
     CHARACTER(LEN=64) :: act,pos
     !------------------------------------------------------------------------!
+#if DEBUG > 2
+      PRINT *,"DEBUG INFO in fileio_base::GetStatus: called for " // TRIM(this%GetFilename(step)), &
+        ", unit:", this%GetUnitNumber()
+#endif
     GetStatus = -1 ! unknown / undefined / does not exist
     ! check if file exist
     INQUIRE(FILE=TRIM(this%GetFilename(step)),EXIST=ex,OPENED=op,ACTION=act,POSITION=pos,IOSTAT=this%err)
+#if DEBUG > 2
+    PRINT *,"DEBUG INFO in fileio_base::GetStatus: inquire results (ex,op,act,pos): ", &
+      ex, op, " " // TRIM(act) // " " // TRIM(pos)
+#endif
     IF (this%err.NE.0) &
        CALL this%Error("filehandle_fortran::GetStatus","serious failure during file inquiry")
     IF (ex) THEN
        ! file exists
        IF (op) THEN
           ! file is open
+          GetStatus = OPEN_UNDEF
           SELECT CASE(TRIM(act))
           CASE("READ")
             SELECT CASE(TRIM(pos))
@@ -803,12 +814,26 @@ CONTAINS
     CLASS(filehandle_fortran), INTENT(INOUT) :: this  !< \param [in,out] this fileio type
     INTEGER, INTENT(IN)                      :: step  !< \param [in] step time step
     !------------------------------------------------------------------------!
+#if DEBUG > 2
+      PRINT *,"DEBUG INFO in fileio_base::CloseFile: called for " // TRIM(this%GetFilename(step)), &
+        ", unit:", this%GetUnitNumber()
+#endif
     this%err = 0
     IF (this%GetStatus(step).GT.0) THEN
-      IF (this%err.EQ.0) CLOSE(UNIT=this%GetUnitNumber(),IOSTAT=this%err)
+      IF (this%err.EQ.0) THEN
+#if DEBUG > 2
+        PRINT *,"DEBUG INFO in fileio_base::CloseFile: closing file ..."
+#endif
+        CLOSE(UNIT=this%GetUnitNumber(),IOSTAT=this%err)
+      END IF
     END IF
-    IF (this%err.NE.0) &
-      CALL this%Error("filehandle_fortran::CloseFile","Cannot close file " // TRIM(this%GetFilename(step)))
+    IF (this%err.NE.0) THEN
+#if DEBUG > 2
+      PRINT *,"DEBUG INFO in fileio_base::CloseFile: Fatal error IOSTAT=",this%err
+#endif
+      CALL this%Error("filehandle_fortran::CloseFile","Cannot close file " // &
+        TRIM(this%GetFilename(step)))
+    END IF
   END SUBROUTINE CloseFile
 
   !> \public destructor of Fortran stream handle
