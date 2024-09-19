@@ -80,6 +80,7 @@ set (X86_VECTOR_EXTENSION NONE CACHE STRING "Enable x86 vector extensions, possi
 #-------------------- choose compiler & set flags ---------------------#
 #get_filename_component (Fortran_COMPILER_NAME ${CMAKE_Fortran_COMPILER} NAME)
 option(IPO "enable/disable interprocedural / linktime optimizations" OFF)
+option(CHECK_LEAKS "enable/disable runtime check for memory leaks (gfortran only)" OFF)
 set (CMAKE_Fortran_FLAGS "${FCFLAGS}")
 if (CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
   # GNU compiler, i.e. gfortran
@@ -106,6 +107,9 @@ if (CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
   add_compile_options("$<$<CONFIG:PROFILING>:-funroll-all-loops;-fno-f2c;-O3;-pg;-no-pie;-fopt-info-vec>")
   add_compile_options("$<$<CONFIG:DEBUG>:-fno-f2c;-O2;-g;-fcheck=all;-Wall;-ffpe-trap=invalid,zero,overflow>")
   add_link_options("$<$<CONFIG:PROFILING>:-pg>")
+  if (CHECK_LEAKS MATCHES "ON")
+     add_link_options(-fsanitize=leak)
+  endif()
 elseif (CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
   # intel Fortran compiler, i.e. ifort
   add_compile_options(-cpp -r8 -stand f08)
