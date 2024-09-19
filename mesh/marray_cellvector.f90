@@ -102,6 +102,9 @@ CONTAINS
     !-------------------------------------------------------------------!
     TYPE(marray_cellvector) :: this
     !-------------------------------------------------------------------!
+#if DEBUG > 2
+    PRINT *,"DEBUG INFO in marray_cellvector::Finalize: nullify pointers"
+#endif
     NULLIFY(this%center,this%bcenter,this%faces,this%corners)
   END SUBROUTINE Finalize
 
