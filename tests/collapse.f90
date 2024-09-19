@@ -3,7 +3,7 @@
 !# fosite - 3D hydrodynamical simulation program                             #
 !# module: collapse.f90                                                      #
 !#                                                                           #
-!# Copyright (C) 2008-2021                                                   #
+!# Copyright (C) 2008-2024                                                   #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
 !# Björn Sperling   <sperling@astrophysik.uni-kiel.de>                       #
 !#                                                                           #
@@ -133,7 +133,7 @@ TAP_PLAN(1)
     ! Local variable declaration
     INTEGER           :: bc(6),sgbc
     TYPE(Dict_TYP), POINTER :: mesh,physics, boundary, datafile, rotframe, &
-                               grav,pmass, timedisc, fluxes, selfgravity
+                               sources, timedisc, fluxes, grav, pmass, selfgravity
     REAL              :: x1,x2,y1,y2,z1,z2
     !------------------------------------------------------------------------!
     INTENT(INOUT)     :: Sim
@@ -271,8 +271,8 @@ TAP_PLAN(1)
             "mass"  / CENTMASS)          ! mass [kg]                      !
 
     ! source term due to self-gravity
-    selfgravity => Dict( &
-          "gtype"        / SPECTRAL)!, &   ! poisson solver for self-gravity!
+!     selfgravity => Dict( &
+!           "gtype"        / SPECTRAL)!, &   ! poisson solver for self-gravity!
 !          "gtype"        / MULTIGRID, &   ! poisson solver for self-gravity!
 !          "maxmult"      / 5, &           ! number of (spher.) multipol moments
 !          "maxresidnorm" / 1.0E-7, &     ! accuracy of multigrid solver (max error)
@@ -284,18 +284,23 @@ TAP_PLAN(1)
 !          "minres"       / 3, &           ! resolution of coarsest grid
 !          "nmaxcycle"    / 250, &         ! limit for iterations
 !          "bndrytype"    / sgbc)         ! multipole expansion (see above)
-    IF (OMEGA_FRAME.GT.TINY(OMEGA_FRAME)) THEN
-       rotframe => Dict("stype" / ROTATING_FRAME, &
-               "x"     / 0.0, &
-               "y"     / 0.0)
-!       sources => Dict("rotframe" / rotframe)
-    END IF
 
     ! enable gravity
     grav => Dict("stype" / GRAVITY, &
                 "point" / pmass)
-
 !     CALL SetAttr(grav, "self", selfgravity)  ! currently not supported because the multigird solver is not working
+
+    ! initialize source term with gravitz module
+    sources => Dict("grav" / grav)
+
+    ! check for rotating frame
+    IF (OMEGA_FRAME.GT.TINY(OMEGA_FRAME)) THEN
+      rotframe => Dict("stype" / ROTATING_FRAME, &
+               "x"     / 0.0, &
+               "y"     / 0.0)
+      CALL SetAttr(sources, "rotframe", rotframe)
+    END IF
+
 
     ! time discretization settings
     timedisc => Dict( &
@@ -318,9 +323,8 @@ TAP_PLAN(1)
              "physics"  / physics, &
              "boundary" / boundary, &
              "fluxes"   / fluxes, &
-             "sources/grav"  / grav, &
-!             "sources/rotframe" / rotframe, &
              "timedisc" / timedisc, &
+             "sources" / sources, &
              "datafile" / datafile)
   END SUBROUTINE MakeConfig
 
