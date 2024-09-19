@@ -190,7 +190,7 @@ TAP_DONE
 #endif
 
 CALL Sim%Finalize()
-DEALLOCATE(Sim)
+DEALLOCATE(Sim,sigma)
 
 CONTAINS
 
