@@ -516,11 +516,11 @@ CONTAINS
     CALL Physics%Convert2Conservative(Timedisc%pvar,Timedisc%cvar)
 
     CALL Mesh%Info(" DATA-----> initial condition: " // "viscous spreading ring")
-    WRITE(value,"(ES9.3)") TVIS
+    WRITE(value,"(ES11.3)") TVIS
     CALL Mesh%Info("                               " // "viscous timescale:  " //TRIM(value))
-    WRITE(value,"(ES9.3)") RE
+    WRITE(value,"(ES11.3)") RE
     CALL Mesh%Info("                               " // "Reynolds number:    " //TRIM(value))
-    WRITE(value,"(ES9.3)") MA
+    WRITE(value,"(ES11.3)") MA
     CALL Mesh%Info("                               " // "Mach number:        " //TRIM(value))
 
   END SUBROUTINE InitData

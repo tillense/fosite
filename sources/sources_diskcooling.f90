@@ -257,24 +257,24 @@ CONTAINS
     CALL this%Info("            cooling function:  " // TRIM(this%cooling%GetName()))
     SELECT CASE(this%cooling%GetType())
     CASE(GRAY)
-       WRITE (param_str,'(ES8.2)') this%T_0
+       WRITE (param_str,'(ES10.2)') this%T_0
        CALL this%Info("            min. temperature:  " // TRIM(param_str))
-       WRITE (param_str,'(ES8.2)') this%rho_0
+       WRITE (param_str,'(ES10.2)') this%rho_0
        CALL this%Info("            minimum density:   " // TRIM(param_str))
     CASE(GAMMIE)
-       WRITE (param_str,'(ES8.2)') this%b_cool
+       WRITE (param_str,'(ES10.2)') this%b_cool
        CALL this%Info("            cooling parameter: " // TRIM(param_str))
     CASE(GAMMIE_SB)
-       WRITE (param_str,'(ES8.2)') this%b_cool
+       WRITE (param_str,'(ES10.2)') this%b_cool
        CALL this%Info("            cooling parameter: " // TRIM(param_str))
        IF(this%dt_bdec.GE.0.0) THEN
-        WRITE (param_str,'(ES8.2)') this%b_start
+        WRITE (param_str,'(ES10.2)') this%b_start
         CALL this%Info("            initial cooling parameter: " // TRIM(param_str))
-        WRITE (param_str,'(ES8.2)') this%b_final
+        WRITE (param_str,'(ES10.2)') this%b_final
         CALL this%Info("            final cooling parameter: " // TRIM(param_str))
-        WRITE (param_str,'(ES8.2)') this%t_start
+        WRITE (param_str,'(ES10.2)') this%t_start
         CALL this%Info("            starting b_dec time: " // TRIM(param_str))
-        WRITE (param_str,'(ES8.2)') this%dt_bdec
+        WRITE (param_str,'(ES10.2)') this%dt_bdec
         CALL this%Info("            operating time: " // TRIM(param_str))
        END IF
     END SELECT

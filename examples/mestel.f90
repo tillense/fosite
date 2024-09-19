@@ -365,7 +365,7 @@ CONTAINS
     CALL Physics%Convert2Conservative(Timedisc%pvar,Timedisc%cvar)
 
     ! print some information
-    WRITE (mdisk_str, '(ES8.2)') mdisk/MSUN
+    WRITE (mdisk_str, '(ES10.2)') mdisk/MSUN
     CALL Mesh%Info(" DATA-----> initial condition: Mestel's disk")
     CALL Mesh%Info("            disk mass:         " // TRIM(mdisk_str) // " M_sun")
 

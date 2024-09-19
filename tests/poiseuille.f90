@@ -287,17 +287,17 @@ CONTAINS
     CALL Physics%Convert2Conservative(Timedisc%pvar,Timedisc%cvar)
     CALL Mesh%Info(" DATA-----> initial condition: " // &
          "tube with pressure gradient")
-    WRITE (info_str, '(ES8.2)') RE
+    WRITE (info_str, '(ES10.2)') RE
     CALL Physics%Info("              Reynolds number: " // TRIM(info_str))
-    WRITE (info_str, '(ES8.2)') MA
+    WRITE (info_str, '(ES10.2)') MA
     CALL Physics%Info("                  Mach number: " // TRIM(info_str))
-    WRITE (info_str, '(ES8.2)') UMAX
+    WRITE (info_str, '(ES10.2)') UMAX
     CALL Physics%Info("        max. laminar velocity: " // TRIM(info_str) // " m/s")
-    WRITE (info_str, '(ES8.2)') PIN
+    WRITE (info_str, '(ES10.2)') PIN
     CALL Physics%Info("               inlet pressure: " // TRIM(info_str) // " Pa")
-    WRITE (info_str, '(ES8.2)') 1.-POUT/PIN
+    WRITE (info_str, '(ES10.2)') 1.-POUT/PIN
     CALL Physics%Info("       rel. pressure gradient: " // TRIM(info_str))
-    WRITE (info_str, '(ES8.2)') TVIS
+    WRITE (info_str, '(ES10.2)') TVIS
     CALL Physics%Info("           viscous time scale: " // TRIM(info_str) // " s")
 
   END SUBROUTINE InitData

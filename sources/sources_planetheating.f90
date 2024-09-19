@@ -217,22 +217,22 @@ CONTAINS
     REAL, PARAMETER   :: AU      = 1.49597870691E+11    ! astr. unit [m]     !
     !------------------------------------------------------------------------!
     tmp_out = this%year/(3.6e3*24*365)
-    WRITE (param_str,'(ES8.2)') tmp_out
+    WRITE (param_str,'(ES10.2)') tmp_out
     CALL this%Info("            sid. year:         " // TRIM(param_str) // " yr")
 
     tmp_out = 1./(this%omegasun*3.6e3*24.0)
-    WRITE (param_str,'(ES8.2)') ABS(tmp_out)
+    WRITE (param_str,'(ES10.2)') ABS(tmp_out)
     CALL this%Info("            day:               " // TRIM(param_str) // " d")
 
     tmp_out = this%distance/AU
-    WRITE (param_str,'(ES8.2)') tmp_out
+    WRITE (param_str,'(ES10.2)') tmp_out
     CALL this%Info("            distance:          " // TRIM(param_str) // " au")
 
     tmp_out = this%sm_axis/AU
-    WRITE (param_str,'(ES8.2)') tmp_out
+    WRITE (param_str,'(ES10.2)') tmp_out
     CALL this%Info("            semi-major axis:   " // TRIM(param_str) // " au")
 
-    WRITE (param_str,'(ES8.2)') this%eccentricity
+    WRITE (param_str,'(ES10.2)') this%eccentricity
     CALL this%Info("            eccentricity:      " // TRIM(param_str))
   END SUBROUTINE InfoSources
 

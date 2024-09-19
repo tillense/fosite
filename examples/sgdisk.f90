@@ -176,7 +176,6 @@ CONTAINS
                 "order"           / LINEAR, &
                 "fluxtype"        / KT, &
                 "variables"       / PRIMITIVE, &
-                "passive_limiting" / .FALSE., &
                 "limiter"         / VANLEER, &
                 "theta"           / 1.2)
 
@@ -381,7 +380,7 @@ CONTAINS
 
     CALL Physics%Convert2Conservative(pvar,cvar)
     ! print some information
-    WRITE (mdisk_str, '(ES8.2)') mdisk
+    WRITE (mdisk_str, '(ES10.2)') mdisk
     CALL Mesh%Info(" DATA-----> initial condition: Mestel's disk")
     CALL Mesh%Info("            disk mass:         " // TRIM(mdisk_str))
 

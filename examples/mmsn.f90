@@ -323,7 +323,7 @@ CONTAINS
 
     ! print some information on stdout
     CALL Mesh%Info(" DATA-----> initial condition: " // "MMSN - Setup")
-    WRITE (info_str, '(ES8.2)') XSCALE
+    WRITE (info_str, '(ES10.2)') XSCALE
     CALL Mesh%Info("                    disk mass: " // TRIM(info_str) // " MMSN")
 
   END SUBROUTINE InitData

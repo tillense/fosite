@@ -384,7 +384,8 @@ CONTAINS
       ! 1 = calculated mean background velocity
       ! 2 = fixed user supplied background velocity
       ! 3 = shearingsheet/box fixed background velocity
-      fargo_method = [CHARACTER(LEN=32) :: "disabled", "dynamic velocity","user supplied fixed velocity","shearingsheet/box shear velocity" ]
+      fargo_method = [CHARACTER(LEN=32) :: "disabled", "dynamic velocity",&
+        "user supplied fixed, velocity","shearingsheet/box shear velocity" ]
       CALL this%fargo%logging_base%InitLogging(fargo,fargo_method(fargo+1))
       IF (fargo.GT.0) THEN
         ! set/check fargo transport direction

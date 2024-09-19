@@ -3,7 +3,7 @@
 !# fosite - 2D hydrodynamical simulation program                             #
 !# module: boundary_farfield.f90                                             #
 !#                                                                           #
-!# Copyright (C) 2006-2014                                                   #
+!# Copyright (C) 2006-2024                                                   #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
 !# Björn Sperling   <sperling@astrophysik.uni-kiel.de>                       #
 !#                                                                           #
@@ -131,13 +131,14 @@ CONTAINS
         ! provided by the user in the data array
         DO i=1,Mesh%GINUM
            ! temporaryly store boundary data in ghost cells
-           pvar%data4d(Mesh%IMIN-i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,:) =  &
-                      this%data(i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,:)
+           pvar%data4d(Mesh%IMIN-i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,:) &
+             = this%data(i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,:)
            ! compute Riemann invariants
            CALL Physics%CalculatePrim2RiemannX(Mesh,Mesh%IMIN-i,&
                                        pvar,this%lambda,this%Rinv)
            ! store Riemann invariants in data array
-           this%data(i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,:) = this%Rinv(Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,:)
+           this%data(i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,:) &
+             = this%Rinv(Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,:)
         END DO
         ! skip the above computation for subsequent calls
         this%first_call = .FALSE.
@@ -149,7 +150,8 @@ CONTAINS
                                    pvar,this%lambda,this%Rinv)
        ! set infinity Riemann invariants for inflow
        WHERE (this%lambda(Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,:).GE.0.0)
-             this%Rinv(Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,:) = this%data(i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,:)
+         this%Rinv(Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,:) &
+           = this%data(i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,:)
        END WHERE
        ! transform back to primitive variables in ghost cells
        CALL Physics%CalculateRiemann2PrimX(Mesh,Mesh%IMIN-i,this%Rinv,pvar)
@@ -161,13 +163,14 @@ CONTAINS
         ! provided by the user in the data array
         DO i=1,Mesh%GINUM
            ! temporaryly store boundary data in ghost cells
-           pvar%data4d(Mesh%IMAX+i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,:) = &
-                  this%data(i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,:)
+           pvar%data4d(Mesh%IMAX+i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,:) &
+             = this%data(i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,:)
            ! compute Riemann invariants
            CALL Physics%CalculatePrim2RiemannX(Mesh,Mesh%IMAX+i,&
                                        pvar,this%lambda,this%Rinv)
            ! store Riemann invariants in data array
-           this%data(i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,:) = this%Rinv(Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,:)
+           this%data(i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,:) &
+             = this%Rinv(Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,:)
         END DO
         ! skip the above computation for subsequent calls
         this%first_call = .FALSE.
@@ -179,10 +182,11 @@ CONTAINS
                                   pvar,this%lambda,this%Rinv)
        ! set infinity Riemanns for inflow 
        WHERE (this%lambda(Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,:).LE.0.0)
-             this%Rinv(Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,:) = this%data(i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,:)
+         this%Rinv(Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,:) &
+           = this%data(i,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,:)
        END WHERE
        ! transform back to primitive variables at the boundary
-       CALL Physics%CalculateRiemann2PrimX(Mesh,Mesh%IMAX+i,this%Rinv,pvar) 
+       CALL Physics%CalculateRiemann2PrimX(Mesh,Mesh%IMAX+i,this%Rinv,pvar)
      END DO
    CASE(SOUTH)
      ! this must be done only once, but after the general boundary initialization
@@ -191,12 +195,14 @@ CONTAINS
         ! provided by the user in the data array
         DO j=1,Mesh%GJNUM
            ! temporaryly store boundary data in ghost cells
-           pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN-j,Mesh%KMIN:Mesh%KMAX,:) = this%data(Mesh%IMIN:Mesh%IMAX,j,Mesh%KMIN:Mesh%KMAX,:) 
+           pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN-j,Mesh%KMIN:Mesh%KMAX,:) &
+             = this%data(Mesh%IMIN:Mesh%IMAX,j,Mesh%KMIN:Mesh%KMAX,:)
            ! compute Riemann invariants 
            CALL Physics%CalculatePrim2RiemannY(Mesh,Mesh%JMIN-j,&
                                        pvar,this%lambda,this%Rinv)
            ! store Riemann invariants in data array
-           this%data(Mesh%IMIN:Mesh%IMAX,j,Mesh%KMIN:Mesh%KMAX,:) = this%Rinv(Mesh%IMIN:Mesh%IMAX,Mesh%KMIN:Mesh%KMAX,:)
+           this%data(Mesh%IMIN:Mesh%IMAX,j,Mesh%KMIN:Mesh%KMAX,:) &
+             = this%Rinv(Mesh%IMIN:Mesh%IMAX,Mesh%KMIN:Mesh%KMAX,:)
         END DO
         ! skip the above computation for subsequent calls
         this%first_call = .FALSE.
@@ -208,7 +214,8 @@ CONTAINS
                                   pvar,this%lambda,this%Rinv)
        ! set infinity Riemanns for inflow
        WHERE (this%lambda(Mesh%IMIN:Mesh%IMAX,Mesh%KMIN:Mesh%KMAX,:).GE.0.0)
-             this%Rinv(Mesh%IMIN:Mesh%IMAX,Mesh%KMIN:Mesh%KMAX,:) = this%data(Mesh%IMIN:Mesh%IMAX,j,Mesh%KMIN:Mesh%KMAX,:)
+             this%Rinv(Mesh%IMIN:Mesh%IMAX,Mesh%KMIN:Mesh%KMAX,:) &
+               = this%data(Mesh%IMIN:Mesh%IMAX,j,Mesh%KMIN:Mesh%KMAX,:)
        END WHERE
        ! transform back to primitive variables at the boundary
        CALL Physics%CalculateRiemann2PrimY(Mesh,Mesh%JMIN-j,this%Rinv,pvar) 
@@ -220,12 +227,14 @@ CONTAINS
         ! provided by the user in the data array
         DO j=1,Mesh%GJNUM
            ! temporaryly store boundary data in ghost cells
-           pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX+j,Mesh%KMIN:Mesh%KMAX,:) = this%data(Mesh%IMIN:Mesh%IMAX,j,Mesh%KMIN:Mesh%KMAX,:) 
+           pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMAX+j,Mesh%KMIN:Mesh%KMAX,:) &
+             = this%data(Mesh%IMIN:Mesh%IMAX,j,Mesh%KMIN:Mesh%KMAX,:)
            ! compute Riemann invariants 
            CALL Physics%CalculatePrim2RiemannY(Mesh,Mesh%JMAX+j,&
                                        pvar,this%lambda,this%Rinv)
            ! store Riemann invariants in data array
-           this%data(Mesh%IMIN:Mesh%IMAX,j,Mesh%KMIN:Mesh%KMAX,:) = this%Rinv(Mesh%IMIN:Mesh%IMAX,Mesh%KMIN:Mesh%KMAX,:)
+           this%data(Mesh%IMIN:Mesh%IMAX,j,Mesh%KMIN:Mesh%KMAX,:) &
+             = this%Rinv(Mesh%IMIN:Mesh%IMAX,Mesh%KMIN:Mesh%KMAX,:)
         END DO
         ! skip the above computation for subsequent calls
         this%first_call = .FALSE.
@@ -237,7 +246,8 @@ CONTAINS
                                   pvar,this%lambda,this%Rinv)
        ! set infinity Riemanns for inflow 
        WHERE (this%lambda(Mesh%IMIN:Mesh%IMAX,Mesh%KMIN:Mesh%KMAX,:).LE.0.0)
-             this%Rinv(Mesh%IMIN:Mesh%IMAX,Mesh%KMIN:Mesh%KMAX,:) = this%data(Mesh%IMIN:Mesh%IMAX,j,Mesh%KMIN:Mesh%KMAX,:)
+         this%Rinv(Mesh%IMIN:Mesh%IMAX,Mesh%KMIN:Mesh%KMAX,:) &
+           = this%data(Mesh%IMIN:Mesh%IMAX,j,Mesh%KMIN:Mesh%KMAX,:)
        END WHERE
        ! transform back to primitive variables at the boundary
        CALL Physics%CalculateRiemann2PrimY(Mesh,Mesh%JMAX+j,this%Rinv,pvar)
@@ -249,15 +259,16 @@ CONTAINS
         ! provided by the user in the data array
         DO k=1,Mesh%GKNUM
            ! temporaryly store boundary data in ghost cells
-           pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN-k,:) = &
-                      this%data(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k,:)
+           pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN-k,:) &
+             = this%data(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k,:)
 
            ! compute Riemann invariants
            CALL Physics%CalculatePrim2RiemannZ(Mesh,Mesh%KMIN-k,&
                                        pvar,this%lambda,this%Rinv)
 
            ! store Riemann invariants in data array
-           this%data(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k,:) = this%Rinv(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,:)
+           this%data(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k,:) &
+             = this%Rinv(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,:)
         END DO
         ! skip the above computation for subsequent calls
         this%first_call = .FALSE.
@@ -269,7 +280,8 @@ CONTAINS
                                   pvar,this%lambda,this%Rinv)
        ! set infinity Riemanns for inflow
        WHERE (this%lambda(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,:).GE.0.0)
-             this%Rinv(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,:) = this%data(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k,:)
+         this%Rinv(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,:) &
+           = this%data(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k,:)
        END WHERE
        ! transform back to primitive variables at the boundary
        CALL Physics%CalculateRiemann2PrimZ(Mesh,Mesh%KMIN-k,this%Rinv,pvar)
@@ -281,12 +293,14 @@ CONTAINS
         ! provided by the user in the data array
         DO k=1,Mesh%GKNUM
            ! temporaryly store boundary data in ghost cells
-           pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMAX+k,:) = this%data(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k,:)
+           pvar%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMAX+k,:) &
+             = this%data(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k,:)
            ! compute Riemann invariants
            CALL Physics%CalculatePrim2RiemannZ(Mesh,Mesh%KMAX+k,&
                                        pvar,this%lambda,this%Rinv)
            ! store Riemann invariants in data array
-           this%data(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k,:) = this%Rinv(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,:)
+           this%data(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k,:) &
+             = this%Rinv(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,:)
         END DO
         ! skip the above computation for subsequent calls
         this%first_call = .FALSE.
@@ -298,7 +312,8 @@ CONTAINS
                                   pvar,this%lambda,this%Rinv)
        ! set infinity Riemanns for inflow 
        WHERE (this%lambda(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,:).LE.0.0)
-             this%Rinv(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,:) = this%data(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k,:)
+         this%Rinv(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,:) &
+           = this%data(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,k,:)
        END WHERE
        ! transform back to primitive variables at the boundary
        CALL Physics%CalculateRiemann2PrimZ(Mesh,Mesh%KMAX+k,this%Rinv,pvar)

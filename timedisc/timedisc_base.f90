@@ -482,9 +482,9 @@ CONTAINS
     ! print some information
     WRITE (order_str, '(I0)') this%GetOrder()
     WRITE (cfl_str, '(F4.2)') this%GetCFL()
-    WRITE (stoptime_str, '(ES10.4)') this%stoptime
-    WRITE (dtmax_str, '(ES10.4)') this%dtmax
-    WRITE (beta_str, '(ES10.4)') this%beta
+    WRITE (stoptime_str, '(ES12.4)') this%stoptime
+    WRITE (dtmax_str, '(ES12.4)') this%dtmax
+    WRITE (beta_str, '(ES12.4)') this%beta
     CALL this%Info(" TIMEDISC-> ODE solver:        " //TRIM(this%GetName()))
     CALL this%Info("            order:             " //TRIM(order_str))
     CALL this%Info("            CFL number:        " //TRIM(cfl_str))
@@ -497,7 +497,7 @@ CONTAINS
       CALL Physics%new_statevector(this%cerr,CONSERVATIVE)
       this%cerr%data1d(:)    = 0.
       ! create selection for the internal region
-      WRITE (info_str,'(ES7.1)') this%tol_rel*100
+      WRITE (info_str,'(ES9.1)') this%tol_rel*100
       CALL this%Info("            step size control: enabled")
       CALL this%Info("            rel. precision:    "//TRIM(info_str)//" %")
     ELSE
@@ -1545,7 +1545,8 @@ CONTAINS
 
               this%geo_src%data4d(i,j,k,Physics%YMOMENTUM) &
                 = cvar%data4d(i,j,k,Physics%XMOMENTUM) &
-                  * ( pvar%data4d(i,j,k,Physics%XVELOCITY) * Mesh%cxyx%center(i,j,k) - pvar%data4d(i,j,k,Physics%YVELOCITY) * Mesh%cyxy%center(i,j,k) ) &
+                  * ( pvar%data4d(i,j,k,Physics%XVELOCITY) * Mesh%cxyx%center(i,j,k) &
+                    - pvar%data4d(i,j,k,Physics%YVELOCITY) * Mesh%cyxy%center(i,j,k) ) &
                 + pvar%data4d(i,j,k,Physics%DENSITY) * wp &
                   * ( wp * Mesh%czyz%center(i,j,k) - pvar%data4d(i,j,k,Physics%YVELOCITY) * Mesh%cyzy%center(i,j,k) )
 

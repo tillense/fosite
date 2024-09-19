@@ -238,16 +238,16 @@ CONTAINS
     !------------------------------------------------------------------------!
     CHARACTER(LEN=32) :: mass1_str,mass2_str,excent_str,sema_str,omega_str
     !------------------------------------------------------------------------!
-    WRITE (mass1_str,'(ES8.2)')   this%mass
-    WRITE (mass2_str,'(ES8.2)')   this%mass2
-    WRITE (excent_str,'(ES8.2)')  this%excent
-    WRITE (sema_str,'(ES8.2)')    this%semaaxis
+    WRITE (mass1_str,'(ES10.2)')   this%mass
+    WRITE (mass2_str,'(ES10.2)')   this%mass2
+    WRITE (excent_str,'(ES10.2)')  this%excent
+    WRITE (sema_str,'(ES10.2)')    this%semaaxis
     CALL this%Info("            primary mass:      " // TRIM(mass1_str))
     CALL this%Info("            secondary mass:    " // TRIM(mass2_str))
     CALL this%Info("            excentricity:      " // TRIM(excent_str))
     CALL this%Info("            semi major axis:   " // TRIM(sema_str))
     IF(this%period.NE.0.0) THEN
-        WRITE(omega_str,'(ES8.2)') 2.0*PI/this%period
+        WRITE(omega_str,'(ES10.2)') 2.0*PI/this%period
         CALL this%Info("            pattern speed:     " // TRIM(omega_str))
     END IF
   END SUBROUTINE InfoGravity

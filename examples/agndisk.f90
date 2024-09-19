@@ -473,8 +473,8 @@ if (tau1 .eq. 0.0 .or. tau2 .eq. 0.0) print *,tau1,tau2,i,j
          Timedisc%cvar)
 
     ! print some information
-    WRITE (mdisk_str, '(ES8.2)') mdisk/MSUN
-    WRITE (am_str, '(ES8.2)') am
+    WRITE (mdisk_str, '(ES10.2)') mdisk/MSUN
+    WRITE (am_str, '(ES10.2)') am
     CALL Mesh%Info(" DATA-----> initial condition: non Keplerian flow")
     CALL Mesh%Info("            disk mass:         " // TRIM(mdisk_str) // " M_sun")
     CALL Mesh%Info("            angular momentum:  " // TRIM(am_str) // " kg/m^2/s")

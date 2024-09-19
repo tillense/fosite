@@ -230,7 +230,8 @@ CONTAINS
       ! size of default real numbers in byte
       this%realsize = this%realsize/8
     CASE DEFAULT
-      CALL this%Error("fileio_vtk::InitFileio_vtk", "only single, double or quadruple precision real numbers (4,8,16 bytes) supported")
+      CALL this%Error("fileio_vtk::InitFileio_vtk", &
+        "only single, double or quadruple precision real numbers (4,8,16 bytes) supported")
     END SELECT
 
     ! determine the system endianness
@@ -362,9 +363,11 @@ CONTAINS
     ! create file handle for the pvd file; only on rank 0 in parallel mode
 #ifdef PARALLEL
     IF (this%GetRank().EQ.0) THEN
-      CALL this%pvtsfile%InitFilehandle(this%datafile%filename,this%datafile%path,"pvts",textfile=.TRUE.,onefile=.FALSE.,cycles=this%count+1)
+      CALL this%pvtsfile%InitFilehandle(this%datafile%filename,this%datafile%path,"pvts",&
+        textfile=.TRUE.,onefile=.FALSE.,cycles=this%count+1)
 #endif
-      CALL this%pvdfile%InitFilehandle(this%datafile%filename,this%datafile%path,"pvd",textfile=.TRUE.,onefile=.TRUE.,cycles=1)
+      CALL this%pvdfile%InitFilehandle(this%datafile%filename,this%datafile%path,"pvd",&
+        textfile=.TRUE.,onefile=.TRUE.,cycles=1)
 #ifdef PARALLEL
     END IF
 #endif
@@ -399,7 +402,7 @@ CONTAINS
       DO k=0,this%step
          ftime = this%stoptime*k/this%count
          IF (this%err.EQ. 0) &
-            WRITE(UNIT=this%pvdfile%GetUnitNumber(),FMT='(A,E11.5,A)',IOSTAT=this%err) &
+            WRITE(UNIT=this%pvdfile%GetUnitNumber(),FMT='(A,ES12.5,A)',IOSTAT=this%err) &
                   REPEAT(' ',4)//'<DataSet timestep="',ftime,'" part="0" file="' // &
 #ifdef PARALLEL
                        TRIM(this%pvtsfile%GetBasename(k))//&
@@ -944,9 +947,11 @@ CONTAINS
     CALL this%filehandle_fortran%InitFilehandle(filename,path,extension,textfile,onefile,cycles,unit)
     ! check number of parallel processes
     IF (RANK_STR_LEN.LT.3) &
-      CALL this%Error("filehandle_vts::InitFilehandle","we need at least 3 bytes for rank string: 2 for '-r' + 1 for process number (0..9)")
+      CALL this%Error("filehandle_vts::InitFilehandle", &
+        "we need at least 3 bytes for rank string: 2 for '-r' + 1 for process number (0..9)")
     IF (this%GetNumProcs().GT.10**(RANK_STR_LEN-3)) &
-      CALL this%Error("filehandle_vts::InitFilehandle","number of processes for multiple file output exceeds limits")
+      CALL this%Error("filehandle_vts::InitFilehandle", &
+        "number of processes for multiple file output exceeds limits")
   END SUBROUTINE InitFilehandle
 
   !> \public get file name of Fortran stream including rank and time step

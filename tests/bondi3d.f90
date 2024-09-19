@@ -351,10 +351,10 @@ CONTAINS
       END DO
     END SELECT
 
-    WRITE(info_str,"(ES9.3)") RB
+    WRITE(info_str,"(ES10.3)") RB
     CALL Mesh%Info("                               " // "Bondi radius:       " &
          // TRIM(info_str) // " m")
-    WRITE(info_str,"(ES9.3)") TAU
+    WRITE(info_str,"(ES10.3)") TAU
     CALL Mesh%Info("                               " // "Free fall time:     " &
          // TRIM(info_str) // " s")
   END SUBROUTINE InitData

@@ -210,13 +210,13 @@ CONTAINS
     CHARACTER(LEN=32) :: param_str
     REAL, PARAMETER   :: AU      = 1.49597870691E+11    ! astr. unit [m]     !
     !------------------------------------------------------------------------!
-    WRITE (param_str,'(ES8.2)') (this%intensity/4.)*(AU/this%distance)**(2.)
+    WRITE (param_str,'(ES10.2)') (this%intensity/4.)*(AU/this%distance)**(2.)
     CALL this%Info("            intensity:         " // TRIM(param_str) // " W/m^2")
-    WRITE (param_str,'(ES8.2)') this%T_0
+    WRITE (param_str,'(ES10.2)') this%T_0
     CALL this%Info("            mean equil. temp.: " // TRIM(param_str) // " K")
-    WRITE (param_str,'(ES8.2)') this%tau_inf
+    WRITE (param_str,'(ES10.2)') this%tau_inf
     CALL this%Info("            opt. depth:        " // TRIM(param_str))
-    WRITE (param_str,'(ES8.2)') this%albedo
+    WRITE (param_str,'(ES10.2)') this%albedo
     CALL this%Info("            albedo:            " // TRIM(param_str))
   END SUBROUTINE InfoSources
 

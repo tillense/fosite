@@ -160,8 +160,8 @@ CONTAINS
     !------------------------------------------------------------------------!
     CHARACTER(LEN=32)       :: omega_str,q_str
     !------------------------------------------------------------------------!
-    WRITE (omega_str,'(ES8.2)') Mesh%OMEGA
-    WRITE (q_str,'(ES8.2)')     Mesh%Q
+    WRITE (omega_str,'(ES10.2)') Mesh%OMEGA
+    WRITE (q_str,'(ES10.2)')     Mesh%Q
     CALL this%Info("            angular velocity:  " // TRIM(omega_str))
     CALL this%Info("            shearing parameter:" // TRIM(q_str))
   END SUBROUTINE InfoSources

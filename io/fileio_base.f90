@@ -475,7 +475,7 @@ CONTAINS
     ! print some information
     CALL this%Info(" FILEIO---> file type:         " // TRIM(this%GetName()))
     CALL this%Info("            file name:         " // TRIM(this%datafile%GetFilename(this%step)))
-    WRITE (timestamp,'(ES10.4)') Timedisc%time
+    WRITE (timestamp,'(ES12.4)') Timedisc%time
     CALL this%Info("            time stamp:        " // TRIM(timestamp))
     IF (.NOT.this%cartcoords) &
       CALL this%Info("    cruvilinear coords:        yes")
