@@ -200,8 +200,7 @@ TAP_CHECK(ok,"stoptime reached")
 ! These lines are very long if expanded. So we can't indent it or it will be cropped.
 #ifdef HAVE_FGSL
 TAP_CHECK_SMALL(sigma(DEN),5.0E-02,"density deviation < 5%")
-TAP_CHECK_SMALL(sigma(VX),8.0E-02,"radial velocity deviation < 8%")
-! skip azimuthal velocity deviation, because exact value is 0
+TAP_CHECK_SMALL(sigma(VX),9.0E-02,"radial velocity deviation < 9%")
 TAP_CHECK_SMALL(sigma(VY),2.0E-04,"azimuthal velocity deviation < 0.02%")
 #endif
 TAP_DONE

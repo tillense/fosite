@@ -124,7 +124,6 @@ TAP_CHECK(ok,"stoptime reached")
 ! These lines are very long if expanded. So we can't indent it or it will be cropped.
 TAP_CHECK_SMALL(sigma(DEN),5.0E-02,"density deviation < 5%")
 TAP_CHECK_SMALL(sigma(VEL),4.0E-02,"radial velocity deviation < 4%")
-! skip azimuthal velocity deviation, because exact value is 0
 TAP_CHECK_SMALL(sigma(PRE),5.0E-02,"pressure deviation < 5%")
 TAP_DONE
 !   PRINT *,sigma(:)
@@ -355,7 +354,7 @@ CONTAINS
     !------------------------------------------------------------------------!
     TYPE(sedov_typ), ALLOCATABLE :: sedov
     REAL :: T0,vr
-    REAL, DIMENSION(:,:,:,:), POINTER :: er
+    TYPE(marray_base) :: er
     INTEGER :: n,m,i,j,k
     !------------------------------------------------------------------------!
     IF (ASSOCIATED(Timedisc%solution)) THEN
@@ -373,9 +372,9 @@ CONTAINS
       T0 = SQRT((E1/RHO0)*(R0/sedov%alpha)**5)
 
       ! set radial unit vector to compute full 3D radial velocities in any geometry
-      ALLOCATE(er(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,3))
+      er = marray_base(3)
       DO n=1,3
-        er(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,n) = &
+        er%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,n) = &
             Mesh%posvec%bcenter(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,n) &
           / Mesh%radius%bcenter(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX)
       END DO
@@ -392,7 +391,7 @@ CONTAINS
                   m = 1
                   DO n=1,3
                     IF (BTEST(Mesh%VECTOR_COMPONENTS,n-1)) THEN
-                      solution%velocity%data4d(i,j,k,m) = vr * er(i,j,k,n)
+                      solution%velocity%data4d(i,j,k,m) = vr * er%data4d(i,j,k,n)
                       m = m + 1
                     END IF
                   END DO

@@ -3,7 +3,7 @@
 !# fosite - 3D hydrodynamical simulation program                             #
 !# module: RTI.f90                                                           #
 !#                                                                           #
-!# Copyright (C) 2008-2023                                                   #
+!# Copyright (C) 2008-2024                                                   #
 !# Björn Sperling   <sperling@astrophysik.uni-kiel.de>                       #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
 !# Jannes Klee      <jklee@astrophysik.uni-kiel.de>                          #
@@ -155,21 +155,20 @@ PROGRAM RTI
               "stype"         / C_ACCEL, &       ! source 1: acceleration    !
               "yaccel"        / (-YACC))         ! constant acc.in y-dir.    !
 
+    ! add to sources
+    sources => Dict("caccel"  / caccel)          ! incl. accel. from above   !
+
 
     ! viscosity source term
-    vis => Dict( &
+    IF (DYNVIS.GT.TINY(DYNVIS).OR.BULKVIS.GT.TINY(BULKVIS)) THEN
+      vis => Dict( &
               "stype"         / VISCOSITY, &     ! viscosity  source         !
               "vismodel"      / MOLECULAR, &     ! visc. model: molecular    !
               "dynconst"      / DYNVIS, &        ! const. dynamic viscosity  !
               "bulkconst"     / BULKVIS)         ! const. bulk viscosity     !
-
-    ! collect sources in dictionary
-    sources => Dict( &
-!              "vis"           / vis, &           ! incl. visc. from above    !
-              "caccel"        / caccel)          ! incl. accel. from above   !
-
-    IF ((DYNVIS.GT.TINY(DYNVIS)).OR.(BULKVIS.GT.TINY(BULKVIS))) &
-        CALL SetAttr(sources, "vis", vis)
+      ! add to sources
+      CALL SetAttr(sources, "vis", vis)
+    END IF
 
     ! time discretization settings
     timedisc => Dict( &

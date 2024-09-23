@@ -171,14 +171,6 @@ PROGRAM shear
               "limiter"       / VANLEER &
               )
 
-    ! fluxes settings
-    fluxes =>   Dict(&
-                "order"       / LINEAR, &
-                "fluxtype"    / KT, &
-                "variables"   / PRIMITIVE, &
-                "limiter"     / VANLEER &
-                )
-
     ! time discretization settings
     timedisc => Dict( &
               "method"        / MODIFIED_EULER, &
