@@ -216,6 +216,23 @@ option(USE_GSL "Add GSL/FGSL support" OFF)
 if(USE_GSL MATCHES ON)
   find_package(GSL REQUIRED)
 
+  if((GSL_VERSION VERSION_EQUAL "2.1") OR (GSL_VERSION VERSION_EQUAL "2.2.1"))
+	set(FGSL_CHECKOUT_TAG "v1.1.0")
+  elseif(GSL_VERSION VERSION_EQUAL "2.3")
+	set(FGSL_CHECKOUT_TAG "v1.2.0")
+  elseif(GSL_VERSION VERSION_EQUAL "2.4")
+	set(FGSL_CHECKOUT_TAG "v1.3.0")
+  elseif(GSL_VERSION VERSION_EQUAL "2.5")
+	set(FGSL_CHECKOUT_TAG "v1.4.0")
+  elseif(GSL_VERSION VERSION_EQUAL "2.6")
+	set(FGSL_CHECKOUT_TAG "1.5.0") # missing 'v' is correct here!
+  elseif(GSL_VERSION VERSION_GREATER_EQUAL "2.7")
+	set(FGSL_CHECKOUT_TAG "master")
+  else()
+	message(FATAL_ERROR "GSL version not supported")
+  endif()
+  message(STATUS "Checking out FGSL version: ${FGSL_CHECKOUT_TAG}")
+
   set(FGSL_SOURCE_DIR ${CMAKE_SOURCE_DIR}/contrib/fgsl)
   set(FGSL_INSTALL_DIR ${CMAKE_BINARY_DIR}/contrib/fgsl)
   set(FGSL_LIBRARY_DIR ${FGSL_INSTALL_DIR}/lib)
@@ -231,9 +248,37 @@ if(USE_GSL MATCHES ON)
   if(NOT EXISTS "${FGSL_SOURCE_DIR}/configure.ac")
     message(STATUS "fgsl: found empty source dir -> fetching code")
     execute_process(
-        COMMAND git submodule update --init --force contrib/fgsl
+        COMMAND ${GIT_EXECUTABLE} submodule update --init --force contrib/fgsl
 	WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
   endif()
+  execute_process(
+        COMMAND ${GIT_EXECUTABLE} show-ref --quiet --verify -- "refs/heads/fosite_build"
+	RESULTS_VARIABLE CREATE_FOSITE_BRANCH
+	WORKING_DIRECTORY ${FGSL_SOURCE_DIR}
+  )
+  if(${CREATE_FOSITE_BRANCH})
+	execute_process(
+		COMMAND ${GIT_EXECUTABLE} checkout tags/${FGSL_CHECKOUT_TAG} -b fosite_build
+		WORKING_DIRECTORY ${FGSL_SOURCE_DIR}
+		ERROR_VARIABLE GIT_ERROR
+		OUTPUT_QUIET)
+  else()
+	execute_process(
+		COMMAND ${GIT_EXECUTABLE} checkout fosite_build
+		WORKING_DIRECTORY ${FGSL_SOURCE_DIR}
+		ERROR_VARIABLE GIT_ERROR
+		OUTPUT_QUIET)
+	if(NOT ${GIT_ERROR})
+		execute_process(
+			COMMAND ${GIT_EXECUTABLE} reset --hard ${FGSL_CHECKOUT_TAG}
+			WORKING_DIRECTORY ${FGSL_SOURCE_DIR}
+			OUTPUT_QUIET)
+	endif()
+  endif()
+  if(${GIT_ERROR})
+	message(FATAL_ERROR "fgsl: git fails to checkout branch fosite_build")
+  endif()
+
   if(NOT EXISTS ${FGSL_SOURCE_DIR}/configure)
     if(NOT EXISTS ${FGSL_SOURCE_DIR}/m4)
       file(MAKE_DIRECTORY ${FGSL_SOURCE_DIR}/m4)
