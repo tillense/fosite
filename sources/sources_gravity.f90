@@ -57,14 +57,18 @@ MODULE sources_gravity_mod
   CHARACTER(LEN=32), PARAMETER :: source_name = "gravity"
   TYPE, EXTENDS(sources_c_accel) :: sources_gravity
     CLASS(gravity_base),    POINTER :: glist => null() !< list of gravity terms
+    TYPE(marray_base)               :: pot          !< gravitational potential
+    TYPE(marray_base), ALLOCATABLE  :: height       !< disk scale height
+    TYPE(marray_base), ALLOCATABLE  :: invheight2   !< energy sink due to cooling
+    TYPE(marray_base), ALLOCATABLE  :: h_ext        !< energy sink due to cooling
      !> 0: no src term in energy equation
      !! 1: src term in energy equation
      LOGICAL                        :: addtoenergy
+     LOGICAL                        :: update_disk_height !< enable/disable computation of disk scale height
   CONTAINS
-    PROCEDURE :: InitSources_gravity
-    PROCEDURE :: InfoSources
+    PROCEDURE :: InitSources
     PROCEDURE :: UpdateGravity
-    PROCEDURE :: ExternalSources_single
+    PROCEDURE :: ExternalSources
     PROCEDURE :: CalcDiskHeight
     FINAL :: Finalize
   END TYPE sources_gravity
@@ -78,7 +82,7 @@ MODULE sources_gravity_mod
 
 CONTAINS
 
-  SUBROUTINE InitSources_gravity(this,Mesh,Physics,Fluxes,config,IO)
+  SUBROUTINE InitSources(this,Mesh,Physics,Fluxes,config,IO)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(sources_gravity), INTENT(INOUT) :: this
@@ -90,8 +94,7 @@ CONTAINS
     INTEGER :: err, stype,i, valwrite
     !------------------------------------------------------------------------!
     CALL GetAttr(config,"stype",stype)
-    CALL this%InitLogging(stype,source_name)
-    CALL this%InitSources(Mesh,Fluxes,Physics,config,IO)
+    CALL this%InitSources_base(stype,source_name)
 
     ALLOCATE(this%accel)
     this%accel = marray_base(Physics%VDIM)
@@ -126,6 +129,7 @@ CONTAINS
       !! to check whether the geometry is flat or not
       IF (Physics%VDIM.EQ.2) THEN
         this%update_disk_height = .TRUE.
+        ALLOCATE(this%height,this%h_ext,this%invheight2)
         this%height = marray_base()
         this%h_ext= marray_base()
         this%invheight2 = marray_base()
@@ -138,7 +142,7 @@ CONTAINS
              this%height%data3d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX))
         END IF
       ELSE
-        CALL this%Error("InitGravity", "Computation of disk scale height is only supported in 1D/2D flat geometries")
+        CALL this%Error("sources_gravity::InitSources", "Computation of disk scale height is only supported in 1D/2D flat geometries")
       END IF
     ELSE
        this%update_disk_height = .FALSE.
@@ -151,13 +155,13 @@ CONTAINS
           this%accel%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,1:Physics%VDIM))
     END IF
 
-  END SUBROUTINE InitSources_gravity
+  END SUBROUTINE InitSources
 
   !> Evaluates source-terms by gravitation
   !!
   !! The gravitational source term evaluates all forces that are produced by
   !! gravitational participants.
-  SUBROUTINE ExternalSources_single(this,Mesh,Physics,Fluxes,Sources,time,dt,pvar,cvar,sterm)
+  SUBROUTINE ExternalSources(this,Mesh,Physics,Fluxes,Sources,time,dt,pvar,cvar,sterm)
     USE physics_eulerisotherm_mod, ONLY : physics_eulerisotherm
     USE physics_euler_mod, ONLY : statevector_euler
     IMPLICIT NONE
@@ -193,7 +197,7 @@ CONTAINS
       IF (.NOT.this%addtoenergy) s%energy%data1d(:) = 0.
     END SELECT
 
-  END SUBROUTINE ExternalSources_single
+  END SUBROUTINE ExternalSources
 
   !> Updates gravity of all gravity source modules
   SUBROUTINE UpdateGravity(this,Mesh,Physics,Fluxes,pvar,time,dt)
@@ -279,15 +283,6 @@ CONTAINS
   END SUBROUTINE CalcDiskHeight
 
 
-
-  SUBROUTINE InfoSources(this,Mesh)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(sources_gravity), INTENT(IN) :: this
-    CLASS(mesh_base),       INTENT(IN) :: Mesh
-    !------------------------------------------------------------------------!
-  END SUBROUTINE InfoSources
-
   SUBROUTINE Finalize(this)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
@@ -300,6 +295,9 @@ CONTAINS
       gravptr => gravptr%next
       DEALLOCATE(tmpptr)
     END DO
+    IF (ALLOCATED(this%height)) DEALLOCATE(this%height)
+    IF (ALLOCATED(this%h_ext)) DEALLOCATE(this%h_ext)
+    IF (ALLOCATED(this%invheight2)) DEALLOCATE(this%invheight2)
     ! deallocation of this%accel is done in inherited destructor
     ! which is called automatically
   END SUBROUTINE Finalize

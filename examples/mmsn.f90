@@ -222,16 +222,17 @@ CONTAINS
 
   SUBROUTINE InitData(Mesh,Physics,Timedisc,Fluxes,Sources)
     USE physics_eulerisotherm_mod, ONLY : physics_eulerisotherm
+    USE sources_gravity_mod, ONLY : sources_gravity
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(mesh_base),     INTENT(IN)     :: Mesh
     CLASS(physics_base),  INTENT(INOUT)  :: Physics
     CLASS(timedisc_base), INTENT(INOUT)  :: Timedisc
     CLASS(fluxes_base),   INTENT(INOUT)  :: Fluxes
-    CLASS(sources_base),  POINTER        :: Sources
+    CLASS(sources_list), ALLOCATABLE, INTENT(INOUT) :: Sources
     !------------------------------------------------------------------------!
     ! Local variable declaration
-    CLASS(sources_base), POINTER :: sp
+    CLASS(sources_base), POINTER :: sp => null()
     CLASS(sources_gravity), POINTER :: gp => null()
     INTEGER           :: i
 #ifdef PARALLEL
@@ -244,6 +245,12 @@ CONTAINS
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,6)  :: fcsound
     CHARACTER(LEN=32) :: info_str
     !------------------------------------------------------------------------!
+    ! get gravitational acceleration
+    IF (ALLOCATED(Sources)) &
+      sp => Sources%GetSourcesPointer(GRAVITY)
+    IF (.NOT.ASSOCIATED(sp)) &
+      CALL Physics%Error("mmsn::InitData","no gravity term initialized")
+
     ! set some pointers for convenience
     r => Mesh%RemapBounds(Mesh%radius%bcenter)
     r_faces => Mesh%RemapBounds(Mesh%radius%faces)
@@ -276,19 +283,6 @@ CONTAINS
       CALL beast%SetCustomBoundaries(Mesh,Physics, &
         (/CUSTOM_NOGRAD,CUSTOM_OUTFLOW,CUSTOM_KEPLER/))
     END SELECT
-
-    ! get gravitational acceleration
-    sp => Sources
-    DO
-      IF (.NOT.ASSOCIATED(sp)) EXIT 
-      SELECT TYPE(sp)
-      CLASS IS(sources_gravity)
-        gp => sp
-        EXIT
-      END SELECT
-      sp => sp%next
-    END DO
-    IF (.NOT.ASSOCIATED(sp)) CALL Physics%Error("mmsn::InitData","no gravity term initialized")
 
     ! choose Sigma0 in a way that 2% of the mass of the binary is contained in 30 au
 !    Sigma0     = 0.0008*(MBH1+MBH2)*SQRT(30.0/AU)/(4.*PI)

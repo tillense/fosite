@@ -29,7 +29,7 @@
 !! \author Jannes Klee
 !! \author Tobias Illenseer
 !!
-!! \brief constructor for sources class
+!! \brief module to manage list of source terms
 !!
 !! This module allocates the sources class and decides which specific
 !! source to use from the config.
@@ -43,31 +43,86 @@ MODULE sources_generic_mod
   USE sources_planetheating_mod
   USE sources_planetcooling_mod
   USE sources_rotframe_mod
-  USE sources_shearbox_mod
+!   USE sources_shearbox_mod
   USE sources_viscosity_mod
+  USE marray_compound_mod
+  USE marray_base_mod
   USE mesh_base_mod
   USE fluxes_base_mod
   USE physics_base_mod
   USE common_dict
+  IMPLICIT NONE
+  !--------------------------------------------------------------------------!
+  PRIVATE
+  !> container class to manage the list of source terms
+  TYPE, EXTENDS(sources_base) :: sources_list
+    !> \name Variables
+    CLASS(marray_compound), POINTER :: sterm => null() !< tempory storage for source terms
+
+  CONTAINS
+    !> \name Methods
+    PROCEDURE :: InitSources
+    PROCEDURE :: ExternalSources
+    PROCEDURE :: CalcTimestep
+    FINAL     :: Finalize
+  END TYPE sources_list
+  !--------------------------------------------------------------------------!
+  ! flags for source terms
+  INTEGER, PARAMETER :: LIST             = 0
+  INTEGER, PARAMETER :: GRAVITY          = 1
+!  INTEGER, PARAMETER :: DISK_THOMSON     = 2
+  INTEGER, PARAMETER :: VISCOSITY        = 3
+  INTEGER, PARAMETER :: C_ACCEL          = 4
+  INTEGER, PARAMETER :: COOLING          = 5
+  INTEGER, PARAMETER :: ROTATING_FRAME   = 20
+!  INTEGER, PARAMETER :: SGS              = 23
+  INTEGER, PARAMETER :: DISK_COOLING     = 24
+!  INTEGER, PARAMETER :: WAVE_DAMPING     = 25
+!  INTEGER, PARAMETER :: FORCING          = 26
+  INTEGER, PARAMETER :: PLANET_HEATING   = 27
+  INTEGER, PARAMETER :: PLANET_COOLING   = 28
+!  INTEGER, PARAMETER :: STELLAR_HEATING  = 29
+  INTEGER, PARAMETER :: SHEARBOX         = 30
+  !--------------------------------------------------------------------------!
+  PUBLIC :: &
+    ! types
+    sources_list, &
+
+    ! constants
+    VISCOSITY, C_ACCEL, SHEARBOX, GRAVITY, DISK_COOLING, ROTATING_FRAME, &
+    PLANET_HEATING, PLANET_COOLING, COOLING, &
+    MOLECULAR,ALPHA,BETA,POWERLAW,ALPHA_ALT,viscosity_name, &
+    GRAY, GAMMIE, GAMMIE_SB
+
 
 CONTAINS
 
-  SUBROUTINE New_Sources(this,Mesh,Fluxes,Physics,config,IO)
+  SUBROUTINE InitSources(this,Mesh,Physics,Fluxes,config,IO)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(sources_base), POINTER :: this
-    CLASS(mesh_base)             :: Mesh
-    CLASS(fluxes_base)           :: Fluxes
-    CLASS(physics_base)          :: Physics
-    TYPE(DICT_TYP),      POINTER :: config, IO
+    CLASS(sources_list), INTENT(INOUT) :: this
+    CLASS(mesh_base),    INTENT(IN)    :: Mesh
+    CLASS(physics_base), INTENT(IN)    :: Physics
+    CLASS(fluxes_base),  INTENT(IN)    :: Fluxes
+    TYPE(Dict_TYP), POINTER            :: config, IO
     !------------------------------------------------------------------------!
     CLASS(sources_base), POINTER :: newsrc => null(), tmpsrc => null()
-    TYPE(Dict_TYP),      POINTER :: dir,src,IOsrc,gsrc => null(),gdir => null()
+    TYPE(Dict_TYP),      POINTER :: dir,next,src,IOsrc,gsrc => null(),gdir => null()
     INTEGER                      :: update_disk_height = 0
     INTEGER                      :: stype
     !------------------------------------------------------------------------!
     IF (.NOT.Physics%Initialized().OR..NOT.Mesh%Initialized()) &
-         CALL this%Error("InitSources","physics and/or mesh module uninitialized")
+         CALL this%Error("sources_generic::InitSources","physics and/or mesh module uninitialized")
+    IF (this%Initialized()) &
+      CALL this%Error("sources_generic::InitSources","list of source term already initialized")
+
+    CALL this%InitLogging(LIST,"sources list")
+
+    ALLOCATE(this%sterm,STAT=this%err)
+    IF (this%err.NE.0) &
+      CALL this%Error("sources_generic::InitSources","memory allocation failed")
+
+    CALL Physics%new_statevector(this%sterm,CONSERVATIVE)
 
     dir => config
     DO WHILE(ASSOCIATED(dir))
@@ -83,7 +138,7 @@ CONTAINS
            ! at the end to make sure gravity is the first source term in the list
            gsrc => src
            gdir => dir
-           newsrc => null()
+           NULLIFY(newsrc)
         CASE(C_ACCEL)
           ALLOCATE(sources_c_accel::newsrc)
         CASE(COOLING)
@@ -95,58 +150,36 @@ CONTAINS
         CASE(PLANET_COOLING)
           ALLOCATE(sources_planetcooling::newsrc)
         CASE(ROTATING_FRAME)
-          IF (ASSOCIATED(this)) THEN
-            tmpsrc => this%GetSourcesPointer(ROTATING_FRAME)
-            IF (ASSOCIATED(tmpsrc)) &
-              CALL this%Error("sources_generic::new_sources","only one rotating frame source term allowed")
-          END IF
+          tmpsrc => this%GetSourcesPointer(ROTATING_FRAME)
+          IF (ASSOCIATED(tmpsrc)) &
+            CALL this%Error("sources_list::InitSources","only one rotating frame source term allowed")
           ALLOCATE(sources_rotframe::newsrc)
-        CASE(SHEARBOX)
-          IF (ASSOCIATED(this)) THEN
-            tmpsrc => this%GetSourcesPointer(SHEARBOX)
-            IF (ASSOCIATED(tmpsrc)) &
-              CALL this%Error("sources_generic::new_sources","only one shearing box source term allowed")
-          END IF
-          ALLOCATE(sources_shearbox::newsrc)
+!         CASE(SHEARBOX)
+!           IF (ALLOCATED(this)) THEN
+!             tmpsrc => this%GetSourcesPointer(SHEARBOX)
+!             IF (ASSOCIATED(tmpsrc)) &
+!               CALL this%Error("sources_generic::new_sources","only one shearing box source term allowed")
+!           END IF
+!           ALLOCATE(sources_shearbox::newsrc)
         CASE(VISCOSITY)
           ALLOCATE(sources_viscosity::newsrc)
         CASE DEFAULT
-          CALL this%Error("new_sources","Unknown source type")
+          CALL this%Error("sources_list::InitSources","Unknown source type")
         END SELECT
 
         ! basic initialization of all source terms except gravity
         IF (ASSOCIATED(newsrc)) THEN
+          CALL newsrc%InitSources(Mesh,Physics,Fluxes,src,IOsrc)
           SELECT TYPE(obj => newsrc)
-          TYPE IS (sources_c_accel)
-            CALL obj%InitSources_c_accel(Mesh,Physics,Fluxes,src,IOsrc)
-          TYPE IS (sources_cooling)
-            CALL obj%InitSources_cooling(Mesh,Physics,Fluxes,src,IOsrc)
           TYPE IS (sources_diskcooling)
-            CALL obj%InitSources_diskcooling(Mesh,Physics,Fluxes,src,IOsrc)
             IF (obj%cooling%GetType().EQ.GRAY) update_disk_height = 1
-          TYPE IS (sources_planetheating)
-            CALL obj%InitSources_planetheating(Mesh,Physics,Fluxes,src,IOsrc)
-          TYPE IS (sources_planetcooling)
-            CALL obj%InitSources_planetcooling(Mesh,Physics,Fluxes,src,IOsrc)
-          TYPE IS (sources_rotframe)
-            CALL obj%InitSources_rotframe(Mesh,Physics,Fluxes,src,IOsrc)
-          TYPE IS (sources_shearbox)
-            CALL obj%InitSources_shearbox(Mesh,Physics,Fluxes,src,IOsrc)
           TYPE IS (sources_viscosity)
-            CALL obj%InitSources_viscosity(Mesh,Physics,Fluxes,src,IOsrc)
             IF (obj%viscosity%GetType().EQ.ALPHA_ALT) update_disk_height = 1
           END SELECT
-          ! check if list of source terms is empty
-          IF (.NOT.ASSOCIATED(this)) THEN
-            ! first entry is the new source term
-            this => newsrc
-            NULLIFY(this%next)
-          ELSE
-            ! prepend new source term to the list of source terms
-            tmpsrc => this
-            this => newsrc
-            this%next => tmpsrc
-          END IF
+
+          ! prepend new source term to list
+          newsrc%next => this%next
+          this%next => newsrc
         END IF
 
         ! process the output dictionary
@@ -159,40 +192,124 @@ CONTAINS
     ! finally initialize gravity
     IF(ASSOCIATED(gsrc)) THEN
       NULLIFY(IOsrc)
+
       ALLOCATE(sources_gravity::newsrc)
-
-      tmpsrc => this
-      this => newsrc
-      this%next => tmpsrc
-
-      CALL SetAttr(gsrc,"update_disk_height", update_disk_height)
-      SELECT TYPE(obj => newsrc)
-      TYPE IS(sources_gravity)
-        CALL obj%InitSources_gravity(Mesh,Physics,Fluxes,gsrc,IOsrc)
-      END SELECT
+      IF (ASSOCIATED(newsrc)) THEN
+        CALL SetAttr(gsrc,"update_disk_height", update_disk_height)
+        CALL newsrc%InitSources(Mesh,Physics,Fluxes,src,IOsrc)
+        ! prepend new source term to list
+        newsrc%next => this%next
+        this%next => newsrc
+        ! check for disk cooling source term and set pointer to gravity source
+        tmpsrc => this%GetSourcesPointer(DISK_COOLING)
+        IF (ASSOCIATED(tmpsrc)) THEN
+          SELECT TYPE(sp => tmpsrc)
+          CLASS IS(sources_diskcooling)
+            SELECT TYPE(grav => newsrc)
+            CLASS IS(sources_gravity)
+              sp%grav => grav
+            END SELECT
+          END SELECT
+        END IF
+      END IF
 
       IF(ASSOCIATED(IOsrc)) CALL SetAttr(IO, GetKey(gdir), IOsrc)
     END IF
 
-  END SUBROUTINE New_Sources
+  END SUBROUTINE InitSources
 
-  SUBROUTINE Destroy_Sources(this)
+
+  SUBROUTINE ExternalSources(this,Mesh,Physics,Fluxes,Sources,time,dt,pvar,cvar,sterm)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(sources_base), POINTER :: this
+    CLASS(sources_list), INTENT(INOUT)      :: this
+    CLASS(mesh_base),    INTENT(IN)         :: Mesh
+    CLASS(physics_base), INTENT(INOUT)      :: Physics
+    CLASS(fluxes_base),  INTENT(IN)         :: Fluxes
+    CLASS(sources_base), INTENT(INOUT)      :: Sources
+    REAL,                INTENT(IN)         :: time,dt
+    CLASS(marray_compound), INTENT(INOUT)   :: pvar,cvar,sterm
     !------------------------------------------------------------------------!
     CLASS(sources_base), POINTER :: srcptr
     !------------------------------------------------------------------------!
-    ! loop over all source terms and call finalization subroutines
-    IF (ASSOCIATED(this)) THEN
-      CALL this%Finalize_base()
-      DO
-        srcptr => this
-        IF (.NOT.ASSOCIATED(srcptr)) EXIT
-        this => srcptr%next
-        DEALLOCATE(srcptr)
-      END DO
+    ! reset sterm
+    sterm%data1d(:) = 0.0
+    ! go through all source terms in the list
+    srcptr => this%next
+    DO WHILE (ASSOCIATED(srcptr))
+
+      CALL srcptr%ExternalSources(Mesh,Physics,Fluxes,this,time,dt,pvar,cvar,this%sterm)
+
+      ! add to the sources
+      sterm%data1d(:) = sterm%data1d(:) + this%sterm%data1d(:)
+
+      ! next source term
+      srcptr => srcptr%next
+
+    END DO
+    ! reset ghost cell data
+    IF (Mesh%GINUM.GT.0) THEN
+      sterm%data4d(Mesh%IGMIN:Mesh%IMIN-Mesh%IP1,:,:,:) = 0.0
+      sterm%data4d(Mesh%IMAX+Mesh%IP1:Mesh%IGMAX,:,:,:) = 0.0
     END IF
-  END SUBROUTINE Destroy_Sources
+    IF (Mesh%GJNUM.GT.0) THEN
+      sterm%data4d(:,Mesh%JGMIN:Mesh%JMIN-Mesh%JP1,:,:) = 0.0
+      sterm%data4d(:,Mesh%JMAX+Mesh%JP1:Mesh%JGMAX,:,:) = 0.0
+    END IF
+    IF (Mesh%GKNUM.GT.0) THEN
+      sterm%data4d(:,:,Mesh%KGMIN:Mesh%KMIN-Mesh%KP1,:) = 0.0
+      sterm%data4d(:,:,Mesh%KMAX+Mesh%KP1:Mesh%KGMAX,:) = 0.0
+    END IF
+  END SUBROUTINE ExternalSources
+
+
+  SUBROUTINE CalcTimestep(this,Mesh,Physics,Fluxes,pvar,cvar,time,dt,dtcause)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(sources_list),         INTENT(INOUT) :: this
+    CLASS(mesh_base),            INTENT(IN)    :: Mesh
+    CLASS(physics_base),         INTENT(INOUT) :: Physics
+    CLASS(fluxes_base),          INTENT(IN)    :: Fluxes
+    CLASS(marray_compound),      INTENT(INOUT) :: pvar,cvar
+    REAL, INTENT(IN)              :: time
+    REAL, INTENT(INOUT)           :: dt
+    INTEGER, INTENT(OUT)          :: dtcause
+    !------------------------------------------------------------------------!
+    CLASS(Sources_base), POINTER :: srcptr
+    REAL              :: dt_new
+    !------------------------------------------------------------------------!
+    dt_new = dt
+
+    ! go through all source terms in the list
+    srcptr => this%next
+    DO WHILE(ASSOCIATED(srcptr))
+
+       CALL srcptr%CalcTimestep(Mesh,Physics,Fluxes,pvar,cvar,time,dt_new,dtcause)
+
+
+       IF (dt_new .LT. dt) dtcause=srcptr%GetType()
+       dt = MIN(dt,dt_new)
+       ! next source term
+       srcptr => srcptr%next
+    END DO
+  END SUBROUTINE CalcTimestep
+
+  !> \private destructor for the sources list
+  SUBROUTINE Finalize(this)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    TYPE(sources_list) :: this
+    !------------------------------------------------------------------------!
+    CLASS(sources_base), POINTER :: srcptr,next
+    !------------------------------------------------------------------------!
+    ! loop over all source terms and call finalization subroutines
+    srcptr => this%next
+    DO WHILE (ASSOCIATED(srcptr))
+      next => srcptr%next
+      DEALLOCATE(srcptr)
+      srcptr => next
+    END DO
+    IF (ASSOCIATED(this%sterm)) DEALLOCATE(this%sterm)
+  END SUBROUTINE Finalize
 
 END MODULE sources_generic_mod

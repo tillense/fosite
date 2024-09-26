@@ -89,7 +89,12 @@ PROGRAM shear
   CALL SetAttr(Sim%config, "mesh/shearingbox", 2)
   CALL Sim%Setup()
   Sim%Timedisc%pvar%data1d(:) = pvar_init%data1d(:)
-  CALL Sim%Physics%Convert2Conservative(Sim%Timedisc%pvar,Sim%Timedisc%cvar)
+  SELECT TYPE(phys => Sim%Physics)
+  CLASS IS(physics_eulerisotherm)
+    CALL phys%Convert2Conservative(Sim%Timedisc%pvar,Sim%Timedisc%cvar)
+  CLASS DEFAULT
+    CALL phys%Error("shear","only (non-)isothermal HD supported")
+  END SELECT
   CALL Sim%Run()
 
   ! compare results

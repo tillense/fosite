@@ -59,6 +59,8 @@
 !----------------------------------------------------------------------------!
 MODULE sources_diskcooling_mod
   USE sources_base_mod
+  USE sources_cooling_mod
+  USE sources_gravity_mod
   USE physics_base_mod
   USE fluxes_base_mod
   USE mesh_base_mod
@@ -69,6 +71,7 @@ MODULE sources_diskcooling_mod
   IMPLICIT NONE
   !--------------------------------------------------------------------------!
   PRIVATE
+  CHARACTER(LEN=32), PARAMETER :: source_name = "thin accretion disk cooling"
   INTEGER, PARAMETER :: GRAY   = 1
   INTEGER, PARAMETER :: GAMMIE = 2
   INTEGER, PARAMETER :: GAMMIE_SB = 3
@@ -107,11 +110,10 @@ MODULE sources_diskcooling_mod
   REAL, PARAMETER :: T0 = 3000      ! temperature constant (opacity interpolation)
 
   !--------------------------------------------------------------------------!
-  TYPE, EXTENDS(sources_base) :: sources_diskcooling
-    CHARACTER(LEN=32) :: source_name = "thin accretion disk cooling"
+  TYPE, EXTENDS(sources_cooling) :: sources_diskcooling
     CLASS(logging_base), ALLOCATABLE :: cooling
-    TYPE(marray_base), ALLOCATABLE  :: Qcool        !< energy sink due to cooling
     TYPE(marray_base), ALLOCATABLE  :: ephir        !< azimuthal unit vector / radius
+    TYPE(sources_gravity), POINTER  :: grav         !< pointer to gravity source term
     REAL                            :: b_cool       !< cooling parameter (Gammie)
     REAL                            :: b_start      !< starting cooling
     REAL                            :: b_final      !< final cooling parameter
@@ -120,11 +122,9 @@ MODULE sources_diskcooling_mod
     REAL                            :: T_0          !< equilibrium temp
     REAL                            :: rho_0        !< minimum density
   CONTAINS
-    PROCEDURE :: InitSources_diskcooling
+    PROCEDURE :: InitSources
     PROCEDURE :: InfoSources
     PROCEDURE :: SetOutput
-    PROCEDURE :: ExternalSources_single
-    PROCEDURE :: CalcTimestep_single
     PROCEDURE :: UpdateCooling
     FINAL :: Finalize
   END TYPE
@@ -139,13 +139,13 @@ MODULE sources_diskcooling_mod
 CONTAINS
 
   !> \public Constructor of disk cooling module
-  SUBROUTINE InitSources_diskcooling(this,Mesh,Physics,Fluxes,config,IO)
+  SUBROUTINE InitSources(this,Mesh,Physics,Fluxes,config,IO)
     USE physics_euler_mod, ONLY : physics_euler
     USE geometry_cylindrical_mod, ONLY : geometry_cylindrical
     USE geometry_cartesian_mod, ONLY : geometry_cartesian
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(sources_diskcooling) :: this
+    CLASS(sources_diskcooling), INTENT(INOUT) :: this
     CLASS(mesh_base),     INTENT(IN) :: Mesh
     CLASS(physics_base),  INTENT(IN) :: Physics
     CLASS(fluxes_base),   INTENT(IN) :: Fluxes
@@ -155,7 +155,7 @@ CONTAINS
     INTEGER :: cooling_func
     !------------------------------------------------------------------------!
     CALL GetAttr(config, "stype", stype)
-    CALL this%InitLogging(stype,this%source_name)
+    CALL this%InitSources_base(stype,source_name)
 
     ! some sanity checks
     ! isothermal modules are excluded
@@ -178,16 +178,16 @@ CONTAINS
       CALL this%Error("sources_diskcooling::InitSources","unknown cooling method")
 
     ALLOCATE(logging_base::this%cooling,STAT=err)
-    IF (err.EQ.0) ALLOCATE(this%QCool,STAT=err)
+    IF (err.EQ.0) ALLOCATE(this%Q,STAT=err)
     IF (err.NE.0) CALL this%Error("sources_diskcooling::InitSources","memory allocation failed")
     CALL this%cooling%InitLogging(cooling_func,COOLING_NAME(cooling_func))
-    this%Qcool = marray_base()
+    this%Q = marray_base()
 
     SELECT CASE(this%cooling%GetType())
     CASE(GRAY)
       ! check units, currently only SI units are supported
       IF (Physics%constants%GetType().NE.SI) &
-         CALL this%Error("sources_diskcooling::InitSources","only SI units supported for gray cooling")
+         CALL this%Error("sources_diskcooling::InitSources","only SI units supported for gray cooling")        
     CASE(GAMMIE)
       ! check for geometry
       SELECT TYPE (mgeo => Mesh%Geometry)
@@ -237,14 +237,12 @@ CONTAINS
     this%time = -1.0
 
     ! initialize cooling function
-    this%Qcool%data1d(:)  = 0.0
+    this%Q%data1d(:)  = 0.0
 
     !initialise output
     CALL this%SetOutput(Mesh,config,IO)
-    CALL this%InitSources(Mesh,Fluxes,Physics,config,IO)
-
-  END SUBROUTINE InitSources_diskcooling
-
+    CALL this%InfoSources(Mesh)
+  END SUBROUTINE InitSources
 
   SUBROUTINE InfoSources(this,Mesh)
     IMPLICIT NONE
@@ -295,115 +293,68 @@ CONTAINS
     CALL GetAttr(config, "output/Qcool", valwrite, 0)
     IF (valwrite .EQ. 1) &
          CALL SetAttr(IO, "Qcool", &
-         this%Qcool%data3d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX))
+         this%Q%data3d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX))
 
   END SUBROUTINE SetOutput
 
 
-  SUBROUTINE ExternalSources_single(this,Mesh,Physics,Fluxes,Sources,time,dt,pvar,cvar,sterm)
-    USE physics_euler_mod, ONLY : physics_euler, statevector_euler
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(sources_diskcooling), INTENT(INOUT) :: this
-    CLASS(mesh_base),INTENT(IN)         :: Mesh
-    CLASS(physics_base),INTENT(INOUT)   :: Physics
-    CLASS(sources_base),INTENT(INOUT)   :: Sources
-    CLASS(fluxes_base),INTENT(IN)       :: Fluxes
-    REAL,INTENT(IN)                     :: time, dt
-    CLASS(marray_compound),INTENT(INOUT):: pvar,cvar,sterm
-    !------------------------------------------------------------------------!
-    SELECT TYPE(s => sterm)
-    TYPE IS (statevector_euler)
-      s%density%data1d(:) = 0.0
-      s%momentum%data1d(:) = 0.0
-
-      SELECT TYPE(phys => Physics)
-      TYPE IS (physics_euler)
-        SELECT TYPE(p => pvar)
-        TYPE IS (statevector_euler)
-          CALL this%UpdateCooling(Mesh,phys,Sources,time,p)
-        END SELECT
-      END SELECT
-
-      ! energy loss due to radiation processes
-      s%energy%data1d(:) = -this%Qcool%data1d(:)
-
-    END SELECT
-  END SUBROUTINE ExternalSources_single
-
-
-  SUBROUTINE CalcTimestep_single(this,Mesh,Physics,Fluxes,pvar,cvar,time,dt)
-    USE physics_euler_mod, ONLY : physics_euler, statevector_euler
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(sources_diskcooling), INTENT(INOUT) :: this
-    CLASS(mesh_base),    INTENT(IN)    :: Mesh
-    CLASS(physics_base), INTENT(INOUT) :: Physics
-    CLASS(fluxes_base),  INTENT(IN)    :: Fluxes
-    CLASS(marray_compound), INTENT(INOUT) :: pvar,cvar
-    REAL,                INTENT(IN)       :: time
-    REAL,                INTENT(OUT)      :: dt
-    !------------------------------------------------------------------------!
-    REAL              :: invdt
-    !------------------------------------------------------------------------!
-    ! maximum of inverse cooling timescale t_cool ~ P/Q_cool
-    dt = HUGE(invdt)
-    SELECT TYPE(p => pvar)
-    CLASS IS(statevector_euler)
-      invdt = MAXVAL(ABS(this%Qcool%data1d(:) / p%pressure%data1d(:)), &
-                     MASK=Mesh%without_ghost_zones%mask1d(:))
-      IF (invdt.GT.TINY(invdt)) dt = this%cvis / invdt
-    END SELECT
-  END SUBROUTINE CalcTimestep_single
-
   !> \private Updates the cooling function at each time step.
-  SUBROUTINE UpdateCooling(this,Mesh,Physics,Sources,time,pvar)
+  SUBROUTINE UpdateCooling(this,Mesh,Physics,time,pvar)
     USE physics_euler_mod, ONLY : physics_euler, statevector_euler
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(sources_diskcooling)         :: this
-    CLASS(mesh_base),    INTENT(IN)    :: Mesh
-    CLASS(physics_euler),INTENT(INOUT) :: Physics
-    CLASS(sources_base), INTENT(INOUT) :: Sources
-    CLASS(statevector_euler),INTENT(INOUT):: pvar
-    REAL,                INTENT(IN)    :: time
+    CLASS(sources_diskcooling),   INTENT(INOUT) :: this
+    CLASS(mesh_base),             INTENT(IN)    :: Mesh
+    CLASS(physics_euler),         INTENT(IN)    :: Physics
+    REAL,                         INTENT(IN)    :: time
+    CLASS(statevector_euler),     INTENT(IN)    :: pvar
     !------------------------------------------------------------------------!
     REAL              :: muRgamma,Qfactor
     !------------------------------------------------------------------------!
-    ! calculate value for beta
-    IF (this%dt_bdec.GE.0.0) THEN
-      IF (time .LT. this%t_start) THEN
-        this%b_cool = this%b_start
-      ELSE IF ((time .GE. this%t_start) .AND. ((time-this%t_start) .LT. &
-      this%dt_bdec)) THEN
-        this%b_cool = this%b_start +  &
-            (this%b_final-this%b_start)/this%dt_bdec*(time - this%t_start)
-      ELSE IF ((time-this%t_start) .GE. this%dt_bdec) THEN
-        this%b_cool = this%b_final
-      END IF
-    END IF
 
     ! energy loss due to radiation processes
     SELECT CASE(this%cooling%GetType())
        CASE(GRAY)
-          ! some constants
-          muRgamma = Physics%mu/(Physics%Constants%RG*Physics%gamma)
-          Qfactor  = 8./3.*Physics%Constants%SB
-          ! compute gray cooling term
-          this%Qcool%data1d(:) = Lambda_gray(pvar%data2d(:,Physics%DENSITY),Sources%height%data1d(:), &
-               muRgamma*Physics%bccsound%data1d(:)*Physics%bccsound%data1d(:), &
-               this%rho_0,this%T_0,Qfactor)
+          ! make sure the
+          IF (ASSOCIATED(this%grav)) THEN
+            IF (ALLOCATED(this%grav%height)) THEN
+              IF (ASSOCIATED(this%grav%height%data1d)) THEN
+                ! some constants
+                muRgamma = Physics%mu/(Physics%Constants%RG*Physics%gamma)
+                Qfactor  = 8./3.*Physics%Constants%SB
+                ! compute gray cooling term
+                this%Q%data1d(:) = Lambda_gray(pvar%density%data1d(:),this%grav%height%data1d(:), &
+                    muRgamma*Physics%bccsound%data1d(:)*Physics%bccsound%data1d(:), &
+                    this%rho_0,this%T_0,Qfactor)
+              ELSE
+                CALL this%Error("sources_diskcooling::UpdateCooling","disk height seems not properly assigned in gray cooling")
+              END IF
+            END IF
+          END IF
        CASE(GAMMIE)
-          ! compute Gammie cooling term with
-          ! t_cool = b_cool / Omega
-          ! and Omega = ephi*v / r
-          this%Qcool%data3d(:,:,:) = Lambda_gammie(pvar%data4d(:,:,:,Physics%PRESSURE) / (Physics%gamma-1.), &
-              ABS((this%ephir%data4d(:,:,:,1)*pvar%data4d(:,:,:,Physics%XVELOCITY) &
-                  +this%ephir%data4d(:,:,:,2)*(pvar%data4d(:,:,:,Physics%YVELOCITY)&
+          ! compute Gammie cooling term based on cooling time scale
+          ! t_cool = b_cool / Omega with Omega = ephi*v / r and
+          ! dimensionless scaling parameter beta which is usually
+          ! held constant except for the initial phase
+          IF (this%dt_bdec.GE.0.0) THEN
+            IF (time .LT. this%t_start) THEN
+              this%b_cool = this%b_start
+            ELSE IF ((time .GE. this%t_start) .AND. ((time-this%t_start) .LT. &
+            this%dt_bdec)) THEN
+              this%b_cool = this%b_start +  &
+                  (this%b_final-this%b_start)/this%dt_bdec*(time - this%t_start)
+            ELSE IF ((time-this%t_start) .GE. this%dt_bdec) THEN
+              this%b_cool = this%b_final
+            END IF
+          END IF
+          ! set cooling function
+          this%Q%data3d(:,:,:) = Lambda_gammie(pvar%pressure%data3d(:,:,:) / (Physics%gamma-1.), &
+              ABS((this%ephir%data4d(:,:,:,1)*pvar%velocity%data4d(:,:,:,1) &
+                  +this%ephir%data4d(:,:,:,2)*(pvar%velocity%data4d(:,:,:,2)&
                     +Mesh%OMEGA*Mesh%radius%bcenter(:,:,:)))) / this%b_cool)
        CASE(GAMMIE_SB)
           ! in sb t_cool = b_cool
-          this%Qcool%data1d(:) = Lambda_gammie(pvar%pressure%data1d(:) / (Physics%gamma-1.), &
+          this%Q%data1d(:) = Lambda_gammie(pvar%pressure%data1d(:) / (Physics%gamma-1.), &
               Mesh%OMEGA/this%b_cool)
     END SELECT
 
@@ -492,9 +443,7 @@ CONTAINS
     !------------------------------------------------------------------------!
     TYPE(sources_diskcooling), INTENT(INOUT) :: this
     !------------------------------------------------------------------------!
-    DEALLOCATE(this%Qcool)
     IF (ALLOCATED(this%ephir))  DEALLOCATE(this%ephir)
-    CALL this%Finalize_base()
   END SUBROUTINE Finalize
 
 END MODULE sources_diskcooling_mod

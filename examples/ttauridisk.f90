@@ -3,7 +3,7 @@
 !# fosite - 2D hydrodynamical simulation program                             #
 !# module: ttauridisk.f90                                                    #
 !#                                                                           #
-!# Copyright (C) 2006-2009                                                   #
+!# Copyright (C) 2006-2024                                                   #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
 !#                                                                           #
 !# This program is free software; you can redistribute it and/or modify      #
@@ -238,7 +238,7 @@ CONTAINS
     CLASS(Physics_base) ,INTENT(INOUT) :: Physics
     CLASS(Fluxes_base)  ,INTENT(INOUT) :: Fluxes
     CLASS(Timedisc_base),INTENT(INOUT):: Timedisc
-    CLASS(Sources_base),  POINTER       :: Sources
+    CLASS(sources_list),ALLOCATABLE,INTENT(INOUT) :: Sources
     !------------------------------------------------------------------------!
     ! Local variable declaration
     CLASS(sources_base), POINTER :: sp
@@ -253,17 +253,11 @@ CONTAINS
     INTEGER           :: i,j,k,n
     CHARACTER(LEN=20) :: mdisk_str,am_str
     !------------------------------------------------------------------------!
-    sp => Sources
-    DO
-      IF (.NOT.ASSOCIATED(sp)) EXIT 
-      SELECT TYPE(sp)
-      CLASS IS(sources_gravity)
-        gp => sp
-        EXIT
-      END SELECT
-      sp => sp%next
-    END DO
-    IF (.NOT.ASSOCIATED(gp)) CALL Physics%Error("mestel::InitData","no gravity term initialized")
+    ! get gravitational acceleration
+    IF (ALLOCATED(Sources)) &
+      sp => Sources%GetSourcesPointer(GRAVITY)
+    IF (.NOT.ASSOCIATED(sp)) &
+      CALL Physics%Error("ttauridisk::InitData","no gravity term initialized")
 
     ! initial condition (computational domain)
     ! the total disk mass is proportional to the central pressure;

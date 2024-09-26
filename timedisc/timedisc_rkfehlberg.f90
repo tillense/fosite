@@ -3,7 +3,7 @@
 !# fosite - 3D hydrodynamical simulation program                             #
 !# module: timedisc_rkfehlberg .f90                                          #
 !#                                                                           #
-!# Copyright (C) 2011,2014                                                   #
+!# Copyright (C) 2011-2024                                                   #
 !# Björn Sperling   <sperling@astrophysik.uni-kiel.de>                       #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
 !#                                                                           #
@@ -49,6 +49,7 @@ MODULE timedisc_rkfehlberg_mod
   USE marray_base_mod
   USE marray_compound_mod
   USE sources_base_mod
+  USE sources_generic_mod
   USE common_dict
 #ifdef PARALLEL
 #ifdef HAVE_MPI_MOD
@@ -73,8 +74,8 @@ MODULE timedisc_rkfehlberg_mod
   CONTAINS
     PROCEDURE :: InitTimedisc
     PROCEDURE :: InitTimedisc_rkfehlberg
-    PROCEDURE :: Finalize
     PROCEDURE :: SolveODE
+    PROCEDURE :: Finalize
     PROCEDURE :: ComputeCVar_rkfehlberg
     GENERIC   :: ComputeCVar => ComputeCVar_rkfehlberg
     PROCEDURE :: SetButcherTableau
@@ -167,15 +168,14 @@ CONTAINS
 
 
   SUBROUTINE SolveODE(this,Mesh,Physics,Sources,Fluxes,time,dt,err)
-  IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(timedisc_rkfehlberg), INTENT(INOUT) :: this
-    CLASS(mesh_base),           INTENT(IN)    :: Mesh
-    CLASS(physics_base),        INTENT(INOUT) :: Physics
-    CLASS(sources_base),        POINTER       :: Sources
-    CLASS(fluxes_base),         INTENT(INOUT) :: Fluxes
-    REAL,                       INTENT(IN)    :: time
-    REAL,                       INTENT(INOUT) :: dt,err
+    IMPLICIT NONE
+    CLASS(timedisc_rkfehlberg),INTENT(INOUT):: this
+    CLASS(mesh_base),         INTENT(IN)    :: Mesh
+    CLASS(physics_base),      INTENT(INOUT) :: Physics
+    CLASS(sources_list), ALLOCATABLE, INTENT(INOUT) :: Sources
+    CLASS(fluxes_base),       INTENT(INOUT) :: Fluxes
+    REAL,                     INTENT(IN)    :: time
+    REAL,                     INTENT(INOUT) :: dt, err
     !------------------------------------------------------------------------!
     INTEGER            :: i,j,k,l,m
     REAL               :: t

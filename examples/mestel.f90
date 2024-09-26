@@ -265,16 +265,17 @@ CONTAINS
 
   SUBROUTINE InitData(Timedisc,Mesh,Physics,Fluxes,Sources)
     USE physics_euler_mod, ONLY : physics_euler, statevector_euler
+    USE sources_gravity_mod, ONLY : sources_gravity
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(timedisc_base), INTENT(INOUT) :: Timedisc
     CLASS(mesh_base),     INTENT(IN)    :: Mesh
     CLASS(physics_base),  INTENT(INOUT) :: Physics
     CLASS(fluxes_base),   INTENT(INOUT) :: Fluxes
-    CLASS(sources_base),  POINTER       :: Sources
+    CLASS(sources_list), ALLOCATABLE, INTENT(INOUT) :: Sources
     !------------------------------------------------------------------------!
     ! Local variable declaration
-    CLASS(sources_base), POINTER :: sp
+    CLASS(sources_base), POINTER :: sp => null()
     CLASS(sources_gravity), POINTER :: gp => null()
     CLASS(marray_base), ALLOCATABLE :: rands,Sigma
 #ifdef PARALLEL
@@ -286,21 +287,14 @@ CONTAINS
     INTEGER :: rng, n
 #endif
     !------------------------------------------------------------------------!
-    ALLOCATE(rands,Sigma)
     ! get gravitational acceleration
-    sp => Sources
-    DO
-      IF (.NOT.ASSOCIATED(sp)) EXIT 
-      SELECT TYPE(sp)
-      CLASS IS(sources_gravity)
-        gp => sp
-        EXIT
-      END SELECT
-      sp => sp%next
-    END DO
-    IF (.NOT.ASSOCIATED(sp)) CALL Physics%Error("mestel::InitData","no gravity term initialized")
+    IF (ALLOCATED(Sources)) &
+      sp => Sources%GetSourcesPointer(GRAVITY)
+    IF (.NOT.ASSOCIATED(sp)) &
+      CALL Physics%Error("mestel::InitData","no gravity term initialized")
 
     ! get random numbers for density noise
+    ALLOCATE(rands,Sigma)
     rands = marray_base()
 #ifndef NECSXAURORA
     CALL InitRandSeed(Physics)

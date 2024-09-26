@@ -331,16 +331,7 @@ CONTAINS
     END SELECT
 
     ! get gravitational acceleration
-    sp => Sim%Sources
-    DO
-      IF (.NOT.ASSOCIATED(sp)) EXIT 
-      SELECT TYPE(sp)
-      CLASS IS(sources_gravity)
-        gp => sp
-        EXIT
-      END SELECT
-      sp => sp%next
-    END DO
+    sp => Sim%Sources%GetSourcesPointer(GRAVITY)
     IF (.NOT.ASSOCIATED(sp)) CALL Physics%Error("pringle::InitData","no gravity term initialized")
 
     SELECT CASE(VISTYPE)

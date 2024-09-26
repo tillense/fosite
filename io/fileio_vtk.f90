@@ -153,7 +153,7 @@ CONTAINS
     CLASS(mesh_base),    INTENT(IN)          :: Mesh     !< \param [in] Mesh mesh type
     CLASS(physics_base), INTENT(IN)          :: Physics  !< \param [in] Physics Physics type
     CLASS(timedisc_base),INTENT(IN)          :: Timedisc !< \param [in] Physics Physics type
-    CLASS(sources_base), INTENT(IN), POINTER :: Sources  !< \param [in] Physics Physics type
+    CLASS(sources_base), INTENT(IN)          :: Sources  !< \param [in] Physics Physics type
     TYPE(Dict_TYP),      INTENT(IN), POINTER :: config   !< \param [in] IO Dictionary for I/O
     TYPE(Dict_TYP),      INTENT(IN), POINTER :: IO       !< \param [in] IO Dictionary for I/O
     !------------------------------------------------------------------------!

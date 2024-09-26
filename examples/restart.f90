@@ -628,10 +628,10 @@ SUBROUTINE LoadData(this,filename)
 #endif
       END SELECT
     CASE('/sources/grav/binary/binpos')
-      srcptr => this%Sources
-      DO WHILE (ASSOCIATED(srcptr))
+      srcptr => this%Sources%GetSourcesPointer(GRAVITY)
+      IF (ASSOCIATED(srcptr)) THEN
         SELECT TYPE (gravity => srcptr)
-        TYPE IS (sources_gravity)
+        CLASS IS(sources_gravity)
           gravptr => gravity%glist
           DO WHILE (ASSOCIATED(gravptr))
             SELECT TYPE (binary => gravptr)
@@ -642,16 +642,13 @@ SUBROUTINE LoadData(this,filename)
             END SELECT
             gravptr => gravptr%next
           END DO
-        CLASS DEFAULT
-          ! do nothing or add fields/values in sources
         END SELECT
-        srcptr => srcptr%next
-      END DO
+      END IF
     CASE('/sources/grav/binary/mass')
-      srcptr => this%Sources
-      DO WHILE (ASSOCIATED(srcptr))
+      srcptr => this%Sources%GetSourcesPointer(GRAVITY)
+      IF (ASSOCIATED(srcptr)) THEN
         SELECT TYPE (gravity => srcptr)
-        TYPE IS (sources_gravity)
+        CLASS IS(sources_gravity)
           gravptr => gravity%glist
           DO WHILE (ASSOCIATED(gravptr))
             SELECT TYPE (binary => gravptr)
@@ -662,16 +659,13 @@ SUBROUTINE LoadData(this,filename)
             END SELECT
             gravptr => gravptr%next
           END DO
-        CLASS DEFAULT
-          ! do nothing or add fields/values in sources
         END SELECT
-        srcptr => srcptr%next
-      END DO
+      END IF
     CASE('/sources/grav/binary/mass2')
-      srcptr => this%Sources
-      DO WHILE (ASSOCIATED(srcptr))
+      srcptr => this%Sources%GetSourcesPointer(GRAVITY)
+      IF (ASSOCIATED(srcptr)) THEN
         SELECT TYPE (gravity => srcptr)
-        TYPE IS (sources_gravity)
+        CLASS IS(sources_gravity)
           gravptr => gravity%glist
           DO WHILE (ASSOCIATED(gravptr))
             SELECT TYPE (binary => gravptr)
@@ -682,11 +676,8 @@ SUBROUTINE LoadData(this,filename)
             END SELECT
             gravptr => gravptr%next
           END DO
-        CLASS DEFAULT
-          ! do nothing or add fields/values in sources
         END SELECT
-        srcptr => srcptr%next
-      END DO
+      END IF
     CASE DEFAULT
       SELECT CASE(l)
       CASE(2)

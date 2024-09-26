@@ -59,55 +59,50 @@ MODULE sources_base_mod
      CLASS(sources_base), POINTER    :: next => null() !< next source in list
      REAL                            :: time           !< simulation time
      REAL                            :: cvis
-     REAL                            :: gparam         !< geometry parameter
-     LOGICAL                         :: update_disk_height !< enable/disable computation of disk scale height
-     TYPE(marray_base)               :: invheight2   !< energy sink due to cooling
-     TYPE(marray_base)               :: height       !< energy sink due to cooling
-     TYPE(marray_base)               :: h_ext        !< energy sink due to cooling
-     TYPE(marray_base)               :: pot          !< gravitational potential
-     REAL, DIMENSION(:,:,:), POINTER :: invr         !< 1./radius
-     INTEGER                         :: use_envelope !< enable vicosity envelope
+!      REAL                            :: gparam         !< geometry parameter
+!      REAL, DIMENSION(:,:,:), POINTER :: invr         !< 1./radius
+!      INTEGER                         :: use_envelope !< enable vicosity envelope
 
   CONTAINS
 
-    PROCEDURE :: InitSources
-    PROCEDURE (InfoSources),            DEFERRED :: InfoSources
-    PROCEDURE :: ExternalSources
-    PROCEDURE (ExternalSources_single), DEFERRED :: ExternalSources_single
-    PROCEDURE :: CalcTimestep
-    PROCEDURE (CalcTimestep_single),    DEFERRED :: CalcTimestep_single
+    PROCEDURE :: InitSources_base
+    PROCEDURE (InitSources),     DEFERRED :: InitSources
+    PROCEDURE (ExternalSources), DEFERRED :: ExternalSources
+    PROCEDURE (CalcTimestep),    DEFERRED :: CalcTimestep
     PROCEDURE :: GetSourcesPointer
-    PROCEDURE :: Finalize_base
   END TYPE sources_base
   ABSTRACT INTERFACE
-    SUBROUTINE InfoSources(this,Mesh)
-      IMPORT sources_base, Mesh_base
+    SUBROUTINE InitSources(this,Mesh,Physics,Fluxes,config,IO)
+      IMPORT Sources_base, Mesh_base, Physics_base, Fluxes_base, marray_compound, Dict_TYP
       IMPLICIT NONE
-      !------------------------------------------------------------------------!
-      CLASS(Sources_base),INTENT(IN) :: this
-      CLASS(Mesh_base),INTENT(IN)    :: Mesh
+      CLASS(sources_base), INTENT(INOUT) :: this
+      CLASS(mesh_base),    INTENT(IN)    :: Mesh
+      CLASS(physics_base), INTENT(IN)    :: Physics
+      CLASS(fluxes_base),  INTENT(IN)    :: Fluxes
+      TYPE(Dict_TYP), POINTER            :: config, IO
     END SUBROUTINE
-    SUBROUTINE CalcTimestep_single(this,Mesh,Physics,Fluxes,pvar,cvar,time,dt)
+    SUBROUTINE CalcTimestep(this,Mesh,Physics,Fluxes,pvar,cvar,time,dt,dtcause)
       IMPORT Sources_base, Mesh_base, Physics_base, Fluxes_base, marray_compound
       IMPLICIT NONE
       !------------------------------------------------------------------------!
-      CLASS(sources_base),INTENT(INOUT) :: this
+      CLASS(sources_base),INTENT(INOUT)   :: this
       CLASS(mesh_base),INTENT(IN)         :: Mesh
       CLASS(physics_base),INTENT(INOUT)   :: Physics
       CLASS(fluxes_base),INTENT(IN)       :: Fluxes
-      CLASS(marray_compound), INTENT(INOUT) :: pvar,cvar
-      REAL,INTENT(IN)                       :: time
-      REAL, INTENT(OUT)                     :: dt
+      CLASS(marray_compound),INTENT(INOUT):: pvar,cvar
+      REAL,INTENT(IN)                     :: time
+      REAL, INTENT(INOUT)                 :: dt
+      INTEGER, INTENT(OUT)                :: dtcause
     END SUBROUTINE
-    SUBROUTINE ExternalSources_single(this,Mesh,Physics,Fluxes,Sources,time,dt,pvar,cvar,sterm)
+    SUBROUTINE ExternalSources(this,Mesh,Physics,Fluxes,Sources,time,dt,pvar,cvar,sterm)
       IMPORT sources_base, mesh_base, physics_base, fluxes_base, marray_compound
       IMPLICIT NONE
       !------------------------------------------------------------------------!
       CLASS(sources_base),INTENT(INOUT)  :: this
       CLASS(mesh_base),INTENT(IN)        :: Mesh
       CLASS(physics_base),INTENT(INOUT)  :: Physics
-      CLASS(sources_base), INTENT(INOUT) :: Sources
       CLASS(fluxes_base),INTENT(IN)      :: Fluxes
+      CLASS(sources_base), INTENT(INOUT) :: Sources
       REAL,INTENT(IN)                    :: time, dt
       CLASS(marray_compound),INTENT(INOUT):: pvar,cvar,sterm
     END SUBROUTINE
@@ -118,155 +113,56 @@ MODULE sources_base_mod
       CLASS(sources_base),INTENT(INOUT) :: this
     END SUBROUTINE
   END INTERFACE
-  ! tempory storage for source terms
-  CLASS(marray_compound), POINTER, SAVE :: temp_sterm => null()
-  ! flags for source terms
-  INTEGER, PARAMETER :: GRAVITY          = 1
-!  INTEGER, PARAMETER :: DISK_THOMSON     = 2
-  INTEGER, PARAMETER :: VISCOSITY        = 3
-  INTEGER, PARAMETER :: C_ACCEL          = 4
-  INTEGER, PARAMETER :: COOLING          = 5
-  INTEGER, PARAMETER :: ROTATING_FRAME   = 20
-!  INTEGER, PARAMETER :: SGS              = 23
-  INTEGER, PARAMETER :: DISK_COOLING     = 24
-!  INTEGER, PARAMETER :: WAVE_DAMPING     = 25
-!  INTEGER, PARAMETER :: FORCING          = 26
-  INTEGER, PARAMETER :: PLANET_HEATING   = 27
-  INTEGER, PARAMETER :: PLANET_COOLING   = 28
-!  INTEGER, PARAMETER :: STELLAR_HEATING  = 29
-  INTEGER, PARAMETER :: SHEARBOX         = 30
   !--------------------------------------------------------------------------!
   PUBLIC :: &
        ! types
-       sources_base, &
-       ! constants
-       VISCOSITY, C_ACCEL, SHEARBOX, GRAVITY, DISK_COOLING, ROTATING_FRAME, &
-       PLANET_HEATING, PLANET_COOLING, COOLING
+       sources_base
   !--------------------------------------------------------------------------!
 
 CONTAINS
 
   !> Initialize data in sources
-  SUBROUTINE InitSources(this,Mesh,Fluxes,Physics,config,IO)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(sources_base), INTENT(IN)    :: this
-    CLASS(mesh_base),    INTENT(IN)    :: Mesh
-    CLASS(fluxes_base),  INTENT(IN)    :: Fluxes
-    CLASS(physics_base), INTENT(IN)    :: Physics
-    TYPE(Dict_TYP), POINTER            :: config, IO
-    !------------------------------------------------------------------------!
-    IF (.NOT.ASSOCIATED(temp_sterm)) CALL Physics%new_statevector(temp_sterm,CONSERVATIVE)
-
-    CALL this%Info(" SOURCES--> source term:       " // this%GetName())
-    CALL this%InfoSources(Mesh)
-  END SUBROUTINE InitSources
-
-
-  SUBROUTINE ExternalSources(this,Mesh,Fluxes,Physics,time,dt,pvar,cvar,sterm)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(sources_base), TARGET, INTENT(INOUT) :: this
-    CLASS(mesh_base),    INTENT(IN)         :: Mesh
-    CLASS(fluxes_base),  INTENT(IN)         :: Fluxes
-    CLASS(physics_base), INTENT(INOUT)      :: Physics
-    REAL,                INTENT(IN)         :: time,dt
-    CLASS(marray_compound), INTENT(INOUT)   :: pvar,cvar,sterm
-    !------------------------------------------------------------------------!
-    CLASS(Sources_base), POINTER :: srcptr
-    !------------------------------------------------------------------------!
-    ! reset sterm
-    sterm%data1d(:) = 0.0
-    ! go through all source terms in the list
-    srcptr => this
-    DO WHILE (ASSOCIATED(srcptr))
-
-      CALL srcptr%ExternalSources_single(Mesh,Physics,Fluxes,this,time,dt,pvar,cvar,temp_sterm)
-
-      ! add to the sources
-      sterm%data1d(:) = sterm%data1d(:) + temp_sterm%data1d(:)
-
-      ! next source term
-      srcptr => srcptr%next
-
-    END DO
-    ! reset ghost cell data
-    IF (Mesh%GINUM.GT.0) THEN
-      sterm%data4d(Mesh%IGMIN:Mesh%IMIN-Mesh%IP1,:,:,:) = 0.0
-      sterm%data4d(Mesh%IMAX+Mesh%IP1:Mesh%IGMAX,:,:,:) = 0.0
-    END IF
-    IF (Mesh%GJNUM.GT.0) THEN
-      sterm%data4d(:,Mesh%JGMIN:Mesh%JMIN-Mesh%JP1,:,:) = 0.0
-      sterm%data4d(:,Mesh%JMAX+Mesh%JP1:Mesh%JGMAX,:,:) = 0.0
-    END IF
-    IF (Mesh%GKNUM.GT.0) THEN
-      sterm%data4d(:,:,Mesh%KGMIN:Mesh%KMIN-Mesh%KP1,:) = 0.0
-      sterm%data4d(:,:,Mesh%KMAX+Mesh%KP1:Mesh%KGMAX,:) = 0.0
-    END IF
-  END SUBROUTINE ExternalSources
-
-
-  SUBROUTINE CalcTimestep(this,Mesh,Physics,Fluxes,pvar,cvar,time,dt,dtcause)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(sources_base), TARGET, INTENT(IN)    :: this
-    CLASS(mesh_base),            INTENT(IN)    :: Mesh
-    CLASS(physics_base),         INTENT(INOUT) :: Physics
-    CLASS(fluxes_base),          INTENT(IN)    :: Fluxes
-    CLASS(marray_compound),      INTENT(INOUT) :: pvar,cvar
-    REAL, INTENT(IN)              :: time
-    REAL, INTENT(INOUT)           :: dt
-    INTEGER, INTENT(OUT)          :: dtcause
-    !------------------------------------------------------------------------!
-    CLASS(Sources_base), POINTER :: srcptr
-    REAL              :: dt_new
-    !------------------------------------------------------------------------!
-    dt_new = dt
-
-    ! go through all source terms in the list
-    srcptr => this
-    DO WHILE(ASSOCIATED(srcptr))
-
-       CALL srcptr%CalcTimestep_single(Mesh,Physics,Fluxes,pvar,cvar,time,dt_new)
-
-
-       IF (dt_new .LT. dt) dtcause=srcptr%GetType()
-       dt = MIN(dt,dt_new)
-       ! next source term
-       srcptr => srcptr%next
-    END DO
-  END SUBROUTINE CalcTimestep
-
-  !> \public
-  FUNCTION GetSourcesPointer(list,stype) RESULT(sp)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(sources_base), TARGET, INTENT(IN) :: list
-    CLASS(sources_base), POINTER :: sp
-    INTEGER, INTENT(IN)          :: stype
-    !------------------------------------------------------------------------!
-    sp => list
-    DO
-       IF (ASSOCIATED(sp).EQV..FALSE.) EXIT
-!CDIR IEXPAND
-       IF (sp%GetType().EQ.stype) RETURN
-       sp => sp%next
-    END DO
-  END FUNCTION GetSourcesPointer
-
-  !> Destructor
-  SUBROUTINE Finalize_base(this)
+  SUBROUTINE InitSources_base(this,stype,sname)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(sources_base), INTENT(INOUT) :: this
+    INTEGER,             INTENT(IN)    :: stype
+    CHARACTER(LEN=*),    INTENT(IN)    :: sname
     !------------------------------------------------------------------------!
-    IF (.NOT.this%Initialized()) &
-        CALL this%Error("sources_base::Finalize_base","not initialized")
+    IF (this%Initialized()) &
+      CALL this%Error("sources_base::InitSources_base","source term already initialized")
+    CALL this%InitLogging(stype,sname)
+    CALL this%Info(" SOURCES--> source term:       " // this%GetName())
+!     CALL this%InfoSources(Mesh)
+  END SUBROUTINE InitSources_base
 
-    IF(ASSOCIATED(temp_sterm)) THEN
-      DEALLOCATE(temp_sterm)
-      NULLIFY(temp_sterm)
-    END IF
-  END SUBROUTINE Finalize_base
+
+  !> \public return pointer to requested source term
+  FUNCTION GetSourcesPointer(this,stype) RESULT(sp)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(sources_base), TARGET, INTENT(IN) :: this
+    CLASS(sources_base), POINTER    :: sp
+    INTEGER, INTENT(IN)             :: stype
+    !------------------------------------------------------------------------!
+    sp => this
+    DO WHILE (ASSOCIATED(sp))
+!CDIR IEXPAND
+      IF (sp%GetType().EQ.stype) EXIT
+      sp => sp%next
+    END DO
+  END FUNCTION GetSourcesPointer
+
+
+!   !> Destructor
+!   SUBROUTINE Finalize_base(this)
+!     IMPLICIT NONE
+!     !------------------------------------------------------------------------!
+!     CLASS(sources_base), INTENT(INOUT) :: this
+!     !------------------------------------------------------------------------!
+!     IF (.NOT.this%Initialized()) &
+!       CALL this%Error("sources_base::Finalize_base"," called for uninitialized sources")
+!     IF(ASSOCIATED(temp_sterm)) DEALLOCATE(temp_sterm)
+!   END SUBROUTINE Finalize_base
 
 END MODULE sources_base_mod

@@ -150,7 +150,7 @@ CONTAINS
     CLASS(mesh_base),    INTENT(IN)          :: Mesh     !< \param [in] Mesh mesh type
     CLASS(physics_base), INTENT(IN)          :: Physics  !< \param [in] Physics physics type
     CLASS(timedisc_base),INTENT(IN)          :: Timedisc !< \param [in] Timedisc timedisc type
-    CLASS(sources_base), INTENT(IN), POINTER :: Sources  !< \param [in] Sources sources type
+    CLASS(sources_base), INTENT(IN)          :: Sources  !< \param [in] Sources sources type
     TYPE(Dict_TYP),      INTENT(IN), POINTER :: config   !< \param [in] config dict with I/O configuration
     TYPE(Dict_TYP),      INTENT(IN), POINTER :: IO       !< \param [in] IO dict with pointers to I/O arrays
     !------------------------------------------------------------------------!

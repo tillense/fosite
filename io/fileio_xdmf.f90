@@ -102,8 +102,7 @@ CONTAINS
     CLASS(mesh_base),     INTENT(IN)    :: Mesh     !< \param [in] Mesh class
     CLASS(physics_base),  INTENT(IN)    :: Physics  !< \param [in] Physics class
     CLASS(timedisc_base), INTENT(IN)    :: Timedisc !< \param [in] Timedisc class
-    CLASS(sources_base),  INTENT(IN), POINTER &
-                                        :: Sources  !< \param [in] Sources class
+    CLASS(sources_base),  INTENT(IN)    :: Sources  !< \param [in] Sources class
     TYPE(Dict_TYP),       INTENT(IN), POINTER &
                                         :: config
     TYPE(Dict_TYP),       INTENT(IN), POINTER &

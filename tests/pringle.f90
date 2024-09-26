@@ -124,7 +124,7 @@ TAP_PLAN(1)
 
   CALL MakeConfig(Sim, Sim%config)
   CALL Sim%Setup()
-  CALL InitData(Sim,Sim%Mesh, Sim%Physics, Sim%Timedisc)
+  CALL InitData(Sim,Sim%Mesh, Sim%Physics, Sim%Timedisc, Sim%Sources)
   next_output_time = Sim%Datafile%time
   IF (ASSOCIATED(Sim%Timedisc%solution)) THEN
 #ifdef HAVE_FGSL
@@ -378,13 +378,14 @@ CONTAINS
             "datafile"  / datafile)
   END SUBROUTINE MakeConfig
 
-  SUBROUTINE InitData(Sim,Mesh,Physics,Timedisc)
+  SUBROUTINE InitData(Sim,Mesh,Physics,Timedisc,Sources)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(fosite),   INTENT(INOUT) :: Sim
     CLASS(physics_base),  INTENT(IN)    :: Physics
     CLASS(mesh_base),     INTENT(IN)    :: Mesh
     CLASS(timedisc_base), INTENT(INOUT) :: Timedisc
+    CLASS(sources_base),ALLOCATABLE,INTENT(INOUT) :: Sources
     !------------------------------------------------------------------------!
     ! Local variable declaration
     CLASS(sources_base), POINTER :: sp
@@ -396,6 +397,22 @@ CONTAINS
     REAL              :: r,vr,vphi,sden,mu
     CHARACTER(LEN=64) :: value
     !------------------------------------------------------------------------!
+    ! get gravitational acceleration
+    NULLIFY(gp)
+    IF (ALLOCATED(Sources)) THEN
+      sp => Sources%GetSourcesPointer(GRAVITY)
+      IF (ASSOCIATED(sp)) THEN
+        SELECT TYPE(sp)
+        CLASS IS(sources_gravity)
+          gp => sp
+        CLASS DEFAULT
+          ! do nothing
+        END SELECT
+      END IF
+    END IF
+    IF (.NOT.ASSOCIATED(gp)) &
+      CALL Physics%Error("pringle::InitData","no gravity term initialized")
+
     IF (ABS(X0).LE.TINY(X0).AND.ABS(Y0).LE.TINY(Y0)) THEN
        ! no shift of point mass set radius and posvec to Mesh defaults
        radius(:,:,:) = Mesh%radius%bcenter(:,:,:)
@@ -435,19 +452,6 @@ CONTAINS
       CALL beast%SetCustomBoundaries(Mesh,Physics, &
         (/CUSTOM_LOGEXPOL,CUSTOM_OUTFLOW,CUSTOM_KEPLER/))
     END SELECT
-
-    ! get gravitational acceleration
-    sp => Sim%Sources
-    DO
-      IF (.NOT.ASSOCIATED(sp)) EXIT 
-      SELECT TYPE(sp)
-      CLASS IS(sources_gravity)
-        gp => sp
-        EXIT
-      END SELECT
-      sp => sp%next
-    END DO
-    IF (.NOT.ASSOCIATED(sp)) CALL Physics%Error("pringle::InitData","no gravity term initialized")
 
     SELECT CASE(VISTYPE)
     CASE(BETA)

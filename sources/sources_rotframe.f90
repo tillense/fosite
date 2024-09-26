@@ -48,15 +48,16 @@ MODULE sources_rotframe_mod
   !--------------------------------------------------------------------------!
   PRIVATE
   CHARACTER(LEN=32), PARAMETER :: source_name = "inertial forces"
+  !--------------------------------------------------------------------------!
   TYPE, EXTENDS(sources_c_accel) :: sources_rotframe
     TYPE(marray_base), POINTER :: caccel => null(),  & !< rot. frame centrifugal accel
                                   vphi => null(), &    !< rot. frame azimuthal velocity
                                   twoOmega
     LOGICAL   :: disable_centaccel
   CONTAINS
-    PROCEDURE :: InitSources_rotframe
+    PROCEDURE :: InitSources
     PROCEDURE :: InfoSources
-    PROCEDURE :: ExternalSources_single
+    PROCEDURE :: ExternalSources
     PROCEDURE :: Convert2RotatingFrame
     FINAL :: Finalize
   END TYPE
@@ -69,11 +70,11 @@ MODULE sources_rotframe_mod
 CONTAINS
 
   !> \public Constructor of the rotating reference frame module
-  SUBROUTINE InitSources_rotframe(this,Mesh,Physics,Fluxes,config,IO)
+  SUBROUTINE InitSources(this,Mesh,Physics,Fluxes,config,IO)
     USE physics_eulerisotherm_mod, ONLY: physics_eulerisotherm
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(sources_rotframe)          :: this
+    CLASS(sources_rotframe), INTENT(INOUT) :: this
     CLASS(mesh_base),     INTENT(IN) :: Mesh
     CLASS(physics_base),  INTENT(IN) :: Physics
     CLASS(fluxes_base),   INTENT(IN) :: Fluxes
@@ -83,7 +84,7 @@ CONTAINS
     INTEGER           :: stype,disable_centaccel
     !------------------------------------------------------------------------!
     CALL GetAttr(config, "stype", stype)
-    CALL this%InitLogging(stype,source_name)
+    CALL this%InitSources_base(stype,source_name)
 
     CALL GetAttr(config,"disable_centaccel",disable_centaccel,0)
     IF (disable_centaccel.GT.0) THEN
@@ -91,8 +92,6 @@ CONTAINS
     ELSE
       this%disable_centaccel = .FALSE.
     END IF
-
-    CALL this%InitSources(Mesh,Fluxes,Physics,config,IO)
 
     SELECT TYPE(Physics)
     CLASS IS(physics_eulerisotherm)
@@ -190,7 +189,8 @@ CONTAINS
     END SELECT
     IF(Physics%VDIM.LT.3) DEALLOCATE(caccel3D,vphi3D,Omez)
     IF(this%disable_centaccel) DEALLOCATE(this%caccel)
-  END SUBROUTINE InitSources_rotframe
+    CALL this%InfoSources(Mesh)
+  END SUBROUTINE InitSources
 
 
   SUBROUTINE InfoSources(this,Mesh)
@@ -209,7 +209,7 @@ CONTAINS
   END SUBROUTINE InfoSources
 
 
-  SUBROUTINE ExternalSources_single(this,Mesh,Physics,Fluxes,Sources,time,dt,pvar,cvar,sterm)
+  SUBROUTINE ExternalSources(this,Mesh,Physics,Fluxes,Sources,time,dt,pvar,cvar,sterm)
     USE physics_eulerisotherm_mod, ONLY : statevector_eulerisotherm
     IMPLICIT NONE
     !------------------------------------------------------------------------!
@@ -256,7 +256,7 @@ CONTAINS
 
     ! inertial forces source terms
     CALL Physics%ExternalSources(this%accel,pvar,cvar,sterm)
-  END SUBROUTINE ExternalSources_single
+  END SUBROUTINE ExternalSources
 
   SUBROUTINE Convert2RotatingFrame(this,Mesh,Physics,pvar)
     USE physics_eulerisotherm_mod, ONLY : statevector_eulerisotherm

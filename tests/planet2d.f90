@@ -38,6 +38,7 @@
 !----------------------------------------------------------------------------!
 PROGRAM planet2d
   USE fosite_mod
+  USE sources_planetcooling_mod, ONLY : sources_planetcooling
   USE common_dict
 #include "tap.h"
   IMPLICIT NONE
@@ -94,7 +95,7 @@ PROGRAM planet2d
   !--------------------------------------------------------------------------!
   CLASS(fosite), ALLOCATABLE   :: Sim
   CLASS(sources_base), POINTER :: sp => null()
-  CLASS(sources_planetcooling), POINTER  :: spcool => null()
+  CLASS(sources_planetcooling), POINTER :: spcool => null()
   REAL :: Tmean
   LOGICAL            :: ok
   !--------------------------------------------------------------------------!
@@ -106,16 +107,17 @@ PROGRAM planet2d
   CALL MakeConfig(Sim, Sim%config)
   CALL Sim%Setup()
   ! get pointer on planetary cooling source term
-  sp => Sim%Sources
-  DO
-    IF (.NOT.ASSOCIATED(sp)) EXIT 
-    SELECT TYPE(sp)
-    CLASS IS(sources_planetcooling)
-      spcool => sp
-      EXIT
-    END SELECT
-    sp => sp%next
-  END DO
+  IF (ALLOCATED(Sim%Sources)) THEN
+    sp => Sim%Sources%GetSourcesPointer(PLANET_COOLING)
+    IF (ASSOCIATED(sp)) THEN
+      SELECT TYPE(sp)
+      CLASS IS(sources_planetcooling)
+        spcool => sp
+      CLASS DEFAULT
+        NULLIFY(spcool)
+      END SELECT
+    END IF
+  END IF
   IF (.NOT.ASSOCIATED(spcool)) &
     CALL Sim%Error("planet2d","planetary cooling sources not initialized")
   ! set initial condition

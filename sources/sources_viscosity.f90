@@ -3,7 +3,7 @@
 !# fosite - 3D hydrodynamical simulation program                             #
 !# module: sources_viscosity.f90                                             #
 !#                                                                           #
-!# Copyright (C) 2008-2021                                                   #
+!# Copyright (C) 2008-2024                                                   #
 !# Bjoern Sperling <sperling@astrophysik.uni-kiel.de>                        #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
 !#                                                                           #
@@ -70,6 +70,7 @@ MODULE sources_viscosity_mod
   IMPLICIT NONE
   !--------------------------------------------------------------------------!
   PRIVATE
+    CHARACTER(LEN=32), PARAMETER :: source_name = "viscosity of Newtonian fluid"
     ! flags for viscosity model
     INTEGER,PARAMETER :: MOLECULAR = 1     ! constant viscosity
     INTEGER,PARAMETER :: ALPHA     = 2     ! Shakura-Sunyaev prescription
@@ -83,9 +84,7 @@ MODULE sources_viscosity_mod
                                      "power law viscosity             ", &
                                      "alternative Shakura-Sunyaev     "/)
 
-
   TYPE, EXTENDS(sources_base) :: sources_viscosity
-    CHARACTER(LEN=32) :: source_name = "viscosity of Newtonian fluid"
     CLASS(logging_base), ALLOCATABLE :: viscosity
     CLASS(marray_base), ALLOCATABLE  :: ephir, &    !< azimuthal unit vector */ distance to axis
                                         ephir_tmp, &
@@ -98,44 +97,42 @@ MODULE sources_viscosity_mod
     REAL, DIMENSION(:,:), POINTER   :: &
           Sxx,Syy,Szz,Sxy,Sxz,Syz
   CONTAINS
-    PROCEDURE :: InitSources_viscosity
+    PROCEDURE :: InitSources
     PROCEDURE :: InfoSources
     PROCEDURE :: SetOutput
     PROCEDURE :: UpdateViscosity
-    PROCEDURE :: ExternalSources_single
-    PROCEDURE :: CalcTimestep_single
+    PROCEDURE :: ExternalSources
+    PROCEDURE :: CalcTimestep
     FINAL :: Finalize
   END TYPE
   !--------------------------------------------------------------------------!
  PUBLIC :: &
        ! types
-       Sources_viscosity, &
+       sources_viscosity, &
        ! constants
        MOLECULAR,ALPHA,BETA,POWERLAW,ALPHA_ALT,viscosity_name
   !--------------------------------------------------------------------------!
 
 CONTAINS
 
-  SUBROUTINE InitSources_viscosity(this,Mesh,Physics,Fluxes,config,IO)
+  SUBROUTINE InitSources(this,Mesh,Physics,Fluxes,config,IO)
     USE geometry_base_mod
     USE geometry_cylindrical_mod, ONLY: geometry_cylindrical
     USE geometry_logcylindrical_mod, ONLY: geometry_logcylindrical
     USE physics_eulerisotherm_mod, ONLY : physics_eulerisotherm
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(Sources_viscosity) :: this
-    CLASS(Mesh_base)    :: Mesh
-    CLASS(Physics_base) :: Physics
-    CLASS(Fluxes_base)  :: Fluxes
-    TYPE(Dict_TYP),POINTER :: config,IO
-    INTEGER           :: stype
+    CLASS(sources_viscosity), INTENT(INOUT) :: this
+    CLASS(mesh_base),       INTENT(IN)    :: Mesh
+    CLASS(physics_base),    INTENT(IN)    :: Physics
+    CLASS(fluxes_base),     INTENT(IN)    :: Fluxes
+    TYPE(Dict_TYP),           POINTER     :: config, IO
     !------------------------------------------------------------------------!
+    INTEGER           :: stype
     INTEGER           :: err, viscosity_number ,k,l
     !------------------------------------------------------------------------!
-    INTENT(IN)        :: Mesh,Physics,Fluxes
-    !------------------------------------------------------------------------!
     CALL GetAttr(config, "stype", stype)
-    CALL this%InitLogging(stype,this%source_name)
+    CALL this%InitSources_base(stype,source_name)
 
     SELECT TYPE(phys => Physics)
     CLASS IS(physics_eulerisotherm)
@@ -256,11 +253,9 @@ CONTAINS
     this%btyz(:,:,:) = 0.0
 
     CALL this%SetOutput(Mesh,Physics,config,IO)
-    IF (this%GetType().EQ.ALPHA_ALT) this%update_disk_height = .True.
 
-    CALL this%InitSources(Mesh,Fluxes,Physics,config,IO)
-
-  END SUBROUTINE InitSources_viscosity
+    CALL this%InfoSources()
+  END SUBROUTINE InitSources
 
   SUBROUTINE SetOutput(this,Mesh,Physics,config,IO)
     IMPLICIT NONE
@@ -299,11 +294,10 @@ CONTAINS
   END SUBROUTINE SetOutput
 
 
-  SUBROUTINE InfoSources(this,Mesh)
+  SUBROUTINE InfoSources(this)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(Sources_viscosity),INTENT(IN) :: this
-    CLASS(Mesh_base),INTENT(IN)         :: Mesh
+    CLASS(sources_viscosity),INTENT(IN) :: this
     !------------------------------------------------------------------------!
     CHARACTER(LEN=32) :: dynconst_str,bulkconst_str
     !------------------------------------------------------------------------!
@@ -485,7 +479,7 @@ CONTAINS
   END SUBROUTINE UpdateViscosity
 
 
-  SUBROUTINE ExternalSources_single(this,Mesh,Physics,Fluxes,Sources,time,dt,pvar,cvar,sterm)
+  SUBROUTINE ExternalSources(this,Mesh,Physics,Fluxes,Sources,time,dt,pvar,cvar,sterm)
     USE physics_eulerisotherm_mod, ONLY : physics_eulerisotherm
     USE physics_euler_mod, ONLY : physics_euler
     IMPLICIT NONE
@@ -506,7 +500,7 @@ CONTAINS
       CALL phys%ViscositySources(Mesh,pvar,this%btxx,this%btxy,this%btxz, &
                 this%btyy,this%btyz,this%btzz,sterm)
     END SELECT
-  END SUBROUTINE ExternalSources_single
+  END SUBROUTINE ExternalSources
 
 
   !> \public compute time step limit for advection-diffusion problems
@@ -515,7 +509,7 @@ CONTAINS
   !! \cite hindmarsh1984 (see also  \cite noye1989 ) for explicit Euler
   !! time-stepping with spatial upwinding for the advective transport step
   !! (see eq. (99) in \cite hindmarsh1984 ).
-  SUBROUTINE CalcTimestep_single(this,Mesh,Physics,Fluxes,pvar,cvar,time,dt)
+  SUBROUTINE CalcTimestep(this,Mesh,Physics,Fluxes,pvar,cvar,time,dt,dtcause)
     USE physics_eulerisotherm_mod, ONLY : physics_eulerisotherm, statevector_eulerisotherm
     USE physics_euler_mod, ONLY : physics_euler, statevector_euler
     IMPLICIT NONE
@@ -526,7 +520,8 @@ CONTAINS
     CLASS(Fluxes_base),INTENT(IN)       :: Fluxes
     CLASS(marray_compound), INTENT(INOUT) :: pvar,cvar
     REAL, INTENT(IN)                      :: time
-    REAL, INTENT(OUT)                     :: dt
+    REAL, INTENT(INOUT)                   :: dt
+    INTEGER,                INTENT(OUT)   :: dtcause
     !------------------------------------------------------------------------!
     REAL              :: invdt
     !------------------------------------------------------------------------!
@@ -584,9 +579,9 @@ CONTAINS
     ELSE
        dt = HUGE(dt)
     END IF
-  END SUBROUTINE CalcTimestep_single
+  END SUBROUTINE CalcTimestep
 
-  !> Destructor
+  !> \private destructor
   SUBROUTINE Finalize(this)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
@@ -595,7 +590,6 @@ CONTAINS
     IF (ALLOCATED(this%ephir)) DEALLOCATE(this%ephir)
     DEALLOCATE(this%dynvis,this%kinvis,this%bulkvis, &
                this%btxx,this%btyy,this%btzz,this%btxy,this%btxz,this%btyz)
-    CALL this%Finalize_base()
   END SUBROUTINE Finalize
 
 END MODULE sources_viscosity_mod
