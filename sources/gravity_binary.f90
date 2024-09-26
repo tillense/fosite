@@ -100,8 +100,10 @@ MODULE gravity_binary_mod
   END TYPE
 
   PUBLIC :: &
-       ! types
-       gravity_binary
+    ! types
+    gravity_binary, &
+    ! module procedures
+    Kepler
   !--------------------------------------------------------------------------!
 
 CONTAINS
@@ -382,62 +384,8 @@ CONTAINS
 
   !> \private compute new positions for both components of the binary system
   !!
-  !! This subroutine solves the Kepler equation to get the positions at a
-  !! given time. A detailed explanation and a derivation of the relevant
-  !! equations can be found in \cite taff1985 .
-  !!
-  !! First we map the dimensionless orbital time into the interval \f$[0,2\pi]\f$
-  !! to calculate the mean anomaly \f$ \tau \f$.
-  !! Then we have to solve the Kepler equation:
-  !! \f[
-  !!    \tau= E-\epsilon\sin{E}
-  !! \f]
-  !! to calculate the eccentric anomaly \f$ E \f$.
-  !! \f$ \epsilon \f$ is the eccentricity of the orbit which is given as an
-  !! input parameter of the binary.
-  !! We can solve the equation using the function \ref roots.getroot_regulafalsi .
-  !! To do this, we have to know an Intervall that includes the correct solution
-  !! for \f$ E \f$. This should be as small as possible to speed up the calculation.
-  !! Looking at the Kepler equation we can see, that if \f$ \tau\f$ is in
-  !! the interval \f$[0,\pi]\f$ \f$E\f$ also has a value in  \f$[0,\pi]\f$.
-  !! The same is true for the other possible intervall of values for \f$ \tau \f$
-  !! and \f$ E \f$ \f$]\pi,2\pi[\f$.
-  !! We can further constrain the Intervall for the correct solution for \f$ E \f$
-  !! by looking at these separate cases, keeping in mind that the eccentricity
-  !! \f$ \epsilon \f$ can only have values of:
-  !! \f[
-  !!    0 \leq \epsilon \leq 1
-  !! \f]
-  !! Case 1 : \f$ E,\tau \in [0,\pi] \f$
-  !! \f{eqnarray*}{
-  !!    E &=& \tau + \epsilon\sin{E} \leq \tau + \epsilon \\
-  !!    E &=& \tau + \epsilon\sin{E} \geq \tau  \\
-  !! \f}
-  !! Case 2 : \f$ E,\tau \in ]\pi,2\pi[ \f$
-  !! \f{eqnarray*}{
-  !!    E &=& \tau + \epsilon\sin{E} < \tau  \\
-  !!    E &=& \tau + \epsilon\sin{E} > \tau - \epsilon \\
-  !! \f}
-  !! If we know the mean anomaly \f$ E \f$ we can calculate the distance
-  !! between the stars
-  !! \f[
-  !!    r = a (1-\epsilon \cos{E}).
-  !! \f]
-  !! \f$ a \f$ is the semimajor axis of the binary.
-  !! We can also calculate the angle \f$ \phi \f$ between the semimajoraxis of
-  !! the ellipse and the line connecting the primary component to the center of mass
-  !! \f[
-  !!    \phi = 2\arctan\left(\sqrt{\frac{1+\epsilon}{1-\epsilon}} \tan{\frac{E}{2}} \right)
-  !! \f]
-  !! This equation can be written as
-  !! \f[
-  !!    \phi = 2\arctan\left(\pm\sqrt{\frac{1+\epsilon}{1-\epsilon} \frac{1-\cos{E}}{1+\cos{E}}} \right)
-  !! \f]
-  !! to avoid one evaluation of \f$ \tan \f$.
-  !! To choose the coorect sign in this expression we have to look at the sign of
-  !! \f$ \tan{(E/2)} \f$ which is positive for  \f$ E\in[0,\pi] \f$ and negative for \f$ E\in[\pi,2\pi]\f$.
   !! When we know the angle \f$ \phi \f$ and the distance between the stars \f$ r \f$
-  !! we can calculate the positions of the stars \f$ \vec{r}_1,\vec{r}_2 \f$ using
+  !! we can calculate the positions of the two stars \f$ \vec{r}_1,\vec{r}_2 \f$ using
   !! the equations:
   !! \f{eqnarray*}{
   !!    \vec{r}_1 &=& \frac{m_2}{m_1+m_2} \vec{r}\\
@@ -445,50 +393,16 @@ CONTAINS
   !! \f}
   !! with the masses of the binary components \f$ m_1, m_2 \f$ and \f$ r_1=|\vec{r}_1|\f$.
   SUBROUTINE UpdatePositions(this,time)
-    USE roots
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(gravity_binary), INTENT(INOUT) :: this
     REAL,                  INTENT(IN)    :: time
     !------------------------------------------------------------------------!
-    REAL              :: E,cosE,r,phi,r1
-    REAL              :: tau,excent
-    REAL, DIMENSION(2):: plist
+    REAL              :: r,phi,r1
     INTEGER           :: err
     !------------------------------------------------------------------------!
-    ! mean anomaly
-    tau = 2.*PI*MODULO(time,this%period)/this%period
-    excent = this%excent
-
-    plist(1)=excent
-    plist(2)=tau
-    ! solve the Kepler equation: E-tau-excent*sin(E) = 0
-    !   i.e. compute the intersection of f(E) = E-tau and g(E) = excent*sin(E)
-    IF ((tau.GE.0.0) .AND. (tau.LE.PI)) THEN
-       ! intersection lies ABOVE abscissa
-       CALL GetRoot(func,MAX(0.0,tau),MIN(PI,excent+tau),E,err,plist)
-    ELSE
-       ! intersection lies BELOW abscissa
-       CALL GetRoot(func,MAX(PI,tau-excent),MIN(2.*PI,tau),E,err,plist)
-    END IF
-    IF(err.NE.0) &
-      CALL this%Error("UpdatePositions_binary","Error in root finding!")
-
-    ! compute positions
-    cosE = COS(E)
-    ! distance to the origin of primary star position
-    r = this%semaaxis * (1.0 - excent*cosE)
-    ! position angle of primary star
-    !   phi1 = 2.0*ATAN(SQRT((1.0+excent)/(1.0-excent))*TAN(0.5*E))
-    !   A little bit more complicated but this avoids one evaluation of TAN;
-    !   uses TAN(x/2) = +/- SQRT((1-cos(x))/(1+cos(x)))
-    IF (cosE.NE.-1.0) THEN
-       phi = 2.0*ATAN(SIGN(SQRT(((1.+excent)*(1.-cosE)) &
-            /((1.-excent)*(1.+cosE))),PI-E))
-    ELSE
-       ! since lim_{x->0} atan(q/x) = pi/2 for q>0
-       phi = PI
-    END IF
+    CALL Kepler(time,this%period,this%excent,this%semaaxis,r,phi)
+    IF(r.LT.0) CALL this%Error("UpdatePositions_binary","Solving Kepler-Equation failed!")
 
     !transform to rotating reference frame if necessary
     phi = phi - this%omega_rot * time
@@ -504,7 +418,6 @@ CONTAINS
     ! shift with respect to center of rotation
     this%pos(:,1) = this%pos(:,1) + this%r0(:)
     this%pos(:,2) = this%pos(:,2) + this%r0(:)
-
   END SUBROUTINE UpdatePositions
 
   !> \public compute the pressure scale height of a disk for the binary potential
@@ -578,6 +491,110 @@ CONTAINS
     CALL this%Finalize_base()
   END SUBROUTINE Finalize
 
+  !> \public solve Kepler-Equation and return new distance r and position angle phi
+  !!
+  !! This subroutine solves the Kepler equation to get the positions at a
+  !! given time. A detailed explanation and a derivation of the relevant
+  !! equations can be found in \cite taff1985 .
+  !!
+  !! First we map the dimensionless orbital time into the interval \f$[0,2\pi]\f$
+  !! to calculate the mean anomaly \f$ \tau \f$.
+  !! Then we have to solve the Kepler equation:
+  !! \f[
+  !!    \tau= E-\epsilon\sin{E}
+  !! \f]
+  !! to calculate the eccentric anomaly \f$ E \f$.
+  !! \f$ \epsilon \f$ is the eccentricity of the orbit which is given as an
+  !! input parameter of the binary.
+  !! We can solve the equation using the function \ref roots.getroot_regulafalsi .
+  !! To do this, we have to know an Intervall that includes the correct solution
+  !! for \f$ E \f$. This should be as small as possible to speed up the calculation.
+  !! Looking at the Kepler equation we can see, that if \f$ \tau\f$ is in
+  !! the interval \f$[0,\pi]\f$ \f$E\f$ also has a value in  \f$[0,\pi]\f$.
+  !! The same is true for the other possible intervall of values for \f$ \tau \f$
+  !! and \f$ E \f$ \f$]\pi,2\pi[\f$.
+  !! We can further constrain the Intervall for the correct solution for \f$ E \f$
+  !! by looking at these separate cases, keeping in mind that the eccentricity
+  !! \f$ \epsilon \f$ can only have values of:
+  !! \f[
+  !!    0 \leq \epsilon \leq 1
+  !! \f]
+  !! Case 1 : \f$ E,\tau \in [0,\pi] \f$
+  !! \f{eqnarray*}{
+  !!    E &=& \tau + \epsilon\sin{E} \leq \tau + \epsilon \\
+  !!    E &=& \tau + \epsilon\sin{E} \geq \tau  \\
+  !! \f}
+  !! Case 2 : \f$ E,\tau \in ]\pi,2\pi[ \f$
+  !! \f{eqnarray*}{
+  !!    E &=& \tau + \epsilon\sin{E} < \tau  \\
+  !!    E &=& \tau + \epsilon\sin{E} > \tau - \epsilon \\
+  !! \f}
+  !! If we know the mean anomaly \f$ E \f$ we can calculate the distance
+  !! between the stars
+  !! \f[
+  !!    r = a (1-\epsilon \cos{E}).
+  !! \f]
+  !! \f$ a \f$ is the semimajor axis of the binary.
+  !! We can also calculate the angle \f$ \phi \f$ between the semimajoraxis of
+  !! the ellipse and the line connecting the primary component to the center of mass
+  !! \f[
+  !!    \phi = 2\arctan\left(\sqrt{\frac{1+\epsilon}{1-\epsilon}} \tan{\frac{E}{2}} \right)
+  !! \f]
+  !! This equation can be written as
+  !! \f[
+  !!    \phi = 2\arctan\left(\pm\sqrt{\frac{1+\epsilon}{1-\epsilon} \frac{1-\cos{E}}{1+\cos{E}}} \right)
+  !! \f]
+  !! to avoid one evaluation of \f$ \tan \f$.
+  !! To choose the coorect sign in this expression we have to look at the sign of
+  !! \f$ \tan{(E/2)} \f$ which is positive for  \f$ E\in[0,\pi] \f$ and negative for \f$ E\in[\pi,2\pi]\f$.
+  PURE SUBROUTINE Kepler(time,period,excent,semax,r,phi)
+    USE roots
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    REAL, INTENT(IN) :: time    !< orbital time
+    REAL, INTENT(IN) :: period  !< orbital period
+    REAL, INTENT(IN) :: excent  !< excentricity
+    REAL, INTENT(IN) :: semax   !< semi-major axis
+    REAL, INTENT(OUT):: r       !< mean anomaly
+    REAL, INTENT(OUT):: phi     !< excentricity
+    !------------------------------------------------------------------------!
+    REAL, DIMENSION(2):: plist
+    REAL :: tau,E,cosE
+    INTEGER :: err
+    !------------------------------------------------------------------------!
+    ! mean anomaly
+    tau = 2.*PI*MODULO(time,period)/period
+    plist(1)=excent
+    plist(2)=tau
+    IF ((tau.GE.0.0) .AND. (tau.LE.PI)) THEN
+       ! intersection lies ABOVE abscissa
+       CALL GetRoot(func,MAX(0.0,tau),MIN(PI,excent+tau),E,err,plist)
+    ELSE
+       ! intersection lies BELOW abscissa
+       CALL GetRoot(func,MAX(PI,tau-excent),MIN(2.*PI,tau),E,err,plist)
+    END IF
+    ! return a negative number for distance r
+    IF (err.NE.0) THEN
+      r   = -1
+      phi = 0
+      RETURN
+    END IF
+    ! compute new distance and position angle
+    cosE = COS(E)
+    ! distance to the origin of primary star position
+    r = semax * (1.0 - excent*cosE)
+    ! position angle of primary star
+    !   phi1 = 2.0*ATAN(SQRT((1.0+excent)/(1.0-excent))*TAN(0.5*E))
+    !   A little bit more complicated but this avoids one evaluation of TAN;
+    !   uses TAN(x/2) = +/- SQRT((1-cos(x))/(1+cos(x)))
+    IF (cosE.NE.-1.0) THEN
+       phi = 2.0*ATAN(SIGN(SQRT(((1.+excent)*(1.-cosE)) &
+            /((1.-excent)*(1.+cosE))),PI-E))
+    ELSE
+       ! since lim_{x->0} atan(q/x) = pi/2 for q>0
+       phi = PI
+    END IF
+  END SUBROUTINE Kepler
 
   !> find root of the Kepler equation
   PURE SUBROUTINE func(x,fx,plist)
