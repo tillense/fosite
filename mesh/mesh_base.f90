@@ -94,7 +94,6 @@ MODULE mesh_base_mod
   !! #### mesh types
   INTEGER, PARAMETER :: MIDPOINT     = 1 !< use midpoint rule to approximate flux integrals
 !  INTEGER, PARAMETER :: TRAPEZOIDAL  = 2 !< use trapezoidal rule to approximate flux integrals
-  !> \}
   !! #### parameters depending on dimensionality
   INTEGER, PARAMETER :: NFACES(3)    = (/ 2, 4, 6 /)  !< number of faces
   INTEGER, PARAMETER :: NCORNERS(3)  = (/ 2, 4, 8 /)  !< number of corners
@@ -268,7 +267,6 @@ MODULE mesh_base_mod
       CLASS(mesh_base), INTENT(INOUT) :: this
     END SUBROUTINE
   END INTERFACE
-  !> \}
   !--------------------------------------------------------------------------!
   PUBLIC :: &
        ! types
