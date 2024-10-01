@@ -350,7 +350,7 @@ CONTAINS
         pvar%data4d(:,:,:,Physics%XVELOCITY:Physics%XVELOCITY+Physics%VDIM-1) = &
             Timedisc%GetCentrifugalVelocity(Mesh,Physics,Fluxes,Sources,(/0.,0.,1./),sp%accel%data4d)
       CLASS DEFAULT
-        NULLIFY(sp)
+        CALL Physics%Error("sgdisk::InitData","this should not happen -> gravity pointer is not of class sources_gravity")
       END SELECT
     ELSE
       CALL Physics%Error("sgdisk::InitData","gravity source term not initialized")
