@@ -3,7 +3,7 @@
 !# fosite - 3D hydrodynamical simulation program                             #
 !# module: riemann2d.f90                                                     #
 !#                                                                           #
-!# Copyright (C) 2006-2021                                                   #
+!# Copyright (C) 2006-2024                                                   #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
 !#                                                                           #
 !# This program is free software; you can redistribute it and/or modify      #
@@ -468,14 +468,13 @@ PROGRAM riemann2d
   IMPLICIT NONE
   !--------------------------------------------------------------------------!
   ! simulation parameter
-  INTEGER, PARAMETER :: ICNUM = 19        ! initial condition (see ref. [3])
+  INTEGER, PARAMETER :: SELECT_TEST = 6   ! run this test, should be in 1..19
+  LOGICAL, PARAMETER :: RUN_ALL = .TRUE.  ! set this if you want to run all 19 tests
   REAL, PARAMETER    :: GAMMA = 1.4        ! ratio of specific heats
   ! mesh settings
   INTEGER, PARAMETER :: MGEO = CARTESIAN   ! geometry of the mesh
-!!$  INTEGER, PARAMETER :: MGEO = POLAR
-!!$  INTEGER, PARAMETER :: MGEO = LOGPOLAR
-!!$  INTEGER, PARAMETER :: MGEO = TANPOLAR
-!!$  INTEGER, PARAMETER :: MGEO = SINHPOLAR
+!   INTEGER, PARAMETER :: MGEO = CYLINDRICAL
+!   INTEGER, PARAMETER :: MGEO = LOGCYLINDRICAL
   INTEGER, PARAMETER :: XRES = 100         ! resolution
   INTEGER, PARAMETER :: YRES = 100
   INTEGER, PARAMETER :: ZRES = 1
@@ -486,41 +485,57 @@ PROGRAM riemann2d
                      :: ODIR = './'
   CHARACTER(LEN=256), PARAMETER &          ! output data file name
                      :: OFNAME = 'riemann2d'
+  ! do not change these parameters
+  INTEGER, PARAMETER :: NUM_TESTS = 19     ! total number of 2D setups
+  REAL, PARAMETER, DIMENSION(NUM_TESTS) :: & ! stop time for each test
+                    TEST_STOPTIME = (/ 0.2,0.2,0.3,0.25,0.23,0.3,0.25, &
+                                       0.25,0.3,0.15,0.3,0.25,0.3,0.1, &
+                                       0.2,0.2,0.3,0.2,0.3/)
   !--------------------------------------------------------------------------!
-  CLASS(fosite),Dimension(:), ALLOCATABLE      :: Sim
-  LOGICAL :: mpifinalize = .FALSE.
-  INTEGER                         :: ic
+  CLASS(fosite), ALLOCATABLE      :: Sim
+  LOGICAL                         :: ok(NUM_TESTS), mpifinalize = .FALSE.
+  INTEGER                         :: ic,err
   !--------------------------------------------------------------------------!
 
-  TAP_PLAN(ICNUM)
+  IF (RUN_ALL) THEN
+TAP_PLAN(NUM_TESTS)
+  ELSE
+TAP_PLAN(1)
+  END IF
 
-  ALLOCATE(Sim(ICNUM))
-  
+  DO ic=1,NUM_TESTS
+    IF (.NOT.RUN_ALL.AND.ic.NE.SELECT_TEST) CYCLE ! skip if not selected
 
-  
-  DO ic=1,ICNUM
+    IF (ALLOCATED(Sim)) DEALLOCATE(Sim)
+    ALLOCATE(Sim,STAT=err)
+    IF (err.NE.0) &
+      CALL Sim%Error("riemann2d","cannot allocate memory for Sim")
 
-    CALL Sim(ic)%InitFosite()
-
-     CALL MakeConfig(Sim(ic), Sim(ic)%config, ic)
+    CALL Sim%InitFosite()
+    CALL MakeConfig(Sim, Sim%config, ic)
 
 !  CALL PrintDict(config)
 
-     CALL Sim(ic)%Setup()
+    CALL Sim%Setup()
 
-     ! set initial condition
-     CALL InitData(Sim(ic)%Mesh, Sim(ic)%Physics, Sim(ic)%Timedisc, ic)
-     CALL Sim(ic)%Run()
+    ! set initial condition
+    CALL InitData(Sim%Mesh, Sim%Physics, Sim%Timedisc, ic)
+    CALL Sim%Run()
+    ok(ic) = .NOT.Sim%aborted
 
-     IF (ic.EQ.ICNUM) mpifinalize=.TRUE.
-     CALL Sim(ic)%Finalize(mpifinalize)
-     TAP_CHECK(.TRUE.,"Simulation finished")
+    IF ((RUN_ALL.AND.ic.EQ.NUM_TESTS).OR.(.NOT.RUN_ALL)) mpifinalize=.TRUE.
+    CALL Sim%Finalize(mpifinalize)
 
   END DO
 
-  DEALLOCATE(Sim)
+  DO ic=1,NUM_TESTS
+    IF (.NOT.RUN_ALL.AND.ic.NE.SELECT_TEST) CYCLE ! skip if not selected
+TAP_CHECK(ok(ic),"Simulation finished")
+  END DO
 
-  TAP_DONE
+  IF (ALLOCATED(Sim)) DEALLOCATE(Sim)
+
+TAP_DONE
 
 CONTAINS
 
@@ -537,12 +552,15 @@ CONTAINS
     TYPE(Dict_TYP), POINTER :: mesh, physics, boundary, datafile, &
                                timedisc, fluxes
     REAL              :: x1,x2,y1,y2,z1,z2,sc
-    REAL              :: test_stoptime
-    CHARACTER(LEN=3)  :: fext
+    CHARACTER(LEN=16) :: fext
     !------------------------------------------------------------------------!
     INTENT(INOUT)     :: Sim
     INTENT(IN)        :: ic
+    CHARACTER(LEN=8)  :: geo_str
     !------------------------------------------------------------------------!
+    IF (ic.LT.1.OR.ic.GT.NUM_TESTS) &
+       CALL Sim%Error("riemann2d::MakeConfig","invalid test number selected")
+
     ! mesh settings and boundary conditions
     SELECT CASE(MGEO)
     CASE(CARTESIAN)
@@ -559,49 +577,39 @@ CONTAINS
        bc(NORTH) = NO_GRADIENTS
        bc(BOTTOM)= NO_GRADIENTS
        bc(TOP)   = NO_GRADIENTS
-!    CASE(POLAR)
-!       sc = 1.0
-!       x1 = RMIN
-!       x2 = 0.5*SQRT(2.0)
-!       y1 = 0.0
-!       y2 = 2*PI
-!       bc(WEST)  = NO_GRADIENTS
-!       bc(EAST)  = NO_GRADIENTS
-!       bc(SOUTH) = PERIODIC
-!       bc(NORTH) = PERIODIC
-!    CASE(LOGPOLAR)
-!       sc = 0.3
-!       x1 = LOG(RMIN/sc)
-!       x2 = LOG(0.5*SQRT(2.0)/sc)
-!       y1 = 0.0
-!       y2 = 2*PI
-!       bc(WEST)  = NO_GRADIENTS
-!       bc(EAST)  = NO_GRADIENTS
-!       bc(SOUTH) = PERIODIC
-!       bc(NORTH) = PERIODIC
-!    CASE(TANPOLAR)
-!       sc = 0.3
-!       x1 = ATAN(RMIN/sc)
-!       x2 = ATAN(0.5*SQRT(2.0)/sc)
-!       y1 = 0.0
-!       y2 = 2*PI
-!       bc(WEST)  = NO_GRADIENTS
-!       bc(EAST)  = NO_GRADIENTS
-!       bc(SOUTH) = PERIODIC
-!       bc(NORTH) = PERIODIC
-!    CASE(SINHPOLAR)
-!       sc = 0.3
-!       x1 = Asinh(RMIN/sc)
-!       x2 = Asinh(0.5*SQRT(2.0)/sc)
-!       y1 = 0.0
-!       y2 = 2*PI
-!       bc(WEST)  = NO_GRADIENTS
-!       bc(EAST)  = NO_GRADIENTS
-!       bc(SOUTH) = PERIODIC
-!       bc(NORTH) = PERIODIC
+       geo_str = "-cart"
+   CASE(CYLINDRICAL)
+      sc = 1.0
+      x1 = 0.0
+      x2 = 0.5*SQRT(2.0)
+      y1 = 0.0
+      y2 = 2*PI
+      z1 = -0.0
+      z2 = 0.0
+      bc(WEST)   = ABSORBING
+      bc(EAST)   = NO_GRADIENTS
+      bc(SOUTH)  = PERIODIC
+      bc(NORTH)  = PERIODIC
+      bc(BOTTOM) = REFLECTING
+      bc(TOP)    = REFLECTING
+      geo_str = "-cyl"
+   CASE(LOGCYLINDRICAL)
+      sc = 0.3
+      x1 = LOG(RMIN/sc)
+      x2 = LOG(0.5*SQRT(2.0)/sc)
+      y1 = -PI
+      y2 = PI
+      z1 = 0.0
+      z2 = 0.0
+      bc(WEST)   = AXIS
+      bc(EAST)   = NO_GRADIENTS
+      bc(SOUTH)  = PERIODIC
+      bc(NORTH)  = PERIODIC
+      bc(BOTTOM) = NO_GRADIENTS
+      bc(TOP)    = NO_GRADIENTS
+      geo_str = "-logcyl"
     CASE DEFAULT
-       CALL Sim%Physics%Error("riemann2d::MakeConfig", &
-            " geometry should be one of cartesian,polar,logpolar,tanpolar,sinhpolar")
+      CALL Sim%Error("riemann2d::MakeConfig","geometry not supported in this test")
     END SELECT
 
     ! mesh settings
@@ -616,6 +624,7 @@ CONTAINS
            "ymax"     / y2, &
            "zmin"     / z1, &
            "zmax"     / z2, &
+           "output/commutator" / 1,&
            "gparam"   / sc)
 
     ! boundary conditions
@@ -637,67 +646,23 @@ CONTAINS
              "limiter"   / MONOCENT, &    ! one of: minmod, monocent,...   !
              "theta"     / 1.2)          ! optional parameter for limiter !
 
-    ! runtime of the test problem
-    SELECT CASE(ic)
-    CASE(1)  ! KT test 1
-       test_stoptime = 0.2
-    CASE(2)  ! Riemann problem no. 2
-       test_stoptime = 0.2
-    CASE(3)  ! Riemann problem no. 3
-       test_stoptime = 0.3
-    CASE(4)  ! Riemann problem no. 4
-       test_stoptime = 0.25
-    CASE(5)  ! Riemann problem no. 5
-       test_stoptime = 0.23
-    CASE(6)  ! Riemann problem no. 6
-       test_stoptime = 0.3
-    CASE(7)  ! Riemann problem no. 7
-       test_stoptime = 0.25
-    CASE(8)  ! Riemann problem no. 8
-       test_stoptime = 0.25
-    CASE(9)  ! Riemann problem no. 9
-       test_stoptime = 0.3
-    CASE(10)  ! Riemann problem no. 10
-       test_stoptime = 0.15
-    CASE(11)  ! Riemann problem no. 11
-       test_stoptime = 0.3
-    CASE(12) ! Riemann problem no. 12
-       test_stoptime = 0.25
-    CASE(13)  ! Riemann problem no. 13
-       test_stoptime = 0.3
-    CASE(14)  ! Riemann problem no. 14
-       test_stoptime = 0.1
-    CASE(15) ! Riemann problem no. 15
-       test_stoptime = 0.2
-    CASE(16)  ! Riemann problem no. 16
-       test_stoptime = 0.2
-    CASE(17) ! Riemann problem no. 17
-       test_stoptime = 0.3
-    CASE(18) ! Riemann problem no. 18
-       test_stoptime = 0.2
-    CASE(19) ! Riemann problem no. 19
-       test_stoptime = 0.3
-    CASE DEFAULT
-       CALL Sim%Physics%Error("InitProgram", &
-            "Sorry, this 2D Riemann problem is currently not supported!")
-    END SELECT
-
     ! time discretization settings
     timedisc => Dict( &
            "method"   / MODIFIED_EULER, &
            "order"    / 3, &
            "cfl"      / 0.4, &
-           "stoptime" / test_stoptime, &
+           "stoptime" / TEST_STOPTIME(ic), &
            "dtlimit"  / 1.0E-10, &
-           "maxiter"  / 10000000)
+           "maxiter"  / 10000000, &
+           "output/geometrical_sources" / 1)
 
     ! initialize data input/output
     ! append test number to file names
-    WRITE (fext, '(A,I2.2)') "_", ic
-!    datafile => Dict("fileformat" / VTK, &
+    WRITE (fext, '(A,I2.2)') TRIM(geo_str) // "_", ic
     datafile => Dict( &
-             !   "fileformat" / GNUPLOT, "filecycles" / 0, &
+!                "fileformat" / GNUPLOT, "filecycles" / 0, &
                 "fileformat" / VTK, &
+!                 "fileformat" / XDMF, &
                 "filename"   / (TRIM(ODIR) // TRIM(OFNAME) // TRIM(fext)), &
                 "count"      / ONUM)
 
@@ -720,12 +685,13 @@ CONTAINS
     INTEGER           :: ic
     !------------------------------------------------------------------------!
     ! Local variable declaration
+    TYPE(marray_base) :: vcart,vcurv
     REAL              :: xmin,ymin,xmax,ymax,x0,y0
 #ifdef PARALLEL
     REAL              :: xmin_all,xmax_all,ymin_all,ymax_all
     INTEGER           :: ierr
 #endif
-    REAL, DIMENSION(ICNUM,4):: den,pre,vx,vy
+    REAL, DIMENSION(NUM_TESTS,4):: den,pre,vx,vy
     CHARACTER(LEN=64) :: teststr
     !------------------------------------------------------------------------!
     INTENT(IN)        :: Mesh,Physics,ic
@@ -749,13 +715,16 @@ CONTAINS
     x0 = xmin + 0.5*ABS(xmax-xmin)
     y0 = ymin + 0.5*ABS(ymax-ymin)
 
+    vcart = marray_base(3)
+    vcurv = marray_base(3)
+
     ! set defaults
     den(:,:) = 1.
     vx(:,:)  = 0.
     vy(:,:)  = 0.
     pre(:,:) = 1.
 
-    IF (ic.LT.1.OR.ic.GT.ICNUM) &
+    IF (ic.LT.1.OR.ic.GT.NUM_TESTS) &
       CALL Mesh%Error("InitData","Sorry, this 2D Riemann problem is currently not supported!")
 
     WRITE (teststr,'(A,I2)') "2D Riemann problem no. ", ic
@@ -1169,24 +1138,27 @@ CONTAINS
       WHERE ( (Mesh%bccart(:,:,:,1).GE.x0).AND.(Mesh%bccart(:,:,:,2).GE.y0) )
         pvar%density%data3d(:,:,:)    = den(ic,1)
         pvar%pressure%data3d(:,:,:)   = pre(ic,1)
-        pvar%velocity%data4d(:,:,:,1) = vx(ic,1)
-        pvar%velocity%data4d(:,:,:,2) = vy(ic,1)
+        vcart%data4d(:,:,:,1) = vx(ic,1)
+        vcart%data4d(:,:,:,2) = vy(ic,1)
       ELSEWHERE ( (Mesh%bccart(:,:,:,1).LT.x0).AND.(Mesh%bccart(:,:,:,2).GE.y0) )
         pvar%density%data3d(:,:,:)    = den(ic,2)
         pvar%pressure%data3d(:,:,:)   = pre(ic,2)
-        pvar%velocity%data4d(:,:,:,1) = vx(ic,2)
-        pvar%velocity%data4d(:,:,:,2) = vy(ic,2)
+        vcart%data4d(:,:,:,1) = vx(ic,2)
+        vcart%data4d(:,:,:,2) = vy(ic,2)
       ELSEWHERE ( (Mesh%bccart(:,:,:,1).LT.x0).AND.(Mesh%bccart(:,:,:,2).LT.y0) )
         pvar%density%data3d(:,:,:)    = den(ic,3)
         pvar%pressure%data3d(:,:,:)   = pre(ic,3)
-        pvar%velocity%data4d(:,:,:,1) = vx(ic,3)
-        pvar%velocity%data4d(:,:,:,2) = vy(ic,3)
+        vcart%data4d(:,:,:,1) = vx(ic,3)
+        vcart%data4d(:,:,:,2) = vy(ic,3)
       ELSEWHERE ( (Mesh%bccart(:,:,:,1).GE.x0).AND.(Mesh%bccart(:,:,:,2).LT.y0) )
         pvar%density%data3d(:,:,:)    = den(ic,4)
         pvar%pressure%data3d(:,:,:)   = pre(ic,4)
-        pvar%velocity%data4d(:,:,:,1) = vx(ic,4)
-        pvar%velocity%data4d(:,:,:,2) = vy(ic,4)
+        vcart%data4d(:,:,:,1) = vx(ic,4)
+        vcart%data4d(:,:,:,2) = vy(ic,4)
       END WHERE
+      vcart%data2d(:,3) = 0.0 ! z-velocity
+      CALL Mesh%geometry%Convert2Curvilinear(Mesh%bcenter,vcart%data4d,vcurv%data4d)
+      pvar%velocity%data2d(:,1:2) = vcurv%data2d(:,1:2)
     END SELECT
    
     CALL Physics%Convert2Conservative(Timedisc%pvar,Timedisc%cvar)

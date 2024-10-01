@@ -38,42 +38,46 @@
 !----------------------------------------------------------------------------!
 PROGRAM planet2d
   USE fosite_mod
+  USE sources_base_mod, ONLY : sources_base
   USE sources_planetcooling_mod, ONLY : sources_planetcooling
+  USE constants_SI_mod, ONLY : C, GN, KB, NA, SB, KE, AU, &
+       MSUN, MJUPITER, MEARTH, RSUN, RJUPITER, REARTH, DAY
   USE common_dict
 #include "tap.h"
   IMPLICIT NONE
   !--------------------------------------------------------------------------!
   ! general constants                               !                        !
-  REAL, PARAMETER    :: GN      = 6.6742D-11        ! Newtons grav. constant !
-  REAL, PARAMETER    :: CC      = 2.99792458D+8     ! speed of light   [m/s] !
-  REAL, PARAMETER    :: RG      = 8.31447           ! molar gas constant     !
-  REAL, PARAMETER    :: SBconst = 5.670367D-8       ! Stefan-Boltzmann const !
-  REAL, PARAMETER    :: AU      = 1.49597870691E+11 ! astronomical unit  [m] !
-  REAL, PARAMETER    :: YEAR    = 3.15576E+7        ! Julian year        [s] !
-  REAL, PARAMETER    :: DAY     = 8.6400E+4         ! Day                [s] !
-  REAL, PARAMETER    :: REARTH  = 6.371E+6          ! radius of earth    [m] !
-  REAL, PARAMETER    :: RJUP    = 71.492E+6         ! radius of jupiter  [m] !
-  REAL, PARAMETER    :: RSUN    = 6.957E+8          ! radius of the sun  [m] !
-  REAL, PARAMETER    :: MEARTH  = 5.9723D+24        ! mass of the earth [kg] !
+!   REAL, PARAMETER    :: GN      = 6.6742D-11        ! Newtons grav. constant !
+!   REAL, PARAMETER    :: CC      = 2.99792458D+8     ! speed of light   [m/s] !
+!   REAL, PARAMETER    :: RG      = 8.31447           ! molar gas constant     !
+!   REAL, PARAMETER    :: SBconst = 5.670367D-8       ! Stefan-Boltzmann const !
+!   REAL, PARAMETER    :: AU      = 1.49597870691E+11 ! astronomical unit  [m] !
+!   REAL, PARAMETER    :: YEAR    = 3.15576E+7        ! Julian year        [s] !
+!   REAL, PARAMETER    :: DAY     = 8.6400E+4         ! Solar Day          [s] !
+!   REAL, PARAMETER    :: REARTH  = 6.371E+6          ! radius of earth    [m] !
+!   REAL, PARAMETER    :: RJUP    = 71.492E+6         ! radius of jupiter  [m] !
+!   REAL, PARAMETER    :: RSUN    = 6.957E+8          ! radius of the sun  [m] !
+!   REAL, PARAMETER    :: MEARTH  = 5.9723D+24        ! mass of the earth [kg] !
   ! planetary parameters                            !                        !
   REAL, PARAMETER    :: TYEAR   = 4.05 * DAY        ! tropical year      [s] !
   REAL, PARAMETER    :: RPLANET = 0.788*REARTH      ! planetary radius   [m] !
   REAL, PARAMETER    :: THETA0  = 0.0               ! axis-plane-angle [rad] !
   REAL, PARAMETER    :: PHI0    = 0.0               !                  [rad] !
-  REAL, PARAMETER    :: OMEGA   = 2*PI/TYEAR        ! ang. rotation  [rad/s] !
+  REAL, PARAMETER    :: OMEGA   = 2*PI/TYEAR/8      ! ang. rotation  [rad/s] !
   REAL, PARAMETER    :: FSUN    = OMEGA/(2*PI) - &  ! freq.(!) day-night[/s] !
                                      1.0/TYEAR      !                        !
   REAL, PARAMETER    :: MASS    = 0.297*MEARTH      ! mass of the planet [kg]!
   REAL, PARAMETER    :: GACC    = GN*MASS/RPLANET**2! grav. accel.  [m/s**2] !
   ! orbital parameters                              !                        !
-  REAL, PARAMETER    :: DPLANET = 0.02219*AU        ! distance           [m] !
   REAL, PARAMETER    :: SM_AXIS = 0.02219*AU        ! semi major axis    [m] !
-  REAL, PARAMETER    :: ECCENT  = 0.0               ! numerical eccentricity !
+  REAL, PARAMETER    :: EXCENT  = 0.0               ! numerical eccentricity !
   ! stellar parameters                              !                        !
   REAL, PARAMETER    :: RSTAR   = 0.121*RSUN        ! radius of the star [m] !
   REAL, PARAMETER    :: TSTAR   = 2511              ! eff. temperature   [K] !
+  REAL, PARAMETER    :: FSTAR   = (RSTAR/AU)**2 &   ! rad flux density @ 1 AU!
+                                  * SB*TSTAR**4     !   [W/m**2]             !
   ! simulation parameters                           !                        !
-  REAL, PARAMETER    :: TSIM    = 50 * TYEAR        ! simulation stop time   !
+  REAL, PARAMETER    :: TSIM    = 10 * TYEAR        ! simulation stop time   !
   INTEGER, PARAMETER :: XRES    = 1                 ! radius-resolution [px] !
   INTEGER, PARAMETER :: YRES    = 16                ! theta-resolution  [px] !
   INTEGER, PARAMETER :: ZRES    = 32                ! phi-resolution    [px] !
@@ -84,8 +88,6 @@ PROGRAM planet2d
   REAL, PARAMETER    :: T0      = 258.1             ! mean equil. temp.  [K] !
   ! optical properties of the atmosphere
   REAL, PARAMETER    :: ALBEDO  = 0.306             ! albedo of the planet   !
-  REAL, PARAMETER    :: INTENSITY = (Rstar/AU)**2 & ! intensity at 1 AU      !
-                          * SBconst * Tstar**4      !               [W/m**2] !
   ! output parameters                               !                        !
   INTEGER, PARAMETER :: ONUM    = 10                ! num. output data sets  !
   CHARACTER(LEN=256), PARAMETER &                   ! output data dir        !
@@ -208,9 +210,9 @@ CONTAINS
          "output/T_s"      / 1, &
          "output/RHO_s"    / 1, &
          "output/P_s"      / 1, &
-         "distance"        / DPLANET, &
+         "radflux"         / FSTAR, &
          "albedo"          / ALBEDO, &
-         "intensity"       / INTENSITY, &
+         "mean_distance"   / (SM_AXIS*(1. + 0.5*EXCENT**2)), &
          "T_0"             / T0, &
          "cvis"            / 0.1, &
          "gacc"            / GACC)
@@ -219,13 +221,14 @@ CONTAINS
     heating => Dict( &
          "stype"           / PLANET_HEATING, &
          "output/Qstar"    / 1, &
-         "distance"        / DPLANET, &
          "year"            / TYEAR, &
          "theta0"          / THETA0, &
          "phi0"            / PHI0, &
          "omegasun"        / FSUN, &
          "albedo"          / ALBEDO, &
-         "intensity"       / INTENSITY,&
+         "radflux"         / FSTAR,&
+         "semimajoraxis"   / SM_AXIS, &
+         "excentricity"    / EXCENT, &
          "cvis"            / 0.1)
 
     sources => Dict( &

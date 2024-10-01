@@ -379,13 +379,15 @@ CONTAINS
   END SUBROUTINE MakeConfig
 
   SUBROUTINE InitData(Sim,Mesh,Physics,Timedisc,Sources)
+    USE sources_base_mod, ONLY : sources_base
+    USE sources_gravity_mod, ONLY : sources_gravity
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(fosite),   INTENT(INOUT) :: Sim
     CLASS(physics_base),  INTENT(IN)    :: Physics
     CLASS(mesh_base),     INTENT(IN)    :: Mesh
     CLASS(timedisc_base), INTENT(INOUT) :: Timedisc
-    CLASS(sources_base),ALLOCATABLE,INTENT(INOUT) :: Sources
+    CLASS(sources_list),ALLOCATABLE,INTENT(IN) :: Sources
     !------------------------------------------------------------------------!
     ! Local variable declaration
     CLASS(sources_base), POINTER :: sp

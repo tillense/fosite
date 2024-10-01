@@ -118,7 +118,7 @@ CONTAINS
     ! initialize cooling function
     this%Q%data1d(:)  = 0.0
     
-     !initialize output
+    ! register ouput arrays
     CALL this%SetOutput(Mesh,config,IO)
   END SUBROUTINE InitSources
 
@@ -126,7 +126,7 @@ CONTAINS
   SUBROUTINE SetOutput(this,Mesh,config,IO)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(sources_cooling)  :: this
+    CLASS(sources_cooling), INTENT(INOUT) :: this
     CLASS(mesh_base), INTENT(IN) :: Mesh
     TYPE(Dict_TYP), POINTER     :: config,IO
     !------------------------------------------------------------------------!

@@ -64,7 +64,7 @@ PROGRAM KHI
   !--------------------------------------------------------------------------!
   CLASS(fosite), ALLOCATABLE   :: Sim
   CLASS(marray_compound), POINTER :: pvar,pvar_init
-  INTEGER            :: n,FARGO,d,clock
+  INTEGER            :: n,FARGO,d,dt(8)
   REAL               :: sigma(2,3)
   INTEGER, DIMENSION(:), ALLOCATABLE    :: seed
   CHARACTER(LEN=2),PARAMETER :: dir_name(2) = (/"xy","xz"/)
@@ -75,10 +75,9 @@ PROGRAM KHI
   ! allocate memory for dynamic types and arrays
   CALL RANDOM_SEED(size=n)
   ALLOCATE(seed(n))
-  ! Seed the random number generator using current system time
-  CALL SYSTEM_CLOCK(COUNT=clock)
-  seed = clock * (/(d-1, d=1,n)/)
-
+  ! Seed the random number generator using current system date and time
+  call date_and_time(values=dt)
+  seed = sum(dt(1:8)) * (/(d-1, d=1,n)/)
   DO d=1,2
     DO FARGO=0,2
       ALLOCATE(Sim,pvar,pvar_init)

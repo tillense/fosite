@@ -373,6 +373,8 @@ END FUNCTION LoadConfig
 !! Instead MPI routines are used in order to directly load the fields in the
 !! according arrays.
 SUBROUTINE LoadData(this,filename)
+  USE sources_base_mod, ONLY : sources_base
+  USE sources_gravity_mod, ONLY : sources_gravity
   IMPLICIT NONE
   !--------------------------------------------------------------------------!
   CLASS(fosite)                         :: this

@@ -28,9 +28,9 @@
 !! - parameters of \link sources_planetcooling \endlink as key-values
 !! \warning use SI units for initialization parameters
 !! \key{cvis,REAL,safety factor for numerical stability, 0.9}
-!! \key{intensity,REAL,intensity of the star at 1 AU}
-!! \key{albedo,REAL,albedo of planetary atmosphere}
-!! \key{distance,REAL,semi-major axis of planetary orbit}
+!! \key{radflux,REAL,radiant stellar flux density at 1 AU}
+!! \key{albedo,REAL,Bond albedo of planetary atmosphere, 0.5}
+!! \key{mean_distance,REAL,temporal mean distance planet to star, 1 AU}
 !! \key{T_0,REAL,long term equilibrium surface temperature of the planet}
 !! \key{gacc,REAL,gravitational accelaration on the planets surface}
 !----------------------------------------------------------------------------!
@@ -72,16 +72,15 @@ MODULE sources_planetcooling_mod
                          rho_s, &       !< density at the surface
                          P_s            !< pressure at the surface
     REAL              :: T_0            !< equilibrium temperature
-    REAL              :: distance       !< distance of the star
-    REAL              :: intensity      !< intensity of the star at 1 au
-    REAL              :: albedo         !< albedo of the planet
+    REAL              :: radflux        !< radiant stellar flux density at 1 AU
+    REAL              :: albedo         !< Bond albedo of the planet
+    REAL              :: distance       !< temporal mean distance between planet and star
     REAL              :: gacc           !< gravitational acceleration at surface
     REAL              :: tau_inf        !< optical depth in infinity
     REAL              :: const1, const2 !< two constants
   CONTAINS
     PROCEDURE :: InitSources
     PROCEDURE :: InfoSources
-    PROCEDURE :: SetOutput
     PROCEDURE :: UpdateCooling
     FINAL :: Finalize
   END TYPE
@@ -106,12 +105,14 @@ CONTAINS
     TYPE(Dict_TYP),      POINTER    :: config,IO
     INTEGER           :: stype
     !------------------------------------------------------------------------!
-    REAL              :: intensity
+    REAL              :: effradflux, q
     !------------------------------------------------------------------------!
     CALL GetAttr(config, "stype", stype)
     CALL this%InitSources_base(stype,source_name)
 
-    ! some sanity checks
+    CALL this%Info("############################ ATTENTION ############################")
+    CALL this%Warning("sources_planetcooling::InitSources","Untested module, use with care!")
+
     ! some sanity checks
     SELECT TYPE (phys => Physics)
     CLASS IS(physics_euler)
@@ -133,12 +134,13 @@ CONTAINS
 
     ! Courant number, i.e. safety factor for numerical stability
     CALL GetAttr(config, "cvis", this%cvis, 0.9)
-    ! intensity of the planets star at 1 AU
-    CALL GetAttr(config, "intensity", this%intensity)
-    ! distance planet-star
-    CALL GetAttr(config, "distance", this%distance)
-    ! albedo of the planet
-    CALL GetAttr(config, "albedo", this%albedo)
+    ! radiant energy flux density of stellar radiation at 1 AU distance
+    ! from the central star [W/m^2]
+    CALL GetAttr(config, "radflux", this%radflux)
+    ! Bond albedo of the planet
+    CALL GetAttr(config, "albedo", this%albedo,0.0)
+    ! temporal mean distance between planet and star
+    CALL GetAttr(config, "mean_distance", this%distance,Physics%constants%AU)
     ! equilibrium temperature
     CALL GetAttr(config,"T_0", this%T_0)
     ! gravitational acceleration
@@ -153,13 +155,18 @@ CONTAINS
     ! initial calculation of optical thickness
     SELECT TYPE(phys => Physics)
     CLASS IS(physics_euler)
-      intensity = (this%intensity/4.)*(phys%Constants%AU/this%distance)**(2.)
-      this%tau_inf= (this%T_0 * (Gamma(1.0+4.*(phys%gamma-1.)/phys%gamma) &
-        / ((1.-this%albedo)*intensity/phys%Constants%SB))**0.25)**(phys%gamma/(phys%gamma-1.))
+      ! effective mean radiant flux density at mean distance
+      effradflux = (1.-this%albedo)*this%radflux*(phys%constants%AU/this%distance)**2
+      ! compute the effective optical depth that leads to the equilibrium
+      ! mean surface temperature T_0 of the planet
+      q = phys%gamma/(phys%gamma-1.0)
+      this%tau_inf= ((4*phys%Constants%SB*Gamma(1.+4./q)/effradflux)**(0.25) * this%T_0)**q
+      ! conversion factor cs^2 -> T
       this%const1 = phys%mu/(phys%gamma*phys%Constants%RG)
-      this%const2 = phys%Constants%SB*this%tau_inf**(-4.*(phys%gamma-1.)/phys%gamma) &
-                  *Gamma(1.0+4.*(phys%gamma-1.)/phys%gamma)
+      this%const2 = phys%Constants%SB*this%tau_inf**(-4./q) * Gamma(1.0+4./q)
     END SELECT
+
+    ! register cooling function for output
     CALL this%SetOutput(Mesh,config,IO)
 
     ! call InitSources in base
@@ -174,20 +181,17 @@ CONTAINS
     CLASS(mesh_base),             INTENT(IN) :: Mesh
     !------------------------------------------------------------------------!
     CHARACTER(LEN=32) :: param_str
-    REAL, PARAMETER   :: AU      = 1.49597870691E+11    ! astr. unit [m]     !
     !------------------------------------------------------------------------!
-    WRITE (param_str,'(ES10.2)') (this%intensity/4.)*(AU/this%distance)**(2.)
-    CALL this%Info("            intensity:         " // TRIM(param_str) // " W/m^2")
+    WRITE (param_str,'(ES10.2)') this%radflux
+    CALL this%Info("            mean stellar flux: " // TRIM(param_str) // " W/m^2")
     WRITE (param_str,'(ES10.2)') this%T_0
     CALL this%Info("            mean equil. temp.: " // TRIM(param_str) // " K")
     WRITE (param_str,'(ES10.2)') this%tau_inf
-    CALL this%Info("            opt. depth:        " // TRIM(param_str))
-    WRITE (param_str,'(ES10.2)') this%albedo
-    CALL this%Info("            albedo:            " // TRIM(param_str))
+    CALL this%Info("            optical depth:     " // TRIM(param_str))
   END SUBROUTINE InfoSources
 
 
-  !> Updates the cooling for a given time
+  !> Updates the cooling function of the planetary atmosphere
   !!
   !! The cooling term is in its essence a modified Stefan-Boltzman law, but
   !! it includes many assumptions about the considered atmosphere
@@ -262,8 +266,8 @@ CONTAINS
   SUBROUTINE SetOutput(this,Mesh,config,IO)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(sources_planetcooling) :: this
-    CLASS(mesh_base),             INTENT(IN) :: Mesh
+    CLASS(sources_planetcooling), INTENT(INOUT) :: this
+    CLASS(mesh_base), INTENT(IN) :: Mesh
     TYPE(Dict_TYP),POINTER  :: config,IO
     !------------------------------------------------------------------------!
     INTEGER              :: valwrite

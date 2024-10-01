@@ -260,6 +260,8 @@ CONTAINS
 
   SUBROUTINE InitData(Mesh,Physics,Timedisc,Fluxes,Sources,pvar,cvar)
     USE physics_euler_mod, ONLY : physics_euler, statevector_euler
+    USE sources_base_mod, ONLY : sources_base
+    USE sources_gravity_mod, ONLY : sources_gravity
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(mesh_base),     INTENT(IN)    :: Mesh

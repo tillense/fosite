@@ -3,7 +3,7 @@
 !# fosite - 3D hydrodynamical simulation program                             #
 !# module: mestel.f90                                                        #
 !#                                                                           #
-!# Copyright (C) 2012-2019                                                   #
+!# Copyright (C) 2012-2024                                                   #
 !# Manuel Jung    <mjung@astrophysik.uni-kiel.de>                            #
 !# Björn Sperling <sperling@astrophysik.uni-kiel.de>                         #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
@@ -265,6 +265,7 @@ CONTAINS
 
   SUBROUTINE InitData(Timedisc,Mesh,Physics,Fluxes,Sources)
     USE physics_euler_mod, ONLY : physics_euler, statevector_euler
+    USE sources_base_mod, ONLY : sources_base
     USE sources_gravity_mod, ONLY : sources_gravity
     IMPLICIT NONE
     !------------------------------------------------------------------------!

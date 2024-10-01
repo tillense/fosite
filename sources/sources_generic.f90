@@ -43,7 +43,7 @@ MODULE sources_generic_mod
   USE sources_planetheating_mod
   USE sources_planetcooling_mod
   USE sources_rotframe_mod
-!   USE sources_shearbox_mod
+  USE sources_shearbox_mod
   USE sources_viscosity_mod
   USE marray_compound_mod
   USE marray_base_mod
@@ -152,19 +152,17 @@ CONTAINS
         CASE(ROTATING_FRAME)
           tmpsrc => this%GetSourcesPointer(ROTATING_FRAME)
           IF (ASSOCIATED(tmpsrc)) &
-            CALL this%Error("sources_list::InitSources","only one rotating frame source term allowed")
+            CALL this%Error("sources_generic::InitSources","only one rotating frame source term allowed")
           ALLOCATE(sources_rotframe::newsrc)
-!         CASE(SHEARBOX)
-!           IF (ALLOCATED(this)) THEN
-!             tmpsrc => this%GetSourcesPointer(SHEARBOX)
-!             IF (ASSOCIATED(tmpsrc)) &
-!               CALL this%Error("sources_generic::new_sources","only one shearing box source term allowed")
-!           END IF
-!           ALLOCATE(sources_shearbox::newsrc)
+        CASE(SHEARBOX)
+          tmpsrc => this%GetSourcesPointer(SHEARBOX)
+          IF (ASSOCIATED(tmpsrc)) &
+            CALL this%Error("sources_generic::InitSources","only one shearing box source term allowed")
+          ALLOCATE(sources_shearbox::newsrc)
         CASE(VISCOSITY)
           ALLOCATE(sources_viscosity::newsrc)
         CASE DEFAULT
-          CALL this%Error("sources_list::InitSources","Unknown source type")
+          CALL this%Error("sources_generic::InitSources","Unknown source type")
         END SELECT
 
         ! basic initialization of all source terms except gravity
@@ -196,7 +194,7 @@ CONTAINS
       ALLOCATE(sources_gravity::newsrc)
       IF (ASSOCIATED(newsrc)) THEN
         CALL SetAttr(gsrc,"update_disk_height", update_disk_height)
-        CALL newsrc%InitSources(Mesh,Physics,Fluxes,src,IOsrc)
+        CALL newsrc%InitSources(Mesh,Physics,Fluxes,gsrc,IOsrc)
         ! prepend new source term to list
         newsrc%next => this%next
         this%next => newsrc

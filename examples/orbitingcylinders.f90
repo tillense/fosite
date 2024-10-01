@@ -3,7 +3,7 @@
 !# fosite - 3D hydrodynamical simulation program                             #
 !# module: orbitingcylinders.f90                                             #
 !#                                                                           #
-!# Copyright (C) 2013-2018                                                   #
+!# Copyright (C) 2013-2024                                                   #
 !# Manuel Jung <mjung@astrophysik.uni-kiel.de>                               #
 !# Jannes Klee <jklee@astrophysik.uni-kiel.de>                               #
 !#                                                                           #
@@ -346,6 +346,7 @@ CONTAINS
     USE fgsl
 #endif
     USE functions, ONLY : Ei,Bessel_I0,Bessel_I1,Bessel_K0,Bessel_K1,Bessel_K0e
+    USE sources_base_mod, ONLY : sources_base
     USE sources_gravity_mod, ONLY : sources_gravity
     IMPLICIT NONE
     !------------------------------------------------------------------------!
@@ -353,7 +354,7 @@ CONTAINS
     CLASS(mesh_base),     INTENT(IN)    :: Mesh
     CLASS(physics_base),  INTENT(INOUT) :: Physics
     CLASS(fluxes_base),   INTENT(IN)    :: Fluxes
-    CLASS(sources_list), ALLOCATABLE, INTENT(INOUT) :: Sources
+    CLASS(sources_list), ALLOCATABLE, INTENT(IN) :: Sources
     !------------------------------------------------------------------------!
     ! Local variable declaration
     INTEGER           :: i,j,k,dir,ig
@@ -366,17 +367,23 @@ CONTAINS
     ! get gravity spectral solver
     IF (ALLOCATED(Sources)) THEN
       sp => Sources%GetSourcesPointer(GRAVITY)
+    ELSE
+      CALL Physics%Error("orbitingcylinders::InitData","no source terms initialized")
     END IF
     IF (ASSOCIATED(sp)) THEN
       SELECT TYPE (sp)
       CLASS IS(sources_gravity)
+        numpot => sp%pot%data4d(:,:,:,1)
         gp => sp%glist%GetGravityPointer(SPECTRAL)
       END SELECT
+    ELSE
+      CALL Physics%Error("orbitingcylinders::InitData","gravity module not initialized")
     END IF
+    IF (.NOT.ASSOCIATED(numpot)) &
+      CALL Physics%Error("orbitingcylinders::InitData","no pointer to numerical gravitational potential found")
     IF (.NOT.ASSOCIATED(gp)) &
       CALL Physics%Error("orbitingcylinders::InitData","no spectral gravity solver initialized")
 
-    numpot => sp%pot%data4d(:,:,:,1)
     IF (.NOT.ASSOCIATED(anapot)) ALLOCATE(anapot(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX))
 
     SELECT CASE(green)

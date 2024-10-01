@@ -85,21 +85,19 @@ MODULE sources_planetheating_mod
   !--------------------------------------------------------------------------!
   TYPE, EXTENDS(sources_cooling) :: sources_planetheating
     TYPE(marray_base), ALLOCATABLE &
-                      :: T_s, &         !< surface temperature (black body)
-                         cos1,sin1      !< helping arrays for precomputation
-    REAL              :: intensity      !< intensity of the star
-    REAL              :: albedo         !< albedo of the star
-    REAL              :: distance       !< distance of the star
+                      :: cos1,sin1      !< precompute and store some cos/sin values
+    REAL              :: radflux        !< radiant stellar flux density at 1 AU
+    REAL              :: albedo         !< albedo of the planet
     REAL              :: sm_axis        !< semi-major axis
     REAL              :: excentricity   !< excentricity
     REAL              :: true_anomaly   !< true anomaly aka orbital phase angle
     REAL              :: omegasun       !< rotational omega of the star
-    REAL              :: year           !< a year
+    REAL              :: year           !< period of one planetary orbit
     REAL              :: theta0, phi0   !< states were heating should start
   CONTAINS
     PROCEDURE :: InitSources
+!     PROCEDURE :: SetOutput
     PROCEDURE :: InfoSources
-    PROCEDURE :: SetOutput
     PROCEDURE :: UpdateCooling => UpdatePlanetHeating ! overwrite inherited method from sources_cooling
     FINAL :: Finalize
   END TYPE
@@ -131,6 +129,9 @@ CONTAINS
     CALL GetAttr(config, "stype", stype)
     CALL this%InitSources_base(stype,source_name)
 
+    CALL this%Info("############################ ATTENTION ############################")
+    CALL this%Warning("sources_planetheating::InitSources","Untested module, use with care!")
+
     ! some sanity checks
     SELECT TYPE (phys => Physics)
     CLASS IS(physics_euler)
@@ -146,24 +147,21 @@ CONTAINS
       CALL this%Error("InitSources_planetheating","only SI units supported")
     END SELECT
 
-    ALLOCATE(this%Q,this%T_s,this%cos1,this%sin1)
+    ALLOCATE(this%Q,this%cos1,this%sin1)
     this%Q     = marray_base()
-    this%T_s   = marray_base()
     this%cos1  = marray_base(2) !TODO check if 2 is really necessary
     this%sin1  = marray_base(2) !TODO check if 2 is really necessary
 
     ! Courant number, i.e. safety factor for numerical stability
     CALL GetAttr(config, "cvis", this%cvis, 0.1)
     ! intensity of the planets star at 1 AU
-    CALL GetAttr(config, "intensity", this%intensity)
+    CALL GetAttr(config, "radflux", this%radflux)
     ! albedo of the planet
     CALL GetAttr(config, "albedo", this%albedo)
-    ! distance planet-star
-    CALL GetAttr(config, "distance", this%distance)
     ! nummerical excentricity
     CALL GetAttr(config, "excentricity", this%excentricity, 0.0)
     ! semi-major-axis
-    CALL GetAttr(config, "sm_axis", this%sm_axis, this%distance)
+    CALL GetAttr(config, "semimajoraxis", this%sm_axis)
     ! day-night omega
     CALL GetAttr(config, "omegasun", this%omegasun, 0.0)
     ! year
@@ -195,15 +193,30 @@ CONTAINS
 
     ! initialize arrays
     this%Q%data1d(:) = 0.0
-    this%T_s%data1d(:)  = 0.0
 
-    ! initialise output
+    ! register ouput arrays
     CALL this%SetOutput(Mesh,config,IO)
 
     ! call InitSources in base
     CALL this%InfoSources(Mesh)
-
   END SUBROUTINE InitSources
+
+  SUBROUTINE SetOutput(this,Mesh,config,IO)
+    IMPLICIT NONE
+    !------------------------------------------------------------------------!
+    CLASS(sources_planetheating), INTENT(INOUT) :: this
+    CLASS(mesh_base), INTENT(IN) :: Mesh
+    TYPE(Dict_TYP), POINTER     :: config,IO
+    !------------------------------------------------------------------------!
+    INTEGER              :: valwrite
+    !------------------------------------------------------------------------!
+    ! register heating source term for output
+    CALL GetAttr(config, "output/Qstar", valwrite, 0)
+    IF (valwrite .EQ. 1) &
+         CALL SetAttr(IO, "Qstar", &
+              this%Q%data3d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX))
+  END SUBROUTINE SetOutput
+
 
   SUBROUTINE InfoSources(this,Mesh)
     IMPLICIT NONE
@@ -215,8 +228,7 @@ CONTAINS
     REAL              :: tmp_out
     REAL, PARAMETER   :: AU      = 1.49597870691E+11    ! astr. unit [m]     !
     !------------------------------------------------------------------------!
-    tmp_out = this%year/(3.6e3*24*365)
-    WRITE (param_str,'(ES10.2)') tmp_out
+    WRITE (param_str,'(ES10.2)') this%year/(3.6e3*24*365.2425)
     CALL this%Info("            sid. year:         " // TRIM(param_str) // " yr")
 
     IF (ABS(this%omegasun).GT.TINY(this%omegasun)) THEN
@@ -226,35 +238,32 @@ CONTAINS
        CALL this%Info("            day:               " // "infinite (tidally locked)")
     END IF
 
-    tmp_out = this%distance/AU
-    WRITE (param_str,'(ES10.2)') tmp_out
-    CALL this%Info("            distance:          " // TRIM(param_str) // " au")
-
-    tmp_out = this%sm_axis/AU
-    WRITE (param_str,'(ES10.2)') tmp_out
+    WRITE (param_str,'(ES10.2)') this%sm_axis/AU
     CALL this%Info("            semi-major axis:   " // TRIM(param_str) // " au")
 
     WRITE (param_str,'(ES10.2)') this%excentricity
     CALL this%Info("            excentricity:      " // TRIM(param_str))
+
+    WRITE (param_str,'(ES10.2)') this%sm_axis/AU*(1.+0.5*this%excentricity**2)
+    CALL this%Info("            mean distance:     " // TRIM(param_str) // " au")
   END SUBROUTINE InfoSources
 
 
-  !> Updates the heating for a given time
+  !> \public Updates the heating for a given time
   !!
   !! \image html sphere_trafo.jpg
   !! \image latex sphere_trafo.pdf
   !!
   !! Heating is done via
   !! \f[
-  !!    Q_{\mathrm{star}} = Q_{\mathrm{star,AU}} \left(
-  !!        \frac{a_{\mathrm{AU}}}{a}\right)^2
-  !!        \sin{\theta'}\cos{\varphi'}\left(1- \alpha \right),
+  !!    Q_{\mathrm{star}} = \left(1-A\right) Q_{\mathrm{star,AU}} \left(
+  !!        \frac{1 \mathsf{AU}}{r}\right)^2 \sin{\theta'}\cos{\varphi'},
   !! \f]
-  !! where \f$ Q_{\mathrm{star,AU}} \f$ is the intensity at \f$ 1\,\mathrm{AU}
-  !! \f$ distance, \f$ a_{\mathrm{AU}} \f$ and \f$ a \f$ are the semi-major
-  !! axes and \f$ \alpha \f$ is the albedo. The angles \f$ \theta' \f$ and
-  !! \f$ \varphi' \f$ are transformed angles that correspond to the view
-  !! factor.
+  !! where \f$ A \f$ is the Bond albedo, \f$ Q_{\mathrm{star,AU}} \f$ is the
+  !! radiant flux density at \f$ 1\,\f$AU distance from the central star,
+  !! and \f$ r\f$ is the current distance between planet and star.
+  !! The angles \f$ \theta' \f$ and \f$ \varphi' \f$ are transformed angles
+  !! that correspond to the view factor.
   !!
   !! In order to derive the new angles you need to use spherical trigonometry.
   !! It yields:
@@ -274,6 +283,9 @@ CONTAINS
   !! \cos{2\pi\frac{t}{t_a}} \f$, with \f$ t_a \f$ the time of a year is
   !! applied. For days \f$ \varphi(t) = \varphi_0(0) + 2 \pi f t \f$ is
   !! calculated. Here f is the frequency [\f$ s^{-1} \f$].
+  !!
+  !! \todo It seems that the result does not depend on the current position angle,
+  !! i.e. the true anomaly. However, this should in general be the case.
   SUBROUTINE UpdatePlanetHeating(this,Mesh,Physics,time,pvar)
     USE physics_euler_mod, ONLY : physics_euler, statevector_euler
     USE gravity_binary_mod, ONLY : Kepler
@@ -286,12 +298,12 @@ CONTAINS
     CLASS(statevector_euler),     INTENT(IN)    :: pvar
     !------------------------------------------------------------------------!
     INTEGER           :: i,j,k
-    REAL              :: theta2,phi1,phi2,mean_anomaly
+    REAL              :: theta2,phi1,phi2,r,mean_anomaly,true_anomaly
     !------------------------------------------------------------------------!
     ! heating by the star
     IF (time.NE.this%time) THEN
       ! calculate the new distance (and true anomaly) by solving Kepler's equation
-      CALL Kepler(time,this%year,this%excentricity,this%sm_axis,this%distance,this%true_anomaly)
+      CALL Kepler(time,this%year,this%excentricity,this%sm_axis,r,true_anomaly)
 
       DO k=Mesh%KMIN,Mesh%KMAX
         DO j=Mesh%JMIN,Mesh%JMAX
@@ -314,10 +326,10 @@ CONTAINS
             !--------------------------------------------------------------!
             IF (phi2.LE.PI/2..OR.phi2.GE.3./2.*PI) THEN
               ! for sin,cos have a look at spherical trigonometry
-              ! the albedo can contain things like scattering etc. (not implemented)
-
-              this%Q%data3d(i,j,k) = this%intensity * (AU/this%distance)**(2.) * &
-                                            (1.-(this%albedo))*SIN(theta2)*COS(phi2)
+              ! the albedo can contain things like scattering etc. (not implemented),
+              ! radflux is given at 1 AU
+              this%Q%data3d(i,j,k) = (1.-this%albedo)*this%radflux * (AU/r)**2 &
+                                            *SIN(theta2)*COS(phi2)
             ELSE
               this%Q%data3d(i,j,k) = 0.0
             END IF
@@ -328,26 +340,6 @@ CONTAINS
     END IF
   END SUBROUTINE UpdatePlanetHeating
 
-  !> Sets the output parameters.
-  !!
-  !! Output:
-  !! 1. heating term: \f$ Q_{\mathrm{star}} \f$
-  SUBROUTINE SetOutput(this,Mesh,config,IO)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(sources_planetheating) :: this
-    CLASS(mesh_base), INTENT(IN) :: Mesh
-    TYPE(Dict_TYP),   POINTER    :: config,IO
-    !------------------------------------------------------------------------!
-    INTEGER              :: valwrite
-    !------------------------------------------------------------------------!
-    ! heating source term
-    CALL GetAttr(config, "output/Qstar", valwrite, 0)
-    IF (valwrite .EQ. 1) &
-         CALL SetAttr(IO, "Qstar", &
-              this%Q%data3d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX))
-  END SUBROUTINE SetOutput
-
 
   !> Destructor
   SUBROUTINE Finalize(this)
@@ -355,7 +347,7 @@ CONTAINS
     !------------------------------------------------------------------------!
     TYPE(sources_planetheating), INTENT(INOUT) :: this
     !------------------------------------------------------------------------!
-    DEALLOCATE(this%T_s,this%cos1,this%sin1)
+    DEALLOCATE(this%cos1,this%sin1)
     ! this%Q is deallocated in parent class destructor
   END SUBROUTINE Finalize
 

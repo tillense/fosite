@@ -56,7 +56,7 @@ MODULE fileio_base_mod
   USE common_dict
   USE fluxes_base_mod
   USE physics_base_mod
-  USE sources_base_mod
+  USE sources_generic_mod
   USE mesh_base_mod
   USE timedisc_base_mod
 #ifdef PARALLEL
@@ -229,14 +229,14 @@ MODULE fileio_base_mod
       INTEGER :: fstatus
     END FUNCTION
     SUBROUTINE InitFileIO_deferred(this,Mesh,Physics,Timedisc,Sources,config,IO)
-      IMPORT fileio_base,mesh_base,physics_base,fluxes_base,timedisc_base,sources_base,Dict_TYP
+      IMPORT fileio_base,mesh_base,physics_base,fluxes_base,timedisc_base,sources_list,Dict_TYP
       IMPLICIT NONE
       !------------------------------------------------------------------------!
       CLASS(fileio_base),  INTENT(INOUT) :: this
       CLASS(mesh_base),    INTENT(IN)    :: Mesh
       CLASS(physics_base), INTENT(IN)    :: Physics
       CLASS(timedisc_base),INTENT(IN)    :: Timedisc
-      CLASS(sources_base), INTENT(IN)    :: Sources
+      CLASS(sources_list), ALLOCATABLE, INTENT(IN)    :: Sources
       TYPE(Dict_TYP),      INTENT(IN), POINTER :: config
       TYPE(Dict_TYP),      INTENT(IN), POINTER :: IO
     END SUBROUTINE
@@ -268,6 +268,7 @@ MODULE fileio_base_mod
 
   !> \name Public Attributes
   !! #### file status and access modes
+  !! \{
 !  INTEGER, PARAMETER :: FILE_EXISTS = B'00000001' !< file status for existing files
   INTEGER, PARAMETER :: CLOSED   = 0       !< file closed
   INTEGER, PARAMETER :: READONLY = 1       !< readonly access
@@ -277,7 +278,8 @@ MODULE fileio_base_mod
   INTEGER, PARAMETER :: OPEN_UNDEF = 5     !< open with undefined io action/position
   !> \}
 
-  !> basic file formats
+  !> #### file formats
+  !! \{
   INTEGER, PARAMETER :: FORTRANFILE = 1
   INTEGER, PARAMETER :: MPIFILE = 2
   !> file I/O types
@@ -287,6 +289,7 @@ MODULE fileio_base_mod
 !  INTEGER, PARAMETER :: NPY     = 5
 !  INTEGER, PARAMETER :: HDF     = 6
   INTEGER, PARAMETER :: XDMF    = 7
+  !> \}
   !--------------------------------------------------------------------------!
   INTEGER, SAVE :: lastunit = 10
 
@@ -333,8 +336,8 @@ CONTAINS
     CHARACTER(LEN=*), OPTIONAL, INTENT(IN) :: extension !< \param [in] extension file name extension
     LOGICAL, OPTIONAL, INTENT(IN)      :: textfile !< \param [in] textfile true for text data
     LOGICAL, OPTIONAL, INTENT(IN)      :: onefile  !< \param [in] onefile true if all data goes into one file
-    INTEGER, OPTIONAL, INTENT(IN)      :: cycles   !< \parma [in] cycles max number of files
-    INTEGER, OPTIONAL, INTENT(IN)      :: unit     !< \parma [in] unit force fortran i/o unit number
+    INTEGER, OPTIONAL, INTENT(IN)      :: cycles   !< \param [in] cycles max number of files
+    INTEGER, OPTIONAL, INTENT(IN)      :: unit     !< \param [in] unit force fortran i/o unit number
     !-------------------------------------------------------------------!
     IF (.NOT.this%Initialized()) CALL this%InitLogging(FORTRANFILE,"fortran")
     ! check file name length
@@ -391,7 +394,7 @@ CONTAINS
     CLASS(mesh_base),    INTENT(IN)    :: Mesh     !< \param [in] Mesh mesh type
     CLASS(physics_base), INTENT(IN)    :: Physics  !< \param [in] Physics physics type
     CLASS(timedisc_base),INTENT(IN)    :: Timedisc !< \param [in] Timedisc timedisc type
-    CLASS(sources_base), INTENT(IN)    :: Sources !< \param [in] Sources sources type
+    CLASS(sources_list), ALLOCATABLE, INTENT(IN) :: Sources !< \param [in] Sources sources type
     TYPE(Dict_TYP),      INTENT(IN), POINTER :: config  !< \param [in] config dict with I/O configuration
     TYPE(Dict_TYP),      INTENT(IN), POINTER :: IO      !< \param [in] IO dict with pointers to I/O arrays
     CHARACTER(LEN=*),    INTENT(IN)    :: fmtname  !< \param [in] fmtname file format
@@ -917,8 +920,8 @@ CONTAINS
     CHARACTER(LEN=*), OPTIONAL, INTENT(IN) :: extension !< \param [in] extension file name extension
     LOGICAL, OPTIONAL, INTENT(IN)      :: textfile !< \param [in] textfile true for text data
     LOGICAL, OPTIONAL, INTENT(IN)      :: onefile  !< \param [in] onefile true if all data goes into one file
-    INTEGER, OPTIONAL, INTENT(IN)      :: cycles   !< \parma [in] cycles max number of files
-    INTEGER, OPTIONAL, INTENT(IN)      :: unit     !< \parma [in] unit force fortran i/o unit number
+    INTEGER, OPTIONAL, INTENT(IN)      :: cycles   !< \param [in] cycles max number of files
+    INTEGER, OPTIONAL, INTENT(IN)      :: unit     !< \param [in] unit force fortran i/o unit number
     !-------------------------------------------------------------------!
     IF (.NOT.this%Initialized()) CALL this%InitLogging(MPIFILE,"mpi")
     CALL this%filehandle_fortran%InitFilehandle(filename,path,extension,textfile,onefile,cycles,unit)

@@ -61,18 +61,17 @@ MODULE sources_shearbox_mod
 #endif
   !--------------------------------------------------------------------------!
   PRIVATE
-    CHARACTER(LEN=32) :: source_name = "forces in shearing-box"
+  CHARACTER(LEN=32) :: source_name = "forces in shearing-box"
   !--------------------------------------------------------------------------!
-
   TYPE, EXTENDS(sources_c_accel) :: sources_shearbox
     REAL      :: SIGN1, SIGN2
     INTEGER   :: VEL1, VEL2
     INTEGER   :: I1, I2
     INTEGER   :: MOMENTUM1, MOMENTUM2
   CONTAINS
-    PROCEDURE :: InitSources_shearbox
+    PROCEDURE :: InitSources
     PROCEDURE :: InfoSources
-    PROCEDURE :: ExternalSources_single
+    PROCEDURE :: ExternalSources
   END TYPE
 
   PUBLIC :: &
@@ -86,23 +85,22 @@ CONTAINS
   !! This subroutine reads the necessary config data for the source module
   !! for a shearingsheet. It initializes the sources type and the
   !! accelerations array.
-  SUBROUTINE InitSources_shearbox(this,Mesh,Physics,Fluxes,config,IO)
+  SUBROUTINE InitSources(this,Mesh,Physics,Fluxes,config,IO)
     USE physics_euler_mod, ONLY: physics_euler
     USE physics_eulerisotherm_mod, ONLY: physics_eulerisotherm
     USE geometry_cartesian_mod, ONLY: geometry_cartesian
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(sources_shearbox)          :: this
-    CLASS(mesh_base),     INTENT(IN) :: Mesh
-    CLASS(physics_base),  INTENT(IN) :: Physics
-    CLASS(fluxes_base),   INTENT(IN) :: Fluxes
-    TYPE(Dict_TYP),          POINTER :: config, IO
+    CLASS(sources_shearbox),INTENT(INOUT) :: this
+    CLASS(mesh_base),       INTENT(IN)    :: Mesh
+    CLASS(physics_base),    INTENT(IN)    :: Physics
+    CLASS(fluxes_base),     INTENT(IN)    :: Fluxes
+    TYPE(Dict_TYP),           POINTER     :: config, IO
     !------------------------------------------------------------------------!
     INTEGER                          :: stype
     !------------------------------------------------------------------------!
     CALL GetAttr(config,"stype",stype)
-    CALL this%InitLogging(stype,source_name)
-    CALL this%InitSources(Mesh,Fluxes,Physics,config,IO)
+    CALL this%InitSources_base(stype,source_name)
 
     SELECT TYPE(Physics)
     TYPE IS(physics_euler)
@@ -149,7 +147,10 @@ CONTAINS
     IF (Mesh%KNUM.GT.1) THEN
       this%accel%data2d(:,3) = -Mesh%OMEGA**2 * Mesh%cart%data3d(:,2,3)
     END IF
-  END SUBROUTINE InitSources_shearbox
+
+    ! print some information
+    CALL this%InfoSources(Mesh)
+  END SUBROUTINE InitSources
 
   !> \public Write shearbox fictious forces parameters to screen.
   SUBROUTINE InfoSources(this,Mesh)
@@ -174,7 +175,7 @@ CONTAINS
   !!                    \mathbf{\hat{e}_x} - \Omega^2 z \mathbf{\hat{e}_z}
   !! \f]
   !! See for example \cite gammie2001 or \cite hawley1995 .
-  SUBROUTINE ExternalSources_single(this,Mesh,Physics,Fluxes,Sources,time,dt,pvar,cvar,sterm)
+  SUBROUTINE ExternalSources(this,Mesh,Physics,Fluxes,Sources,time,dt,pvar,cvar,sterm)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(sources_shearbox), INTENT(INOUT) :: this
@@ -220,6 +221,6 @@ CONTAINS
       CALL this%Error("sources_shearbox::ExternalSources_single", &
                       "currently only Fargo transport type 3 is supported")
     END SELECT
-  END SUBROUTINE ExternalSources_single
+  END SUBROUTINE ExternalSources
 
 END MODULE sources_shearbox_mod

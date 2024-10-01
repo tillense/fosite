@@ -124,7 +124,6 @@ MODULE sources_diskcooling_mod
   CONTAINS
     PROCEDURE :: InitSources
     PROCEDURE :: InfoSources
-    PROCEDURE :: SetOutput
     PROCEDURE :: UpdateCooling
     FINAL :: Finalize
   END TYPE
@@ -277,25 +276,6 @@ CONTAINS
        END IF
     END SELECT
   END SUBROUTINE InfoSources
-
-
-  SUBROUTINE SetOutput(this,Mesh,config,IO)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(sources_diskcooling)  :: this
-    CLASS(mesh_base), INTENT(IN) :: Mesh
-    TYPE(Dict_TYP), POINTER     :: config,IO
-    !------------------------------------------------------------------------!
-    INTEGER              :: valwrite
-    !------------------------------------------------------------------------!
-
-    !cooling energy source term
-    CALL GetAttr(config, "output/Qcool", valwrite, 0)
-    IF (valwrite .EQ. 1) &
-         CALL SetAttr(IO, "Qcool", &
-         this%Q%data3d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX))
-
-  END SUBROUTINE SetOutput
 
 
   !> \private Updates the cooling function at each time step.

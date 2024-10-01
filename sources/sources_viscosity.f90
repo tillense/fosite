@@ -252,17 +252,16 @@ CONTAINS
     this%btxz(:,:,:) = 0.0
     this%btyz(:,:,:) = 0.0
 
-    CALL this%SetOutput(Mesh,Physics,config,IO)
+    CALL this%SetOutput(Mesh,config,IO)
 
     CALL this%InfoSources()
   END SUBROUTINE InitSources
 
-  SUBROUTINE SetOutput(this,Mesh,Physics,config,IO)
+  SUBROUTINE SetOutput(this,Mesh,config,IO)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(Sources_viscosity),INTENT(IN) :: this
     CLASS(Mesh_base) ,INTENT(IN)      :: Mesh
-    CLASS(Physics_base),INTENT(IN)    :: Physics
     TYPE(Dict_TYP),POINTER  :: config,IO
     !------------------------------------------------------------------------!
     INTEGER              :: valwrite

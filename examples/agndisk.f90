@@ -310,6 +310,7 @@ CONTAINS
   END SUBROUTINE MakeConfig
 
   SUBROUTINE InitData(Mesh,Physics,Fluxes,Timedisc,Sources)
+    USE sources_base_mod, ONLY : sources_base
     USE sources_gravity_mod, ONLY : sources_gravity
     IMPLICIT NONE
     !------------------------------------------------------------------------!

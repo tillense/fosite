@@ -289,6 +289,8 @@ CONTAINS
   END SUBROUTINE MakeConfig
 
   SUBROUTINE InitData(Sim,Mesh,Physics,Timedisc)
+    USE sources_base_mod, ONLY : sources_base
+    USE sources_gravity_mod, ONLY : sources_gravity
     USE geometry_generic_mod
     IMPLICIT NONE
     !------------------------------------------------------------------------!

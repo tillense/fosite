@@ -174,7 +174,7 @@ CONTAINS
 !              "excentricity"    / EXCENT, &
               "output/binpos"   / 1, &
               "output/omega"    / 1, &
-              "semimayoraxis"   / SEMMA)
+              "semimajoraxis"   / SEMMA)
 
     ! source term due to all gravity terms
     grav => Dict( &
@@ -222,6 +222,7 @@ CONTAINS
 
   SUBROUTINE InitData(Mesh,Physics,Timedisc,Fluxes,Sources)
     USE physics_eulerisotherm_mod, ONLY : physics_eulerisotherm
+    USE sources_base_mod, ONLY : sources_base
     USE sources_gravity_mod, ONLY : sources_gravity
     IMPLICIT NONE
     !------------------------------------------------------------------------!

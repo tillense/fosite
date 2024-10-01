@@ -57,7 +57,7 @@ MODULE fileio_vtk_mod
   USE physics_base_mod
   USE fluxes_base_mod
   USE timedisc_base_mod
-  USE sources_base_mod
+  USE sources_generic_mod
   USE common_dict
 #ifdef PARALLEL
 #ifdef HAVE_MPI_MOD
@@ -153,7 +153,7 @@ CONTAINS
     CLASS(mesh_base),    INTENT(IN)          :: Mesh     !< \param [in] Mesh mesh type
     CLASS(physics_base), INTENT(IN)          :: Physics  !< \param [in] Physics Physics type
     CLASS(timedisc_base),INTENT(IN)          :: Timedisc !< \param [in] Physics Physics type
-    CLASS(sources_base), INTENT(IN)          :: Sources  !< \param [in] Physics Physics type
+    CLASS(sources_list), ALLOCATABLE, INTENT(IN) :: Sources !< \param [in] Sources sources type
     TYPE(Dict_TYP),      INTENT(IN), POINTER :: config   !< \param [in] IO Dictionary for I/O
     TYPE(Dict_TYP),      INTENT(IN), POINTER :: IO       !< \param [in] IO Dictionary for I/O
     !------------------------------------------------------------------------!

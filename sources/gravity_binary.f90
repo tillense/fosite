@@ -30,7 +30,7 @@
 !! \key{mass1,REAL,mass of primary component,1.0}
 !! \key{mass2,REAL,mass of secondary component,1.0}
 !! \key{excentricity,REAL,excentricity,0.0}
-!! \key{semimayoraxis,REAL,semi major axis,1.0}
+!! \key{semimajoraxis,REAL,semi major axis,1.0}
 !! \key{softening1,REAL,softening parameter of primary component,0.0}
 !! \key{softening2,REAL,softening parameter of secondary component,0.0}
 !! \key{switchon1,REAL,soft switch on,-1.0}
@@ -190,7 +190,7 @@ CONTAINS
     CALL GetAttr(config, "excentricity", this%excent, 0.0)
 
     ! semi major axis
-    CALL GetAttr(config, "semimayoraxis", this%semaaxis, 1.0)
+    CALL GetAttr(config, "semimajoraxis", this%semaaxis, -1.0)
 
     ! Softening parameter
     CALL GetAttr(config, "softening1", this%eps1, 0.0)
@@ -252,6 +252,11 @@ CONTAINS
         WRITE(omega_str,'(ES10.2)') 2.0*PI/this%period
         CALL this%Info("            pattern speed:     " // TRIM(omega_str))
     END IF
+    ! some sanity checks
+    IF (this%excent.LT.0.OR.this%excent.GE.1) &
+      CALL this%Error("InitGravity_binary","excentricity out of range, should be 0 <= e < 1 => check setup")
+    IF (this%semaaxis.LE.0) &
+      CALL this%Error("InitGravity_binary","semi major axis out of range, should be 0 < a => check setup")
   END SUBROUTINE InfoGravity
 
 
@@ -408,8 +413,9 @@ CONTAINS
     phi = phi - this%omega_rot * time
 
     ! cartesian coordinates of SECONDARY component (right at t=0)
-    ! \todo This implementation only works in 2D
-    r1               = this%mass/(this%mass+this%mass2)*r
+    ! \todo Generalize this implementation to arbitrary orbit orientations;
+    ! it works currently only if the angular momentum axis points along the z-axis.
+    r1            = this%mass/(this%mass+this%mass2)*r
     this%pos(1,2) = r1*COS(phi)
     this%pos(2,2) = r1*SIN(phi)
     this%pos(3,2) = 0.0

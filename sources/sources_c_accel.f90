@@ -53,7 +53,6 @@ MODULE sources_c_accel_mod
     PROCEDURE :: InitSources
     PROCEDURE :: ExternalSources
     PROCEDURE :: CalcTimestep
-!     PROCEDURE :: InfoSources
     FINAL :: Finalize
   END TYPE
   !--------------------------------------------------------------------------!
@@ -72,7 +71,7 @@ CONTAINS
     CLASS(fluxes_base),     INTENT(IN)    :: Fluxes
     TYPE(Dict_TYP),           POINTER     :: config, IO
     !------------------------------------------------------------------------!
-    INTEGER :: k,stype
+    INTEGER :: k,stype,valwrite
     REAL    :: accel(3)
     !------------------------------------------------------------------------!
     CALL GetAttr(config,"stype",stype)
@@ -88,6 +87,12 @@ CONTAINS
     DO k=1,Physics%VDIM
       this%accel%data2d(:,k) = accel(k)
     END DO
+
+    ! register acceleration array for output if requested
+    CALL GetAttr(config, "output/accel", valwrite, 0)
+    IF (valwrite .EQ. 1) &
+         CALL SetAttr(IO, "accel", &
+         this%accel%data3d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX))
   END SUBROUTINE InitSources
 
   SUBROUTINE ExternalSources(this,Mesh,Physics,Fluxes,Sources,time,dt,pvar,cvar,sterm)
@@ -119,14 +124,6 @@ CONTAINS
     !------------------------------------------------------------------------!
     dt = HUGE(dt)
   END SUBROUTINE CalcTimestep
-
-!   SUBROUTINE InfoSources(this,Mesh)
-!     IMPLICIT NONE
-!     !------------------------------------------------------------------------!
-!     CLASS(sources_c_accel), INTENT(IN) :: this
-!     CLASS(mesh_base),       INTENT(IN) :: Mesh
-!     !------------------------------------------------------------------------!
-!   END SUBROUTINE InfoSources
 
   SUBROUTINE Finalize(this)
     IMPLICIT NONE

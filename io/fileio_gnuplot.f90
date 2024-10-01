@@ -48,7 +48,7 @@ MODULE fileio_gnuplot_mod
   USE physics_base_mod
   USE timedisc_base_mod
   USE fluxes_base_mod
-  USE sources_base_mod
+  USE sources_generic_mod
   USE common_dict
 #ifdef PARALLEL
 #ifdef HAVE_MPI_MOD
@@ -130,12 +130,11 @@ MODULE fileio_gnuplot_mod
     FINAL :: Finalize
   END TYPE
 
-  !> \}
   !--------------------------------------------------------------------------!
   PUBLIC :: &
        ! types
        fileio_gnuplot, Output_TYP, TSOutput_TYP, ValPtr_TYP
- !--------------------------------------------------------------------------!
+  !--------------------------------------------------------------------------!
 
 CONTAINS
 
@@ -150,7 +149,7 @@ CONTAINS
     CLASS(mesh_base),    INTENT(IN)          :: Mesh     !< \param [in] Mesh mesh type
     CLASS(physics_base), INTENT(IN)          :: Physics  !< \param [in] Physics physics type
     CLASS(timedisc_base),INTENT(IN)          :: Timedisc !< \param [in] Timedisc timedisc type
-    CLASS(sources_base), INTENT(IN)          :: Sources  !< \param [in] Sources sources type
+    CLASS(sources_list), ALLOCATABLE, INTENT(IN) :: Sources !< \param [in] Sources sources type
     TYPE(Dict_TYP),      INTENT(IN), POINTER :: config   !< \param [in] config dict with I/O configuration
     TYPE(Dict_TYP),      INTENT(IN), POINTER :: IO       !< \param [in] IO dict with pointers to I/O arrays
     !------------------------------------------------------------------------!

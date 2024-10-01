@@ -8,7 +8,7 @@ add_library(sources
   sources_generic.f90
   sources_gravity.f90
   sources_rotframe.f90
-  #sources_shearbox.f90
+  sources_shearbox.f90
   sources_viscosity.f90
 #  sources_sgs.f90
 #  sources_wave_damping.f90

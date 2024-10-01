@@ -3,7 +3,7 @@
 !# fosite - 3D hydrodynamical simulation program                             #
 !# module: KHI2D_sphere.f90                                                  #
 !#                                                                           #
-!# Copyright (C) 2006-2021                                                   #
+!# Copyright (C) 2006-2024                                                   #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
 !# Jubin Lirawi      <jlirawi@astrophysik.uni-kiel.de>                       #
 !# Lars Boesch       <lboesch@astrophysik.uni-kiel.de>                       #
@@ -207,6 +207,8 @@ CONTAINS
   END SUBROUTINE MakeConfig
 
   SUBROUTINE InitData(Mesh,Physics,Timedisc)
+    USE sources_base_mod, ONLY : sources_base
+    USE sources_rotframe_mod, ONLY : sources_rotframe
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(physics_base)  :: Physics
@@ -214,7 +216,7 @@ CONTAINS
     CLASS(timedisc_base) :: Timedisc
     !------------------------------------------------------------------------!
     ! Local variable declaration
-    CLASS(sources_base), POINTER :: sp
+    CLASS(sources_base), POINTER :: sp => null()
     INTEGER              :: k,n,clock
     INTEGER, DIMENSION(:), ALLOCATABLE    :: seed
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,2) :: dv
