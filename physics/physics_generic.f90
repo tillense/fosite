@@ -38,16 +38,8 @@ MODULE physics_generic_mod
   USE physics_base_mod
   USE physics_eulerisotherm_mod
   USE physics_euler_mod
-!   USE physics_euler3Dit_mod
-!   USE physics_euler3D_mod
-!   USE physics_euler2Dit_mod
-!   USE physics_euler2D_mod
   USE mesh_base_mod
   USE common_dict
-
-!  INTERFACE physics_base
-!    MODULE PROCEDURE new_physics
-!  END INTERFACE
 
 CONTAINS
 
@@ -69,14 +61,6 @@ CONTAINS
       ALLOCATE(physics_eulerisotherm::Physics)
     CASE(EULER)
       ALLOCATE(physics_euler::Physics)
-!     CASE(EULER3D_ISOTHERM)
-!       ALLOCATE(physics_euler3Dit::Physics)
-!     CASE(EULER3D)
-!       ALLOCATE(physics_euler3D::Physics)
-!     CASE(EULER2D_ISOTHERM)
-!       ALLOCATE(physics_euler2Dit::Physics)
-!     CASE(EULER2D)
-!       ALLOCATE(physics_euler2D::Physics)
     CASE DEFAULT
       CALL Physics%Error("physics_generic::new_physics","uninitialized or unknown physics")
     END SELECT
@@ -91,14 +75,6 @@ CONTAINS
       CALL obj%InitPhysics_euler(Mesh,config,IO)
       CALL obj%PrintConfiguration_euler()
       obj%supports_farfield = .TRUE.
-!     TYPE IS (physics_euler3Dit)
-!       CALL obj%InitPhysics_euler3Dit(Mesh,config,IO)
-!     TYPE IS (physics_euler3D)
-!       CALL obj%InitPhysics_euler3D(Mesh,config,IO)
-!     TYPE IS (physics_euler2Dit)
-!       CALL obj%InitPhysics_euler2Dit(Mesh,config,IO)
-!     TYPE IS (physics_euler2D)
-!       CALL obj%InitPhysics_euler2D(Mesh,config,IO)
     END SELECT
   END SUBROUTINE
 
