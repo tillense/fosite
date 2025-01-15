@@ -65,17 +65,14 @@ CONTAINS
       CALL Physics%Error("physics_generic::new_physics","uninitialized or unknown physics")
     END SELECT
 
-    ! call initialization and print some information on the screen
-    SELECT TYPE(obj => Physics)
-    TYPE IS (physics_eulerisotherm)
-      CALL obj%InitPhysics_eulerisotherm(Mesh,config,IO)
-      CALL obj%PrintConfiguration_eulerisotherm()
-      obj%supports_farfield = .TRUE.
-    TYPE IS (physics_euler)
-      CALL obj%InitPhysics_euler(Mesh,config,IO)
-      CALL obj%PrintConfiguration_euler()
-      obj%supports_farfield = .TRUE.
+    ! call initialization
+    SELECT TYPE(phy => Physics)
+    CLASS IS(physics_eulerisotherm) ! including derived types
+      CALL phy%InitPhysics(Mesh,config,IO)
+    CLASS DEFAULT
+      CALL Physics%Error("physics_generic::new_physics","physics initialization failed")
     END SELECT
+
   END SUBROUTINE
 
 END MODULE physics_generic_mod

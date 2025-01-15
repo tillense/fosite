@@ -111,8 +111,8 @@ MODULE physics_base_mod
                             fposvec               !< curvilinear components of the position vector face values
 !------------------------------------------------------------!
   CONTAINS
-    PROCEDURE :: InitPhysics
-    PROCEDURE :: PrintConfiguration
+    PROCEDURE :: InitPhysics_base
+    PROCEDURE (InitPhysics),                  DEFERRED :: InitPhysics
     PROCEDURE (new_statevector),              DEFERRED :: new_statevector
     PROCEDURE (ExternalSources),              DEFERRED :: ExternalSources
     PROCEDURE (EnableOutput),                 DEFERRED :: EnableOutput
@@ -179,6 +179,13 @@ MODULE physics_base_mod
   END TYPE physics_base
 
   ABSTRACT INTERFACE
+    SUBROUTINE InitPhysics(this,Mesh,config,IO)
+      IMPORT physics_base, mesh_base, dict_typ
+      IMPLICIT NONE
+      CLASS(physics_base),     INTENT(INOUT) :: this
+      CLASS(mesh_base),        INTENT(IN)    :: Mesh
+      TYPE(Dict_TYP), POINTER                :: config, IO
+    END SUBROUTINE
     SUBROUTINE EnableOutput(this,Mesh,config,IO)
       USE common_dict
       IMPORT physics_base, mesh_base
@@ -522,7 +529,7 @@ CONTAINS
   !! - allocation of arrays
   !! - specific tweaks (update soundspeed, etc.)
   !! - print infostring to terminal
-  SUBROUTINE InitPhysics(this,Mesh,config,IO,problem,pname)
+  SUBROUTINE InitPhysics_base(this,Mesh,config,IO,problem,pname)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(physics_base), INTENT(INOUT) :: this
@@ -531,6 +538,7 @@ CONTAINS
                                        :: config, IO
     INTEGER                            :: problem
     CHARACTER(LEN=32)                  :: pname
+    CHARACTER(LEN=64)                  :: info_str
     !------------------------------------------------------------------------!
     INTEGER                            :: units
     INTEGER                            :: err, valwrite, n
@@ -547,7 +555,7 @@ CONTAINS
     CALL GetAttr(config, "units", units, SI)
     CALL new_constants(this%constants, units)
 
-    !CALL GetAttr(config, "problem", problem)
+    CALL this%Info(" PHYSICS--> advection problem: " // TRIM(this%GetName()))
 
     ! mean molecular weight
     CALL GetAttr(config, "mu", this%mu, 0.029)
@@ -574,7 +582,7 @@ CONTAINS
     CALL GetAttr(config, "softening", this%eps, 1.0)
 
     ! determine physical vector dimensions based on dimimensionality of the grid
-    ! an whether rotational symmetry is assumed
+    ! and whether rotational symmetry is assumed
     this%VDIM = Mesh%NDIMS
     IF (Mesh%ROTSYM.GT.0) this%VDIM = this%VDIM + 1
 
@@ -623,15 +631,11 @@ CONTAINS
     this%supports_farfield  = .FALSE.
  
     this%time = -1.
-  END SUBROUTINE InitPhysics
 
-  SUBROUTINE PrintConfiguration(this)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(physics_base), INTENT(INOUT) :: this
-    !------------------------------------------------------------------------!
-    CALL this%Info(" PHYSICS--> advection problem: " // TRIM(this%GetName()))
-  END SUBROUTINE PrintConfiguration
+    ! print some information
+    WRITE(info_str,'("vector dimensions:",I2)') this%VDIM
+    CALL this%Info(REPEAT(" ",12) // TRIM(info_str))
+  END SUBROUTINE InitPhysics_base
 
   !> Destructor
   SUBROUTINE Finalize_base(this)

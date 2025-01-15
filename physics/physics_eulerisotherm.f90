@@ -63,8 +63,7 @@ MODULE physics_eulerisotherm_mod
     !! #### Variables
     REAL                 :: csiso            !< isothermal sound speed
   CONTAINS
-    PROCEDURE :: InitPhysics_eulerisotherm
-    PROCEDURE :: PrintConfiguration_eulerisotherm
+    PROCEDURE :: InitPhysics
     PROCEDURE :: EnableOutput
     PROCEDURE :: new_statevector
     !------Convert2Primitive-------!
@@ -159,16 +158,16 @@ CONTAINS
   !!
   !! - calls intialization of base routines of physics
   !! - set array indices, names and number of dimensions
-  SUBROUTINE InitPhysics_eulerisotherm(this,Mesh,config,IO)
+  SUBROUTINE InitPhysics(this,Mesh,config,IO)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(physics_eulerisotherm), INTENT(INOUT) :: this
     CLASS(mesh_base),         INTENT(IN)    :: Mesh
-    TYPE(Dict_TYP), POINTER,  INTENT(IN)    :: config, IO
+    TYPE(Dict_TYP), POINTER  :: config, IO
     !------------------------------------------------------------------------!
     INTEGER :: next_idx,err
     !------------------------------------------------------------------------!
-    CALL this%InitPhysics(Mesh,config,IO,EULER_ISOTHERM,problem_name)
+    CALL this%InitPhysics_base(Mesh,config,IO,EULER_ISOTHERM,problem_name)
 
     ! set the total number of variables in a state vector
     this%VNUM = this%VDIM + 1
@@ -238,19 +237,12 @@ CONTAINS
       this%fcsound%data1d(:)  = 0.
     END IF
 
-    ! enable support for absorbing boundary conditions
+    ! enable support for absorbing and farfield boundary conditions
     this%supports_absorbing = .TRUE.
+    this%supports_farfield  = .TRUE.
 
     CALL this%EnableOutput(Mesh,config,IO)
-  END SUBROUTINE InitPhysics_eulerisotherm
-
-  SUBROUTINE PrintConfiguration_eulerisotherm(this)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(physics_eulerisotherm), INTENT(INOUT) :: this
-    !------------------------------------------------------------------------!
-    CALL this%PrintConfiguration()
-  END SUBROUTINE PrintConfiguration_eulerisotherm
+  END SUBROUTINE InitPhysics
 
   !> Enables output of certain arrays defined in this class
   SUBROUTINE EnableOutput(this,Mesh,config,IO)
