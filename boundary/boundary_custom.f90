@@ -111,7 +111,7 @@ CONTAINS
 
 
   !> \public Applies the custom boundary conditions
-  PURE SUBROUTINE SetBoundaryData(this,Mesh,Physics,time,pvar)
+  SUBROUTINE SetBoundaryData(this,Mesh,Physics,time,pvar)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(boundary_custom), INTENT(INOUT) :: this

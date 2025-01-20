@@ -112,7 +112,7 @@ CONTAINS
 
 
   !> \public Applies the farfield boundary condition
-  PURE SUBROUTINE SetBoundaryData(this,Mesh,Physics,time,pvar)
+  SUBROUTINE SetBoundaryData(this,Mesh,Physics,time,pvar)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(Boundary_farfield), INTENT(INOUT) :: this

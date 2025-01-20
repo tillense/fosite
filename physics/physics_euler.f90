@@ -214,7 +214,7 @@ CONTAINS
     this%supports_absorbing = .TRUE.
     this%supports_farfield  = .TRUE.
 
-    CALL this%EnableOutput(Mesh,config,IO)
+    CALL this%SetOutput(Mesh,config,IO)
 
     ! print some information
     WRITE(info_str,'("spec. heat ratio:  ",F4.2)') this%gamma
@@ -1846,11 +1846,12 @@ CONTAINS
   END SUBROUTINE GeometricalSources
 
   !> compute momentum and energy sources given an external force
-  PURE SUBROUTINE ExternalSources(this,accel,pvar,cvar,sterm)
+  SUBROUTINE ExternalSources(this,accel,pvar,cvar,sterm)
     !------------------------------------------------------------------------!
-    CLASS(physics_euler), INTENT(IN)  :: this
-    CLASS(marray_base),       INTENT(IN)  :: accel
-    CLASS(marray_compound), INTENT(INOUT) :: pvar,cvar,sterm
+    CLASS(physics_euler),   INTENT(IN)  :: this
+    CLASS(marray_base),     INTENT(IN)  :: accel
+    CLASS(marray_compound), INTENT(IN)  :: pvar,cvar
+    CLASS(marray_compound), INTENT(INOUT) :: sterm
     !------------------------------------------------------------------------!
     INTEGER :: m
     !------------------------------------------------------------------------!
@@ -1883,7 +1884,7 @@ CONTAINS
     END SELECT
   END SUBROUTINE ExternalSources
 
-  PURE SUBROUTINE ViscositySources(this,Mesh,pvar,btxx,btxy,btxz,btyy,btyz,btzz,sterm)
+  SUBROUTINE ViscositySources(this,Mesh,pvar,btxx,btxy,btxz,btyy,btyz,btzz,sterm)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(physics_euler), INTENT(INOUT) :: this

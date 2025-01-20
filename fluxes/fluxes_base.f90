@@ -365,7 +365,7 @@ CONTAINS
   END FUNCTION GetBoundaryFlux
 
   !> Calcualtes face data with reconstruction methods (e. g. limiters)
-  PURE SUBROUTINE CalculateFaceData(this,Mesh,Physics,pvar,cvar)
+  SUBROUTINE CalculateFaceData(this,Mesh,Physics,pvar,cvar)
     USE physics_euler_mod, ONLY : physics_euler, statevector_euler
     IMPLICIT NONE
     !------------------------------------------------------------------------!

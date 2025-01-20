@@ -55,7 +55,7 @@ MODULE reconstruction_base_mod
   END TYPE reconstruction_base
 
   ABSTRACT INTERFACE
-    PURE SUBROUTINE CalculateStates(this,Mesh,Physics,rvar,rstates)
+    SUBROUTINE CalculateStates(this,Mesh,Physics,rvar,rstates)
       IMPORT reconstruction_base, mesh_base, physics_base, marray_compound
       IMPLICIT NONE
       CLASS(reconstruction_base), INTENT(INOUT)   :: this

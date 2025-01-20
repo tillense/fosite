@@ -106,7 +106,7 @@ CONTAINS
   !! \warning{In an older version of Fosite, there was still the possibility to
   !!          use the trapezoidal rule. This is not supported anymore from version
   !!          <=0.6.}
-  PURE SUBROUTINE CalculateFluxes(this,Mesh,Physics,pvar,cvar, &
+  SUBROUTINE CalculateFluxes(this,Mesh,Physics,pvar,cvar, &
                   xfluxdydz,yfluxdzdx,zfluxdxdy)
     IMPLICIT NONE
     !------------------------------------------------------------------------!

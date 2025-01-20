@@ -70,7 +70,7 @@ CONTAINS
   END SUBROUTINE InitBoundary_periodic
 
   !> \public Applies the periodic boundary condition
-  PURE SUBROUTINE SetBoundaryData(this,Mesh,Physics,time,pvar)
+  SUBROUTINE SetBoundaryData(this,Mesh,Physics,time,pvar)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(boundary_periodic), INTENT(INOUT) :: this

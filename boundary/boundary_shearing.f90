@@ -189,7 +189,7 @@ CONTAINS
   !! solvers, which need full strides in one direction. We use solely the
   !! x-direction, because it is the first dimension and lies coherently behind
   !! each other for vectorization and generally fast access.
-  PURE SUBROUTINE SetBoundaryData(this,Mesh,Physics,time,pvar)
+  SUBROUTINE SetBoundaryData(this,Mesh,Physics,time,pvar)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(boundary_shearing), INTENT(INOUT) :: this

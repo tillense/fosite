@@ -212,7 +212,7 @@ CONTAINS
 
 
   !> \public Reconstructes states at cell boundaries
-  PURE SUBROUTINE CalculateStates(this,Mesh,Physics,rvar,rstates)
+  SUBROUTINE CalculateStates(this,Mesh,Physics,rvar,rstates)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(reconstruction_linear), INTENT(INOUT) :: this
@@ -240,7 +240,7 @@ CONTAINS
   END SUBROUTINE CalculateStates
 
   !> \public computes the limited slopes
-  PURE SUBROUTINE CalculateSlopes(this,Mesh,Physics,rvar)
+  SUBROUTINE CalculateSlopes(this,Mesh,Physics,rvar)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(reconstruction_linear), INTENT(INOUT) :: this

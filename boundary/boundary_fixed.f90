@@ -101,7 +101,7 @@ CONTAINS
 
 
   !> \public Applies the fixed boundary condition
-  PURE SUBROUTINE SetBoundaryData(this,Mesh,Physics,time,pvar)
+  SUBROUTINE SetBoundaryData(this,Mesh,Physics,time,pvar)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(Boundary_Fixed),INTENT(INOUT) :: this

@@ -64,7 +64,7 @@ MODULE physics_eulerisotherm_mod
     REAL                 :: csiso            !< isothermal sound speed
   CONTAINS
     PROCEDURE :: InitPhysics
-    PROCEDURE :: EnableOutput
+    PROCEDURE :: SetOutput
     PROCEDURE :: new_statevector
     !------Convert2Primitive-------!
     PROCEDURE :: Convert2Primitive_all
@@ -241,16 +241,16 @@ CONTAINS
     this%supports_absorbing = .TRUE.
     this%supports_farfield  = .TRUE.
 
-    CALL this%EnableOutput(Mesh,config,IO)
+    CALL this%SetOutput(Mesh,config,IO)
   END SUBROUTINE InitPhysics
 
   !> Enables output of certain arrays defined in this class
-  SUBROUTINE EnableOutput(this,Mesh,config,IO)
+  SUBROUTINE SetOutput(this,Mesh,config,IO)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(physics_eulerisotherm), INTENT(INOUT) :: this
-    CLASS(mesh_base),        INTENT(IN)   :: Mesh
-    TYPE(Dict_TYP), POINTER, INTENT(IN)   :: config, IO
+    CLASS(mesh_base),        INTENT(IN)    :: Mesh
+    TYPE(Dict_TYP), POINTER                :: config,IO
     !------------------------------------------------------------------------!
     INTEGER :: valwrite
     !------------------------------------------------------------------------!
@@ -264,7 +264,7 @@ CONTAINS
     IF (valwrite .EQ. 1) &
        CALL Setattr(IO, "fcsound",&
                     this%fcsound%data4d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,:))
-  END SUBROUTINE EnableOutput
+  END SUBROUTINE SetOutput
 
   !> \public allocate and initialize new isothermal state vector
   SUBROUTINE new_statevector(this,new_sv,flavour,num)
@@ -285,9 +285,6 @@ CONTAINS
   END SUBROUTINE new_statevector
 
   !> Sets soundspeeds at cell-centers
-#ifndef DEBUG
-  PURE &
-#endif
   SUBROUTINE SetSoundSpeeds_center(this,Mesh,bccsound)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
@@ -300,9 +297,6 @@ CONTAINS
   END SUBROUTINE SetSoundSpeeds_center
 
   !> Sets soundspeeds at cell-faces
-#ifndef DEBUG
-  PURE &
-#endif
   SUBROUTINE SetSoundSpeeds_faces(this,Mesh,fcsound)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
@@ -985,7 +979,7 @@ CONTAINS
   END SUBROUTINE CalcFluxesZ
 
   !> compute viscous source terms
-  PURE SUBROUTINE ViscositySources(this,Mesh,pvar,btxx,btxy,btxz,btyy,btyz,btzz,sterm)
+  SUBROUTINE ViscositySources(this,Mesh,pvar,btxx,btxy,btxz,btyy,btyz,btzz,sterm)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(physics_eulerisotherm), INTENT(INOUT) :: this
@@ -1204,11 +1198,12 @@ CONTAINS
   END SUBROUTINE CalcStresses
 
   !> compute momentum sources given an external force
-  PURE SUBROUTINE ExternalSources(this,accel,pvar,cvar,sterm)
+  SUBROUTINE ExternalSources(this,accel,pvar,cvar,sterm)
     !------------------------------------------------------------------------!
-    CLASS(physics_eulerisotherm), INTENT(IN)  :: this
-    CLASS(marray_base),       INTENT(IN)  :: accel
-    CLASS(marray_compound), INTENT(INOUT) :: pvar,cvar,sterm
+    CLASS(physics_eulerisotherm), INTENT(IN) :: this
+    CLASS(marray_base),           INTENT(IN) :: accel
+    CLASS(marray_compound),       INTENT(IN) :: pvar,cvar
+    CLASS(marray_compound),    INTENT(INOUT) :: sterm
     !------------------------------------------------------------------------!
     INTEGER :: m,n
     !------------------------------------------------------------------------!
