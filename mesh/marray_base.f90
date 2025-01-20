@@ -791,10 +791,13 @@ MODULE marray_base_mod
 
   !> destructor of mesh arrays - this is called automatically if
   !! deallocate is invoked
+#ifndef DEBUG
+  PURE &
+#endif
   SUBROUTINE Finalize(this)
     IMPLICIT NONE
     !-------------------------------------------------------------------!
-    TYPE(marray_base) :: this
+    TYPE(marray_base), INTENT(INOUT) :: this
     !-------------------------------------------------------------------!
 #if DEBUG > 2
     PRINT *,"DEBUG INFO in marray_base::Finalize called"
