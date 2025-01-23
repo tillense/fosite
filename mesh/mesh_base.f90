@@ -688,7 +688,7 @@ CONTAINS
     ! assign the result of marray operations correctly
     ! leading to segfaults in some cases
     this%sqrtg = marray_cellscalar()
-#ifdef __INTEL_COMPILER
+#if defined (__INTEL_COMPILER) || defined (__flang__)
     this%sqrtg%data1d(:) = this%hx%data1d(:)*(this%hy%data1d(:)*this%hz%data1d(:))
 #else
     this%sqrtg = this%hx*(this%hy*this%hz)
