@@ -703,6 +703,8 @@ CONTAINS
 #endif
     GetStatus = -1 ! unknown / undefined / does not exist
     ! check if file exist
+    act="NO-RETURN-VALUE"
+    pos="NO-RETURN-VALUE"
     INQUIRE(FILE=TRIM(this%GetFilename(step)),EXIST=ex,OPENED=op,ACTION=act,POSITION=pos,IOSTAT=this%err)
 #if DEBUG > 2
     PRINT *,"DEBUG INFO in fileio_base::GetStatus: inquire results (ex,op,act,pos): ", &
