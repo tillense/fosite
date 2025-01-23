@@ -58,6 +58,7 @@ MODULE physics_base_mod
   USE mesh_base_mod
   USE marray_base_mod
   USE marray_compound_mod
+  USE common_dict
   IMPLICIT NONE
   !--------------------------------------------------------------------------!
   PRIVATE
@@ -110,10 +111,10 @@ MODULE physics_base_mod
 !------------------------------------------------------------!
   CONTAINS
     PROCEDURE :: InitPhysics_base
-    PROCEDURE (InitPhysics),                  DEFERRED :: InitPhysics
-    PROCEDURE (new_statevector),              DEFERRED :: new_statevector
-    PROCEDURE (ExternalSources),              DEFERRED :: ExternalSources
-    PROCEDURE (SetOutput),                    DEFERRED :: SetOutput
+    PROCEDURE (InitPhysics),     DEFERRED, PASS(this)  :: InitPhysics
+    PROCEDURE (new_statevector), DEFERRED, PASS(this)  :: new_statevector
+    PROCEDURE (ExternalSources), DEFERRED, PASS(this)  :: ExternalSources
+    PROCEDURE (SetOutput),       DEFERRED, PASS(this)  :: SetOutput
     !------Convert2Primitve--------!
     PROCEDURE (Convert2Primitive_all),        DEFERRED :: Convert2Primitive_all
     PROCEDURE (Convert2Primitive_subset),     DEFERRED :: Convert2Primitive_subset

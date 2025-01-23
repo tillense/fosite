@@ -34,7 +34,6 @@ MODULE constants_generic_mod
   USE constants_cgs_mod
   USE constants_geometrical_mod
   USE constants_SI_mod
-  USE common_dict
 
 CONTAINS
 
