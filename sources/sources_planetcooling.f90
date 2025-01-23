@@ -3,7 +3,7 @@
 !# fosite - 3D hydrodynamical simulation program                             #
 !# module: sources_planetcooling.f90                                         #
 !#                                                                           #
-!# Copyright (C) 2011-2021                                                   #
+!# Copyright (C) 2011-2024                                                   #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
 !# Jannes Klee      <jklee@astrophysik.uni-kiel.de>                          #
 !#                                                                           #
@@ -28,9 +28,9 @@
 !! - parameters of \link sources_planetcooling \endlink as key-values
 !! \warning use SI units for initialization parameters
 !! \key{cvis,REAL,safety factor for numerical stability, 0.9}
-!! \key{intensity,REAL,intensity of the star at 1 AU}
-!! \key{albedo,REAL,albedo of planetary atmosphere}
-!! \key{distance,REAL,semi-major axis of planetary orbit}
+!! \key{radflux,REAL,radiant stellar flux density at 1 AU}
+!! \key{albedo,REAL,Bond albedo of planetary atmosphere, 0.5}
+!! \key{mean_distance,REAL,temporal mean distance planet to star, 1 AU}
 !! \key{T_0,REAL,long term equilibrium surface temperature of the planet}
 !! \key{gacc,REAL,gravitational accelaration on the planets surface}
 !----------------------------------------------------------------------------!
@@ -48,11 +48,12 @@
 !! - \cite pierrehumbert2010 R. T. Pierrehumbert, Principles of Planetary Climate,
 !!     Cambridge University Press (2010)
 !!
-!! \extends sources_common
+!! \extends sources_cooling
 !! \ingroup sources
 !----------------------------------------------------------------------------!
 MODULE sources_planetcooling_mod
   USE sources_base_mod
+  USE sources_cooling_mod
   USE physics_base_mod
   USE fluxes_base_mod
   USE mesh_base_mod
@@ -63,31 +64,27 @@ MODULE sources_planetcooling_mod
   IMPLICIT NONE
   !--------------------------------------------------------------------------!
   PRIVATE
+  CHARACTER(LEN=32), PARAMETER :: source_name = "cooling of planetary atmosphere"
   !--------------------------------------------------------------------------!
-  TYPE, EXTENDS(sources_base) :: sources_planetcooling
-    CHARACTER(LEN=32) :: source_name = "cooling of planetary atmosphere"
+  TYPE, EXTENDS(sources_cooling) :: sources_planetcooling
     TYPE(marray_base), ALLOCATABLE &
-                      :: Qcool, &       !< energy term due planetary cooling
-                         T_s, &         !< temperature at the surface
+                      :: T_s, &         !< temperature at the surface
                          rho_s, &       !< density at the surface
                          P_s            !< pressure at the surface
     REAL              :: T_0            !< equilibrium temperature
-    REAL              :: distance       !< distance of the star
-    REAL              :: intensity      !< intensity of the star at 1 au
-    REAL              :: albedo         !< albedo of the planet
+    REAL              :: radflux        !< radiant stellar flux density at 1 AU
+    REAL              :: albedo         !< Bond albedo of the planet
+    REAL              :: distance       !< temporal mean distance between planet and star
     REAL              :: gacc           !< gravitational acceleration at surface
-    REAL              :: gamma,mu       !< gas properties in 3D at surface
     REAL              :: tau_inf        !< optical depth in infinity
     REAL              :: const1, const2 !< two constants
   CONTAINS
-    PROCEDURE :: InitSources_planetcooling
+    PROCEDURE :: InitSources
     PROCEDURE :: InfoSources
-    PROCEDURE :: SetOutput
-    PROCEDURE :: ExternalSources_single
-    PROCEDURE :: CalcTimestep_single
-    PROCEDURE :: UpdatePlanetCooling
+    PROCEDURE :: UpdateCooling
     FINAL :: Finalize
   END TYPE
+  !--------------------------------------------------------------------------!
   PUBLIC :: &
        ! types
        sources_planetcooling
@@ -96,55 +93,54 @@ MODULE sources_planetcooling_mod
 CONTAINS
 
   !> \public Constructor of the cooling module for a planetary atmosphere
-  SUBROUTINE InitSources_planetcooling(this,Mesh,Physics,Fluxes,config,IO)
+  SUBROUTINE InitSources(this,Mesh,Physics,Fluxes,config,IO)
     USE physics_euler_mod, ONLY : physics_euler
     USE constants_si_mod, ONLY : constants_si
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(sources_planetcooling)    :: this
+    CLASS(sources_planetcooling), INTENT(INOUT) :: this
     CLASS(mesh_base),    INTENT(IN) :: Mesh
     CLASS(physics_base), INTENT(IN) :: Physics
     CLASS(fluxes_base),  INTENT(IN) :: Fluxes
     TYPE(Dict_TYP),      POINTER    :: config,IO
     INTEGER           :: stype
     !------------------------------------------------------------------------!
-    REAL              :: intensity
-!    REAL, PARAMETER   :: AU      = 1.49597870691E+11    ! astronomical unit [m]
-    INTEGER           :: err
+    REAL              :: effradflux, q
     !------------------------------------------------------------------------!
     CALL GetAttr(config, "stype", stype)
-    CALL this%InitLogging(stype,this%source_name)
+    CALL this%InitSources_base(stype,source_name)
 
-    ! some sanity checks
+    CALL this%Info("############################ ATTENTION ############################")
+    CALL this%Warning("sources_planetcooling::InitSources","Untested module, use with care!")
+
     ! some sanity checks
     SELECT TYPE (phys => Physics)
     CLASS IS(physics_euler)
       ! do nothing
     CLASS DEFAULT
-      CALL this%Error("InitSources_planetheating","physics not supported")
+      CALL this%Error("sources_planetheating::InitSources","physics not supported")
     END SELECT
 
     SELECT TYPE (const => Physics%constants)
     CLASS IS(constants_si)
       ! do nothing
     CLASS DEFAULT
-      CALL this%Error("InitSources_planetheating","only SI units supported")
+      CALL this%Error("sources_planetheating::InitSources","only SI units supported")
     END SELECT
 
-    ALLOCATE(this%Qcool,this%T_s,this%rho_s,this%P_s)
-    this%Qcool = marray_base()
+    ALLOCATE(this%Q,this%T_s)
+    this%Q = marray_base()
     this%T_s = marray_base()
-    this%rho_s = marray_base()
-    this%P_s = marray_base()
 
     ! Courant number, i.e. safety factor for numerical stability
     CALL GetAttr(config, "cvis", this%cvis, 0.9)
-    ! intensity of the planets star at 1 AU
-    CALL GetAttr(config, "intensity", this%intensity)
-    ! distance planet-star
-    CALL GetAttr(config, "distance", this%distance)
-    ! albedo of the planet
-    CALL GetAttr(config, "albedo", this%albedo)
+    ! radiant energy flux density of stellar radiation at 1 AU distance
+    ! from the central star [W/m^2]
+    CALL GetAttr(config, "radflux", this%radflux)
+    ! Bond albedo of the planet
+    CALL GetAttr(config, "albedo", this%albedo,0.0)
+    ! temporal mean distance between planet and star
+    CALL GetAttr(config, "mean_distance", this%distance,Physics%constants%AU)
     ! equilibrium temperature
     CALL GetAttr(config,"T_0", this%T_0)
     ! gravitational acceleration
@@ -153,53 +149,30 @@ CONTAINS
     ! set initial time < 0
     this%time = -1.0
 
-    this%Qcool%data1d(:) = 0.0
+    this%Q%data1d(:) = 0.0
     this%T_s%data1d(:)   = this%T_0
-    this%RHO_s%data1d(:) = 0.0
-    this%P_s%data1d(:)   = 0.0
 
     ! initial calculation of optical thickness
     SELECT TYPE(phys => Physics)
     CLASS IS(physics_euler)
-      intensity = (this%intensity/4.)*(phys%Constants%AU/this%distance)**(2.)
-      this%tau_inf= (this%T_0 * (Gamma(1.0+4.*(phys%gamma-1.)/phys%gamma) &
-        / ((1.-this%albedo)*intensity/phys%Constants%SB))**0.25)**(phys%gamma/(phys%gamma-1.))
+      ! effective mean radiant flux density at mean distance
+      effradflux = (1.-this%albedo)*this%radflux*(phys%constants%AU/this%distance)**2
+      ! compute the effective optical depth that leads to the equilibrium
+      ! mean surface temperature T_0 of the planet
+      q = phys%gamma/(phys%gamma-1.0)
+      this%tau_inf= ((4*phys%Constants%SB*Gamma(1.+4./q)/effradflux)**(0.25) * this%T_0)**q
+      ! conversion factor cs^2 -> T
       this%const1 = phys%mu/(phys%gamma*phys%Constants%RG)
-      this%const2 = phys%Constants%SB*this%tau_inf**(-4.*(phys%gamma-1.)/phys%gamma) &
-                  *Gamma(1.0+4.*(phys%gamma-1.)/phys%gamma)
+      this%const2 = phys%Constants%SB*this%tau_inf**(-4./q) * Gamma(1.0+4./q)
     END SELECT
-    CALL this%SetOutput(Mesh,Physics,config,IO)
+
+    ! register cooling function for output
+    CALL this%SetOutput(Mesh,config,IO)
 
     ! call InitSources in base
-    CALL this%InitSources(Mesh,Fluxes,Physics,config,IO)
-  END SUBROUTINE InitSources_planetcooling
+    CALL this%InfoSources(Mesh)
+  END SUBROUTINE InitSources
 
-
-  !> Substract the calculated sources to the energy equation.
-  SUBROUTINE ExternalSources_single(this,Mesh,Physics,Fluxes,Sources,time,dt,pvar,cvar,sterm)
-    USE physics_euler_mod, ONLY : physics_euler, statevector_euler
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(sources_planetcooling), INTENT(INOUT) :: this
-    CLASS(mesh_base),             INTENT(IN)    :: Mesh
-    CLASS(physics_base),          INTENT(INOUT) :: Physics
-    CLASS(fluxes_base),           INTENT(IN)    :: Fluxes
-    CLASS(sources_base),          INTENT(INOUT) :: Sources
-    REAL,                         INTENT(IN)    :: time, dt
-    CLASS(marray_compound),       INTENT(INOUT) :: pvar,cvar,sterm
-    !------------------------------------------------------------------------!
-
-    SELECT TYPE(s => sterm)
-    TYPE IS (statevector_euler)
-      s%density%data1d(:)   = 0.0
-      s%momentum%data1d(:) = 0.0
-      ! update the cooling function
-      CALL this%UpdatePlanetCooling(Mesh,Physics,time,pvar)
-      ! add sink in the energy equation
-      s%energy%data1d(:) = -this%Qcool%data1d(:)
-    END SELECT
-
-  END SUBROUTINE ExternalSources_single
 
   SUBROUTINE InfoSources(this,Mesh)
     IMPLICIT NONE
@@ -208,49 +181,17 @@ CONTAINS
     CLASS(mesh_base),             INTENT(IN) :: Mesh
     !------------------------------------------------------------------------!
     CHARACTER(LEN=32) :: param_str
-    REAL, PARAMETER   :: AU      = 1.49597870691E+11    ! astr. unit [m]     !
     !------------------------------------------------------------------------!
-    WRITE (param_str,'(ES8.2)') (this%intensity/4.)*(AU/this%distance)**(2.)
-    CALL this%Info("            intensity:         " // TRIM(param_str) // " W/m^2")
-    WRITE (param_str,'(ES8.2)') this%T_0
+    WRITE (param_str,'(ES10.2)') this%radflux
+    CALL this%Info("            mean stellar flux: " // TRIM(param_str) // " W/m^2")
+    WRITE (param_str,'(ES10.2)') this%T_0
     CALL this%Info("            mean equil. temp.: " // TRIM(param_str) // " K")
-    WRITE (param_str,'(ES8.2)') this%tau_inf
-    CALL this%Info("            opt. depth:        " // TRIM(param_str))
-    WRITE (param_str,'(ES8.2)') this%albedo
-    CALL this%Info("            albedo:            " // TRIM(param_str))
+    WRITE (param_str,'(ES10.2)') this%tau_inf
+    CALL this%Info("            optical depth:     " // TRIM(param_str))
   END SUBROUTINE InfoSources
 
 
-  !> Caculates the timestep corresponding to the heating.
-  !!
-  !! The timescale is calculated by \f$ t \sim Q_{\mathrm{cool}}/P \f$, where
-  !! \f$ Q_{\mathrm{cool}} \f$ is the heating term and \f$ P \f$ the pressure.
-  SUBROUTINE CalcTimestep_single(this,Mesh,Physics,Fluxes,pvar,cvar,time,dt)
-    USE physics_euler_mod, ONLY : physics_euler, statevector_euler
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(sources_planetcooling), INTENT(INOUT) :: this
-    CLASS(mesh_base),    INTENT(IN)       :: Mesh
-    CLASS(physics_base), INTENT(INOUT)    :: Physics
-    CLASS(fluxes_base),  INTENT(IN)       :: Fluxes
-    CLASS(marray_compound), INTENT(INOUT) :: pvar,cvar
-    REAL,                INTENT(IN)       :: time
-    REAL,                INTENT(OUT)      :: dt
-    !------------------------------------------------------------------------!
-    REAL              :: invdt
-    !------------------------------------------------------------------------!
-    ! maximum of inverse cooling timescale t_cool ~ P/Q_cool
-    dt = HUGE(invdt)
-    SELECT TYPE(p => pvar)
-    CLASS IS(statevector_euler)
-      invdt = MAXVAL(ABS(this%Qcool%data1d(:) / p%pressure%data1d(:)), &
-                     MASK=Mesh%without_ghost_zones%mask1d(:))
-      IF (invdt.GT.TINY(invdt)) dt = this%cvis / invdt
-    END SELECT
-  END SUBROUTINE CalcTimestep_single
-
-
-  !> Updates the cooling for a given time
+  !> Updates the cooling function of the planetary atmosphere
   !!
   !! The cooling term is in its essence a modified Stefan-Boltzman law, but
   !! it includes many assumptions about the considered atmosphere
@@ -273,45 +214,44 @@ CONTAINS
   !! the Gamma function
   !!
   !! \image html olr.jpg
-  SUBROUTINE UpdatePlanetCooling(this,Mesh,Physics,time,pvar)
+  SUBROUTINE UpdateCooling(this,Mesh,Physics,time,pvar)
     USE physics_euler_mod, ONLY : physics_euler, statevector_euler
     USE functions, ONLY : LnGamma
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(sources_planetcooling), INTENT(INOUT) :: this
     CLASS(mesh_base),             INTENT(IN)    :: Mesh
-    CLASS(physics_base),          INTENT(IN)    :: Physics
+    CLASS(physics_euler),         INTENT(IN)    :: Physics
     REAL,                         INTENT(IN)    :: time
-    CLASS(marray_compound),       INTENT(INOUT) :: pvar
+    CLASS(statevector_euler),     INTENT(IN)    :: pvar
     !------------------------------------------------------------------------!
     INTEGER           :: i,j,k
     REAL              :: Qcool
     REAL              :: const1,const2       ! needed due to performance issues
     !------------------------------------------------------------------------!
-    SELECT TYPE(phys => Physics)
-    CLASS IS(physics_euler)
-      SELECT TYPE(p => pvar)
-      CLASS IS(statevector_euler)
-        ! calculation of cooling source
-        IF (time.NE.this%time) THEN
-          ! calculate planet-surface temperature using integrated
-          ! pressure and density
-          this%T_s%data1d(:) = this%const1 * p%pressure%data1d(:)/p%density%data1d(:)
+    ! calculate the cooling function if time has changed
+    IF (time.NE.this%time) THEN
+      ! calculate planet-surface temperature using integrated
+      ! pressure and density
+      this%T_s%data1d(:) = this%const1 * pvar%pressure%data1d(:)/pvar%density%data1d(:)
 
-          ! calculate surface density and pressure
-          ! (irrelevant for calculation)
-          this%P_s%data1d(:) = p%density%data1d(:)*this%gacc
-          this%RHO_s%data1d(:) = phys%mu/(phys%Constants%RG) &
-            *this%P_s%data1d(:)/this%T_s%data1d(:)
+      ! calculate surface density and pressure if output is requested
+      ! (irrelevant for cooling function)
+      IF (ALLOCATED(this%P_s)) this%P_s%data1d(:) = pvar%density%data1d(:)*this%gacc
+      IF (ALLOCATED(this%rho_s)) this%rho_s%data1d(:) = Physics%mu/(Physics%Constants%RG) &
+        *this%P_s%data1d(:)/this%T_s%data1d(:)
 
-          ! cooling source
-          this%Qcool%data1d(:) = this%const2*this%T_s%data1d(:)**4
+      ! cooling source
+      WHERE (Mesh%without_ghost_zones%mask1d(:))
+        this%Q%data1d(:) = this%const2*this%T_s%data1d(:)**4
+      ELSEWHERE
+        this%Q%data1d(:) = 0.0
+      END WHERE
 
-          this%time=time
-        END IF
-      END SELECT
-    END SELECT
-  END SUBROUTINE UpdatePlanetCooling
+      ! update time
+      this%time=time
+    END IF
+  END SUBROUTINE UpdateCooling
 
 
   !> Sets the output parameters.
@@ -323,12 +263,11 @@ CONTAINS
   !! 4. surface density: \f$ \varrho_{\mathrm{s}} \f$
   !!
   !! \todo allocate output arrays P_s and RHO_s only if requested
-  SUBROUTINE SetOutput(this,Mesh,Physics,config,IO)
+  SUBROUTINE SetOutput(this,Mesh,config,IO)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(sources_planetcooling) :: this
-    CLASS(mesh_base),             INTENT(IN) :: Mesh
-    CLASS(physics_base),          INTENT(IN) :: Physics
+    CLASS(sources_planetcooling), INTENT(INOUT) :: this
+    CLASS(mesh_base), INTENT(IN) :: Mesh
     TYPE(Dict_TYP),POINTER  :: config,IO
     !------------------------------------------------------------------------!
     INTEGER              :: valwrite
@@ -338,7 +277,7 @@ CONTAINS
     CALL GetAttr(config, "output/Qcool", valwrite, 0)
     IF (valwrite .EQ. 1) &
          CALL SetAttr(IO, "Qcool", &
-              this%Qcool%data3d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX))
+              this%Q%data3d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX))
 
     ! temperature
     CALL GetAttr(config, "output/T_s", valwrite, 0)
@@ -348,16 +287,23 @@ CONTAINS
 
     ! surface pressure
     CALL GetAttr(config, "output/P_s", valwrite, 0)
-    IF (valwrite .EQ. 1) &
-         CALL SetAttr(IO, "P_s", &
+    IF (valwrite .EQ. 1) THEN
+      ALLOCATE(this%P_s)
+      this%P_s = marray_base()
+      this%P_s%data1d(:)   = 0.0
+      CALL SetAttr(IO, "P_s", &
               this%P_s%data3d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX))
+    END IF
 
     ! surface density
-    CALL GetAttr(config, "output/RHO_s", valwrite, 0)
-    IF (valwrite .EQ. 1) &
-         CALL SetAttr(IO, "RHO_s", &
-              this%RHO_s%data3d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX))
-
+    CALL GetAttr(config, "output/rho_s", valwrite, 0)
+    IF (valwrite .EQ. 1) THEN
+      ALLOCATE(this%rho_s)
+      this%rho_s = marray_base()
+      this%rho_s%data1d(:) = 0.0
+      CALL SetAttr(IO, "rho_s", &
+              this%rho_s%data3d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX))
+    END IF
   END SUBROUTINE SetOutput
 
 
@@ -367,8 +313,10 @@ CONTAINS
     !------------------------------------------------------------------------!
     TYPE(sources_planetcooling), INTENT(INOUT) :: this
     !------------------------------------------------------------------------!
-    DEALLOCATE(this%Qcool,this%T_s,this%rho_s,this%P_s)
-    CALL this%Finalize_base()
+    DEALLOCATE(this%T_s)
+    IF (ALLOCATED(this%P_s)) DEALLOCATE(this%P_s)
+    IF (ALLOCATED(this%rho_s)) DEALLOCATE(this%rho_s)
+    ! this%Q is deallocated in parent class destructor
   END SUBROUTINE Finalize
 
 END MODULE sources_planetcooling_mod

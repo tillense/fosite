@@ -15,8 +15,6 @@ set (EXES
   rngtest
   rootstest
   RTI
-  sblintheo
-  sblintheo3D
   sedov2d
   sedov3d
   shear
@@ -28,6 +26,10 @@ set (EXES
   riemann3d
 #  vortex2d
 )
+if(FFTW_FOUND)
+  list(APPEND EXES "sblintheo")
+  list(APPEND EXES "sblintheo3D")
+endif()
 foreach (p ${EXES})
   add_executable (${p} "${p}.f90")
   target_link_libraries(${p} fosite)

@@ -65,7 +65,7 @@ MODULE fileio_binary_mod
   USE physics_base_mod
   USE timedisc_base_mod
   USE fluxes_base_mod
-  USE sources_base_mod
+  USE sources_generic_mod
   USE common_dict
 #ifdef PARALLEL
 #ifdef HAVE_MPI_MOD
@@ -133,7 +133,7 @@ CONTAINS
     CLASS(mesh_base),     INTENT(IN)    :: Mesh       !< \param [in] Mesh mesh type
     CLASS(physics_base),  INTENT(IN)    :: Physics    !< \param [in] Physics Physics type
     CLASS(timedisc_base), INTENT(IN)    :: Timedisc   !< \param [in] Timedisc timedisc type
-    CLASS(sources_base),  INTENT(IN), POINTER :: Sources    !< \param [in] Sources sources type
+    CLASS(sources_list), ALLOCATABLE, INTENT(IN) :: Sources !< \param [in] Sources sources type
     TYPE(Dict_TYP),       INTENT(IN), POINTER :: config,IO  !< \param [in] IO Dictionary for I/O
     !------------------------------------------------------------------------!
 #ifdef PARALLEL
@@ -627,7 +627,7 @@ CONTAINS
       WHERE ((/Mesh%INUM,Mesh%JNUM,Mesh%KNUM/).GT.1)
         ! add +1 to the global size to write one additional data point
         ! in each dimension which has extend larger than 1
-        dims(:) = dims(:) + 1
+        dims(1:3) = dims(1:3) + 1
       END WHERE
     END IF
   END SUBROUTINE SetOutputDims

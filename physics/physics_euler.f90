@@ -54,8 +54,7 @@ MODULE physics_euler_mod
   TYPE,  EXTENDS(physics_eulerisotherm) :: physics_euler
     REAL                :: gamma                 !< ratio of spec. heats
   CONTAINS
-    PROCEDURE :: InitPhysics_euler             !< constructor
-    PROCEDURE :: PrintConfiguration_euler
+    PROCEDURE :: InitPhysics             !< constructor
     PROCEDURE :: new_statevector
     !------Convert2Primitve--------!
     PROCEDURE :: Convert2Primitive_all
@@ -133,17 +132,18 @@ MODULE physics_euler_mod
 CONTAINS
 
   !> constructor of physics_euler class
-  SUBROUTINE InitPhysics_euler(this,Mesh,config,IO)
+  SUBROUTINE InitPhysics(this,Mesh,config,IO)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(physics_euler), INTENT(INOUT) :: this
-    CLASS(mesh_base),        INTENT(IN)   :: Mesh
-    TYPE(Dict_TYP), POINTER, INTENT(IN)   :: config, IO
+    CLASS(mesh_base),        INTENT(IN) :: Mesh
+    TYPE(Dict_TYP), POINTER             :: config, IO
     !------------------------------------------------------------------------!
-    INTEGER :: err,next_idx
+    INTEGER                             :: err,next_idx
+    CHARACTER(LEN=64)                   :: info_str
     !------------------------------------------------------------------------!
     ! call InitPhysics from base class
-    CALL this%InitPhysics(Mesh,config,IO,EULER,problem_name)
+    CALL this%InitPhysics_base(Mesh,config,IO,EULER,problem_name)
 
     ! set the total number of variables in a state vector
     this%VNUM = this%VDIM + 2
@@ -210,19 +210,16 @@ CONTAINS
     this%bccsound = marray_base()
     this%fcsound = marray_base(Mesh%NFACES)
 
-    ! enable support for absorbing boundary conditions
+    ! enable support for absorbing and farfield boundary conditions
     this%supports_absorbing = .TRUE.
+    this%supports_farfield  = .TRUE.
 
-    CALL this%EnableOutput(Mesh,config,IO)
-  END SUBROUTINE InitPhysics_euler
+    CALL this%SetOutput(Mesh,config,IO)
 
-  SUBROUTINE PrintConfiguration_euler(this)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(physics_euler), INTENT(INOUT) :: this
-    !------------------------------------------------------------------------!
-    CALL this%PrintConfiguration()
-  END SUBROUTINE PrintConfiguration_euler
+    ! print some information
+    WRITE(info_str,'("spec. heat ratio:  ",F4.2)') this%gamma
+    CALL this%Info(REPEAT(" ",12) // TRIM(info_str))
+  END SUBROUTINE InitPhysics
 
   !> \public allocate and initialize new non-isothermal state vector
   SUBROUTINE new_statevector(this,new_sv,flavour,num)
@@ -1849,11 +1846,12 @@ CONTAINS
   END SUBROUTINE GeometricalSources
 
   !> compute momentum and energy sources given an external force
-  PURE SUBROUTINE ExternalSources(this,accel,pvar,cvar,sterm)
+  SUBROUTINE ExternalSources(this,accel,pvar,cvar,sterm)
     !------------------------------------------------------------------------!
-    CLASS(physics_euler), INTENT(IN)  :: this
-    CLASS(marray_base),       INTENT(IN)  :: accel
-    CLASS(marray_compound), INTENT(INOUT) :: pvar,cvar,sterm
+    CLASS(physics_euler),   INTENT(IN)  :: this
+    CLASS(marray_base),     INTENT(IN)  :: accel
+    CLASS(marray_compound), INTENT(IN)  :: pvar,cvar
+    CLASS(marray_compound), INTENT(INOUT) :: sterm
     !------------------------------------------------------------------------!
     INTEGER :: m
     !------------------------------------------------------------------------!
@@ -1886,7 +1884,7 @@ CONTAINS
     END SELECT
   END SUBROUTINE ExternalSources
 
-  PURE SUBROUTINE ViscositySources(this,Mesh,pvar,btxx,btxy,btxz,btyy,btyz,btzz,sterm)
+  SUBROUTINE ViscositySources(this,Mesh,pvar,btxx,btxy,btxz,btyy,btyz,btzz,sterm)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(physics_euler), INTENT(INOUT) :: this

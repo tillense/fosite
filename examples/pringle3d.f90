@@ -289,6 +289,8 @@ CONTAINS
   END SUBROUTINE MakeConfig
 
   SUBROUTINE InitData(Sim,Mesh,Physics,Timedisc)
+    USE sources_base_mod, ONLY : sources_base
+    USE sources_gravity_mod, ONLY : sources_gravity
     USE geometry_generic_mod
     IMPLICIT NONE
     !------------------------------------------------------------------------!
@@ -331,16 +333,7 @@ CONTAINS
     END SELECT
 
     ! get gravitational acceleration
-    sp => Sim%Sources
-    DO
-      IF (.NOT.ASSOCIATED(sp)) EXIT 
-      SELECT TYPE(sp)
-      CLASS IS(sources_gravity)
-        gp => sp
-        EXIT
-      END SELECT
-      sp => sp%next
-    END DO
+    sp => Sim%Sources%GetSourcesPointer(GRAVITY)
     IF (.NOT.ASSOCIATED(sp)) CALL Physics%Error("pringle::InitData","no gravity term initialized")
 
     SELECT CASE(VISTYPE)
@@ -408,13 +401,13 @@ CONTAINS
     CALL Physics%Convert2Conservative(Timedisc%pvar,Timedisc%cvar)
 
     CALL Mesh%Info(" DATA-----> initial condition: " // "pringle disk")
-    WRITE(value,"(ES9.3)") TVIS
+    WRITE(value,"(ES11.3)") TVIS
     CALL Mesh%Info("                               " // "viscous timescale:  " //TRIM(value))
-    WRITE(value,"(ES9.3)") RE
+    WRITE(value,"(ES11.3)") RE
     CALL Mesh%Info("                               " // "Reynolds number:    " //TRIM(value))
-    WRITE(value,"(ES9.3)") MA
+    WRITE(value,"(ES11.3)") MA
     CALL Mesh%Info("                               " // "Mach number:        " //TRIM(value))
-    WRITE(value,"(ES9.3)") MDISK
+    WRITE(value,"(ES11.3)") MDISK
     CALL Mesh%Info("                               " // "Disk mass:          " //TRIM(value))
 
     CALL geo_cyl%Finalize()

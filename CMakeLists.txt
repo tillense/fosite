@@ -18,6 +18,56 @@ else()
   add_definitions("-DVERSION=\"0.8.2\"") 
 endif()
 
+# DIRTY HACK!!! For some reason cmake does not find libz although it is installed.
+# Seems to be a known bug, see https://askubuntu.com/questions/1244299/cmake-can-not-find-zlib-on-ubuntu-20-04
+#set(ZLIB_LIBRARY "/usr/lib/x86_64-linux-gnu/libz.so")
+
+# check whether LLVM is available
+if(DEFINED LLVM_DIR)
+  # LLVM_DIR was set at the cmake command line
+  find_package(LLVM CONFIG PATHS ${LLVM_DIR} NO_DEFAULT_PATH)
+else()
+  # check environment variables
+  if(DEFINED $ENV{LLVM_DIR})
+    find_package(LLVM CONFIG ENV LLVM_DIR NO_DEFAULT_PATH)
+  elseif(DEFINED $ENV{LLVM_INSTALL_DIR})
+    find_package(LLVM CONFIG ENV LLVM_INSTALL_DIR NO_DEFAULT_PATH)
+  elseif(DEFINED $ENV{LLVM_INSTALL_PREFIX})
+    find_package(LLVM CONFIG ENV LLVM_INSTALL_PREFIX NO_DEFAULT_PATH)
+  else()
+    # check whether llvm-config is available
+    find_program(LLVM_CONFIG "llvm-config" PATH_SUFFIXES bin DOC "LLVM configuration tool")
+    if(LLVM_CONFIG)
+      # determine LLVM_DIR using llvm-config
+      execute_process(COMMAND ${LLVM_CONFIG} --prefix OUTPUT_VARIABLE LLVM_PREFIX_PATH OUTPUT_STRIP_TRAILING_WHITESPACE)
+      if(LLVM_PREFIX_PATH)
+        find_package(LLVM CONFIG PATHS ${LLVM_PREFIX_PATH} NO_DEFAULT_PATH)
+      else()
+        message(WARNING "llvm-config  failed to determine LLVM_DIR, output was ${LLVM_PREFIX_PATH}")
+      endif()
+    else()
+      # fallback if nothing else worked
+      find_package(LLVM CONFIG)
+    endif()
+  endif()
+endif()
+
+if(LLVM_FOUND)
+  message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION} in ${LLVM_INSTALL_PREFIX}")
+  message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
+  #  separate_arguments(LLVM_DEFINITIONS)
+  #  message(STATUS "LLVM libraries: ${LLVM_LIBRARIES}")
+  #  message(STATUS "LLVM libraries: ${LLVM_LIBRARY_DIRS}")
+  #  message(STATUS "LLVM includes: ${LLVM_INCLUDE_DIRS}")
+  #  message(STATUS "LLVM definitions: ${LLVM_DEFINITIONS}")
+  #  message(STATUS "LLVM tools: ${LLVM_TOOLS_BINARY_DIR}")
+  #find_program(FLANG "flang" PATHS ${LLVM_TOOLS_BINARAY_DIR})
+  # this would be the natural way to setup llvm clang and flang compiler
+  # but it seems not to work with at least llvm-19
+  #find_package(Clang)
+  #find_package(Flang CONFIG)
+endif()
+
 # check and set the build type
 set (CMAKE_BUILD_TYPE_NAMES RELEASE DEBUG PROFILING)
 set (CMAKE_BUILD_TYPE RELEASE CACHE STRING "Should be one of RELEASE, DEBUG, PROFILING; default: RELEASE")
@@ -80,11 +130,43 @@ set (X86_VECTOR_EXTENSION NONE CACHE STRING "Enable x86 vector extensions, possi
 #-------------------- choose compiler & set flags ---------------------#
 #get_filename_component (Fortran_COMPILER_NAME ${CMAKE_Fortran_COMPILER} NAME)
 option(IPO "enable/disable interprocedural / linktime optimizations" OFF)
-set (CMAKE_Fortran_FLAGS "${FCFLAGS}")
+option(CHECK_LEAKS "enable/disable runtime check for memory leaks (gfortran only)" OFF)
+
+# perform some compiler tests
+include(CheckFortranCompilerFlag)
+set(CMAKE_REQUIRED_QUIET TRUE)
+if(DEFINED FCFLAGS)
+  set(CMAKE_TRY_COMPILE_TARGET_TYPE STATIC_LIBRARY)
+  check_fortran_compiler_flag("${FCFLAGS}" FCFLAGS_OK)
+  if(NOT FCFLAGS_OK)
+    message(FATAL_ERROR "compiler flags test failed with FCFLAGS=${FCFLAGS}")
+  endif()
+endif()
+set(CMAKE_Fortran_FLAGS "${FCFLAGS}")
+# check for address sanitizer compiler flag
+set(CMAKE_TRY_COMPILE_TARGET_TYPE EXECUTABLE)
+set(CMAKE_REQUIRED_LINK_OPTIONS "-fsanitize=address")
+check_fortran_compiler_flag("-fsanitize=address" COMPILER_SUPPORTS_ADDRESS_SANITIZER)
+if(COMPILER_SUPPORTS_ADDRESS_SANITIZER)
+  add_compile_options("$<$<CONFIG:DEBUG>:-fsanitize=address>")
+  add_link_options("$<$<CONFIG:DEBUG>:-fsanitize=address>")
+else()
+  set(CMAKE_REQUIRED_LINK_OPTIONS "-fsanitize=memory")
+  check_fortran_compiler_flag("-fsanitize=memory" COMPILER_SUPPORTS_MEMORY_SANITIZER)
+  if(COMPILER_SUPPORTS_MEMORY_SANITIZER)
+    add_compile_options("$<$<CONFIG:DEBUG>:-fsanitize=memory>")
+    add_link_options("$<$<CONFIG:DEBUG>:-fsanitize=memory>")
+  endif()
+endif()
+
+# settings depending on compiler ID
 if (CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
   # GNU compiler, i.e. gfortran
   if(CMAKE_Fortran_COMPILER_VERSION VERSION_LESS 8.4)
     message(FATAL_ERROR "gfortran must be at least version 8.4")
+  endif()
+  if(CMAKE_Fortran_COMPILER_VERSION VERSION_GREATER 12.4)
+    message(FATAL_ERROR "gfortran must be at most version 12.4")
   endif()
   add_compile_options(-fdefault-real-8 -cpp -ffree-line-length-none)
   if (X86_VECTOR_EXTENSION MATCHES "NONE")
@@ -104,8 +186,12 @@ if (CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
   endif()
   add_compile_options("$<$<CONFIG:RELEASE>:-funroll-all-loops;-fno-f2c;-O3>")
   add_compile_options("$<$<CONFIG:PROFILING>:-funroll-all-loops;-fno-f2c;-O3;-pg;-no-pie;-fopt-info-vec>")
-  add_compile_options("$<$<CONFIG:DEBUG>:-fno-f2c;-O2;-g;-fcheck=all;-Wall;-ffpe-trap=invalid,zero,overflow>")
+  add_compile_options("$<$<CONFIG:DEBUG>:-fno-f2c;-O2;-g;-Wall;-ffpe-trap=invalid,zero,overflow>")
   add_link_options("$<$<CONFIG:PROFILING>:-pg>")
+  add_link_options("$<$<CONFIG:DEBUG>:>")
+  if (CHECK_LEAKS MATCHES "ON")
+     add_link_options(-fsanitize=leak)
+  endif()
 elseif (CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
   # intel Fortran compiler, i.e. ifort
   add_compile_options(-cpp -r8 -stand f08)
@@ -115,11 +201,11 @@ elseif (CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
   else ()
     message(STATUS "using x86 advanced vector instructions: " ${X86_VECTOR_EXTENSION})
     if (X86_VECTOR_EXTENSION STREQUAL "AVX")
-      add_compile_options(-xavx)
+      add_compile_options(-mavx -axAVX,CORE-AVX-I)
     elseif (X86_VECTOR_EXTENSION STREQUAL "AVX2")
-      add_compile_options(-xcore-avx2)
+      add_compile_options(-mavx -axCORE-AVX2)
     elseif (X86_VECTOR_EXTENSION STREQUAL "AVX-512")
-      add_compile_options(-xcommon-avx512)
+      add_compile_options(-mavx -axCOMMON-AVX512,CORE-AVX512)
     else ()
       message(FATAL_ERROR "X86_VECTOR_EXTENSION must be one of {NONE,AVX,AVX2,AVX-512}")
     endif()
@@ -128,6 +214,41 @@ elseif (CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
   add_compile_options("$<$<CONFIG:PROFILING>:-O3;-pg;-qopt-report=1 -qopt-report-phase=vec>")
   add_compile_options("$<$<CONFIG:DEBUG>:-O0;-W1;-g;-CB;-CS;-traceback>")
   add_link_options("$<$<CONFIG:DEBUG>:-g;-CB;-CS;-traceback>")
+elseif (CMAKE_Fortran_COMPILER_ID MATCHES "Flang")
+  if(LLVM_FOUND)
+    if(NOT CMAKE_Fortran_COMPILER_VERSION VERSION_EQUAL ${LLVM_PACKAGE_VERSION})
+      message(WARNING "Flang compiler version does not match LLVM version. This could lead to a conflict. \
+                       If there are more the one LLVM implementations installed on the system \
+                       you can add -DLLVM_DIR=/path/to/llvm to the CMake command line.")
+    endif()
+  else()
+    message(WARNING "Using flang compiler but no LLVM detected.")
+  endif()
+  add_compile_options(-fdefault-real-8 -fdefault-double-8 -cpp)
+  add_compile_options("$<$<CONFIG:RELEASE>:>")
+  add_compile_options("$<$<CONFIG:PROFILING>:-fprofile-instr-generate>")
+  add_compile_options("$<$<CONFIG:DEBUG>:-g>")
+  if (X86_VECTOR_EXTENSION MATCHES "AVX")
+    message(STATUS "using x86 advanced vector instructions: " ${X86_VECTOR_EXTENSION})
+    add_compile_options(-fvectorize)
+    if (X86_VECTOR_EXTENSION STREQUAL "AVX2")
+      add_compile_options(-march=core-avx2)
+    elseif (X86_VECTOR_EXTENSION STREQUAL "AVX-512")
+      add_compile_options(-march=skylake-avx512)
+    else ()
+      add_compile_options(-march=core-avx-i)
+    endif()
+    find_library(AMDMATH_LIBRARY amdlibm DOC "AMD vectorized math library" HINTS ${LLVM_LIBRARY_DIRS} ENV LLVM_DIR PATH_SUFFIXES lib lib64 lib${LLVM_LIBDIR_SUFFIX})
+    if (NOT AMDMATH_LIBRARY STREQUAL "AMDMATH_LIBRARY-NOTFOUND")
+      message(STATUS "Found AMD math library: ${AMDMATH_LIBRARY}")
+      add_link_options(-fveclib=AMDLIBM)
+      set(AMDMATH_FOUND TRUE)
+    endif()
+  endif()
+  add_link_options("$<$<CONFIG:DEBUG>:>")
+  if (CHECK_LEAKS MATCHES "ON")
+     add_link_options(-fsanitize=leak)
+  endif()
 elseif (CMAKE_Fortran_COMPILER_ID MATCHES "NEC")
   add_compile_options(-report-all -proginf -fdefault-real=8 -x f95-cpp-input)
   add_compile_options("$<$<CONFIG:RELEASE>:-finline-max-depth=5;-finline-max-function-size=150;-finline-functions;-floop-collapse>")
@@ -135,7 +256,7 @@ elseif (CMAKE_Fortran_COMPILER_ID MATCHES "NEC")
   add_compile_options("$<$<CONFIG:PROFILING>:-finline-max-depth=5;-finline-max-function-size=150;-finline-functions;-floop-collapse;-ftrace>")
   add_link_options("$<$<CONFIG:RELEASE>:-proginf>")
   add_link_options("$<$<CONFIG:PROFILING>:-ftrace>")
-else (Fortran_COMPILER_NAME_ID MATCHES "GNU")
+else (CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
   # unknown compiler
   message (STATUS "Found unsupported Fortran compiler: " ${CMAKE_Fortran_COMPILER})
   add_compile_options("$<$<CONFIG:RELEASE>:>")
@@ -209,6 +330,23 @@ option(USE_GSL "Add GSL/FGSL support" OFF)
 if(USE_GSL MATCHES ON)
   find_package(GSL REQUIRED)
 
+  if((GSL_VERSION VERSION_EQUAL "2.1") OR (GSL_VERSION VERSION_EQUAL "2.2.1"))
+	set(FGSL_CHECKOUT_TAG "v1.1.0")
+  elseif(GSL_VERSION VERSION_EQUAL "2.3")
+	set(FGSL_CHECKOUT_TAG "v1.2.0")
+  elseif(GSL_VERSION VERSION_EQUAL "2.4")
+	set(FGSL_CHECKOUT_TAG "v1.3.0")
+  elseif(GSL_VERSION VERSION_EQUAL "2.5")
+	set(FGSL_CHECKOUT_TAG "v1.4.0")
+  elseif(GSL_VERSION VERSION_EQUAL "2.6")
+	set(FGSL_CHECKOUT_TAG "1.5.0") # missing 'v' is correct here!
+  elseif(GSL_VERSION VERSION_GREATER_EQUAL "2.7")
+	set(FGSL_CHECKOUT_TAG "master")
+  else()
+	message(FATAL_ERROR "GSL version not supported")
+  endif()
+  message(STATUS "Checking out FGSL version: ${FGSL_CHECKOUT_TAG}")
+
   set(FGSL_SOURCE_DIR ${CMAKE_SOURCE_DIR}/contrib/fgsl)
   set(FGSL_INSTALL_DIR ${CMAKE_BINARY_DIR}/contrib/fgsl)
   set(FGSL_LIBRARY_DIR ${FGSL_INSTALL_DIR}/lib)
@@ -224,9 +362,37 @@ if(USE_GSL MATCHES ON)
   if(NOT EXISTS "${FGSL_SOURCE_DIR}/configure.ac")
     message(STATUS "fgsl: found empty source dir -> fetching code")
     execute_process(
-        COMMAND git submodule update --init --force contrib/fgsl
+        COMMAND ${GIT_EXECUTABLE} submodule update --init --force contrib/fgsl
 	WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
   endif()
+  execute_process(
+        COMMAND ${GIT_EXECUTABLE} show-ref --quiet --verify -- "refs/heads/fosite_build"
+	RESULTS_VARIABLE CREATE_FOSITE_BRANCH
+	WORKING_DIRECTORY ${FGSL_SOURCE_DIR}
+  )
+  if(${CREATE_FOSITE_BRANCH})
+	execute_process(
+		COMMAND ${GIT_EXECUTABLE} checkout tags/${FGSL_CHECKOUT_TAG} -b fosite_build
+		WORKING_DIRECTORY ${FGSL_SOURCE_DIR}
+		ERROR_VARIABLE GIT_ERROR
+		OUTPUT_QUIET)
+  else()
+	execute_process(
+		COMMAND ${GIT_EXECUTABLE} checkout fosite_build
+		WORKING_DIRECTORY ${FGSL_SOURCE_DIR}
+		ERROR_VARIABLE GIT_ERROR
+		OUTPUT_QUIET)
+	if(NOT ${GIT_ERROR})
+		execute_process(
+			COMMAND ${GIT_EXECUTABLE} reset --hard ${FGSL_CHECKOUT_TAG}
+			WORKING_DIRECTORY ${FGSL_SOURCE_DIR}
+			OUTPUT_QUIET)
+	endif()
+  endif()
+  if(${GIT_ERROR})
+	message(FATAL_ERROR "fgsl: git fails to checkout branch fosite_build")
+  endif()
+
   if(NOT EXISTS ${FGSL_SOURCE_DIR}/configure)
     if(NOT EXISTS ${FGSL_SOURCE_DIR}/m4)
       file(MAKE_DIRECTORY ${FGSL_SOURCE_DIR}/m4)
@@ -352,7 +518,12 @@ if(FFTW_FOUND)
 else()
   message(WARNING "FFTW support DISABLED! \
     The gravity spectral solvers will not be available. \
-    Add -DUSE_FFTW=ON to the cmake command line to enable FFTW support.")
+    Add -DUSE_FFTW=ON to the CMake command line to enable FFTW support.")
+endif()
+
+# add AMD math
+if(AMDMATH_FOUND)
+  target_link_libraries(fosite ${AMDMATH_LIBRARY})
 endif()
 
 #--------------------- add paths for standard simulation setups----------------#

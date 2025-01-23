@@ -63,6 +63,7 @@ MODULE timedisc_base_mod
   USE physics_base_mod
   USE physics_generic_mod
   USE sources_base_mod
+  USE sources_generic_mod
   USE sources_gravity_mod
   USE fluxes_base_mod
   USE reconstruction_base_mod
@@ -164,12 +165,12 @@ PRIVATE
 !----------------------------------------------------------------------------!
   ABSTRACT INTERFACE
     SUBROUTINE SolveODE(this,Mesh,Physics,Sources,Fluxes,time,dt,err)
-      IMPORT timedisc_base, mesh_base, physics_base, fluxes_base, sources_base
+      IMPORT timedisc_base, mesh_base, physics_base, fluxes_base, sources_base, sources_list
       IMPLICIT NONE
       CLASS(timedisc_base), INTENT(INOUT) :: this
       CLASS(mesh_base),     INTENT(IN)    :: Mesh
       CLASS(physics_base),  INTENT(INOUT) :: Physics
-      CLASS(sources_base),  POINTER       :: Sources
+      CLASS(sources_list), ALLOCATABLE, INTENT(INOUT) :: Sources
       CLASS(fluxes_base),   INTENT(INOUT) :: Fluxes
       REAL,                 INTENT(IN)    :: time
       REAL,                 INTENT(INOUT) :: dt, err
@@ -482,9 +483,9 @@ CONTAINS
     ! print some information
     WRITE (order_str, '(I0)') this%GetOrder()
     WRITE (cfl_str, '(F4.2)') this%GetCFL()
-    WRITE (stoptime_str, '(ES10.4)') this%stoptime
-    WRITE (dtmax_str, '(ES10.4)') this%dtmax
-    WRITE (beta_str, '(ES10.4)') this%beta
+    WRITE (stoptime_str, '(ES12.4)') this%stoptime
+    WRITE (dtmax_str, '(ES12.4)') this%dtmax
+    WRITE (beta_str, '(ES12.4)') this%beta
     CALL this%Info(" TIMEDISC-> ODE solver:        " //TRIM(this%GetName()))
     CALL this%Info("            order:             " //TRIM(order_str))
     CALL this%Info("            CFL number:        " //TRIM(cfl_str))
@@ -497,7 +498,7 @@ CONTAINS
       CALL Physics%new_statevector(this%cerr,CONSERVATIVE)
       this%cerr%data1d(:)    = 0.
       ! create selection for the internal region
-      WRITE (info_str,'(ES7.1)') this%tol_rel*100
+      WRITE (info_str,'(ES9.1)') this%tol_rel*100
       CALL this%Info("            step size control: enabled")
       CALL this%Info("            rel. precision:    "//TRIM(info_str)//" %")
     ELSE
@@ -649,7 +650,7 @@ CONTAINS
     CLASS(timedisc_base), INTENT(INOUT) :: this
     CLASS(mesh_base),     INTENT(INOUT) :: Mesh
     CLASS(physics_base),  INTENT(INOUT) :: Physics
-    CLASS(sources_base),  POINTER       :: Sources
+    CLASS(sources_list), ALLOCATABLE, INTENT(INOUT) :: Sources
     CLASS(fluxes_base),   INTENT(INOUT) :: Fluxes
     INTEGER                             :: iter
     TYPE(Dict_TYP),       POINTER       :: config,IO
@@ -820,7 +821,7 @@ CONTAINS
     CLASS(timedisc_base), INTENT(INOUT) :: this
     CLASS(mesh_base),     INTENT(IN)    :: Mesh
     CLASS(physics_base),  INTENT(INOUT) :: Physics
-    CLASS(sources_base),  POINTER       :: Sources
+    CLASS(sources_list), ALLOCATABLE, INTENT(INOUT) :: Sources
     CLASS(fluxes_base),   INTENT(INOUT) :: Fluxes
     REAL,                 INTENT(IN)    :: time
     INTEGER,              INTENT(INOUT) :: dtcause
@@ -896,7 +897,7 @@ CONTAINS
     dtcause = 0
 
     ! check for sources
-    IF (ASSOCIATED(Sources)) THEN
+    IF (ALLOCATED(Sources)) THEN
       ! initialize this to be sure dt_src > 0
       dt_src = dt_cfl
       CALL Sources%CalcTimestep(Mesh,Physics,Fluxes,this%pvar,this%cvar,time,dt_src,dtcause)
@@ -912,7 +913,7 @@ CONTAINS
     CLASS(timedisc_base), INTENT(INOUT) :: this
     CLASS(mesh_base),     INTENT(IN)    :: Mesh
     CLASS(physics_base),  INTENT(INOUT) :: Physics
-    CLASS(sources_base),  POINTER       :: Sources
+    CLASS(sources_list), ALLOCATABLE, INTENT(INOUT) :: Sources
     CLASS(fluxes_base),   INTENT(INOUT) :: Fluxes
     REAL                                :: time,dt
     INTEGER                             :: iter
@@ -962,7 +963,7 @@ CONTAINS
     CLASS(timedisc_base), INTENT(INOUT) :: this
     CLASS(mesh_base),     INTENT(IN)    :: Mesh
     CLASS(physics_base),  INTENT(INOUT) :: Physics
-    CLASS(sources_base),  POINTER       :: Sources
+    CLASS(sources_list), ALLOCATABLE, INTENT(INOUT) :: Sources
     CLASS(fluxes_base),   INTENT(INOUT) :: Fluxes
     REAL                                :: time,dt
     !------------------------------------------------------------------------!
@@ -1078,7 +1079,7 @@ CONTAINS
     CLASS(timedisc_base), INTENT(INOUT) :: this
     CLASS(mesh_base),     INTENT(IN)    :: Mesh
     CLASS(physics_base),  INTENT(INOUT) :: Physics
-    CLASS(sources_base),  POINTER       :: Sources
+    CLASS(sources_list), ALLOCATABLE, INTENT(INOUT) :: Sources
     CLASS(fluxes_base),   INTENT(INOUT) :: Fluxes
     REAL,                 INTENT(IN)    :: time, dt
     CLASS(marray_compound),INTENT(INOUT):: pvar,cvar,rhs
@@ -1180,8 +1181,8 @@ CONTAINS
     CALL Physics%GeometricalSources(Mesh,pvar,cvar,this%geo_src)
 
     ! get source terms due to external forces if present
-    IF (ASSOCIATED(Sources)) &
-       CALL Sources%ExternalSources(Mesh,Fluxes,Physics, &
+    IF (ALLOCATED(Sources)) &
+       CALL Sources%ExternalSources(Mesh,Physics,Fluxes,Sources, &
             t,dt,pvar,cvar,this%src)
 
     ! if fargo advection is enabled additional source terms occur;
@@ -1272,16 +1273,8 @@ CONTAINS
       !> \todo Very hacky implementation of pluto style angular momentum
       !! conservation. A better implementation is needed, but we would need to
       !! restucture the timedisc module
-      sp => Sources
-      DO
-        IF (ASSOCIATED(sp).EQV..FALSE.) EXIT
-        SELECT TYPE(sp)
-        CLASS IS(sources_gravity)
-          grav => sp
-          EXIT
-        END SELECT
-        sp => sp%next
-      END DO
+      IF (ALLOCATED(Sources)) &
+        sp => Sources%GetSourcesPointer(GRAVITY)
 
       NULLIFY(pot)
       have_potential = .FALSE.
@@ -1545,7 +1538,8 @@ CONTAINS
 
               this%geo_src%data4d(i,j,k,Physics%YMOMENTUM) &
                 = cvar%data4d(i,j,k,Physics%XMOMENTUM) &
-                  * ( pvar%data4d(i,j,k,Physics%XVELOCITY) * Mesh%cxyx%center(i,j,k) - pvar%data4d(i,j,k,Physics%YVELOCITY) * Mesh%cyxy%center(i,j,k) ) &
+                  * ( pvar%data4d(i,j,k,Physics%XVELOCITY) * Mesh%cxyx%center(i,j,k) &
+                    - pvar%data4d(i,j,k,Physics%YVELOCITY) * Mesh%cyxy%center(i,j,k) ) &
                 + pvar%data4d(i,j,k,Physics%DENSITY) * wp &
                   * ( wp * Mesh%czyz%center(i,j,k) - pvar%data4d(i,j,k,Physics%YVELOCITY) * Mesh%cyzy%center(i,j,k) )
 
@@ -1790,7 +1784,7 @@ CONTAINS
     CLASS(fluxes_base),   INTENT(INOUT) :: Fluxes
     CLASS(mesh_base),     INTENT(IN)    :: Mesh
     CLASS(physics_base),  INTENT(INOUT) :: Physics
-    CLASS(sources_base),  POINTER       :: Sources
+    CLASS(sources_list), ALLOCATABLE, INTENT(INOUT) :: Sources
     !------------------------------------------------------------------------!
     INTEGER              :: i,j,k,l
 #ifdef PARALLEL
@@ -1944,7 +1938,7 @@ CONTAINS
     CLASS(fluxes_base),   INTENT(INOUT) :: Fluxes
     CLASS(mesh_base),     INTENT(IN)    :: Mesh
     CLASS(physics_base),  INTENT(INOUT) :: Physics
-    CLASS(sources_base),  POINTER       :: Sources
+    CLASS(sources_list), ALLOCATABLE, INTENT(INOUT) :: Sources
     !------------------------------------------------------------------------!
     INTEGER              :: i,j,k,l
 #ifdef PARALLEL
@@ -2098,7 +2092,7 @@ CONTAINS
     CLASS(fluxes_base),   INTENT(INOUT) :: Fluxes
     CLASS(mesh_base),     INTENT(IN)    :: Mesh
     CLASS(physics_base),  INTENT(INOUT) :: Physics
-    CLASS(sources_base),  POINTER       :: Sources
+    CLASS(sources_list), ALLOCATABLE, INTENT(INOUT) :: Sources
     !------------------------------------------------------------------------!
     INTEGER              :: i,j,k,l
 #ifdef PARALLEL
@@ -2367,7 +2361,7 @@ CONTAINS
     CLASS(mesh_base),     INTENT(IN)    :: Mesh
     CLASS(physics_base),  INTENT(INOUT) :: Physics
     CLASS(fluxes_base),   INTENT(INOUT) :: Fluxes
-    CLASS(sources_base),  POINTER       :: Sources
+    CLASS(sources_list), ALLOCATABLE, INTENT(INOUT) :: Sources
     REAL, OPTIONAL,       INTENT(IN)    :: dir_omega_(3)
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,Physics%VDIM), &
                 OPTIONAL, INTENT(IN)    :: accel_

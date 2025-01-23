@@ -89,8 +89,6 @@ MODULE gravity_sboxspectral_mod
 
   TYPE, EXTENDS(gravity_base) :: gravity_sboxspectral
 #ifdef HAVE_FFTW
-    !> \name
-    !!#### spectral poisson solver shearing box
     TYPE(C_PTR)           :: plan_r2c                  !> plan for real to complex FT
     TYPE(C_PTR)           :: plan_c2r                  !> plan for complex to real FT
     TYPE(Field_TYP), DIMENSION(:), ALLOCATABLE &       !< z-layered density/potential field

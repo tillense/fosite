@@ -3,7 +3,7 @@
 !# fosite - 3D hydrodynamical simulation program                             #
 !# module: timedisc_modeuler.f90                                             #
 !#                                                                           #
-!# Copyright (C) 2007-2018                                                   #
+!# Copyright (C) 2007-2024                                                   #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
 !# Björn Sperling   <sperling@astrophysik.uni-kiel.de>                       #
 !# Jannes Klee      <jklee@astrophysik.uni-kiel.de>                          #
@@ -46,6 +46,7 @@ MODULE timedisc_modeuler_mod
   USE boundary_base_mod
   USE physics_base_mod
   USE sources_base_mod
+  USE sources_generic_mod
   USE common_dict
 #ifdef PARALLEL
 #ifdef HAVE_MPI_MOD
@@ -121,16 +122,15 @@ CONTAINS
 
   END SUBROUTINE InitTimedisc_modeuler
 
-
   SUBROUTINE SolveODE(this,Mesh,Physics,Sources,Fluxes,time,dt,err)
-  IMPLICIT NONE
-    !------------------------------------------------------------------------!
+    IMPLICIT NONE
     CLASS(timedisc_modeuler), INTENT(INOUT) :: this
     CLASS(mesh_base),         INTENT(IN)    :: Mesh
     CLASS(physics_base),      INTENT(INOUT) :: Physics
-    CLASS(sources_base),      POINTER       :: Sources
+    CLASS(sources_list), ALLOCATABLE, INTENT(INOUT) :: Sources
     CLASS(fluxes_base),       INTENT(INOUT) :: Fluxes
-    REAL                                    :: time,dt,err
+    REAL,                     INTENT(IN)    :: time
+    REAL,                     INTENT(INOUT) :: dt, err
     !------------------------------------------------------------------------!
     INTEGER                                 :: n
     INTEGER                                 :: order
@@ -139,9 +139,6 @@ CONTAINS
       CLASS(marray_compound), POINTER :: var
     END TYPE var_typ
     TYPE(var_typ)                           :: p(4),c(4)
-    !------------------------------------------------------------------------!
-    INTENT(IN)                              :: time
-    INTENT(INOUT)                           :: dt,err
     !------------------------------------------------------------------------!
     t = time
     order = this%GetOrder()

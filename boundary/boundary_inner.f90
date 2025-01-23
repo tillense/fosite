@@ -90,7 +90,7 @@ CONTAINS
   !> \public Applies the inner boundary condition
   !!
   !! \attention This routine does nothing.
-  PURE SUBROUTINE SetBoundaryData(this,Mesh,Physics,time,pvar)
+  SUBROUTINE SetBoundaryData(this,Mesh,Physics,time,pvar)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(boundary_inner), INTENT(INOUT) :: this

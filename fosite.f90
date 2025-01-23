@@ -3,7 +3,7 @@
 !# fosite - 3D hydrodynamical simulation program                             #
 !# program file: fosite.f90                                                  #
 !#                                                                           #
-!# Copyright (C) 2006-2018                                                   #
+!# Copyright (C) 2006-2024                                                   #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
 !# Manuel Jung      <mjung@astrophysik.uni-kiel.de>                          #
 !# Björn Sperling   <sperling@astrophysik.uni-kiel.de>                       #
@@ -79,8 +79,7 @@ MODULE fosite_mod
     CLASS(fileio_base),ALLOCATABLE   :: Datafile
     CLASS(timedisc_base),ALLOCATABLE :: Timedisc
     CLASS(fileio_base),ALLOCATABLE   :: Logfile
-    CLASS(sources_base), POINTER     :: Sources & !< list of source terms
-                                        => null()
+    CLASS(sources_list),ALLOCATABLE  :: Sources !< list of source terms
     !> \name
     !! #### Variables
     INTEGER                :: iter
@@ -230,8 +229,8 @@ CONTAINS
     IF(ASSOCIATED(dir)) THEN
       IF(HasChild(dir)) THEN
         NULLIFY(IOdir)
-        CALL new_sources(this%Sources, &
-          this%Mesh,this%Fluxes,this%Physics,dir,IOdir)
+        ALLOCATE(sources_list::this%Sources)
+        CALL this%Sources%InitSources(this%Mesh,this%Physics,this%Fluxes,dir,IOdir)
         IF(ASSOCIATED(IOdir)) CALL SetAttr(this%IO, "sources", IOdir)
       END IF
     END IF
@@ -239,7 +238,7 @@ CONTAINS
     CALL GetAttr(this%config, "datafile", dir)
     IF(ASSOCIATED(dir)) THEN
       CALL new_fileio(this%Datafile, this%Mesh, this%Physics, this%Timedisc,&
-                      this%Sources, dir,this%IO)!,this%config)
+                      this%Sources, dir,this%IO)
     END IF
 
     CALL GetAttr(this%config, "logfile", dir)
@@ -487,7 +486,7 @@ CONTAINS
     CALL this%Timedisc%Finalize()
     DEALLOCATE(this%Timedisc)
 
-    CALL Destroy_Sources(this%Sources)
+    IF (ALLOCATED(this%Sources)) DEALLOCATE(this%Sources)
 
     CALL this%Fluxes%Finalize()
     DEALLOCATE(this%Fluxes)

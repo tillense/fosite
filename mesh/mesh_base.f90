@@ -94,7 +94,6 @@ MODULE mesh_base_mod
   !! #### mesh types
   INTEGER, PARAMETER :: MIDPOINT     = 1 !< use midpoint rule to approximate flux integrals
 !  INTEGER, PARAMETER :: TRAPEZOIDAL  = 2 !< use trapezoidal rule to approximate flux integrals
-  !> \}
   !! #### parameters depending on dimensionality
   INTEGER, PARAMETER :: NFACES(3)    = (/ 2, 4, 6 /)  !< number of faces
   INTEGER, PARAMETER :: NCORNERS(3)  = (/ 2, 4, 8 /)  !< number of corners
@@ -268,7 +267,6 @@ MODULE mesh_base_mod
       CLASS(mesh_base), INTENT(INOUT) :: this
     END SUBROUTINE
   END INTERFACE
-  !> \}
   !--------------------------------------------------------------------------!
   PUBLIC :: &
        ! types
@@ -384,7 +382,8 @@ CONTAINS
       ! 1 = calculated mean background velocity
       ! 2 = fixed user supplied background velocity
       ! 3 = shearingsheet/box fixed background velocity
-      fargo_method = [CHARACTER(LEN=32) :: "disabled", "dynamic velocity","user supplied fixed velocity","shearingsheet/box shear velocity" ]
+      fargo_method = [CHARACTER(LEN=32) :: "disabled", "dynamic velocity",&
+        "user supplied fixed, velocity","shearingsheet/box shear velocity" ]
       CALL this%fargo%logging_base%InitLogging(fargo,fargo_method(fargo+1))
       IF (fargo.GT.0) THEN
         ! set/check fargo transport direction
@@ -689,7 +688,7 @@ CONTAINS
     ! assign the result of marray operations correctly
     ! leading to segfaults in some cases
     this%sqrtg = marray_cellscalar()
-#ifdef __INTEL_COMPILER
+#if defined (__INTEL_COMPILER) || defined (__flang__)
     this%sqrtg%data1d(:) = this%hx%data1d(:)*(this%hy%data1d(:)*this%hz%data1d(:))
 #else
     this%sqrtg = this%hx*(this%hy*this%hz)

@@ -3,7 +3,7 @@
 !# fosite - 3D hydrodynamical simulation program                             #
 !# module: mestel.f90                                                        #
 !#                                                                           #
-!# Copyright (C) 2012-2019                                                   #
+!# Copyright (C) 2012-2024                                                   #
 !# Manuel Jung    <mjung@astrophysik.uni-kiel.de>                            #
 !# Björn Sperling <sperling@astrophysik.uni-kiel.de>                         #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
@@ -265,16 +265,18 @@ CONTAINS
 
   SUBROUTINE InitData(Timedisc,Mesh,Physics,Fluxes,Sources)
     USE physics_euler_mod, ONLY : physics_euler, statevector_euler
+    USE sources_base_mod, ONLY : sources_base
+    USE sources_gravity_mod, ONLY : sources_gravity
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(timedisc_base), INTENT(INOUT) :: Timedisc
     CLASS(mesh_base),     INTENT(IN)    :: Mesh
     CLASS(physics_base),  INTENT(INOUT) :: Physics
     CLASS(fluxes_base),   INTENT(INOUT) :: Fluxes
-    CLASS(sources_base),  POINTER       :: Sources
+    CLASS(sources_list), ALLOCATABLE, INTENT(INOUT) :: Sources
     !------------------------------------------------------------------------!
     ! Local variable declaration
-    CLASS(sources_base), POINTER :: sp
+    CLASS(sources_base), POINTER :: sp => null()
     CLASS(sources_gravity), POINTER :: gp => null()
     CLASS(marray_base), ALLOCATABLE :: rands,Sigma
 #ifdef PARALLEL
@@ -286,21 +288,14 @@ CONTAINS
     INTEGER :: rng, n
 #endif
     !------------------------------------------------------------------------!
-    ALLOCATE(rands,Sigma)
     ! get gravitational acceleration
-    sp => Sources
-    DO
-      IF (.NOT.ASSOCIATED(sp)) EXIT 
-      SELECT TYPE(sp)
-      CLASS IS(sources_gravity)
-        gp => sp
-        EXIT
-      END SELECT
-      sp => sp%next
-    END DO
-    IF (.NOT.ASSOCIATED(sp)) CALL Physics%Error("mestel::InitData","no gravity term initialized")
+    IF (ALLOCATED(Sources)) &
+      sp => Sources%GetSourcesPointer(GRAVITY)
+    IF (.NOT.ASSOCIATED(sp)) &
+      CALL Physics%Error("mestel::InitData","no gravity term initialized")
 
     ! get random numbers for density noise
+    ALLOCATE(rands,Sigma)
     rands = marray_base()
 #ifndef NECSXAURORA
     CALL InitRandSeed(Physics)
@@ -365,7 +360,7 @@ CONTAINS
     CALL Physics%Convert2Conservative(Timedisc%pvar,Timedisc%cvar)
 
     ! print some information
-    WRITE (mdisk_str, '(ES8.2)') mdisk/MSUN
+    WRITE (mdisk_str, '(ES10.2)') mdisk/MSUN
     CALL Mesh%Info(" DATA-----> initial condition: Mestel's disk")
     CALL Mesh%Info("            disk mass:         " // TRIM(mdisk_str) // " M_sun")
 

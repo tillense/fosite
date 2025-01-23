@@ -58,7 +58,6 @@ MODULE physics_base_mod
   USE mesh_base_mod
   USE marray_base_mod
   USE marray_compound_mod
-  USE marray_cellvector_mod
   USE common_dict
   IMPLICIT NONE
   !--------------------------------------------------------------------------!
@@ -111,11 +110,11 @@ MODULE physics_base_mod
                             fposvec               !< curvilinear components of the position vector face values
 !------------------------------------------------------------!
   CONTAINS
-    PROCEDURE :: InitPhysics
-    PROCEDURE :: PrintConfiguration
-    PROCEDURE (new_statevector),              DEFERRED :: new_statevector
-    PROCEDURE (ExternalSources),              DEFERRED :: ExternalSources
-    PROCEDURE (EnableOutput),                 DEFERRED :: EnableOutput
+    PROCEDURE :: InitPhysics_base
+    PROCEDURE (InitPhysics),     DEFERRED, PASS(this)  :: InitPhysics
+    PROCEDURE (new_statevector), DEFERRED, PASS(this)  :: new_statevector
+    PROCEDURE (ExternalSources), DEFERRED, PASS(this)  :: ExternalSources
+    PROCEDURE (SetOutput),       DEFERRED, PASS(this)  :: SetOutput
     !------Convert2Primitve--------!
     PROCEDURE (Convert2Primitive_all),        DEFERRED :: Convert2Primitive_all
     PROCEDURE (Convert2Primitive_subset),     DEFERRED :: Convert2Primitive_subset
@@ -179,13 +178,19 @@ MODULE physics_base_mod
   END TYPE physics_base
 
   ABSTRACT INTERFACE
-    SUBROUTINE EnableOutput(this,Mesh,config,IO)
-      USE common_dict
-      IMPORT physics_base, mesh_base
+    SUBROUTINE InitPhysics(this,Mesh,config,IO)
+      IMPORT physics_base, mesh_base, dict_typ
+      IMPLICIT NONE
+      CLASS(physics_base),     INTENT(INOUT) :: this
+      CLASS(mesh_base),        INTENT(IN)    :: Mesh
+      TYPE(Dict_TYP), POINTER                :: config, IO
+    END SUBROUTINE
+    SUBROUTINE SetOutput(this,Mesh,config,IO)
+      IMPORT physics_base, mesh_base, dict_typ
       IMPLICIT NONE
       CLASS(physics_base), INTENT(INOUT) :: this
-      CLASS(mesh_base),        INTENT(IN)   :: Mesh
-      TYPE(Dict_TYP), POINTER, INTENT(IN)   :: config, IO
+      CLASS(mesh_base),       INTENT(IN) :: Mesh
+      TYPE(Dict_TYP), POINTER            :: config, IO
     END SUBROUTINE
     SUBROUTINE new_statevector(this,new_sv,flavour,num)
       IMPORT physics_base, marray_compound
@@ -216,11 +221,12 @@ MODULE physics_base_mod
       INTEGER,             INTENT(IN)  :: i1,i2,j1,j2,k1,k2
       CLASS(marray_compound), INTENT(INOUT) :: pvar,cvar
     END SUBROUTINE
-    PURE SUBROUTINE ExternalSources(this,accel,pvar,cvar,sterm)
+    SUBROUTINE ExternalSources(this,accel,pvar,cvar,sterm)
       IMPORT physics_base, mesh_base, marray_base, marray_compound
       CLASS(physics_base), INTENT(IN)  :: this
-      CLASS(marray_base),   INTENT(IN)      :: accel
-      CLASS(marray_compound), INTENT(INOUT) :: pvar,cvar,sterm
+      CLASS(marray_base),     INTENT(IN)  :: accel
+      CLASS(marray_compound), INTENT(IN)  :: pvar,cvar
+      CLASS(marray_compound), INTENT(INOUT) :: sterm
     END SUBROUTINE
     PURE SUBROUTINE CalcWaveSpeeds_center(this,Mesh,pvar,minwav,maxwav)
       IMPORT physics_base,mesh_base,marray_base,marray_compound
@@ -351,8 +357,8 @@ MODULE physics_base_mod
       CLASS(marray_compound), INTENT(INOUT) :: pvar
       REAL,DIMENSION(Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX,this%VNUM), &
                               INTENT(OUT)   :: lambda,xvar
-   END SUBROUTINE
-   PURE SUBROUTINE CalculateCharSystemY(this,Mesh,j1,j2,pvar,lambda,xvar)
+    END SUBROUTINE
+    PURE SUBROUTINE CalculateCharSystemY(this,Mesh,j1,j2,pvar,lambda,xvar)
       IMPORT physics_base, mesh_base, marray_compound
       !----------------------------------------------------------------------!
       CLASS(physics_base),    INTENT(IN)    :: this
@@ -361,8 +367,8 @@ MODULE physics_base_mod
       CLASS(marray_compound), INTENT(INOUT) :: pvar
       REAL,DIMENSION(Mesh%IMIN:Mesh%IMAX,Mesh%KMIN:Mesh%KMAX,this%VNUM), &
                               INTENT(OUT)   :: lambda,xvar
-   END SUBROUTINE
-   PURE SUBROUTINE CalculateCharSystemZ(this,Mesh,k1,k2,pvar,lambda,xvar)
+    END SUBROUTINE
+    PURE SUBROUTINE CalculateCharSystemZ(this,Mesh,k1,k2,pvar,lambda,xvar)
       IMPORT physics_base, mesh_base, marray_compound
       !----------------------------------------------------------------------!
       CLASS(physics_base),    INTENT(IN)    :: this
@@ -371,24 +377,24 @@ MODULE physics_base_mod
       CLASS(marray_compound), INTENT(INOUT) :: pvar
       REAL,DIMENSION(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,this%VNUM), &
                               INTENT(OUT)   :: lambda,xvar
-   END SUBROUTINE
-   PURE SUBROUTINE CalculateBoundaryDataX(this,Mesh,i1,i2,xvar,pvar)
+    END SUBROUTINE
+    PURE SUBROUTINE CalculateBoundaryDataX(this,Mesh,i1,i2,xvar,pvar)
       IMPORT physics_base, mesh_base, marray_compound
-     CLASS(physics_base), INTENT(IN)    :: this
-     CLASS(mesh_base),       INTENT(IN)    :: Mesh
-     INTEGER,                INTENT(IN)    :: i1,i2
-     REAL,DIMENSION(Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM), INTENT(IN)   :: xvar
-     CLASS(marray_compound), INTENT(INOUT) :: pvar
-   END SUBROUTINE
-   PURE SUBROUTINE CalculateBoundaryDataY(this,Mesh,j1,j2,xvar,pvar)
+      CLASS(physics_base), INTENT(IN)    :: this
+      CLASS(mesh_base),       INTENT(IN)    :: Mesh
+      INTEGER,                INTENT(IN)    :: i1,i2
+      REAL,DIMENSION(Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM), INTENT(IN)   :: xvar
+      CLASS(marray_compound), INTENT(INOUT) :: pvar
+    END SUBROUTINE
+    PURE SUBROUTINE CalculateBoundaryDataY(this,Mesh,j1,j2,xvar,pvar)
       IMPORT physics_base, mesh_base, marray_compound
-     CLASS(physics_base), INTENT(IN)    :: this
-     CLASS(mesh_base),       INTENT(IN)    :: Mesh
-     INTEGER,                 INTENT(IN)   :: j1,j2
-     REAL,DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM), INTENT(IN)   :: xvar
-     CLASS(marray_compound), INTENT(INOUT) :: pvar
-   END SUBROUTINE
-   PURE SUBROUTINE CalculateBoundaryDataZ(this,Mesh,k1,k2,xvar,pvar)
+      CLASS(physics_base), INTENT(IN)    :: this
+      CLASS(mesh_base),       INTENT(IN)    :: Mesh
+      INTEGER,                 INTENT(IN)   :: j1,j2
+      REAL,DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%KGMIN:Mesh%KGMAX,this%VNUM), INTENT(IN)   :: xvar
+      CLASS(marray_compound), INTENT(INOUT) :: pvar
+    END SUBROUTINE
+    PURE SUBROUTINE CalculateBoundaryDataZ(this,Mesh,k1,k2,xvar,pvar)
       IMPORT physics_base, mesh_base, marray_compound
      CLASS(physics_base), INTENT(IN)    :: this
      CLASS(mesh_base),       INTENT(IN)    :: Mesh
@@ -522,7 +528,7 @@ CONTAINS
   !! - allocation of arrays
   !! - specific tweaks (update soundspeed, etc.)
   !! - print infostring to terminal
-  SUBROUTINE InitPhysics(this,Mesh,config,IO,problem,pname)
+  SUBROUTINE InitPhysics_base(this,Mesh,config,IO,problem,pname)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(physics_base), INTENT(INOUT) :: this
@@ -531,6 +537,7 @@ CONTAINS
                                        :: config, IO
     INTEGER                            :: problem
     CHARACTER(LEN=32)                  :: pname
+    CHARACTER(LEN=64)                  :: info_str
     !------------------------------------------------------------------------!
     INTEGER                            :: units
     INTEGER                            :: err, valwrite, n
@@ -547,7 +554,7 @@ CONTAINS
     CALL GetAttr(config, "units", units, SI)
     CALL new_constants(this%constants, units)
 
-    !CALL GetAttr(config, "problem", problem)
+    CALL this%Info(" PHYSICS--> advection problem: " // TRIM(this%GetName()))
 
     ! mean molecular weight
     CALL GetAttr(config, "mu", this%mu, 0.029)
@@ -574,7 +581,7 @@ CONTAINS
     CALL GetAttr(config, "softening", this%eps, 1.0)
 
     ! determine physical vector dimensions based on dimimensionality of the grid
-    ! an whether rotational symmetry is assumed
+    ! and whether rotational symmetry is assumed
     this%VDIM = Mesh%NDIMS
     IF (Mesh%ROTSYM.GT.0) this%VDIM = this%VDIM + 1
 
@@ -623,15 +630,11 @@ CONTAINS
     this%supports_farfield  = .FALSE.
  
     this%time = -1.
-  END SUBROUTINE InitPhysics
 
-  SUBROUTINE PrintConfiguration(this)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(physics_base), INTENT(INOUT) :: this
-    !------------------------------------------------------------------------!
-    CALL this%Info(" PHYSICS--> advection problem: " // TRIM(this%GetName()))
-  END SUBROUTINE PrintConfiguration
+    ! print some information
+    WRITE(info_str,'("vector dimensions:",I2)') this%VDIM
+    CALL this%Info(REPEAT(" ",12) // TRIM(info_str))
+  END SUBROUTINE InitPhysics_base
 
   !> Destructor
   SUBROUTINE Finalize_base(this)

@@ -57,7 +57,7 @@ MODULE fileio_xdmf_mod
   USE physics_base_mod
   USE timedisc_base_mod
   USE fluxes_base_mod
-  USE sources_base_mod
+  USE sources_generic_mod
   USE common_dict
   !--------------------------------------------------------------------------!
   PRIVATE
@@ -102,8 +102,7 @@ CONTAINS
     CLASS(mesh_base),     INTENT(IN)    :: Mesh     !< \param [in] Mesh class
     CLASS(physics_base),  INTENT(IN)    :: Physics  !< \param [in] Physics class
     CLASS(timedisc_base), INTENT(IN)    :: Timedisc !< \param [in] Timedisc class
-    CLASS(sources_base),  INTENT(IN), POINTER &
-                                        :: Sources  !< \param [in] Sources class
+    CLASS(sources_list), ALLOCATABLE, INTENT(IN) :: Sources !< \param [in] Sources sources type
     TYPE(Dict_TYP),       INTENT(IN), POINTER &
                                         :: config
     TYPE(Dict_TYP),       INTENT(IN), POINTER &

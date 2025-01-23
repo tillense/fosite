@@ -84,7 +84,7 @@ PROGRAM riemann1d
   REAL               :: CSISO = 0.0      ! isothermal sound speed (test no. 6)
   !--------------------------------------------------------------------------!
   CLASS(fosite), ALLOCATABLE     :: Sim
-  CHARACTER(LEN=64)  :: verbose_tap_output
+  CHARACTER(LEN=128) :: verbose_tap_output
   INTEGER            :: ic,sd,dir_min,dir_max,n
   REAL, DIMENSION(:,:), ALLOCATABLE :: sigma
   REAL, PARAMETER    :: sigma_tol(TESTNUM) &
@@ -177,7 +177,7 @@ TAP_PLAN(TESTNUM*(dir_max-dir_min+1))
   DO ic=1,TESTNUM
     ! loop over selected directions
     DO sd=dir_min,dir_max
-      WRITE (verbose_tap_output,'(A,ES8.2)') TESTSTR(ic) // " " // ACHAR(119+sd) &
+      WRITE (verbose_tap_output,'(A,ES10.2)') TESTSTR(ic) // " " // ACHAR(119+sd) &
         // "-direction: " // " sigma = ", sigma(ic,sd)
 ! This line is long if expanded. So we can't indent it or it will be cropped.
 TAP_CHECK_SMALL(sigma(ic,sd),sigma_tol(ic),TRIM(verbose_tap_output))
@@ -190,7 +190,7 @@ TAP_DONE
 #endif
 
 CALL Sim%Finalize()
-DEALLOCATE(Sim)
+DEALLOCATE(Sim,sigma)
 
 CONTAINS
 

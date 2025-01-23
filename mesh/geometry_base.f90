@@ -340,6 +340,7 @@ MODULE geometry_base_mod
 
   !> \name Public Attributes
   !! #### geometries
+  !! \{
   !--------------------------------------------------------------------------!
   INTEGER, PARAMETER :: CARTESIAN         = 1
 !  INTEGER, PARAMETER :: SINHCARTESIAN     = 2

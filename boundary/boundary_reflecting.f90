@@ -86,7 +86,7 @@ CONTAINS
   !> \public Applies the reflecting boundary condition
   !!
   !! \warning Not rigorously tested!
-  PURE SUBROUTINE SetBoundaryData(this,Mesh,Physics,time,pvar)
+  SUBROUTINE SetBoundaryData(this,Mesh,Physics,time,pvar)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(boundary_reflecting), INTENT(INOUT)    :: this

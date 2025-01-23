@@ -73,7 +73,7 @@ CONTAINS
   END SUBROUTINE InitBoundary_nogradients
 
   !> \public Applies the nogradients boundary condition
-  PURE SUBROUTINE SetBoundaryData(this,Mesh,Physics,time,pvar)
+  SUBROUTINE SetBoundaryData(this,Mesh,Physics,time,pvar)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(boundary_nogradients), INTENT(INOUT) :: this

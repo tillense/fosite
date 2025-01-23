@@ -56,7 +56,7 @@ MODULE fileio_base_mod
   USE common_dict
   USE fluxes_base_mod
   USE physics_base_mod
-  USE sources_base_mod
+  USE sources_generic_mod
   USE mesh_base_mod
   USE timedisc_base_mod
 #ifdef PARALLEL
@@ -229,14 +229,14 @@ MODULE fileio_base_mod
       INTEGER :: fstatus
     END FUNCTION
     SUBROUTINE InitFileIO_deferred(this,Mesh,Physics,Timedisc,Sources,config,IO)
-      IMPORT fileio_base,mesh_base,physics_base,fluxes_base,timedisc_base,sources_base,Dict_TYP
+      IMPORT fileio_base,mesh_base,physics_base,fluxes_base,timedisc_base,sources_list,Dict_TYP
       IMPLICIT NONE
       !------------------------------------------------------------------------!
       CLASS(fileio_base),  INTENT(INOUT) :: this
       CLASS(mesh_base),    INTENT(IN)    :: Mesh
       CLASS(physics_base), INTENT(IN)    :: Physics
       CLASS(timedisc_base),INTENT(IN)    :: Timedisc
-      CLASS(sources_base), INTENT(IN), POINTER :: Sources
+      CLASS(sources_list), ALLOCATABLE, INTENT(IN)    :: Sources
       TYPE(Dict_TYP),      INTENT(IN), POINTER :: config
       TYPE(Dict_TYP),      INTENT(IN), POINTER :: IO
     END SUBROUTINE
@@ -268,15 +268,18 @@ MODULE fileio_base_mod
 
   !> \name Public Attributes
   !! #### file status and access modes
+  !! \{
 !  INTEGER, PARAMETER :: FILE_EXISTS = B'00000001' !< file status for existing files
   INTEGER, PARAMETER :: CLOSED   = 0       !< file closed
   INTEGER, PARAMETER :: READONLY = 1       !< readonly access
   INTEGER, PARAMETER :: READEND  = 2       !< readonly access at end
   INTEGER, PARAMETER :: REPLACE  = 3       !< read/write access replacing file
   INTEGER, PARAMETER :: APPEND   = 4       !< read/write access at end
+  INTEGER, PARAMETER :: OPEN_UNDEF = 5     !< open with undefined io action/position
   !> \}
 
-  !> basic file formats
+  !> #### file formats
+  !! \{
   INTEGER, PARAMETER :: FORTRANFILE = 1
   INTEGER, PARAMETER :: MPIFILE = 2
   !> file I/O types
@@ -286,6 +289,7 @@ MODULE fileio_base_mod
 !  INTEGER, PARAMETER :: NPY     = 5
 !  INTEGER, PARAMETER :: HDF     = 6
   INTEGER, PARAMETER :: XDMF    = 7
+  !> \}
   !--------------------------------------------------------------------------!
   INTEGER, SAVE :: lastunit = 10
 
@@ -332,8 +336,8 @@ CONTAINS
     CHARACTER(LEN=*), OPTIONAL, INTENT(IN) :: extension !< \param [in] extension file name extension
     LOGICAL, OPTIONAL, INTENT(IN)      :: textfile !< \param [in] textfile true for text data
     LOGICAL, OPTIONAL, INTENT(IN)      :: onefile  !< \param [in] onefile true if all data goes into one file
-    INTEGER, OPTIONAL, INTENT(IN)      :: cycles   !< \parma [in] cycles max number of files
-    INTEGER, OPTIONAL, INTENT(IN)      :: unit     !< \parma [in] unit force fortran i/o unit number
+    INTEGER, OPTIONAL, INTENT(IN)      :: cycles   !< \param [in] cycles max number of files
+    INTEGER, OPTIONAL, INTENT(IN)      :: unit     !< \param [in] unit force fortran i/o unit number
     !-------------------------------------------------------------------!
     IF (.NOT.this%Initialized()) CALL this%InitLogging(FORTRANFILE,"fortran")
     ! check file name length
@@ -390,7 +394,7 @@ CONTAINS
     CLASS(mesh_base),    INTENT(IN)    :: Mesh     !< \param [in] Mesh mesh type
     CLASS(physics_base), INTENT(IN)    :: Physics  !< \param [in] Physics physics type
     CLASS(timedisc_base),INTENT(IN)    :: Timedisc !< \param [in] Timedisc timedisc type
-    CLASS(sources_base), INTENT(IN), POINTER :: Sources !< \param [in] Sources sources type
+    CLASS(sources_list), ALLOCATABLE, INTENT(IN) :: Sources !< \param [in] Sources sources type
     TYPE(Dict_TYP),      INTENT(IN), POINTER :: config  !< \param [in] config dict with I/O configuration
     TYPE(Dict_TYP),      INTENT(IN), POINTER :: IO      !< \param [in] IO dict with pointers to I/O arrays
     CHARACTER(LEN=*),    INTENT(IN)    :: fmtname  !< \param [in] fmtname file format
@@ -474,7 +478,7 @@ CONTAINS
     ! print some information
     CALL this%Info(" FILEIO---> file type:         " // TRIM(this%GetName()))
     CALL this%Info("            file name:         " // TRIM(this%datafile%GetFilename(this%step)))
-    WRITE (timestamp,'(ES10.4)') Timedisc%time
+    WRITE (timestamp,'(ES12.4)') Timedisc%time
     CALL this%Info("            time stamp:        " // TRIM(timestamp))
     IF (.NOT.this%cartcoords) &
       CALL this%Info("    cruvilinear coords:        yes")
@@ -664,10 +668,11 @@ CONTAINS
     CALL this%CloseFile(step) ! make sure we don't open an already opened file
     IF (this%err.EQ.0) &
       OPEN(UNIT=this%GetUnitNumber(),FILE=TRIM(this%GetFilename(step)),STATUS=TRIM(sta), &
-           ACCESS='STREAM',ACTION=TRIM(act),POSITION=TRIM(pos),FORM=this%GetFormat(), &
+           ACCESS='STREAM',ACTION=TRIM(act),POSITION=TRIM(pos),FORM=TRIM(this%GetFormat()), &
            IOSTAT=this%err)
     IF (this%err.NE.0) &
-      CALL this%Error("fileio_base::OpenFile","File opening failed.")
+      CALL this%Error("fileio_base::OpenFile","File opening failed for: " // &
+        TRIM(this%GetFilename(step)))
   END SUBROUTINE OpenFile
  
   !> \public get Fortran i/o unit number
@@ -692,15 +697,26 @@ CONTAINS
     LOGICAL :: ex,op
     CHARACTER(LEN=64) :: act,pos
     !------------------------------------------------------------------------!
+#if DEBUG > 2
+      PRINT *,"DEBUG INFO in fileio_base::GetStatus: called for " // TRIM(this%GetFilename(step)), &
+        ", unit:", this%GetUnitNumber()
+#endif
     GetStatus = -1 ! unknown / undefined / does not exist
     ! check if file exist
+    act="NO-RETURN-VALUE"
+    pos="NO-RETURN-VALUE"
     INQUIRE(FILE=TRIM(this%GetFilename(step)),EXIST=ex,OPENED=op,ACTION=act,POSITION=pos,IOSTAT=this%err)
+#if DEBUG > 2
+    PRINT *,"DEBUG INFO in fileio_base::GetStatus: inquire results (ex,op,act,pos): ", &
+      ex, op, " " // TRIM(act) // " " // TRIM(pos)
+#endif
     IF (this%err.NE.0) &
        CALL this%Error("filehandle_fortran::GetStatus","serious failure during file inquiry")
     IF (ex) THEN
        ! file exists
        IF (op) THEN
           ! file is open
+          GetStatus = OPEN_UNDEF
           SELECT CASE(TRIM(act))
           CASE("READ")
             SELECT CASE(TRIM(pos))
@@ -803,12 +819,26 @@ CONTAINS
     CLASS(filehandle_fortran), INTENT(INOUT) :: this  !< \param [in,out] this fileio type
     INTEGER, INTENT(IN)                      :: step  !< \param [in] step time step
     !------------------------------------------------------------------------!
+#if DEBUG > 2
+      PRINT *,"DEBUG INFO in fileio_base::CloseFile: called for " // TRIM(this%GetFilename(step)), &
+        ", unit:", this%GetUnitNumber()
+#endif
     this%err = 0
     IF (this%GetStatus(step).GT.0) THEN
-      IF (this%err.EQ.0) CLOSE(UNIT=this%GetUnitNumber(),IOSTAT=this%err)
+      IF (this%err.EQ.0) THEN
+#if DEBUG > 2
+        PRINT *,"DEBUG INFO in fileio_base::CloseFile: closing file ..."
+#endif
+        CLOSE(UNIT=this%GetUnitNumber(),IOSTAT=this%err)
+      END IF
     END IF
-    IF (this%err.NE.0) &
-      CALL this%Error("filehandle_fortran::CloseFile","Cannot close file " // TRIM(this%GetFilename(step)))
+    IF (this%err.NE.0) THEN
+#if DEBUG > 2
+      PRINT *,"DEBUG INFO in fileio_base::CloseFile: Fatal error IOSTAT=",this%err
+#endif
+      CALL this%Error("filehandle_fortran::CloseFile","Cannot close file " // &
+        TRIM(this%GetFilename(step)))
+    END IF
   END SUBROUTINE CloseFile
 
   !> \public destructor of Fortran stream handle
@@ -892,8 +922,8 @@ CONTAINS
     CHARACTER(LEN=*), OPTIONAL, INTENT(IN) :: extension !< \param [in] extension file name extension
     LOGICAL, OPTIONAL, INTENT(IN)      :: textfile !< \param [in] textfile true for text data
     LOGICAL, OPTIONAL, INTENT(IN)      :: onefile  !< \param [in] onefile true if all data goes into one file
-    INTEGER, OPTIONAL, INTENT(IN)      :: cycles   !< \parma [in] cycles max number of files
-    INTEGER, OPTIONAL, INTENT(IN)      :: unit     !< \parma [in] unit force fortran i/o unit number
+    INTEGER, OPTIONAL, INTENT(IN)      :: cycles   !< \param [in] cycles max number of files
+    INTEGER, OPTIONAL, INTENT(IN)      :: unit     !< \param [in] unit force fortran i/o unit number
     !-------------------------------------------------------------------!
     IF (.NOT.this%Initialized()) CALL this%InitLogging(MPIFILE,"mpi")
     CALL this%filehandle_fortran%InitFilehandle(filename,path,extension,textfile,onefile,cycles,unit)

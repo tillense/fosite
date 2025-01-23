@@ -71,7 +71,7 @@ CONTAINS
   END SUBROUTINE InitReconstruction_constant
 
 
-  PURE SUBROUTINE CalculateStates(this,Mesh,Physics,rvar,rstates)
+  SUBROUTINE CalculateStates(this,Mesh,Physics,rvar,rstates)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(reconstruction_constant), INTENT(INOUT) :: this

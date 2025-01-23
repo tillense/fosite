@@ -53,15 +53,14 @@ MODULE sources_cooling_mod
   CHARACTER(LEN=32), PARAMETER :: source_name = "optically thin cooling"
   !--------------------------------------------------------------------------!
   TYPE, EXTENDS(sources_base) :: sources_cooling
-    TYPE(marray_base), ALLOCATABLE  :: Qcool        !< energy sink due to cooling
+    TYPE(marray_base), ALLOCATABLE  :: Q        !< energy sink due to cooling
     REAL      :: switchon
     REAL      :: Tmin !< temperature minimum
   CONTAINS
-    PROCEDURE :: InitSources_cooling
-    PROCEDURE :: InfoSources
+    PROCEDURE :: InitSources
     PROCEDURE :: SetOutput
-    PROCEDURE :: ExternalSources_single
-    PROCEDURE :: CalcTimestep_single
+    PROCEDURE :: ExternalSources
+    PROCEDURE :: CalcTimestep
     PROCEDURE :: UpdateCooling
     FINAL :: Finalize
   END TYPE
@@ -74,11 +73,11 @@ MODULE sources_cooling_mod
 
 CONTAINS
 
-  SUBROUTINE InitSources_cooling(this,Mesh,Physics,Fluxes,config,IO)
+  SUBROUTINE InitSources(this,Mesh,Physics,Fluxes,config,IO)
     USE physics_euler_mod, ONLY : physics_euler
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(sources_cooling) :: this
+    CLASS(sources_cooling), INTENT(INOUT) :: this
     CLASS(mesh_base),     INTENT(IN) :: Mesh
     CLASS(physics_base),  INTENT(IN) :: Physics
     CLASS(fluxes_base),   INTENT(IN) :: Fluxes
@@ -87,7 +86,8 @@ CONTAINS
     INTEGER :: stype,err
     !------------------------------------------------------------------------!
     CALL GetAttr(config, "stype", stype)
-    CALL this%InitLogging(stype,source_name)
+    ! call basic initialization subroutine
+    CALL this%InitSources_base(stype,source_name)
 
     ! Courant number, i.e. safety factor for numerical stability
     CALL GetAttr(config, "cvis", this%cvis, 0.1)
@@ -108,40 +108,25 @@ CONTAINS
       CALL this%Error("sources_cooling::InitSources","physics not supported")
     END SELECT
 
-    ALLOCATE(this%QCool,STAT=err)
+    ALLOCATE(this%Q,STAT=err)
     IF (err.NE.0) CALL this%Error("sources_cooling::InitSources","memory allocation failed")
-    this%Qcool = marray_base()
+    this%Q = marray_base()
 
     ! set initial time < 0
     this%time = -1.0
 
     ! initialize cooling function
-    this%Qcool%data1d(:)  = 0.0
+    this%Q%data1d(:)  = 0.0
     
-     !initialize output
+    ! register ouput arrays
     CALL this%SetOutput(Mesh,config,IO)
-    
-    ! call parent initialization subroutine
-    CALL this%InitSources(Mesh,Fluxes,Physics,config,IO)   
-  END SUBROUTINE InitSources_cooling
-
-
-  !> \public Print some information about the cooling module
-  SUBROUTINE InfoSources(this,Mesh)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------!
-    CLASS(sources_cooling), INTENT(IN) :: this
-    CLASS(mesh_base),       INTENT(IN) :: Mesh
-    !------------------------------------------------------------------------!
-    CHARACTER(LEN=32) :: param_str
-    !------------------------------------------------------------------------!
-  END SUBROUTINE InfoSources
+  END SUBROUTINE InitSources
 
 
   SUBROUTINE SetOutput(this,Mesh,config,IO)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(sources_cooling)  :: this
+    CLASS(sources_cooling), INTENT(INOUT) :: this
     CLASS(mesh_base), INTENT(IN) :: Mesh
     TYPE(Dict_TYP), POINTER     :: config,IO
     !------------------------------------------------------------------------!
@@ -151,11 +136,11 @@ CONTAINS
     CALL GetAttr(config, "output/Qcool", valwrite, 0)
     IF (valwrite .EQ. 1) &
          CALL SetAttr(IO, "Qcool", &
-         this%Qcool%data3d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX))
+         this%Q%data3d(Mesh%IMIN:Mesh%IMAX,Mesh%JMIN:Mesh%JMAX,Mesh%KMIN:Mesh%KMAX))
   END SUBROUTINE SetOutput
 
 
-  SUBROUTINE ExternalSources_single(this,Mesh,Physics,Fluxes,Sources,time,dt,pvar,cvar,sterm)
+  SUBROUTINE ExternalSources(this,Mesh,Physics,Fluxes,Sources,time,dt,pvar,cvar,sterm)
     USE physics_euler_mod, ONLY : physics_euler, statevector_euler
     IMPLICIT NONE
     !------------------------------------------------------------------------!
@@ -176,18 +161,22 @@ CONTAINS
       TYPE IS (physics_euler)
         SELECT TYPE(p => pvar)
         TYPE IS (statevector_euler)
-          CALL this%UpdateCooling(Mesh,phys,Sources,time,p)
+          CALL this%UpdateCooling(Mesh,phys,time,p)
         END SELECT
       END SELECT
 
       ! energy loss due to radiation processes
-      s%energy%data1d(:) = -this%Qcool%data1d(:)
+      s%energy%data1d(:) = -this%Q%data1d(:)
 
     END SELECT
-  END SUBROUTINE ExternalSources_single
+  END SUBROUTINE ExternalSources
 
  
-  SUBROUTINE CalcTimestep_single(this,Mesh,Physics,Fluxes,pvar,cvar,time,dt)
+  !> \public caculates the limiting time step due to cooling
+  !!
+  !! The timescale is calculated by \f$ t \sim Q_{\mathrm{cool}}/P \f$, where
+  !! \f$ Q_{\mathrm{cool}} \f$ is the heating term and \f$ P \f$ the pressure.
+  SUBROUTINE CalcTimestep(this,Mesh,Physics,Fluxes,pvar,cvar,time,dt,dtcause)
     USE physics_euler_mod, ONLY : physics_euler, statevector_euler
     IMPLICIT NONE
     !------------------------------------------------------------------------!
@@ -196,8 +185,9 @@ CONTAINS
     CLASS(physics_base), INTENT(INOUT) :: Physics
     CLASS(fluxes_base),  INTENT(IN)    :: Fluxes
     CLASS(marray_compound), INTENT(INOUT) :: pvar,cvar
-    REAL,                INTENT(IN)       :: time
-    REAL,                INTENT(OUT)      :: dt
+    REAL,                INTENT(IN)    :: time
+    REAL,                INTENT(INOUT) :: dt
+    INTEGER,             INTENT(OUT)   :: dtcause
     !------------------------------------------------------------------------!
     REAL              :: invdt
     !------------------------------------------------------------------------!
@@ -205,24 +195,30 @@ CONTAINS
     dt = HUGE(invdt)
     SELECT TYPE(p => pvar)
     CLASS IS(statevector_euler)
-      invdt = MAXVAL(ABS(this%Qcool%data1d(:) / p%pressure%data1d(:)), &
-                     MASK=Mesh%without_ghost_zones%mask1d(:))
-      IF (invdt.GT.TINY(invdt)) dt = this%cvis / invdt
+      SELECT TYPE(phys => Physics)
+      TYPE IS (physics_euler)
+        SELECT TYPE(p => pvar)
+        TYPE IS (statevector_euler)
+          CALL this%UpdateCooling(Mesh,phys,time,p)
+          invdt = MAXVAL(ABS(this%Q%data1d(:) / p%pressure%data1d(:)), &
+                        MASK=Mesh%without_ghost_zones%mask1d(:))
+          IF (invdt.GT.TINY(invdt)) dt = this%cvis / invdt
+        END SELECT
+      END SELECT
     END SELECT
-  END SUBROUTINE CalcTimestep_single
+  END SUBROUTINE CalcTimestep
 
 
   !> \private Updates the cooling function at each time step.
-  SUBROUTINE UpdateCooling(this,Mesh,Physics,Sources,time,pvar)
+  SUBROUTINE UpdateCooling(this,Mesh,Physics,time,pvar)
     USE physics_euler_mod, ONLY : physics_euler, statevector_euler
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(sources_cooling)             :: this
-    CLASS(mesh_base),    INTENT(IN)    :: Mesh
-    CLASS(physics_euler),INTENT(INOUT) :: Physics
-    CLASS(sources_base), INTENT(INOUT) :: Sources
-    CLASS(statevector_euler),INTENT(INOUT):: pvar
-    REAL,                INTENT(IN)    :: time
+    CLASS(sources_cooling),       INTENT(INOUT) :: this
+    CLASS(mesh_base),             INTENT(IN)    :: Mesh
+    CLASS(physics_euler),         INTENT(IN)    :: Physics
+    REAL,                         INTENT(IN)    :: time
+    CLASS(statevector_euler),     INTENT(IN)    :: pvar
     !------------------------------------------------------------------------!
     REAL              :: muRgamma,Namu,scaling
     !------------------------------------------------------------------------!
@@ -245,11 +241,11 @@ CONTAINS
       ! particle density n / m^3 and temperature T / K
       ! return value of lambda is given SI units i.e. W/m^3
       WHERE (Mesh%without_ghost_zones%mask1d(:))
-        this%Qcool%data1d(:) = scaling * Physics%Constants%cf_energy &
+        this%Q%data1d(:) = scaling * Physics%Constants%cf_energy &
           * (Namu * p%density%data1d(:))**2 &
           * lambda(muRgamma * Physics%bccsound%data1d(:)**2)
       ELSEWHERE
-        this%Qcool%data1d(:) = 0.0
+        this%Q%data1d(:) = 0.0
       END WHERE
     END SELECT
   END SUBROUTINE UpdateCooling
@@ -281,8 +277,7 @@ CONTAINS
     !------------------------------------------------------------------------!
     TYPE(sources_cooling), INTENT(INOUT) :: this
     !------------------------------------------------------------------------!
-    DEALLOCATE(this%Qcool)
-    CALL this%Finalize_base()
+    DEALLOCATE(this%Q)
   END SUBROUTINE Finalize
 
 END MODULE sources_cooling_mod

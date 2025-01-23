@@ -329,7 +329,7 @@ CONTAINS
     !------------------------------------------------------------------------!
     CHARACTER(LEN=32) :: param_str
     !------------------------------------------------------------------------!
-    WRITE (param_str,'(ES8.2)') this%mass
+    WRITE (param_str,'(ES10.2)') this%mass
     CALL this%Info("            potential:         " // &
          TRIM(this%potential%GetName()))
     CALL this%Info("            initial mass:      " // TRIM(param_str))
@@ -342,11 +342,11 @@ CONTAINS
     END IF
     CALL this%Info("            accretion:         " // TRIM(param_str))
     IF (this%outbound.GT.0.AND.this%acclimit.GT.0.0) THEN
-      WRITE (param_str,'(ES8.2)') this%acclimit
+      WRITE (param_str,'(ES10.2)') this%acclimit
       CALL this%Info("            accretion limit:   " // TRIM(param_str))
     END IF
     IF (this%switchon.GT.0.0) THEN
-       WRITE (param_str,'(ES8.2)') this%switchon
+       WRITE (param_str,'(ES10.2)') this%switchon
        CALL this%Info("            switchon time:     " // TRIM(param_str))
     END IF
   END SUBROUTINE InfoGravity

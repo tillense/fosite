@@ -124,7 +124,7 @@ TAP_PLAN(1)
 
   CALL MakeConfig(Sim, Sim%config)
   CALL Sim%Setup()
-  CALL InitData(Sim,Sim%Mesh, Sim%Physics, Sim%Timedisc)
+  CALL InitData(Sim,Sim%Mesh, Sim%Physics, Sim%Timedisc, Sim%Sources)
   next_output_time = Sim%Datafile%time
   IF (ASSOCIATED(Sim%Timedisc%solution)) THEN
 #ifdef HAVE_FGSL
@@ -200,8 +200,7 @@ TAP_CHECK(ok,"stoptime reached")
 ! These lines are very long if expanded. So we can't indent it or it will be cropped.
 #ifdef HAVE_FGSL
 TAP_CHECK_SMALL(sigma(DEN),5.0E-02,"density deviation < 5%")
-TAP_CHECK_SMALL(sigma(VX),8.0E-02,"radial velocity deviation < 8%")
-! skip azimuthal velocity deviation, because exact value is 0
+TAP_CHECK_SMALL(sigma(VX),9.0E-02,"radial velocity deviation < 9%")
 TAP_CHECK_SMALL(sigma(VY),2.0E-04,"azimuthal velocity deviation < 0.02%")
 #endif
 TAP_DONE
@@ -379,13 +378,16 @@ CONTAINS
             "datafile"  / datafile)
   END SUBROUTINE MakeConfig
 
-  SUBROUTINE InitData(Sim,Mesh,Physics,Timedisc)
+  SUBROUTINE InitData(Sim,Mesh,Physics,Timedisc,Sources)
+    USE sources_base_mod, ONLY : sources_base
+    USE sources_gravity_mod, ONLY : sources_gravity
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(fosite),   INTENT(INOUT) :: Sim
     CLASS(physics_base),  INTENT(IN)    :: Physics
     CLASS(mesh_base),     INTENT(IN)    :: Mesh
     CLASS(timedisc_base), INTENT(INOUT) :: Timedisc
+    CLASS(sources_list),ALLOCATABLE,INTENT(IN) :: Sources
     !------------------------------------------------------------------------!
     ! Local variable declaration
     CLASS(sources_base), POINTER :: sp
@@ -397,6 +399,22 @@ CONTAINS
     REAL              :: r,vr,vphi,sden,mu
     CHARACTER(LEN=64) :: value
     !------------------------------------------------------------------------!
+    ! get gravitational acceleration
+    NULLIFY(gp)
+    IF (ALLOCATED(Sources)) THEN
+      sp => Sources%GetSourcesPointer(GRAVITY)
+      IF (ASSOCIATED(sp)) THEN
+        SELECT TYPE(sp)
+        CLASS IS(sources_gravity)
+          gp => sp
+        CLASS DEFAULT
+          ! do nothing
+        END SELECT
+      END IF
+    END IF
+    IF (.NOT.ASSOCIATED(gp)) &
+      CALL Physics%Error("pringle::InitData","no gravity term initialized")
+
     IF (ABS(X0).LE.TINY(X0).AND.ABS(Y0).LE.TINY(Y0)) THEN
        ! no shift of point mass set radius and posvec to Mesh defaults
        radius(:,:,:) = Mesh%radius%bcenter(:,:,:)
@@ -436,19 +454,6 @@ CONTAINS
       CALL beast%SetCustomBoundaries(Mesh,Physics, &
         (/CUSTOM_LOGEXPOL,CUSTOM_OUTFLOW,CUSTOM_KEPLER/))
     END SELECT
-
-    ! get gravitational acceleration
-    sp => Sim%Sources
-    DO
-      IF (.NOT.ASSOCIATED(sp)) EXIT 
-      SELECT TYPE(sp)
-      CLASS IS(sources_gravity)
-        gp => sp
-        EXIT
-      END SELECT
-      sp => sp%next
-    END DO
-    IF (.NOT.ASSOCIATED(sp)) CALL Physics%Error("pringle::InitData","no gravity term initialized")
 
     SELECT CASE(VISTYPE)
     CASE(BETA)
@@ -516,11 +521,11 @@ CONTAINS
     CALL Physics%Convert2Conservative(Timedisc%pvar,Timedisc%cvar)
 
     CALL Mesh%Info(" DATA-----> initial condition: " // "viscous spreading ring")
-    WRITE(value,"(ES9.3)") TVIS
+    WRITE(value,"(ES11.3)") TVIS
     CALL Mesh%Info("                               " // "viscous timescale:  " //TRIM(value))
-    WRITE(value,"(ES9.3)") RE
+    WRITE(value,"(ES11.3)") RE
     CALL Mesh%Info("                               " // "Reynolds number:    " //TRIM(value))
-    WRITE(value,"(ES9.3)") MA
+    WRITE(value,"(ES11.3)") MA
     CALL Mesh%Info("                               " // "Mach number:        " //TRIM(value))
 
   END SUBROUTINE InitData

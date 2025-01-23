@@ -3,7 +3,7 @@
 !# fosite - 3D hydrodynamical simulation program                             #
 !# module: sgdisk.f90                                                        #
 !#                                                                           #
-!# Copyright (C) 2010-2019                                                   #
+!# Copyright (C) 2010-2024                                                   #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
 !# Jannes Klee      <jklee@astrophysik.uni-kiel.de>                          #
 !#                                                                           #
@@ -176,7 +176,6 @@ CONTAINS
                 "order"           / LINEAR, &
                 "fluxtype"        / KT, &
                 "variables"       / PRIMITIVE, &
-                "passive_limiting" / .FALSE., &
                 "limiter"         / VANLEER, &
                 "theta"           / 1.2)
 
@@ -261,18 +260,19 @@ CONTAINS
 
   SUBROUTINE InitData(Mesh,Physics,Timedisc,Fluxes,Sources,pvar,cvar)
     USE physics_euler_mod, ONLY : physics_euler, statevector_euler
+    USE sources_base_mod, ONLY : sources_base
+    USE sources_gravity_mod, ONLY : sources_gravity
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(mesh_base),     INTENT(IN)    :: Mesh
     CLASS(physics_base),  INTENT(INOUT) :: Physics
     CLASS(timedisc_base), INTENT(INOUT) :: Timedisc
     CLASS(fluxes_base),   INTENT(INOUT) :: Fluxes
-    CLASS(sources_base),  POINTER       :: Sources
+    CLASS(sources_list),ALLOCATABLE,INTENT(INOUT) :: Sources
     CLASS(marray_compound),INTENT(INOUT):: pvar,cvar
     !------------------------------------------------------------------------!
     ! Local variable declaration
-    CLASS(sources_base), POINTER :: sp
-    CLASS(sources_gravity), POINTER :: gp => null()
+    CLASS(sources_base), POINTER :: sp => null()
     INTEGER           :: i,j,k
 #ifdef PARALLEL
     INTEGER           :: ierror
@@ -333,27 +333,28 @@ CONTAINS
       END SELECT
     END SELECT
 
-    sp => Sources
-    DO
-      IF (.NOT.ASSOCIATED(sp)) EXIT 
-      SELECT TYPE(sp)
-      CLASS IS(sources_gravity)
-        gp => sp
-        EXIT
-      END SELECT
-      sp => sp%next
-    END DO
-
-    CALL gp%UpdateGravity(Mesh,Physics,Fluxes,pvar,0.0,0.0)
-
     ! reset velocities
     pvar%data2d(:,Physics%XVELOCITY:Physics%YVELOCITY) = 0.0
-    ! ATTENTION: Don't use GetCentrifugalVelocity without the optional acceleration array!
-    ! This would yield undefined data, because GetCentrifugalVelocity calls ComputeRHS
-    ! which calls CenterBoundary. Since the FARFIELD boundary conditions are not
-    ! initialized at this stage (see below), the result is undefined.
-    pvar%data4d(:,:,:,Physics%XVELOCITY:Physics%XVELOCITY+Physics%VDIM-1) = &
-        Timedisc%GetCentrifugalVelocity(Mesh,Physics,Fluxes,Sources,(/0.,0.,1./),gp%accel%data4d)
+
+    ! check and update gravity
+    IF (ALLOCATED(Sources)) &
+      sp => Sources%GetSourcesPointer(GRAVITY)
+    IF (ASSOCIATED(sp)) THEN
+      SELECT TYPE(sp)
+      CLASS IS(sources_gravity)
+        CALL sp%UpdateGravity(Mesh,Physics,Fluxes,pvar,0.0,0.0)
+        ! ATTENTION: Don't use GetCentrifugalVelocity without the optional acceleration array!
+        ! This would yield undefined data, because GetCentrifugalVelocity calls ComputeRHS
+        ! which calls CenterBoundary. Since the FARFIELD boundary conditions are not
+        ! initialized at this stage (see below), the result is undefined.
+        pvar%data4d(:,:,:,Physics%XVELOCITY:Physics%XVELOCITY+Physics%VDIM-1) = &
+            Timedisc%GetCentrifugalVelocity(Mesh,Physics,Fluxes,Sources,(/0.,0.,1./),sp%accel%data4d)
+      CLASS DEFAULT
+        CALL Physics%Error("sgdisk::InitData","this should not happen -> gravity pointer is not of class sources_gravity")
+      END SELECT
+    ELSE
+      CALL Physics%Error("sgdisk::InitData","gravity source term not initialized")
+    END IF
 
     IF (Mesh%fargo%GetType().EQ.2) &
        Timedisc%w(:,:) = SQRT(Physics%constants%GN*MBH/r(:,Mesh%JMIN,:))-Mesh%OMEGA*r(:,Mesh%JMIN,:)
@@ -381,7 +382,7 @@ CONTAINS
 
     CALL Physics%Convert2Conservative(pvar,cvar)
     ! print some information
-    WRITE (mdisk_str, '(ES8.2)') mdisk
+    WRITE (mdisk_str, '(ES10.2)') mdisk
     CALL Mesh%Info(" DATA-----> initial condition: Mestel's disk")
     CALL Mesh%Info("            disk mass:         " // TRIM(mdisk_str))
 

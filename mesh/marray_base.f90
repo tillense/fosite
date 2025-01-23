@@ -3,7 +3,7 @@
 !# fosite - 3D hydrodynamical simulation program                             #
 !# module: marray_base.f90                                                   #
 !#                                                                           #
-!# Copyright (C) 2018                                                        #
+!# Copyright (C) 2018-2024                                                   #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
 !#                                                                           #
 !# This program is free software; you can redistribute it and/or modify      #
@@ -195,6 +195,11 @@ MODULE marray_base_mod
         PRINT *,"ERROR in marray_base::Init: memory allocation failed for data1d array"
 #endif
         return ! with success == .false.
+      ELSE
+#if DEBUG > 2
+    PRINT *,"DEBUG INFO in marray_base::Init: memory allocated for data1d, size=",SIZE(this%data1d)
+#endif
+
       END IF
     ELSE
       IF (SIZE(this%data1d).NE.INUM*JNUM*KNUM*this%DIMS(1)*this%DIMS(2)) THEN
@@ -378,6 +383,10 @@ MODULE marray_base_mod
         PRINT *,"ERROR in marray_base::AssignMArray_0: marray initialization failed"
 #endif
         return
+      ELSE
+#if DEBUG > 2
+        PRINT *,"DEBUG INFO in marray_base::AssignMArray_0: memory allocated for data1d, size=",SIZE(this%data1d)
+#endif
       END IF
 #endif
       IF (.NOT.this%AssignPointers()) THEN
@@ -782,14 +791,20 @@ MODULE marray_base_mod
 
   !> destructor of mesh arrays - this is called automatically if
   !! deallocate is invoked
+#ifndef DEBUG
+  PURE &
+#endif
   SUBROUTINE Finalize(this)
     IMPLICIT NONE
     !-------------------------------------------------------------------!
-    TYPE(marray_base) :: this
+    TYPE(marray_base), INTENT(INOUT) :: this
     !-------------------------------------------------------------------!
+#if DEBUG > 2
+    PRINT *,"DEBUG INFO in marray_base::Finalize called"
+#endif
     IF (ASSOCIATED(this%data1d)) THEN
 #if DEBUG > 2
-    PRINT *,"DEBUG INFO in marray_base::Finalize: deallocating data1d"
+      PRINT *,"DEBUG INFO in marray_base::Finalize: deallocating data1d, size=",SIZE(this%data1d)
 #endif
       DEALLOCATE(this%data1d)
     END IF

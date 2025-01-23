@@ -248,7 +248,7 @@ CONTAINS
         *LOG(this%plist(8)/this%plist(10)) + this%plist(3) &
         *LOG(this%plist(11)*(1.0-this%plist(12)/this%plist(10))))/this%plist(4))
       Vstar = (1.0+EXP(lnx)) / this%plist(10)
-      IF (lnx.LT.LOG(2*EPSILON(lnx))) THEN
+      IF (lnx.LT.LOG(8*EPSILON(lnx))) THEN
         ! Vstar = Vmin*(1.0+EXP(lnx)) with EXP(lnx) << epsilon
         ! => computation of Vstar and other quantities depending on Vstar fails
         ! => use logarithmic quantities and approximate for Vstar ~ Vmin

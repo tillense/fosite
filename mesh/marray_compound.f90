@@ -379,7 +379,7 @@ CONTAINS
   FUNCTION FirstItem(this) RESULT(item)
     IMPLICIT NONE
     !-------------------------------------------------------------------!
-    CLASS(marray_compound) :: this
+    CLASS(marray_compound), INTENT(IN) :: this
     TYPE(compound_item), POINTER :: item
     !-------------------------------------------------------------------!
     item => this%list
@@ -389,7 +389,7 @@ CONTAINS
   FUNCTION LastItem(this) RESULT(item)
     IMPLICIT NONE
     !-------------------------------------------------------------------!
-    CLASS(marray_compound), INTENT(INOUT) :: this
+    CLASS(marray_compound), INTENT(IN) :: this
     TYPE(compound_item), POINTER :: item
     !-------------------------------------------------------------------!
     item => this%list
@@ -403,7 +403,7 @@ CONTAINS
   FUNCTION NextItem(this,item) RESULT(next)
     IMPLICIT NONE
     !-------------------------------------------------------------------!
-    CLASS(marray_compound) :: this
+    CLASS(marray_compound), INTENT(IN) :: this
     TYPE(compound_item), POINTER :: item,next
     !-------------------------------------------------------------------!
     IF (ASSOCIATED(item)) THEN
@@ -507,7 +507,7 @@ CONTAINS
   SUBROUTINE Finalize(this)
     IMPLICIT NONE
     !-------------------------------------------------------------------!
-    TYPE(marray_compound) :: this
+    TYPE(marray_compound), INTENT(INOUT) :: this
     !-------------------------------------------------------------------!
     TYPE(compound_item), POINTER :: p,q
     !-------------------------------------------------------------------!

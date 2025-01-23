@@ -43,7 +43,7 @@ MODULE fileio_generic_mod
   USE mesh_base_mod
   USE physics_base_mod
   USE timedisc_base_mod
-  USE sources_base_mod
+  USE sources_generic_mod
   USE common_dict
 
 CONTAINS
@@ -56,7 +56,7 @@ CONTAINS
       CLASS(mesh_base),     INTENT(IN)          :: Mesh
       CLASS(physics_base),  INTENT(IN)          :: Physics
       CLASS(timedisc_base), INTENT(IN)          :: Timedisc
-      CLASS(sources_base),  INTENT(IN), POINTER :: Sources
+      CLASS(sources_list), ALLOCATABLE, INTENT(IN) :: Sources
       TYPE(DICT_TYP),       INTENT(IN), POINTER :: config
       TYPE(DICT_TYP),       INTENT(IN), POINTER ::  IO
       !------------------------------------------------------------------------!

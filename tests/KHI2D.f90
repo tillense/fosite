@@ -64,7 +64,7 @@ PROGRAM KHI
   !--------------------------------------------------------------------------!
   CLASS(fosite), ALLOCATABLE   :: Sim
   CLASS(marray_compound), POINTER :: pvar,pvar_init
-  INTEGER            :: n,FARGO,d,clock
+  INTEGER            :: n,FARGO,d,dt(8)
   REAL               :: sigma(2,3)
   INTEGER, DIMENSION(:), ALLOCATABLE    :: seed
   CHARACTER(LEN=2),PARAMETER :: dir_name(2) = (/"xy","xz"/)
@@ -75,10 +75,9 @@ PROGRAM KHI
   ! allocate memory for dynamic types and arrays
   CALL RANDOM_SEED(size=n)
   ALLOCATE(seed(n))
-  ! Seed the random number generator using current system time
-  CALL SYSTEM_CLOCK(COUNT=clock)
-  seed = clock * (/(d-1, d=1,n)/)
-
+  ! Seed the random number generator using current system date and time
+  call date_and_time(values=dt)
+  seed = sum(dt(1:8)) * (/(d-1, d=1,n)/)
   DO d=1,2
     DO FARGO=0,2
       ALLOCATE(Sim,pvar,pvar_init)
@@ -121,7 +120,12 @@ PROGRAM KHI
       IF (ASSOCIATED(Sim%Timedisc%w)) THEN
         Sim%Timedisc%w(:,:) = RESHAPE(TRANSPOSE(w(:,:)),SHAPE(Sim%Timedisc%w(:,:)))
       END IF
-      CALL Sim%Physics%Convert2Conservative(Sim%Timedisc%pvar,Sim%Timedisc%cvar)
+      SELECT TYPE(phys => Sim%Physics)
+      TYPE IS(physics_euler)
+        CALL phys%Convert2Conservative(Sim%Timedisc%pvar,Sim%Timedisc%cvar)
+      CLASS DEFAULT
+        CALL phys%Error("KHI2D::InitData","only non-isothermal HD supported")
+      END SELECT
       CALL Sim%Run()
       ! compare results
       ! IMPORTANT: Use arrays with collapsed dimensions here! Since pvar has the shape
@@ -277,20 +281,22 @@ CONTAINS
        CALL SetAttr(config, "sources", sources)
   END SUBROUTINE MakeConfig
 
+
   SUBROUTINE InitData(Mesh,Physics,Timedisc,dir)
+    USE physics_euler_mod, ONLY : statevector_euler
+    USE physics_eulerisotherm_mod, ONLY : statevector_eulerisotherm
     IMPLICIT NONE
     !------------------------------------------------------------------------!
-    CLASS(physics_base)  :: Physics
-    CLASS(mesh_base)     :: Mesh
-    CLASS(timedisc_base) :: Timedisc
-    CHARACTER(LEN=2), INTENT(IN) :: dir
+    CLASS(physics_base)         :: Physics
+    CLASS(mesh_base)            :: Mesh
+    CLASS(timedisc_base)        :: Timedisc
+    CHARACTER(LEN=2)            :: dir
     !------------------------------------------------------------------------!
     ! Local variable declaration
-    INTEGER              :: i,j,k
     REAL, DIMENSION(Mesh%IGMIN:Mesh%IGMAX,Mesh%JGMIN:Mesh%JGMAX,Mesh%KGMIN:Mesh%KGMAX,2) :: dv
     !------------------------------------------------------------------------!
-    INTENT(IN)           :: Mesh,Physics
-    INTENT(INOUT)        :: Timedisc
+    INTENT(IN)                  :: Mesh,Physics,dir
+    INTENT(INOUT)               :: Timedisc
     !------------------------------------------------------------------------!
     CALL RANDOM_SEED(PUT=seed)
     CALL RANDOM_NUMBER(dv)
@@ -353,14 +359,19 @@ CONTAINS
       ! add perturbations
       pvar%velocity%data4d(:,:,:,1:2) = pvar%velocity%data4d(:,:,:,1:2) &
                 + (dv(:,:,:,1:2)-0.5)*0.02
+      SELECT TYPE(cvar => Timedisc%cvar)
+      TYPE IS(statevector_euler)
+        SELECT TYPE(phys => Physics)
+        TYPE IS(physics_euler)
+          CALL phys%Convert2Conservative(pvar,cvar)
+          CALL Mesh%Info(" DATA-----> initial condition: Kelvin-Helmholtz instability")
+        END SELECT
+      CLASS DEFAULT
+        CALL Physics%Error("KHI2D::InitData","only non-isothermal HD supported")
+      END SELECT
     CLASS DEFAULT
       CALL Physics%Error("KHI2D::InitData","only non-isothermal HD supported")
     END SELECT
-
-    ! initial condition
-    CALL Physics%Convert2Conservative(Timedisc%pvar,Timedisc%cvar)
-    CALL Mesh%Info(" DATA-----> initial condition: " // &
-         "Kelvin-Helmholtz instability")
   END SUBROUTINE InitData
 
   SUBROUTINE TransposeData(Mesh,pvar_in,pvar_out,dir)

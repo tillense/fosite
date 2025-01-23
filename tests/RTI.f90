@@ -3,7 +3,7 @@
 !# fosite - 3D hydrodynamical simulation program                             #
 !# module: RTI.f90                                                           #
 !#                                                                           #
-!# Copyright (C) 2008-2023                                                   #
+!# Copyright (C) 2008-2024                                                   #
 !# Björn Sperling   <sperling@astrophysik.uni-kiel.de>                       #
 !# Tobias Illenseer <tillense@astrophysik.uni-kiel.de>                       #
 !# Jannes Klee      <jklee@astrophysik.uni-kiel.de>                          #
@@ -53,10 +53,10 @@ PROGRAM RTI
   !--------------------------------------------------------------------------!
   ! simulation parameters
   REAL,    PARAMETER  :: TSIM    = 10.0     ! simulation time                !
-  REAL,    PARAMETER  :: DYNVIS  = 0.0      ! dynamic viscosity constant     !
-  REAL,    PARAMETER  :: BULKVIS = 0.0      ! bulk viscosity constant        !
-!  REAL,    PARAMETER  :: DYNVIS  = 1.0E-4
-!  REAL,    PARAMETER  :: BULKVIS = -6.67E-5
+!   REAL,    PARAMETER  :: DYNVIS  = 0.0      ! dynamic viscosity constant     !
+!   REAL,    PARAMETER  :: BULKVIS = 0.0      ! bulk viscosity constant        !
+  REAL,    PARAMETER  :: DYNVIS  = 1.0E-4
+  REAL,    PARAMETER  :: BULKVIS = -6.67E-5
   ! initial condition (SI units)
   REAL,    PARAMETER  :: RHO0    = 2.0      ! density: upper region          !
   REAL,    PARAMETER  :: RHO1    = 1.0      ! density: lower region          !
@@ -79,7 +79,7 @@ PROGRAM RTI
   CLASS(fosite), ALLOCATABLE :: Sim
   !--------------------------------------------------------------------------!
 
-!  TAP_PLAN(1)
+  TAP_PLAN(1)
 
   ALLOCATE(Sim)
 
@@ -91,8 +91,8 @@ PROGRAM RTI
   CALL Sim%Finalize()
   DEALLOCATE(Sim)
 
-!  TAP_CHECK(.TRUE.,"Simulation finished")
-!  TAP_DONE
+  TAP_CHECK(.TRUE.,"Simulation finished")
+  TAP_DONE
 
   CONTAINS
 
@@ -155,21 +155,20 @@ PROGRAM RTI
               "stype"         / C_ACCEL, &       ! source 1: acceleration    !
               "yaccel"        / (-YACC))         ! constant acc.in y-dir.    !
 
+    ! add to sources
+    sources => Dict("caccel"  / caccel)          ! incl. accel. from above   !
+
 
     ! viscosity source term
-    vis => Dict( &
+    IF (DYNVIS.GT.TINY(DYNVIS).OR.BULKVIS.GT.TINY(BULKVIS)) THEN
+      vis => Dict( &
               "stype"         / VISCOSITY, &     ! viscosity  source         !
               "vismodel"      / MOLECULAR, &     ! visc. model: molecular    !
               "dynconst"      / DYNVIS, &        ! const. dynamic viscosity  !
               "bulkconst"     / BULKVIS)         ! const. bulk viscosity     !
-
-    ! collect sources in dictionary
-    sources => Dict( &
-!              "vis"           / vis, &           ! incl. visc. from above    !
-              "caccel"        / caccel)          ! incl. accel. from above   !
-
-    IF ((DYNVIS.GT.TINY(DYNVIS)).OR.(BULKVIS.GT.TINY(BULKVIS))) &
-        CALL SetAttr(sources, "vis", vis)
+      ! add to sources
+      CALL SetAttr(sources, "vis", vis)
+    END IF
 
     ! time discretization settings
     timedisc => Dict( &

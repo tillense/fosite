@@ -95,7 +95,7 @@ CONTAINS
   END SUBROUTINE InitBoundary_noslip
 
   !> \public Applies the noslip boundary condition
-  PURE SUBROUTINE SetBoundaryData(this,Mesh,Physics,time,pvar)
+  SUBROUTINE SetBoundaryData(this,Mesh,Physics,time,pvar)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(Boundary_noslip),INTENT(INOUT) :: this
