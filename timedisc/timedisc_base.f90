@@ -298,6 +298,7 @@ CONTAINS
     this%dt    = this%stoptime
     this%dtold = this%dt
     this%dtmin = this%dt
+    this%dtmincause = -99
 
     ! set default values
     ! CFL number
