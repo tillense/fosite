@@ -121,7 +121,7 @@ CONTAINS
     CLASS(marray_base),INTENT(IN)    :: ma
     !------------------------------------------------------------------------!
     TYPE(compound_item), POINTER :: p,q
-#ifndef __GFORTRAN__
+#if !defined(__GFORTRAN__) || (defined(__GFORTRAN__) && __GNUC__ >= 13)
     TYPE(marray_base), POINTER :: new_ma
     INTEGER :: err
 #endif
@@ -163,7 +163,7 @@ CONTAINS
           END IF
 #endif
           ! ATTENTION: this part depends on the compiler, see comment in marray_base::AssignMArray_0
-#ifdef __GFORTRAN__
+#if defined(__GFORTRAN__) && __GNUC__ < 13
           this%num_entries = src%num_entries
           this%list => src%list
 #else

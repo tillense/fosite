@@ -71,7 +71,7 @@ CONTAINS
     STOP 1
 #endif
   END FUNCTION CreateMArray_cellscalar
-  
+
   FUNCTION AssignPointers(this) RESULT(success)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
