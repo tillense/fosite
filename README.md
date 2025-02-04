@@ -26,37 +26,62 @@ Additional information and help:
 **Website**: www.astrophysik.uni-kiel.de/fosite/  
 
 ## Compiling the Serial Version
-To customize the build process enter the directory with the source code
-and run
-
+Fosite uses [CMake](https://cmake.org/) to simplify the build process. In
+general one can enter the source directory and just type `cmake` and `make`.
+However, we strongly recommend out-of-place builds in order to preserve a clean
+source tree. Therefore one should first create a new directory, e. g. a
+subdirectory `build` within the source directory, enter that directory and
+then run cmake providing the path to the fosite source directory
+```
     cmake <path_to_source>
-
-In order to get information about available options type
-
+```
+Usually cmake searches for available Fortran compilers and takes the first
+compiler found. If that's not the desired compiler one can provide its command,
+e. g. `ifx` for the intel Fortran compiler, by setting the environment variable FC
+according to
+```
+    FC=ifx cmake <path_to_source>
+```
+In case of the LLVM Flang compilers it might also be necessary to provide the
+directory with the LLVM libraries and binaries, e. g.
+```
+    FC=flang cmake -DLLVM_DIR=<path_to_llvm> <path_to_source>
+```
+You can type
+```
     cmake -L <path_to_source>
-
-Setting up an alternative compiler in a different folder (here a build-
-folder within the source) is possible with
-
-    FC=gfortran cmake <path_to_source>
-
-Compilation is done by
-
+```
+for a list of available variables and options to control the configuration process.
+If the configuration step finished without errors you can build fosite invoking
+either
+```
     make
+```
+or
+```
+    cmake --build .
+```
+from the build directory.
 
 ## Compiling the Parallel Version
-In order to build the parallel version type
-
+In order to configure fosite for building a parallel version using MPI type
+```
     cmake -DPARALLEL=ON <path_to_source>
-
-Compilation is done by
-
+```
+If cmake fails to detect the MPI library and/or compiler or there are different
+MPI installations available one can provide the path to the correct MPI installation
+according to
+```
+    cmake -DPARALLEL=ON -DMPI_DIR=<path_to_mpi_installation> <path_to_source>
+```
+Again compilation is done by
+```
     make
-
+```
 Finally run
-
+```
     mpirun -n X programname
-
+```
 where X is the number of cores that should be used. In the standard output
 the partitioning can be checked at "MESH-----> MPI partitioning: X1:X2:X3" where
 X1*X2*X3 should be equal to X.
@@ -64,9 +89,9 @@ X1*X2*X3 should be equal to X.
 
 ## Compile on NEC-SX Aurora
 On NEC-SX Aurora vector machines there is a toolchain provided. Run
-
+```
     cmake -DCMAKE_TOOLCHAIN_FILE=../Toolchain-SX-Aurora.cmake <path_to_source>
-
+```
 ## Legal
 
 The code is distributed under the GNU General Public License - see the
