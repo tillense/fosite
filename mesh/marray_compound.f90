@@ -57,6 +57,7 @@ MODULE marray_compound_mod
     PROCEDURE :: GetItem
     PROCEDURE :: AppendItem
     PROCEDURE :: AssignItemPointers
+    PROCEDURE :: Destroy
     FINAL     :: Finalize
   END TYPE
   INTERFACE marray_compound
@@ -121,26 +122,25 @@ CONTAINS
     CLASS(marray_base),INTENT(IN)    :: ma
     !------------------------------------------------------------------------!
     TYPE(compound_item), POINTER :: p,q
-#ifndef __GFORTRAN__
+#if !defined(__GFORTRAN__) || (defined(__GFORTRAN__) && __GNUC__ >= 13)
     TYPE(marray_base), POINTER :: new_ma
     INTEGER :: err
 #endif
+    LOGICAL :: LHS_initialized
     !------------------------------------------------------------------------!
 #if DEBUG > 2
     PRINT *,"DEBUG INFO in marray_compound::AssignMArray_0: compound assignment called"
 #endif
-    ! do basic marray assignment
-    CALL this%marray_base%AssignMArray_0(ma)
     ! check if rhs is of compound class
     SELECT TYPE(src => ma)
     CLASS IS(marray_compound)
       ! check if rhs is empty
       p => src%FirstItem()
       IF (.NOT.ASSOCIATED(p)) THEN
+#ifdef DEBUG
 #if DEBUG > 2
         PRINT *,"DEBUG INFO in marray_compound::AssignMArray_0: empty compound on rhs"
 #endif
-#ifdef DEBUG
         IF (src%num_entries.GT.0.OR.SIZE(src%data1d).GT.0) THEN
           PRINT *, "ERROR in marray_compound::AssignMArray_0: unassigned item list on rhs but compound not empty"
           STOP 1
@@ -148,25 +148,30 @@ CONTAINS
 #endif
         this%num_entries = 0
         NULLIFY(this%list)
+        ! do basic marray assignment
+        CALL this%marray_base%AssignMArray_0(src)
       ELSE ! rhs is not empty
         q => this%FirstItem()
         ! check if lhs is an empty compound
-        IF (.NOT.ASSOCIATED(q)) THEN
+        LHS_initialized = ASSOCIATED(q)
+        IF (.NOT.LHS_initialized) THEN
           ! p is associated but q isn't -> lhs of assignment should be an empty compound
+#ifdef DEBUG
 #if DEBUG > 2
           PRINT *,"DEBUG INFO in marray_compound::AssignMArray_0: empty compound on lhs"
 #endif
-#ifdef DEBUG
           IF (this%num_entries.GT.0) THEN
             PRINT *, "ERROR in marray_compound::AssignMArray_0: empty compound on lhs expected"
             STOP 1
           END IF
 #endif
           ! ATTENTION: this part depends on the compiler, see comment in marray_base::AssignMArray_0
-#ifdef __GFORTRAN__
-          this%num_entries = src%num_entries
-          this%list => src%list
-#else
+          ! We basically have to distinguish between gfortran < 13 and other compilers (including gfortran >=13).
+          ! In case of older gfortran before version 13 there is no need to make a copy of the RHS if the LHS is
+          ! not initialized. Instead one simply assigns the pointers on the LHS to the source pointers on the RHS.
+#if !defined(__GFORTRAN__) || (defined(__GFORTRAN__) && __GNUC__ > 12)
+          ! all compilers except for gfortran < 13
+          ! make a copy of the list of items in the compound on the rhs
           DO WHILE (ASSOCIATED(p%item))
             ALLOCATE(new_ma,SOURCE=p%item,STAT=err)
             IF (err.NE.0) THEN
@@ -181,6 +186,14 @@ CONTAINS
             p => p%next
             IF (.NOT.ASSOCIATED(p)) EXIT
           END DO
+#else
+          ! only gfortran < 13: assign lhs item list to rhs item list
+          this%num_entries = src%num_entries
+          this%list => src%list
+#endif
+          ! do basic marray assignment
+          CALL this%marray_base%AssignMArray_0(src)
+
           ! assign all item pointers
           IF (.NOT.this%AssignItemPointers()) THEN
 #ifdef DEBUG
@@ -190,7 +203,6 @@ CONTAINS
             RETURN
 #endif
           END IF
-#endif
         ELSE
           ! p and q are both associated
           IF (.NOT.(this.MATCH.ma)) THEN
@@ -198,8 +210,11 @@ CONTAINS
             PRINT *,"ERROR in marray_compound::AssignMArray_0: shape mismatch"
             STOP 1
 #else
-            return
+            RETURN
 #endif
+          ELSE
+            ! do basic marray assignment
+            CALL this%marray_base%AssignMArray_0(src)
           END IF
         END IF
       END IF
@@ -502,28 +517,29 @@ CONTAINS
     END DO
   END FUNCTION AssignItemPointers
 
-  !> destructor of compounds
+  !> manual destructor of compounds
   !! ATTENTION: the data array itself is deallocated by the inherited finalizer
-  SUBROUTINE Finalize(this)
+  SUBROUTINE Destroy(this,called_from_finalize)
     IMPLICIT NONE
     !-------------------------------------------------------------------!
-    TYPE(marray_compound), INTENT(INOUT) :: this
+    CLASS(marray_compound) :: this
+    LOGICAL, OPTIONAL :: called_from_finalize
     !-------------------------------------------------------------------!
     TYPE(compound_item), POINTER :: p,q
     !-------------------------------------------------------------------!
 #if DEBUG > 2
-    PRINT *,"DEBUG INFO in marray_compound::Finalize: deallocating compound components"
+    PRINT *,"DEBUG INFO in marray_compound::Destroy: deallocating compound components"
 #endif
     ! free list memory
     p => this%FirstItem()
     DO WHILE (ASSOCIATED(p))
 #if DEBUG > 2
-      PRINT '(A,I2)'," DEBUG INFO in marray_compound::Finalize: deleting entry no. ", p%entry_num
+      PRINT '(A,I2)'," DEBUG INFO in marray_compound::Destroy: deleting entry no. ", p%entry_num
 #endif
       q => p%next
       IF (ASSOCIATED(p%item)) THEN
 #if DEBUG > 2
-        PRINT '(A,I2)'," DEBUG INFO in marray_compound::Finalize: deallocating item data"
+        PRINT '(A,I2)'," DEBUG INFO in marray_compound::Destroy: deallocating item data"
 #endif
         ! skip deallocation of the compound element data when invoking the finalizer of p%item
         IF (ASSOCIATED(p%item%data1d)) NULLIFY(p%item%data1d)
@@ -534,6 +550,23 @@ CONTAINS
     END DO
     this%num_entries = 0
     NULLIFY(this%list)
+    ! only call inherited destructor if not called from Finalize
+    IF (PRESENT(called_from_finalize)) THEN
+       IF (called_from_finalize) RETURN
+    END IF
+    CALL this%marray_base%Destroy()
+  END SUBROUTINE Destroy
+
+  !> automatic destructor of compounds
+  SUBROUTINE Finalize(this)
+    IMPLICIT NONE
+    !-------------------------------------------------------------------!
+    TYPE(marray_compound), INTENT(INOUT) :: this
+    !-------------------------------------------------------------------!
+#if DEBUG > 2
+    PRINT *,"DEBUG INFO in marray_compound::Finalize: automatic finalizer called"
+#endif
+    CALL this%Destroy(.TRUE.)
   END SUBROUTINE Finalize
 
 END MODULE marray_compound_mod

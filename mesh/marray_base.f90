@@ -108,6 +108,7 @@ MODULE marray_base_mod
                                  MultMArray_3, MultMArray_4, MultMArray_5
     PROCEDURE :: CrossProduct_0
     GENERIC   :: OPERATOR (.x.) => CrossProduct_0
+    PROCEDURE :: Destroy
     FINAL     :: Finalize
   END TYPE
   INTERFACE marray_base
@@ -347,9 +348,10 @@ MODULE marray_base_mod
     CLASS(marray_base),INTENT(INOUT) :: this
     CLASS(marray_base),INTENT(IN)    :: ma
     !------------------------------------------------------------------------!
-#ifndef __GFORTRAN__
+#if !defined(__GFORTRAN__) || (defined(__GFORTRAN__) && __GNUC__ >= 13)
     INTEGER :: err
 #endif
+    LOGICAL :: LHS_initialized
     !------------------------------------------------------------------------!
 #if DEBUG > 2
     PRINT *,"DEBUG INFO in marray_base::AssignMArray_0: marray assignment"
@@ -365,54 +367,74 @@ MODULE marray_base_mod
     this%RANK = ma%RANK
     this%DIMS(:) = ma%DIMS(:)
     ! check whether lhs is already initialized
-    IF (.NOT.ASSOCIATED(this%data1d)) THEN
-      ! lhs of assignment uninitialized -> initialize new mesh array
-      ! ATTENTION: finalization of derived types works different for
-      !   GNU Fortran, hence to prevent memory leaks, one has to point
-      !   the data1d array of the lhs (this%data1d) to the already associated
-      !   data1d array of the rhs (ma%data1d).
-      !   Other compilers, e.g., ifort (intel) & nfort (NEC) require allocation
-      !   of memory for new data1d array on the lhs, because ma on the rhs
-      !   is finalized on exit and the data1d array is deallocated
-#ifdef __GFORTRAN__
-      this%data1d => ma%data1d
-#else
+    LHS_initialized = ASSOCIATED(this%data1d)
+    ! lhs of assignment uninitialized -> initialize new mesh array
+    ! ATTENTION: finalization of derived types works different for
+    !   GNU Fortran version < 13 , hence to prevent memory leaks, one has to point
+    !   the data1d array of the lhs (this%data1d) to the already associated
+    !   data1d array of the rhs (ma%data1d).
+    !   Other compilers, e.g., ifort (intel) & nfort (NEC) require allocation
+    !   of memory for new data1d array on the lhs, because ma on the rhs
+    !   is finalized on exit and the data1d array is deallocated
+#if !defined(__GFORTRAN__) || (defined(__GFORTRAN__) && __GNUC__ > 12)
+    ! all compilers except for gfortran version < 13
+    IF (.NOT.LHS_initialized) THEN
       ALLOCATE(this%data1d,SOURCE=ma%data1d,STAT=err)
       IF (err.NE.0) THEN
 #ifdef DEBUG
         PRINT *,"ERROR in marray_base::AssignMArray_0: marray initialization failed"
 #endif
-        return
-      ELSE
+        RETURN
 #if DEBUG > 2
+      ELSE
         PRINT *,"DEBUG INFO in marray_base::AssignMArray_0: memory allocated for data1d, size=",SIZE(this%data1d)
 #endif
       END IF
+    END IF
+#else
+    ! only gfortran < 13
+    IF (LHS_initialized) THEN
 #endif
-      IF (.NOT.this%AssignPointers()) THEN
-#ifdef DEBUG
-        PRINT *,"ERROR in marray_base::AssignMArray_0: pointer reassignment failed"
-#endif
-        return
-      END IF
-    ELSE
       IF (.NOT.(this.MATCH.ma)) THEN
 #ifdef DEBUG
         PRINT *,"ERROR in marray_base::AssignMArray_0: shape mismatch"
 #endif
-        return
+        RETURN
       END IF
       IF (SIZE(this%data1d).NE.SIZE(ma%data1d)) THEN
 #ifdef DEBUG
-        PRINT *,"ERROR in marray_base::AssignMArray_0: size mismatch of data1d array"
+        PRINT *,"ERROR in marray_base::AssignMArray_0: size mismatch"
 #endif
-        return
+        RETURN
       END IF
       ! copy data
       this%data1d(:) = ma%data1d(:)
+#ifdef __GFORTRAN__
+#if __GNUC__ < 13
+    ELSE
+      ! pointer assignment: only gfortran < 13
+      this%data1d => ma%data1d
+    END IF
+#else
+    ! only gfortran >= 13
+    IF (.NOT.LHS_initialized) THEN
+      ! destroy LHS explicitely if LHS was not initialized and ma is of derived class
+      SELECT TYPE(ma)
+      TYPE IS(marray_base) ! do nothing
+      CLASS DEFAULT
+        CALL ma%Destroy()
+      END SELECT
+    END IF
+#endif
+#endif __GFORTRAN__
+    IF (.NOT.this%AssignPointers()) THEN
+#ifdef DEBUG
+      PRINT *,"ERROR in marray_base::AssignMArray_0: pointer reassignment failed"
+#endif
+      RETURN
     END IF
   END SUBROUTINE AssignMArray_0
-  
+
   !> assign 1D fortran array to mesh array
 #ifndef DEBUG
   PURE &
@@ -421,10 +443,16 @@ MODULE marray_base_mod
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(marray_base),INTENT(INOUT) :: this
-    REAL, DIMENSION(SIZE(this%data1d)), INTENT(IN) :: a
+    REAL, DIMENSION(:), INTENT(IN) :: a
     !------------------------------------------------------------------------!
 #if DEBUG > 2
     PRINT *,"DEBUG INFO in marray_base::AssignMArray_1: assigning 1D Fortran array"
+#endif
+#ifdef DEBUG
+    IF (SIZE(this%data1d).NE.SIZE(a)) THEN
+      PRINT *,"ERROR in marray_base::AssignMArray_1: size mismatch ",SIZE(this%data1d)," != ",SIZE(a)
+      STOP 1
+    END IF
 #endif
     this%data1d(:) = a(:)
   END SUBROUTINE AssignMArray_1
@@ -437,10 +465,16 @@ MODULE marray_base_mod
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(marray_base),INTENT(INOUT) :: this
-    REAL, DIMENSION(SIZE(this%data2d,1),SIZE(this%data2d,2)), INTENT(IN) :: a
+    REAL, DIMENSION(:,:), INTENT(IN) :: a
     !------------------------------------------------------------------------!
 #if DEBUG > 2
     PRINT *,"DEBUG INFO in marray_base::AssignMArray_2: assigning 2D Fortran array"
+#endif
+#ifdef DEBUG
+    IF (.NOT.ALL(SHAPE(this%data2d).EQ.SHAPE(a))) THEN
+      PRINT *,"ERROR in marray_base::AssignMArray_2: shape mismatch"
+      STOP 1
+    END IF
 #endif
     this%data2d(:,:) = a(:,:)
   END SUBROUTINE AssignMArray_2
@@ -453,11 +487,16 @@ MODULE marray_base_mod
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(marray_base),INTENT(INOUT) :: this
-    REAL, DIMENSION(SIZE(this%data3d,1),SIZE(this%data3d,2),SIZE(this%data3d,3)), &
-                          INTENT(IN) :: a
+    REAL, DIMENSION(:,:,:), INTENT(IN) :: a
     !------------------------------------------------------------------------!
 #if DEBUG > 2
     PRINT *,"DEBUG INFO in marray_base::AssignMArray_3: assigning 3D Fortran array"
+#endif
+#ifdef DEBUG
+    IF (.NOT.ALL(SHAPE(this%data3d).EQ.SHAPE(a))) THEN
+      PRINT *,"ERROR in marray_base::AssignMArray_3: shape mismatch"
+      STOP 1
+    END IF
 #endif
     this%data3d(:,:,:) = a(:,:,:)
   END SUBROUTINE AssignMArray_3
@@ -470,11 +509,16 @@ MODULE marray_base_mod
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(marray_base),INTENT(INOUT) :: this
-    REAL, DIMENSION(SIZE(this%data4d,1),SIZE(this%data4d,2),SIZE(this%data4d,3), &
-                SIZE(this%data4d,4)), INTENT(IN) :: a
+    REAL, DIMENSION(:,:,:,:), INTENT(IN) :: a
     !------------------------------------------------------------------------!
 #if DEBUG > 2
     PRINT *,"DEBUG INFO in marray_base::AssignMArray_4: assigning 4D Fortran array"
+#endif
+#ifdef DEBUG
+    IF (.NOT.ALL(SHAPE(this%data4d).EQ.SHAPE(a))) THEN
+      PRINT *,"ERROR in marray_base::AssignMArray_4: shape mismatch"
+      STOP 1
+    END IF
 #endif
     this%data4d(:,:,:,:) = a(:,:,:,:)
   END SUBROUTINE AssignMArray_4
@@ -487,11 +531,16 @@ MODULE marray_base_mod
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(marray_base),INTENT(INOUT) :: this
-    REAL, DIMENSION(SIZE(this%data5d,1),SIZE(this%data5d,2),SIZE(this%data5d,3), &
-                SIZE(this%data5d,4),SIZE(this%data5d,5)), INTENT(IN) :: a
+    REAL, DIMENSION(:,:,:,:,:), INTENT(IN) :: a
     !------------------------------------------------------------------------!
 #if DEBUG > 2
     PRINT *,"DEBUG INFO in marray_base::AssignMArray_5: assigning 5D Fortran array"
+#endif
+#ifdef DEBUG
+    IF (.NOT.ALL(SHAPE(this%data5d).EQ.SHAPE(a))) THEN
+      PRINT *,"ERROR in marray_base::AssignMArray_5: shape mismatch"
+      STOP 1
+    END IF
 #endif
     this%data5d(:,:,:,:,:) = a(:,:,:,:,:)
   END SUBROUTINE AssignMArray_5
@@ -521,13 +570,16 @@ MODULE marray_base_mod
 #endif
 #ifdef DEBUG
     IF (.NOT.ASSOCIATED(this%data1d)) THEN
-      PRINT *,"ERROR in marray_base::MultMArray_0: 1nd argument not initialized"
+      PRINT *,"ERROR in marray_base::AddMArray_0: 1nd argument not initialized"
+      STOP 1
     END IF
     IF (.NOT.ASSOCIATED(that%data1d)) THEN
-      PRINT *,"ERROR in marray_base::MultMArray_0: 2nd argument not initialized"
+      PRINT *,"ERROR in marray_base::AddMArray_0: 2nd argument not initialized"
+      STOP 1
     END IF
     IF (.NOT.(this.MATCH.that)) THEN
-      PRINT *,"ERROR in marray_base::MultMArray_0: shape mismatch"
+      PRINT *,"ERROR in marray_base::AddMArray_0: shape mismatch"
+      STOP 1
     END IF
 #endif
     data1d(:) = this%data1d(:) + that%data1d(:)
@@ -541,11 +593,17 @@ MODULE marray_base_mod
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(marray_base),INTENT(IN) :: this
-    REAL, DIMENSION(SIZE(this%data1d)),INTENT(IN) :: a
+    REAL, DIMENSION(:),INTENT(IN) :: a
     REAL, DIMENSION(SIZE(this%data1d)) :: b
     !------------------------------------------------------------------------!
 #if DEBUG > 2
     PRINT *,"DEBUG INFO in marray_base::AddMArray_1: adding marray to 1d Fortran array"
+#endif
+#ifdef DEBUG
+    IF (SIZE(this%data1d).NE.SIZE(a)) THEN
+      PRINT *,"ERROR in marray_base::AddMArray_1: size mismatch"
+      STOP 1
+    END IF
 #endif
     b(:) = this%data1d(:) + a(:)
   END FUNCTION AddMArray_1
@@ -564,6 +622,12 @@ MODULE marray_base_mod
 #if DEBUG > 2
     PRINT *,"DEBUG INFO in marray_base::AddMArray_2: adding marray to 2d Fortran array"
 #endif
+#ifdef DEBUG
+    IF (.NOT.ALL(SHAPE(this%data2d).EQ.SHAPE(a))) THEN
+      PRINT *,"ERROR in marray_base::AddMArray_2: shape mismatch"
+      STOP 1
+    END IF
+#endif
     b(:,:) = this%data2d(:,:) + a(:,:)
   END FUNCTION AddMArray_2
 
@@ -575,12 +639,17 @@ MODULE marray_base_mod
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(marray_base),INTENT(IN) :: this
-    REAL, DIMENSION(SIZE(this%data3d,1),SIZE(this%data3d,2),SIZE(this%data3d,3)), &
-                       INTENT(IN) :: a
+    REAL, DIMENSION(:,:,:), INTENT(IN) :: a
     REAL, DIMENSION(SIZE(this%data3d,1),SIZE(this%data3d,2),SIZE(this%data3d,3)) :: b
     !------------------------------------------------------------------------!
 #if DEBUG > 2
     PRINT *,"DEBUG INFO in marray_base::AddMArray_3: adding marray to 3d Fortran array"
+#endif
+#ifdef DEBUG
+    IF (.NOT.ALL(SHAPE(this%data3d).EQ.SHAPE(a))) THEN
+      PRINT *,"ERROR in marray_base::AddMArray_3: shape mismatch"
+      STOP 1
+    END IF
 #endif
     b(:,:,:) = this%data3d(:,:,:) + a(:,:,:)
   END FUNCTION AddMArray_3
@@ -593,13 +662,18 @@ MODULE marray_base_mod
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(marray_base),INTENT(IN) :: this
-    REAL, DIMENSION(SIZE(this%data4d,1),SIZE(this%data4d,2),SIZE(this%data4d,3), &
-          SIZE(this%data4d,4)),INTENT(IN) :: a
+    REAL, DIMENSION(:,:,:,:),INTENT(IN) :: a
     REAL, DIMENSION(SIZE(this%data4d,1),SIZE(this%data4d,2),SIZE(this%data4d,3), &
           SIZE(this%data4d,4)) :: b
     !------------------------------------------------------------------------!
 #if DEBUG > 2
     PRINT *,"DEBUG INFO in marray_base::AddMArray_4: adding marray to 4d Fortran array"
+#endif
+#ifdef DEBUG
+    IF (.NOT.ALL(SHAPE(this%data4d).EQ.SHAPE(a))) THEN
+      PRINT *,"ERROR in marray_base::AddMArray_4: shape mismatch"
+      STOP 1
+    END IF
 #endif
     b(:,:,:,:) = this%data4d(:,:,:,:) + a(:,:,:,:)
   END FUNCTION AddMArray_4
@@ -612,13 +686,18 @@ MODULE marray_base_mod
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(marray_base),INTENT(IN) :: this
-    REAL, DIMENSION(SIZE(this%data5d,1),SIZE(this%data5d,2),SIZE(this%data5d,3), &
-          SIZE(this%data5d,4),SIZE(this%data5d,5)),INTENT(IN) :: a
+    REAL, DIMENSION(:,:,:,:,:),INTENT(IN) :: a
     REAL, DIMENSION(SIZE(this%data5d,1),SIZE(this%data5d,2),SIZE(this%data5d,3), &
           SIZE(this%data5d,4),SIZE(this%data5d,5)) :: b
     !------------------------------------------------------------------------!
 #if DEBUG > 2
     PRINT *,"DEBUG INFO in marray_base::AddMArray_5: adding marray to 5d Fortran array"
+#endif
+#ifdef DEBUG
+    IF (.NOT.ALL(SHAPE(this%data5d).EQ.SHAPE(a))) THEN
+      PRINT *,"ERROR in marray_base::AddMArray_5: shape mismatch"
+      STOP 1
+    END IF
 #endif
     b(:,:,:,:,:) = this%data5d(:,:,:,:,:) + a(:,:,:,:,:)
   END FUNCTION AddMArray_5
@@ -659,11 +738,17 @@ MODULE marray_base_mod
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(marray_base),INTENT(IN) :: this
-    REAL, DIMENSION(SIZE(this%data1d)),INTENT(IN) :: a
+    REAL, DIMENSION(:),INTENT(IN) :: a
     REAL, DIMENSION(SIZE(this%data1d)) :: b
     !------------------------------------------------------------------------!
 #if DEBUG > 2
     PRINT *,"DEBUG INFO in marray_base::MultMArray_1: multiply marray with 1d Fortran array"
+#endif
+#ifdef DEBUG
+    IF (SIZE(this%data1d).NE.SIZE(a)) THEN
+      PRINT *,"ERROR in marray_base::MultMArray_1: size mismatch"
+      STOP 1
+    END IF
 #endif
     b(:) = this%data1d(:) * a(:)
   END FUNCTION MultMArray_1
@@ -676,11 +761,17 @@ MODULE marray_base_mod
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(marray_base),INTENT(IN) :: this
-    REAL, DIMENSION(SIZE(this%data2d,1),SIZE(this%data2d,2)),INTENT(IN) :: a
+    REAL, DIMENSION(:,:),INTENT(IN) :: a
     REAL, DIMENSION(SIZE(this%data2d,1),SIZE(this%data2d,2)) :: b
     !------------------------------------------------------------------------!
 #if DEBUG > 2
     PRINT *,"DEBUG INFO in marray_base::MultMArray_2: multiply marray with 2d Fortran array"
+#endif
+#ifdef DEBUG
+    IF (.NOT.ALL(SHAPE(this%data2d).EQ.SHAPE(a))) THEN
+      PRINT *,"ERROR in marray_base::MultMArray_2: shape mismatch"
+      STOP 1
+    END IF
 #endif
     b(:,:) = this%data2d(:,:) * a(:,:)
   END FUNCTION MultMArray_2
@@ -693,11 +784,17 @@ MODULE marray_base_mod
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(marray_base),INTENT(IN) :: this
-    REAL, DIMENSION(SIZE(this%data3d,1),SIZE(this%data3d,2),SIZE(this%data3d,3)),INTENT(IN) :: a
+    REAL, DIMENSION(:,:,:),INTENT(IN) :: a
     REAL, DIMENSION(SIZE(this%data3d,1),SIZE(this%data3d,2),SIZE(this%data3d,3)) :: b
     !------------------------------------------------------------------------!
 #if DEBUG > 2
     PRINT *,"DEBUG INFO in marray_base::MultMArray_3: multiply marray with 3d Fortran array"
+#endif
+#ifdef DEBUG
+    IF (.NOT.ALL(SHAPE(this%data3d).EQ.SHAPE(a))) THEN
+      PRINT *,"ERROR in marray_base::MultMArray_3: shape mismatch"
+      STOP 1
+    END IF
 #endif
     b(:,:,:) =  this%data3d(:,:,:) * a(:,:,:)
   END FUNCTION MultMArray_3
@@ -710,13 +807,18 @@ MODULE marray_base_mod
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(marray_base),INTENT(IN) :: this
-    REAL, DIMENSION(SIZE(this%data4d,1),SIZE(this%data4d,2),SIZE(this%data4d,3), &
-          SIZE(this%data4d,4)),INTENT(IN) :: a
+    REAL, DIMENSION(:,:,:,:),INTENT(IN) :: a
     REAL, DIMENSION(SIZE(this%data4d,1),SIZE(this%data4d,2),SIZE(this%data4d,3), &
           SIZE(this%data4d,4)) :: b
     !------------------------------------------------------------------------!
 #if DEBUG > 2
     PRINT *,"DEBUG INFO in marray_base::MultMArray_4: multiply marray with 4d Fortran array"
+#endif
+#ifdef DEBUG
+    IF (.NOT.ALL(SHAPE(this%data4d).EQ.SHAPE(a))) THEN
+      PRINT *,"ERROR in marray_base::MultMArray_4: shape mismatch"
+      STOP 1
+    END IF
 #endif
     b(:,:,:,:) =  this%data4d(:,:,:,:) * a(:,:,:,:)
   END FUNCTION MultMArray_4
@@ -729,13 +831,18 @@ MODULE marray_base_mod
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     CLASS(marray_base),INTENT(IN) :: this
-    REAL, DIMENSION(SIZE(this%data5d,1),SIZE(this%data5d,2),SIZE(this%data5d,3), &
-          SIZE(this%data5d,4),SIZE(this%data5d,5)),INTENT(IN) :: a
+    REAL, DIMENSION(:,:,:,:,:),INTENT(IN) :: a
     REAL, DIMENSION(SIZE(this%data5d,1),SIZE(this%data5d,2),SIZE(this%data5d,3), &
           SIZE(this%data5d,4),SIZE(this%data5d,5)) :: b
     !------------------------------------------------------------------------!
 #if DEBUG > 2
     PRINT *,"DEBUG INFO in marray_base::MultMArray_5: multiply marray with 5d Fortran array"
+#endif
+#ifdef DEBUG
+    IF (.NOT.ALL(SHAPE(this%data5d).EQ.SHAPE(a))) THEN
+      PRINT *,"ERROR in marray_base::MultMArray_5: shape mismatch"
+      STOP 1
+    END IF
 #endif
     b(:,:,:,:,:) =  this%data5d(:,:,:,:,:) * a(:,:,:,:,:)
   END FUNCTION MultMArray_5
@@ -789,28 +896,40 @@ MODULE marray_base_mod
       END FUNCTION axb1
   END FUNCTION CrossProduct_0
 
-  !> destructor of mesh arrays - this is called automatically if
+  !> basic destructor of mesh arrays - this is called automatically if
   !! deallocate is invoked
-#ifndef DEBUG
-  PURE &
-#endif
-  SUBROUTINE Finalize(this)
+  SUBROUTINE Destroy(this,called_from_finalize)
     IMPLICIT NONE
     !-------------------------------------------------------------------!
-    TYPE(marray_base), INTENT(INOUT) :: this
+    CLASS(marray_base) :: this
+    LOGICAL, OPTIONAL :: called_from_finalize
     !-------------------------------------------------------------------!
 #if DEBUG > 2
-    PRINT *,"DEBUG INFO in marray_base::Finalize called"
+    WRITE(*,'(A)',ADVANCE='NO') " DEBUG INFO in marray_base::Destroy called"
+    IF (PRESENT(called_from_finalize)) THEN
+      IF (called_from_finalize) WRITE(*,'(A)') " from Finalize"
+    END IF
 #endif
     IF (ASSOCIATED(this%data1d)) THEN
 #if DEBUG > 2
-      PRINT *,"DEBUG INFO in marray_base::Finalize: deallocating data1d, size=",SIZE(this%data1d)
+      PRINT *,"DEBUG INFO in marray_base::Destroy: deallocating data1d, size=",SIZE(this%data1d)
 #endif
       DEALLOCATE(this%data1d)
     END IF
     NULLIFY(this%data1d,this%data2d,this%data3d,this%data4d,this%data5d)
     this%rank    =-1
     this%dims(:) = 0
+  END SUBROUTINE Destroy
+
+  SUBROUTINE Finalize(this)
+    IMPLICIT NONE
+    !-------------------------------------------------------------------!
+    TYPE(marray_base) :: this
+    !-------------------------------------------------------------------!
+#if DEBUG > 2
+    PRINT *,"DEBUG INFO in marray_base::Finalize called"
+#endif
+    CALL this%Destroy(.TRUE.)
   END SUBROUTINE Finalize
 
   FUNCTION CreateSelection(idx) RESULT(new_sel)
@@ -887,7 +1006,7 @@ MODULE marray_base_mod
       !   mask1d array of the rhs (ma%mask1d).
       !   Other compilers, e.g., ifort (intel) & nfort (NEC) require generation
       !   of a new selection with mask1d array which is destroyed on exit.
-#ifdef __GFORTRAN__
+#if defined(__GFORTRAN__) && __GNUC__ < 13
       this%imin = sel%imin
       this%imax = sel%imax
       this%jmin = sel%jmin

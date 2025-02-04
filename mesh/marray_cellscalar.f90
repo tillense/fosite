@@ -46,6 +46,7 @@ MODULE marray_cellscalar_mod
                                     corners => null()    !< cell corners
     CONTAINS
     PROCEDURE :: AssignPointers
+    PROCEDURE :: Destroy
     FINAL     :: Finalize
   END TYPE
   INTERFACE marray_cellscalar
@@ -71,7 +72,7 @@ CONTAINS
     STOP 1
 #endif
   END FUNCTION CreateMArray_cellscalar
-  
+
   FUNCTION AssignPointers(this) RESULT(success)
     IMPLICIT NONE
     !------------------------------------------------------------------------!
@@ -95,17 +96,34 @@ CONTAINS
     END IF
   END FUNCTION AssignPointers
 
-  !> destructor of cellscalar - this is called automatically if
-  !! deallocate is invoked
+  !> destructor of cellscalar - manual deallocation / reset of pointers
+  SUBROUTINE Destroy(this,called_from_finalize)
+    IMPLICIT NONE
+    !-------------------------------------------------------------------!
+    CLASS(marray_cellscalar) :: this
+    LOGICAL, OPTIONAL :: called_from_finalize
+    !-------------------------------------------------------------------!
+#if DEBUG > 2
+    PRINT *,"DEBUG INFO in marray_cellscalar::Destroy: nullify pointers"
+#endif
+    NULLIFY(this%center,this%bcenter,this%faces,this%corners)
+    ! only call inherited destructor if not called from Finalize
+    IF (PRESENT(called_from_finalize)) THEN
+       IF (called_from_finalize) RETURN
+    END IF
+    CALL this%marray_base%Destroy()
+  END SUBROUTINE Destroy
+
+  !> destructor of cellscalar - this is called automatically on deallocation
   SUBROUTINE Finalize(this)
     IMPLICIT NONE
     !-------------------------------------------------------------------!
     TYPE(marray_cellscalar) :: this
     !-------------------------------------------------------------------!
 #if DEBUG > 2
-    PRINT *,"DEBUG INFO in marray_cellscalar::Finalize: nullify pointers"
+    PRINT *,"DEBUG INFO in marray_cellscalar::Finalize called"
 #endif
-    NULLIFY(this%center,this%bcenter,this%faces,this%corners)
+    CALL this%Destroy(.TRUE.)
   END SUBROUTINE Finalize
 
 END MODULE marray_cellscalar_mod
