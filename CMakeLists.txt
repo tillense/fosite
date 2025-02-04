@@ -15,7 +15,7 @@ if(Git_FOUND)
   )
   add_definitions("-DVERSION=\"${GIT_VERSION}\"")
 else()
-  add_definitions("-DVERSION=\"0.8.2\"") 
+  add_definitions("-DVERSION=\"0.8.3\"") 
 endif()
 
 # DIRTY HACK!!! For some reason cmake does not find libz although it is installed.

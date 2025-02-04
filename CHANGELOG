@@ -1,6 +1,28 @@
 # Changelog
 This is the changelog for the fosite project.
 
+## 0.8.3 - 2025-02-04
+#### Added
+- support for newer gfortran > 13, intel ifx, AMD aocc, NVidia und LLVM compilers
+- 3D shearingbox spectral solver for self-gravity
+- several new tests and example setups
+- gnuplot textfile output for 1D/2D simulations
+- configure external directories for simulation setups
+- new module to compute exact Sedov solution for comparison with simulations
+- farfield boundary condition
+#### Changed
+- almost all mesh data arrays moved to new marray class
+- viscous time step control improved
+- running tests also in parallel mode
+- setup of shearing sheet/box
+#### Deprecated
+#### Removed
+- old obsolete code and comment lines
+#### Fixes
+- numerous bug fixes
+- memory leaks removed
+- VTK / XMDF / binary output in 3D
+
 ## 0.8.2 - 2019-03-08
 #### Added
 - various new examples and tests
