@@ -351,6 +351,7 @@ MODULE marray_base_mod
 #if !defined(__GFORTRAN__) || (defined(__GFORTRAN__) && __GNUC__ >= 13)
     INTEGER :: err
 #endif
+    LOGICAL :: LHS_initialized
     !------------------------------------------------------------------------!
 #if DEBUG > 2
     PRINT *,"DEBUG INFO in marray_base::AssignMArray_0: marray assignment"
@@ -366,61 +367,74 @@ MODULE marray_base_mod
     this%RANK = ma%RANK
     this%DIMS(:) = ma%DIMS(:)
     ! check whether lhs is already initialized
-    IF (.NOT.ASSOCIATED(this%data1d)) THEN
-      ! lhs of assignment uninitialized -> initialize new mesh array
-      ! ATTENTION: finalization of derived types works different for
-      !   GNU Fortran version < 13 , hence to prevent memory leaks, one has to point
-      !   the data1d array of the lhs (this%data1d) to the already associated
-      !   data1d array of the rhs (ma%data1d).
-      !   Other compilers, e.g., ifort (intel) & nfort (NEC) require allocation
-      !   of memory for new data1d array on the lhs, because ma on the rhs
-      !   is finalized on exit and the data1d array is deallocated
-#if defined(__GFORTRAN__) && __GNUC__ < 13
-      this%data1d => ma%data1d
-#else
+    LHS_initialized = ASSOCIATED(this%data1d)
+    ! lhs of assignment uninitialized -> initialize new mesh array
+    ! ATTENTION: finalization of derived types works different for
+    !   GNU Fortran version < 13 , hence to prevent memory leaks, one has to point
+    !   the data1d array of the lhs (this%data1d) to the already associated
+    !   data1d array of the rhs (ma%data1d).
+    !   Other compilers, e.g., ifort (intel) & nfort (NEC) require allocation
+    !   of memory for new data1d array on the lhs, because ma on the rhs
+    !   is finalized on exit and the data1d array is deallocated
+#if !defined(__GFORTRAN__) || (defined(__GFORTRAN__) && __GNUC__ > 12)
+    ! all compilers except for gfortran version < 13
+    IF (.NOT.LHS_initialized) THEN
       ALLOCATE(this%data1d,SOURCE=ma%data1d,STAT=err)
       IF (err.NE.0) THEN
 #ifdef DEBUG
         PRINT *,"ERROR in marray_base::AssignMArray_0: marray initialization failed"
 #endif
-        return
-      ELSE
+        RETURN
 #if DEBUG > 2
+      ELSE
         PRINT *,"DEBUG INFO in marray_base::AssignMArray_0: memory allocated for data1d, size=",SIZE(this%data1d)
 #endif
-#if defined(__FLANG) || (defined(__GFORTRAN__) && __GNUC__ > 12)
-        SELECT TYPE(ma)
-        TYPE IS(marray_base) ! do nothing
-        CLASS DEFAULT
-          CALL ma%Destroy()
-        END SELECT
-#endif
       END IF
+    END IF
+#else
+    ! only gfortran < 13
+    IF (LHS_initialized) THEN
 #endif
-      IF (.NOT.this%AssignPointers()) THEN
-#ifdef DEBUG
-        PRINT *,"ERROR in marray_base::AssignMArray_0: pointer reassignment failed"
-#endif
-        return
-      END IF
-    ELSE
       IF (.NOT.(this.MATCH.ma)) THEN
 #ifdef DEBUG
         PRINT *,"ERROR in marray_base::AssignMArray_0: shape mismatch"
 #endif
-        return
+        RETURN
       END IF
       IF (SIZE(this%data1d).NE.SIZE(ma%data1d)) THEN
 #ifdef DEBUG
         PRINT *,"ERROR in marray_base::AssignMArray_0: size mismatch"
 #endif
-        return
+        RETURN
       END IF
       ! copy data
       this%data1d(:) = ma%data1d(:)
+#ifdef __GFORTRAN__
+#if __GNUC__ < 13
+    ELSE
+      ! pointer assignment: only gfortran < 13
+      this%data1d => ma%data1d
+    END IF
+#else
+    ! only gfortran >= 13
+    IF (.NOT.LHS_initialized) THEN
+      ! destroy LHS explicitely if LHS was not initialized and ma is of derived class
+      SELECT TYPE(ma)
+      TYPE IS(marray_base) ! do nothing
+      CLASS DEFAULT
+        CALL ma%Destroy()
+      END SELECT
+    END IF
+#endif
+#endif __GFORTRAN__
+    IF (.NOT.this%AssignPointers()) THEN
+#ifdef DEBUG
+      PRINT *,"ERROR in marray_base::AssignMArray_0: pointer reassignment failed"
+#endif
+      RETURN
     END IF
   END SUBROUTINE AssignMArray_0
-  
+
   !> assign 1D fortran array to mesh array
 #ifndef DEBUG
   PURE &
@@ -884,13 +898,17 @@ MODULE marray_base_mod
 
   !> basic destructor of mesh arrays - this is called automatically if
   !! deallocate is invoked
-  SUBROUTINE Destroy(this)
+  SUBROUTINE Destroy(this,called_from_finalize)
     IMPLICIT NONE
     !-------------------------------------------------------------------!
     CLASS(marray_base) :: this
+    LOGICAL, OPTIONAL :: called_from_finalize
     !-------------------------------------------------------------------!
 #if DEBUG > 2
-    PRINT *,"DEBUG INFO in marray_base::Destroy called"
+    WRITE(*,'(A)',ADVANCE='NO') " DEBUG INFO in marray_base::Destroy called"
+    IF (PRESENT(called_from_finalize)) THEN
+      IF (called_from_finalize) WRITE(*,'(A)') " from Finalize"
+    END IF
 #endif
     IF (ASSOCIATED(this%data1d)) THEN
 #if DEBUG > 2
@@ -911,7 +929,7 @@ MODULE marray_base_mod
 #if DEBUG > 2
     PRINT *,"DEBUG INFO in marray_base::Finalize called"
 #endif
-    CALL this%Destroy()
+    CALL this%Destroy(.TRUE.)
   END SUBROUTINE Finalize
 
   FUNCTION CreateSelection(idx) RESULT(new_sel)
