@@ -2,6 +2,9 @@
 cmake_minimum_required (VERSION 3.14.1)
 project (FOSITE NONE)
 
+enable_language(CXX)
+enable_language(C)
+
 # detect git
 find_package(Git)
 if(Git_FOUND)
@@ -52,6 +55,7 @@ else()
   endif()
 endif()
 
+
 if(LLVM_FOUND)
   message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION} in ${LLVM_INSTALL_PREFIX}")
   message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
@@ -71,6 +75,9 @@ endif()
 # check and set the build type
 set (CMAKE_BUILD_TYPE_NAMES RELEASE DEBUG PROFILING)
 set (CMAKE_BUILD_TYPE RELEASE CACHE STRING "Should be one of RELEASE, DEBUG, PROFILING; default: RELEASE")
+if(NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE "RELEASE" CACHE STRING "Build type" FORCE)
+endif()
 if (NOT CMAKE_BUILD_TYPE IN_LIST CMAKE_BUILD_TYPE_NAMES)
   message(FATAL_ERROR "Unknown build type, should be one of RELEASE, DEBUG, PROFILING")
 endif()
